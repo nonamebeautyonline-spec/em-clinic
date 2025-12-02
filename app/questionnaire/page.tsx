@@ -1,10 +1,11 @@
 // app/questionnaire/page.tsx
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import QuestionnairePage from "./QuestionnairePage";
 
-export default function Page() {
+function QuestionnaireInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reserveId = searchParams.get("reserveId");
@@ -37,4 +38,18 @@ export default function Page() {
 
   // reserveId があるときだけ問診コンポーネントを表示
   return <QuestionnairePage reserveId={reserveId} />;
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <p className="text-sm text-gray-600">問診フォームを読み込み中です…</p>
+        </div>
+      }
+    >
+      <QuestionnaireInner />
+    </Suspense>
+  );
 }
