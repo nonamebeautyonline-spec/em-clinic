@@ -246,10 +246,14 @@ function PatientDashboardInner() {
           displayName: query.name || mock.patient.displayName,
         };
 
-        const merged: PatientDashboardData = {
-          ...mock,
-          patient,
-        };
+const merged: PatientDashboardData = {
+  ...mock,
+  patient,
+  nextReservation: null,
+  activeOrders: [],
+  history: [], // ← 履歴ゼロにする！
+};
+
 
         setData(merged);
         setError(null);
