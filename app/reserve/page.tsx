@@ -1,7 +1,7 @@
 // app/reserve/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,7 +28,6 @@ type WeeklySlotsResponse = {
   end: string;
   slots: { date: string; time: string; count: number }[];
 };
-
 
 const weekdayLabel = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -106,7 +105,8 @@ const getCellClass = (selected: boolean, disabled: boolean) => {
   return "text-pink-500 font-semibold";
 };
 
-const ReservePage: React.FC = () => {
+// 👇 ここが「元の ReservePage の中身」になるコンポーネント
+const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -149,64 +149,61 @@ const ReservePage: React.FC = () => {
   }, [selectedDateKey, baseDate]);
 
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  const fetchAll = async () => {
-    if (!days.length) return;
+    const fetchAll = async () => {
+      if (!days.length) return;
 
-    setLoadingSlots(true);
-    setSlotsError(null);
-    setSelectedSlot(null);
+      setLoadingSlots(true);
+      setSlotsError(null);
+      setSelectedSlot(null);
 
-    const firstKey = formatDateKey(days[0]);
-    const lastKey = formatDateKey(days[days.length - 1]);
-    setSelectedDateKey(firstKey);
+      const firstKey = formatDateKey(days[0]);
+      const lastKey = formatDateKey(days[days.length - 1]);
+      setSelectedDateKey(firstKey);
 
-    try {
-      const res = await fetch(
-        `/api/reservations?start=${firstKey}&end=${lastKey}`
-      );
-      if (!res.ok) throw new Error("failed");
-      const data: WeeklySlotsResponse = await res.json();
-
-      if (cancelled) return;
-
-      // date -> time,count[] の形に変換
-      const map: Record<string, ApiSlot[]> = {};
-
-      // 最低限、7日分のキーだけは空配列で作っておく
-      days.forEach((d) => {
-        const key = formatDateKey(d);
-        map[key] = [];
-      });
-
-      (data.slots || []).forEach((s) => {
-        const { date, time, count } = s;
-        if (!map[date]) {
-          map[date] = [];
-        }
-        map[date].push({ time, count });
-      });
-
-      setSlotsByDate(map);
-    } catch (e) {
-      if (!cancelled) {
-        console.error(e);
-        setSlotsError(
-          "予約枠の取得に失敗しました。時間をおいて再度お試しください。"
+      try {
+        const res = await fetch(
+          `/api/reservations?start=${firstKey}&end=${lastKey}`
         );
+        if (!res.ok) throw new Error("failed");
+        const data: WeeklySlotsResponse = await res.json();
+
+        if (cancelled) return;
+
+        const map: Record<string, ApiSlot[]> = {};
+
+        days.forEach((d) => {
+          const key = formatDateKey(d);
+          map[key] = [];
+        });
+
+        (data.slots || []).forEach((s) => {
+          const { date, time, count } = s;
+          if (!map[date]) {
+            map[date] = [];
+          }
+          map[date].push({ time, count });
+        });
+
+        setSlotsByDate(map);
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setSlotsError(
+            "予約枠の取得に失敗しました。時間をおいて再度お試しください。"
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingSlots(false);
       }
-    } finally {
-      if (!cancelled) setLoadingSlots(false);
-    }
-  };
+    };
 
-  fetchAll();
-  return () => {
-    cancelled = true;
-  };
-}, [days]);
-
+    fetchAll();
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
 
   const getCountForSlot = (dateKey: string, time: string) => {
     const list = slotsByDate[dateKey];
@@ -310,9 +307,7 @@ const ReservePage: React.FC = () => {
             <button
               type="button"
               disabled={disabledPrevWeek}
-              onClick={() =>
-                setWeekOffset((prev) => Math.max(0, prev - 1))
-              }
+              onClick={() => setWeekOffset((prev) => Math.max(0, prev - 1))}
               className={
                 "w-8 h-8 flex items-center justify-center rounded-full text-[18px] " +
                 (disabledPrevWeek
@@ -592,4 +587,17 @@ const ReservePage: React.FC = () => {
   );
 };
 
-export default ReservePage;
+// 👇 実際に Next.js にルートとして認識されるのはこれ
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <p className="text-sm text-slate-500">予約ページを読み込み中です…</p>
+        </div>
+      }
+    >
+      <ReserveInner />
+    </Suspense>
+  );
+}
