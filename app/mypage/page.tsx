@@ -45,49 +45,58 @@ interface PatientDashboardData {
   history: PrescriptionHistoryItem[];
 }
 
-// Lステから渡ってくるクエリ
-interface QueryPatientParams {
-  customer_id?: string | null;
-  name?: string | null;
-  kana?: string | null;
-  sex?: string | null;
-  birth?: string | null;
-  phone?: string | null;
-}
-
-const useQueryPatientParams = (): QueryPatientParams => {
-  const sp = useSearchParams();
+// 仮データ（APIができるまで）
+const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
   return {
-    customer_id: sp.get("customer_id"),
-    name: sp.get("name"),
-    kana: sp.get("kana"),
-    sex: sp.get("sex"),
-    birth: sp.get("birth"),
-    phone: sp.get("phone"),
+    patient: {
+      id: "P-20251130-001",
+      displayName: "山田 花子",
+    },
+    nextReservation: {
+      id: "R-001",
+      datetime: "2025-12-03T21:00:00+09:00",
+      title: "GLP-1/GIP減量外来（再診）",
+      status: "scheduled",
+    },
+    activeOrders: [
+      {
+        id: "O-001",
+        productName: "マンジャロ 2.5mg 3ヶ月分",
+        shippingStatus: "preparing",
+        shippingEta: "2025-12-05",
+        trackingNumber: "",
+        paymentStatus: "paid",
+      },
+      {
+        id: "O-002",
+        productName: "マンジャロ 5mg 1ヶ月分",
+        shippingStatus: "shipped",
+        shippingEta: "2025-12-02",
+        trackingNumber: "1234-5678-9999",
+        paymentStatus: "paid",
+      },
+    ],
+    history: [
+      {
+        id: "H-003",
+        date: "2025-11-20",
+        title: "再処方",
+        detail: "マンジャロ 2.5mg 3ヶ月分",
+      },
+      {
+        id: "H-002",
+        date: "2025-10-10",
+        title: "再処方",
+        detail: "マンジャロ 2.5mg 2ヶ月分",
+      },
+      {
+        id: "H-001",
+        date: "2025-09-05",
+        title: "初回処方",
+        detail: "マンジャロ 2.5mg 1ヶ月分",
+      },
+    ],
   };
-};
-
-const formatDateTime = (iso: string) => {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("ja-JP", {
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-  });
-  const time = d.toLocaleTimeString("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${date} ${time}`;
-};
-
-const formatDate = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
 };
 
 const reservationStatusLabel = (s: ReservationStatus) => {
@@ -144,69 +153,6 @@ const reservationStatusBadgeClass = (s: ReservationStatus) => {
   }
 };
 
-const shippingBadgeClass = (s: ShippingStatus) => {
-  return "bg-pink-50 text-pink-600";
-};
-
-const paymentBadgeClass = (s: PaymentStatus) => {
-  return "bg-pink-100 text-pink-700";
-};
-
-// 仮のダミーデータ（APIができるまでの間用）
-const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
-  return {
-    patient: {
-      id: "P-20251130-001",
-      displayName: "山田 花子",
-    },
-    nextReservation: {
-      id: "R-001",
-      datetime: "2025-12-03T21:00:00+09:00",
-      title: "GLP-1/GIP減量外来（再診）",
-      status: "scheduled",
-    },
-    activeOrders: [
-      {
-        id: "O-001",
-        productName: "マンジャロ 2.5mg 3ヶ月分",
-        shippingStatus: "preparing",
-        shippingEta: "2025-12-05",
-        trackingNumber: "",
-        paymentStatus: "paid",
-      },
-      {
-        id: "O-002",
-        productName: "マンジャロ 5mg 1ヶ月分",
-        shippingStatus: "shipped",
-        shippingEta: "2025-12-02",
-        trackingNumber: "1234-5678-9999",
-        paymentStatus: "paid",
-      },
-    ],
-    history: [
-      {
-        id: "H-003",
-        date: "2025-11-20",
-        title: "再処方",
-        detail: "マンジャロ 2.5mg 3ヶ月分",
-      },
-      {
-        id: "H-002",
-        date: "2025-10-10",
-        title: "再処方",
-        detail: "マンジャロ 2.5mg 2ヶ月分",
-      },
-      {
-        id: "H-001",
-        date: "2025-09-05",
-        title: "初回処方",
-        detail: "マンジャロ 2.5mg 1ヶ月分",
-      },
-    ],
-  };
-};
-
-// 発送ステータスの見た目（色）
 const shippingStatusClass = (status: string) => {
   switch (status) {
     case "pending":
@@ -224,7 +170,6 @@ const shippingStatusClass = (status: string) => {
   }
 };
 
-// 決済ステータスの見た目（色）
 const paymentStatusClass = (status: string) => {
   switch (status) {
     case "unpaid":
@@ -240,43 +185,70 @@ const paymentStatusClass = (status: string) => {
   }
 };
 
+const formatDateTime = (iso: string) => {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  });
+  const time = d.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date} ${time}`;
+};
+
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return d.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+};
+
 export default function PatientDashboardPage() {
+  const searchParams = useSearchParams();
+
+  // URLクエリから取得（なければダミー）
+  const name = searchParams.get("name") || "山田 花子";
+  const customerId = searchParams.get("customer_id") || "P-20251130-001";
+  const kana = searchParams.get("kana") || "";
+  const sex = searchParams.get("sex") || "";
+  const birth = searchParams.get("birth") || "";
+  const phone = searchParams.get("phone") || "";
+
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const queryPatient = useQueryPatientParams();
-
+  // ダミーデータ + 患者情報を上書き
   useEffect(() => {
     const init = async () => {
       try {
         const mock = await fetchDashboardDataMock();
 
-        // URLクエリで渡ってきた情報で patient 情報を上書き
-        const patient: PatientInfo = {
-          id: queryPatient.customer_id || mock.patient.id,
-          displayName: queryPatient.name || mock.patient.displayName,
-        };
-
-        const merged: PatientDashboardData = {
+        setData({
           ...mock,
-          patient,
-        };
-
-        setData(merged);
+          patient: {
+            id: customerId,
+            displayName: name,
+          },
+        });
         setError(null);
 
-        // 予約・問診で使うため localStorage にも保存
+        // localStorage にも保存（予約・問診で使う）
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
             JSON.stringify({
-              customer_id: queryPatient.customer_id ?? "",
-              name: queryPatient.name ?? "",
-              kana: queryPatient.kana ?? "",
-              sex: queryPatient.sex ?? "",
-              birth: queryPatient.birth ?? "",
-              phone: queryPatient.phone ?? "",
+              customer_id: customerId,
+              name,
+              kana,
+              sex,
+              birth,
+              phone,
             })
           );
         }
@@ -288,14 +260,7 @@ export default function PatientDashboardPage() {
     };
 
     init();
-  }, [
-    queryPatient.customer_id,
-    queryPatient.name,
-    queryPatient.kana,
-    queryPatient.sex,
-    queryPatient.birth,
-    queryPatient.phone,
-  ]);
+  }, [name, customerId, kana, sex, birth, phone]);
 
   const handleChangeReservation = () => {
     alert("予約変更フローをあとで実装します。");
@@ -377,7 +342,7 @@ export default function PatientDashboardPage() {
         </div>
       )}
 
-      {/* 本文 */}
+      {/* 本文（以降は既存のUIそのまま） */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
         {/* 次回予約 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
@@ -575,15 +540,6 @@ export default function PatientDashboardPage() {
                       {item.title.includes("初回") && "（初回）"}
                     </div>
                   </div>
-
-                  {/* 再注文ボタン（今はダミー） */}
-                  {/* <button
-                    type="button"
-                    onClick={() => handleReorder(item)}
-                    className="text-[11px] text-pink-500 hover:underline"
-                  >
-                    同じ内容で再注文
-                  </button> */}
                 </div>
               ))}
             </div>
