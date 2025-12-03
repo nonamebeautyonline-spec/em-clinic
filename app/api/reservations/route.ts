@@ -1,26 +1,26 @@
 // app/api/reservations/route.ts
 import { NextResponse } from "next/server";
 
-const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string;
-
-// GAS(listRange) から返ってくる想定の形
-type GasListRangeResponse = {
-  ok: boolean;
-  startDate: string;
-  endDate: string;
-  slots: { date: string; time: string; count: number }[];
-};
+const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
 
 // GET /api/reservations?start=YYYY-MM-DD&end=YYYY-MM-DD
-// （保険で date=YYYY-MM-DD 単独も受ける）
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const start = searchParams.get("start");
   const end = searchParams.get("end");
-  const date = searchParams.get("date"); // 互換用
+  const date = searchParams.get("date");
 
   try {
-    // もし date だけ指定されている場合は旧 listByDate を叩く（保険）
+    if (!GAS_RESERVATIONS_URL) {
+      // GAS 未設定時はモックで返す
+      return NextResponse.json({
+        start,
+        end,
+        slots: [],
+      });
+    }
+
+    // 旧：date 単独指定(listByDate)にも対応
     if (date && !start && !end) {
       const gasRes = await fetch(GAS_RESERVATIONS_URL, {
         method: "POST",
@@ -89,7 +89,7 @@ export async function GET(req: Request) {
       );
     }
 
-    let json: GasListRangeResponse | any = {};
+    let json: any = {};
     try {
       json = JSON.parse(text);
     } catch {
@@ -116,67 +116,112 @@ export async function GET(req: Request) {
 // POST /api/reservations
 export async function POST(req: Request) {
   try {
-    const body = await req.json(); // { type, date, time, lineId, name }
-    const { type, date, time, lineId, name } = body || {};
+    const body = await req.json();
+    const type = body.type ?? "createReservation";
 
-    console.log("RESERVATION body:", body);
-    console.log("GAS_RESERVATIONS_URL:", GAS_RESERVATIONS_URL);
-
-    if (!date || !time) {
-      console.error("RESERVATION error: missing date or time", body);
-      return NextResponse.json(
-        { ok: false, error: "missing date or time" },
-        { status: 400 }
+    if (!GAS_RESERVATIONS_URL) {
+      console.warn(
+        "GAS_RESERVATIONS_URL is not set. /api/reservations will return mock."
       );
+      return NextResponse.json({ ok: true, mock: true });
     }
 
-    const gasRes = await fetch(GAS_RESERVATIONS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: type ?? "createReservation",
-        date,
-        time,
-        lineId,
-        name,
-      }),
-    });
-
-    const text = await gasRes.text();
-    console.log("GAS reservation raw:", text);
-
-    let json: any = {};
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = {};
-    }
-
-    // GAS が ok:false を返してくるパターンあり
-    if (json && json.ok === false) {
-      if (json.error === "slot_full") {
+    // ① 新規予約
+    if (type === "createReservation") {
+      const { date, time, lineId, name } = body;
+      if (!date || !time) {
         return NextResponse.json(
-          { ok: false, error: "slot_full" },
-          { status: 409 }
+          { ok: false, error: "missing date or time" },
+          { status: 400 }
         );
       }
-      return NextResponse.json(
-        { ok: false, error: json.error ?? "GAS error" },
-        { status: 500 }
-      );
+
+      const gasRes = await fetch(GAS_RESERVATIONS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "createReservation",
+          date,
+          time,
+          lineId,
+          name,
+        }),
+      });
+
+      const text = await gasRes.text();
+      console.log("GAS createReservation raw:", text);
+
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = {};
+      }
+
+      if (!gasRes.ok || json.ok === false) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: json.error ?? "GAS error",
+            detail: text,
+          },
+          { status: json.error === "slot_full" ? 409 : 500 }
+        );
+      }
+
+      return NextResponse.json({ ok: true, reserveId: json.reserveId });
     }
 
-    if (!gasRes.ok) {
-      return NextResponse.json(
-        { ok: false, error: "GAS error", detail: text },
-        { status: 500 }
-      );
+    // ② 予約キャンセル
+    if (type === "cancelReservation") {
+      const reserveId = body.reserveId;
+      if (!reserveId) {
+        return NextResponse.json(
+          { ok: false, error: "missing reserveId" },
+          { status: 400 }
+        );
+      }
+
+      const gasRes = await fetch(GAS_RESERVATIONS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "cancelReservation",
+          reserveId,
+        }),
+      });
+
+      const text = await gasRes.text();
+      console.log("GAS cancelReservation raw:", text);
+
+      let json: any = {};
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = {};
+      }
+
+      if (!gasRes.ok || json.ok === false) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: json.error ?? "GAS error",
+            detail: text,
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ ok: true });
     }
 
-    const reserveId = json.reserveId ?? `mock-${Date.now()}`;
-    return NextResponse.json({ ok: true, reserveId });
+    // 他の type は未対応
+    return NextResponse.json(
+      { ok: false, error: "unsupported type" },
+      { status: 400 }
+    );
   } catch (err) {
-    console.error("RESERVATION API error:", err);
+    console.error("POST /api/reservations error:", err);
     return NextResponse.json(
       { ok: false, error: "server error" },
       { status: 500 }
