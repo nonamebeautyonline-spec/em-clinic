@@ -66,7 +66,8 @@ const QUESTION_ITEMS: QuestionItem[] = [
       "GLP-1/GIP製剤（マンジャロ、リベルサス、オゼンピックなど）の使用歴があればご記入ください",
     type: "textarea",
     required: false,
-    placeholder: "例）マンジャロ7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
+    placeholder:
+      "例）マンジャロ7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
   },
 
   // -------------------------------
@@ -145,10 +146,18 @@ export default function QuestionnairePage({
   reserveId,
   customerId,
   name,
+  kana,
+  sex,
+  birth,
+  phone,
 }: {
   reserveId: string;
   customerId?: string;
   name?: string;
+  kana?: string;
+  sex?: string;
+  birth?: string;
+  phone?: string;
 }) {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false); // 通常完了
@@ -161,7 +170,7 @@ export default function QuestionnairePage({
   const total = QUESTION_ITEMS.length;
   const current = QUESTION_ITEMS[currentIndex];
 
-  // ✅ 患者情報を localStorage に保持しておく（/mypage でも使えるように）
+  // 患者情報を localStorage に保持（/mypage でも使う）
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -178,14 +187,14 @@ export default function QuestionnairePage({
     const merged = {
       customer_id: customerId || stored.customer_id || "",
       name: name || stored.name || "",
-      kana: stored.kana || "",
-      sex: stored.sex || "",
-      birth: stored.birth || "",
-      phone: stored.phone || "",
+      kana: kana || stored.kana || "",
+      sex: sex || stored.sex || "",
+      birth: birth || stored.birth || "",
+      phone: phone || stored.phone || "",
     };
 
     window.localStorage.setItem("patient_basic", JSON.stringify(merged));
-  }, [customerId, name]);
+  }, [customerId, name, kana, sex, birth, phone]);
 
   const isVisible = (q: QuestionItem) => {
     if (!q.conditional) return true;
@@ -218,12 +227,29 @@ export default function QuestionnairePage({
 
   const isLastVisible = getNextIndex(currentIndex) >= total;
 
-  // ✅ マイページへ戻るとき、可能ならクエリ付きで戻す
+  // マイページへ戻るとき、可能ならクエリ付きで戻す
   const goToMypage = () => {
-    if (customerId || name) {
+    let cid = customerId;
+    let nm = name;
+
+    // props になければ localStorage から補完
+    if (typeof window !== "undefined" && (!cid || !nm)) {
+      const raw = window.localStorage.getItem("patient_basic");
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          cid = cid || s.customer_id;
+          nm = nm || s.name;
+        } catch {
+          // 何もしない
+        }
+      }
+    }
+
+    if (cid || nm) {
       const params = new URLSearchParams();
-      if (customerId) params.set("customer_id", customerId);
-      if (name) params.set("name", name);
+      if (cid) params.set("customer_id", cid);
+      if (nm) params.set("name", nm);
       router.push(`/mypage?${params.toString()}`);
     } else {
       router.push("/mypage");

@@ -10,12 +10,20 @@ function QuestionnaireInner() {
   const router = useRouter();
 
   const reserveId = searchParams.get("reserveId");
-  const customerId = searchParams.get("customer_id"); // ★追加
-  const name = searchParams.get("name");              // ★追加
 
+  // 予約→問診に付けてきたクエリをここで受け取る
+  const customerId =
+    searchParams.get("customer_id") || searchParams.get("lineId") || undefined;
+  const name = searchParams.get("name") || undefined;
+  const kana = searchParams.get("kana") || undefined;
+  const sex = searchParams.get("sex") || undefined;
+  const birth = searchParams.get("birth") || undefined;
+  const phone = searchParams.get("phone") || undefined;
+
+  // reserveId が無い / 空のときは問診を出さない
   if (!reserveId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-gray-50password flex flex-col">
         <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold">予約情報が見つかりません</h1>
         </header>
@@ -38,12 +46,15 @@ function QuestionnaireInner() {
     );
   }
 
-  // reserveId + 患者情報を渡す
   return (
     <QuestionnairePage
       reserveId={reserveId}
-      customerId={customerId ?? undefined}
-      name={name ?? undefined}
+      customerId={customerId}
+      name={name}
+      kana={kana}
+      sex={sex}
+      birth={birth}
+      phone={phone}
     />
   );
 }
