@@ -8,9 +8,11 @@ import QuestionnairePage from "./QuestionnairePage";
 function QuestionnaireInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const reserveId = searchParams.get("reserveId");
 
-  // reserveId が無い / 空のときは問診を出さない
+  const reserveId = searchParams.get("reserveId");
+  const customerId = searchParams.get("customer_id"); // ★追加
+  const name = searchParams.get("name");              // ★追加
+
   if (!reserveId) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -36,8 +38,14 @@ function QuestionnaireInner() {
     );
   }
 
-  // reserveId があるときだけ問診コンポーネントを表示
-  return <QuestionnairePage reserveId={reserveId} />;
+  // reserveId + 患者情報を渡す
+  return (
+    <QuestionnairePage
+      reserveId={reserveId}
+      customerId={customerId ?? undefined}
+      name={name ?? undefined}
+    />
+  );
 }
 
 export default function Page() {

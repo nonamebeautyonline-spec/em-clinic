@@ -255,15 +255,19 @@ const handleConfirm = async () => {
 
     setShowSuccess(true);
 
-    // ★ ここを修正：lineId / name も一緒にクエリで渡す
     const params = new URLSearchParams();
-    params.set("reserveId", reserveId);
-    if (lineId) params.set("lineId", lineId);
-    if (name) params.set("name", name);
+params.set("reserveId", reserveId);
+if (lineId) params.set("customer_id", lineId);
+if (name) params.set("name", name);
+if (sex) params.set("customer_id", sex);
+if (birth) params.set("customer_id", birth);
 
-    setTimeout(() => {
-      router.push(`/questionnaire?${params.toString()}`);
-    }, 500);
+router.push(`/questionnaire?${params.toString()}`);
+
+setTimeout(() => {
+  router.push(`/questionnaire?${params.toString()}`);
+}, 500);
+
   } catch (e) {
     console.error(e);
     alert("予約確定に失敗しました。再度お試しください。");

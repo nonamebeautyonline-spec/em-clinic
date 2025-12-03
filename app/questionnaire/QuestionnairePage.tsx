@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type QuestionType = "text" | "textarea" | "choice" | "radio";
@@ -143,19 +143,49 @@ type AnswerMap = Record<string, string>;
 
 export default function QuestionnairePage({
   reserveId,
+  customerId,
+  name,
 }: {
   reserveId: string;
+  customerId?: string;
+  name?: string;
 }) {
   const router = useRouter();
-  const [submitted, setSubmitted] = useState(false);  // 通常完了
-  const [blocked, setBlocked] = useState(false);  
-  const [submitting, setSubmitting] = useState(false);    // 禁忌に該当
+  const [submitted, setSubmitted] = useState(false); // 通常完了
+  const [blocked, setBlocked] = useState(false); // 禁忌に該当
+  const [submitting, setSubmitting] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [error, setError] = useState<string | null>(null);
 
   const total = QUESTION_ITEMS.length;
   const current = QUESTION_ITEMS[currentIndex];
+
+  // ✅ 患者情報を localStorage に保持しておく（/mypage でも使えるように）
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const raw = window.localStorage.getItem("patient_basic");
+    let stored: any = {};
+    if (raw) {
+      try {
+        stored = JSON.parse(raw);
+      } catch {
+        stored = {};
+      }
+    }
+
+    const merged = {
+      customer_id: customerId || stored.customer_id || "",
+      name: name || stored.name || "",
+      kana: stored.kana || "",
+      sex: stored.sex || "",
+      birth: stored.birth || "",
+      phone: stored.phone || "",
+    };
+
+    window.localStorage.setItem("patient_basic", JSON.stringify(merged));
+  }, [customerId, name]);
 
   const isVisible = (q: QuestionItem) => {
     if (!q.conditional) return true;
@@ -188,56 +218,67 @@ export default function QuestionnairePage({
 
   const isLastVisible = getNextIndex(currentIndex) >= total;
 
+  // ✅ マイページへ戻るとき、可能ならクエリ付きで戻す
+  const goToMypage = () => {
+    if (customerId || name) {
+      const params = new URLSearchParams();
+      if (customerId) params.set("customer_id", customerId);
+      if (name) params.set("name", name);
+      router.push(`/mypage?${params.toString()}`);
+    } else {
+      router.push("/mypage");
+    }
+  };
+
   const handleNext = async () => {
-  if (!validate()) {
-    setError("入力が必要です");
-    return;
-  }
-
-  setError(null);
-
-  // 禁忌チェック
-  if (current.id === "ng_check" && answers["ng_check"] === "yes") {
-    setBlocked(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    return;
-  }
-
-  const nextIndex = getNextIndex(currentIndex);
-  const isLast = nextIndex >= total;
-
-  if (isLast) {
-    if (submitting) return;      // ★二重押し防止
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/intake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reserveId,
-          answers,
-          submittedAt: new Date().toISOString(),
-        }),
-      });
-
-      if (!res.ok) throw new Error("failed");
-
-      setSubmitted(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (e) {
-      alert("送信に失敗しました。時間をおいて再度お試しください。");
-    } finally {
-      setSubmitting(false);
+    if (!validate()) {
+      setError("入力が必要です");
+      return;
     }
 
-    return;
-  }
+    setError(null);
 
-  // まだ質問が残っている場合 → 次の表示対象へ
-  setCurrentIndex(nextIndex);
-};
+    // 禁忌チェック
+    if (current.id === "ng_check" && answers["ng_check"] === "yes") {
+      setBlocked(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
 
+    const nextIndex = getNextIndex(currentIndex);
+    const isLast = nextIndex >= total;
+
+    if (isLast) {
+      if (submitting) return; // 二重押し防止
+      setSubmitting(true);
+
+      try {
+        const res = await fetch("/api/intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reserveId,
+            answers,
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+
+        if (!res.ok) throw new Error("failed");
+
+        setSubmitted(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch (e) {
+        alert("送信に失敗しました。時間をおいて再度お試しください。");
+      } finally {
+        setSubmitting(false);
+      }
+
+      return;
+    }
+
+    // まだ質問が残っている場合 → 次の表示対象へ
+    setCurrentIndex(nextIndex);
+  };
 
   const handlePrev = () => {
     const prev = getPrevIndex(currentIndex);
@@ -325,7 +366,7 @@ export default function QuestionnairePage({
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3">
           <button
             type="button"
-            onClick={() => router.push("/mypage")}
+            onClick={goToMypage}
             className="w-full rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white active:bg-blue-700"
           >
             マイページに戻る
@@ -335,7 +376,7 @@ export default function QuestionnairePage({
     );
   }
 
-  // 通常完了後の画面
+  // ✅ 通常完了後の画面
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -347,7 +388,8 @@ export default function QuestionnairePage({
           <div className="bg-white rounded-xl shadow-sm p-4 text-sm text-gray-700 space-y-3">
             <p>問診のご入力ありがとうございました。</p>
             <p>
-              ご入力内容をもとに医師が確認いたします。<br />
+              ご入力内容をもとに医師が確認いたします。
+              <br />
               診察・処方についてのご連絡はマイページ上でご案内いたします。
             </p>
           </div>
@@ -356,7 +398,7 @@ export default function QuestionnairePage({
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3">
           <button
             type="button"
-            onClick={() => router.push("/mypage")}
+            onClick={goToMypage}
             className="w-full rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white active:bg-blue-700"
           >
             マイページに戻る
@@ -366,7 +408,7 @@ export default function QuestionnairePage({
     );
   }
 
-  // 通常の問診画面
+  // ✅ 通常の問診画面
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ヘッダー */}
@@ -426,29 +468,28 @@ export default function QuestionnairePage({
         </button>
 
         <button
-  onClick={handleNext}
-  disabled={submitting}
-  className={`
-    flex-1 rounded-full px-3 py-2 text-sm font-medium text-white
-    ${
-      submitting
-        ? "bg-gray-400 cursor-not-allowed"
-        : "bg-blue-600 active:bg-blue-700"
-    }
-  `}
->
-  {submitting ? (
-    <div className="flex items-center justify-center gap-2">
-      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      送信中…
-    </div>
-  ) : (
-    <>
-      {isLastVisible ? "回答を送信する" : "次へ"}
-    </>
-  )}
-</button>
-
+          onClick={handleNext}
+          disabled={submitting}
+          className={`
+            flex-1 rounded-full px-3 py-2 text-sm font-medium text-white
+            ${
+              submitting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 active:bg-blue-700"
+            }
+          `}
+        >
+          {submitting ? (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              送信中…
+            </div>
+          ) : isLastVisible ? (
+            "回答を送信する"
+          ) : (
+            "次へ"
+          )}
+        </button>
       </footer>
     </div>
   );
