@@ -114,6 +114,10 @@ const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 編集モード（日時変更）かどうか
+  const isEdit = searchParams.get("edit") === "1";
+  const editingReserveId = searchParams.get("reserveId") || "";
+
   // 患者基本情報（クエリ + localStorage からマージ）
   const [patientInfo, setPatientInfo] = useState<PatientBasic>({
     lineId: "",
@@ -288,6 +292,31 @@ const ReserveInner: React.FC = () => {
     setBooking(true);
 
     try {
+      // ★ 編集モードなら先に既存予約をキャンセル
+      if (isEdit && editingReserveId) {
+        try {
+          const cancelRes = await fetch("/api/reservations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "cancelReservation",
+              reserveId: editingReserveId,
+            }),
+          });
+          const cancelData = await cancelRes.json().catch(() => ({} as any));
+          if (!cancelRes.ok || cancelData.ok === false) {
+            console.warn(
+              "予約キャンセルAPIに失敗しましたが、新規予約は続行します。",
+              cancelData
+            );
+          }
+        } catch (e) {
+          console.error("予約キャンセル処理でエラー:", e);
+          // キャンセル失敗でも、新規予約は続行する
+        }
+      }
+
+      // ▼ 新規予約（従来どおり）
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -345,6 +374,7 @@ const ReserveInner: React.FC = () => {
       if (phone) params.set("phone", phone);
 
       setTimeout(() => {
+        setShowSuccess(false);
         router.push(`/questionnaire?${params.toString()}`);
       }, 1000);
     } catch (e) {
@@ -654,7 +684,7 @@ const ReserveInner: React.FC = () => {
                     flex-1 h-11 rounded-2xl text-[13px] font-semibold shadow-sm
                     ${
                       booking
-                        ? "bg-gray-400 text-white cursor-not-allowed"
+                        ? "bg-gray-400 text白 cursor-not-allowed"
                         : "bg-blue-600 text-white active:scale-[0.98] active:bg-blue-700"
                     }
                   `}
