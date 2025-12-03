@@ -1,41 +1,64 @@
-@import "tailwindcss";
+"use client";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+
+function MyPageInner() {
+  const searchParams = useSearchParams();
+
+  const name = searchParams.get("name") || "（nameパラメータなし）";
+  const customerId =
+    searchParams.get("customer_id") || "（customer_idなし）";
+  const kana = searchParams.get("kana") || "（kanaなし）";
+  const sex = searchParams.get("sex") || "（sexなし）";
+  const birth = searchParams.get("birth") || "（birthなし）";
+  const phone = searchParams.get("phone") || "（phoneなし）";
+
+  return (
+    <div style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 16 }}>
+        mypage デバッグ表示
+      </h1>
+      <p>URL から受け取ったパラメータをそのまま表示します。</p>
+      <ul style={{ marginTop: 16, lineHeight: 1.7 }}>
+        <li>
+          <b>name:</b> {name}
+        </li>
+        <li>
+          <b>customer_id:</b> {customerId}
+        </li>
+        <li>
+          <b>kana:</b> {kana}
+        </li>
+        <li>
+          <b>sex:</b> {sex}
+        </li>
+        <li>
+          <b>birth:</b> {birth}
+        </li>
+        <li>
+          <b>phone:</b> {phone}
+        </li>
+      </ul>
+    </div>
+  );
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.25s ease-out;
+export default function MyPagePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            padding: 24,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          読み込み中です…
+        </div>
+      }
+    >
+      <MyPageInner />
+    </Suspense>
+  );
 }

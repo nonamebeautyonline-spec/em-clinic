@@ -325,6 +325,7 @@ function PatientDashboardInner() {
   }
 
   const { patient, nextReservation, activeOrders, history } = data;
+  const isFirstVisit = history.length === 0;
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
@@ -354,14 +355,19 @@ function PatientDashboardInner() {
       </header>
 
       {/* ▼ 上部の「予約する」ボタン（初診のみ表示） */}
-      {history.length === 0 && (
+      {isFirstVisit && !nextReservation && (
         <div className="mx-auto max-w-4xl px-4 mt-3">
           <Link
             href="/reserve"
             className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
           >
-            予約する
+            初回診察の予約をする
           </Link>
+          <p className="mt-1 text-[11px] text-slate-500">
+            ※
+            すでに一度でも診察を受けたことがある方は、マイページから新規予約はできません。
+            再処方をご希望の方はLINEのご案内からお進みください。
+          </p>
         </div>
       )}
 
@@ -425,9 +431,19 @@ function PatientDashboardInner() {
             </>
           ) : (
             <div className="text-sm text-slate-600">
-              現在、予約はありません。
-              <br />
-              次回の診察をご希望の方は、LINEのご案内からご予約ください。
+              {isFirstVisit ? (
+                <>
+                  現在、予約はありません。
+                  <br />
+                  画面上部の「初回診察の予約をする」ボタンから、初診のご予約が可能です。
+                </>
+              ) : (
+                <>
+                  現在、予約はありません。
+                  <br />
+                  再処方をご希望の方は、LINEのご案内からお手続きください。
+                </>
+              )}
             </div>
           )}
         </section>
@@ -527,7 +543,7 @@ function PatientDashboardInner() {
 
         {/* 処方・診察履歴 ＋ 再注文 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
-          <div className="flex itemsセンター justify-between mb-3">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
               これまでの診察・お薬
             </h2>
