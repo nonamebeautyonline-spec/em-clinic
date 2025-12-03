@@ -236,58 +236,104 @@ function PatientDashboardInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const mock = await fetchDashboardDataMock();
+useEffect(() => {
+  const init = async () => {
+    try {
+      const mock = await fetchDashboardDataMock();
 
-        const patient: PatientInfo = {
-          id: query.customer_id || mock.patient.id,
-          displayName: query.name || mock.patient.displayName,
-        };
+      // ① localStorage から patient_basic と last_reservation を読む
+      let storedBasic: any = {};
+      let storedReservation: any = null;
 
-const merged: PatientDashboardData = {
-  ...mock,
-  patient,
-  nextReservation: null,
-  activeOrders: [],
-  history: [], // ← 履歴ゼロにする！
-};
-
-
-        setData(merged);
-        setError(null);
-
-        // 予約・問診で使うため localStorage にも保存
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "patient_basic",
-            JSON.stringify({
-              customer_id: query.customer_id ?? "",
-              name: query.name ?? "",
-              kana: query.kana ?? "",
-              sex: query.sex ?? "",
-              birth: query.birth ?? "",
-              phone: query.phone ?? "",
-            })
-          );
+      if (typeof window !== "undefined") {
+        const rawBasic = window.localStorage.getItem("patient_basic");
+        if (rawBasic) {
+          try {
+            storedBasic = JSON.parse(rawBasic);
+          } catch {
+            storedBasic = {};
+          }
         }
-      } catch (e) {
-        setError("データの取得に失敗しました。");
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    init();
-  }, [
-    query.customer_id,
-    query.name,
-    query.kana,
-    query.sex,
-    query.birth,
-    query.phone,
-  ]);
+        const rawResv = window.localStorage.getItem("last_reservation");
+        if (rawResv) {
+          try {
+            storedReservation = JSON.parse(rawResv);
+          } catch {
+            storedReservation = null;
+          }
+        }
+      }
+
+      // ② 患者情報：クエリ > localStorage > mock の順で優先
+      const patient: PatientInfo = {
+        id: query.customer_id || storedBasic.customer_id || mock.patient.id,
+        displayName: query.name || storedBasic.name || mock.patient.displayName,
+      };
+
+      // ③ 予約情報：localStorage にあれば nextReservation を作る
+      let nextReservation: Reservation | null = null;
+      if (
+        storedReservation &&
+        storedReservation.date &&
+        storedReservation.start
+      ) {
+        const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+        nextReservation = {
+          id: `local-${storedReservation.date}-${storedReservation.start}`,
+          datetime: iso,
+          title: storedReservation.title || "オンライン診察予約",
+          status: "scheduled",
+        };
+      }
+
+      const merged: PatientDashboardData = {
+        ...mock,
+        patient,
+        nextReservation, // ← ここに今作ったものを入れる
+        activeOrders: [],
+        history: [],
+      };
+
+      setData(merged);
+      setError(null);
+
+      // ④ patient_basic は最新情報で上書き保存
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "patient_basic",
+          JSON.stringify({
+            customer_id:
+              query.customer_id ?? storedBasic.customer_id ?? patient.id ?? "",
+            name:
+              query.name ??
+              storedBasic.name ??
+              patient.displayName ??
+              "",
+            kana: storedBasic.kana ?? "",
+            sex: storedBasic.sex ?? "",
+            birth: storedBasic.birth ?? "",
+            phone: storedBasic.phone ?? "",
+          })
+        );
+      }
+    } catch (e) {
+      setError("データの取得に失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  init();
+}, [
+  query.customer_id,
+  query.name,
+  query.kana,
+  query.sex,
+  query.birth,
+  query.phone,
+]);
+
 
   const handleChangeReservation = () => {
     alert("予約変更フローをあとで実装します。");
