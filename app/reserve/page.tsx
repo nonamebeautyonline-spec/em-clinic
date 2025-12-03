@@ -18,11 +18,6 @@ type ApiSlot = {
   count: number;
 };
 
-type ReservationsResponse = {
-  date: string;
-  slots: ApiSlot[];
-};
-
 type WeeklySlotsResponse = {
   start: string;
   end: string;
@@ -105,15 +100,29 @@ const getCellClass = (selected: boolean, disabled: boolean) => {
   return "text-pink-500 font-semibold";
 };
 
-// 👇 ここが「元の ReservePage の中身」になるコンポーネント
+type PatientBasic = {
+  lineId: string;
+  name: string;
+  kana: string;
+  sex: string;
+  birth: string;
+  phone: string;
+};
+
+// ここが「元の ReservePage の中身」になるコンポーネント
 const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-const lineId = searchParams.get("lineId") || "";
-const name = searchParams.get("name") || "";
-const sex = searchParams.get("sex") || "";
-const birth = searchParams.get("birth") || "";
+  // 患者基本情報（クエリ + localStorage からマージ）
+  const [patientInfo, setPatientInfo] = useState<PatientBasic>({
+    lineId: "",
+    name: "",
+    kana: "",
+    sex: "",
+    birth: "",
+    phone: "",
+  });
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [step, setStep] = useState<ReserveStep>(1);
@@ -124,6 +133,57 @@ const birth = searchParams.get("birth") || "";
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // ▼ 患者情報をURL + localStorageから取得してマージ
+  useEffect(() => {
+    const sp = searchParams;
+
+    const fromQuery = {
+      lineId: sp.get("lineId") || sp.get("customer_id") || "",
+      name: sp.get("name") || "",
+      kana: sp.get("kana") || "",
+      sex: sp.get("sex") || "",
+      birth: sp.get("birth") || "",
+      phone: sp.get("phone") || "",
+    };
+
+    let stored: any = {};
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("patient_basic");
+      if (raw) {
+        try {
+          stored = JSON.parse(raw);
+        } catch {
+          stored = {};
+        }
+      }
+    }
+
+    const merged: PatientBasic = {
+      lineId: fromQuery.lineId || stored.customer_id || "",
+      name: fromQuery.name || stored.name || "",
+      kana: fromQuery.kana || stored.kana || "",
+      sex: fromQuery.sex || stored.sex || "",
+      birth: fromQuery.birth || stored.birth || "",
+      phone: fromQuery.phone || stored.phone || "",
+    };
+
+    setPatientInfo(merged);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "patient_basic",
+        JSON.stringify({
+          customer_id: merged.lineId,
+          name: merged.name,
+          kana: merged.kana,
+          sex: merged.sex,
+          birth: merged.birth,
+          phone: merged.phone,
+        })
+      );
+    }
+  }, [searchParams]);
 
   const baseDate = useMemo(() => {
     const d = new Date();
@@ -150,6 +210,7 @@ const birth = searchParams.get("birth") || "";
     return new Date(y, (m ?? 1) - 1, d ?? 1);
   }, [selectedDateKey, baseDate]);
 
+  // ▼ 1週間分の予約枠を取得
   useEffect(() => {
     let cancelled = false;
 
@@ -218,66 +279,81 @@ const birth = searchParams.get("birth") || "";
     setStep(1);
   };
 
-const handleConfirm = async () => {
-  if (!selectedSlot) return;
-  if (booking) return;
+  const handleConfirm = async () => {
+    if (!selectedSlot) return;
+    if (booking) return;
 
-  setBooking(true);
+    const { lineId, name, kana, sex, birth, phone } = patientInfo;
 
-  try {
-    const res = await fetch("/api/reservations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "createReservation",
-        date: selectedDateKey,
-        time: selectedSlot.start,
-        lineId,
-        name,
-      }),
-    });
+    setBooking(true);
 
-    const data = await res.json().catch(() => ({} as any));
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "createReservation",
+          date: selectedDateKey,
+          time: selectedSlot.start,
+          lineId,
+          name,
+        }),
+      });
 
-    if (!res.ok || !data.ok) {
-      if (data.error === "slot_full") {
-        alert(
-          "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
-        );
-        setStep(1);
-      } else {
-        alert(
-          "予約確定に失敗しました。時間をおいて再度お試しください。"
+      const data = (await res.json().catch(() => ({}))) as any;
+
+      if (!res.ok || !data.ok) {
+        if (data.error === "slot_full") {
+          alert(
+            "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
+          );
+          setStep(1);
+        } else {
+          alert(
+            "予約確定に失敗しました。時間をおいて再度お試しください。"
+          );
+        }
+        return;
+      }
+
+      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+
+      // ✔ モーション表示
+      setShowSuccess(true);
+
+      // ✔ 予約情報を localStorage に保存しておく（マイページ用）
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "last_reservation",
+          JSON.stringify({
+            date: selectedDateKey,
+            start: selectedSlot.start,
+            end: selectedSlot.end,
+            title: "オンライン診察予約",
+          })
         );
       }
-      return;
+
+      // ✔ 問診へ遷移（1秒待ってモーションを見せる）
+      const params = new URLSearchParams();
+      params.set("reserveId", reserveId);
+      if (lineId) params.set("customer_id", lineId);
+      if (name) params.set("name", name);
+      if (kana) params.set("kana", kana);
+      if (sex) params.set("sex", sex);
+      if (birth) params.set("birth", birth);
+      if (phone) params.set("phone", phone);
+
+      setTimeout(() => {
+        router.push(`/questionnaire?${params.toString()}`);
+      }, 1000);
+    } catch (e) {
+      console.error(e);
+      alert("予約確定に失敗しました。再度お試しください。");
+    } finally {
+      setBooking(false);
     }
-
-    const reserveId = data.reserveId ?? `mock-${Date.now()}`;
-
-    setShowSuccess(true);
-
-    const params = new URLSearchParams();
-params.set("reserveId", reserveId);
-if (lineId) params.set("customer_id", lineId);
-if (name) params.set("name", name);
-if (sex) params.set("customer_id", sex);
-if (birth) params.set("customer_id", birth);
-
-router.push(`/questionnaire?${params.toString()}`);
-
-setTimeout(() => {
-  router.push(`/questionnaire?${params.toString()}`);
-}, 500);
-
-  } catch (e) {
-    console.error(e);
-    alert("予約確定に失敗しました。再度お試しください。");
-  } finally {
-    setBooking(false);
-  }
-};
-
+  };
 
   const disabledPrevWeek = weekOffset <= 0;
 
@@ -524,6 +600,7 @@ setTimeout(() => {
           {/* STEP2 */}
           {step === 2 && selectedSlot && (
             <div className="space-y-4 mt-4">
+              {/* 予約確定モーション */}
               {showSuccess && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
                   <div
@@ -600,7 +677,7 @@ setTimeout(() => {
   );
 };
 
-// 👇 実際に Next.js にルートとして認識されるのはこれ
+// 実際に Next.js にルートとして認識されるのはこれ
 export default function Page() {
   return (
     <Suspense
