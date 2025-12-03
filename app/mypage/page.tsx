@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
@@ -73,50 +73,9 @@ const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
       id: "P-20251130-001",
       displayName: "山田 花子",
     },
-    nextReservation: {
-      id: "R-001",
-      datetime: "2025-12-03T21:00:00+09:00",
-      title: "GLP-1/GIP減量外来（再診）",
-      status: "scheduled",
-    },
-    activeOrders: [
-      {
-        id: "O-001",
-        productName: "マンジャロ 2.5mg 3ヶ月分",
-        shippingStatus: "preparing",
-        shippingEta: "2025-12-05",
-        trackingNumber: "",
-        paymentStatus: "paid",
-      },
-      {
-        id: "O-002",
-        productName: "マンジャロ 5mg 1ヶ月分",
-        shippingStatus: "shipped",
-        shippingEta: "2025-12-02",
-        trackingNumber: "1234-5678-9999",
-        paymentStatus: "paid",
-      },
-    ],
-    history: [
-      {
-        id: "H-003",
-        date: "2025-11-20",
-        title: "再処方",
-        detail: "マンジャロ 2.5mg 3ヶ月分",
-      },
-      {
-        id: "H-002",
-        date: "2025-10-10",
-        title: "再処方",
-        detail: "マンジャロ 2.5mg 2ヶ月分",
-      },
-      {
-        id: "H-001",
-        date: "2025-09-05",
-        title: "初回処方",
-        detail: "マンジャロ 2.5mg 1ヶ月分",
-      },
-    ],
+    nextReservation: null,
+    activeOrders: [],
+    history: [],
   };
 };
 
@@ -231,116 +190,172 @@ const paymentStatusClass = (status: string) => {
 
 function PatientDashboardInner() {
   const query = useQueryPatientParams();
+  const router = useRouter();
 
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
-  const init = async () => {
-    try {
-      const mock = await fetchDashboardDataMock();
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const mock = await fetchDashboardDataMock();
 
-      // ① localStorage から patient_basic と last_reservation を読む
-      let storedBasic: any = {};
-      let storedReservation: any = null;
+        // ① localStorage から patient_basic と last_reservation を読む
+        let storedBasic: any = {};
+        let storedReservation: any = null;
 
-      if (typeof window !== "undefined") {
-        const rawBasic = window.localStorage.getItem("patient_basic");
-        if (rawBasic) {
-          try {
-            storedBasic = JSON.parse(rawBasic);
-          } catch {
-            storedBasic = {};
+        if (typeof window !== "undefined") {
+          const rawBasic = window.localStorage.getItem("patient_basic");
+          if (rawBasic) {
+            try {
+              storedBasic = JSON.parse(rawBasic);
+            } catch {
+              storedBasic = {};
+            }
+          }
+
+          const rawResv = window.localStorage.getItem("last_reservation");
+          if (rawResv) {
+            try {
+              storedReservation = JSON.parse(rawResv);
+            } catch {
+              storedReservation = null;
+            }
           }
         }
 
-        const rawResv = window.localStorage.getItem("last_reservation");
-        if (rawResv) {
-          try {
-            storedReservation = JSON.parse(rawResv);
-          } catch {
-            storedReservation = null;
-          }
-        }
-      }
-
-      // ② 患者情報：クエリ > localStorage > mock の順で優先
-      const patient: PatientInfo = {
-        id: query.customer_id || storedBasic.customer_id || mock.patient.id,
-        displayName: query.name || storedBasic.name || mock.patient.displayName,
-      };
-
-      // ③ 予約情報：localStorage にあれば nextReservation を作る
-      let nextReservation: Reservation | null = null;
-      if (
-        storedReservation &&
-        storedReservation.date &&
-        storedReservation.start
-      ) {
-        const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
-        nextReservation = {
-          id: `local-${storedReservation.date}-${storedReservation.start}`,
-          datetime: iso,
-          title: storedReservation.title || "オンライン診察予約",
-          status: "scheduled",
+        // ② 患者情報：クエリ > localStorage > mock の順で優先
+        const patient: PatientInfo = {
+          id: query.customer_id || storedBasic.customer_id || mock.patient.id,
+          displayName:
+            query.name || storedBasic.name || mock.patient.displayName,
         };
+
+        // ③ 予約情報：localStorage にあれば nextReservation を作る
+        let nextReservation: Reservation | null = null;
+        if (
+          storedReservation &&
+          storedReservation.date &&
+          storedReservation.start
+        ) {
+          const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+          nextReservation = {
+            id:
+              storedReservation.reserveId ||
+              `local-${storedReservation.date}-${storedReservation.start}`,
+            datetime: iso,
+            title: storedReservation.title || "オンライン診察予約",
+            status: "scheduled",
+          };
+        }
+
+        const merged: PatientDashboardData = {
+          ...mock,
+          patient,
+          nextReservation,
+          activeOrders: [],
+          history: [],
+        };
+
+        setData(merged);
+        setError(null);
+
+        // ④ patient_basic は最新情報で上書き保存
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "patient_basic",
+            JSON.stringify({
+              customer_id:
+                query.customer_id ??
+                storedBasic.customer_id ??
+                patient.id ??
+                "",
+              name:
+                query.name ??
+                storedBasic.name ??
+                patient.displayName ??
+                "",
+              kana: storedBasic.kana ?? "",
+              sex: storedBasic.sex ?? "",
+              birth: storedBasic.birth ?? "",
+              phone: storedBasic.phone ?? "",
+            })
+          );
+        }
+      } catch (e) {
+        setError("データの取得に失敗しました。");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const merged: PatientDashboardData = {
-        ...mock,
-        patient,
-        nextReservation, // ← ここに今作ったものを入れる
-        activeOrders: [],
-        history: [],
-      };
+    init();
+  }, [
+    query.customer_id,
+    query.name,
+    query.kana,
+    query.sex,
+    query.birth,
+    query.phone,
+  ]);
 
-      setData(merged);
-      setError(null);
-
-      // ④ patient_basic は最新情報で上書き保存
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          "patient_basic",
-          JSON.stringify({
-            customer_id:
-              query.customer_id ?? storedBasic.customer_id ?? patient.id ?? "",
-            name:
-              query.name ??
-              storedBasic.name ??
-              patient.displayName ??
-              "",
-            kana: storedBasic.kana ?? "",
-            sex: storedBasic.sex ?? "",
-            birth: storedBasic.birth ?? "",
-            phone: storedBasic.phone ?? "",
-          })
-        );
-      }
-    } catch (e) {
-      setError("データの取得に失敗しました。");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  init();
-}, [
-  query.customer_id,
-  query.name,
-  query.kana,
-  query.sex,
-  query.birth,
-  query.phone,
-]);
-
-
+  // ▼ 日時を変更する
   const handleChangeReservation = () => {
-    alert("予約変更フローをあとで実装します。");
+    if (!data?.nextReservation) return;
+
+    const params = new URLSearchParams();
+    params.set("edit", "1");
+    params.set("reserveId", data.nextReservation.id);
+    params.set("customer_id", data.patient.id);
+    params.set("name", data.patient.displayName);
+
+    router.push(`/reserve?${params.toString()}`);
   };
 
-  const handleCancelReservation = () => {
-    alert("予約キャンセルフローをあとで実装します。");
+  // ▼ 予約をキャンセルする
+  const handleCancelReservation = async () => {
+    if (!data?.nextReservation) return;
+
+    const ok = window.confirm("本当にこの予約をキャンセルしますか？");
+    if (!ok) return;
+
+    try {
+      const res = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "cancelReservation",
+          reserveId: data.nextReservation.id,
+        }),
+      });
+
+      const result = await res.json().catch(() => ({} as any));
+
+      if (!res.ok || result.ok === false) {
+        alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+        return;
+      }
+
+      // フロント側の nextReservation を消す
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              nextReservation: null,
+            }
+          : prev
+      );
+
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("last_reservation");
+      }
+
+      alert("予約をキャンセルしました。");
+    } catch (e) {
+      console.error(e);
+      alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+    }
   };
 
   const handleReorder = (historyItem: PrescriptionHistoryItem) => {
@@ -393,7 +408,7 @@ useEffect(() => {
           </div>
 
           <button className="flex items-center gap-3">
-            <div className="text-right">
+            <div className="text右">
               <div className="text-sm font-semibold text-slate-800">
                 {patient.displayName} さん
               </div>
@@ -414,8 +429,7 @@ useEffect(() => {
             初回診察の予約をする
           </Link>
           <p className="mt-1 text-[11px] text-slate-500">
-            ※
-            すでに一度でも診察を受けたことがある方は、マイページから新規予約はできません。
+            ※ すでに一度でも診察を受けたことがある方は、マイページから新規予約はできません。
             再処方をご希望の方はLINEのご案内からお進みください。
           </p>
         </div>
@@ -499,7 +513,7 @@ useEffect(() => {
         </section>
 
         {/* 注文・発送状況 */}
-        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
+        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
               注文・発送状況
@@ -515,7 +529,7 @@ useEffect(() => {
               {activeOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  className="rounded-2xl bg白 shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="flex-1">
                     {/* 商品名 */}
@@ -576,7 +590,7 @@ useEffect(() => {
                         className="
                           w-full md:w-[160px] h-11
                           inline-flex items-center justify-center
-                          rounded-2xl border border-slate-200 bg-white
+                          rounded-2xl border border-slate-200 bg白
                           text-[13px] font-medium text-slate-700
                           active:scale-[0.98]
                         "
@@ -592,7 +606,7 @@ useEffect(() => {
         </section>
 
         {/* 処方・診察履歴 ＋ 再注文 */}
-        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
+        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
               これまでの診察・お薬
@@ -648,7 +662,7 @@ useEffect(() => {
         </section>
 
         {/* サポート */}
-        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
+        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5 mb-4">
           <h2 className="text-sm font-semibold text-slate-800 mb-2">
             お困りの方へ
           </h2>
@@ -658,7 +672,7 @@ useEffect(() => {
           <button
             type="button"
             onClick={handleContactSupport}
-            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 transition"
+            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text白 hover:bg-pink-600 transition"
           >
             LINEで問い合わせる
           </button>
