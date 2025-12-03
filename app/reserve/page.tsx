@@ -110,8 +110,10 @@ const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const lineId = searchParams.get("lineId") || "";
-  const name = searchParams.get("name") || "";
+const lineId = searchParams.get("lineId") || "";
+const name = searchParams.get("name") || "";
+const sex = searchParams.get("sex") || "";
+const birth = searchParams.get("birth") || "";
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [step, setStep] = useState<ReserveStep>(1);
