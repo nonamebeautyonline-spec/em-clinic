@@ -1,8 +1,10 @@
-"use client";  
-// PatientDashboardPage.tsx
+"use client";
+// app/mypage/page.tsx
+
 import React, { useEffect, useState } from "react";
-import Image from "next/image"; 
-import Link from "next/link"; 
+import Image from "next/image";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
@@ -42,6 +44,28 @@ interface PatientDashboardData {
   activeOrders: Order[];
   history: PrescriptionHistoryItem[];
 }
+
+// Lステから渡ってくるクエリ
+interface QueryPatientParams {
+  customer_id?: string | null;
+  name?: string | null;
+  kana?: string | null;
+  sex?: string | null;
+  birth?: string | null;
+  phone?: string | null;
+}
+
+const useQueryPatientParams = (): QueryPatientParams => {
+  const sp = useSearchParams();
+  return {
+    customer_id: sp.get("customer_id"),
+    name: sp.get("name"),
+    kana: sp.get("kana"),
+    sex: sp.get("sex"),
+    birth: sp.get("birth"),
+    phone: sp.get("phone"),
+  };
+};
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -124,11 +148,9 @@ const shippingBadgeClass = (s: ShippingStatus) => {
   return "bg-pink-50 text-pink-600";
 };
 
-
 const paymentBadgeClass = (s: PaymentStatus) => {
   return "bg-pink-100 text-pink-700";
 };
-
 
 // 仮のダミーデータ（APIができるまでの間用）
 const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
@@ -162,26 +184,25 @@ const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
       },
     ],
     history: [
-  {
-    id: "H-003",
-    date: "2025-11-20",
-    title: "再処方",                        // ← ここ
-    detail: "マンジャロ 2.5mg 3ヶ月分",
-  },
-  {
-    id: "H-002",
-    date: "2025-10-10",
-    title: "再処方",
-    detail: "マンジャロ 2.5mg 2ヶ月分",
-  },
-  {
-    id: "H-001",
-    date: "2025-09-05",
-    title: "初回処方",
-    detail: "マンジャロ 2.5mg 1ヶ月分",
-  },
-],
-
+      {
+        id: "H-003",
+        date: "2025-11-20",
+        title: "再処方",
+        detail: "マンジャロ 2.5mg 3ヶ月分",
+      },
+      {
+        id: "H-002",
+        date: "2025-10-10",
+        title: "再処方",
+        detail: "マンジャロ 2.5mg 2ヶ月分",
+      },
+      {
+        id: "H-001",
+        date: "2025-09-05",
+        title: "初回処方",
+        detail: "マンジャロ 2.5mg 1ヶ月分",
+      },
+    ],
   };
 };
 
@@ -219,49 +240,81 @@ const paymentStatusClass = (status: string) => {
   }
 };
 
-
 export default function PatientDashboardPage() {
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // TODO: 本番では /api/patient/dashboard みたいなAPIを叩く
-    // fetch("/api/patient/dashboard")
-    //   .then((res) => res.json())
-    //   .then(setData)
-    //   .catch(() => setError("データの取得に失敗しました。"))
-    //   .finally(() => setLoading(false));
+  const queryPatient = useQueryPatientParams();
 
-    fetchDashboardDataMock()
-      .then(setData)
-      .catch(() => setError("データの取得に失敗しました。"))
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const mock = await fetchDashboardDataMock();
+
+        // URLクエリで渡ってきた情報で patient 情報を上書き
+        const patient: PatientInfo = {
+          id: queryPatient.customer_id || mock.patient.id,
+          displayName: queryPatient.name || mock.patient.displayName,
+        };
+
+        const merged: PatientDashboardData = {
+          ...mock,
+          patient,
+        };
+
+        setData(merged);
+        setError(null);
+
+        // 予約・問診で使うため localStorage にも保存
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "patient_basic",
+            JSON.stringify({
+              customer_id: queryPatient.customer_id ?? "",
+              name: queryPatient.name ?? "",
+              kana: queryPatient.kana ?? "",
+              sex: queryPatient.sex ?? "",
+              birth: queryPatient.birth ?? "",
+              phone: queryPatient.phone ?? "",
+            })
+          );
+        }
+      } catch (e) {
+        setError("データの取得に失敗しました。");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [
+    queryPatient.customer_id,
+    queryPatient.name,
+    queryPatient.kana,
+    queryPatient.sex,
+    queryPatient.birth,
+    queryPatient.phone,
+  ]);
 
   const handleChangeReservation = () => {
-    // TODO: 予約変更画面 or LINE遷移
     alert("予約変更フローをあとで実装します。");
   };
 
   const handleCancelReservation = () => {
-    // TODO: キャンセルAPI呼び出し & 確認ダイアログ
     alert("予約キャンセルフローをあとで実装します。");
   };
 
   const handleReorder = (historyItem: PrescriptionHistoryItem) => {
-    // TODO: 再注文の予約 or 決済フローへ遷移
     alert(`「${historyItem.detail}」の再注文フローをあとで実装します。`);
   };
 
   const handleOpenTracking = (trackingNumber: string | undefined) => {
     if (!trackingNumber) return;
-    // TODO: 日本郵便 or ヤマト 等の追跡URLへ
     alert(`追跡番号: ${trackingNumber}`);
   };
 
   const handleContactSupport = () => {
-    // TODO: LINE公式アカウントのURLへ遷移
     alert("LINE公式アカウントをあとで紐づけます。");
   };
 
@@ -286,20 +339,19 @@ export default function PatientDashboardPage() {
   const { patient, nextReservation, activeOrders, history } = data;
 
   return (
-  <div className="min-h-screen bg-[#FFF8FB]">
-
+    <div className="min-h-screen bg-[#FFF8FB]">
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-  <Image
-    src="/images/company-name-v2.png"
-    alt="clinic logo"
-    width={150}   // ← ロゴの横幅。大きさは後で最適化する
-    height={40}
-    className="object-contain"
-  />
-</div>
+            <Image
+              src="/images/company-name-v2.png"
+              alt="clinic logo"
+              width={150}
+              height={40}
+              className="object-contain"
+            />
+          </div>
 
           <button className="flex items-center gap-3">
             <div className="text-right">
@@ -313,27 +365,24 @@ export default function PatientDashboardPage() {
         </div>
       </header>
 
-{/* ▼ 上部の「予約する」ボタン（初診のみ表示） */}
-{history.length === 0 && (
-  <div className="mx-auto max-w-4xl px-4 mt-3">
-    <Link
-      href="/reserve"
-      className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
-    >
-      予約する
-    </Link>
-  </div>
-)}
-
+      {/* ▼ 上部の「予約する」ボタン（初診のみ表示） */}
+      {history.length === 0 && (
+        <div className="mx-auto max-w-4xl px-4 mt-3">
+          <Link
+            href="/reserve"
+            className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
+          >
+            予約する
+          </Link>
+        </div>
+      )}
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
         {/* 次回予約 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">
-              次回のご予約
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-800">次回のご予約</h2>
             {nextReservation && (
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${reservationStatusBadgeClass(
@@ -356,28 +405,27 @@ export default function PatientDashboardPage() {
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 <button
-  type="button"
-  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
->
-  予約の詳細を見る
-</button>
-
-<button
-  type="button"
-  onClick={handleChangeReservation}
-  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
->
-  日時を変更する
-</button>
+                  type="button"
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
+                >
+                  予約の詳細を見る
+                </button>
 
                 <button
-  type="button"
-  onClick={handleCancelReservation}
-  className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
->
-  予約をキャンセルする
-</button>
+                  type="button"
+                  onClick={handleChangeReservation}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
+                >
+                  日時を変更する
+                </button>
 
+                <button
+                  type="button"
+                  onClick={handleCancelReservation}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
+                >
+                  予約をキャンセルする
+                </button>
               </div>
               <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
                 ※ 予約の変更・キャンセルは診察予定時刻の〇時間前まで可能です。
@@ -408,81 +456,81 @@ export default function PatientDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-             {activeOrders.map((order) => (
-  <div
-    key={order.id}
-    className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-  >
-    <div className="flex-1">
-      {/* 商品名 */}
-      <div className="text-[15px] font-medium text-slate-900">
-        {order.productName}
-      </div>
+              {activeOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="flex-1">
+                    {/* 商品名 */}
+                    <div className="text-[15px] font-medium text-slate-900">
+                      {order.productName}
+                    </div>
 
-      {/* 発送・決済ステータス */}
-      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-        {/* 発送ステータス */}
-        <div className="flex items-center gap-1">
-          <span className="text-slate-600">発送：</span>
-          <span
-            className={`
-              inline-flex items-center rounded-full px-3 py-1
-              font-medium
-              ${shippingStatusClass(order.shippingStatus)}
-            `}
-          >
-            {shippingStatusLabel(order.shippingStatus)}
-          </span>
-        </div>
+                    {/* 発送・決済ステータス */}
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                      {/* 発送ステータス */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-600">発送：</span>
+                        <span
+                          className={`
+                          inline-flex items-center rounded-full px-3 py-1
+                          font-medium
+                          ${shippingStatusClass(order.shippingStatus)}
+                        `}
+                        >
+                          {shippingStatusLabel(order.shippingStatus)}
+                        </span>
+                      </div>
 
-        {/* 決済ステータス */}
-        <div className="flex items-center gap-1">
-          <span className="text-slate-600">決済：</span>
-          <span
-            className={`
-              inline-flex items-center rounded-full px-3 py-1
-              font-medium
-              ${paymentStatusClass(order.paymentStatus)}
-            `}
-          >
-            {paymentStatusLabel(order.paymentStatus)}
-          </span>
-        </div>
-      </div>
+                      {/* 決済ステータス */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-600">決済：</span>
+                        <span
+                          className={`
+                          inline-flex items-center rounded-full px-3 py-1
+                          font-medium
+                          ${paymentStatusClass(order.paymentStatus)}
+                        `}
+                        >
+                          {paymentStatusLabel(order.paymentStatus)}
+                        </span>
+                      </div>
+                    </div>
 
-      {/* 発送予定日・追跡番号 */}
-      <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-        {order.shippingEta && (
-          <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
-        )}
-        {order.trackingNumber && (
-          <p>追跡番号：{order.trackingNumber}</p>
-        )}
-      </div>
-    </div>
+                    {/* 発送予定日・追跡番号 */}
+                    <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+                      {order.shippingEta && (
+                        <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
+                      )}
+                      {order.trackingNumber && (
+                        <p>追跡番号：{order.trackingNumber}</p>
+                      )}
+                    </div>
+                  </div>
 
-   {/* ボタンエリア */}
-<div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
-  {order.trackingNumber && (
-    <button
-      type="button"
-      onClick={() => handleOpenTracking(order.trackingNumber)}
-      className="
-        w-full md:w-[160px] h-11
-        inline-flex items-center justify-center
-        rounded-2xl border border-slate-200 bg-white
-        text-[13px] font-medium text-slate-700
-        active:scale-[0.98]
-      "
-    >
-      配送状況を確認
-    </button>
-  )}
-</div>
-
-  </div>
-))}
-
+                  {/* ボタンエリア */}
+                  <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
+                    {order.trackingNumber && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenTracking(order.trackingNumber)
+                        }
+                        className="
+                          w-full md:w-[160px] h-11
+                          inline-flex items-center justify-center
+                          rounded-2xl border border-slate-200 bg-white
+                          text-[13px] font-medium text-slate-700
+                          active:scale-[0.98]
+                        "
+                      >
+                        配送状況を確認
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -510,26 +558,34 @@ export default function PatientDashboardPage() {
           ) : (
             <div className="space-y-3">
               {history.map((item) => (
-  <div
-    key={item.id}
-    className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
-  >
-    <div>
-      {/* 日付 */}
-      <div className="text-[11px] text-slate-500">
-        {formatDate(item.date)}
-      </div>
+                <div
+                  key={item.id}
+                  className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
+                >
+                  <div>
+                    {/* 日付 */}
+                    <div className="text-[11px] text-slate-500">
+                      {formatDate(item.date)}
+                    </div>
 
-      {/* ここを書き換える */}
-      <div className="text-sm font-medium text-slate-900">
-        {item.detail}
-        {item.title.includes("再処方") && "（再処方）"}
-        {item.title.includes("初回") && "（初回）"}
-      </div>
-    </div>
-  </div>
-))}
+                    {/* タイトル＋詳細 */}
+                    <div className="text-sm font-medium text-slate-900">
+                      {item.detail}
+                      {item.title.includes("再処方") && "（再処方）"}
+                      {item.title.includes("初回") && "（初回）"}
+                    </div>
+                  </div>
 
+                  {/* 再注文ボタン（今はダミー） */}
+                  {/* <button
+                    type="button"
+                    onClick={() => handleReorder(item)}
+                    className="text-[11px] text-pink-500 hover:underline"
+                  >
+                    同じ内容で再注文
+                  </button> */}
+                </div>
+              ))}
             </div>
           )}
         </section>
