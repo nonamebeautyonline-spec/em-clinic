@@ -1,12 +1,14 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function MyPageDebug() {
+function MyPageInner() {
   const searchParams = useSearchParams();
 
   const name = searchParams.get("name") || "（nameパラメータなし）";
-  const customerId = searchParams.get("customer_id") || "（customer_idなし）";
+  const customerId =
+    searchParams.get("customer_id") || "（customer_idなし）";
   const kana = searchParams.get("kana") || "（kanaなし）";
   const sex = searchParams.get("sex") || "（sexなし）";
   const birth = searchParams.get("birth") || "（birthなし）";
@@ -39,5 +41,24 @@ export default function MyPageDebug() {
         </li>
       </ul>
     </div>
+  );
+}
+
+export default function MyPagePage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            padding: 24,
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          読み込み中です…
+        </div>
+      }
+    >
+      <MyPageInner />
+    </Suspense>
   );
 }
