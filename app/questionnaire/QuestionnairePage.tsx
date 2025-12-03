@@ -274,33 +274,64 @@ export default function QuestionnairePage({
     const nextIndex = getNextIndex(currentIndex);
     const isLast = nextIndex >= total;
 
-    if (isLast) {
-      if (submitting) return; // 二重押し防止
-      setSubmitting(true);
+if (isLast) {
+  if (submitting) return;
+  setSubmitting(true);
 
-      try {
-        const res = await fetch("/api/intake", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reserveId,
-            answers,
-            submittedAt: new Date().toISOString(),
-          }),
-        });
+  try {
+    // 患者情報を props + localStorage から補完
+    let cid = customerId || "";
+    let nm = name || "";
+    let kn = kana || "";
+    let sx = sex || "";
+    let br = birth || "";
+    let ph = phone || "";
 
-        if (!res.ok) throw new Error("failed");
-
-        setSubmitted(true);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch (e) {
-        alert("送信に失敗しました。時間をおいて再度お試しください。");
-      } finally {
-        setSubmitting(false);
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("patient_basic");
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          cid = cid || s.customer_id || "";
+          nm = nm || s.name || "";
+          kn = kn || s.kana || "";
+          sx = sx || s.sex || "";
+          br = br || s.birth || "";
+          ph = ph || s.phone || "";
+        } catch {
+          // 無視
+        }
       }
-
-      return;
     }
+
+    const res = await fetch("/api/intake", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reserveId,
+        answers,
+        submittedAt: new Date().toISOString(),
+        name: nm,
+        sex: sx,
+        birth: br,
+        line_id: cid,
+        phone: ph,
+      }),
+    });
+
+    if (!res.ok) throw new Error("failed");
+
+    setSubmitted(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (e) {
+    alert("送信に失敗しました。時間をおいて再度お試しください。");
+  } finally {
+    setSubmitting(false);
+  }
+
+  return;
+}
+
 
     // まだ質問が残っている場合 → 次の表示対象へ
     setCurrentIndex(nextIndex);
