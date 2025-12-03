@@ -216,55 +216,62 @@ const ReserveInner: React.FC = () => {
     setStep(1);
   };
 
-  const handleConfirm = async () => {
-    if (!selectedSlot) return;
-    if (booking) return;
+const handleConfirm = async () => {
+  if (!selectedSlot) return;
+  if (booking) return;
 
-    setBooking(true);
+  setBooking(true);
 
-    try {
-      const res = await fetch("/api/reservations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "createReservation",
-          date: selectedDateKey,
-          time: selectedSlot.start,
-          lineId,
-          name,
-        }),
-      });
+  try {
+    const res = await fetch("/api/reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "createReservation",
+        date: selectedDateKey,
+        time: selectedSlot.start,
+        lineId,
+        name,
+      }),
+    });
 
-      const data = await res.json().catch(() => ({} as any));
+    const data = await res.json().catch(() => ({} as any));
 
-      if (!res.ok || !data.ok) {
-        if (data.error === "slot_full") {
-          alert(
-            "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
-          );
-          setStep(1);
-        } else {
-          alert(
-            "予約確定に失敗しました。時間をおいて再度お試しください。"
-          );
-        }
-        return;
+    if (!res.ok || !data.ok) {
+      if (data.error === "slot_full") {
+        alert(
+          "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
+        );
+        setStep(1);
+      } else {
+        alert(
+          "予約確定に失敗しました。時間をおいて再度お試しください。"
+        );
       }
-
-      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
-
-      setShowSuccess(true);
-
-      setTimeout(() => {
-        router.push(`/questionnaire?reserveId=${reserveId}`);
-      }, 500);
-    } catch (e) {
-      console.error(e);
-      alert("予約確定に失敗しました。再度お試しください。");
-    } finally {
-      setBooking(false);
+      return;
     }
-  };
+
+    const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+
+    setShowSuccess(true);
+
+    // ★ ここを修正：lineId / name も一緒にクエリで渡す
+    const params = new URLSearchParams();
+    params.set("reserveId", reserveId);
+    if (lineId) params.set("lineId", lineId);
+    if (name) params.set("name", name);
+
+    setTimeout(() => {
+      router.push(`/questionnaire?${params.toString()}`);
+    }, 500);
+  } catch (e) {
+    console.error(e);
+    alert("予約確定に失敗しました。再度お試しください。");
+  } finally {
+    setBooking(false);
+  }
+};
+
 
   const disabledPrevWeek = weekOffset <= 0;
 
