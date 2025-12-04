@@ -66,7 +66,6 @@ const useQueryPatientParams = (): QueryPatientParams => {
   };
 };
 
-
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
   const date = d.toLocaleDateString("ja-JP", {
@@ -183,6 +182,8 @@ function PatientDashboardInner() {
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // キャンセル用モーダル状態
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
@@ -219,8 +220,7 @@ function PatientDashboardInner() {
         // ② 患者情報：クエリ > localStorage
         const patient: PatientInfo = {
           id: query.customer_id || storedBasic.customer_id || "unknown",
-          displayName:
-            query.name || storedBasic.name || "ゲスト",
+          displayName: query.name || storedBasic.name || "ゲスト",
         };
 
         // ③ localStorage ベースの nextReservation（あれば）
@@ -271,9 +271,9 @@ function PatientDashboardInner() {
                 displayName:
                   api.patient?.displayName || patient.displayName,
               },
-              nextReservation: api.nextReservation || nextReservation,
-              activeOrders: api.activeOrders || [],
-              history: api.history || [],
+              nextReservation: api.nextReservation ?? nextReservation,
+              activeOrders: api.activeOrders ?? [],
+              history: api.history ?? [],
             };
           } else {
             console.error("api/mypage response not ok:", res.status);
@@ -325,7 +325,6 @@ function PatientDashboardInner() {
     query.phone,
   ]);
 
-
   // ▼ 日時を変更する
   const handleChangeReservation = () => {
     if (!data?.nextReservation) return;
@@ -339,7 +338,6 @@ function PatientDashboardInner() {
     router.push(`/reserve?${params.toString()}`);
   };
 
-  // ▼ 予約をキャンセルする
   // ▼ 予約キャンセル（モーダルから実行）
   const handleCancelReservationConfirm = async () => {
     if (!data?.nextReservation) return;
@@ -393,7 +391,6 @@ function PatientDashboardInner() {
     }
   };
 
-
   const handleReorder = (historyItem: PrescriptionHistoryItem) => {
     alert(`「${historyItem.detail}」の再注文フローをあとで実装します。`);
   };
@@ -429,8 +426,6 @@ function PatientDashboardInner() {
   const isFirstVisit = history.length === 0;
 
   return (
-    <div className="min-h-screen bg-[#FFF8FB]">
-        return (
     <div className="min-h-screen bg-[#FFF8FB]">
       {/* ▼ キャンセル成功モーション */}
       {showCancelSuccess && (
@@ -573,7 +568,6 @@ function PatientDashboardInner() {
                 >
                   予約をキャンセルする
                 </button>
-
               </div>
               <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
                 ※ 予約の変更・キャンセルは診察予定時刻の〇時間前まで可能です。
