@@ -118,6 +118,16 @@ const ReserveInner: React.FC = () => {
   const isEdit = searchParams.get("edit") === "1";
   const editingReserveId = searchParams.get("reserveId") || "";
 
+  // 変更前の日時（マイページから渡される）
+  const originalDateKey = searchParams.get("prevDate") || "";
+  const originalTime = searchParams.get("prevTime") || "";
+
+  const originalDateObj = useMemo(() => {
+    if (!originalDateKey) return null;
+    const [y, m, d] = originalDateKey.split("-").map(Number);
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+  }, [originalDateKey]);
+
   // 患者基本情報（クエリ + localStorage からマージ）
   const [patientInfo, setPatientInfo] = useState<PatientBasic>({
     lineId: "",
@@ -665,12 +675,37 @@ const ReserveInner: React.FC = () => {
                       animate-fadeIn
                     "
                   >
-                    ✓ 予約が確定しました
+                    {isEdit ? "✓ 予約を変更しました" : "✓ 予約が確定しました"}
                   </div>
                 </div>
               )}
 
+              {/* 変更前の予約（編集時のみ） */}
+              {isEdit && originalDateObj && (
+                <div className="bg-slate-50 rounded-2xl p-3 text-[13px] text-slate-700 space-y-1.5">
+                  <p className="font-semibold text-slate-800">変更前の予約</p>
+                  <p>
+                    <span className="text-[12px] text-slate-500">
+                      予約日：
+                    </span>
+                    {originalDateObj.getMonth() + 1}月
+                    {originalDateObj.getDate()}日（
+                    {weekdayLabel[originalDateObj.getDay()]}）
+                  </p>
+                  <p>
+                    <span className="text-[12px] text-slate-500">
+                      予約時間：
+                    </span>
+                    {originalTime}
+                  </p>
+                </div>
+              )}
+
+              {/* 変更後 / 新規の予約 */}
               <div className="bg-pink-50/70 rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5">
+                {isEdit && (
+                  <p className="font-semibold text-slate-800">変更後の予約</p>
+                )}
                 <p>
                   <span className="text-[12px] text-slate-500">
                     予約日：
@@ -688,8 +723,9 @@ const ReserveInner: React.FC = () => {
               </div>
 
               <p className="text-[12px] text-slate-500 leading-relaxed">
-                予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。
-                予約確定後に問診フォームへ進み、診察前に必要事項のご入力をお願いいたします。
+                {isEdit
+                  ? "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。予約日時のみ変更され、問診フォームの再入力は不要です。"
+                  : "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。予約確定後に問診フォームへ進み、診察前に必要事項のご入力をお願いいたします。"}
               </p>
 
               <div className="flex gap-2">
@@ -719,6 +755,8 @@ const ReserveInner: React.FC = () => {
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       処理中…
                     </div>
+                  ) : isEdit ? (
+                    "予約を確定する"
                   ) : (
                     "予約を確定して問診へ進む"
                   )}
