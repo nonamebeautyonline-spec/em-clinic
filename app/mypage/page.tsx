@@ -66,18 +66,6 @@ const useQueryPatientParams = (): QueryPatientParams => {
   };
 };
 
-// 仮のダミーデータ（APIができるまでの間用）
-const fetchDashboardDataMock = async (): Promise<PatientDashboardData> => {
-  return {
-    patient: {
-      id: "P-20251130-001",
-      displayName: "山田 花子",
-    },
-    nextReservation: null,
-    activeOrders: [],
-    history: [],
-  };
-};
 
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
@@ -198,10 +186,10 @@ function PatientDashboardInner() {
 
   useEffect(() => {
     const init = async () => {
-      try {
-        const mock = await fetchDashboardDataMock();
+      setLoading(true);
 
-        // ① localStorage から patient_basic と last_reservation を読む
+      try {
+        // ① localStorage から patient_basic / last_reservation を読む
         let storedBasic: any = {};
         let storedReservation: any = null;
 
@@ -225,44 +213,76 @@ function PatientDashboardInner() {
           }
         }
 
-        // ② 患者情報：クエリ > localStorage > mock の順で優先
+        // ② 患者情報：クエリ > localStorage
         const patient: PatientInfo = {
-          id: query.customer_id || storedBasic.customer_id || mock.patient.id,
+          id: query.customer_id || storedBasic.customer_id || "unknown",
           displayName:
-            query.name || storedBasic.name || mock.patient.displayName,
+            query.name || storedBasic.name || "ゲスト",
         };
 
-        // ③ 予約情報：localStorage にあれば nextReservation を作る
-let nextReservation: Reservation | null = null;
-if (
-  storedReservation &&
-  storedReservation.date &&
-  storedReservation.start
-) {
-  const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
-  nextReservation = {
-    id:
-      storedReservation.reserveId ||                 // ★ まず本物 reserveId を使う
-      `local-${storedReservation.date}-${storedReservation.start}`, // フォールバック
-    datetime: iso,
-    title: storedReservation.title || "オンライン診察予約",
-    status: "scheduled",
-  };
-}
+        // ③ localStorage ベースの nextReservation（あれば）
+        let nextReservation: Reservation | null = null;
+        if (
+          storedReservation &&
+          storedReservation.date &&
+          storedReservation.start
+        ) {
+          const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+          nextReservation = {
+            id:
+              storedReservation.reserveId ||
+              `local-${storedReservation.date}-${storedReservation.start}`,
+            datetime: iso,
+            title: storedReservation.title || "オンライン診察予約",
+            status: "scheduled",
+          };
+        }
 
-
-        const merged: PatientDashboardData = {
-          ...mock,
+        // ④ ベースオブジェクト
+        let finalData: PatientDashboardData = {
           patient,
           nextReservation,
           activeOrders: [],
           history: [],
         };
 
-        setData(merged);
+        // ⑤ サーバー API (/api/mypage) から上書き
+        try {
+          const res = await fetch("/api/mypage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_id: patient.id,
+              name: patient.displayName,
+            }),
+          });
+
+          if (res.ok) {
+            const api = (await res.json()) as Partial<PatientDashboardData> & {
+              patient?: PatientInfo;
+            };
+
+            finalData = {
+              patient: {
+                id: api.patient?.id || patient.id,
+                displayName:
+                  api.patient?.displayName || patient.displayName,
+              },
+              nextReservation: api.nextReservation || nextReservation,
+              activeOrders: api.activeOrders || [],
+              history: api.history || [],
+            };
+          } else {
+            console.error("api/mypage response not ok:", res.status);
+          }
+        } catch (err) {
+          console.error("api/mypage fetch error:", err);
+        }
+
+        setData(finalData);
         setError(null);
 
-        // ④ patient_basic は最新情報で上書き保存
+        // ⑥ patient_basic を最新で保存
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
@@ -270,12 +290,12 @@ if (
               customer_id:
                 query.customer_id ??
                 storedBasic.customer_id ??
-                patient.id ??
+                finalData.patient.id ??
                 "",
               name:
                 query.name ??
                 storedBasic.name ??
-                patient.displayName ??
+                finalData.patient.displayName ??
                 "",
               kana: storedBasic.kana ?? "",
               sex: storedBasic.sex ?? "",
@@ -285,6 +305,7 @@ if (
           );
         }
       } catch (e) {
+        console.error(e);
         setError("データの取得に失敗しました。");
       } finally {
         setLoading(false);
@@ -300,6 +321,7 @@ if (
     query.birth,
     query.phone,
   ]);
+
 
   // ▼ 日時を変更する
   const handleChangeReservation = () => {
