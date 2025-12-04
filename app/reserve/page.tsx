@@ -345,23 +345,23 @@ const ReserveInner: React.FC = () => {
         return;
       }
 
-      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+const reserveId = data.reserveId ?? `mock-${Date.now()}`;
 
-      // ✔ モーション表示
-      setShowSuccess(true);
+setShowSuccess(true);
 
-      // ✔ 予約情報を localStorage に保存しておく（マイページ用）
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          "last_reservation",
-          JSON.stringify({
-            date: selectedDateKey,
-            start: selectedSlot.start,
-            end: selectedSlot.end,
-            title: "オンライン診察予約",
-          })
-        );
-      }
+if (typeof window !== "undefined") {
+  window.localStorage.setItem(
+    "last_reservation",
+    JSON.stringify({
+      reserveId,              // ★ 追加！
+      date: selectedDateKey,
+      start: selectedSlot.start,
+      end: selectedSlot.end,
+      title: "オンライン診察予約",
+    })
+  );
+}
+
 
       // ✔ 問診へ遷移（1秒待ってモーションを見せる）
       const params = new URLSearchParams();

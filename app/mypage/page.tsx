@@ -233,22 +233,23 @@ function PatientDashboardInner() {
         };
 
         // ③ 予約情報：localStorage にあれば nextReservation を作る
-        let nextReservation: Reservation | null = null;
-        if (
-          storedReservation &&
-          storedReservation.date &&
-          storedReservation.start
-        ) {
-          const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
-          nextReservation = {
-            id:
-              storedReservation.reserveId ||
-              `local-${storedReservation.date}-${storedReservation.start}`,
-            datetime: iso,
-            title: storedReservation.title || "オンライン診察予約",
-            status: "scheduled",
-          };
-        }
+let nextReservation: Reservation | null = null;
+if (
+  storedReservation &&
+  storedReservation.date &&
+  storedReservation.start
+) {
+  const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+  nextReservation = {
+    id:
+      storedReservation.reserveId ||                 // ★ まず本物 reserveId を使う
+      `local-${storedReservation.date}-${storedReservation.start}`, // フォールバック
+    datetime: iso,
+    title: storedReservation.title || "オンライン診察予約",
+    status: "scheduled",
+  };
+}
+
 
         const merged: PatientDashboardData = {
           ...mock,
