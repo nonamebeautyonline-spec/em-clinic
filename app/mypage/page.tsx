@@ -183,6 +183,9 @@ function PatientDashboardInner() {
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCancelSuccess, setShowCancelSuccess] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -337,11 +340,12 @@ function PatientDashboardInner() {
   };
 
   // ▼ 予約をキャンセルする
-  const handleCancelReservation = async () => {
+  // ▼ 予約キャンセル（モーダルから実行）
+  const handleCancelReservationConfirm = async () => {
     if (!data?.nextReservation) return;
+    if (canceling) return;
 
-    const ok = window.confirm("本当にこの予約をキャンセルしますか？");
-    if (!ok) return;
+    setCanceling(true);
 
     try {
       const res = await fetch("/api/reservations", {
@@ -360,7 +364,7 @@ function PatientDashboardInner() {
         return;
       }
 
-      // フロント側の nextReservation を消す
+      // 次回予約をクリア
       setData((prev) =>
         prev
           ? {
@@ -374,12 +378,21 @@ function PatientDashboardInner() {
         window.localStorage.removeItem("last_reservation");
       }
 
-      alert("予約をキャンセルしました。");
+      // 確認モーダルを閉じて、成功モーションを出す
+      setShowCancelConfirm(false);
+      setShowCancelSuccess(true);
+
+      setTimeout(() => {
+        setShowCancelSuccess(false);
+      }, 1200);
     } catch (e) {
       console.error(e);
       alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+    } finally {
+      setCanceling(false);
     }
   };
+
 
   const handleReorder = (historyItem: PrescriptionHistoryItem) => {
     alert(`「${historyItem.detail}」の再注文フローをあとで実装します。`);
@@ -417,6 +430,57 @@ function PatientDashboardInner() {
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
+        return (
+    <div className="min-h-screen bg-[#FFF8FB]">
+      {/* ▼ キャンセル成功モーション */}
+      {showCancelSuccess && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
+          <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
+            ✓ 予約をキャンセルしました
+          </div>
+        </div>
+      )}
+
+      {/* ▼ キャンセル確認モーダル */}
+      {showCancelConfirm && data?.nextReservation && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
+          <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">
+              この予約をキャンセルしますか？
+            </h3>
+            <p className="text-[13px] text-slate-600 mb-4">
+              {formatDateTime(data.nextReservation.datetime)}
+              <br />
+              {data.nextReservation.title}
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={canceling}
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-[13px] text-slate-700"
+              >
+                戻る
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelReservationConfirm}
+                disabled={canceling}
+                className={
+                  "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
+                  (canceling
+                    ? "bg-pink-300 cursor-not-allowed"
+                    : "bg-pink-500 active:scale-[0.98]")
+                }
+              >
+                {canceling ? "処理中…" : "キャンセルする"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
@@ -504,11 +568,12 @@ function PatientDashboardInner() {
 
                 <button
                   type="button"
-                  onClick={handleCancelReservation}
+                  onClick={() => setShowCancelConfirm(true)}
                   className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
                 >
                   予約をキャンセルする
                 </button>
+
               </div>
               <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
                 ※ 予約の変更・キャンセルは診察予定時刻の〇時間前まで可能です。
