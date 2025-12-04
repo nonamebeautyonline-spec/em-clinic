@@ -1,484 +1,422 @@
+// app/reserve/page.tsx
 "use client";
 
-import React, { useEffect, useState, Suspense } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-type ReservationStatus = "scheduled" | "completed" | "canceled";
-type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-type PaymentStatus = "paid" | "pending" | "failed";
+type ReserveStep = 1 | 2;
 
-interface PatientInfo {
-  id: string;
-  displayName: string;
-}
-
-interface Reservation {
-  id: string;
-  datetime: string; // ISO string
-  title: string;
-  status: ReservationStatus;
-}
-
-interface Order {
-  id: string;
-  productName: string;
-  shippingStatus: ShippingStatus;
-  shippingEta?: string;
-  trackingNumber?: string;
-  paymentStatus: PaymentStatus;
-}
-
-interface PrescriptionHistoryItem {
-  id: string;
-  date: string;
-  title: string;
-  detail: string;
-}
-
-interface PatientDashboardData {
-  patient: PatientInfo;
-  nextReservation?: Reservation | null;
-  activeOrders: Order[];
-  history: PrescriptionHistoryItem[];
-}
-
-// Lステからクエリで渡ってくる項目
-interface QueryPatientParams {
-  customer_id?: string | null;
-  name?: string | null;
-  kana?: string | null;
-  sex?: string | null;
-  birth?: string | null;
-  phone?: string | null;
-}
-
-const useQueryPatientParams = (): QueryPatientParams => {
-  const sp = useSearchParams();
-  return {
-    customer_id: sp.get("customer_id"),
-    name: sp.get("name"),
-    kana: sp.get("kana"),
-    sex: sp.get("sex"),
-    birth: sp.get("birth"),
-    phone: sp.get("phone"),
-  };
+type SlotInfo = {
+  start: string;
+  end: string;
 };
 
-const formatDateTime = (iso: string) => {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("ja-JP", {
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-  });
-  const time = d.toLocaleTimeString("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${date} ${time}`;
+type ApiSlot = {
+  time: string;
+  count: number;
 };
 
-const formatDate = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
+type WeeklySlotsResponse = {
+  start: string;
+  end: string;
+  slots: { date: string; time: string; count: number }[];
 };
 
-const reservationStatusLabel = (s: ReservationStatus) => {
-  switch (s) {
-    case "scheduled":
-      return "予約済み";
-    case "completed":
-      return "診察完了";
-    case "canceled":
-      return "キャンセル済み";
-    default:
-      return "";
+const weekdayLabel = ["日", "月", "火", "水", "木", "金", "土"];
+
+const getNext7Days = (start: Date) => {
+  const days: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
   }
+  return days;
 };
 
-const shippingStatusLabel = (s: ShippingStatus) => {
-  switch (s) {
-    case "pending":
-      return "受付済み";
-    case "preparing":
-      return "準備中";
-    case "shipped":
-      return "発送済み";
-    case "delivered":
-      return "配達完了";
-    default:
-      return "";
+const formatDateKey = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const buildDateTime = (dateStr: string, timeStr: string) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0);
+};
+
+const generateSlots = (start = "09:00", end = "22:00"): SlotInfo[] => {
+  const slots: SlotInfo[] = [];
+  let [h, m] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+
+  while (h < endH || (h === endH && m < endM)) {
+    const startStr = `${String(h).padStart(2, "0")}:${String(m).padStart(
+      2,
+      "0"
+    )}`;
+    m += 15;
+    if (m >= 60) {
+      h++;
+      m -= 60;
+    }
+    const endStr = `${String(h).padStart(2, "0")}:${String(m).padStart(
+      2,
+      "0"
+    )}`;
+    slots.push({ start: startStr, end: endStr });
   }
+  return slots;
 };
 
-const paymentStatusLabel = (s: PaymentStatus) => {
-  switch (s) {
-    case "paid":
-      return "決済済み";
-    case "pending":
-      return "確認中";
-    case "failed":
-      return "エラー";
-    default:
-      return "";
-  }
+const SLOTS_9_22 = generateSlots("09:00", "22:00");
+const CAPACITY_PER_SLOT = 2; // 1枠あたり2人まで
+
+const isWeekend = (d: Date) => {
+  const wd = d.getDay();
+  return wd === 0 || wd === 6;
 };
 
-const reservationStatusBadgeClass = (s: ReservationStatus) => {
-  switch (s) {
-    case "scheduled":
-      return "bg-pink-50 text-pink-600";
-    case "completed":
-      return "bg-emerald-50 text-emerald-700";
-    case "canceled":
-      return "bg-rose-50 text-rose-700";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
+const isDateActiveDay = (d: Date) => !isWeekend(d);
+
+const isOpenTime = (startTime: string) => {
+  const [hh] = startTime.split(":").map(Number);
+  return hh >= 10 && hh < 19;
 };
 
-const shippingStatusClass = (status: string) => {
-  switch (status) {
-    case "pending":
-      return "bg-rose-50 text-rose-700 border border-rose-100";
-    case "preparing":
-      return "bg-amber-50 text-amber-700 border border-amber-100";
-    case "shipped":
-      return "bg-sky-50 text-sky-700 border border-sky-100";
-    case "delivered":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-100";
-    case "on_hold":
-      return "bg-slate-50 text-rose-700 border border-rose-200";
-    default:
-      return "bg-slate-50 text-slate-600 border border-slate-100";
-  }
+const isPastSlot = (dateStr: string, startTime: string) => {
+  const now = new Date();
+  const slotDateTime = buildDateTime(dateStr, startTime);
+  return slotDateTime.getTime() <= now.getTime();
 };
 
-const paymentStatusClass = (status: string) => {
-  switch (status) {
-    case "unpaid":
-      return "bg-rose-50 text-rose-700 border border-rose-100";
-    case "paid":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-100";
-    case "refunded":
-      return "bg-slate-50 text-slate-600 border border-slate-200";
-    case "failed":
-      return "bg-red-50 text-red-700 border border-red-100";
-    default:
-      return "bg-slate-50 text-slate-600 border border-slate-100";
-  }
+const getCellClass = (selected: boolean, disabled: boolean) => {
+  if (disabled) return "text-slate-400 cursor-not-allowed";
+  if (selected) return "text-pink-700 font-bold";
+  return "text-pink-500 font-semibold";
 };
 
-function PatientDashboardInner() {
-  const query = useQueryPatientParams();
+type PatientBasic = {
+  lineId: string;
+  name: string;
+  kana: string;
+  sex: string;
+  birth: string;
+  phone: string;
+};
+
+// ここが「元の ReservePage の中身」になるコンポーネント
+const ReserveInner: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [data, setData] = useState<PatientDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // 編集モード（日時変更）かどうか
+  const isEdit = searchParams.get("edit") === "1";
+  const editingReserveId = searchParams.get("reserveId") || "";
 
-  // キャンセル用モーダル状態
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [showCancelSuccess, setShowCancelSuccess] = useState(false);
-  const [canceling, setCanceling] = useState(false);
+  // 患者基本情報（クエリ + localStorage からマージ）
+  const [patientInfo, setPatientInfo] = useState<PatientBasic>({
+    lineId: "",
+    name: "",
+    kana: "",
+    sex: "",
+    birth: "",
+    phone: "",
+  });
 
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [step, setStep] = useState<ReserveStep>(1);
+  const [selectedDateKey, setSelectedDateKey] = useState<string>("");
+  const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, ApiSlot[]>>({});
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [booking, setBooking] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // ▼ 患者情報をURL + localStorageから取得してマージ
   useEffect(() => {
-    const init = async () => {
-      setLoading(true);
+    const sp = searchParams;
+
+    const fromQuery = {
+      lineId: sp.get("lineId") || sp.get("customer_id") || "",
+      name: sp.get("name") || "",
+      kana: sp.get("kana") || "",
+      sex: sp.get("sex") || "",
+      birth: sp.get("birth") || "",
+      phone: sp.get("phone") || "",
+    };
+
+    let stored: any = {};
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("patient_basic");
+      if (raw) {
+        try {
+          stored = JSON.parse(raw);
+        } catch {
+          stored = {};
+        }
+      }
+    }
+
+    const merged: PatientBasic = {
+      lineId: fromQuery.lineId || stored.customer_id || "",
+      name: fromQuery.name || stored.name || "",
+      kana: fromQuery.kana || stored.kana || "",
+      sex: fromQuery.sex || stored.sex || "",
+      birth: fromQuery.birth || stored.birth || "",
+      phone: fromQuery.phone || stored.phone || "",
+    };
+
+    setPatientInfo(merged);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "patient_basic",
+        JSON.stringify({
+          customer_id: merged.lineId,
+          name: merged.name,
+          kana: merged.kana,
+          sex: merged.sex,
+          birth: merged.birth,
+          phone: merged.phone,
+        })
+      );
+    }
+  }, [searchParams]);
+
+  const baseDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }, [weekOffset]);
+
+  const days = useMemo(() => getNext7Days(baseDate), [baseDate]);
+
+  const rangeLabel = useMemo(() => {
+    if (!days.length) return "";
+    const first = days[0];
+    const last = days[days.length - 1];
+    const firstStr = `${first.getFullYear()}年${
+      first.getMonth() + 1
+    }月${first.getDate()}日`;
+    const lastStr = `${last.getMonth() + 1}月${last.getDate()}日`;
+    return `${firstStr} ~ ${lastStr}`;
+  }, [days]);
+
+  const selectedDateObj = useMemo(() => {
+    if (!selectedDateKey) return baseDate;
+    const [y, m, d] = selectedDateKey.split("-").map(Number);
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
+  }, [selectedDateKey, baseDate]);
+
+  // ▼ 1週間分の予約枠を取得
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchAll = async () => {
+      if (!days.length) return;
+
+      setLoadingSlots(true);
+      setSlotsError(null);
+      setSelectedSlot(null);
+
+      const firstKey = formatDateKey(days[0]);
+      const lastKey = formatDateKey(days[days.length - 1]);
+      setSelectedDateKey(firstKey);
 
       try {
-        // ① localStorage から patient_basic / last_reservation を読む
-        let storedBasic: any = {};
-        let storedReservation: any = null;
+        const res = await fetch(
+          `/api/reservations?start=${firstKey}&end=${lastKey}`
+        );
+        if (!res.ok) throw new Error("failed");
+        const data: WeeklySlotsResponse = await res.json();
 
-        if (typeof window !== "undefined") {
-          const rawBasic = window.localStorage.getItem("patient_basic");
-          if (rawBasic) {
-            try {
-              storedBasic = JSON.parse(rawBasic);
-            } catch {
-              storedBasic = {};
-            }
+        if (cancelled) return;
+
+        const map: Record<string, ApiSlot[]> = {};
+
+        days.forEach((d) => {
+          const key = formatDateKey(d);
+          map[key] = [];
+        });
+
+        (data.slots || []).forEach((s) => {
+          const { date, time, count } = s;
+          if (!map[date]) {
+            map[date] = [];
           }
+          map[date].push({ time, count });
+        });
 
-          const rawResv = window.localStorage.getItem("last_reservation");
-          if (rawResv) {
-            try {
-              storedReservation = JSON.parse(rawResv);
-            } catch {
-              storedReservation = null;
-            }
-          }
-        }
-
-        // ② 患者情報：クエリ > localStorage
-        const patient: PatientInfo = {
-          id: query.customer_id || storedBasic.customer_id || "unknown",
-          displayName: query.name || storedBasic.name || "ゲスト",
-        };
-
-        // ③ localStorage ベースの nextReservation（あれば）
-        let nextReservation: Reservation | null = null;
-        if (
-          storedReservation &&
-          storedReservation.date &&
-          storedReservation.start
-        ) {
-          const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
-          nextReservation = {
-            id:
-              storedReservation.reserveId ||
-              `local-${storedReservation.date}-${storedReservation.start}`,
-            datetime: iso,
-            title: storedReservation.title || "オンライン診察予約",
-            status: "scheduled",
-          };
-        }
-
-        // ④ ベースオブジェクト
-        let finalData: PatientDashboardData = {
-          patient,
-          nextReservation,
-          activeOrders: [],
-          history: [],
-        };
-
-        // ⑤ サーバー API (/api/mypage) から上書き
-        try {
-          const res = await fetch("/api/mypage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customer_id: patient.id,
-              name: patient.displayName,
-            }),
-          });
-
-          if (res.ok) {
-            const api = (await res.json()) as Partial<PatientDashboardData> & {
-              patient?: PatientInfo;
-            };
-
-            finalData = {
-              patient: {
-                id: api.patient?.id || patient.id,
-                displayName:
-                  api.patient?.displayName || patient.displayName,
-              },
-              nextReservation: api.nextReservation ?? nextReservation,
-              activeOrders: api.activeOrders ?? [],
-              history: api.history ?? [],
-            };
-          } else {
-            console.error("api/mypage response not ok:", res.status);
-          }
-        } catch (err) {
-          console.error("api/mypage fetch error:", err);
-        }
-
-        setData(finalData);
-        setError(null);
-
-        // ⑥ patient_basic を最新で保存
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "patient_basic",
-            JSON.stringify({
-              customer_id:
-                query.customer_id ??
-                storedBasic.customer_id ??
-                finalData.patient.id ??
-                "",
-              name:
-                query.name ??
-                storedBasic.name ??
-                finalData.patient.displayName ??
-                "",
-              kana: storedBasic.kana ?? "",
-              sex: storedBasic.sex ?? "",
-              birth: storedBasic.birth ?? "",
-              phone: storedBasic.phone ?? "",
-            })
+        setSlotsByDate(map);
+      } catch (e) {
+        if (!cancelled) {
+          console.error(e);
+          setSlotsError(
+            "予約枠の取得に失敗しました。時間をおいて再度お試しください。"
           );
         }
-      } catch (e) {
-        console.error(e);
-        setError("データの取得に失敗しました。");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoadingSlots(false);
       }
     };
 
-    init();
-  }, [
-    query.customer_id,
-    query.name,
-    query.kana,
-    query.sex,
-    query.birth,
-    query.phone,
-  ]);
+    fetchAll();
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
 
-  // ▼ 日時を変更する
-  const handleChangeReservation = () => {
-    if (!data?.nextReservation) return;
-
-    const params = new URLSearchParams();
-    params.set("edit", "1");
-    params.set("reserveId", data.nextReservation.id);
-    params.set("customer_id", data.patient.id);
-    params.set("name", data.patient.displayName);
-
-    router.push(`/reserve?${params.toString()}`);
+  const getCountForSlot = (dateKey: string, time: string) => {
+    const list = slotsByDate[dateKey];
+    if (!list) return 0;
+    const found = list.find((s) => s.time === time);
+    return found?.count ?? 0;
   };
 
-  // ▼ 予約キャンセル（モーダルから実行）
-  const handleCancelReservationConfirm = async () => {
-    if (!data?.nextReservation) return;
-    if (canceling) return;
+  const handleBackToStep1 = () => {
+    setStep(1);
+  };
 
-    setCanceling(true);
+  const handleConfirm = async () => {
+    if (!selectedSlot) return;
+    if (booking) return;
+
+    const { lineId, name, kana, sex, birth, phone } = patientInfo;
+
+    setBooking(true);
 
     try {
+      // ★ 編集モード：予約の日時だけ更新（問診はそのまま）
+      if (isEdit && editingReserveId) {
+        const res = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "updateReservation",
+            reserveId: editingReserveId,
+            date: selectedDateKey,
+            time: selectedSlot.start,
+          }),
+        });
+
+        const data = (await res.json().catch(() => ({}))) as any;
+
+        if (!res.ok || !data.ok) {
+          alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
+          return;
+        }
+
+        const reserveId = editingReserveId;
+
+        setShowSuccess(true);
+
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "last_reservation",
+            JSON.stringify({
+              reserveId,
+              date: selectedDateKey,
+              start: selectedSlot.start,
+              end: selectedSlot.end,
+              title: "オンライン診察予約",
+            })
+          );
+        }
+
+        // ✔ 問診には飛ばさず、そのままマイページに戻る
+        const params = new URLSearchParams();
+        if (lineId) params.set("customer_id", lineId);
+        if (name) params.set("name", name);
+
+        setTimeout(() => {
+          setShowSuccess(false);
+          router.push(`/mypage?${params.toString()}`);
+        }, 1000);
+
+        return;
+      }
+
+      // ▼ 新規予約（従来どおり：問診フォームへ進む）
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "cancelReservation",
-          reserveId: data.nextReservation.id,
+          type: "createReservation",
+          date: selectedDateKey,
+          time: selectedSlot.start,
+          lineId,
+          name,
         }),
       });
 
-      const result = await res.json().catch(() => ({} as any));
+      const data = (await res.json().catch(() => ({}))) as any;
 
-      if (!res.ok || result.ok === false) {
-        alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+      if (!res.ok || !data.ok) {
+        if (data.error === "slot_full") {
+          alert(
+            "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
+          );
+          setStep(1);
+        } else {
+          alert(
+            "予約確定に失敗しました。時間をおいて再度お試しください。"
+          );
+        }
         return;
       }
 
-      // 次回予約をクリア
-      setData((prev) =>
-        prev
-          ? {
-              ...prev,
-              nextReservation: null,
-            }
-          : prev
-      );
+      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+
+      setShowSuccess(true);
 
       if (typeof window !== "undefined") {
-        window.localStorage.removeItem("last_reservation");
+        window.localStorage.setItem(
+          "last_reservation",
+          JSON.stringify({
+            reserveId,
+            date: selectedDateKey,
+            start: selectedSlot.start,
+            end: selectedSlot.end,
+            title: "オンライン診察予約",
+          })
+        );
       }
 
-      // 確認モーダルを閉じて、成功モーションを出す
-      setShowCancelConfirm(false);
-      setShowCancelSuccess(true);
+      // ✔ 新規予約はこれまで通り、問診へ遷移
+      const params = new URLSearchParams();
+      params.set("reserveId", reserveId);
+      if (lineId) params.set("customer_id", lineId);
+      if (name) params.set("name", name);
+      if (kana) params.set("kana", kana);
+      if (sex) params.set("sex", sex);
+      if (birth) params.set("birth", birth);
+      if (phone) params.set("phone", phone);
 
       setTimeout(() => {
-        setShowCancelSuccess(false);
-      }, 1200);
+        setShowSuccess(false);
+        router.push(`/questionnaire?${params.toString()}`);
+      }, 1000);
     } catch (e) {
       console.error(e);
-      alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+      alert("予約確定に失敗しました。再度お試しください。");
     } finally {
-      setCanceling(false);
+      setBooking(false);
     }
   };
 
-  const handleReorder = (historyItem: PrescriptionHistoryItem) => {
-    alert(`「${historyItem.detail}」の再注文フローをあとで実装します。`);
-  };
-
-  const handleOpenTracking = (trackingNumber: string | undefined) => {
-    if (!trackingNumber) return;
-    alert(`追跡番号: ${trackingNumber}`);
-  };
-
-  const handleContactSupport = () => {
-    alert("LINE公式アカウントをあとで紐づけます。");
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-500 text-sm">読み込み中です…</div>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow px-6 py-4 text-sm text-rose-600">
-          {error ?? "データが取得できませんでした。時間をおいて再度お試しください。"}
-        </div>
-      </div>
-    );
-  }
-
-  const { patient, nextReservation, activeOrders, history } = data;
-  const isFirstVisit = history.length === 0;
+  const disabledPrevWeek = weekOffset <= 0;
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
-      {/* ▼ キャンセル成功モーション */}
-      {showCancelSuccess && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-          <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
-            ✓ 予約をキャンセルしました
-          </div>
-        </div>
-      )}
-
-      {/* ▼ キャンセル確認モーダル */}
-      {showCancelConfirm && data?.nextReservation && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-          <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              この予約をキャンセルしますか？
-            </h3>
-            <p className="text-[13px] text-slate-600 mb-4">
-              {formatDateTime(data.nextReservation.datetime)}
-              <br />
-              {data.nextReservation.title}
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirm(false)}
-                disabled={canceling}
-                className="flex-1 h-10 rounded-xl border border-slate-200 text-[13px] text-slate-700"
-              >
-                戻る
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelReservationConfirm}
-                disabled={canceling}
-                className={
-                  "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
-                  (canceling
-                    ? "bg-pink-300 cursor-not-allowed"
-                    : "bg-pink-500 active:scale-[0.98]")
-                }
-              >
-                {canceling ? "処理中…" : "キャンセルする"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
-        <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
+        <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Image
               src="/images/company-name-v2.png"
@@ -488,296 +426,323 @@ function PatientDashboardInner() {
               className="object-contain"
             />
           </div>
-
-          <button className="flex items-center gap-3">
-            <div className="text右">
-              <div className="text-sm font-semibold text-slate-800">
-                {patient.displayName} さん
-              </div>
-              <div className="text-[11px] text-slate-500">ID: {patient.id}</div>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-slate-200" />
-          </button>
+          <Link
+            href="/mypage"
+            className="text-[12px] text-slate-500 hover:text-slate-700"
+          >
+            マイページへ戻る
+          </Link>
         </div>
       </header>
 
-      {/* ▼ 上部の「予約する」ボタン（初診のみ表示） */}
-      {isFirstVisit && !nextReservation && (
-        <div className="mx-auto max-w-4xl px-4 mt-3">
-          <Link
-            href="/reserve"
-            className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
-          >
-            初回診察の予約をする
-          </Link>
-          <p className="mt-1 text-[11px] text-slate-500">
-            ※ すでに一度でも診察を受けたことがある方は、マイページから新規予約はできません。
-            再処方をご希望の方はLINEのご案内からお進みください。
-          </p>
-        </div>
-      )}
-
       {/* 本文 */}
-      <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
-        {/* 次回予約 */}
-        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">
-              次回のご予約
-            </h2>
-            {nextReservation && (
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${reservationStatusBadgeClass(
-                  nextReservation.status
-                )}`}
-              >
-                {reservationStatusLabel(nextReservation.status)}
-              </span>
-            )}
+      <main className="mx-auto max-w-md px-4 py-4 space-y-4">
+        <section className="bg-white rounded-3xl shadow-sm p-4">
+          <h1 className="text-lg font-semibold text-slate-900 mb-2">
+            診察予約
+          </h1>
+          <p className="text-[13px] text-slate-600 mb-3 leading-relaxed">
+            初診の診察予約はこちらからお取りいただけます。
+            ご希望の日時を選択し、確認画面へお進みください。
+          </p>
+
+          {/* 期間表示バー */}
+          <div className="mb-3 rounded-2xl border border-slate-200 px-3 py-2 flex items-center justify-between text-[13px] text-slate-800">
+            <button
+              type="button"
+              disabled={disabledPrevWeek}
+              onClick={() => setWeekOffset((prev) => Math.max(0, prev - 1))}
+              className={
+                "w-8 h-8 flex items-center justify-center rounded-full text-[18px] " +
+                (disabledPrevWeek
+                  ? "text-slate-300 cursor-not-allowed"
+                  : "text-slate-500 hover:bg-slate-100")
+              }
+            >
+              ‹
+            </button>
+
+            <span className="flex-1 text-center">{rangeLabel}</span>
+
+            <button
+              type="button"
+              onClick={() => setWeekOffset((prev) => prev + 1)}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-[18px] text-slate-500 hover:bg-slate-100"
+            >
+              ›
+            </button>
           </div>
 
-          {nextReservation ? (
-            <>
-              <div className="text-[15px] font-semibold text-slate-900">
-                {formatDateTime(nextReservation.datetime)}
-              </div>
-              <div className="mt-1 text-sm text-slate-600">
-                {nextReservation.title}
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
+          {/* ステップインジケーター */}
+          <div className="flex items-center justify_between mb-3">
+            {[
+              { id: 1, label: "予約選択" },
+              { id: 2, label: "予約確認" },
+            ].map((item) => {
+              const active = step === item.id;
+              const done = step > item.id;
+              return (
+                <div
+                  key={item.id}
+                  className="flex-1 flex flex-col items-center text-[12px]"
                 >
-                  予約の詳細を見る
-                </button>
+                  <div
+                    className={
+                      "flex items-center justify-center w-8 h-8 rounded-full border text-xs font-semibold " +
+                      (done
+                        ? "bg-emerald-500 text-white border-emerald-500"
+                        : active
+                        ? "bg-pink-500 text-white border-pink-500"
+                        : "bg-white text-slate-400 border-slate-200")
+                    }
+                  >
+                    {item.id}
+                  </div>
+                  <span
+                    className={
+                      "mt-1 " +
+                      (active
+                        ? "text-[12px] text-slate-900"
+                        : "text-[12px] text-slate-400")
+                    }
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
-                <button
-                  type="button"
-                  onClick={handleChangeReservation}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
-                >
-                  日時を変更する
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowCancelConfirm(true)}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
-                >
-                  予約をキャンセルする
-                </button>
-              </div>
-              <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
-                ※ 予約の変更・キャンセルは診察予定時刻の〇時間前まで可能です。
-                <br />
-                ※ それ以降のキャンセルはキャンセル料が発生する場合があります。
-              </p>
-            </>
-          ) : (
-            <div className="text-sm text-slate-600">
-              {isFirstVisit ? (
-                <>
-                  現在、予約はありません。
-                  <br />
-                  画面上部の「初回診察の予約をする」ボタンから、初診のご予約が可能です。
-                </>
+          {/* STEP1 */}
+          {step === 1 && (
+            <div className="space-y-2 mt-2">
+              {loadingSlots ? (
+                <div className="text-[13px] text-slate-500 py-4">
+                  予約枠を読み込み中です…
+                </div>
+              ) : slotsError ? (
+                <div className="text-[13px] text-rose-600 py-4">
+                  {slotsError}
+                </div>
               ) : (
                 <>
-                  現在、予約はありません。
-                  <br />
-                  再処方をご希望の方は、LINEのご案内からお手続きください。
+                  <div className="relative">
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        <div className="grid grid-cols-[90px_repeat(7,minmax(60px,1fr))] text-center text-[12px] gap-y-1">
+                          <div />
+                          {days.map((d) => {
+                            const key = formatDateKey(d);
+                            const wd = d.getDay();
+                            const isActiveDay = isDateActiveDay(d);
+                            const isSelectedDay = key === selectedDateKey;
+
+                            let dateColor = "text-slate-900";
+                            if (wd === 0) dateColor = "text-red-500";
+                            if (wd === 6) dateColor = "text-sky-500";
+
+                            const bgCls = !isActiveDay
+                              ? "bg-slate-50 text-slate-400 border-slate-100"
+                              : isSelectedDay
+                              ? "bg-pink-50 border-pink-200"
+                              : "bg-white border-slate-100";
+
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => setSelectedDateKey(key)}
+                                className={`h-12 rounded-2xl border flex flex-col items-center justify-center ${bgCls}`}
+                              >
+                                <span
+                                  className={`text-[15px] font-semibold ${
+                                    !isActiveDay
+                                      ? "text-slate-400"
+                                      : dateColor
+                                  }`}
+                                >
+                                  {d.getDate()}
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  {weekdayLabel[wd]}
+                                </span>
+                              </button>
+                            );
+                          })}
+
+                          {SLOTS_9_22.map((slot) => (
+                            <React.Fragment
+                              key={`${slot.start}-${slot.end}`}
+                            >
+                              <div className="h-10 flex items-center justify-center text-[13px] font-semibold text-slate-700">
+                                {slot.start}〜{slot.end}
+                              </div>
+
+                              {days.map((d) => {
+                                const dateKey = formatDateKey(d);
+                                const weekend = isWeekend(d);
+                                const count = getCountForSlot(
+                                  dateKey,
+                                  slot.start
+                                );
+                                const past = isPastSlot(
+                                  dateKey,
+                                  slot.start
+                                );
+                                const activeDay = isDateActiveDay(d);
+                                const openTime = isOpenTime(slot.start);
+
+                                const isFull = count >= CAPACITY_PER_SLOT;
+
+                                const disabled =
+                                  weekend ||
+                                  past ||
+                                  !activeDay ||
+                                  !openTime ||
+                                  isFull;
+
+                                const selected =
+                                  dateKey === selectedDateKey &&
+                                  selectedSlot?.start === slot.start &&
+                                  selectedSlot?.end === slot.end &&
+                                  !disabled;
+
+                                const char = disabled ? "×" : "○";
+
+                                return (
+                                  <button
+                                    key={dateKey}
+                                    type="button"
+                                    disabled={disabled}
+                                    onClick={() => {
+                                      if (disabled) return;
+                                      setSelectedDateKey(dateKey);
+                                      setSelectedSlot({ ...slot });
+                                      setStep(2);
+                                    }}
+                                    className="h-10 flex items-center justify-center"
+                                  >
+                                    <span
+                                      className={`${getCellClass(
+                                        selected,
+                                        disabled
+                                      )} text-[20px]`}
+                                    >
+                                      {char}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pointer-events-none absolute inset-y-2 right-0 w-10 bg-gradient-to-l from-white to-transparent flex items-center justify-end pr-1 md:hidden">
+                      <span className="text-[18px] text-slate-300">→</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 text-right">
+                    表は横にスワイプ（スクロール）すると他の日付も表示できます。
+                  </p>
                 </>
               )}
             </div>
           )}
-        </section>
 
-        {/* 注文・発送状況 */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">
-              注文・発送状況
-            </h2>
-          </div>
-
-          {activeOrders.length === 0 ? (
-            <div className="text-sm text-slate-600">
-              処方済みのお薬は現在ありません。
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {activeOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-2xl bg白 shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-                >
-                  <div className="flex-1">
-                    {/* 商品名 */}
-                    <div className="text-[15px] font-medium text-slate-900">
-                      {order.productName}
-                    </div>
-
-                    {/* 発送・決済ステータス */}
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                      {/* 発送ステータス */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-600">発送：</span>
-                        <span
-                          className={`
-                          inline-flex items-center rounded-full px-3 py-1
-                          font-medium
-                          ${shippingStatusClass(order.shippingStatus)}
-                        `}
-                        >
-                          {shippingStatusLabel(order.shippingStatus)}
-                        </span>
-                      </div>
-
-                      {/* 決済ステータス */}
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-600">決済：</span>
-                        <span
-                          className={`
-                          inline-flex items-center rounded-full px-3 py-1
-                          font-medium
-                          ${paymentStatusClass(order.paymentStatus)}
-                        `}
-                        >
-                          {paymentStatusLabel(order.paymentStatus)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 発送予定日・追跡番号 */}
-                    <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-                      {order.shippingEta && (
-                        <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
-                      )}
-                      {order.trackingNumber && (
-                        <p>追跡番号：{order.trackingNumber}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ボタンエリア */}
-                  <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
-                    {order.trackingNumber && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleOpenTracking(order.trackingNumber)
-                        }
-                        className="
-                          w-full md:w-[160px] h-11
-                          inline-flex items-center justify-center
-                          rounded-2xl border border-slate-200 bg白
-                          text-[13px] font-medium text-slate-700
-                          active:scale-[0.98]
-                        "
-                      >
-                        配送状況を確認
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 処方・診察履歴 ＋ 再注文 */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">
-              これまでの診察・お薬
-            </h2>
-            {history.length > 0 && (
-              <button
-                type="button"
-                className="text-xs text-slate-500 hover:text-slate-700"
-              >
-                すべて表示
-              </button>
-            )}
-          </div>
-
-          {history.length === 0 ? (
-            <div className="text-sm text-slate-600">
-              まだ診察・処方の履歴はありません。
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
-                >
-                  <div>
-                    {/* 日付 */}
-                    <div className="text-[11px] text-slate-500">
-                      {formatDate(item.date)}
-                    </div>
-
-                    {/* タイトル＋詳細 */}
-                    <div className="text-sm font-medium text-slate-900">
-                      {item.detail}
-                      {item.title.includes("再処方") && "（再処方）"}
-                      {item.title.includes("初回") && "（初回）"}
-                    </div>
-                  </div>
-
-                  {/* 再注文ボタン（今は未使用なのでコメントアウト）
-                  <button
-                    type="button"
-                    onClick={() => handleReorder(item)}
-                    className="text-[11px] text-pink-500 hover:underline"
+          {/* STEP2 */}
+          {step === 2 && selectedSlot && (
+            <div className="space-y-4 mt-4">
+              {/* 予約確定モーション */}
+              {showSuccess && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
+                  <div
+                    className="
+                      bg-white px-6 py-4 rounded-2xl shadow-lg
+                      text-green-600 text-lg font-semibold
+                      animate-fadeIn
+                    "
                   >
-                    同じ内容で再注文
-                  </button>
-                  */}
+                    ✓ 予約が確定しました
+                  </div>
                 </div>
-              ))}
+              )}
+
+              <div className="bg-pink-50/70 rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5">
+                <p>
+                  <span className="text-[12px] text-slate-500">
+                    予約日：
+                  </span>
+                  {selectedDateObj.getMonth() + 1}月
+                  {selectedDateObj.getDate()}日（
+                  {weekdayLabel[selectedDateObj.getDay()]}）
+                </p>
+                <p>
+                  <span className="text-[12px] text-slate-500">
+                    予約時間：
+                  </span>
+                  {selectedSlot.start}〜{selectedSlot.end}
+                </p>
+              </div>
+
+              <p className="text-[12px] text-slate-500 leading-relaxed">
+                予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。
+                予約確定後に問診フォームへ進み、診察前に必要事項のご入力をお願いいたします。
+              </p>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleBackToStep1}
+                  className="flex-1 h-11 rounded-2xl border border-slate-200 text-[13px] text-slate-700"
+                >
+                  戻る
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={booking}
+                  className={`
+                    flex-1 h-11 rounded-2xl text-[13px] font-semibold shadow-sm
+                    ${
+                      booking
+                        ? "bg-gray-400 text白 cursor-not-allowed"
+                        : "bg-blue-600 text-white active:scale-[0.98] active:bg-blue-700"
+                    }
+                  `}
+                >
+                  {booking ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      処理中…
+                    </div>
+                  ) : (
+                    "予約を確定して問診へ進む"
+                  )}
+                </button>
+              </div>
             </div>
           )}
-        </section>
-
-        {/* サポート */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5 mb-4">
-          <h2 className="text-sm font-semibold text-slate-800 mb-2">
-            お困りの方へ
-          </h2>
-          <p className="text-sm text-slate-600 mb-3">
-            予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。
-          </p>
-          <button
-            type="button"
-            onClick={handleContactSupport}
-            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text白 hover:bg-pink-600 transition"
-          >
-            LINEで問い合わせる
-          </button>
-          <p className="mt-2 text-[11px] text-slate-500">
-            ※ 診察中・夜間など、返信までお時間をいただく場合があります。
-          </p>
         </section>
       </main>
     </div>
   );
-}
+};
 
-// Suspense でラップした外側コンポーネント（useSearchParamsは内側だけ）
-export default function MyPagePage() {
+// 実際に Next.js にルートとして認識されるのはこれ
+export default function Page() {
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <p className="text-sm text-slate-500">読み込み中です…</p>
+          <p className="text-sm text-slate-500">予約ページを読み込み中です…</p>
         </div>
       }
     >
-      <PatientDashboardInner />
+      <ReserveInner />
     </Suspense>
   );
 }
