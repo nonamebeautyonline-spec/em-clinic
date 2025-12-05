@@ -17,6 +17,14 @@ type IntakeRequestBody = {
   customer_id?: string;
   customerId?: string;
   phone?: string;
+  // ★ ここから追加
+  name_kana?: string;
+  nameKana?: string;
+  tel?: string;
+  patient_id?: string;
+  patientId?: string;
+  answerer_id?: string;
+  answererId?: string;
   // 将来増えるかもしれない項目も許容
   [key: string]: any;
 };
@@ -47,7 +55,30 @@ export async function POST(req: Request) {
     const name = body.name ?? "";
     const sex = body.sex ?? "";
     const birth = body.birth ?? "";
-    const phone = body.phone ?? "";
+
+    // 電話は phone / tel どちらでもOK
+    const tel =
+      body.tel ??
+      body.phone ??
+      "";
+
+    // 氏名カナ
+    const name_kana =
+      body.name_kana ??
+      body.nameKana ??
+      "";
+
+    // Patient_ID
+    const patient_id =
+      body.patient_id ??
+      body.patientId ??
+      "";
+
+    // 回答者ID（Lステ回答フォーム側のID）
+    const answerer_id =
+      body.answerer_id ??
+      body.answererId ??
+      "";
 
     const submittedAt =
       body.submittedAt ?? new Date().toISOString();
@@ -62,7 +93,11 @@ export async function POST(req: Request) {
       sex,
       birth,
       line_id,
-      phone,
+      // ここから問診シート追加列用
+      name_kana,
+      tel,
+      patient_id,
+      answerer_id,
     };
 
     console.log("INTAKE payload to GAS:", payload);

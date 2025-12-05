@@ -10,8 +10,8 @@ type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed";
 
 interface PatientInfo {
-  id: string;
-  displayName: string;
+  id: string; // Patient ID をここに入れる
+  displayName: string; // 氏名
 }
 
 interface Reservation {
@@ -44,7 +44,7 @@ interface PatientDashboardData {
   history: PrescriptionHistoryItem[];
 }
 
-// Lステからクエリで渡ってくる項目
+// Lステ時代のクエリ（あれば fallback として使う）
 interface QueryPatientParams {
   customer_id?: string | null;
   name?: string | null;
@@ -217,13 +217,36 @@ function PatientDashboardInner() {
           }
         }
 
-        // ② 患者情報：クエリ > localStorage
+        // ② /api/mypage/profile から Patient ID / 氏名 を取得（LINEログイン＋link-patient 経由）
+        let profile: { patientId: string; name: string } | null = null;
+        try {
+          const profileRes = await fetch("/api/mypage/profile");
+          if (profileRes.ok) {
+            const p = await profileRes.json();
+            profile = {
+              patientId: p.patientId,
+              name: p.name,
+            };
+          }
+        } catch (e) {
+          console.warn("profile fetch error:", e);
+        }
+
+        // ③ 患者情報：profile > クエリ > localStorage
         const patient: PatientInfo = {
-          id: query.customer_id || storedBasic.customer_id || "unknown",
-          displayName: query.name || storedBasic.name || "ゲスト",
+          id:
+            profile?.patientId ||
+            query.customer_id ||
+            storedBasic.customer_id ||
+            "unknown",
+          displayName:
+            profile?.name ||
+            query.name ||
+            storedBasic.name ||
+            "ゲスト",
         };
 
-        // ③ localStorage ベースの nextReservation（あれば）
+        // ④ localStorage ベースの nextReservation（あれば）
         let nextReservation: Reservation | null = null;
         if (
           storedReservation &&
@@ -241,7 +264,7 @@ function PatientDashboardInner() {
           };
         }
 
-        // ④ ベースオブジェクト
+        // ⑤ ベースオブジェクト
         let finalData: PatientDashboardData = {
           patient,
           nextReservation,
@@ -249,7 +272,7 @@ function PatientDashboardInner() {
           history: [],
         };
 
-        // ⑤ サーバー API (/api/mypage) から上書き
+        // ⑥ サーバー API (/api/mypage) から上書き
         try {
           const res = await fetch("/api/mypage", {
             method: "POST",
@@ -285,17 +308,19 @@ function PatientDashboardInner() {
         setData(finalData);
         setError(null);
 
-        // ⑥ patient_basic を最新で保存
+        // ⑦ patient_basic を最新で保存（今後も fallback 用に保持）
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
             JSON.stringify({
               customer_id:
+                profile?.patientId ??
                 query.customer_id ??
                 storedBasic.customer_id ??
                 finalData.patient.id ??
                 "",
               name:
+                profile?.name ??
                 query.name ??
                 storedBasic.name ??
                 finalData.patient.displayName ??
@@ -329,11 +354,23 @@ function PatientDashboardInner() {
   const handleChangeReservation = () => {
     if (!data?.nextReservation) return;
 
+    const d = new Date(data.nextReservation.datetime);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+
+    const prevDate = `${yyyy}-${mm}-${dd}`;
+    const prevTime = `${hh}:${mi}`;
+
     const params = new URLSearchParams();
     params.set("edit", "1");
     params.set("reserveId", data.nextReservation.id);
     params.set("customer_id", data.patient.id);
     params.set("name", data.patient.displayName);
+    params.set("prevDate", prevDate);
+    params.set("prevTime", prevTime);
 
     router.push(`/reserve?${params.toString()}`);
   };
@@ -358,7 +395,9 @@ function PatientDashboardInner() {
       const result = await res.json().catch(() => ({} as any));
 
       if (!res.ok || result.ok === false) {
-        alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+        alert(
+          "キャンセルに失敗しました。時間をおいて再度お試しください。"
+        );
         return;
       }
 
@@ -416,7 +455,8 @@ function PatientDashboardInner() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow px-6 py-4 text-sm text-rose-600">
-          {error ?? "データが取得できませんでした。時間をおいて再度お試しください。"}
+          {error ??
+            "データが取得できませんでした。時間をおいて再度お試しください。"}
         </div>
       </div>
     );
@@ -494,25 +534,26 @@ function PatientDashboardInner() {
               <div className="text-sm font-semibold text-slate-800">
                 {patient.displayName} さん
               </div>
-              <div className="text-[11px] text-slate-500">ID: {patient.id}</div>
+              <div className="text-[11px] text-slate-500">
+                Patient ID: {patient.id}
+              </div>
             </div>
             <div className="w-9 h-9 rounded-full bg-slate-200" />
           </button>
         </div>
       </header>
 
-      {/* ▼ 上部の「予約する」ボタン（初診のみ表示） */}
+      {/* ▼ 上部の CTA：初回は「問診に進む」 */}
       {isFirstVisit && !nextReservation && (
         <div className="mx-auto max-w-4xl px-4 mt-3">
           <Link
-            href="/reserve"
+            href="/intake"
             className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
           >
-            初回診察の予約をする
+            問診に進む
           </Link>
           <p className="mt-1 text-[11px] text-slate-500">
-            ※ すでに一度でも診察を受けたことがある方は、マイページから新規予約はできません。
-            再処方をご希望の方はLINEのご案内からお進みください。
+            ※ 問診の入力が終わると、診察予約画面に進みます。
           </p>
         </div>
       )}
@@ -581,13 +622,13 @@ function PatientDashboardInner() {
                 <>
                   現在、予約はありません。
                   <br />
-                  画面上部の「初回診察の予約をする」ボタンから、初診のご予約が可能です。
+                  まずは「問診に進む」から問診を入力してください。
                 </>
               ) : (
                 <>
                   現在、予約はありません。
                   <br />
-                  再処方をご希望の方は、LINEのご案内からお手続きください。
+                  再診や再処方のご希望がある場合は、LINEのご案内からお手続きください。
                 </>
               )}
             </div>
@@ -727,16 +768,6 @@ function PatientDashboardInner() {
                       {item.title.includes("初回") && "（初回）"}
                     </div>
                   </div>
-
-                  {/* 再注文ボタン（今は未使用なのでコメントアウト）
-                  <button
-                    type="button"
-                    onClick={() => handleReorder(item)}
-                    className="text-[11px] text-pink-500 hover:underline"
-                  >
-                    同じ内容で再注文
-                  </button>
-                  */}
                 </div>
               ))}
             </div>

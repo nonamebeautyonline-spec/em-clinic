@@ -1,10 +1,15 @@
 // app/api/reservations/route.ts
 import { NextResponse } from "next/server";
 
-const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
+const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as
+  | string
+  | undefined;
 
-// GET /api/reservations?start=YYYY-MM-DD&end=YYYY-MM-DD
-// 予約枠のカウント用（listRange）
+// =============================
+// GET /api/reservations
+//   - ?start=YYYY-MM-DD&end=YYYY-MM-DD  → listRange
+//   - ?date=YYYY-MM-DD                  → listByDate（旧仕様）
+// =============================
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const start = searchParams.get("start");
@@ -21,7 +26,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // 旧：date 単独指定(listByDate)にも対応
+    // ▼ 単日指定（旧仕様）: type=listByDate
     if (date && !start && !end) {
       const gasRes = await fetch(GAS_RESERVATIONS_URL, {
         method: "POST",
@@ -62,7 +67,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ date, slots });
     }
 
-    // 新方式：start & end 必須（listRange）
+    // ▼ 範囲指定（新仕様）: type=listRange
     if (!start || !end) {
       return NextResponse.json(
         { error: "start and end are required" },
@@ -107,32 +112,36 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("GET /api/reservations error:", err);
-    return NextResponse.json(
-      { error: "server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "server error" }, { status: 500 });
   }
 }
 
+// =============================
 // POST /api/reservations
-// createReservation / cancelReservation などを GAS にそのまま中継
+//   - createReservation
+//   - cancelReservation
+//   - updateReservation   ← 今回これも含め全部そのままGASに中継
+// =============================
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+    const type = body?.type as string | undefined;
 
-    console.log("POST /api/reservations body:", body);
+    console.log("POST /api/reservations type:", type, "body:", body);
 
     if (!GAS_RESERVATIONS_URL) {
       console.warn(
         "GAS_RESERVATIONS_URL is not set. /api/reservations will return mock."
       );
+      // 開発時用モック
       return NextResponse.json({ ok: true, mock: true, body });
     }
 
+    // type は createReservation / cancelReservation / updateReservation など。
+    // ここでは判別せず、そのまま GAS に投げる。
     const gasRes = await fetch(GAS_RESERVATIONS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // type, reserveId, date, time, lineId, name などをそのまま渡す
       body: JSON.stringify(body),
     });
 
@@ -148,6 +157,10 @@ export async function POST(req: Request) {
 
     // GAS 側が { ok:false, error:"..." } を返してきた場合もここで検知
     if (!gasRes.ok || json.ok === false) {
+      console.error("GAS reservations error:", {
+        status: gasRes.status,
+        json,
+      });
       return NextResponse.json(
         {
           ok: false,
