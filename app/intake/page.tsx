@@ -260,40 +260,37 @@ export default function IntakePage() {
         }
 
         // ★ LINEログイン時にセットされている line_user_id クッキーを取得
-        let lineUserId = "";
-        if (typeof document !== "undefined") {
-          const cookieStr = document.cookie || "";
-          const found = cookieStr
-            .split("; ")
-            .find((c) => c.startsWith("line_user_id="));
-          if (found) {
-            lineUserId = decodeURIComponent(found.split("=")[1] || "");
-          }
-        }
+// LINEログインで付与された line_user_id を cookie から取得
+let lineUserId = "";
+if (typeof document !== "undefined") {
+  const cookieStr = document.cookie || "";
+  const found = cookieStr.split("; ").find((c) => c.startsWith("line_user_id="));
+  if (found) lineUserId = decodeURIComponent(found.split("=")[1] || "");
+}
 
-        // /api/intake に問診保存
-        const res = await fetch("/api/intake", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "intake",
-            reserveId: "", // まだ予約前なので空
+// /api/intake に問診保存
+const res = await fetch("/api/intake", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "intake",
+    reserveId: "", 
+    answers,
+    submittedAt: new Date().toISOString(),
 
-            answers,
-            submittedAt: new Date().toISOString(),
+    // ★ 個人情報
+    name: nm,
+    sex: sx,
+    birth: br,
+    name_kana: kn,
+    tel: ph,
+    patient_id: cid,
 
-            // ★ 個人情報（問診マスターと同じもの）
-            name: nm,
-            sex: sx,
-            birth: br,
-            name_kana: kn,
-            tel: ph,
-            patient_id: cid,      // ★ PID（問診マスターの Patient_ID）
+    // ★ LINE ID（これは絶対にPIDではない）
+    line_id: lineUserId,
+  }),
+});
 
-            // ★ LINE 情報
-            line_id: lineUserId,  // cookie の line_user_id
-          }),
-        });
 
         if (!res.ok) throw new Error("failed");
         const data = await res.json().catch(() => ({} as any));
