@@ -83,15 +83,7 @@ export default function DoctorPage() {
   const todayIso = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
-export default function DoctorPage() {
-  const [rows, setRows] = useState<IntakeRow[]>([]);
-  // 〜略〜
-
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
-
-  // ⭐ 追加：今日と週オフセット
-  const today = useMemo(() => new Date(), []);
+const today = useMemo(() => new Date(), []);
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = useMemo(() => {
     // weekOffset 週分ずらした「開始日」
