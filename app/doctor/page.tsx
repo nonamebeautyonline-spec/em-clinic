@@ -122,16 +122,6 @@ const today = useMemo(() => new Date(), []);
       });
   }, []);
 
-  const weekDates = (() => {
-    const base = new Date();
-    const res: string[] = [];
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      res.push(d.toISOString().slice(0, 10));
-    }
-    return res;
-  })();
 
   const handleOpenDetail = (row: IntakeRow) => {
     setSelected(row);
