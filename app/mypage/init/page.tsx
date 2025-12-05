@@ -3,6 +3,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+// app/mypage/page.tsx
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+export default async function MyPagePage() {
+  const cookieStore = cookies();
+  const lineUserId = cookieStore.get("line_user_id")?.value;
+
+  // ★ LINEログイン未完了 → LINEログインへ飛ばす（絶対必要）
+  if (!lineUserId) {
+    redirect("/api/line/login");
+  }
+
+  return (
+    <Suspense fallback={<div>読み込み中…</div>}>
+      <PatientDashboardInner />
+    </Suspense>
+  );
+}
+
 
 export default function MypageInit() {
   const router = useRouter();

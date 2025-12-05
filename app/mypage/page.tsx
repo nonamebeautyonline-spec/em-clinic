@@ -4,6 +4,25 @@ import React, { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+export default async function MyPagePage() {
+  const cookieStore = cookies();
+  const lineUserId = cookieStore.get("line_user_id")?.value;
+
+  // ★ LINEログイン未完了 → LINEログインへ飛ばす（絶対必要）
+  if (!lineUserId) {
+    redirect("/api/line/login");
+  }
+
+  return (
+    <Suspense fallback={<div>読み込み中…</div>}>
+      <PatientDashboardInner />
+    </Suspense>
+  );
+}
+
 
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
