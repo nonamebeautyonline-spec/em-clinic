@@ -120,7 +120,7 @@ export async function GET(req: Request) {
 // POST /api/reservations
 //   - createReservation
 //   - cancelReservation
-//   - updateReservation   ← 今回これも含め全部そのままGASに中継
+//   - updateReservation
 // =============================
 export async function POST(req: Request) {
   try {
@@ -155,23 +155,27 @@ export async function POST(req: Request) {
       json = {};
     }
 
-    // GAS 側が { ok:false, error:"..." } を返してきた場合もここで検知
-    if (!gasRes.ok || json.ok === false) {
-      console.error("GAS reservations error:", {
+    // ▼ ここが重要ポイント
+    // - GAS の HTTP ステータスが 2xx のときは、
+    //     json.ok が false（slot_full, already_reserved, ...）でも 200 でそのまま返す
+    // - GAS の HTTP ステータス自体がエラーのときだけ 500 扱いにする
+    if (!gasRes.ok) {
+      console.error("GAS reservations HTTP error:", {
         status: gasRes.status,
-        json,
+        text,
       });
       return NextResponse.json(
         {
           ok: false,
-          error: json.error ?? "GAS error",
+          error: "GAS error",
           detail: text,
         },
         { status: 500 }
       );
     }
 
-    // GAS が { ok:true, ... } を返す前提
+    // ここまで来たら GAS 自体は正常応答。
+    // { ok:true } でも { ok:false, error:"slot_full" } でもそのままフロントに返す。
     if (typeof json.ok === "boolean") {
       return NextResponse.json(json);
     } else {
