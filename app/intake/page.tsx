@@ -236,11 +236,11 @@ export default function IntakePage() {
       try {
         // 患者情報を localStorage から取得
         let cid = basic?.customer_id || "";
-        let nm = basic?.name || "";
-        let kn = basic?.kana || "";
-        let sx = basic?.sex || "";
-        let br = basic?.birth || "";
-        let ph = basic?.phone || "";
+        let nm  = basic?.name || "";
+        let kn  = basic?.kana || "";
+        let sx  = basic?.sex || "";
+        let br  = basic?.birth || "";
+        let ph  = basic?.phone || "";
 
         if (typeof window !== "undefined") {
           const raw = window.localStorage.getItem("patient_basic");
@@ -248,14 +248,26 @@ export default function IntakePage() {
             try {
               const s = JSON.parse(raw);
               cid = cid || s.customer_id || "";
-              nm = nm || s.name || "";
-              kn = kn || s.kana || "";
-              sx = sx || s.sex || "";
-              br = br || s.birth || "";
-              ph = ph || s.phone || "";
+              nm  = nm  || s.name        || "";
+              kn  = kn  || s.kana        || "";
+              sx  = sx  || s.sex         || "";
+              br  = br  || s.birth       || "";
+              ph  = ph  || s.phone       || "";
             } catch {
               // 無視
             }
+          }
+        }
+
+        // ★ LINEログイン時にセットされている line_user_id クッキーを取得
+        let lineUserId = "";
+        if (typeof document !== "undefined") {
+          const cookieStr = document.cookie || "";
+          const found = cookieStr
+            .split("; ")
+            .find((c) => c.startsWith("line_user_id="));
+          if (found) {
+            lineUserId = decodeURIComponent(found.split("=")[1] || "");
           }
         }
 
@@ -264,18 +276,28 @@ export default function IntakePage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            type: "intake",
             reserveId: "", // まだ予約前なので空
+
             answers,
             submittedAt: new Date().toISOString(),
+
+            // ★ 個人情報（問診マスターと同じもの）
             name: nm,
             sex: sx,
             birth: br,
-            line_id: cid,
-            phone: ph,
+            name_kana: kn,
+            tel: ph,
+            patient_id: cid,      // ★ PID（問診マスターの Patient_ID）
+
+            // ★ LINE 情報
+            line_id: lineUserId,  // cookie の line_user_id
           }),
         });
 
         if (!res.ok) throw new Error("failed");
+        const data = await res.json().catch(() => ({} as any));
+        if (!data.ok) throw new Error("failed");
 
         // 問診完了フラグ → 予約画面へ
         if (typeof window !== "undefined") {
@@ -291,6 +313,7 @@ export default function IntakePage() {
 
       return;
     }
+
 
     // 次の設問へ
     setCurrentIndex(nextIndex);
