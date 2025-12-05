@@ -259,44 +259,46 @@ export default function IntakePage() {
           }
         }
 
-        // ★ LINEログイン時にセットされている line_user_id クッキーを取得
-// LINEログインで付与された line_user_id を cookie から取得
-let lineUserId = "";
-if (typeof document !== "undefined") {
-  const cookieStr = document.cookie || "";
-  const found = cookieStr.split("; ").find((c) => c.startsWith("line_user_id="));
-  if (found) lineUserId = decodeURIComponent(found.split("=")[1] || "");
-}
+        // ★ LINEログインのline_user_idをcookieから取得
+        let lineUserId = "";
+        if (typeof document !== "undefined") {
+          const cookieStr = document.cookie || "";
+          const found = cookieStr
+            .split("; ")
+            .find((c) => c.startsWith("line_user_id="));
+          if (found) {
+            lineUserId = decodeURIComponent(found.split("=")[1] || "");
+          }
+        }
 
-// /api/intake に問診保存
-const res = await fetch("/api/intake", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "intake",
-    reserveId: "", 
-    answers,
-    submittedAt: new Date().toISOString(),
+        // /api/intake に問診保存
+        const res = await fetch("/api/intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "intake",
+            reserveId: "", // まだ予約前なので空
 
-    // ★ 個人情報
-    name: nm,
-    sex: sx,
-    birth: br,
-    name_kana: kn,
-    tel: ph,
-    patient_id: cid,
+            answers,
+            submittedAt: new Date().toISOString(),
 
-    // ★ LINE ID（これは絶対にPIDではない）
-    line_id: lineUserId,
-  }),
-});
+            // ★ ここから個人情報（問診マスターと共通）
+            name: nm,
+            sex: sx,
+            birth: br,
+            name_kana: kn,
+            tel: ph,
+            patient_id: cid,      // ← 問診マスターのPID
 
+            // ★ LINE 情報
+            line_id: lineUserId,  // ← LINE userId
+          }),
+        });
 
         if (!res.ok) throw new Error("failed");
         const data = await res.json().catch(() => ({} as any));
         if (!data.ok) throw new Error("failed");
 
-        // 問診完了フラグ → 予約画面へ
         if (typeof window !== "undefined") {
           window.localStorage.setItem("has_intake", "1");
         }
@@ -310,6 +312,7 @@ const res = await fetch("/api/intake", {
 
       return;
     }
+
 
 
     // 次の設問へ
