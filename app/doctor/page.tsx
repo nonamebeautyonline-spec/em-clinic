@@ -105,17 +105,16 @@ export default function DoctorPage() {
       });
   }, []);
 
-const weekDates = (() => {
-  const base = new Date();
-  const res: string[] = [];
-  for (let i = -3; i <= 3; i++) {
-    const d = new Date(base);
-    d.setDate(base.getDate() + i);
-    res.push(d.toISOString().slice(0, 10));
-  }
-  return res;
-})();
-
+  const weekDates = (() => {
+    const base = new Date();
+    const res: string[] = [];
+    for (let i = -3; i <= 3; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      res.push(d.toISOString().slice(0, 10));
+    }
+    return res;
+  })();
 
   const handleOpenDetail = (row: IntakeRow) => {
     setSelected(row);
@@ -279,7 +278,7 @@ const weekDates = (() => {
     return dateStr === selectedDate;
   });
 
-  // ステータス集計（選択日のみ）※Hookではなく普通の計算にする
+  // ステータス集計（選択日のみ）
   const stats = (() => {
     let pending = 0;
     let ok = 0;
@@ -302,7 +301,6 @@ const weekDates = (() => {
     if (statusFilter === "ng") return s === "NG";
     return true;
   });
-
 
   const formatWeekLabel = (iso: string) => {
     const d = new Date(iso);
@@ -467,6 +465,7 @@ const weekDates = (() => {
 
         {visibleRows.map((row, idx) => {
           const name = pick(row, ["name", "氏名", "お名前"]);
+          const kana = pick(row, ["kana", "カナ", "ﾌﾘｶﾞﾅ", "フリガナ", "ふりがな"]);
           const sex = pick(row, ["sex", "gender", "性別"]);
           const birth = pick(row, ["birth", "birthday", "生年月日"]);
           const age = parseDateToAge(birth);
@@ -512,7 +511,7 @@ const weekDates = (() => {
                 ${currentSlot ? "border-l-4 border-l-red-500" : ""}
               `}
             >
-              <div className="flex items-start justify_between">
+              <div className="flex items-start justify-between">
                 <div
                   className="flex-1 cursor-pointer"
                   onClick={() => handleOpenDetail(row)}
@@ -527,6 +526,9 @@ const weekDates = (() => {
                   <div className="text-base font-semibold">
                     {name || "氏名無し"}
                   </div>
+                  {kana && (
+                    <div className="text-xs text-slate-500 mt-0.5">{kana}</div>
+                  )}
                   <div className="text-xs text-slate-500 mt-1 space-x-2">
                     {sex && <span>{sex}</span>}
                     {birth && <span>{birth}</span>}
@@ -664,6 +666,19 @@ const weekDates = (() => {
               {/* 基本情報 */}
               <div className="text-xs space-y-1">
                 <div>
+                  氏名: {pick(selected, ["name", "氏名", "お名前"])}
+                </div>
+                <div>
+                  カナ:{" "}
+                  {pick(selected, [
+                    "kana",
+                    "カナ",
+                    "ﾌﾘｶﾞﾅ",
+                    "フリガナ",
+                    "ふりがな",
+                  ])}
+                </div>
+                <div>
                   性別: {pick(selected, ["sex", "gender", "性別"])}
                 </div>
                 <div>
@@ -673,8 +688,17 @@ const weekDates = (() => {
                     pick(selected, ["birth", "birthday", "生年月日"])
                   )}
                 </div>
+                <div>
+                  電話番号:{" "}
+                  {pick(selected, ["phone", "tel", "電話番号", "TEL"])}
+                </div>
+                <div>
+                  answerer_id:{" "}
+                  {pick(selected, ["answerer_id", "answererId"])}
+                </div>
                 <div>reserveId: {pickReserveId(selected)}</div>
               </div>
+
               {/* 問診詳細 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div>
