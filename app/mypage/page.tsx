@@ -192,8 +192,16 @@ useEffect(() => {
   const init = async () => {
     setLoading(true);
 
+    // 最低限のデフォルトデータ（何かあってもこれには落とす）
+    let finalData: PatientDashboardData = {
+      patient: { id: "unknown", displayName: "ゲスト" },
+      nextReservation: null,
+      activeOrders: [],
+      history: [],
+    };
+
     try {
-      // ① localStorage 読み込み（今のコードのままでOK）
+      // ① localStorage を読む
       let storedBasic: any = {};
       let storedReservation: any = null;
 
@@ -223,7 +231,7 @@ useEffect(() => {
         const profileRes = await fetch("/api/mypage/profile");
 
         if (profileRes.status === 401) {
-          // ★★ まだ患者紐付けされてない → /mypage/init へ
+          // ★ まだ patient_id が紐付いていない → /mypage/init へ
           setLoading(false);
           router.push("/mypage/init");
           return;
@@ -238,7 +246,6 @@ useEffect(() => {
         }
       } catch (e) {
         console.warn("profile fetch error:", e);
-        // profile なしのまま fallback させる
       }
 
       // ③ 患者情報：profile > クエリ > localStorage
@@ -255,13 +262,90 @@ useEffect(() => {
           "ゲスト",
       };
 
-      // ④ 以下は今のコードと同じでOK（予約・履歴取得など）
-      // ...
-      // finalData を作って setData(finalData)
-      // patient_basic を localStorage に保存、など
+      // ④ 予約（localStorage ベース）
+      let nextReservation: Reservation | null = null;
+      if (
+        storedReservation &&
+        storedReservation.date &&
+        storedReservation.start
+      ) {
+        const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+        nextReservation = {
+          id:
+            storedReservation.reserveId ||
+            `local-${storedReservation.date}-${storedReservation.start}`,
+          datetime: iso,
+          title: storedReservation.title || "オンライン診察予約",
+          status: "scheduled",
+        };
+      }
 
-      // （今のあなたのコードの続きをそのままここに残してOK）
+      finalData = {
+        patient,
+        nextReservation,
+        activeOrders: [],
+        history: [],
+      };
 
+      // ⑤ /api/mypage から予約・履歴を上書き（あれば）
+      try {
+        const res = await fetch("/api/mypage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer_id: patient.id,
+            name: patient.displayName,
+          }),
+        });
+
+        if (res.ok) {
+          const api = (await res.json()) as Partial<PatientDashboardData> & {
+            patient?: PatientInfo;
+          };
+
+          finalData = {
+            patient: {
+              id: api.patient?.id || patient.id,
+              displayName: api.patient?.displayName || patient.displayName,
+            },
+            nextReservation: api.nextReservation ?? nextReservation,
+            activeOrders: api.activeOrders ?? [],
+            history: api.history ?? [],
+          };
+        } else {
+          console.error("api/mypage response not ok:", res.status);
+        }
+      } catch (err) {
+        console.error("api/mypage fetch error:", err);
+      }
+
+      setData(finalData);
+      setError(null);
+
+      // ⑥ fallback 用に patient_basic を保存
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "patient_basic",
+          JSON.stringify({
+            customer_id:
+              profile?.patientId ??
+              query.customer_id ??
+              storedBasic.customer_id ??
+              finalData.patient.id ??
+              "",
+            name:
+              profile?.name ??
+              query.name ??
+              storedBasic.name ??
+              finalData.patient.displayName ??
+              "",
+            kana: storedBasic.kana ?? "",
+            sex: storedBasic.sex ?? "",
+            birth: storedBasic.birth ?? "",
+            phone: storedBasic.phone ?? "",
+          })
+        );
+      }
     } catch (e) {
       console.error(e);
       setError("データの取得に失敗しました。");
@@ -279,7 +363,6 @@ useEffect(() => {
   query.birth,
   query.phone,
 ]);
-
 
 
   // ▼ 日時を変更する
