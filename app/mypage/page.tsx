@@ -193,7 +193,7 @@ useEffect(() => {
     setLoading(true);
 
     try {
-      // ① localStorage 読み込みはそのまま
+      // ① localStorage 読み込み（今のコードのままでOK）
       let storedBasic: any = {};
       let storedReservation: any = null;
 
@@ -221,20 +221,24 @@ useEffect(() => {
       let profile: { patientId: string; name: string } | null = null;
       try {
         const profileRes = await fetch("/api/mypage/profile");
+
+        if (profileRes.status === 401) {
+          // ★★ まだ患者紐付けされてない → /mypage/init へ
+          setLoading(false);
+          router.push("/mypage/init");
+          return;
+        }
+
         if (profileRes.ok) {
           const p = await profileRes.json();
           profile = {
             patientId: p.patientId,
             name: p.name,
           };
-        } else if (profileRes.status === 401) {
-          // ▶ 最初にここへ来た人（patient_id 未紐付け）は /mypage/init へ誘導
-          setLoading(false);
-          router.push("/mypage/init");
-          return;
         }
       } catch (e) {
         console.warn("profile fetch error:", e);
+        // profile なしのまま fallback させる
       }
 
       // ③ 患者情報：profile > クエリ > localStorage
@@ -251,10 +255,12 @@ useEffect(() => {
           "ゲスト",
       };
 
-      // ④ 予約 / 履歴などは今まで通り
-      //   （中略：あなたの元コードの storedReservation / /api/mypage 部分はそのまま）
+      // ④ 以下は今のコードと同じでOK（予約・履歴取得など）
+      // ...
+      // finalData を作って setData(finalData)
+      // patient_basic を localStorage に保存、など
 
-      // ……（ここは元のコードそのままでOK）……
+      // （今のあなたのコードの続きをそのままここに残してOK）
 
     } catch (e) {
       console.error(e);
@@ -273,6 +279,7 @@ useEffect(() => {
   query.birth,
   query.phone,
 ]);
+
 
 
   // ▼ 日時を変更する
