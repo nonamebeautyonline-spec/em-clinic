@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import PatientDashboardInner from "./PatientDashboardInner";
 
-export default function MyPagePage() {
-  const cookieStore = cookies();
+export default async function MyPagePage() {
+  // ★ cookies() を await する（ここがポイント）
+  const cookieStore = await cookies();
   const lineUserId = cookieStore.get("line_user_id")?.value;
 
   // LINEログイン未完了 → LINEログインへ飛ばす
