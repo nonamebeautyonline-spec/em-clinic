@@ -5,9 +5,15 @@ import { NextResponse } from "next/server";
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
 
 type IntakeRequestBody = {
-  reserveId: string;
+  // ✅ 問診→予約フローに対応するため reserveId は任意
+  reserveId?: string;
+
+  // ✅ 問診1件を一意に識別するID（無ければサーバ側で発行）
+  intakeId?: string;
+
   answers: Record<string, string>;
-  submittedAt: string;
+  submittedAt?: string;
+
   // 患者情報（あれば）
   name?: string;
   sex?: string;
@@ -36,13 +42,18 @@ export async function POST(req: Request) {
 
     // ------- 1. 受け取ったデータの整理 -------
 
-    // 必須チェック（reserveId と answers だけは最低限）
-    if (!body.reserveId || !body.answers) {
+    // ✅ 必須チェックは answers だけにする
+    if (!body.answers || typeof body.answers !== "object") {
       return NextResponse.json(
-        { ok: false, error: "missing reserveId or answers" },
+        { ok: false, error: "missing answers" },
         { status: 400 }
       );
     }
+
+    // ✅ intakeId がなければサーバ側で自動発行
+    const intakeId =
+      body.intakeId ??
+      `intake-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     // line_id をなるべく埋める
     const line_id =
@@ -57,36 +68,25 @@ export async function POST(req: Request) {
     const birth = body.birth ?? "";
 
     // 電話は phone / tel どちらでもOK
-    const tel =
-      body.tel ??
-      body.phone ??
-      "";
+    const tel = body.tel ?? body.phone ?? "";
 
     // 氏名カナ
-    const name_kana =
-      body.name_kana ??
-      body.nameKana ??
-      "";
+    const name_kana = body.name_kana ?? body.nameKana ?? "";
 
     // Patient_ID
-    const patient_id =
-      body.patient_id ??
-      body.patientId ??
-      "";
+    const patient_id = body.patient_id ?? body.patientId ?? "";
 
     // 回答者ID（Lステ回答フォーム側のID）
-    const answerer_id =
-      body.answerer_id ??
-      body.answererId ??
-      "";
+    const answerer_id = body.answerer_id ?? body.answererId ?? "";
 
-    const submittedAt =
-      body.submittedAt ?? new Date().toISOString();
+    const submittedAt = body.submittedAt ?? new Date().toISOString();
 
     // GAS に渡すペイロード（ここで何を送るかが問診シートの列になる）
     const payload = {
-      type: body.type ?? "intake",
-      reserveId: body.reserveId,
+      type: (body as any).type ?? "intake",
+      // ✅ 予約前でも動くように reserveId が無ければ空文字
+      reserveId: body.reserveId ?? "",
+      intakeId, // ✅ 追加
       answers: body.answers,
       submittedAt,
       name,
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       console.warn(
         "GAS_INTAKE_URL is not set. /api/intake will return mock success."
       );
-      return NextResponse.json({ ok: true, mock: true, payload });
+      return NextResponse.json({ ok: true, mock: true, payload, intakeId });
     }
 
     // ------- 3. GAS Web アプリを呼び出す -------
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
 
     // ------- 4. 正常終了 -------
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, intakeId });
   } catch (err) {
     console.error("INTAKE API error:", err);
     return NextResponse.json(
