@@ -1,4 +1,3 @@
-// app/mypage/PatientDashboardInner.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -189,6 +188,7 @@ export default function PatientDashboardInner() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [hasIntake, setHasIntake] = useState(false); // 問診済みフラグ
 
   useEffect(() => {
     const init = async () => {
@@ -300,7 +300,8 @@ export default function PatientDashboardInner() {
             finalData = {
               patient: {
                 id: api.patient?.id || patient.id,
-                displayName: api.patient?.displayName || patient.displayName,
+                displayName:
+                  api.patient?.displayName || patient.displayName,
               },
               nextReservation: api.nextReservation ?? nextReservation,
               activeOrders: api.activeOrders ?? [],
@@ -316,6 +317,7 @@ export default function PatientDashboardInner() {
         setData(finalData);
         setError(null);
 
+        // ★ 問診完了フラグ更新
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
@@ -337,6 +339,14 @@ export default function PatientDashboardInner() {
               birth: storedBasic.birth ?? "",
               phone: storedBasic.phone ?? "",
             })
+          );
+
+          const localHasIntake =
+            window.localStorage.getItem("has_intake") === "1";
+
+          setHasIntake(
+            localHasIntake ||
+              (finalData.history && finalData.history.length > 0)
           );
         }
       } catch (e) {
@@ -406,7 +416,6 @@ export default function PatientDashboardInner() {
         return;
       }
 
-      // 次回予約をクリア
       setData((prev) =>
         prev
           ? {
@@ -543,9 +552,10 @@ export default function PatientDashboardInner() {
         </div>
       </header>
 
-      {/* ▼ 上部の CTA：初回は「問診に進む」 */}
-      {isFirstVisit && !nextReservation && (
-        <div className="mx-auto max-w-4xl px-4 mt-3">
+      {/* ▼ 上部の CTA：問診 → 予約 */}
+      {!nextReservation && (
+        <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
+          {/* ①問診に進む */}
           <Link
             href="/intake"
             className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
@@ -555,6 +565,29 @@ export default function PatientDashboardInner() {
           <p className="mt-1 text-[11px] text-slate-500">
             ※ 問診の入力が終わると、診察予約画面に進みます。
           </p>
+
+          {/* ②予約に進む（問診が終わるまでグレーアウト） */}
+          <button
+            type="button"
+            disabled={!hasIntake}
+            onClick={() => {
+              if (!hasIntake) return;
+              router.push("/reserve");
+            }}
+            className={
+              "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
+              (hasIntake
+                ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+            }
+          >
+            予約に進む
+          </button>
+          {!hasIntake && (
+            <p className="text-[11px] text-slate-500">
+              ※ 先に「問診に進む」から問診を入力してください。
+            </p>
+          )}
         </div>
       )}
 
@@ -563,9 +596,7 @@ export default function PatientDashboardInner() {
         {/* 次回予約 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">
-              次回のご予約
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-800">次回のご予約</h2>
             {nextReservation && (
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${reservationStatusBadgeClass(
@@ -693,9 +724,7 @@ export default function PatientDashboardInner() {
                     {order.trackingNumber && (
                       <button
                         type="button"
-                        onClick={() =>
-                          handleOpenTracking(order.trackingNumber)
-                        }
+                        onClick={() => handleOpenTracking(order.trackingNumber)}
                         className="w-full md:w-[160px] h-11 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg白 text-[13px] font-medium text-slate-700 active:scale-[0.98]"
                       >
                         配送状況を確認
