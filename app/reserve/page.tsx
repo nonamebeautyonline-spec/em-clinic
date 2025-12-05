@@ -293,95 +293,36 @@ const ReserveInner: React.FC = () => {
     setStep(1);
   };
 
-  const handleConfirm = async () => {
-    if (!selectedSlot) return;
-    if (booking) return;
+const handleConfirm = async () => {
+  if (!selectedSlot) return;
+  if (booking) return;
 
-    const { lineId, name, kana, sex, birth, phone } = patientInfo;
+  const { lineId, name, kana, sex, birth, phone } = patientInfo;
 
-    setBooking(true);
+  setBooking(true);
 
-    try {
-      // ★ 編集モード：予約の日時だけ更新（問診はそのまま）
-      if (isEdit && editingReserveId) {
-        const res = await fetch("/api/reservations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "updateReservation",
-            reserveId: editingReserveId,
-            date: selectedDateKey,
-            time: selectedSlot.start,
-          }),
-        });
-
-        const data = (await res.json().catch(() => ({}))) as any;
-
-        if (!res.ok || !data.ok) {
-          alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
-          return;
-        }
-
-        const reserveId = editingReserveId;
-
-        setShowSuccess(true);
-
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "last_reservation",
-            JSON.stringify({
-              reserveId,
-              date: selectedDateKey,
-              start: selectedSlot.start,
-              end: selectedSlot.end,
-              title: "オンライン診察予約",
-            })
-          );
-        }
-
-        // ✔ 問診には飛ばさず、そのままマイページに戻る
-        const params = new URLSearchParams();
-        if (lineId) params.set("customer_id", lineId);
-        if (name) params.set("name", name);
-
-        setTimeout(() => {
-          setShowSuccess(false);
-          router.push(`/mypage?${params.toString()}`);
-        }, 1000);
-
-        return;
-      }
-
-      // ▼ 新規予約（従来どおり：問診フォームへ進む）
+  try {
+    // ★ 編集モード：予約の日時だけ更新（問診はそのまま）
+    if (isEdit && editingReserveId) {
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "createReservation",
+          type: "updateReservation",
+          reserveId: editingReserveId,
           date: selectedDateKey,
           time: selectedSlot.start,
-          lineId,
-          name,
         }),
       });
 
       const data = (await res.json().catch(() => ({}))) as any;
 
       if (!res.ok || !data.ok) {
-        if (data.error === "slot_full") {
-          alert(
-            "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
-          );
-          setStep(1);
-        } else {
-          alert(
-            "予約確定に失敗しました。時間をおいて再度お試しください。"
-          );
-        }
+        alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
         return;
       }
 
-      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+      const reserveId = editingReserveId;
 
       setShowSuccess(true);
 
@@ -398,27 +339,83 @@ const ReserveInner: React.FC = () => {
         );
       }
 
-      // ✔ 新規予約はこれまで通り、問診へ遷移
+      // ✔ 問診には飛ばさず、そのままマイページに戻る
       const params = new URLSearchParams();
-      params.set("reserveId", reserveId);
       if (lineId) params.set("customer_id", lineId);
       if (name) params.set("name", name);
-      if (kana) params.set("kana", kana);
-      if (sex) params.set("sex", sex);
-      if (birth) params.set("birth", birth);
-      if (phone) params.set("phone", phone);
 
       setTimeout(() => {
         setShowSuccess(false);
-        router.push(`/questionnaire?${params.toString()}`);
+        router.push(`/mypage?${params.toString()}`);
       }, 1000);
-    } catch (e) {
-      console.error(e);
-      alert("予約確定に失敗しました。再度お試しください。");
-    } finally {
-      setBooking(false);
+
+      return;
     }
-  };
+
+    // ▼ 新規予約
+    const res = await fetch("/api/reservations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "createReservation",
+        date: selectedDateKey,
+        time: selectedSlot.start,
+        lineId,
+        name,
+      }),
+    });
+
+    const data = (await res.json().catch(() => ({}))) as any;
+
+    if (!res.ok || !data.ok) {
+      if (data.error === "slot_full") {
+        alert(
+          "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
+        );
+        setStep(1);
+      } else {
+        alert(
+          "予約確定に失敗しました。時間をおいて再度お試しください。"
+        );
+      }
+      return;
+    }
+
+    const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+
+    setShowSuccess(true);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        "last_reservation",
+        JSON.stringify({
+          reserveId,
+          date: selectedDateKey,
+          start: selectedSlot.start,
+          end: selectedSlot.end,
+          title: "オンライン診察予約",
+        })
+      );
+    }
+
+    // ✅ 新規予約もマイページへ戻す（問診には行かない）
+    const params = new URLSearchParams();
+    if (lineId) params.set("customer_id", lineId);
+    if (name) params.set("name", name);
+    // kana / sex / birth / phone は今のマイページでは使ってないので省略でOK
+
+    setTimeout(() => {
+      setShowSuccess(false);
+      router.push(`/mypage?${params.toString()}`);
+    }, 1000);
+  } catch (e) {
+    console.error(e);
+    alert("予約確定に失敗しました。再度お試しください。");
+  } finally {
+    setBooking(false);
+  }
+};
+
 
   const disabledPrevWeek = weekOffset <= 0;
 
@@ -758,7 +755,7 @@ const ReserveInner: React.FC = () => {
                   ) : isEdit ? (
                     "予約を確定する"
                   ) : (
-                    "予約を確定して問診へ進む"
+                    "予約確定する"
                   )}
                 </button>
               </div>
