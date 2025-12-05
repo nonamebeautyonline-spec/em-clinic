@@ -2,71 +2,94 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { birth, tel } = await req.json();
+  try {
+    const { birth, tel } = await req.json();
 
-  const lineUserId = req.cookies.get("line_user_id")?.value;
-  if (!lineUserId) {
-    return NextResponse.json(
-      { message: "LINEログイン情報がありません" },
-      { status: 401 }
-    );
-  }
+    // LINEログイン情報（line_user_id）は cookie から取る
+    const lineUserId = req.cookies.get("line_user_id")?.value;
+    if (!lineUserId) {
+      return NextResponse.json(
+        { ok: false, message: "LINEログイン情報がありません" },
+        { status: 401 }
+      );
+    }
 
-  const GAS_URL = process.env.GAS_PATIENT_LINK_URL!;
-  if (!GAS_URL) {
-    return NextResponse.json(
-      { message: "GAS_PATIENT_LINK_URL が未設定です" },
-      { status: 500 }
-    );
-  }
+    if (!birth || !tel) {
+      return NextResponse.json(
+        { ok: false, message: "生年月日と電話番号は必須です" },
+        { status: 400 }
+      );
+    }
 
-  // GAS WebApp に birth / tel / line_user_id を渡す
-  const gasRes = await fetch(GAS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ birth, tel, line_user_id: lineUserId }),
-  });
+    const GAS_URL = process.env.GAS_PATIENT_LINK_URL;
+    if (!GAS_URL) {
+      return NextResponse.json(
+        { ok: false, message: "GAS_PATIENT_LINK_URL が未設定です" },
+        { status: 500 }
+      );
+    }
 
-  const data = await gasRes.json().catch(() => ({}));
+    // GAS（問診マスター側 WebApp）に照合を依頼
+    const payload = {
+      type: "patient_link",
+      birth,
+      tel,
+      line_user_id: lineUserId,
+    };
 
-  if (!data.ok) {
-    return NextResponse.json(
-      { message: "照合できませんでした" },
-      { status: 404 }
-    );
-  }
+    const gasRes = await fetch(GAS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  const patientId = data.patient_id as string | undefined;
-  const name = data.name as string | undefined;
+    const data = await gasRes.json().catch(() => ({}));
 
-  if (!patientId) {
-    return NextResponse.json(
-      { message: "患者IDの取得に失敗しました" },
-      { status: 500 }
-    );
-  }
+    if (!gasRes.ok || data.ok === false) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: data.message || "照合できませんでした",
+        },
+        { status: 404 }
+      );
+    }
 
-  const res = NextResponse.json({ ok: true, patientId, name });
+    const patientId = data.patient_id as string | undefined;
+    const name = data.name as string | undefined;
 
-  // 患者IDはサーバー側用
-  res.cookies.set("patient_id", patientId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30日
-  });
+    if (!patientId || !name) {
+      return NextResponse.json(
+        { ok: false, message: "患者IDまたは氏名の取得に失敗しました" },
+        { status: 500 }
+      );
+    }
 
-  // 氏名は画面表示用
-  if (name) {
+    // cookie に保存（patient_id は httpOnly、name は表示用）
+    const res = NextResponse.json({ ok: true });
+
+    res.cookies.set("patient_id", patientId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30日
+    });
+
     res.cookies.set("patient_name", name, {
-      httpOnly: false,
+      httpOnly: false, // UIで読めるようにする
       secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
-  }
 
-  return res;
+    return res;
+  } catch (err) {
+    console.error("link-patient error:", err);
+    return NextResponse.json(
+      { ok: false, message: "サーバーエラーが発生しました" },
+      { status: 500 }
+    );
+  }
 }
