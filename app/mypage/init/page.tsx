@@ -3,26 +3,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-// app/mypage/page.tsx
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-
-export default async function MyPagePage() {
-  const cookieStore = cookies();
-  const lineUserId = cookieStore.get("line_user_id")?.value;
-
-  // ★ LINEログイン未完了 → LINEログインへ飛ばす（絶対必要）
-  if (!lineUserId) {
-    redirect("/api/line/login");
-  }
-
-  return (
-    <Suspense fallback={<div>読み込み中…</div>}>
-      <PatientDashboardInner />
-    </Suspense>
-  );
-}
-
 
 export default function MypageInit() {
   const router = useRouter();
@@ -46,7 +26,9 @@ export default function MypageInit() {
       router.push("/mypage"); // 紐付け成功後のマイページ
     } else {
       const data = await res.json().catch(() => ({}));
-      setError(data.message || "照合に失敗しました。入力内容をご確認ください。");
+      setError(
+        data.message || "照合に失敗しました。入力内容をご確認ください。"
+      );
     }
     setLoading(false);
   };
@@ -69,7 +51,9 @@ export default function MypageInit() {
           />
         </div>
         <div>
-          <label className="block text-sm mb-1">電話番号（ハイフンなし）</label>
+          <label className="block text-sm mb-1">
+            電話番号（ハイフンなし）
+          </label>
           <input
             type="tel"
             value={tel}
