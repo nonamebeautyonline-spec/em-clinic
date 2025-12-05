@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 type IntakeRow = { [key: string]: any };
 
@@ -83,7 +83,32 @@ export default function DoctorPage() {
   const todayIso = new Date().toISOString().slice(0, 10);
 
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
+export default function DoctorPage() {
+  const [rows, setRows] = useState<IntakeRow[]>([]);
+  // 〜略〜
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState<string>(todayIso);
+
+  // ⭐ 追加：今日と週オフセット
+  const today = useMemo(() => new Date(), []);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDates = useMemo(() => {
+    // weekOffset 週分ずらした「開始日」
+    const start = new Date(today);
+    start.setDate(today.getDate() + weekOffset * 7);
+
+    const res: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      res.push(d.toISOString().slice(0, 10));
+    }
+    return res;
+  }, [today, weekOffset]);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+
 
   useEffect(() => {
     fetch("/api/intake/list")
@@ -386,26 +411,64 @@ export default function DoctorPage() {
     <div className="max-w-4xl mx-auto p-4 space-y-4">
       <h1 className="text-xl font-bold mb-2">診察一覧</h1>
 
-      {/* 1週間分の日付タブ */}
-      <div className="flex gap-2 mb-1 overflow-x-auto text-xs">
-        {weekDates.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setSelectedDate(d)}
-            className={`
-              px-3 py-1.5 rounded-full border whitespace-nowrap
-              ${
-                selectedDate === d
-                  ? "bg-pink-500 text-white border-pink-500"
-                  : "bg-white text-slate-700 border-slate-300"
-              }
-            `}
-          >
-            {formatWeekLabel(d)}
-          </button>
-        ))}
+      {/* 1週間分の日付タブ ＋ 週送り */}
+      <div className="flex items-center gap-2 mb-1 text-xs">
+        {/* ◀ 前の1週間 */}
+        <button
+          type="button"
+          onClick={() => {
+            setWeekOffset((prev) => {
+              const next = prev - 1;
+              const start = new Date(today);
+              start.setDate(today.getDate() + next * 7);
+              setSelectedDate(start.toISOString().slice(0, 10));
+              return next;
+            });
+          }}
+          className="px-2 py-1 rounded-full border bg-white text-slate-600 border-slate-300"
+        >
+          ◀
+        </button>
+
+        {/* 日付タブ本体 */}
+        <div className="flex gap-2 overflow-x-auto">
+          {weekDates.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setSelectedDate(d)}
+              className={`
+                px-3 py-1.5 rounded-full border whitespace-nowrap
+                ${
+                  selectedDate === d
+                    ? "bg-pink-500 text-white border-pink-500"
+                    : "bg-white text-slate-700 border-slate-300"
+                }
+              `}
+            >
+              {formatWeekLabel(d)}
+            </button>
+          ))}
+        </div>
+
+        {/* ▶ 次の1週間 */}
+        <button
+          type="button"
+          onClick={() => {
+            setWeekOffset((prev) => {
+              const next = prev + 1;
+              const start = new Date(today);
+              start.setDate(today.getDate() + next * 7);
+              setSelectedDate(start.toISOString().slice(0, 10));
+              return next;
+            });
+          }}
+          className="px-2 py-1 rounded-full border bg-white text-slate-600 border-slate-300"
+        >
+          ▶
+        </button>
       </div>
+
 
       {/* ステータスフィルタ＆サマリー */}
       <div className="flex items-center justify-between gap-2 text-[11px]">
