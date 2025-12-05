@@ -343,12 +343,17 @@ export default function PatientDashboardInner() {
 
           const localHasIntake =
             window.localStorage.getItem("has_intake") === "1";
+          const historyHasIntake =
+            finalData.history && finalData.history.length > 0;
 
-          setHasIntake(
-            localHasIntake ||
-              (finalData.history && finalData.history.length > 0)
-          );
+          // 一度でも問診歴があれば永続的にフラグON
+          if (historyHasIntake) {
+            window.localStorage.setItem("has_intake", "1");
+          }
+
+          setHasIntake(localHasIntake || historyHasIntake);
         }
+
       } catch (e) {
         console.error(e);
         setError("データの取得に失敗しました。");
@@ -555,18 +560,37 @@ export default function PatientDashboardInner() {
       {/* ▼ 上部の CTA：問診 → 予約 */}
       {!nextReservation && (
         <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
-          {/* ①問診に進む */}
-          <Link
-            href="/intake"
-            className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
-          >
-            問診に進む
-          </Link>
-          <p className="mt-1 text-[11px] text-slate-500">
-            ※ 問診の入力が終わると、診察予約画面に進みます。
-          </p>
+          {/* ①問診ボタン */}
+          {hasIntake ? (
+            <>
+              {/* 問診済みならグレーアウトして押せない */}
+              <button
+                type="button"
+                disabled
+                className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
+              >
+                問診はすでに完了しています
+              </button>
+              <p className="mt-1 text-[11px] text-slate-500">
+                問診の入力は不要です。このまま予約にお進みください。
+              </p>
+            </>
+          ) : (
+            <>
+              {/* まだ問診していない人用 */}
+              <Link
+                href="/intake"
+                className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
+              >
+                問診に進む
+              </Link>
+              <p className="mt-1 text-[11px] text-slate-500">
+                ※ 問診の入力が終わると、診察予約画面に進みます。
+              </p>
+            </>
+          )}
 
-          {/* ②予約に進む（問診が終わるまでグレーアウト） */}
+          {/* ②予約に進む */}
           <button
             type="button"
             disabled={!hasIntake}
@@ -583,6 +607,7 @@ export default function PatientDashboardInner() {
           >
             予約に進む
           </button>
+
           {!hasIntake && (
             <p className="text-[11px] text-slate-500">
               ※ 先に「問診に進む」から問診を入力してください。
@@ -590,6 +615,7 @@ export default function PatientDashboardInner() {
           )}
         </div>
       )}
+
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
