@@ -17,6 +17,37 @@ function parseDateToAge(birth: string | undefined): string {
   return `${age}歳`;
 }
 
+// 生年月日表示用 "1995/12/27" 形式にそろえる
+function formatBirthDisplay(raw: string | undefined): string {
+  if (!raw) return "";
+  const s = `${raw}`.trim();
+  if (!s) return "";
+
+  // Dateとして解釈できれば JST でフォーマット
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  }
+
+  // ダメなときは区切りだけ / に寄せて日付部分だけ返す
+  return s.replace(/\./g, "/").replace(/-/g, "/").split("T")[0];
+}
+
+// 電話番号表示用：数字だけにして先頭0を保証
+function formatTelDisplay(raw: string | undefined): string {
+  if (!raw) return "";
+  const digits = `${raw}`.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  if (digits[0] !== "0") {
+    return "0" + digits;
+  }
+  return digits;
+}
+
 function pick(row: IntakeRow, keys: string[]): string {
   for (const k of keys) {
     if (row[k] != null && row[k] !== "") return String(row[k]);
@@ -509,11 +540,21 @@ const today = useMemo(() => new Date(), []);
         )}
 
         {visibleRows.map((row, idx) => {
-          const name = pick(row, ["name", "氏名", "お名前"]);
-          const kana = pick(row, ["kana", "カナ", "ﾌﾘｶﾞﾅ", "フリガナ", "ふりがな"]);
-          const sex = pick(row, ["sex", "gender", "性別"]);
-          const birth = pick(row, ["birth", "birthday", "生年月日"]);
-          const age = parseDateToAge(birth);
+const name = pick(row, ["name", "氏名", "お名前"]);
+const kana = pick(row, [
+  "name_kana",
+  "nameKana",
+  "kana",
+  "カナ",
+  "ﾌﾘｶﾞﾅ",
+  "フリガナ",
+  "ふりがな",
+]);
+const sex = pick(row, ["sex", "gender", "性別"]);
+const rawBirth = pick(row, ["birth", "birthday", "生年月日"]);
+const birth = formatBirthDisplay(rawBirth);
+const age = parseDateToAge(rawBirth);
+
 
           const history = pick(row, ["current_disease_detail", "既往歴"]);
           const glp1 = pick(row, ["glp_history", "GLP1使用歴"]);
@@ -568,17 +609,18 @@ const today = useMemo(() => new Date(), []);
                     </div>
                   )}
 
-                  <div className="text-base font-semibold">
-                    {name || "氏名無し"}
-                  </div>
-                  {kana && (
-                    <div className="text-xs text-slate-500 mt-0.5">{kana}</div>
-                  )}
-                  <div className="text-xs text-slate-500 mt-1 space-x-2">
-                    {sex && <span>{sex}</span>}
-                    {birth && <span>{birth}</span>}
-                    {age && <span>（{age}）</span>}
-                  </div>
+<div className="text-base font-semibold">
+  {name || "氏名無し"}
+</div>
+{kana && (
+  <div className="text-xs text-slate-500 mt-0.5">{kana}</div>
+)}
+<div className="text-xs text-slate-500 mt-1 space-x-2">
+  {sex && <span>{sex}</span>}
+  {birth && <span>{birth}</span>}
+  {age && <span>（{age}）</span>}
+</div>
+
                 </div>
 
                 <div className="text-right text-[11px] text-slate-500 space-y-1">
@@ -672,6 +714,25 @@ const today = useMemo(() => new Date(), []);
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-[90vw] md:w-[70vw] p-6 space-y-4">
+const basicName = pick(selected, ["name", "氏名", "お名前"]);
+const basicKana = pick(selected, [
+  "name_kana",
+  "nameKana",
+  "kana",
+  "カナ",
+  "ﾌﾘｶﾞﾅ",
+  "フリガナ",
+  "ふりがな",
+]);
+const basicSex = pick(selected, ["sex", "gender", "性別"]);
+const rawBirthSelected = pick(selected, ["birth", "birthday", "生年月日"]);
+const birthDisp = formatBirthDisplay(rawBirthSelected);
+const ageDisp = parseDateToAge(rawBirthSelected);
+const telRaw = pick(selected, ["tel", "phone", "電話番号", "TEL"]);
+const telDisp = formatTelDisplay(telRaw);
+const answererId = pick(selected, ["answerer_id", "answererId"]);
+const reserveIdSelected = pickReserveId(selected);
+
               <div className="flex justify-between items-center">
                 <h2 className="text-base font-semibold">
                   {pick(selected, ["name", "氏名", "お名前"])} のカルテ
@@ -708,41 +769,55 @@ const today = useMemo(() => new Date(), []);
                 </div>
               </div>
 
-              {/* 基本情報 */}
-              <div className="text-xs space-y-1">
-                <div>
-                  氏名: {pick(selected, ["name", "氏名", "お名前"])}
-                </div>
-                <div>
-                  カナ:{" "}
-                  {pick(selected, [
-                    "kana",
-                    "カナ",
-                    "ﾌﾘｶﾞﾅ",
-                    "フリガナ",
-                    "ふりがな",
-                  ])}
-                </div>
-                <div>
-                  性別: {pick(selected, ["sex", "gender", "性別"])}
-                </div>
-                <div>
-                  生年月日:{" "}
-                  {pick(selected, ["birth", "birthday", "生年月日"])}{" "}
-                  {parseDateToAge(
-                    pick(selected, ["birth", "birthday", "生年月日"])
-                  )}
-                </div>
-                <div>
-                  電話番号:{" "}
-                  {pick(selected, ["phone", "tel", "電話番号", "TEL"])}
-                </div>
-                <div>
-                  answerer_id:{" "}
-                  {pick(selected, ["answerer_id", "answererId"])}
-                </div>
-                <div>reserveId: {pickReserveId(selected)}</div>
-              </div>
+{/* 基本情報 */}
+<div className="text-xs space-y-1">
+  <div>
+    氏名: {pick(selected, ["name", "氏名", "お名前"])}
+  </div>
+
+  <div>
+    カナ:{" "}
+    {pick(selected, [
+      "name_kana",
+      "nameKana",
+      "kana",
+      "カナ",
+      "ﾌﾘｶﾞﾅ",
+      "フリガナ",
+      "ふりがな",
+    ])}
+  </div>
+
+  <div>
+    性別: {pick(selected, ["sex", "gender", "性別"])}
+  </div>
+
+  {(() => {
+    const rawBirth = pick(selected, ["birth", "birthday", "生年月日"]);
+    const birthDisp = formatBirthDisplay(rawBirth);
+    const ageDisp = parseDateToAge(rawBirth);
+    return (
+      <div>
+        生年月日: {birthDisp}
+        {ageDisp && `（${ageDisp}）`}
+      </div>
+    );
+  })()}
+
+  <div>
+    電話番号:{" "}
+    {formatTelDisplay(
+      pick(selected, ["tel", "phone", "電話番号", "TEL"])
+    )}
+  </div>
+
+  <div>
+    answerer_id: {pick(selected, ["answerer_id", "answererId"])}
+  </div>
+
+  <div>reserveId: {pickReserveId(selected)}</div>
+</div>
+
 
               {/* 問診詳細 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
