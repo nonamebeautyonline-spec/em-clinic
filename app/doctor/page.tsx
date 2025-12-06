@@ -714,25 +714,6 @@ const age = parseDateToAge(rawBirth);
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="max-h-[90vh] overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-[90vw] md:w-[70vw] p-6 space-y-4">
-const basicName = pick(selected, ["name", "氏名", "お名前"]);
-const basicKana = pick(selected, [
-  "name_kana",
-  "nameKana",
-  "kana",
-  "カナ",
-  "ﾌﾘｶﾞﾅ",
-  "フリガナ",
-  "ふりがな",
-]);
-const basicSex = pick(selected, ["sex", "gender", "性別"]);
-const rawBirthSelected = pick(selected, ["birth", "birthday", "生年月日"]);
-const birthDisp = formatBirthDisplay(rawBirthSelected);
-const ageDisp = parseDateToAge(rawBirthSelected);
-const telRaw = pick(selected, ["tel", "phone", "電話番号", "TEL"]);
-const telDisp = formatTelDisplay(telRaw);
-const answererId = pick(selected, ["answerer_id", "answererId"]);
-const reserveIdSelected = pickReserveId(selected);
-
               <div className="flex justify-between items-center">
                 <h2 className="text-base font-semibold">
                   {pick(selected, ["name", "氏名", "お名前"])} のカルテ
