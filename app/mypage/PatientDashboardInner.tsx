@@ -33,7 +33,7 @@ interface Order {
 
 interface PrescriptionHistoryItem {
   id: string;
-  date: string;
+  date: string;   // ISO string
   title: string;
   detail: string;
 }
@@ -88,6 +88,29 @@ const formatDate = (iso: string) => {
     month: "numeric",
     day: "numeric",
   });
+};
+
+// Dr UI 診察済み表示用：YYYY/MM/DD HH:MM-HH:MM
+const formatVisitSlotRange = (iso: string) => {
+  if (!iso) return "";
+  const start = new Date(iso);
+  if (isNaN(start.getTime())) return "";
+
+  const end = new Date(start.getTime() + 15 * 60 * 1000);
+
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const datePart = start.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const startH = pad(start.getHours());
+  const startM = pad(start.getMinutes());
+  const endH = pad(end.getHours());
+  const endM = pad(end.getMinutes());
+
+  return `${datePart} ${startH}:${startM}-${endH}:${endM}`;
 };
 
 const reservationStatusLabel = (s: ReservationStatus) => {
@@ -353,7 +376,6 @@ export default function PatientDashboardInner() {
 
           setHasIntake(localHasIntake || historyHasIntake);
         }
-
       } catch (e) {
         console.error(e);
         setError("データの取得に失敗しました。");
@@ -370,6 +392,7 @@ export default function PatientDashboardInner() {
     query.sex,
     query.birth,
     query.phone,
+    router,
   ]);
 
   // ▼ 日時変更
@@ -478,6 +501,7 @@ export default function PatientDashboardInner() {
 
   const { patient, nextReservation, activeOrders, history } = data;
   const isFirstVisit = history.length === 0;
+  const lastHistory = history.length > 0 ? history[0] : null;
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
@@ -544,7 +568,7 @@ export default function PatientDashboardInner() {
           </div>
 
           <button className="flex items-center gap-3">
-            <div className="text右">
+            <div className="text-right">
               <div className="text-sm font-semibold text-slate-800">
                 {patient.displayName} さん
               </div>
@@ -616,13 +640,14 @@ export default function PatientDashboardInner() {
         </div>
       )}
 
-
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
         {/* 次回予約 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-800">次回のご予約</h2>
+            <h2 className="text-sm font-semibold text-slate-800">
+              次回のご予約
+            </h2>
             {nextReservation && (
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${reservationStatusBadgeClass(
@@ -668,11 +693,20 @@ export default function PatientDashboardInner() {
                 </button>
               </div>
               <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
-                ※ 予約の変更・キャンセルは診察予定時刻の〇時間前まで可能です。
-                <br />
-                ※ それ以降のキャンセルはキャンセル料が発生する場合があります。
+                ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
               </p>
             </>
+          ) : lastHistory ? (
+            // ★ Dr UI で処方許可後：直近の診察枠を「診察ずみ」で表示
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 space-y-1">
+              <div className="text-xs text-slate-500">直近の診察</div>
+              <div className="text-sm font-semibold text-slate-900">
+                {formatVisitSlotRange(lastHistory.date)} 診察ずみ
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {lastHistory.title || "オンライン診察"}
+              </div>
+            </div>
           ) : (
             <div className="text-sm text-slate-600">
               {isFirstVisit ? (
@@ -693,8 +727,8 @@ export default function PatientDashboardInner() {
         </section>
 
         {/* 注文・発送状況 */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
-          <div className="flex items馬 justify-between mb-3">
+        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
               注文・発送状況
             </h2>
@@ -709,7 +743,7 @@ export default function PatientDashboardInner() {
               {activeOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-2xl bg白 shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="flex-1">
                     <div className="text-[15px] font-medium text-slate-900">
@@ -751,7 +785,7 @@ export default function PatientDashboardInner() {
                       <button
                         type="button"
                         onClick={() => handleOpenTracking(order.trackingNumber)}
-                        className="w-full md:w-[160px] h-11 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg白 text-[13px] font-medium text-slate-700 active:scale-[0.98]"
+                        className="w-full md:w-[160px] h-11 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white text-[13px] font-medium text-slate-700 active:scale-[0.98]"
                       >
                         配送状況を確認
                       </button>
@@ -764,7 +798,7 @@ export default function PatientDashboardInner() {
         </section>
 
         {/* 診察・処方履歴 */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5">
+        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
               これまでの診察・お薬
@@ -807,7 +841,7 @@ export default function PatientDashboardInner() {
         </section>
 
         {/* サポート */}
-        <section className="bg白 rounded-3xl shadow-sm p-4 md:p-5 mb-4">
+        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
           <h2 className="text-sm font-semibold text-slate-800 mb-2">
             お困りの方へ
           </h2>
@@ -817,7 +851,7 @@ export default function PatientDashboardInner() {
           <button
             type="button"
             onClick={handleContactSupport}
-            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text白 hover:bg-pink-600 transition"
+            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 transition"
           >
             LINEで問い合わせる
           </button>
