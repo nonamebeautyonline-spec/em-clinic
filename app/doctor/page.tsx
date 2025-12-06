@@ -792,17 +792,19 @@ const reserveIdSelected = pickReserveId(selected);
     性別: {pick(selected, ["sex", "gender", "性別"])}
   </div>
 
-  {(() => {
-    const rawBirth = pick(selected, ["birth", "birthday", "生年月日"]);
-    const birthDisp = formatBirthDisplay(rawBirth);
-    const ageDisp = parseDateToAge(rawBirth);
-    return (
-      <div>
-        生年月日: {birthDisp}
-        {ageDisp && `（${ageDisp}）`}
-      </div>
-    );
-  })()}
+  <div>
+    生年月日:{" "}
+    {(() => {
+      const raw = pick(selected, ["birth", "birthday", "生年月日"]);
+      const birthDisp = formatBirthDisplay(raw);
+      const ageDisp = parseDateToAge(raw);
+      return (
+        <>
+          {birthDisp} {ageDisp && `（${ageDisp}）`}
+        </>
+      );
+    })()}
+  </div>
 
   <div>
     電話番号:{" "}
