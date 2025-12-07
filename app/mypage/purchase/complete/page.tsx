@@ -1,7 +1,6 @@
-// app/mypage/purchase/complete/page.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type ProductCode =
@@ -103,7 +102,8 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-export default function PurchaseCompletePage() {
+// 内側：ここで useSearchParams / useRouter を使う
+function PurchaseCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const codeParam = searchParams.get("code") as ProductCode | null;
@@ -223,5 +223,22 @@ export default function PurchaseCompletePage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// 外側：Suspenseでラップ（ここではフック使わない）
+export default function PurchaseCompletePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50">
+          <div className="mx-auto max-w-md px-4 py-6 text-sm text-slate-600">
+            決済完了画面を読み込んでいます…
+          </div>
+        </div>
+      }
+    >
+      <PurchaseCompleteContent />
+    </Suspense>
   );
 }

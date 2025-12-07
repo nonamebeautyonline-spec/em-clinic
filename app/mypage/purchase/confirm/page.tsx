@@ -1,7 +1,6 @@
-// app/mypage/purchase/confirm/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type ProductCode =
@@ -15,7 +14,7 @@ type ProductCode =
   | "MJL_7.5mg_2m"
   | "MJL_7.5mg_3m";
 
-type Mode = "current" | "first" | "reorder"; // ひとまず current をメインに使用
+type Mode = "current" | "first" | "reorder";
 
 type Product = {
   code: ProductCode;
@@ -108,7 +107,8 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-export default function PurchaseConfirmPage() {
+// 内側：ここで useSearchParams / useRouter を使う
+function PurchaseConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -142,7 +142,6 @@ export default function PurchaseConfirmPage() {
     setSubmitting(true);
 
     try {
-      // ★後で実装する /api/checkout へのリクエスト
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: {
@@ -150,7 +149,7 @@ export default function PurchaseConfirmPage() {
         },
         body: JSON.stringify({
           productCode: product.code,
-          mode: modeParam, // "current" or "first"
+          mode: modeParam,
         }),
       });
 
@@ -160,12 +159,10 @@ export default function PurchaseConfirmPage() {
       }
 
       const data: { checkoutUrl?: string } = await res.json();
-
       if (!data.checkoutUrl) {
         throw new Error("決済画面のURLを取得できませんでした。");
       }
 
-      // Squareの決済画面へ遷移
       window.location.href = data.checkoutUrl;
     } catch (e: any) {
       console.error(e);
@@ -177,7 +174,6 @@ export default function PurchaseConfirmPage() {
     }
   };
 
-  // code / mode 不正時のガード
   if (!codeParam || !product || !modeParam || !isValidMode) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -261,11 +257,9 @@ export default function PurchaseConfirmPage() {
         {/* 注意書き */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-[11px] text-amber-900 leading-relaxed">
-            ・
-            本決済は、診察時に医師と確認した内容に基づくものです。医師の指示と異なる用量・期間を選択しないでください。
+            ・本決済は、診察時に医師と確認した内容に基づくものです。医師の指示と異なる用量・期間を選択しないでください。
             <br />
-            ・
-            体調の変化や副作用がある場合は、決済の前に必ずクリニックまでご相談ください。
+            ・体調の変化や副作用がある場合は、決済の前に必ずクリニックまでご相談ください。
           </p>
         </div>
 
@@ -304,5 +298,22 @@ export default function PurchaseConfirmPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// 外側ラッパー：Suspense で内側を包む
+export default function PurchaseConfirmPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50">
+          <div className="mx-auto max-w-md px-4 py-6 text-sm text-slate-600">
+            内容確認画面を読み込んでいます…
+          </div>
+        </div>
+      }
+    >
+      <PurchaseConfirmContent />
+    </Suspense>
   );
 }
