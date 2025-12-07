@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const check = await client.verify.v2
       .services(verifySid)
-      .verificationChecks.create({
+      .verificationCheck.create({
         to: phone,
         code,
       });

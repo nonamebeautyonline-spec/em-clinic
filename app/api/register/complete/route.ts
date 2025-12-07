@@ -1,36 +1,18 @@
 // app/api/register/complete/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-async function findOrCreatePatientIdByPhoneAndLine(
-  phone: string,
-  lineUserId: string | null
-): Promise<string> {
-  const gasUrl = process.env.GAS_REGISTER_URL;
-  if (!gasUrl) throw new Error("GAS_REGISTER_URL is not set.");
-
-  const res = await fetch(gasUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      phone,
-      line_user_id: lineUserId,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GAS register API error: ${text}`);
-  }
-
-  const data = (await res.json()) as { pid: string };
-  if (!data.pid) {
-    throw new Error("GAS register API did not return pid.");
-  }
-  return data.pid;
-}
+const GAS_REGISTER_URL = process.env.GAS_REGISTER_URL;
 
 export async function POST(req: NextRequest) {
   try {
+    if (!GAS_REGISTER_URL) {
+      console.error("GAS_REGISTER_URL is not set");
+      return NextResponse.json(
+        { error: "GAS_REGISTER_URL is not set." },
+        { status: 500 }
+      );
+    }
+
     const { phone, lineUserId } = (await req.json()) as {
       phone?: string;
       lineUserId?: string;
@@ -43,17 +25,55 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // lineUserId が body に入ってなければ cookie から拾う fallback でもOK
-    const cookiesLineId =
-      req.cookies.get("line_user_id")?.value || undefined;
-    const finalLineUserId = lineUserId || cookiesLineId || null;
+    // GAS に phone（＋あれば lineUserId）を投げる
+    const gasRes = await fetch(GAS_REGISTER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        phone,
+        line_user_id: lineUserId ?? "",
+        // 必要なら type を付けても良い
+        // type: "register_by_phone",
+      }),
+    });
 
-    const pid = await findOrCreatePatientIdByPhoneAndLine(
-      phone,
-      finalLineUserId
-    );
+    const text = await gasRes.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("GAS response is not valid JSON:", text);
+      return NextResponse.json(
+        {
+          error: "GAS register API returned invalid JSON.",
+          detail: text,
+        },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({ pid });
+    // GAS 側が返してくる候補フィールドを全部見る
+    const pid =
+      data.pid ??
+      data.patient_id ??
+      data.Patient_ID ??
+      null;
+
+    if (!pid) {
+      console.error("GAS register API did not return pid", data);
+      return NextResponse.json(
+        {
+          error: "GAS register API did not return pid.",
+          detail: data,
+        },
+        { status: 500 }
+      );
+    }
+
+    // ここで pid を返せば OK（必要ならここでクッキーに保存なども可能）
+    return NextResponse.json({ pid: String(pid) });
   } catch (e: any) {
     console.error("register complete error:", e);
     return NextResponse.json(
