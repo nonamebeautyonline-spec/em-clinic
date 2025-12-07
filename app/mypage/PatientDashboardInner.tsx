@@ -43,7 +43,16 @@ interface PatientDashboardData {
   nextReservation?: Reservation | null;
   activeOrders: Order[];
   history: PrescriptionHistoryItem[];
+  ordersFlags?: OrdersFlags;   // ★ 追加
 }
+
+
+interface OrdersFlags {
+  canPurchaseCurrentCourse: boolean;
+  canApplyReorder: boolean;
+  hasAnyPaidOrder: boolean;
+}
+
 
 interface QueryPatientParams {
   customer_id?: string | null;
@@ -337,6 +346,37 @@ export default function PatientDashboardInner() {
           console.error("api/mypage fetch error:", err);
         }
 
+                // ⑥ /api/mypage/orders で決済・発送情報を取得
+        try {
+          const ordersRes = await fetch("/api/mypage/orders", {
+            method: "GET",
+          });
+
+          if (ordersRes.ok) {
+            const ordersJson: {
+              ok: boolean;
+              orders: Order[];
+              flags?: OrdersFlags;
+            } = await ordersRes.json();
+
+            if (ordersJson.ok) {
+              finalData = {
+                ...finalData,
+                activeOrders: ordersJson.orders ?? finalData.activeOrders,
+                ordersFlags: ordersJson.flags,
+              };
+            }
+          } else {
+            console.error(
+              "api/mypage/orders response not ok:",
+              ordersRes.status
+            );
+          }
+        } catch (err) {
+          console.error("api/mypage/orders fetch error:", err);
+        }
+
+
         setData(finalData);
         setError(null);
 
@@ -499,7 +539,7 @@ export default function PatientDashboardInner() {
     );
   }
 
-  const { patient, nextReservation, activeOrders, history } = data;
+  const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
   const isFirstVisit = history.length === 0;
   const lastHistory = history.length > 0 ? history[0] : null;
 
@@ -581,7 +621,7 @@ export default function PatientDashboardInner() {
         </div>
       </header>
 
-      {/* ▼ 上部の CTA：問診 → 予約 */}
+      {/* ▼ 上部の CTA：問診 → 予約 → 購入・再処方 */}
       {!nextReservation && (
         <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
           {/* ①問診ボタン */}
@@ -614,7 +654,7 @@ export default function PatientDashboardInner() {
             </>
           )}
 
-          {/* ②予約に進む */}
+          {/* ② 予約に進む */}
           <button
             type="button"
             disabled={!hasIntake}
@@ -637,8 +677,49 @@ export default function PatientDashboardInner() {
               ※ 先に「問診に進む」から問診を入力してください。
             </p>
           )}
+
+          {/* ③ マンジャロを購入する（診察後に活性化） */}
+          <button
+            type="button"
+            disabled={!ordersFlags?.canPurchaseCurrentCourse}
+            onClick={() => {
+              if (!ordersFlags?.canPurchaseCurrentCourse) return;
+              router.push("/mypage/purchase"); // 診察後決済ページ
+            }}
+            className={
+              "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
+              (ordersFlags?.canPurchaseCurrentCourse
+                ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
+                : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
+            }
+          >
+            {ordersFlags?.canPurchaseCurrentCourse
+              ? "マンジャロを購入する"
+              : "マンジャロは決済済みです"}
+          </button>
+
+          {/* ④ 再処方を申請する（初回分決済後に表示） */}
+          {ordersFlags?.hasAnyPaidOrder && (
+            <button
+              type="button"
+              disabled={!ordersFlags?.canApplyReorder}
+              onClick={() => {
+                if (!ordersFlags?.canApplyReorder) return;
+                router.push("/mypage/purchase/reorder"); // 再処方ページ（今後作る）
+              }}
+              className={
+                "mt-2 block w-full rounded-xl text-center py-3 text-base font-semibold border " +
+                (ordersFlags?.canApplyReorder
+                  ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+                  : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+              }
+            >
+              再処方を申請する
+            </button>
+          )}
         </div>
       )}
+
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
