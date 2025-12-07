@@ -1,4 +1,6 @@
 // app/api/checkout/route.ts
+"use server";
+
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 
@@ -127,9 +129,10 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       productCode?: ProductCode;
       mode?: Mode;
+      patientId?: string; // ★ここで受け取る
     };
 
-    const { productCode, mode } = body;
+    const { productCode, mode, patientId } = body;
 
     if (!productCode) {
       return NextResponse.json(
@@ -146,7 +149,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // mode は将来使うかもしれないので一応バリデーションだけ
     const validModes: Mode[] = ["current", "first", "reorder"];
     if (mode && !validModes.includes(mode)) {
       return NextResponse.json(
@@ -168,14 +170,13 @@ export async function POST(req: NextRequest) {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
-          "Square-Version": "2025-10-16", // 多少前後しても動くが、管理画面のバージョンに合わせて
+          "Square-Version": "2024-04-17",
         },
         body: JSON.stringify({
           idempotency_key: idempotencyKey,
           quick_pay: {
             name: product.title,
             price_money: {
-              // JPY は少数なしなので、そのまま
               amount: product.price,
               currency: "JPY",
             },
@@ -184,9 +185,11 @@ export async function POST(req: NextRequest) {
           checkout_options: {
             redirect_url: redirectUrl,
           },
-          payment_note: `Mypage purchase: ${product.code}${
-            mode ? ` (${mode})` : ""
-          }`,
+          // ★ここに PatientID を含める
+          // 例: "PID:abc123;Product:MJL_2.5mg_1m (current)"
+          payment_note: `PID:${patientId ?? "UNKNOWN"};Product:${
+            product.code
+          }${mode ? ` (${mode})` : ""}`,
         }),
       }
     );
