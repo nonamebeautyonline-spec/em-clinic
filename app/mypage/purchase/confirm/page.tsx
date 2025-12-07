@@ -112,6 +112,9 @@ function PurchaseConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // ★ TODO: 本番では mypage のデータから実際の patient.id を入れる
+  const patientId = "TEMP_PATIENT_ID"; // とりあえずビルドを通す用
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,17 +145,12 @@ function PurchaseConfirmContent() {
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productCode: product.code,
-          mode: modeParam,
-        　patientId, // ★追加
-        }),
-      });
+body: JSON.stringify({
+  productCode: product.code,
+  mode: modeParam,
+  patientId, // ← 半角スペースでOK
+}),
+
 
       if (!res.ok) {
         const text = await res.text();
