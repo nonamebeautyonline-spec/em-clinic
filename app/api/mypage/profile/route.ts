@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 export async function GET() {
-  // サーバー側の cookie ストアを取得
-  const cookieStore = cookies();
+  // サーバー側の cookie ストアを取得（Promise なので await）
+  const cookieStore = await cookies();
 
   // 初回登録でセットしている想定の cookie
   const patientId = cookieStore.get("patient_id")?.value;
