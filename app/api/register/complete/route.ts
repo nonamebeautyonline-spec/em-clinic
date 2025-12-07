@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // GAS に phone（＋あれば lineUserId）を投げる
     const gasRes = await fetch(GAS_REGISTER_URL, {
       method: "POST",
       headers: {
@@ -34,8 +33,6 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         phone,
         line_user_id: lineUserId ?? "",
-        // 必要なら type を付けても良い
-        // type: "register_by_phone",
       }),
     });
 
@@ -54,7 +51,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // GAS 側が返してくる候補フィールドを全部見る
     const pid =
       data.pid ??
       data.patient_id ??
@@ -72,8 +68,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ここで pid を返せば OK（必要ならここでクッキーに保存なども可能）
-    return NextResponse.json({ pid: String(pid) });
+    // ★ ここで PID をクッキーに保存する（customer_id 名で）
+    const res = NextResponse.json({ pid: String(pid) });
+
+    res.cookies.set("customer_id", String(pid), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365, // 1年
+    });
+
+    return res;
   } catch (e: any) {
     console.error("register complete error:", e);
     return NextResponse.json(
