@@ -112,8 +112,8 @@ function PurchaseConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ★ TODO: 本番では mypage のデータから実際の patient.id を入れる
-  const patientId = "TEMP_PATIENT_ID"; // とりあえずビルドを通す用
+  // TODO: あとで mypage の実データから差し替える
+  const patientId = "TEMP_PATIENT_ID";
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,12 +145,17 @@ function PurchaseConfirmContent() {
     setSubmitting(true);
 
     try {
-body: JSON.stringify({
-  productCode: product.code,
-  mode: modeParam,
-  patientId, // ← 半角スペースでOK
-}),
-
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productCode: product.code,
+          mode: modeParam,
+          patientId: patientId,
+        }),
+      });
 
       if (!res.ok) {
         const text = await res.text();
@@ -158,6 +163,7 @@ body: JSON.stringify({
       }
 
       const data: { checkoutUrl?: string } = await res.json();
+
       if (!data.checkoutUrl) {
         throw new Error("決済画面のURLを取得できませんでした。");
       }
@@ -208,7 +214,9 @@ body: JSON.stringify({
             </h1>
           </div>
           <p className="mt-1 text-[11px] text-slate-600 leading-relaxed">
-            <strong>必ず診察時に医師と決定した用量・期間のみを選択してください。</strong>
+            <strong>
+              必ず診察時に医師と決定した用量・期間のみを選択してください。
+            </strong>
             <br />
             下記の内容で問題なければ、「この内容で決済に進む」を押してください。
           </p>
@@ -292,7 +300,8 @@ body: JSON.stringify({
         </div>
 
         <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
-          ※ 決済画面はSquareの安全な決済システムを利用します。<br />
+          ※ 決済画面はSquareの安全な決済システムを利用します。
+          <br />
           ※ 決済完了後のキャンセル・変更についてはクリニックの規約に従います。
         </p>
       </div>
