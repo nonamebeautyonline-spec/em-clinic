@@ -1,3 +1,4 @@
+// app/purchase/confirm/page.tsx
 "use client";
 
 import React, { useMemo, useState, Suspense } from "react";
@@ -60,7 +61,6 @@ const PRODUCTS: Product[] = [
     months: 1,
     shots: 4,
     price: 23000,
-    recommended: true,
   },
   {
     code: "MJL_5mg_2m",
@@ -69,7 +69,6 @@ const PRODUCTS: Product[] = [
     months: 2,
     shots: 8,
     price: 45500,
-    recommended: true,
   },
   {
     code: "MJL_5mg_3m",
@@ -78,7 +77,6 @@ const PRODUCTS: Product[] = [
     months: 3,
     shots: 12,
     price: 63000,
-    recommended: true,
   },
   // 7.5mg
   {
@@ -122,7 +120,7 @@ function PurchaseConfirmContent() {
   const modeParam = searchParams.get("mode") as Mode | null;
 
   const product = useMemo(
-    () => PRODUCTS.find((p) => p.code === codeParam) ?? null,
+    () => (codeParam ? PRODUCTS.find((p) => p.code === codeParam) ?? null : null),
     [codeParam]
   );
 
@@ -215,7 +213,7 @@ function PurchaseConfirmContent() {
           </div>
           <p className="mt-1 text-[11px] text-slate-600 leading-relaxed">
             <strong>
-              必ず診察時に医師と決定した用量・期間のみを選択してください。
+              必ず診察時に医師と決定した用量のみを選択してください。
             </strong>
             <br />
             下記の内容で問題なければ、「この内容で決済に進む」を押してください。
@@ -233,21 +231,11 @@ function PurchaseConfirmContent() {
                 <span className="text-xs font-semibold text-slate-900">
                   {product.title}
                 </span>
-                {product.recommended && (
-                  <span className="rounded-full bg-pink-100 px-2 py-[2px] text-[10px] font-semibold text-pink-700">
-                    人気
-                  </span>
-                )}
               </div>
               <p className="mt-1 text-[11px] text-slate-600">
                 {product.mg}／{product.months}ヶ月分（全{product.shots}本）／週1回
               </p>
-              <p className="mt-1 text-[10px] text-slate-400">
-                Product Name:{" "}
-                <span className="font-mono text-[10px] text-slate-500">
-                  {product.code}
-                </span>
-              </p>
+              {/* Product Name は内部用なので非表示 */}
             </div>
             <div className="text-right whitespace-nowrap">
               <div className="text-[11px] text-slate-400">お支払い金額</div>
@@ -264,7 +252,9 @@ function PurchaseConfirmContent() {
         {/* 注意書き */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-[11px] text-amber-900 leading-relaxed">
-            ・本決済は、診察時に医師と確認した内容に基づくものです。医師の指示と異なる用量・期間を選択しないでください。
+            ・本決済は、診察時に医師と確認した内容に基づくものです。医師の指示と異なる
+            <strong>用量</strong>
+            を選択しないでください。
             <br />
             ・体調の変化や副作用がある場合は、決済の前に必ずクリニックまでご相談ください。
           </p>

@@ -1,3 +1,4 @@
+// app/purchase/completes/page.tsx
 "use client";
 
 import React, { useMemo, Suspense } from "react";
@@ -21,7 +22,6 @@ type Product = {
   months: 1 | 2 | 3;
   shots: number;
   price: number;
-  recommended?: boolean;
 };
 
 const PRODUCTS: Product[] = [
@@ -159,12 +159,6 @@ function PurchaseCompleteContent() {
                 <p className="mt-1 text-[11px] text-slate-600">
                   {product.mg}／{product.months}ヶ月分（全{product.shots}本）／週1回
                 </p>
-                <p className="mt-1 text-[10px] text-slate-400">
-                  Product Name:{" "}
-                  <span className="font-mono text-[10px] text-slate-500">
-                    {product.code}
-                  </span>
-                </p>
               </div>
               <div className="text-right whitespace-nowrap">
                 <div className="text-[11px] text-slate-400">お支払い金額</div>
@@ -226,7 +220,7 @@ function PurchaseCompleteContent() {
   );
 }
 
-// 外側：Suspenseでラップ（ここではフック使わない）
+// 外側：Suspenseでラップ
 export default function PurchaseCompletePage() {
   return (
     <Suspense
