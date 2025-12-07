@@ -2,11 +2,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
 type Step = "enterPhone" | "enterCode" | "done";
 
-export default function MypageInit() {
+// ★ 内側コンポーネント：ここで useSearchParams / useRouter を使う
+function MypageInitInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -117,7 +118,6 @@ export default function MypageInit() {
         throw new Error(text || "マイページとの紐付けに失敗しました。");
       }
 
-      // const { pid } = await completeRes.json(); // 必要なら使う
       setStep("done");
       // すぐマイページへ飛ばす
       router.push("/mypage");
@@ -207,5 +207,20 @@ export default function MypageInit() {
         </p>
       )}
     </div>
+  );
+}
+
+// ★ 外側ラッパー：Suspense で内側を包む
+export default function MypageInit() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-md mx-auto px-4 py-8 text-sm text-gray-500">
+          認証画面を読み込んでいます…
+        </div>
+      }
+    >
+      <MypageInitInner />
+    </Suspense>
   );
 }
