@@ -12,7 +12,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${process.env.APP_BASE_URL}/login-error`);
   }
 
-  // トークン交換
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
@@ -35,20 +34,25 @@ export async function GET(req: NextRequest) {
   const tokenJson = await tokenRes.json();
   const idToken = tokenJson.id_token as string;
 
-  // IDトークンをデコード（簡易版：本気なら署名検証もやる）
   const payload = JSON.parse(
     Buffer.from(idToken.split(".")[1], "base64").toString()
   );
   const lineUserId = payload.sub as string;
 
-  // ここで lineUserId をセッションcookieに保存する（超シンプル版）
-  const res = NextResponse.redirect(`${process.env.APP_BASE_URL}/mypage/init`);
+  // ★ init に line_id をクエリで渡す
+  const redirectUrl = `${process.env.APP_BASE_URL}/mypage/init?line_id=${encodeURIComponent(
+    lineUserId
+  )}`;
+
+  const res = NextResponse.redirect(redirectUrl);
+
+  // cookie も今のまま残してOK
   res.cookies.set("line_user_id", lineUserId, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30日
+    maxAge: 60 * 60 * 24 * 30,
   });
 
   return res;
