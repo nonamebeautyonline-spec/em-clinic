@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GAS に phone（＋あれば lineUserId）を投げる
     const gasRes = await fetch(GAS_REGISTER_URL, {
       method: "POST",
       headers: {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     try {
       data = JSON.parse(text);
     } catch {
-      console.error("GAS response is not valid JSON:", text);
+      console.error("GAS register API returned invalid JSON:", text);
       return NextResponse.json(
         {
           error: "GAS register API returned invalid JSON.",
@@ -51,11 +52,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GAS側が返してくる候補フィールドを拾う
     const pid =
       data.pid ??
       data.patient_id ??
       data.Patient_ID ??
       null;
+    const name =
+      data.name ??
+      data.patient_name ??
+      data.PatientName ??
+      "";
 
     if (!pid) {
       console.error("GAS register API did not return pid", data);
@@ -68,16 +75,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ ここで PID をクッキーに保存する（customer_id 名で）
-    const res = NextResponse.json({ pid: String(pid) });
+    // ★ cookie に patient_id / patient_name を保存
+    const res = NextResponse.json({
+      ok: true,
+      pid: String(pid),
+      name,
+    });
 
-    res.cookies.set("customer_id", String(pid), {
+    res.cookies.set("patient_id", String(pid), {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 365, // 1年
     });
+
+    if (name) {
+      res.cookies.set("patient_name", String(name), {
+        httpOnly: false, // 名前はJSから使いたければ httpOnly:false でもOK
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
 
     return res;
   } catch (e: any) {
