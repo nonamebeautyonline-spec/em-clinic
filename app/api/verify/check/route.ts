@@ -24,14 +24,18 @@ export async function POST(req: NextRequest) {
 
     const check = await client.verify.v2
       .services(verifySid)
-      .verificationCheck.create({
+      .verificationChecks.create({
         to: phone,
         code,
       });
 
     return NextResponse.json({ valid: check.valid });
   } catch (e: any) {
-    console.error("verify check error:", e);
+    console.error("verify check error:", e, {
+      code: e?.code,
+      moreInfo: e?.moreInfo,
+      status: e?.status,
+    });
     return NextResponse.json(
       {
         error:
