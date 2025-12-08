@@ -313,38 +313,51 @@ export default function PatientDashboardInner() {
           history: [],
         };
 
-        // ⑤ /api/mypage
-        try {
-          const res = await fetch("/api/mypage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customer_id: patient.id,
-              name: patient.displayName,
-            }),
-          });
+// ⑤ /api/mypage
+try {
+  const res = await fetch("/api/mypage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      customer_id: patient.id,
+      name: patient.displayName,
+    }),
+  });
 
-          if (res.ok) {
-            const api = (await res.json()) as Partial<PatientDashboardData> & {
-              patient?: PatientInfo;
-            };
+  if (res.ok) {
+    const api = (await res.json()) as Partial<PatientDashboardData> & {
+      patient?: PatientInfo;
+    };
 
-            finalData = {
-              patient: {
-                id: api.patient?.id || patient.id,
-                displayName:
-                  api.patient?.displayName || patient.displayName,
-              },
-              nextReservation: api.nextReservation ?? nextReservation,
-              activeOrders: api.activeOrders ?? [],
-              history: api.history ?? [],
-            };
-          } else {
-            console.error("api/mypage response not ok:", res.status);
-          }
-        } catch (err) {
-          console.error("api/mypage fetch error:", err);
-        }
+    finalData = {
+      patient: {
+        id: api.patient?.id || patient.id,
+        displayName: api.patient?.displayName || patient.displayName,
+      },
+      // ★ api.nextReservation をそのまま使う（null は「明示的な null」として尊重）
+      nextReservation:
+        typeof api.nextReservation !== "undefined"
+          ? api.nextReservation
+          : nextReservation,
+      activeOrders: api.activeOrders ?? [],
+      history: api.history ?? [],
+    };
+
+    // ★ 診察履歴が1件でもあれば「次回予約」は表示しない & localStorageも消す
+    if (finalData.history && finalData.history.length > 0) {
+      finalData.nextReservation = null;
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("last_reservation");
+      }
+    }
+  } else {
+    console.error("api/mypage response not ok:", res.status);
+  }
+} catch (err) {
+  console.error("api/mypage fetch error:", err);
+}
+
+setData(finalData);
 
                 // ⑥ /api/mypage/orders で決済・発送情報を取得
         try {
@@ -542,6 +555,7 @@ export default function PatientDashboardInner() {
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
   const isFirstVisit = history.length === 0;
   const lastHistory = history.length > 0 ? history[0] : null;
+  const hasHistory = history.length > 0; // ★ 診察済みかどうか
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
@@ -622,81 +636,76 @@ export default function PatientDashboardInner() {
       </header>
 
       {/* ▼ 上部の CTA：問診 → 予約 → 購入・再処方 */}
-      {!nextReservation && (
-        <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
-          {/* ①問診ボタン */}
-          {hasIntake ? (
-            <>
-              {/* 問診済みならグレーアウトして押せない */}
-              <button
-                type="button"
-                disabled
-                className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
-              >
-                問診はすでに完了しています
-              </button>
-              <p className="mt-1 text-[11px] text-slate-500">
-                問診の入力は不要です。このまま予約にお進みください。
-              </p>
-            </>
-          ) : (
-            <>
-              {/* まだ問診していない人用 */}
-              <Link
-                href="/intake"
-                className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
-              >
-                問診に進む
-              </Link>
-              <p className="mt-1 text-[11px] text-slate-500">
-                ※ 問診の入力が終わると、診察予約画面に進みます。
-              </p>
-            </>
-          )}
-
-          {/* ② 予約に進む */}
-          <button
-            type="button"
-            disabled={!hasIntake}
-            onClick={() => {
-              if (!hasIntake) return;
-              router.push("/reserve");
-            }}
-            className={
-              "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
-              (hasIntake
-                ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-            }
-          >
-            予約に進む
-          </button>
-
-          {!hasIntake && (
-            <p className="text-[11px] text-slate-500">
-              ※ 先に「問診に進む」から問診を入力してください。
+      <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
+        {/* ①問診ボタン */}
+        {hasIntake ? (
+          <>
+            {/* 問診済みならグレーアウトして押せない */}
+            <button
+              type="button"
+              disabled
+              className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
+            >
+              問診はすでに完了しています
+            </button>
+            <p className="mt-1 text-[11px] text-slate-500">
+              問診の入力は不要です。このまま予約にお進みください。
             </p>
-          )}
+          </>
+        ) : (
+          <>
+            {/* まだ問診していない人用 */}
+            <Link
+              href="/intake"
+              className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semiboldshadow-sm hover:bg-pink-600 transition"
+            >
+              問診に進む
+            </Link>
+            <p className="mt-1 text-[11px] text-slate-500">
+              ※ 問診の入力が終わると、診察予約画面に進みます。
+            </p>
+          </>
+        )}
 
-          {/* ③ マンジャロを購入する（診察後に活性化） */}
-          <button
-            type="button"
-            disabled={!ordersFlags?.canPurchaseCurrentCourse}
-            onClick={() => {
-              if (!ordersFlags?.canPurchaseCurrentCourse) return;
-              router.push("/mypage/purchase"); // 診察後決済ページ
-            }}
-            className={
-              "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
-              (ordersFlags?.canPurchaseCurrentCourse
-                ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
-                : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
-            }
-          >
-            {ordersFlags?.canPurchaseCurrentCourse
-              ? "マンジャロを購入する"
-              : "マンジャロは決済済みです"}
-          </button>
+        {/* ② 予約に進む */}
+        <button
+          type="button"
+          disabled={!hasIntake || hasHistory} // ★ 診察後は新規予約させない想定
+          onClick={() => {
+            if (!hasIntake || hasHistory) return;
+            router.push("/reserve");
+          }}
+          className={
+            "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
+            (!hasIntake || hasHistory
+              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+              : "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition")
+          }
+        >
+          予約に進む
+        </button>
+
+        {/* ③ マンジャロを購入する（診察後のみ有効） */}
+        <button
+          type="button"
+          disabled={!hasHistory}
+          onClick={() => {
+            if (!hasHistory) return;
+            router.push("/mypage/purchase");
+          }}
+          className={
+            "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
+            (hasHistory
+              ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
+              : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
+          }
+        >
+          {hasHistory
+            ? "マンジャロを購入する"
+            : "診察後にご利用いただけます"}
+        </button>
+      </div>
+
 
           {/* ④ 再処方を申請する（初回分決済後に表示） */}
           {ordersFlags?.hasAnyPaidOrder && (
@@ -900,26 +909,37 @@ export default function PatientDashboardInner() {
             </div>
           ) : (
             <div className="space-y-3">
-              {history.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
-                >
-                  <div>
-                    <div className="text-[11px] text-slate-500">
-                      {formatDate(item.date)}
-                    </div>
-                    <div className="text-sm font-medium text-slate-900">
-                      {item.detail}
-                      {item.title.includes("再処方") && "（再処方）"}
-                      {item.title.includes("初回") && "（初回）"}
+              {history.map((item, index) => {
+                // index=0 を「初回診察」として扱う
+                const isFirstVisit = index === 0;
+                const dateLabel = isFirstVisit
+                  ? formatVisitSlotRange(item.date) // 2025/12/08 10:00-10:15
+                  : formatDate(item.date);          // 2025/12/08
+
+                const mainText = isFirstVisit
+                  ? `初回診察`
+                  : item.detail || "処方";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
+                  >
+                    <div>
+                      <div className="text-[11px] text-slate-500">
+                        {dateLabel}
+                      </div>
+                      <div className="text-sm font-medium text-slate-900">
+                        {mainText}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
+
 
         {/* サポート */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
