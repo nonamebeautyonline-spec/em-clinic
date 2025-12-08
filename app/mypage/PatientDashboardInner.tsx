@@ -554,6 +554,15 @@ export default function PatientDashboardInner() {
   const canPurchaseInitial =
     hasHistory && (ordersFlags?.canPurchaseCurrentCourse ?? true);
 
+    // 2回目以降は初回購入ボタンを隠す
+const showInitialPurchase =
+  hasHistory && !(ordersFlags?.hasAnyPaidOrder ?? false);
+
+// 初回購入ボタンの可否
+const canPurchaseInitial =
+  showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
+
+
   // 処方歴（Square webhook 由来）だけを抽出
   const orderHistory = history.filter((item) => item.title === "処方");
 
@@ -690,27 +699,25 @@ export default function PatientDashboardInner() {
           予約に進む
         </button>
 
-        {/* 初回購入ボタン（診察後／未購入のみ） */}
-        <button
-          type="button"
-          disabled={!canPurchaseInitial}
-          onClick={() => {
-            if (!canPurchaseInitial) return;
-            router.push("/mypage/purchase");
-          }}
-          className={
-            "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
-            (canPurchaseInitial
-              ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
-              : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
-          }
-        >
-          {canPurchaseInitial
-            ? "マンジャロを購入する（初回）"
-            : hasHistory
-            ? "初回分は決済済みです"
-            : "診察後にご利用いただけます"}
-        </button>
+{showInitialPurchase && (
+  <button
+    type="button"
+    disabled={!canPurchaseInitial}
+    onClick={() => {
+      if (!canPurchaseInitial) return;
+      router.push("/mypage/purchase");
+    }}
+    className={
+      "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
+      (canPurchaseInitial
+        ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
+        : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
+    }
+  >
+    "マンジャロを購入する（初回）"
+  </button>
+)}
+
       </div>
 
       {/* 本文 */}
@@ -769,13 +776,14 @@ export default function PatientDashboardInner() {
                 ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
               </p>
             </>
-          ) : lastHistory ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="text-sm font-semibold text-slate-900">
-                初回診察　{formatVisitSlotRange(lastHistory.date)} 診察ずみ
-              </div>
-            </div>
-          ) : (
+) : lastHistory ? (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+    <div className="text-sm font-semibold text-slate-900">
+      {formatVisitSlotRange(lastHistory.date)} 診察ずみ
+    </div>
+  </div>
+) : (
+
             <div className="text-sm text-slate-600">
               {isFirstVisit ? (
                 <>
