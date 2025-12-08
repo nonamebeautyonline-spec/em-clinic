@@ -44,6 +44,14 @@ interface OrdersFlags {
   hasAnyPaidOrder: boolean;
 }
 
+interface ReorderItem {
+  id: string;
+  timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
+  productCode: string;
+  status: "pending" | "confirmed" | "canceled";
+  note?: string;
+}
+
 interface PatientDashboardData {
   patient: PatientInfo;
   nextReservation?: Reservation | null;
@@ -212,6 +220,7 @@ export default function PatientDashboardInner() {
   const router = useRouter();
 
   const [data, setData] = useState<PatientDashboardData | null>(null);
+  const [reorders, setReorders] = useState<ReorderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -384,6 +393,38 @@ export default function PatientDashboardInner() {
           console.error("api/mypage/orders fetch error:", err);
         }
 
+        // ⑦ /api/mypage/reorders（再処方申請一覧）※まだAPIない場合は無視される
+        try {
+          const reRes = await fetch("/api/mypage/reorders", {
+            method: "GET",
+          });
+          if (reRes.ok) {
+            const reJson: {
+              ok: boolean;
+              reorders?: any[];
+            } = await reRes.json();
+
+            if (reJson.ok && Array.isArray(reJson.reorders)) {
+              const mapped: ReorderItem[] = reJson.reorders.map((r: any) => ({
+                id: String(r.id ?? ""),
+                timestamp: String(r.timestamp ?? ""),
+                productCode: String(r.product_code ?? ""),
+                status: (r.status ?? "pending") as ReorderItem["status"],
+                note: r.note ? String(r.note) : undefined,
+              }));
+              setReorders(mapped);
+            }
+          } else {
+            console.error(
+              "api/mypage/reorders response not ok:",
+              reRes.status
+            );
+          }
+        } catch (err) {
+          // API が未実装でも落ちないようにする
+          console.warn("api/mypage/reorders fetch error:", err);
+        }
+
         setData(finalData);
         setError(null);
 
@@ -450,7 +491,7 @@ export default function PatientDashboardInner() {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     const hh = String(d.getHours()).padStart(2, "0");
-    const mi = String(d.getMinutes()).padStart(2, "0");
+    const mi = String(d.getMinutes()).toString().padStart(2, "0");
 
     const prevDate = `${yyyy}-${mm}-${dd}`;
     const prevTime = `${hh}:${mi}`;
@@ -526,6 +567,32 @@ export default function PatientDashboardInner() {
     alert("LINE公式アカウントをあとで紐づけます。");
   };
 
+  const handleReorderChange = () => {
+    // 申請内容変更 → 再処方モードの商品一覧へ
+    router.push("/mypage/purchase?flow=reorder");
+  };
+
+  const handleReorderCancel = async () => {
+    try {
+      const res = await fetch("/api/reorder/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json().catch(() => ({} as any));
+
+      if (!res.ok || json.ok === false) {
+        alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
+        return;
+      }
+
+      setReorders((prev) => prev.filter((r) => r.status !== "pending"));
+    } catch (e) {
+      console.error(e);
+      alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -546,28 +613,37 @@ export default function PatientDashboardInner() {
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
-const hasHistory = history.length > 0;
-const lastHistory = hasHistory ? history[0] : null;
-const isFirstVisit = !hasHistory;
 
-// 2回目以降は初回購入ボタンを隠す
-const showInitialPurchase =
-  hasHistory && !(ordersFlags?.hasAnyPaidOrder ?? false);
+  const hasHistory = history.length > 0;
+  const lastHistory = hasHistory ? history[0] : null;
+  const isFirstVisit = !hasHistory;
 
-// 初回購入ボタンの可否
-const canPurchaseInitial =
-  showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
+  const orderHistory = history.filter((item) => item.title === "処方");
 
-// 処方歴（Square webhook 由来）だけを抽出
-const orderHistory = history.filter((item) => item.title === "処方");
+  const hasPendingReorder = reorders.some((r) => r.status === "pending");
+  const latestPendingReorder = hasPendingReorder
+    ? [...reorders]
+        .filter((r) => r.status === "pending")
+        .sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0]
+    : null;
 
-// 上部カードのタイトル
-const topSectionTitle = nextReservation
-  ? "次回のご予約"
-  : hasHistory
-  ? "初回診察"
-  : "次回のご予約";
+  // 初回購入ボタン（診察済み・まだ決済0回・申請も無しのときだけ）
+  const showInitialPurchase =
+    hasHistory &&
+    !(ordersFlags?.hasAnyPaidOrder ?? false) &&
+    !hasPendingReorder;
 
+  const canPurchaseInitial =
+    showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
+
+  const topSectionTitle = nextReservation
+    ? "次回のご予約"
+    : hasHistory
+    ? "初回診察"
+    : "次回のご予約";
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
@@ -580,7 +656,7 @@ const topSectionTitle = nextReservation
         </div>
       )}
 
-      {/* キャンセル確認モーダル */}
+     {/* キャンセル確認モーダル */}
       {showCancelConfirm && data?.nextReservation && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
           <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
@@ -695,25 +771,25 @@ const topSectionTitle = nextReservation
           予約に進む
         </button>
 
-{showInitialPurchase && (
-  <button
-    type="button"
-    disabled={!canPurchaseInitial}
-    onClick={() => {
-      if (!canPurchaseInitial) return;
-      router.push("/mypage/purchase");
-    }}
-    className={
-      "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
-      (canPurchaseInitial
-        ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
-        : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
-    }
-  >
-    マンジャロを購入する（初回）
-  </button>
-)}
-
+        {/* 初回決済ボタン（条件付き） */}
+        {showInitialPurchase && (
+          <button
+            type="button"
+            disabled={!canPurchaseInitial}
+            onClick={() => {
+              if (!canPurchaseInitial) return;
+              router.push("/mypage/purchase");
+            }}
+            className={
+              "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
+              (canPurchaseInitial
+                ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
+                : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
+            }
+          >
+            マンジャロを購入する（初回）
+          </button>
+        )}
       </div>
 
       {/* 本文 */}
@@ -772,14 +848,13 @@ const topSectionTitle = nextReservation
                 ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
               </p>
             </>
-) : lastHistory ? (
-  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-    <div className="text-sm font-semibold text-slate-900">
-      {formatVisitSlotRange(lastHistory.date)} 診察ずみ
-    </div>
-  </div>
-) : (
-
+          ) : lastHistory ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="text-sm font-semibold text-slate-900">
+                {formatVisitSlotRange(lastHistory.date)} 診察ずみ
+              </div>
+            </div>
+          ) : (
             <div className="text-sm text-slate-600">
               {isFirstVisit ? (
                 <>
@@ -798,14 +873,43 @@ const topSectionTitle = nextReservation
           )}
         </section>
 
-        {/* 注文・発送状況 + 再処方ボタン */}
+        {/* 注文／申請・発送状況 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              注文・発送状況
+              注文／申請・発送状況
             </h2>
           </div>
 
+          {/* 再処方申請中カード（最新 pending を一番上に） */}
+          {latestPendingReorder && (
+            <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
+              <div className="text-xs font-semibold text-pink-700 mb-1">
+                再処方申請中
+              </div>
+              <div className="text-sm font-medium text-slate-900">
+                {latestPendingReorder.productCode}
+              </div>
+              <div className="mt-2 flex gap-2 text-[11px]">
+                <button
+                  type="button"
+                  onClick={handleReorderChange}
+                  className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700"
+                >
+                  申請内容を変更する
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReorderCancel}
+                  className="px-3 py-1 rounded-full border border-rose-200 bg-rose-50 text-rose-700"
+                >
+                  申請をキャンセルする
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 通常の注文・発送状況 */}
           {activeOrders.length === 0 ? (
             <div className="text-sm text-slate-600">
               処方済みのお薬は現在ありません。
@@ -843,16 +947,13 @@ const topSectionTitle = nextReservation
                         </span>
                       </div>
                     </div>
-                   <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-  {order.trackingNumber ? (
-    // ★ 追跡番号がある場合はこれだけ表示
-    <p>追跡番号：{order.trackingNumber}</p>
-  ) : order.shippingEta ? (
-    // ★ 追跡番号がない場合のみ発送予定日を表示
-    <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
-  ) : null}
-</div>
-
+                    <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+                      {order.trackingNumber ? (
+                        <p>追跡番号：{order.trackingNumber}</p>
+                      ) : order.shippingEta ? (
+                        <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
                     {order.trackingNumber && (
@@ -871,28 +972,26 @@ const topSectionTitle = nextReservation
           )}
 
           {/* 再処方申請ボタン（初回分決済後） */}
-{ordersFlags?.hasAnyPaidOrder && (
-  <div className="mt-4">
-    <button
-      type="button"
-      disabled={!ordersFlags?.canApplyReorder}
-      onClick={() => {
-        if (!ordersFlags?.canApplyReorder) return;
-        // ★ いきなり /reorder ではなく、商品一覧（再処方モード）へ
-        router.push("/mypage/purchase?flow=reorder");
-      }}
-      className={
-        "w-full rounded-xl text-center py-3 text-base font-semibold border " +
-        (ordersFlags?.canApplyReorder
-          ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-          : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-      }
-    >
-      再処方を申請する
-    </button>
-  </div>
-)}
-
+          {ordersFlags?.hasAnyPaidOrder && (
+            <div className="mt-4">
+              <button
+                type="button"
+                disabled={!ordersFlags?.canApplyReorder}
+                onClick={() => {
+                  if (!ordersFlags?.canApplyReorder) return;
+                  router.push("/mypage/purchase?flow=reorder");
+                }}
+                className={
+                  "w-full rounded-xl text-center py-3 text-base font-semibold border " +
+                  (ordersFlags?.canApplyReorder
+                    ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+                }
+              >
+                再処方を申請する
+              </button>
+            </div>
+          )}
         </section>
 
         {/* 処方歴 */}
@@ -918,7 +1017,7 @@ const topSectionTitle = nextReservation
           ) : (
             <div className="space-y-3">
               {orderHistory.map((item) => {
-                const dateLabel = formatDate(item.date); // 日付だけ
+                const dateLabel = formatDate(item.date);
                 const mainText = item.detail || item.title || "処方";
 
                 return (
@@ -952,7 +1051,7 @@ const topSectionTitle = nextReservation
           <button
             type="button"
             onClick={handleContactSupport}
-            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 transition"
+            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text白 hover:bg-pink-600 transition"
           >
             LINEで問い合わせる
           </button>
