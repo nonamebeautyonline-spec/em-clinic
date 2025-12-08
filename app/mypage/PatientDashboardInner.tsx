@@ -710,7 +710,7 @@ const topSectionTitle = nextReservation
         : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
     }
   >
-    "マンジャロを購入する（初回）"
+    マンジャロを購入する（初回）
   </button>
 )}
 
