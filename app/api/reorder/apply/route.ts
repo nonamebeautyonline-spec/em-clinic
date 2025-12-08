@@ -7,16 +7,17 @@ const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 export async function POST(req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
+      console.error("GAS_REORDER_URL is not configured");
       return NextResponse.json(
         { ok: false, error: "GAS_REORDER_URL is not configured" },
         { status: 500 }
       );
     }
 
-    // cookie から patient_id を取得
     const cookieStore = await cookies();
     const patientId = cookieStore.get("patient_id")?.value;
     if (!patientId) {
+      console.error("no patient_id cookie");
       return NextResponse.json(
         { ok: false, error: "unauthorized: no patient_id cookie" },
         { status: 401 }
@@ -26,13 +27,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const productCode = body.productCode as string | undefined;
     if (!productCode) {
+      console.error("no productCode in body");
       return NextResponse.json(
         { ok: false, error: "productCode required" },
         { status: 400 }
       );
     }
 
-    // GAS_REORDER_URL に再処方申請（apply）を投げる
+    console.log("POST /api/reorder/apply → GAS", {
+      patientId,
+      productCode,
+    });
+
     const gasRes = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,10 +50,20 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     });
 
-    const gasJson = await gasRes.json().catch(() => ({}));
+    const gasText = await gasRes.text(); // ★ 一旦 text として受ける
+    let gasJson: any = {};
+    try {
+      gasJson = JSON.parse(gasText);
+    } catch {
+      gasJson = {};
+    }
+
+    console.log("GAS reorder apply response", {
+      status: gasRes.status,
+      body: gasText,
+    });
 
     if (!gasRes.ok || gasJson.ok === false) {
-      console.error("GAS reorder apply error:", gasRes.status, gasJson);
       return NextResponse.json(
         { ok: false, error: gasJson.error || "GAS error" },
         { status: 500 }
