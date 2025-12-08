@@ -13,11 +13,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // cookie から patient_id を取得
     const cookieStore = await cookies();
     const patientId = cookieStore.get("patient_id")?.value;
     if (!patientId) {
       return NextResponse.json(
-        { ok: false, error: "unauthorized" },
+        { ok: false, error: "unauthorized: no patient_id cookie" },
         { status: 401 }
       );
     }
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // GAS_REORDER_URL に再処方申請（apply）を投げる
     const gasRes = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,13 +47,14 @@ export async function POST(req: NextRequest) {
     const gasJson = await gasRes.json().catch(() => ({}));
 
     if (!gasRes.ok || gasJson.ok === false) {
+      console.error("GAS reorder apply error:", gasRes.status, gasJson);
       return NextResponse.json(
         { ok: false, error: gasJson.error || "GAS error" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("POST /api/reorder/apply error", e);
     return NextResponse.json(
