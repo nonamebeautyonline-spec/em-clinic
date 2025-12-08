@@ -1,8 +1,9 @@
-// app/purchase/confirm/page.tsx
+// app/mypage/purchase/confirm/page.tsx
 "use client";
 
-import React, { useMemo, useState, Suspense } from "react";
+import React, { useMemo, useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
 
 type ProductCode =
   | "MJL_2.5mg_1m"
