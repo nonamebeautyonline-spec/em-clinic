@@ -689,12 +689,55 @@ const handleReorderCancel = async () => {
 return (
   <div className="min-h-screen bg-[#FFF8FB]">
     {/* 予約キャンセル完了トースト */}
-    {showCancelSuccess && (... )}
+    {showCancelSuccess && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
+        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
+          ✓ 予約をキャンセルしました
+        </div>
+      </div>
+    )}
 
     {/* 予約キャンセル確認モーダル */}
-    {showCancelConfirm && data?.nextReservation && (... )}
+    {showCancelConfirm && data?.nextReservation && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
+        <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            この予約をキャンセルしますか？
+          </h3>
+          <p className="text-[13px] text-slate-600 mb-4">
+            {formatDateTime(data.nextReservation.datetime)}
+            <br />
+            {data.nextReservation.title}
+          </p>
 
-    {/* ★ 再処方キャンセル完了トースト ← ここに入れる */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCancelConfirm(false)}
+              disabled={canceling}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-[13px] text-slate-700"
+            >
+              戻る
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelReservationConfirm}
+              disabled={canceling}
+              className={
+                "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
+                (canceling
+                  ? "bg-pink-300 cursor-not-allowed"
+                  : "bg-pink-500 active:scale-[0.98]")
+              }
+            >
+              {canceling ? "処理中…" : "キャンセルする"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* 再処方キャンセル完了トースト */}
     {showReorderCancelSuccess && (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
         <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
@@ -703,9 +746,9 @@ return (
       </div>
     )}
 
-    {/* ★ 再処方キャンセル確認モーダル ← ここに入れる */}
+    {/* 再処方キャンセル確認モーダル */}
     {showReorderCancelConfirm && latestPendingReorder && (
-      <div className="fixed inset-0 z-40 flex items-center justify中心 bg-black/35">
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
         <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
           <h3 className="text-sm font-semibold text-slate-900 mb-2">
             この再処方申請をキャンセルしますか？
@@ -740,7 +783,6 @@ return (
         </div>
       </div>
     )}
-
 
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
