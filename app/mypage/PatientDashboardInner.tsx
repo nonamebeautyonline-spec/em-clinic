@@ -940,7 +940,6 @@ setData(finalData);
           )}
         </section>
 
-
         {/* サポート */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
           <h2 className="text-sm font-semibold text-slate-800 mb-2">
@@ -959,8 +958,8 @@ setData(finalData);
           <p className="mt-2 text-[11px] text-slate-500">
             ※ 診察中・夜間など、返信までお時間をいただく場合があります。
           </p>
-    </section>
-  </main>
-</div>
-);
+        </section>
+      </main>
+    </div>
+  );
 }
