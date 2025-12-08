@@ -110,11 +110,27 @@ function PurchaseConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // TODO: あとで mypage の実データから差し替える
-  const patientId = "TEMP_PATIENT_ID";
-
+  // patientId は /api/mypage/profile から取得
+  const [patientId, setPatientId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // マイページのプロフィールから patientId を取得
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/mypage/profile");
+        if (!res.ok) return; // 未連携などはそのまま UNKNOWN で飛ばす
+        const json = await res.json();
+        if (json?.patientId) {
+          setPatientId(String(json.patientId));
+        }
+      } catch (e) {
+        console.warn("profile fetch error in purchase confirm:", e);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode") as Mode | null;
@@ -142,6 +158,9 @@ function PurchaseConfirmContent() {
     setError(null);
     setSubmitting(true);
 
+    // patientId がまだ取れてなければ UNKNOWN として記録（後で手動紐付けも可能）
+    const effectivePatientId = patientId ?? "UNKNOWN";
+
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -151,7 +170,7 @@ function PurchaseConfirmContent() {
         body: JSON.stringify({
           productCode: product.code,
           mode: modeParam,
-          patientId: patientId,
+          patientId: effectivePatientId,
         }),
       });
 
@@ -235,7 +254,6 @@ function PurchaseConfirmContent() {
               <p className="mt-1 text-[11px] text-slate-600">
                 {product.mg}／{product.months}ヶ月分（全{product.shots}本）／週1回
               </p>
-              {/* Product Name は内部用なので非表示 */}
             </div>
             <div className="text-right whitespace-nowrap">
               <div className="text-[11px] text-slate-400">お支払い金額</div>
@@ -298,6 +316,7 @@ function PurchaseConfirmContent() {
     </div>
   );
 }
+
 
 // 外側ラッパー：Suspense で内側を包む
 export default function PurchaseConfirmPage() {

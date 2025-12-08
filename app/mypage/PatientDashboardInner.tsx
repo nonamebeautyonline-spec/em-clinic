@@ -11,13 +11,13 @@ type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed";
 
 interface PatientInfo {
-  id: string;          // Patient ID
+  id: string; // Patient ID
   displayName: string; // 氏名
 }
 
 interface Reservation {
   id: string;
-  datetime: string;    // ISO string
+  datetime: string; // ISO string
   title: string;
   status: ReservationStatus;
 }
@@ -33,19 +33,10 @@ interface Order {
 
 interface PrescriptionHistoryItem {
   id: string;
-  date: string;   // ISO string
+  date: string; // ISO string
   title: string;
   detail: string;
 }
-
-interface PatientDashboardData {
-  patient: PatientInfo;
-  nextReservation?: Reservation | null;
-  activeOrders: Order[];
-  history: PrescriptionHistoryItem[];
-  ordersFlags?: OrdersFlags;   // ★ 追加
-}
-
 
 interface OrdersFlags {
   canPurchaseCurrentCourse: boolean;
@@ -53,6 +44,13 @@ interface OrdersFlags {
   hasAnyPaidOrder: boolean;
 }
 
+interface PatientDashboardData {
+  patient: PatientInfo;
+  nextReservation?: Reservation | null;
+  activeOrders: Order[];
+  history: PrescriptionHistoryItem[];
+  ordersFlags?: OrdersFlags;
+}
 
 interface QueryPatientParams {
   customer_id?: string | null;
@@ -208,7 +206,7 @@ const paymentStatusClass = (status: string) => {
   }
 };
 
-// ------------------------- 本体 -------------------------
+// ------------------------- Component -------------------------
 export default function PatientDashboardInner() {
   const query = useQueryPatientParams();
   const router = useRouter();
@@ -220,7 +218,7 @@ export default function PatientDashboardInner() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
-  const [hasIntake, setHasIntake] = useState(false); // 問診済みフラグ
+  const [hasIntake, setHasIntake] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -288,7 +286,7 @@ export default function PatientDashboardInner() {
             profile?.name || query.name || storedBasic.name || "ゲスト",
         };
 
-        // ④ localStorage予約
+        // ④ localStorage予約（診察前だけ有効）
         let nextReservation: Reservation | null = null;
         if (
           storedReservation &&
@@ -313,53 +311,50 @@ export default function PatientDashboardInner() {
           history: [],
         };
 
-// ⑤ /api/mypage
-try {
-  const res = await fetch("/api/mypage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      customer_id: patient.id,
-      name: patient.displayName,
-    }),
-  });
+        // ⑤ /api/mypage（診察情報）
+        try {
+          const res = await fetch("/api/mypage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_id: patient.id,
+              name: patient.displayName,
+            }),
+          });
 
-  if (res.ok) {
-    const api = (await res.json()) as Partial<PatientDashboardData> & {
-      patient?: PatientInfo;
-    };
+          if (res.ok) {
+            const api = (await res.json()) as Partial<PatientDashboardData> & {
+              patient?: PatientInfo;
+            };
 
-    finalData = {
-      patient: {
-        id: api.patient?.id || patient.id,
-        displayName: api.patient?.displayName || patient.displayName,
-      },
-      // ★ api.nextReservation をそのまま使う（null は「明示的な null」として尊重）
-      nextReservation:
-        typeof api.nextReservation !== "undefined"
-          ? api.nextReservation
-          : nextReservation,
-      activeOrders: api.activeOrders ?? [],
-      history: api.history ?? [],
-    };
+            finalData = {
+              patient: {
+                id: api.patient?.id || patient.id,
+                displayName: api.patient?.displayName || patient.displayName,
+              },
+              nextReservation:
+                typeof api.nextReservation !== "undefined"
+                  ? api.nextReservation
+                  : nextReservation,
+              activeOrders: api.activeOrders ?? [],
+              history: api.history ?? [],
+            };
 
-    // ★ 診察履歴が1件でもあれば「次回予約」は表示しない & localStorageも消す
-    if (finalData.history && finalData.history.length > 0) {
-      finalData.nextReservation = null;
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem("last_reservation");
-      }
-    }
-  } else {
-    console.error("api/mypage response not ok:", res.status);
-  }
-} catch (err) {
-  console.error("api/mypage fetch error:", err);
-}
+            // 診察履歴があれば次回予約は消す
+            if (finalData.history && finalData.history.length > 0) {
+              finalData.nextReservation = null;
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem("last_reservation");
+              }
+            }
+          } else {
+            console.error("api/mypage response not ok:", res.status);
+          }
+        } catch (err) {
+          console.error("api/mypage fetch error:", err);
+        }
 
-setData(finalData);
-
-                // ⑥ /api/mypage/orders で決済・発送情報を取得
+        // ⑥ /api/mypage/orders（注文・発送＋フラグ）
         try {
           const ordersRes = await fetch("/api/mypage/orders", {
             method: "GET",
@@ -389,11 +384,10 @@ setData(finalData);
           console.error("api/mypage/orders fetch error:", err);
         }
 
-
         setData(finalData);
         setError(null);
 
-        // ★ 問診完了フラグ更新
+        // 問診済みフラグ
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
@@ -422,7 +416,6 @@ setData(finalData);
           const historyHasIntake =
             finalData.history && finalData.history.length > 0;
 
-          // 一度でも問診歴があれば永続的にフラグON
           if (historyHasIntake) {
             window.localStorage.setItem("has_intake", "1");
           }
@@ -553,13 +546,27 @@ setData(finalData);
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
-  const isFirstVisit = history.length === 0;
-  const lastHistory = history.length > 0 ? history[0] : null;
-  const hasHistory = history.length > 0; // ★ 診察済みかどうか
+  const hasHistory = history.length > 0;
+  const lastHistory = hasHistory ? history[0] : null;
+  const isFirstVisit = !hasHistory;
+
+  // 初回購入ボタンの可否
+  const canPurchaseInitial =
+    hasHistory && (ordersFlags?.canPurchaseCurrentCourse ?? true);
+
+  // 処方歴（Square webhook 由来）だけを抽出
+  const orderHistory = history.filter((item) => item.title === "処方");
+
+  // 上部カードのタイトル
+  const topSectionTitle = nextReservation
+    ? "次回のご予約"
+    : hasHistory
+    ? "初回診察"
+    : "次回のご予約";
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
-      {/* ▼ キャンセル成功モーション */}
+      {/* キャンセル完了トースト */}
       {showCancelSuccess && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
           <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
@@ -568,7 +575,7 @@ setData(finalData);
         </div>
       )}
 
-      {/* ▼ キャンセル確認モーダル */}
+      {/* キャンセル確認モーダル */}
       {showCancelConfirm && data?.nextReservation && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
           <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
@@ -635,12 +642,11 @@ setData(finalData);
         </div>
       </header>
 
-      {/* ▼ 上部の CTA：問診 → 予約 → 購入・再処方 */}
+      {/* 上部CTA */}
       <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
-        {/* ①問診ボタン */}
+        {/* 問診 */}
         {hasIntake ? (
           <>
-            {/* 問診済みならグレーアウトして押せない */}
             <button
               type="button"
               disabled
@@ -654,10 +660,9 @@ setData(finalData);
           </>
         ) : (
           <>
-            {/* まだ問診していない人用 */}
             <Link
               href="/intake"
-              className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semiboldshadow-sm hover:bg-pink-600 transition"
+              className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
             >
               問診に進む
             </Link>
@@ -667,10 +672,10 @@ setData(finalData);
           </>
         )}
 
-        {/* ② 予約に進む */}
+        {/* 予約（診察前だけ） */}
         <button
           type="button"
-          disabled={!hasIntake || hasHistory} // 診察後は新規予約させない想定
+          disabled={!hasIntake || hasHistory}
           onClick={() => {
             if (!hasIntake || hasHistory) return;
             router.push("/reserve");
@@ -685,55 +690,36 @@ setData(finalData);
           予約に進む
         </button>
 
-        {/* ③ マンジャロを購入する（診察後のみ有効） */}
+        {/* 初回購入ボタン（診察後／未購入のみ） */}
         <button
           type="button"
-          disabled={!hasHistory}
+          disabled={!canPurchaseInitial}
           onClick={() => {
-            if (!hasHistory) return;
+            if (!canPurchaseInitial) return;
             router.push("/mypage/purchase");
           }}
           className={
             "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
-            (hasHistory
+            (canPurchaseInitial
               ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
               : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
           }
         >
-          {hasHistory
-            ? "マンジャロを購入する"
+          {canPurchaseInitial
+            ? "マンジャロを購入する（初回）"
+            : hasHistory
+            ? "初回分は決済済みです"
             : "診察後にご利用いただけます"}
         </button>
-
-        {/* ④ 再処方を申請する（初回分決済後に表示） */}
-        {ordersFlags?.hasAnyPaidOrder && (
-          <button
-            type="button"
-            disabled={!ordersFlags?.canApplyReorder}
-            onClick={() => {
-              if (!ordersFlags?.canApplyReorder) return;
-              router.push("/mypage/purchase/reorder");
-            }}
-            className={
-              "mt-2 block w-full rounded-xl text-center py-3 text-base font-semibold border " +
-              (ordersFlags?.canApplyReorder
-                ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-            }
-          >
-            再処方を申請する
-          </button>
-        )}
       </div>
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
-
-        {/* 次回予約 */}
+        {/* 初回診察／次回予約ブロック */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              次回のご予約
+              {topSectionTitle}
             </h2>
             {nextReservation && (
               <span
@@ -784,14 +770,9 @@ setData(finalData);
               </p>
             </>
           ) : lastHistory ? (
-            // ★ Dr UI で処方許可後：直近の診察枠を「診察ずみ」で表示
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 space-y-1">
-              <div className="text-xs text-slate-500">直近の診察</div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-sm font-semibold text-slate-900">
-                {formatVisitSlotRange(lastHistory.date)} 診察ずみ
-              </div>
-              <div className="text-[11px] text-slate-500">
-                {lastHistory.title || "オンライン診察"}
+                初回診察　{formatVisitSlotRange(lastHistory.date)} 診察ずみ
               </div>
             </div>
           ) : (
@@ -813,7 +794,7 @@ setData(finalData);
           )}
         </section>
 
-        {/* 注文・発送状況 */}
+        {/* 注文・発送状況 + 再処方ボタン */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
@@ -882,15 +863,37 @@ setData(finalData);
               ))}
             </div>
           )}
+
+          {/* 再処方申請ボタン（初回分決済後） */}
+          {ordersFlags?.hasAnyPaidOrder && (
+            <div className="mt-4">
+              <button
+                type="button"
+                disabled={!ordersFlags?.canApplyReorder}
+                onClick={() => {
+                  if (!ordersFlags?.canApplyReorder) return;
+                  router.push("/mypage/purchase/reorder");
+                }}
+                className={
+                  "w-full rounded-xl text-center py-3 text-base font-semibold border " +
+                  (ordersFlags?.canApplyReorder
+                    ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+                }
+              >
+                再処方を申請する
+              </button>
+            </div>
+          )}
         </section>
 
-        {/* 診察・処方履歴 */}
+        {/* 処方歴 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              これまでの診察・お薬
+              これまでの処方歴
             </h2>
-            {history.length > 0 && (
+            {orderHistory.length > 0 && (
               <button
                 type="button"
                 className="text-xs text-slate-500 hover:text-slate-700"
@@ -900,22 +903,15 @@ setData(finalData);
             )}
           </div>
 
-          {history.length === 0 ? (
+          {orderHistory.length === 0 ? (
             <div className="text-sm text-slate-600">
-              まだ診察・処方の履歴はありません。
+              まだ処方の履歴はありません。
             </div>
           ) : (
             <div className="space-y-3">
-              {history.map((item, index) => {
-                // index=0 を「初回診察」として扱う
-                const isFirstVisit = index === 0;
-                const dateLabel = isFirstVisit
-                  ? formatVisitSlotRange(item.date) // 2025/12/08 10:00-10:15
-                  : formatDate(item.date);          // 2025/12/08
-
-                const mainText = isFirstVisit
-                  ? `初回診察`
-                  : item.detail || "処方";
+              {orderHistory.map((item) => {
+                const dateLabel = formatDate(item.date); // 日付だけ
+                const mainText = item.detail || item.title || "処方";
 
                 return (
                   <div
