@@ -1,8 +1,8 @@
 // app/mypage/purchase/page.tsx
 "use client";
 
-import React from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type ProductCode =
   | "MJL_2.5mg_1m"
@@ -22,7 +22,6 @@ type Product = {
   months: 1 | 2 | 3;
   shots: number; // 本数
   price: number; // 円（税込）
-  // recommended?: boolean; // UIではもう使わないが残しておいてもOK
 };
 
 const PRODUCTS: Product[] = [
@@ -66,7 +65,7 @@ const PRODUCTS: Product[] = [
     mg: "5mg",
     months: 2,
     shots: 8,
-    price: 45500,
+    price: 25500,
   },
   {
     code: "MJL_5mg_3m",
@@ -105,16 +104,34 @@ const PRODUCTS: Product[] = [
 
 const MG_SECTIONS: { mg: Product["mg"]; label: string }[] = [
   { mg: "2.5mg", label: "マンジャロ 2.5mg" },
-  { mg: "5mg", label: "マンジャロ 5mg" }, // （人気）表記削除
+  { mg: "5mg", label: "マンジャロ 5mg" },
   { mg: "7.5mg", label: "マンジャロ 7.5mg" },
 ];
 
-export default function PurchasePage() {
+function PurchasePageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // 診察後の「今回の処方分」を決済するとき
+  // flow === "reorder" なら再処方モード
+  const flow = searchParams.get("flow");
+  const isReorderFlow = flow === "reorder";
+
+  const pageTitle = isReorderFlow
+    ? "マンジャロ再処方の申請"
+    : "マンジャロ購入（今回の診察分）";
+
+  const description = isReorderFlow
+    ? "再処方を希望される内容を選択してください。診察内容と前回の経過を踏まえて、Drが再処方可否を判断いたします。"
+    : "本ページは診察後に決定した「今回の処方分」の決済専用です。必ず診察時に医師と決定した用量のみをご選択ください。";
+
+  // 初回決済用：内容確認ページへ
   const handleCheckoutForCurrentVisit = (product: Product) => {
     router.push(`/mypage/purchase/confirm?code=${product.code}&mode=current`);
+  };
+
+  // 再処方用：再処方申請確認ページへ
+  const handleReorderRequest = (product: Product) => {
+    router.push(`/mypage/purchase/reorder?code=${product.code}`);
   };
 
   return (
@@ -125,18 +142,14 @@ export default function PurchasePage() {
           <div className="text-xs text-slate-400">マイページ</div>
           <div className="flex items-center justify-between mt-0.5">
             <h1 className="text-lg font-semibold text-slate-900">
-              マンジャロ購入（今回の診察分）
+              {pageTitle}
             </h1>
             <span className="rounded-full bg-pink-50 px-3 py-1 text-[11px] font-medium text-pink-600">
               診察後専用
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-600 leading-relaxed">
-            本ページは
-            <strong>診察後に決定した「今回の処方分」の決済専用</strong>
-            です。
-            <br />
-            <strong>必ず診察時に医師と決定した用量のみをご選択ください。</strong>
+            {description}
           </p>
         </div>
       </div>
@@ -177,7 +190,6 @@ export default function PurchasePage() {
                         <p className="mt-1 text-[11px] text-slate-500">
                           {p.months}ヶ月分（全{p.shots}本）／週1回
                         </p>
-                        {/* Product Name は内部用なので非表示 */}
                       </div>
                       <div className="text-right whitespace-nowrap">
                         <div className="text-[11px] text-slate-400">料金</div>
@@ -190,15 +202,26 @@ export default function PurchasePage() {
                       </div>
                     </div>
 
-                    {/* ボタン：今回診察分の決済のみ */}
                     <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => handleCheckoutForCurrentVisit(p)}
-                        className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
-                      >
-                        この内容で今回の決済に進む
-                      </button>
+                      {isReorderFlow ? (
+                        // ★ 再処方モード：申請に進む
+                        <button
+                          type="button"
+                          onClick={() => handleReorderRequest(p)}
+                          className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
+                        >
+                          この内容で再処方を申請する
+                        </button>
+                      ) : (
+                        // 初回決済モード：決済確認へ
+                        <button
+                          type="button"
+                          onClick={() => handleCheckoutForCurrentVisit(p)}
+                          className="w-full rounded-full bg-pink-500 text-white py-1.5 text-[11px] font-semibold disabled:opacity-60"
+                        >
+                          この内容で今回の決済に進む
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -208,10 +231,26 @@ export default function PurchasePage() {
         })}
 
         <p className="mt-4 text-[10px] text-slate-400 leading-relaxed">
-          ※ 用量は必ず診察時に医師と確認の上でご選択ください。<br />
-          ※ 再処方を希望される場合は、別ページの「再処方申請」からお手続きください。
+          ※ 用量は必ず診察時に医師と確認の上でご選択ください。
+          <br />
+          ※ 再処方を希望される場合は、再処方モードで申請してください。
         </p>
       </div>
     </div>
+  );
+}
+
+// Suspense ラッパー（useSearchParams 用）
+export default function PurchasePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <p className="text-sm text-slate-500">商品一覧を読み込んでいます…</p>
+        </div>
+      }
+    >
+      <PurchasePageInner />
+    </Suspense>
   );
 }
