@@ -546,15 +546,11 @@ export default function PatientDashboardInner() {
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
-  const hasHistory = history.length > 0;
-  const lastHistory = hasHistory ? history[0] : null;
-  const isFirstVisit = !hasHistory;
+const hasHistory = history.length > 0;
+const lastHistory = hasHistory ? history[0] : null;
+const isFirstVisit = !hasHistory;
 
-  // 初回購入ボタンの可否
-  const canPurchaseInitial =
-    hasHistory && (ordersFlags?.canPurchaseCurrentCourse ?? true);
-
-    // 2回目以降は初回購入ボタンを隠す
+// 2回目以降は初回購入ボタンを隠す
 const showInitialPurchase =
   hasHistory && !(ordersFlags?.hasAnyPaidOrder ?? false);
 
@@ -562,16 +558,16 @@ const showInitialPurchase =
 const canPurchaseInitial =
   showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
 
+// 処方歴（Square webhook 由来）だけを抽出
+const orderHistory = history.filter((item) => item.title === "処方");
 
-  // 処方歴（Square webhook 由来）だけを抽出
-  const orderHistory = history.filter((item) => item.title === "処方");
+// 上部カードのタイトル
+const topSectionTitle = nextReservation
+  ? "次回のご予約"
+  : hasHistory
+  ? "初回診察"
+  : "次回のご予約";
 
-  // 上部カードのタイトル
-  const topSectionTitle = nextReservation
-    ? "次回のご予約"
-    : hasHistory
-    ? "初回診察"
-    : "次回のご予約";
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
