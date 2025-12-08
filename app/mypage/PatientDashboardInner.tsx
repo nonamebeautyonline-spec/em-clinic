@@ -670,7 +670,7 @@ setData(finalData);
         {/* ② 予約に進む */}
         <button
           type="button"
-          disabled={!hasIntake || hasHistory} // ★ 診察後は新規予約させない想定
+          disabled={!hasIntake || hasHistory} // 診察後は新規予約させない想定
           onClick={() => {
             if (!hasIntake || hasHistory) return;
             router.push("/reserve");
@@ -704,34 +704,31 @@ setData(finalData);
             ? "マンジャロを購入する"
             : "診察後にご利用いただけます"}
         </button>
+
+        {/* ④ 再処方を申請する（初回分決済後に表示） */}
+        {ordersFlags?.hasAnyPaidOrder && (
+          <button
+            type="button"
+            disabled={!ordersFlags?.canApplyReorder}
+            onClick={() => {
+              if (!ordersFlags?.canApplyReorder) return;
+              router.push("/mypage/purchase/reorder");
+            }}
+            className={
+              "mt-2 block w-full rounded-xl text-center py-3 text-base font-semibold border " +
+              (ordersFlags?.canApplyReorder
+                ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+                : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+            }
+          >
+            再処方を申請する
+          </button>
+        )}
       </div>
-
-
-          {/* ④ 再処方を申請する（初回分決済後に表示） */}
-          {ordersFlags?.hasAnyPaidOrder && (
-            <button
-              type="button"
-              disabled={!ordersFlags?.canApplyReorder}
-              onClick={() => {
-                if (!ordersFlags?.canApplyReorder) return;
-                router.push("/mypage/purchase/reorder"); // 再処方ページ（今後作る）
-              }}
-              className={
-                "mt-2 block w-full rounded-xl text-center py-3 text-base font-semibold border " +
-                (ordersFlags?.canApplyReorder
-                  ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-                  : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-              }
-            >
-              再処方を申請する
-            </button>
-          )}
-        </div>
-      )}
-
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
+
         {/* 次回予約 */}
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
