@@ -1,8 +1,9 @@
 // app/mypage/purchase/reorder/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+
 
 // ProductCode は purchase ページと同じ
 type ProductCode =
@@ -193,5 +194,15 @@ function ReorderContent() {
 }
 
 export default function ReorderPage() {
-  return <ReorderContent />;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <p className="text-sm text-slate-500">再処方申請画面を読み込んでいます…</p>
+        </div>
+      }
+    >
+      <ReorderContent />
+    </Suspense>
+  );
 }
