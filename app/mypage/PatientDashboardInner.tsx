@@ -497,45 +497,6 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
     router,
   ]);
 
-
-
-// ⑦ /api/reorder/list（再処方申請一覧）
-try {
-  const reRes = await fetch("/api/reorder/list", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
-  });
-
-  if (reRes.ok) {
-    const reJson: {
-      ok: boolean;
-      reorders?: any[];
-    } = await reRes.json();
-
-    if (reJson.ok && Array.isArray(reJson.reorders)) {
-      const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
-        const code = String(r.product_code ?? "");
-        const label = PRODUCT_LABELS[code] || code || "マンジャロ";
-        return {
-          id: String(r.id ?? ""),
-          timestamp: String(r.timestamp ?? ""),
-          productCode: code,
-          productLabel: label,                         // ★ ラベルを保存
-          status: (r.status ?? "pending") as ReorderItem["status"],
-          note: r.note ? String(r.note) : undefined,
-        };
-      });
-      setReorders(mapped);
-    }
-  } else {
-    console.error("api/reorder/list response not ok:", reRes.status);
-  }
-} catch (err) {
-  console.warn("api/reorder/list fetch error:", err);
-}
-
-
         setData(finalData);
         setError(null);
 
