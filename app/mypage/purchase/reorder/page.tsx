@@ -56,30 +56,37 @@ function ReorderContent() {
     router.push("/mypage");
   };
 
-  const handleSubmit = async () => {
-    if (!product) return;
-    setSubmitting(true);
-    setError(null);
+const handleSubmit = async () => {
+  if (!product) return;
+  setSubmitting(true);
+  setError(null);
 
-    // ★ ここではまだバックエンド連携はせず、UIだけ
-    // 将来 /api/reorder/apply に飛ばす想定
-    try {
-      // TODO: /api/reorder/apply を作ったらここで POST
-      // await fetch("/api/reorder/apply", { ... });
+  try {
+    const res = await fetch("/api/reorder/apply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productCode: product.code }),
+    });
 
-      alert(
-        "再処方の申請を受け付けました。\n\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。"
-      );
-      router.push("/mypage");
-    } catch (e: any) {
-      console.error(e);
-      setError(
-        e?.message ||
-          "再処方申請の送信に失敗しました。時間をおいて再度お試しください。"
-      );
-      setSubmitting(false);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.ok === false) {
+      throw new Error(json.error || "再処方申請の送信に失敗しました。");
     }
-  };
+
+    alert(
+      "再処方の申請を受け付けました。\n\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。"
+    );
+    router.push("/mypage");
+  } catch (e: any) {
+    console.error(e);
+    setError(
+      e?.message ||
+        "再処方申請の送信中にエラーが発生しました。時間をおいて再度お試しください。"
+    );
+    setSubmitting(false);
+  }
+};
+
 
   if (!codeParam || !product) {
     return (

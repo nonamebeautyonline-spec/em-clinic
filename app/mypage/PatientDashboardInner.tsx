@@ -48,9 +48,11 @@ interface ReorderItem {
   id: string;
   timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
   productCode: string;
+  productLabel: string;                 // ★ 追加
   status: "pending" | "confirmed" | "canceled";
   note?: string;
 }
+
 
 interface PatientDashboardData {
   patient: PatientInfo;
@@ -214,6 +216,20 @@ const paymentStatusClass = (status: string) => {
   }
 };
 
+// 再処方や処方歴などで使う ProductCode → 表示名マップ
+const PRODUCT_LABELS: Record<string, string> = {
+  MJL_2.5mg_1m: "マンジャロ 2.5mg 1ヶ月 x 1",
+  MJL_2.5mg_2m: "マンジャロ 2.5mg 2ヶ月 x 1",
+  MJL_2.5mg_3m: "マンジャロ 2.5mg 3ヶ月 x 1",
+  MJL_5mg_1m: "マンジャロ 5mg 1ヶ月 x 1",
+  MJL_5mg_2m: "マンジャロ 5mg 2ヶ月 x 1",
+  MJL_5mg_3m: "マンジャロ 5mg 3ヶ月 x 1",
+  MJL_7.5mg_1m: "マンジャロ 7.5mg 1ヶ月 x 1",
+  MJL_7.5mg_2m: "マンジャロ 7.5mg 2ヶ月 x 1",
+  MJL_7.5mg_3m: "マンジャロ 7.5mg 3ヶ月 x 1",
+};
+
+
 // ------------------------- Component -------------------------
 export default function PatientDashboardInner() {
   const query = useQueryPatientParams();
@@ -228,6 +244,11 @@ export default function PatientDashboardInner() {
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [hasIntake, setHasIntake] = useState(false);
+
+  const [showReorderCancelConfirm, setShowReorderCancelConfirm] = useState(false);
+const [cancelingReorder, setCancelingReorder] = useState(false);
+const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
+
 
   useEffect(() => {
     const init = async () => {
@@ -393,39 +414,42 @@ export default function PatientDashboardInner() {
           console.error("api/mypage/orders fetch error:", err);
         }
 
-                // ⑦ /api/reorder/list（再処方申請一覧）
-        try {
-          const reRes = await fetch("/api/reorder/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          });
+// ⑦ /api/reorder/list（再処方申請一覧）
+try {
+  const reRes = await fetch("/api/reorder/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
 
-          if (reRes.ok) {
-            const reJson: {
-              ok: boolean;
-              reorders?: any[];
-            } = await reRes.json();
+  if (reRes.ok) {
+    const reJson: {
+      ok: boolean;
+      reorders?: any[];
+    } = await reRes.json();
 
-            if (reJson.ok && Array.isArray(reJson.reorders)) {
-              const mapped: ReorderItem[] = reJson.reorders.map((r: any) => ({
-                id: String(r.id ?? ""),
-                timestamp: String(r.timestamp ?? ""),
-                productCode: String(r.product_code ?? ""),
-                status: (r.status ?? "pending") as ReorderItem["status"],
-                note: r.note ? String(r.note) : undefined,
-              }));
-              setReorders(mapped);
-            }
-          } else {
-            console.error(
-              "api/reorder/list response not ok:",
-              reRes.status
-            );
-          }
-        } catch (err) {
-          console.warn("api/reorder/list fetch error:", err);
-        }
+    if (reJson.ok && Array.isArray(reJson.reorders)) {
+      const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
+        const code = String(r.product_code ?? "");
+        const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+        return {
+          id: String(r.id ?? ""),
+          timestamp: String(r.timestamp ?? ""),
+          productCode: code,
+          productLabel: label,                         // ★ ラベルを保存
+          status: (r.status ?? "pending") as ReorderItem["status"],
+          note: r.note ? String(r.note) : undefined,
+        };
+      });
+      setReorders(mapped);
+    }
+  } else {
+    console.error("api/reorder/list response not ok:", reRes.status);
+  }
+} catch (err) {
+  console.warn("api/reorder/list fetch error:", err);
+}
+
 
         setData(finalData);
         setError(null);
@@ -574,26 +598,40 @@ export default function PatientDashboardInner() {
     router.push("/mypage/purchase?flow=reorder");
   };
 
-  const handleReorderCancel = async () => {
-    try {
-      const res = await fetch("/api/reorder/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
+const handleReorderCancel = async () => {
+  try {
+    setCancelingReorder(true);
 
-      const json = await res.json().catch(() => ({} as any));
+    const res = await fetch("/api/reorder/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
 
-      if (!res.ok || json.ok === false) {
-        alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
-        return;
-      }
+    const json = await res.json().catch(() => ({} as any));
 
-      setReorders((prev) => prev.filter((r) => r.status !== "pending"));
-    } catch (e) {
-      console.error(e);
+    if (!res.ok || json.ok === false) {
       alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
+      return;
     }
-  };
+
+    // pending をローカル状態から消す
+    setReorders((prev) =>
+      prev.map((r) =>
+        r.status === "pending" ? { ...r, status: "canceled" } : r
+      )
+    );
+
+    setShowReorderCancelConfirm(false);
+    setShowReorderCancelSuccess(true);
+    setTimeout(() => setShowReorderCancelSuccess(false), 1200);
+  } catch (e) {
+    console.error(e);
+    alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
+  } finally {
+    setCancelingReorder(false);
+  }
+};
+
 
   if (loading) {
     return (
@@ -884,14 +922,14 @@ export default function PatientDashboardInner() {
           </div>
 
           {/* 再処方申請中カード（最新 pending を一番上に） */}
-          {latestPendingReorder && (
-            <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
-              <div className="text-xs font-semibold text-pink-700 mb-1">
-                再処方申請中
-              </div>
-              <div className="text-sm font-medium text-slate-900">
-                {latestPendingReorder.productCode}
-              </div>
+{latestPendingReorder && (
+  <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
+    <div className="text-xs font-semibold text-pink-700 mb-1">
+      再処方申請中
+    </div>
+    <div className="text-sm font-medium text-slate-900">
+      {latestPendingReorder.productLabel}
+    </div>
               <div className="mt-2 flex gap-2 text-[11px]">
                 <button
                   type="button"
@@ -900,13 +938,14 @@ export default function PatientDashboardInner() {
                 >
                   申請内容を変更する
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReorderCancel}
-                  className="px-3 py-1 rounded-full border border-rose-200 bg-rose-50 text-rose-700"
-                >
-                  申請をキャンセルする
-                </button>
+<button
+  type="button"
+  onClick={() => setShowReorderCancelConfirm(true)}
+  className="px-3 py-1 rounded-full border border-rose-200 bg-rose-50 text-rose-700"
+>
+  申請をキャンセルする
+</button>
+
               </div>
             </div>
           )}
