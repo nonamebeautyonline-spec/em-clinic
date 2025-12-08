@@ -342,78 +342,161 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           history: [],
         };
 
-        // ⑤ /api/mypage（診察情報）
-        try {
-          const res = await fetch("/api/mypage", {
+        // ⑤ /api/mypage, /api/mypage/orders, /api/reorder/list を並列に叩く
+        const [mpRes, ordersRes, reRes] = await Promise.all([
+          fetch("/api/mypage", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               customer_id: patient.id,
               name: patient.displayName,
             }),
-          });
-
-          if (res.ok) {
-            const api = (await res.json()) as Partial<PatientDashboardData> & {
-              patient?: PatientInfo;
-            };
-
-            finalData = {
-              patient: {
-                id: api.patient?.id || patient.id,
-                displayName: api.patient?.displayName || patient.displayName,
-              },
-              nextReservation:
-                typeof api.nextReservation !== "undefined"
-                  ? api.nextReservation
-                  : nextReservation,
-              activeOrders: api.activeOrders ?? [],
-              history: api.history ?? [],
-            };
-
-            // 診察履歴があれば次回予約は消す
-            if (finalData.history && finalData.history.length > 0) {
-              finalData.nextReservation = null;
-              if (typeof window !== "undefined") {
-                window.localStorage.removeItem("last_reservation");
-              }
-            }
-          } else {
-            console.error("api/mypage response not ok:", res.status);
-          }
-        } catch (err) {
-          console.error("api/mypage fetch error:", err);
-        }
-
-        // ⑥ /api/mypage/orders（注文・発送＋フラグ）
-        try {
-          const ordersRes = await fetch("/api/mypage/orders", {
+          }),
+          fetch("/api/mypage/orders", {
             method: "GET",
-          });
+          }),
+          fetch("/api/reorder/list", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          }),
+        ]);
 
-          if (ordersRes.ok) {
-            const ordersJson: {
-              ok: boolean;
-              orders: Order[];
-              flags?: OrdersFlags;
-            } = await ordersRes.json();
+        // /api/mypage（診察情報）
+        if (mpRes.ok) {
+          const api = (await mpRes.json()) as Partial<PatientDashboardData> & {
+            patient?: PatientInfo;
+          };
 
-            if (ordersJson.ok) {
-              finalData = {
-                ...finalData,
-                activeOrders: ordersJson.orders ?? finalData.activeOrders,
-                ordersFlags: ordersJson.flags,
-              };
+          finalData = {
+            patient: {
+              id: api.patient?.id || patient.id,
+              displayName: api.patient?.displayName || patient.displayName,
+            },
+            nextReservation:
+              typeof api.nextReservation !== "undefined"
+                ? api.nextReservation
+                : nextReservation,
+            activeOrders: api.activeOrders ?? [],
+            history: api.history ?? [],
+          };
+
+          // 診察履歴があれば次回予約は消す
+          if (finalData.history && finalData.history.length > 0) {
+            finalData.nextReservation = null;
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem("last_reservation");
             }
-          } else {
-            console.error(
-              "api/mypage/orders response not ok:",
-              ordersRes.status
-            );
           }
-        } catch (err) {
-          console.error("api/mypage/orders fetch error:", err);
+        } else {
+          console.error("api/mypage response not ok:", mpRes.status);
         }
+
+        // /api/mypage/orders（注文・発送＋フラグ）
+        if (ordersRes.ok) {
+          const ordersJson: {
+            ok: boolean;
+            orders: Order[];
+            flags?: OrdersFlags;
+          } = await ordersRes.json();
+
+          if (ordersJson.ok) {
+            finalData = {
+              ...finalData,
+              activeOrders: ordersJson.orders ?? finalData.activeOrders,
+              ordersFlags: ordersJson.flags,
+            };
+          }
+        } else {
+          console.error(
+            "api/mypage/orders response not ok:",
+            ordersRes.status
+          );
+        }
+
+        // /api/reorder/list（再処方申請一覧）
+        if (reRes.ok) {
+          const reJson: {
+            ok: boolean;
+            reorders?: any[];
+          } = await reRes.json();
+
+          if (reJson.ok && Array.isArray(reJson.reorders)) {
+            const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
+              const code = String(r.product_code ?? "");
+              const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+              return {
+                id: String(r.id ?? ""),
+                timestamp: String(r.timestamp ?? ""),
+                productCode: code,
+                productLabel: label,
+                status: (r.status ?? "pending") as ReorderItem["status"],
+                note: r.note ? String(r.note) : undefined,
+              };
+            });
+            setReorders(mapped);
+          }
+        } else {
+          console.error("api/reorder/list response not ok:", reRes.status);
+        }
+
+        setData(finalData);
+        setError(null);
+
+        // 問診済みフラグ
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "patient_basic",
+            JSON.stringify({
+              customer_id:
+                profile?.patientId ??
+                query.customer_id ??
+                storedBasic.customer_id ??
+                finalData.patient.id ??
+                "",
+              name:
+                profile?.name ??
+                query.name ??
+                storedBasic.name ??
+                finalData.patient.displayName ??
+                "",
+              kana: storedBasic.kana ?? "",
+              sex: storedBasic.sex ?? "",
+              birth: storedBasic.birth ?? "",
+              phone: storedBasic.phone ?? "",
+            })
+          );
+
+          const localHasIntake =
+            window.localStorage.getItem("has_intake") === "1";
+          const historyHasIntake =
+            finalData.history && finalData.history.length > 0;
+
+          if (historyHasIntake) {
+            window.localStorage.setItem("has_intake", "1");
+          }
+
+          setHasIntake(localHasIntake || historyHasIntake);
+        }
+      } catch (e) {
+        console.error(e);
+        setError("データの取得に失敗しました。");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+  }, [
+    query.customer_id,
+    query.name,
+    query.kana,
+    query.sex,
+    query.birth,
+    query.phone,
+    router,
+  ]);
+
 
 // ⑦ /api/reorder/list（再処方申請一覧）
 try {
