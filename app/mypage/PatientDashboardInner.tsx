@@ -393,11 +393,14 @@ export default function PatientDashboardInner() {
           console.error("api/mypage/orders fetch error:", err);
         }
 
-        // ⑦ /api/mypage/reorders（再処方申請一覧）※まだAPIない場合は無視される
+                // ⑦ /api/reorder/list（再処方申請一覧）
         try {
-          const reRes = await fetch("/api/mypage/reorders", {
-            method: "GET",
+          const reRes = await fetch("/api/reorder/list", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
           });
+
           if (reRes.ok) {
             const reJson: {
               ok: boolean;
@@ -416,13 +419,12 @@ export default function PatientDashboardInner() {
             }
           } else {
             console.error(
-              "api/mypage/reorders response not ok:",
+              "api/reorder/list response not ok:",
               reRes.status
             );
           }
         } catch (err) {
-          // API が未実装でも落ちないようにする
-          console.warn("api/mypage/reorders fetch error:", err);
+          console.warn("api/reorder/list fetch error:", err);
         }
 
         setData(finalData);
