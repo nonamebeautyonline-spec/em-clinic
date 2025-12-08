@@ -218,16 +218,17 @@ const paymentStatusClass = (status: string) => {
 
 // 再処方や処方歴などで使う ProductCode → 表示名マップ
 const PRODUCT_LABELS: Record<string, string> = {
-  MJL_2.5mg_1m: "マンジャロ 2.5mg 1ヶ月 x 1",
-  MJL_2.5mg_2m: "マンジャロ 2.5mg 2ヶ月 x 1",
-  MJL_2.5mg_3m: "マンジャロ 2.5mg 3ヶ月 x 1",
-  MJL_5mg_1m: "マンジャロ 5mg 1ヶ月 x 1",
-  MJL_5mg_2m: "マンジャロ 5mg 2ヶ月 x 1",
-  MJL_5mg_3m: "マンジャロ 5mg 3ヶ月 x 1",
-  MJL_7.5mg_1m: "マンジャロ 7.5mg 1ヶ月 x 1",
-  MJL_7.5mg_2m: "マンジャロ 7.5mg 2ヶ月 x 1",
-  MJL_7.5mg_3m: "マンジャロ 7.5mg 3ヶ月 x 1",
+  "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月 x 1",
+  "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月 x 1",
+  "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月 x 1",
+  "MJL_5mg_1m":   "マンジャロ 5mg 1ヶ月 x 1",
+  "MJL_5mg_2m":   "マンジャロ 5mg 2ヶ月 x 1",
+  "MJL_5mg_3m":   "マンジャロ 5mg 3ヶ月 x 1",
+  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月 x 1",
+  "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月 x 1",
+  "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月 x 1",
 };
+
 
 
 // ------------------------- Component -------------------------
@@ -685,56 +686,61 @@ const handleReorderCancel = async () => {
     ? "初回診察"
     : "次回のご予約";
 
-  return (
-    <div className="min-h-screen bg-[#FFF8FB]">
-      {/* キャンセル完了トースト */}
-      {showCancelSuccess && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-          <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
-            ✓ 予約をキャンセルしました
+return (
+  <div className="min-h-screen bg-[#FFF8FB]">
+    {/* 予約キャンセル完了トースト */}
+    {showCancelSuccess && (... )}
+
+    {/* 予約キャンセル確認モーダル */}
+    {showCancelConfirm && data?.nextReservation && (... )}
+
+    {/* ★ 再処方キャンセル完了トースト ← ここに入れる */}
+    {showReorderCancelSuccess && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
+        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
+          ✓ 再処方申請をキャンセルしました
+        </div>
+      </div>
+    )}
+
+    {/* ★ 再処方キャンセル確認モーダル ← ここに入れる */}
+    {showReorderCancelConfirm && latestPendingReorder && (
+      <div className="fixed inset-0 z-40 flex items-center justify中心 bg-black/35">
+        <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
+          <h3 className="text-sm font-semibold text-slate-900 mb-2">
+            この再処方申請をキャンセルしますか？
+          </h3>
+          <p className="text-[13px] text-slate-600 mb-4">
+            {latestPendingReorder.productLabel}
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowReorderCancelConfirm(false)}
+              disabled={cancelingReorder}
+              className="flex-1 h-10 rounded-xl border border-slate-200 text-[13px] text-slate-700"
+            >
+              戻る
+            </button>
+            <button
+              type="button"
+              onClick={handleReorderCancel}
+              disabled={cancelingReorder}
+              className={
+                "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
+                (cancelingReorder
+                  ? "bg-pink-300 cursor-not-allowed"
+                  : "bg-pink-500 active:scale-[0.98]")
+              }
+            >
+              {cancelingReorder ? "処理中…" : "キャンセルする"}
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
-     {/* キャンセル確認モーダル */}
-      {showCancelConfirm && data?.nextReservation && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-          <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">
-              この予約をキャンセルしますか？
-            </h3>
-            <p className="text-[13px] text-slate-600 mb-4">
-              {formatDateTime(data.nextReservation.datetime)}
-              <br />
-              {data.nextReservation.title}
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirm(false)}
-                disabled={canceling}
-                className="flex-1 h-10 rounded-xl border border-slate-200 text-[13px] text-slate-700"
-              >
-                戻る
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelReservationConfirm}
-                disabled={canceling}
-                className={
-                  "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
-                  (canceling
-                    ? "bg-pink-300 cursor-not-allowed"
-                    : "bg-pink-500 active:scale-[0.98]")
-                }
-              >
-                {canceling ? "処理中…" : "キャンセルする"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
