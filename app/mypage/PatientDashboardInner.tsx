@@ -843,14 +843,16 @@ const topSectionTitle = nextReservation
                         </span>
                       </div>
                     </div>
-                    <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-                      {order.shippingEta && (
-                        <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
-                      )}
-                      {order.trackingNumber && (
-                        <p>追跡番号：{order.trackingNumber}</p>
-                      )}
-                    </div>
+                   <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+  {order.trackingNumber ? (
+    // ★ 追跡番号がある場合はこれだけ表示
+    <p>追跡番号：{order.trackingNumber}</p>
+  ) : order.shippingEta ? (
+    // ★ 追跡番号がない場合のみ発送予定日を表示
+    <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
+  ) : null}
+</div>
+
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
                     {order.trackingNumber && (
@@ -869,26 +871,28 @@ const topSectionTitle = nextReservation
           )}
 
           {/* 再処方申請ボタン（初回分決済後） */}
-          {ordersFlags?.hasAnyPaidOrder && (
-            <div className="mt-4">
-              <button
-                type="button"
-                disabled={!ordersFlags?.canApplyReorder}
-                onClick={() => {
-                  if (!ordersFlags?.canApplyReorder) return;
-                  router.push("/mypage/purchase/reorder");
-                }}
-                className={
-                  "w-full rounded-xl text-center py-3 text-base font-semibold border " +
-                  (ordersFlags?.canApplyReorder
-                    ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-                }
-              >
-                再処方を申請する
-              </button>
-            </div>
-          )}
+{ordersFlags?.hasAnyPaidOrder && (
+  <div className="mt-4">
+    <button
+      type="button"
+      disabled={!ordersFlags?.canApplyReorder}
+      onClick={() => {
+        if (!ordersFlags?.canApplyReorder) return;
+        // ★ いきなり /reorder ではなく、商品一覧（再処方モード）へ
+        router.push("/mypage/purchase?flow=reorder");
+      }}
+      className={
+        "w-full rounded-xl text-center py-3 text-base font-semibold border " +
+        (ordersFlags?.canApplyReorder
+          ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+          : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+      }
+    >
+      再処方を申請する
+    </button>
+  </div>
+)}
+
         </section>
 
         {/* 処方歴 */}
