@@ -664,6 +664,8 @@ const handleReorderCancel = async () => {
   const orderHistory = history.filter((item) => item.title === "処方");
 
   const hasPendingReorder = reorders.some((r) => r.status === "pending");
+  const hasConfirmedReorder = reorders.some((r) => r.status === "confirmed");
+
   const latestPendingReorder = hasPendingReorder
     ? [...reorders]
         .filter((r) => r.status === "pending")
@@ -672,6 +674,22 @@ const handleReorderCancel = async () => {
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         )[0]
     : null;
+
+  const latestConfirmedReorder = hasConfirmedReorder
+    ? [...reorders]
+        .filter((r) => r.status === "confirmed")
+        .sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0]
+    : null;
+
+  // 表示に使う1件：
+  // 1. pending があれば pending を優先
+  // 2. なければ confirmed を表示
+  const displayReorder = latestPendingReorder ?? latestConfirmedReorder;
+  const displayReorderStatus = displayReorder?.status; // "pending" | "confirmed" | undefined
+
 
   // 初回購入ボタン（診察済み・まだ決済0回・申請も無しのときだけ）
   const showInitialPurchase =
@@ -971,34 +989,56 @@ return (
             </h2>
           </div>
 
-          {/* 再処方申請中カード（最新 pending を一番上に） */}
-{latestPendingReorder && (
-  <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
-    <div className="text-xs font-semibold text-pink-700 mb-1">
-      再処方申請中
-    </div>
-    <div className="text-sm font-medium text-slate-900">
-      {latestPendingReorder.productLabel}
-    </div>
-              <div className="mt-2 flex gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={handleReorderChange}
-                  className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700"
-                >
-                  申請内容を変更する
-                </button>
-<button
-  type="button"
-  onClick={() => setShowReorderCancelConfirm(true)}
-  className="px-3 py-1 rounded-full border border-rose-200 bg-rose-50 text-rose-700"
->
-  申請をキャンセルする
-</button>
-
+          {/* 再処方申請カード（pending or confirmed を表示） */}
+          {displayReorder && (
+            <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
+              <div className="text-xs font-semibold text-pink-700 mb-1">
+                {displayReorderStatus === "pending"
+                  ? "再処方申請中"
+                  : "再処方申請が許可されました"}
               </div>
+
+              <div className="text-sm font-medium text-slate-900">
+                {displayReorder.productLabel}
+              </div>
+
+              {/* ステータス別のボタン表示 */}
+              {displayReorderStatus === "pending" && (
+                <div className="mt-2 flex gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={handleReorderChange}
+                    className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-700"
+                  >
+                    申請内容を変更する
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowReorderCancelConfirm(true)}
+                    className="px-3 py-1 rounded-full border border-rose-200 bg-rose-50 text-rose-700"
+                  >
+                    申請をキャンセルする
+                  </button>
+                </div>
+              )}
+
+              {displayReorderStatus === "confirmed" && (
+                <div className="mt-2 flex gap-2 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // 承認済みの再処方決済へ
+                      router.push("/mypage/purchase?flow=reorder");
+                    }}
+                    className="px-3 py-1 rounded-full bg-pink-500 text-white"
+                  >
+                    再処方を決済する
+                  </button>
+                </div>
+              )}
             </div>
           )}
+
 
           {/* 通常の注文・発送状況 */}
           {activeOrders.length === 0 ? (
