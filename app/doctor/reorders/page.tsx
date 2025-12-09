@@ -7,11 +7,13 @@ type ReorderStatus = "pending" | "confirmed" | "canceled";
 type TabFilter = "pending" | "confirmed" | "canceled" | "all";
 
 interface DoctorReorder {
-  id: string;        // GAS上の行番号（"2" とか）
-  timestamp: string; // 申請日時
+  id: string;
+  timestamp: string;
   patientId: string;
+  patientName: string; // ★追加
   productCode: string;
   status: ReorderStatus;
+  history: { date: string; label: string }[]; // ★追加
   note?: string;
 }
 
@@ -81,14 +83,17 @@ export default function DoctorReordersPage() {
       if (!res.ok || json.ok === false) {
         throw new Error(json.error || "一覧の取得に失敗しました");
       }
-      const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
-        id: String(r.id),
-        timestamp: String(r.timestamp),
-        patientId: String(r.patient_id),
-        productCode: String(r.product_code),
-        status: (r.status || "pending") as ReorderStatus,
-        note: r.note || "",
-      }));
+const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
+  id: String(r.id),
+  timestamp: String(r.timestamp),
+  patientId: String(r.patient_id),
+  patientName: String(r.patient_name || ""),           // ★
+  productCode: String(r.product_code),
+  status: (r.status || "pending") as ReorderStatus,
+  history: Array.isArray(r.history) ? r.history : [],  // ★
+  note: r.note || "",
+}));
+
       setItems(mapped);
     } catch (e: any) {
       console.error(e);
@@ -225,80 +230,102 @@ export default function DoctorReordersPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredItems.map((item) => {
-              const label =
-                PRODUCT_LABELS[item.productCode] || item.productCode;
-              const isPending = item.status === "pending";
-              const isBusy = busyId === item.id;
+{filteredItems.map((item) => {
+  const label =
+    PRODUCT_LABELS[item.productCode] || item.productCode;
+  const isPending = item.status === "pending";
+  const isBusy = busyId === item.id;
 
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-xs text-slate-500">
-                        申請ID: {item.id}
-                      </div>
-                      <span
-                        className={
-                          "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium " +
-                          statusBadgeClass(item.status)
-                        }
-                      >
-                        {statusLabel(item.status)}
-                      </span>
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900">
-                      {label}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500 space-y-0.5">
-                      <p>Patient ID: {item.patientId}</p>
-                      <p>申請日時: {formatDateTime(item.timestamp)}</p>
-                      {item.note && <p>メモ: {item.note}</p>}
-                    </div>
-                  </div>
+  return (
+    <div
+      key={item.id}
+      className="rounded-2xl border border-slate-200 bg-white px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+    >
+      <div className="flex-1">
+        {/* 上部：ID & ステータス */}
+        <div className="flex items-center gap-2 mb-1">
+          <div className="text-xs text-slate-500">
+            申請ID: {item.id}
+          </div>
+          <span
+            className={
+              "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium " +
+              statusBadgeClass(item.status)
+            }
+          >
+            {statusLabel(item.status)}
+          </span>
+        </div>
 
-                  <div className="mt-2 md:mt-0 flex gap-2 md:flex-col md:items-end">
-                    {isPending ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleApprove(item.id)}
-                          className={
-                            "px-3 py-1.5 rounded-full text-xs font-semibold text-white " +
-                            (isBusy
-                              ? "bg-emerald-300 cursor-not-allowed"
-                              : "bg-emerald-500 hover:bg-emerald-600")
-                          }
-                        >
-                          {isBusy ? "処理中…" : "承認する"}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => handleReject(item.id)}
-                          className={
-                            "px-3 py-1.5 rounded-full text-xs font-semibold " +
-                            (isBusy
-                              ? "bg-rose-100 text-rose-400 cursor-not-allowed"
-                              : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100")
-                          }
-                        >
-                          {isBusy ? "処理中…" : "キャンセルする"}
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-[11px] text-slate-400">
-                        この申請は {statusLabel(item.status)} です。
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        {/* 申請プラン */}
+        <div className="text-sm font-semibold text-slate-900">
+          {label}
+        </div>
+
+        {/* 氏名 + PID + 申請日時 */}
+        <div className="mt-1 text-xs text-slate-500 space-y-0.5">
+          <p>氏名: {item.patientName || "（未登録）"}</p>
+          <p>Patient ID: {item.patientId}</p>
+          <p>申請日時: {formatDateTime(item.timestamp)}</p>
+          {item.note && <p>メモ: {item.note}</p>}
+        </div>
+
+        {/* 過去の処方歴（あれば） */}
+        {item.history && item.history.length > 0 && (
+          <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+            <div className="font-semibold text-slate-700">
+              これまでの処方歴
+            </div>
+            {item.history.map((h, idx) => (
+              <p key={idx}>
+                {h.date}　{h.label}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 右側の承認 / キャンセルボタン部分はそのまま */}
+      <div className="mt-2 md:mt-0 flex gap-2 md:flex-col md:items-end">
+        {isPending ? (
+          <>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => handleApprove(item.id)}
+              className={
+                "px-3 py-1.5 rounded-full text-xs font-semibold text-white " +
+                (isBusy
+                  ? "bg-emerald-300 cursor-not-allowed"
+                  : "bg-emerald-500 hover:bg-emerald-600")
+              }
+            >
+              {isBusy ? "処理中…" : "承認する"}
+            </button>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => handleReject(item.id)}
+              className={
+                "px-3 py-1.5 rounded-full text-xs font-semibold " +
+                (isBusy
+                  ? "bg-rose-100 text-rose-400 cursor-not-allowed"
+                  : "bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100")
+              }
+            >
+              {isBusy ? "処理中…" : "キャンセルする"}
+            </button>
+          </>
+        ) : (
+          <span className="text-[11px] text-slate-400">
+            この申請は {statusLabel(item.status)} です。
+          </span>
+        )}
+      </div>
+    </div>
+  );
+})}
+
           </div>
         )}
       </main>

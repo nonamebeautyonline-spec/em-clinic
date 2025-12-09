@@ -15,8 +15,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // とりあえず pending のみ。全件見たいなら include_all: true
-      body: JSON.stringify({ action: "listAll", include_all: false }),
+      body: JSON.stringify({ action: "listAll", include_all: true }), // 全件
       cache: "no-store",
     });
 
