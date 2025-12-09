@@ -110,6 +110,8 @@ const PRODUCTS: Product[] = [
 function PurchaseConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
+
 
   // patientId は /api/mypage/profile から取得
   const [patientId, setPatientId] = useState<string | null>(null);
@@ -174,17 +176,20 @@ const handleBack = () => {
     const effectivePatientId = patientId ?? "UNKNOWN";
 
     try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productCode: product.code,
-          mode: modeParam,
-          patientId: effectivePatientId,
-        }),
-      });
+const res = await fetch("/api/checkout", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    productCode: product.code,
+    mode: modeParam,
+    patientId: effectivePatientId,
+    // ★ 再処方の場合だけ、どの再処方行かを渡す
+    reorderId: reorderIdParam ?? null,
+  }),
+});
+
 
       if (!res.ok) {
         const text = await res.text();

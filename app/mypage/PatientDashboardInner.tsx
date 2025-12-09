@@ -49,7 +49,7 @@ interface ReorderItem {
   timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
   productCode: string;
   productLabel: string;                 // ★ 追加
-  status: "pending" | "confirmed" | "canceled";
+  status: "pending" | "confirmed" | "canceled" | "paid";
   note?: string;
 }
 
@@ -1028,8 +1028,11 @@ return (
       type="button"
       onClick={() => {
         const code = encodeURIComponent(displayReorder.productCode);
-        // ★ 再処方用の内容確認 → そのまま Square 決済へ
-        router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder`);
+        const reorderId = encodeURIComponent(displayReorder.id);
+        // ★ 再処方用の内容確認に、どの再処方行かも渡す
+        router.push(
+          `/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`
+        );
       }}
       className="px-3 py-1 rounded-full bg-pink-500 text-white"
     >
@@ -1037,6 +1040,7 @@ return (
     </button>
   </div>
 )}
+
 
 
             </div>

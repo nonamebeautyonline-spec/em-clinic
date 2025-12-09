@@ -129,10 +129,11 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       productCode?: ProductCode;
       mode?: Mode;
-      patientId?: string; // ★ここで受け取る
+      patientId?: string;
+      reorderId?: string | null; // ★ 再処方行のID（行番号）
     };
 
-    const { productCode, mode, patientId } = body;
+    const { productCode, mode, patientId, reorderId } = body;
 
     if (!productCode) {
       return NextResponse.json(
@@ -185,11 +186,11 @@ export async function POST(req: NextRequest) {
           checkout_options: {
             redirect_url: redirectUrl,
           },
-          // ★ここに PatientID を含める
-          // 例: "PID:abc123;Product:MJL_2.5mg_1m (current)"
-          payment_note: `PID:${patientId ?? "UNKNOWN"};Product:${
-            product.code
-          }${mode ? ` (${mode})` : ""}`,
+          // ★ PatientID / product / mode / 再処方行ID を note に埋め込む
+          // 例: "PID:20251200006;Product:MJL_5mg_3m (reorder);Reorder:12"
+          payment_note: `PID:${patientId ?? "UNKNOWN"};Product:${product.code}${
+            mode ? ` (${mode})` : ""
+          }${reorderId ? `;Reorder:${reorderId}` : ""}`,
         }),
       }
     );
