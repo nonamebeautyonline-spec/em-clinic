@@ -141,18 +141,29 @@ function PurchaseConfirmContent() {
     [codeParam]
   );
 
-  const isValidMode = modeParam === "current" || modeParam === "first";
+  const isValidMode =
+  modeParam === "current" ||
+  modeParam === "first" ||
+  modeParam === "reorder";
 
-  const pageTitle =
-    modeParam === "current"
-      ? "今回の診察分の内容確認"
-      : modeParam === "first"
-      ? "初回診察用プラン確認"
-      : "内容確認";
+const pageTitle =
+  modeParam === "current"
+    ? "今回の診察分の内容確認"
+    : modeParam === "first"
+    ? "初回診察用プラン確認"
+    : modeParam === "reorder"
+    ? "再処方分の内容確認"
+    : "内容確認";
 
-  const handleBack = () => {
+
+const handleBack = () => {
+  if (modeParam === "reorder") {
+    router.push("/mypage");
+  } else {
     router.push("/mypage/purchase");
-  };
+  }
+};
+
 
   const handleSubmit = async () => {
     if (!product || !modeParam) return;

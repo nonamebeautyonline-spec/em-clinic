@@ -1022,20 +1022,23 @@ return (
                 </div>
               )}
 
-              {displayReorderStatus === "confirmed" && (
-                <div className="mt-2 flex gap-2 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // 承認済みの再処方決済へ
-                      router.push("/mypage/purchase?flow=reorder");
-                    }}
-                    className="px-3 py-1 rounded-full bg-pink-500 text-white"
-                  >
-                    再処方を決済する
-                  </button>
-                </div>
-              )}
+{displayReorderStatus === "confirmed" && displayReorder && (
+  <div className="mt-2 flex gap-2 text-[11px]">
+    <button
+      type="button"
+      onClick={() => {
+        const code = encodeURIComponent(displayReorder.productCode);
+        // ★ 再処方用の内容確認 → そのまま Square 決済へ
+        router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder`);
+      }}
+      className="px-3 py-1 rounded-full bg-pink-500 text-white"
+    >
+      再処方を決済する
+    </button>
+  </div>
+)}
+
+
             </div>
           )}
 
