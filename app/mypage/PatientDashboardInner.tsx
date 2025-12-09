@@ -250,7 +250,6 @@ export default function PatientDashboardInner() {
 const [cancelingReorder, setCancelingReorder] = useState(false);
 const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
 
-
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -263,7 +262,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
       };
 
       try {
-        // ① localStorage
+        // ① localStorage の読み込み
         let storedBasic: any = {};
         let storedReservation: any = null;
 
@@ -287,7 +286,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           }
         }
 
-        // ② /api/mypage/profile
+        // ② /api/mypage/profile から patientId / name を取得
         let profile: { patientId: string; name: string } | null = null;
         try {
           const profileRes = await fetch("/api/mypage/profile");
@@ -306,7 +305,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           console.warn("profile fetch error:", e);
         }
 
-        // ③ 患者情報
+        // ③ Patient 情報
         const patient: PatientInfo = {
           id:
             profile?.patientId ||
@@ -317,7 +316,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
             profile?.name || query.name || storedBasic.name || "ゲスト",
         };
 
-        // ④ localStorage予約（診察前だけ有効）
+        // ④ localStorage の予約情報（診察前だけ）
         let nextReservation: Reservation | null = null;
         if (
           storedReservation &&
@@ -362,7 +361,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           }),
         ]);
 
-        // /api/mypage（診察情報）
+        // ⑥ /api/mypage（診察情報・履歴）
         if (mpRes.ok) {
           const api = (await mpRes.json()) as Partial<PatientDashboardData> & {
             patient?: PatientInfo;
@@ -381,7 +380,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
             history: api.history ?? [],
           };
 
-          // 診察履歴があれば次回予約は消す
+          // 診察履歴が1件でもあれば「次回予約」は消す
           if (finalData.history && finalData.history.length > 0) {
             finalData.nextReservation = null;
             if (typeof window !== "undefined") {
@@ -392,7 +391,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           console.error("api/mypage response not ok:", mpRes.status);
         }
 
-        // /api/mypage/orders（注文・発送＋フラグ）
+        // ⑦ /api/mypage/orders（注文・発送＋フラグ）
         if (ordersRes.ok) {
           const ordersJson: {
             ok: boolean;
@@ -414,7 +413,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           );
         }
 
-        // /api/reorder/list（再処方申請一覧）
+        // ⑧ /api/reorder/list（再処方申請一覧）
         if (reRes.ok) {
           const reJson: {
             ok: boolean;
@@ -422,28 +421,27 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           } = await reRes.json();
 
           if (reJson.ok && Array.isArray(reJson.reorders)) {
-            const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
-              const code = String(r.product_code ?? "");
-              const label = PRODUCT_LABELS[code] || code || "マンジャロ";
-              return {
-                id: String(r.id ?? ""),
-                timestamp: String(r.timestamp ?? ""),
-                productCode: code,
-                productLabel: label,
-                status: (r.status ?? "pending") as ReorderItem["status"],
-                note: r.note ? String(r.note) : undefined,
-              };
-            });
+            const mapped: ReorderItem[] = reJson.reorders.map((r: any) => ({
+              id: String(r.id ?? ""),
+              timestamp: String(r.timestamp ?? ""),
+              productCode: String(r.product_code ?? ""),
+              status: (r.status ?? "pending") as ReorderItem["status"],
+              note: r.note ? String(r.note) : undefined,
+            }));
             setReorders(mapped);
           }
         } else {
-          console.error("api/reorder/list response not ok:", reRes.status);
+          console.error(
+            "api/reorder/list response not ok:",
+            reRes.status
+          );
         }
 
+        // 最終的なデータを反映
         setData(finalData);
         setError(null);
 
-        // 問診済みフラグ
+        // ⑨ 問診済みフラグ
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             "patient_basic",
@@ -497,62 +495,6 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
     router,
   ]);
 
-        setData(finalData);
-        setError(null);
-
-        // 問診済みフラグ
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "patient_basic",
-            JSON.stringify({
-              customer_id:
-                profile?.patientId ??
-                query.customer_id ??
-                storedBasic.customer_id ??
-                finalData.patient.id ??
-                "",
-              name:
-                profile?.name ??
-                query.name ??
-                storedBasic.name ??
-                finalData.patient.displayName ??
-                "",
-              kana: storedBasic.kana ?? "",
-              sex: storedBasic.sex ?? "",
-              birth: storedBasic.birth ?? "",
-              phone: storedBasic.phone ?? "",
-            })
-          );
-
-          const localHasIntake =
-            window.localStorage.getItem("has_intake") === "1";
-          const historyHasIntake =
-            finalData.history && finalData.history.length > 0;
-
-          if (historyHasIntake) {
-            window.localStorage.setItem("has_intake", "1");
-          }
-
-          setHasIntake(localHasIntake || historyHasIntake);
-        }
-      } catch (e) {
-        console.error(e);
-        setError("データの取得に失敗しました。");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-  }, [
-    query.customer_id,
-    query.name,
-    query.kana,
-    query.sex,
-    query.birth,
-    query.phone,
-    router,
-  ]);
 
 
   // ▼ 日時変更
