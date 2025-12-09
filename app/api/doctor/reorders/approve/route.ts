@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
 export async function POST(req: NextRequest) {
-  try:
+  try {
     if (!GAS_REORDER_URL) {
       return NextResponse.json(
         { ok: false, error: "GAS_REORDER_URL not configured" },
