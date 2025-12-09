@@ -414,28 +414,34 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
         }
 
         // ⑧ /api/reorder/list（再処方申請一覧）
-        if (reRes.ok) {
-          const reJson: {
-            ok: boolean;
-            reorders?: any[];
-          } = await reRes.json();
+if (reRes.ok) {
+  const reJson: {
+    ok: boolean;
+    reorders?: any[];
+  } = await reRes.json();
 
-          if (reJson.ok && Array.isArray(reJson.reorders)) {
-            const mapped: ReorderItem[] = reJson.reorders.map((r: any) => ({
-              id: String(r.id ?? ""),
-              timestamp: String(r.timestamp ?? ""),
-              productCode: String(r.product_code ?? ""),
-              status: (r.status ?? "pending") as ReorderItem["status"],
-              note: r.note ? String(r.note) : undefined,
-            }));
-            setReorders(mapped);
-          }
-        } else {
-          console.error(
-            "api/reorder/list response not ok:",
-            reRes.status
-          );
-        }
+  if (reJson.ok && Array.isArray(reJson.reorders)) {
+    const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
+      const code = String(r.product_code ?? "");
+      const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+      return {
+        id: String(r.id ?? ""),
+        timestamp: String(r.timestamp ?? ""),
+        productCode: code,
+        productLabel: label, // ★ ここ追加
+        status: (r.status ?? "pending") as ReorderItem["status"],
+        note: r.note ? String(r.note) : undefined,
+      };
+    });
+    setReorders(mapped);
+  }
+} else {
+  console.error(
+    "api/reorder/list response not ok:",
+    reRes.status
+  );
+}
+
 
         // 最終的なデータを反映
         setData(finalData);
