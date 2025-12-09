@@ -342,24 +342,28 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
         };
 
         // ⑤ /api/mypage, /api/mypage/orders, /api/reorder/list を並列に叩く
-        const [mpRes, ordersRes, reRes] = await Promise.all([
-          fetch("/api/mypage", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              customer_id: patient.id,
-              name: patient.displayName,
-            }),
-          }),
-          fetch("/api/mypage/orders", {
-            method: "GET",
-          }),
-          fetch("/api/reorder/list", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-          }),
-        ]);
+const [mpRes, ordersRes, reRes] = await Promise.all([
+  fetch("/api/mypage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      customer_id: patient.id,
+      name: patient.displayName,
+    }),
+  }),
+  fetch("/api/mypage/orders", {
+    method: "GET",
+  }),
+  fetch("/api/reorder/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "list",          // 患者用 list を明示
+      patient_id: patient.id,  // この患者さんの PID を渡す
+    }),
+  }),
+]);
+
 
         // ⑥ /api/mypage（診察情報・履歴）
         if (mpRes.ok) {
@@ -414,6 +418,10 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
         }
 
         // ⑧ /api/reorder/list（再処方申請一覧）
+        console.log("reRes status", reRes.status);
+const reJson: { ok: boolean; reorders?: any[] } = await reRes.json();
+console.log("reJson", reJson);
+
 if (reRes.ok) {
   const reJson: {
     ok: boolean;
