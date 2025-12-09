@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 
 type ReorderStatus = "pending" | "confirmed" | "canceled";
+type TabFilter = "pending" | "confirmed" | "canceled" | "all";
 
 interface DoctorReorder {
   id: string;        // GAS上の行番号（"2" とか）
@@ -69,6 +70,7 @@ export default function DoctorReordersPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabFilter>("pending");
 
   const fetchList = async () => {
     setLoading(true);
@@ -142,6 +144,26 @@ export default function DoctorReordersPage() {
     }
   };
 
+  const filteredItems = items.filter((item) => {
+    if (tab === "all") return true;
+    return item.status === tab;
+  });
+
+  const tabLabel = (() => {
+    switch (tab) {
+      case "pending":
+        return "申請中のみ表示";
+      case "confirmed":
+        return "承認済みのみ表示";
+      case "canceled":
+        return "キャンセルのみ表示";
+      case "all":
+        return "全ての申請を表示";
+      default:
+        return "";
+    }
+  })();
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* ヘッダー */}
@@ -151,9 +173,7 @@ export default function DoctorReordersPage() {
             <h1 className="text-lg font-semibold text-slate-900">
               再処方申請一覧（Dr UI）
             </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              pending の申請のみ表示中。承認すると status=confirmed、キャンセルで status=canceled に更新されます。
-            </p>
+            <p className="text-xs text-slate-500 mt-0.5">{tabLabel}</p>
           </div>
           <button
             onClick={fetchList}
@@ -162,6 +182,30 @@ export default function DoctorReordersPage() {
           >
             {loading ? "更新中..." : "再読み込み"}
           </button>
+        </div>
+
+        {/* タブ切り替え */}
+        <div className="max-w-5xl mx-auto px-4 pb-2 flex gap-2 text-xs">
+          {[
+            { key: "pending", label: "申請中" },
+            { key: "confirmed", label: "承認済み" },
+            { key: "canceled", label: "キャンセル" },
+            { key: "all", label: "全て" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key as TabFilter)}
+              className={
+                "px-3 py-1.5 rounded-full border " +
+                (tab === t.key
+                  ? "bg-pink-500 text-white border-pink-500"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50")
+              }
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -173,15 +217,15 @@ export default function DoctorReordersPage() {
           </div>
         )}
 
-        {loading && items.length === 0 ? (
+        {loading && filteredItems.length === 0 ? (
           <div className="text-sm text-slate-600">読み込み中です…</div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="text-sm text-slate-600">
-            現在、再処方の申請はありません。
+            現在、このタブに表示する再処方申請はありません。
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const label =
                 PRODUCT_LABELS[item.productCode] || item.productCode;
               const isPending = item.status === "pending";
