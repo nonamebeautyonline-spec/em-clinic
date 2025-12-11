@@ -896,43 +896,48 @@ return (
             )}
           </div>
 
-          {nextReservation ? (
-            <>
-              <div className="text-[15px] font-semibold text-slate-900">
-                {formatDateTime(nextReservation.datetime)}
-              </div>
-              <div className="mt-1 text-sm text-slate-600">
-                {nextReservation.title}
-              </div>
+{nextReservation ? (
+  <>
+    {/* 予約日時（15分レンジ表示） */}
+    <div className="text-[15px] font-semibold text-slate-900">
+      {formatDateTime(nextReservation.datetime)}
+    </div>
 
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
-                >
-                  予約の詳細を見る
-                </button>
+    {/* タイトル（オンライン診察予約） */}
+    <div className="mt-1 text-sm text-slate-600">
+      {nextReservation.title}
+    </div>
 
-                <button
-                  type="button"
-                  onClick={handleChangeReservation}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
-                >
-                  日時を変更する
-                </button>
+    {/* ★ 電話案内文言 */}
+    <p className="mt-2 text-xs text-slate-600">
+      上記時間内に 090- からはじまる電話番号から携帯電話にお電話をおかけします。
+    </p>
 
-                <button
-                  type="button"
-                  onClick={() => setShowCancelConfirm(true)}
-                  className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
-                >
-                  予約をキャンセルする
-                </button>
-              </div>
-              <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
-                ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
-              </p>
-            </>
+    {/* ボタン群：詳細ボタンは削除 */}
+    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      {/* 日時変更ボタン */}
+      <button
+        type="button"
+        onClick={handleChangeReservation}
+        className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
+      >
+        日時を変更する
+      </button>
+
+      {/* キャンセルボタン */}
+      <button
+        type="button"
+        onClick={() => setShowCancelConfirm(true)}
+        className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
+      >
+        予約をキャンセルする
+      </button>
+    </div>
+
+    <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
+      ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
+    </p>
+  </>
           ) : lastHistory ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div className="text-sm font-semibold text-slate-900">
