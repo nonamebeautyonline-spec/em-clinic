@@ -85,18 +85,29 @@ const useQueryPatientParams = (): QueryPatientParams => {
 };
 
 const formatDateTime = (iso: string) => {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("ja-JP", {
+  const start = new Date(iso);
+  const end = new Date(start.getTime() + 15 * 60 * 1000); // 15分後
+
+  const date = start.toLocaleDateString("ja-JP", {
     month: "numeric",
     day: "numeric",
     weekday: "short",
   });
-  const time = d.toLocaleTimeString("ja-JP", {
+
+  const startTime = start.toLocaleTimeString("ja-JP", {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `${date} ${time}`;
+
+  const endTime = end.toLocaleTimeString("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // 例）"12/11(木) 15:00〜15:15"
+  return `${date} ${startTime}〜${endTime}`;
 };
+
 
 const formatDate = (iso: string) => {
   const d = new Date(iso);
