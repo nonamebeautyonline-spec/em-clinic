@@ -3,24 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-const GAS_MYPAGE_ORDERS_URL = process.env.GAS_MYPAGE_ORDERS_URL;
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
-
-// ---- GAS 側レスポンス型（ざっくり） ----
-type GasDashboardResponse = {
-  patient?: {
-    id: string;
-    displayName: string;
-  };
-  nextReservation?: {
-    id: string;
-    datetime: string;
-    title: string;
-    status: string;
-  } | null;
-  activeOrders?: any[];
-  history?: any[];
-};
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
@@ -43,27 +25,33 @@ type OrdersFlags = {
   hasAnyPaidOrder: boolean;
 };
 
-type GasOrdersResponse = {
-  ok: boolean;
+// GAS 側 getDashboard のレスポンス想定
+type GasDashboardResponse = {
+  patient?: {
+    id: string;
+    displayName: string;
+  };
+  nextReservation?: {
+    id: string;
+    datetime: string;
+    title: string;
+    status: string;
+  } | null;
+  activeOrders?: any[]; // 互換用（今は使わない）
+  history?: any[];
   orders?: {
     id: string;
     product_code: string;
     product_name: string;
     amount: number;
-    paid_at_jst: string; // "2025/12/08 10:23:00"
+    paid_at_jst: string;
     shipping_status?: string;
-    shipping_eta?: string; // "2025-12-10"
+    shipping_eta?: string;
     tracking_number?: string;
     payment_status?: string;
   }[];
   flags?: Partial<OrdersFlags>;
-  error?: string;
-};
-
-type GasReorderResponse = {
-  ok: boolean;
   reorders?: any[];
-  error?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -85,88 +73,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ---------- ① GAS ダッシュボード ----------
-    const dashboardPromise = (async () => {
-      const url =
-        GAS_MYPAGE_URL +
-        `?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+    // GAS の getDashboard を patient_id ベースで1本だけ叩く
+    const url =
+      GAS_MYPAGE_URL +
+      `?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
 
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-      });
+    const gasRes = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+    });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.error("GAS getDashboard error:", res.status, text);
-        throw new Error("failed to fetch dashboard from GAS");
-      }
+    if (!gasRes.ok) {
+      const text = await gasRes.text().catch(() => "");
+      console.error("GAS getDashboard error:", gasRes.status, text);
+      return NextResponse.json(
+        { ok: false, error: "failed to fetch dashboard from GAS" },
+        { status: 500 }
+      );
+    }
 
-      const json = (await res.json()) as GasDashboardResponse;
-      return json;
-    })();
+    const gasJson = (await gasRes.json()) as GasDashboardResponse;
 
-    // ---------- ② GAS 注文＋フラグ ----------
-    const ordersPromise = GAS_MYPAGE_ORDERS_URL
-      ? (async () => {
-          const res = await fetch(GAS_MYPAGE_ORDERS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ patient_id: patientId }),
-            cache: "no-store",
-          });
-
-          if (!res.ok) {
-            const text = await res.text().catch(() => "");
-            console.error("GAS orders error:", res.status, text);
-            // 注文だけ落ちても、マイページ自体は返したいので throw しない
-            return null;
-          }
-
-          const json = (await res.json()) as GasOrdersResponse;
-          if (!json.ok) {
-            console.error("GAS orders returned error:", json.error);
-            return null;
-          }
-          return json;
-        })()
-      : Promise.resolve<GasOrdersResponse | null>(null);
-
-    // ---------- ③ GAS 再処方リスト ----------
-    const reordersPromise = GAS_REORDER_URL
-      ? (async () => {
-          const res = await fetch(GAS_REORDER_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "list", patient_id: patientId }),
-            cache: "no-store",
-          });
-
-          const json = (await res.json().catch(() => ({}))) as GasReorderResponse;
-
-          if (!res.ok || !json.ok) {
-            console.error("GAS reorders error:", json.error);
-            return null;
-          }
-
-          return json;
-        })()
-      : Promise.resolve<GasReorderResponse | null>(null);
-
-    // ---------- まとめて待つ ----------
-    const [dashboardJson, ordersJson, reordersJson] = await Promise.all([
-      dashboardPromise,
-      ordersPromise,
-      reordersPromise,
-    ]);
-
-    // 注文を /api/mypage/orders と同じ形に整形
+    // ----- orders / flags をフロント用形式にマッピング -----
     let orders: OrderForMyPage[] = [];
     let ordersFlags: OrdersFlags | undefined = undefined;
 
-    if (ordersJson && ordersJson.orders) {
+    if (gasJson.orders && Array.isArray(gasJson.orders)) {
       orders =
-        ordersJson.orders?.map((o) => {
+        gasJson.orders.map((o) => {
           let paidAtIso = "";
           if (o.paid_at_jst) {
             const replaced = o.paid_at_jst.replace(/\//g, "-"); // "2025-12-08 10:23:00"
@@ -191,25 +125,22 @@ export async function POST(req: NextRequest) {
 
       ordersFlags = {
         canPurchaseCurrentCourse:
-          ordersJson.flags?.canPurchaseCurrentCourse ?? false,
-        canApplyReorder: ordersJson.flags?.canApplyReorder ?? false,
+          gasJson.flags?.canPurchaseCurrentCourse ?? false,
+        canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
         hasAnyPaidOrder:
-          ordersJson.flags?.hasAnyPaidOrder ?? (orders.length > 0),
+          gasJson.flags?.hasAnyPaidOrder ?? (orders.length > 0),
       };
     }
-
-    const reorders = reordersJson?.reorders ?? [];
 
     return NextResponse.json(
       {
         ok: true,
-        patient: dashboardJson.patient,
-        nextReservation: dashboardJson.nextReservation ?? null,
-        // PatientDashboardInner の型互換のため activeOrders のまま返す
+        patient: gasJson.patient,
+        nextReservation: gasJson.nextReservation ?? null,
         activeOrders: orders,
-        history: dashboardJson.history ?? [],
+        history: gasJson.history ?? [],
         ordersFlags,
-        reorders,
+        reorders: gasJson.reorders ?? [],
       },
       { status: 200 }
     );
