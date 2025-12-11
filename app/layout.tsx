@@ -1,4 +1,8 @@
 // app/layout.tsx
+
+<meta name="color-scheme" content="light only">
+
+
 import "./globals.css";
 import type { Metadata, Viewport } from "next";  // ★ Viewport を追加
 import { Noto_Sans_JP } from "next/font/google";
