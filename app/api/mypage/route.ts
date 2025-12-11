@@ -4,6 +4,9 @@ import { cookies } from "next/headers";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 
+// ★ これを追加（Route Handler のキャッシュを完全に無効化）
+export const dynamic = "force-dynamic";
+
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
 
@@ -132,8 +135,8 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    return NextResponse.json(
-      {
+    return new NextResponse(
+      JSON.stringify({
         ok: true,
         patient: gasJson.patient,
         nextReservation: gasJson.nextReservation ?? null,
@@ -141,9 +144,19 @@ export async function POST(req: NextRequest) {
         history: gasJson.history ?? [],
         ordersFlags,
         reorders: gasJson.reorders ?? [],
-      },
-      { status: 200 }
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          // ★ ブラウザ／CDN／Next のキャッシュを全部禁止
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
     );
+
   } catch (err) {
     console.error("POST /api/mypage error:", err);
     return NextResponse.json(

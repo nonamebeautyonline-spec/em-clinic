@@ -345,6 +345,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
 const mpRes = await fetch("/api/mypage", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
+    cache: "no-store",
   body: JSON.stringify({
     // いまは cookie の patient_id ベースなので body は実質無視されるが、
     // 将来の拡張に備えて patient 情報を一応渡しておいてもよい
