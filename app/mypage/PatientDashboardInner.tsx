@@ -341,114 +341,72 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           history: [],
         };
 
-        // ⑤ /api/mypage, /api/mypage/orders, /api/reorder/list を並列に叩く
-const [mpRes, ordersRes, reRes] = await Promise.all([
-  fetch("/api/mypage", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      customer_id: patient.id,
-      name: patient.displayName,
-    }),
+// ⑤ /api/mypage を1本だけ叩く
+const mpRes = await fetch("/api/mypage", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    // いまは cookie の patient_id ベースなので body は実質無視されるが、
+    // 将来の拡張に備えて patient 情報を一応渡しておいてもよい
+    customer_id: patient.id,
+    name: patient.displayName,
   }),
-  fetch("/api/mypage/orders", {
-    method: "GET",
-  }),
-  fetch("/api/reorder/list", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "list",          // 患者用 list を明示
-      patient_id: patient.id,  // この患者さんの PID を渡す
-    }),
-  }),
-]);
+});
 
 
-        // ⑥ /api/mypage（診察情報・履歴）
-        if (mpRes.ok) {
-          const api = (await mpRes.json()) as Partial<PatientDashboardData> & {
-            patient?: PatientInfo;
-          };
+// ⑥ /api/mypage（診察情報・履歴・注文・flags・reorders）
+if (mpRes.ok) {
+  const api = (await mpRes.json()) as {
+    ok: boolean;
+    patient?: PatientInfo;
+    nextReservation?: Reservation | null;
+    activeOrders?: Order[];
+    history?: PrescriptionHistoryItem[];
+    ordersFlags?: OrdersFlags;
+    reorders?: any[];
+  };
 
-          finalData = {
-            patient: {
-              id: api.patient?.id || patient.id,
-              displayName: api.patient?.displayName || patient.displayName,
-            },
-            nextReservation:
-              typeof api.nextReservation !== "undefined"
-                ? api.nextReservation
-                : nextReservation,
-            activeOrders: api.activeOrders ?? [],
-            history: api.history ?? [],
-          };
+  finalData = {
+    patient: {
+      id: api.patient?.id || patient.id,
+      displayName: api.patient?.displayName || patient.displayName,
+    },
+    nextReservation:
+      typeof api.nextReservation !== "undefined"
+        ? api.nextReservation
+        : nextReservation,
+    activeOrders: api.activeOrders ?? [],
+    history: api.history ?? [],
+    ordersFlags: api.ordersFlags,
+  };
 
-          // 診察履歴が1件でもあれば「次回予約」は消す
-          if (finalData.history && finalData.history.length > 0) {
-            finalData.nextReservation = null;
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem("last_reservation");
-            }
-          }
-        } else {
-          console.error("api/mypage response not ok:", mpRes.status);
-        }
+  // 診察履歴が1件でもあれば「次回予約」は消す
+  if (finalData.history && finalData.history.length > 0) {
+    finalData.nextReservation = null;
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("last_reservation");
+    }
+  }
 
-        // ⑦ /api/mypage/orders（注文・発送＋フラグ）
-        if (ordersRes.ok) {
-          const ordersJson: {
-            ok: boolean;
-            orders: Order[];
-            flags?: OrdersFlags;
-          } = await ordersRes.json();
-
-          if (ordersJson.ok) {
-            finalData = {
-              ...finalData,
-              activeOrders: ordersJson.orders ?? finalData.activeOrders,
-              ordersFlags: ordersJson.flags,
-            };
-          }
-        } else {
-          console.error(
-            "api/mypage/orders response not ok:",
-            ordersRes.status
-          );
-        }
-
-        // ⑧ /api/reorder/list（再処方申請一覧）
-        if (reRes.ok) {
-          const reJson: {
-            ok: boolean;
-            reorders?: any[];
-          } = await reRes.json();
-
-          console.log("reRes status", reRes.status);
-          console.log("reJson", reJson);
-
-          if (reJson.ok && Array.isArray(reJson.reorders)) {
-            const mapped: ReorderItem[] = reJson.reorders.map((r: any) => {
-              const code = String(r.product_code ?? "");
-              const label = PRODUCT_LABELS[code] || code || "マンジャロ";
-              return {
-                id: String(r.id ?? ""),
-                timestamp: String(r.timestamp ?? ""),
-                productCode: code,
-                productLabel: label,
-                status: (r.status ?? "pending") as ReorderItem["status"],
-                note: r.note ? String(r.note) : undefined,
-              };
-            });
-            setReorders(mapped);
-          }
-        } else {
-          console.error(
-            "api/reorder/list response not ok:",
-            reRes.status
-          );
-        }
-
+  // ★ 再処方申請のローカル state 更新（元々 reRes.ok ブロックでやっていた処理）
+  if (Array.isArray(api.reorders)) {
+    const mapped: ReorderItem[] = api.reorders.map((r: any) => {
+      const code = String(r.product_code ?? "");
+      const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+      return {
+        id: String(r.id ?? ""),
+        timestamp: String(r.timestamp ?? ""),
+        productCode: code,
+        productLabel: label,
+        status: (r.status ?? "pending") as ReorderItem["status"],
+        note: r.note ? String(r.note) : undefined,
+      };
+    });
+    setReorders(mapped);
+  }
+} else {
+  console.error("api/mypage response not ok:", mpRes.status);
+}
 
 
         // 最終的なデータを反映
@@ -660,6 +618,12 @@ const handleReorderCancel = async () => {
   const hasHistory = history.length > 0;
   const lastHistory = hasHistory ? history[0] : null;
   const isFirstVisit = !hasHistory;
+    // 予約ボタンの有効条件：
+  //  - 問診済み
+  //  - 診察履歴がまだない（初回診察前）
+  //  - すでに予約が入っていない
+  const canReserve =
+    hasIntake && !hasHistory && !nextReservation;
 
   const orderHistory = history.filter((item) => item.title === "処方");
 
@@ -861,23 +825,24 @@ return (
           </>
         )}
 
-        {/* 予約（診察前だけ） */}
-        <button
-          type="button"
-          disabled={!hasIntake || hasHistory}
-          onClick={() => {
-            if (!hasIntake || hasHistory) return;
-            router.push("/reserve");
-          }}
-          className={
-            "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
-            (!hasIntake || hasHistory
-              ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-              : "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition")
-          }
-        >
-          予約に進む
-        </button>
+{/* 予約（診察前だけ & 1件も予約が入っていないときだけ有効） */}
+<button
+  type="button"
+  disabled={!canReserve}
+  onClick={() => {
+    if (!canReserve) return;
+    router.push("/reserve");
+  }}
+  className={
+    "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
+    (!canReserve
+      ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+      : "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition")
+  }
+>
+  予約に進む
+</button>
+
 
         {/* 初回決済ボタン（条件付き） */}
         {showInitialPurchase && (
@@ -1109,27 +1074,37 @@ return (
             </div>
           )}
 
-          {/* 再処方申請ボタン（初回分決済後） */}
-          {ordersFlags?.hasAnyPaidOrder && (
-            <div className="mt-4">
-              <button
-                type="button"
-                disabled={!ordersFlags?.canApplyReorder}
-                onClick={() => {
-                  if (!ordersFlags?.canApplyReorder) return;
-                  router.push("/mypage/purchase?flow=reorder");
-                }}
-                className={
-                  "w-full rounded-xl text-center py-3 text-base font-semibold border " +
-                  (ordersFlags?.canApplyReorder
-                    ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
-                    : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
-                }
-              >
-                再処方を申請する
-              </button>
-            </div>
-          )}
+{/* 再処方申請ボタン（初回分決済後） */}
+{ordersFlags?.hasAnyPaidOrder && (
+  <div className="mt-4">
+    <button
+      type="button"
+      disabled={!ordersFlags?.canApplyReorder}
+      onClick={() => {
+        if (!ordersFlags?.canApplyReorder) return;
+        router.push("/mypage/purchase?flow=reorder");
+      }}
+      className={
+        "w-full rounded-xl text-center py-3 text-base font-semibold border " +
+        (ordersFlags?.canApplyReorder
+          ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+          : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
+      }
+    >
+      再処方を申請する
+    </button>
+
+    <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+      ① 再処方内容を医師に申請します。<br />
+      ② 医師が内容を確認し、問題なければ処方となります。
+      <br />
+      （平日10〜19時は申請後1時間以内、祝休日は当日中に反映されます）<br />
+      ③ マイページを更新すると、再処方の情報が反映されます。
+      {/* ※「申請が許可されました」のお知らせは、Lステップメッセージで送る運用も可能です。 */}
+    </p>
+  </div>
+)}
+
         </section>
 
         {/* 処方歴 */}
