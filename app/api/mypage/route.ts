@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 
-// ★ これを追加（Route Handler のキャッシュを完全に無効化）
+// ★ キャッシュ完全無効化
 export const dynamic = "force-dynamic";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
@@ -57,12 +57,19 @@ type GasDashboardResponse = {
   reorders?: any[];
 };
 
+const noCacheHeaders = {
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export async function POST(req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) {
       return NextResponse.json(
         { ok: false, error: "GAS_MYPAGE_URL is not configured." },
-        { status: 500 }
+        { status: 500, headers: noCacheHeaders }
       );
     }
 
@@ -72,7 +79,7 @@ export async function POST(req: NextRequest) {
     if (!patientId) {
       return NextResponse.json(
         { ok: false, error: "unauthorized: patient_id cookie not found" },
-        { status: 401 }
+        { status: 401, headers: noCacheHeaders }
       );
     }
 
@@ -86,16 +93,25 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     });
 
+    const rawText = await gasRes.text();
     if (!gasRes.ok) {
-      const text = await gasRes.text().catch(() => "");
-      console.error("GAS getDashboard error:", gasRes.status, text);
+      console.error("GAS getDashboard HTTP error:", gasRes.status, rawText);
       return NextResponse.json(
         { ok: false, error: "failed to fetch dashboard from GAS" },
-        { status: 500 }
+        { status: 500, headers: noCacheHeaders }
       );
     }
 
-    const gasJson = (await gasRes.json()) as GasDashboardResponse;
+    let gasJson: GasDashboardResponse;
+    try {
+      gasJson = JSON.parse(rawText) as GasDashboardResponse;
+    } catch (e) {
+      console.error("GAS getDashboard JSON parse error:", e, rawText);
+      return NextResponse.json(
+        { ok: false, error: "invalid JSON from GAS" },
+        { status: 500, headers: noCacheHeaders }
+      );
+    }
 
     // ----- orders / flags をフロント用形式にマッピング -----
     let orders: OrderForMyPage[] = [];
@@ -135,8 +151,8 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    return new NextResponse(
-      JSON.stringify({
+    return NextResponse.json(
+      {
         ok: true,
         patient: gasJson.patient,
         nextReservation: gasJson.nextReservation ?? null,
@@ -144,24 +160,14 @@ export async function POST(req: NextRequest) {
         history: gasJson.history ?? [],
         ordersFlags,
         reorders: gasJson.reorders ?? [],
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          // ★ ブラウザ／CDN／Next のキャッシュを全部禁止
-          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-      }
+      },
+      { status: 200, headers: noCacheHeaders }
     );
-
-  } catch (err) {
+  } catch (err: any) {
     console.error("POST /api/mypage error:", err);
     return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
+      { ok: false, error: String(err?.message || err) },
+      { status: 500, headers: noCacheHeaders }
     );
   }
 }
