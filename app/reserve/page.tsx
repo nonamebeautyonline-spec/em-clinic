@@ -73,7 +73,7 @@ const generateSlots = (start = "09:00", end = "22:00"): SlotInfo[] => {
   return slots;
 };
 
-const SLOTS_9_22 = generateSlots("09:00", "22:00");
+const SLOTS_9_22 = generateSlots("09:00", "23:00");
 const CAPACITY_PER_SLOT = 2; // 1枠あたり2人まで
 
 const isWeekend = (d: Date) => {
@@ -586,35 +586,24 @@ const handleConfirm = async () => {
                               </div>
 
                               {days.map((d) => {
-                                const dateKey = formatDateKey(d);
-                                const weekend = isWeekend(d);
-                                const count = getCountForSlot(
-                                  dateKey,
-                                  slot.start
-                                );
-                                const past = isPastSlot(
-                                  dateKey,
-                                  slot.start
-                                );
-                                const activeDay = isDateActiveDay(d);
-                                const openTime = isOpenTime(slot.start);
+const dateKey = formatDateKey(d);
 
-                                const isFull = count >= CAPACITY_PER_SLOT;
+// ★ APIのcountは「残枠」(0..2)
+const count = getCountForSlot(dateKey, slot.start);
 
-                                const disabled =
-                                  weekend ||
-                                  past ||
-                                  !activeDay ||
-                                  !openTime ||
-                                  isFull;
+const past = isPastSlot(dateKey, slot.start);
 
-                                const selected =
-                                  dateKey === selectedDateKey &&
-                                  selectedSlot?.start === slot.start &&
-                                  selectedSlot?.end === slot.end &&
-                                  !disabled;
+// 0は×、1以上は○（過去枠も×）
+const disabled = past || count <= 0;
 
-                                const char = disabled ? "×" : "○";
+const selected =
+  dateKey === selectedDateKey &&
+  selectedSlot?.start === slot.start &&
+  selectedSlot?.end === slot.end &&
+  !disabled;
+
+const char = disabled ? "×" : "○";
+
 
                                 return (
                                   <button
