@@ -262,7 +262,8 @@ export async function GET(req: Request) {
       doctorId
     );
 
-    return NextResponse.json({ start, end, slots });
+    return NextResponse.json({ start, end, slots, _ver: "avail-v2" });
+
   } catch (err: any) {
     console.error("GET /api/reservations error:", err);
     return NextResponse.json(
