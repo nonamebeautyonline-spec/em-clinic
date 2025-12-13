@@ -1,7 +1,7 @@
 // app/reserve/page.tsx
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,7 +15,7 @@ type SlotInfo = {
 
 type ApiSlot = {
   time: string;
-  count: number;
+  count: number; // 残枠（0..2）
 };
 
 type WeeklySlotsResponse = {
@@ -55,38 +55,20 @@ const generateSlots = (start = "09:00", end = "22:00"): SlotInfo[] => {
   const [endH, endM] = end.split(":").map(Number);
 
   while (h < endH || (h === endH && m < endM)) {
-    const startStr = `${String(h).padStart(2, "0")}:${String(m).padStart(
-      2,
-      "0"
-    )}`;
+    const startStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     m += 15;
     if (m >= 60) {
       h++;
       m -= 60;
     }
-    const endStr = `${String(h).padStart(2, "0")}:${String(m).padStart(
-      2,
-      "0"
-    )}`;
+    const endStr = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     slots.push({ start: startStr, end: endStr });
   }
   return slots;
 };
 
-const SLOTS_9_22 = generateSlots("09:00", "23:00");
-const CAPACITY_PER_SLOT = 2; // 1枠あたり2人まで
-
-const isWeekend = (d: Date) => {
-  const wd = d.getDay();
-  return wd === 0 || wd === 6;
-};
-
-const isDateActiveDay = (d: Date) => !isWeekend(d);
-
-const isOpenTime = (startTime: string) => {
-  const [hh] = startTime.split(":").map(Number);
-  return hh >= 10 && hh < 19;
-};
+// 表の行は 09:00〜23:00（APIが返す枠が無い時間は count=0 なので×になる）
+const SLOTS_9_23 = generateSlots("09:00", "23:00");
 
 const isPastSlot = (dateStr: string, startTime: string) => {
   const now = new Date();
@@ -109,7 +91,6 @@ type PatientBasic = {
   phone: string;
 };
 
-// ここが「元の ReservePage の中身」になるコンポーネント
 const ReserveInner: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -211,9 +192,7 @@ const ReserveInner: React.FC = () => {
     if (!days.length) return "";
     const first = days[0];
     const last = days[days.length - 1];
-    const firstStr = `${first.getFullYear()}年${
-      first.getMonth() + 1
-    }月${first.getDate()}日`;
+    const firstStr = `${first.getFullYear()}年${first.getMonth() + 1}月${first.getDate()}日`;
     const lastStr = `${last.getMonth() + 1}月${last.getDate()}日`;
     return `${firstStr} ~ ${lastStr}`;
   }, [days]);
@@ -224,63 +203,69 @@ const ReserveInner: React.FC = () => {
     return new Date(y, (m ?? 1) - 1, d ?? 1);
   }, [selectedDateKey, baseDate]);
 
-  // ▼ 1週間分の予約枠を取得
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchAll = async () => {
-      if (!days.length) return;
+  // ★ 予約枠再取得（slot_full 時にも使う）
+  const refetchSlots = useCallback(
+    async (daysArg: Date[], options?: { keepSelectedDate?: boolean }) => {
+      if (!daysArg.length) return;
 
       setLoadingSlots(true);
       setSlotsError(null);
-      setSelectedSlot(null);
 
-      const firstKey = formatDateKey(days[0]);
-      const lastKey = formatDateKey(days[days.length - 1]);
-      setSelectedDateKey(firstKey);
+      const firstKey = formatDateKey(daysArg[0]);
+      const lastKey = formatDateKey(daysArg[daysArg.length - 1]);
+
+      // 初回のみ先頭日を選択（週移動時など）
+      if (!options?.keepSelectedDate) {
+        setSelectedDateKey(firstKey);
+      }
 
       try {
-        const res = await fetch(
-          `/api/reservations?start=${firstKey}&end=${lastKey}`
-        );
+        const res = await fetch(`/api/reservations?start=${firstKey}&end=${lastKey}`, {
+          cache: "no-store",
+        });
         if (!res.ok) throw new Error("failed");
+
         const data: WeeklySlotsResponse = await res.json();
 
-        if (cancelled) return;
-
         const map: Record<string, ApiSlot[]> = {};
-
-        days.forEach((d) => {
+        daysArg.forEach((d) => {
           const key = formatDateKey(d);
           map[key] = [];
         });
 
         (data.slots || []).forEach((s) => {
           const { date, time, count } = s;
-          if (!map[date]) {
-            map[date] = [];
-          }
+          if (!map[date]) map[date] = [];
           map[date].push({ time, count });
         });
 
         setSlotsByDate(map);
       } catch (e) {
-        if (!cancelled) {
-          console.error(e);
-          setSlotsError(
-            "予約枠の取得に失敗しました。時間をおいて再度お試しください。"
-          );
-        }
+        console.error(e);
+        setSlotsError("予約枠の取得に失敗しました。時間をおいて再度お試しください。");
       } finally {
-        if (!cancelled) setLoadingSlots(false);
+        setLoadingSlots(false);
       }
-    };
+    },
+    []
+  );
 
-    fetchAll();
-    return () => {
-      cancelled = true;
-    };
-  }, [days]);
+  // ▼ 1週間分の予約枠を取得（週が変わるたびに）
+  useEffect(() => {
+    setSelectedSlot(null);
+    setStep(1);
+    refetchSlots(days, { keepSelectedDate: false });
+  }, [days, refetchSlots]);
+
+  // ▼ 自動更新（他ユーザーが埋めても×に追従）
+  useEffect(() => {
+    if (!days.length) return;
+    const id = window.setInterval(() => {
+      // 選択日を維持したいので keepSelectedDate:true
+      refetchSlots(days, { keepSelectedDate: true });
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [days, refetchSlots]);
 
   const getCountForSlot = (dateKey: string, time: string) => {
     const list = slotsByDate[dateKey];
@@ -293,36 +278,114 @@ const ReserveInner: React.FC = () => {
     setStep(1);
   };
 
-const handleConfirm = async () => {
-  if (!selectedSlot) return;
-  if (booking) return;
+  const handleConfirm = async () => {
+    if (!selectedSlot) return;
+    if (booking) return;
 
-  const { lineId, name, kana, sex, birth, phone } = patientInfo;
+    const { lineId, name } = patientInfo;
 
-  setBooking(true);
+    setBooking(true);
 
-  try {
-    // ★ 編集モード：予約の日時だけ更新（問診はそのまま）
-    if (isEdit && editingReserveId) {
+    try {
+      // ★ 編集モード：予約の日時だけ更新（問診はそのまま）
+      if (isEdit && editingReserveId) {
+        const res = await fetch("/api/reservations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "updateReservation",
+            reserveId: editingReserveId,
+            date: selectedDateKey,
+            time: selectedSlot.start,
+          }),
+        });
+
+        const data = (await res.json().catch(() => ({}))) as any;
+
+        if (!res.ok || !data.ok) {
+          if (data.error === "slot_full") {
+            alert("この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。");
+            await refetchSlots(days, { keepSelectedDate: true });
+            setStep(1);
+            setSelectedSlot(null);
+            return;
+          }
+          if (data.error === "outside_hours") {
+            alert("この時間は受付時間外です。別の時間帯をお選びください。");
+            await refetchSlots(days, { keepSelectedDate: true });
+            setStep(1);
+            setSelectedSlot(null);
+            return;
+          }
+          alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
+          return;
+        }
+
+        const reserveId = editingReserveId;
+
+        setShowSuccess(true);
+
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(
+            "last_reservation",
+            JSON.stringify({
+              reserveId,
+              date: selectedDateKey,
+              start: selectedSlot.start,
+              end: selectedSlot.end,
+              title: "オンライン診察予約",
+            })
+          );
+        }
+
+        const params = new URLSearchParams();
+        if (lineId) params.set("customer_id", lineId);
+        if (name) params.set("name", name);
+
+        setTimeout(() => {
+          setShowSuccess(false);
+          router.push(`/mypage?${params.toString()}`);
+        }, 1000);
+
+        return;
+      }
+
+      // ▼ 新規予約
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "updateReservation",
-          reserveId: editingReserveId,
+          type: "createReservation",
           date: selectedDateKey,
           time: selectedSlot.start,
+          lineId,
+          name,
         }),
       });
 
       const data = (await res.json().catch(() => ({}))) as any;
 
       if (!res.ok || !data.ok) {
-        alert("予約の変更に失敗しました。時間をおいて再度お試しください。");
+        if (data.error === "slot_full") {
+          alert("この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。");
+          // ★ 表を再取得して、満席枠を×へ反映
+          await refetchSlots(days, { keepSelectedDate: true });
+          setStep(1);
+          setSelectedSlot(null);
+          return;
+        }
+        if (data.error === "outside_hours") {
+          alert("この時間は受付時間外です。別の時間帯をお選びください。");
+          await refetchSlots(days, { keepSelectedDate: true });
+          setStep(1);
+          setSelectedSlot(null);
+          return;
+        }
+        alert("予約確定に失敗しました。時間をおいて再度お試しください。");
         return;
       }
 
-      const reserveId = editingReserveId;
+      const reserveId = data.reserveId ?? `mock-${Date.now()}`;
 
       setShowSuccess(true);
 
@@ -339,7 +402,6 @@ const handleConfirm = async () => {
         );
       }
 
-      // ✔ 問診には飛ばさず、そのままマイページに戻る
       const params = new URLSearchParams();
       if (lineId) params.set("customer_id", lineId);
       if (name) params.set("name", name);
@@ -348,74 +410,13 @@ const handleConfirm = async () => {
         setShowSuccess(false);
         router.push(`/mypage?${params.toString()}`);
       }, 1000);
-
-      return;
+    } catch (e) {
+      console.error(e);
+      alert("予約確定に失敗しました。再度お試しください。");
+    } finally {
+      setBooking(false);
     }
-
-    // ▼ 新規予約
-    const res = await fetch("/api/reservations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "createReservation",
-        date: selectedDateKey,
-        time: selectedSlot.start,
-        lineId,
-        name,
-      }),
-    });
-
-    const data = (await res.json().catch(() => ({}))) as any;
-
-    if (!res.ok || !data.ok) {
-      if (data.error === "slot_full") {
-        alert(
-          "この時間帯はすでに2件の予約が入っています。別の時間帯をお選びください。"
-        );
-        setStep(1);
-      } else {
-        alert(
-          "予約確定に失敗しました。時間をおいて再度お試しください。"
-        );
-      }
-      return;
-    }
-
-    const reserveId = data.reserveId ?? `mock-${Date.now()}`;
-
-    setShowSuccess(true);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        "last_reservation",
-        JSON.stringify({
-          reserveId,
-          date: selectedDateKey,
-          start: selectedSlot.start,
-          end: selectedSlot.end,
-          title: "オンライン診察予約",
-        })
-      );
-    }
-
-    // ✅ 新規予約もマイページへ戻す（問診には行かない）
-    const params = new URLSearchParams();
-    if (lineId) params.set("customer_id", lineId);
-    if (name) params.set("name", name);
-    // kana / sex / birth / phone は今のマイページでは使ってないので省略でOK
-
-    setTimeout(() => {
-      setShowSuccess(false);
-      router.push(`/mypage?${params.toString()}`);
-    }, 1000);
-  } catch (e) {
-    console.error(e);
-    alert("予約確定に失敗しました。再度お試しください。");
-  } finally {
-    setBooking(false);
-  }
-};
-
+  };
 
   const disabledPrevWeek = weekOffset <= 0;
 
@@ -433,10 +434,7 @@ const handleConfirm = async () => {
               className="object-contain"
             />
           </div>
-          <Link
-            href="/mypage"
-            className="text-[12px] text-slate-500 hover:text-slate-700"
-          >
+          <Link href="/mypage" className="text-[12px] text-slate-500 hover:text-slate-700">
             マイページへ戻る
           </Link>
         </div>
@@ -445,12 +443,9 @@ const handleConfirm = async () => {
       {/* 本文 */}
       <main className="mx-auto max-w-md px-4 py-4 space-y-4">
         <section className="bg-white rounded-3xl shadow-sm p-4">
-          <h1 className="text-lg font-semibold text-slate-900 mb-2">
-            診察予約
-          </h1>
+          <h1 className="text-lg font-semibold text-slate-900 mb-2">診察予約</h1>
           <p className="text-[13px] text-slate-600 mb-3 leading-relaxed">
-            初診の診察予約はこちらからお取りいただけます。
-            ご希望の日時を選択し、確認画面へお進みください。
+            初診の診察予約はこちらからお取りいただけます。ご希望の日時を選択し、確認画面へお進みください。
           </p>
 
           {/* 期間表示バー */}
@@ -461,9 +456,7 @@ const handleConfirm = async () => {
               onClick={() => setWeekOffset((prev) => Math.max(0, prev - 1))}
               className={
                 "w-8 h-8 flex items-center justify-center rounded-full text-[18px] " +
-                (disabledPrevWeek
-                  ? "text-slate-300 cursor-not-allowed"
-                  : "text-slate-500 hover:bg-slate-100")
+                (disabledPrevWeek ? "text-slate-300 cursor-not-allowed" : "text-slate-500 hover:bg-slate-100")
               }
             >
               ‹
@@ -482,17 +475,11 @@ const handleConfirm = async () => {
 
           {/* ステップインジケーター */}
           <div className="flex items-center justify_between mb-3">
-            {[
-              { id: 1, label: "予約選択" },
-              { id: 2, label: "予約確認" },
-            ].map((item) => {
+            {[{ id: 1, label: "予約選択" }, { id: 2, label: "予約確認" }].map((item) => {
               const active = step === item.id;
               const done = step > item.id;
               return (
-                <div
-                  key={item.id}
-                  className="flex-1 flex flex-col items-center text-[12px]"
-                >
+                <div key={item.id} className="flex-1 flex flex-col items-center text-[12px]">
                   <div
                     className={
                       "flex items-center justify-center w-8 h-8 rounded-full border text-xs font-semibold " +
@@ -505,14 +492,7 @@ const handleConfirm = async () => {
                   >
                     {item.id}
                   </div>
-                  <span
-                    className={
-                      "mt-1 " +
-                      (active
-                        ? "text-[12px] text-slate-900"
-                        : "text-[12px] text-slate-400")
-                    }
-                  >
+                  <span className={"mt-1 " + (active ? "text-[12px] text-slate-900" : "text-[12px] text-slate-400")}>
                     {item.label}
                   </span>
                 </div>
@@ -524,13 +504,9 @@ const handleConfirm = async () => {
           {step === 1 && (
             <div className="space-y-2 mt-2">
               {loadingSlots ? (
-                <div className="text-[13px] text-slate-500 py-4">
-                  予約枠を読み込み中です…
-                </div>
+                <div className="text-[13px] text-slate-500 py-4">予約枠を読み込み中です…</div>
               ) : slotsError ? (
-                <div className="text-[13px] text-rose-600 py-4">
-                  {slotsError}
-                </div>
+                <div className="text-[13px] text-rose-600 py-4">{slotsError}</div>
               ) : (
                 <>
                   <div className="relative">
@@ -541,17 +517,14 @@ const handleConfirm = async () => {
                           {days.map((d) => {
                             const key = formatDateKey(d);
                             const wd = d.getDay();
-// const isActiveDay = isDateActiveDay(d); ← 削除
-const isSelectedDay = key === selectedDateKey;
+                            const isSelectedDay = key === selectedDateKey;
 
-let dateColor = "text-slate-900";
-if (wd === 0) dateColor = "text-red-500";
-if (wd === 6) dateColor = "text-sky-500";
+                            let dateColor = "text-slate-900";
+                            if (wd === 0) dateColor = "text-red-500";
+                            if (wd === 6) dateColor = "text-sky-500";
 
-const bgCls = isSelectedDay
-  ? "bg-pink-50 border-pink-200"
-  : "bg-white border-slate-100";
-
+                            // ★ 土日を灰色にしない（管理画面に完全追従）
+                            const bgCls = isSelectedDay ? "bg-pink-50 border-pink-200" : "bg-white border-slate-100";
 
                             return (
                               <button
@@ -560,44 +533,35 @@ const bgCls = isSelectedDay
                                 onClick={() => setSelectedDateKey(key)}
                                 className={`h-12 rounded-2xl border flex flex-col items-center justify-center ${bgCls}`}
                               >
-<span className={`text-[15px] font-semibold ${dateColor}`}>
-  {d.getDate()}
-</span>
-
-                                <span className="text-[11px] text-slate-500">
-                                  {weekdayLabel[wd]}
-                                </span>
+                                <span className={`text-[15px] font-semibold ${dateColor}`}>{d.getDate()}</span>
+                                <span className="text-[11px] text-slate-500">{weekdayLabel[wd]}</span>
                               </button>
                             );
                           })}
 
-                          {SLOTS_9_22.map((slot) => (
-                            <React.Fragment
-                              key={`${slot.start}-${slot.end}`}
-                            >
+                          {SLOTS_9_23.map((slot) => (
+                            <React.Fragment key={`${slot.start}-${slot.end}`}>
                               <div className="h-10 flex items-center justify-center text-[13px] font-semibold text-slate-700">
                                 {slot.start}〜{slot.end}
                               </div>
 
                               {days.map((d) => {
-const dateKey = formatDateKey(d);
+                                const dateKey = formatDateKey(d);
 
-// ★ APIのcountは「残枠」(0..2)
-const count = getCountForSlot(dateKey, slot.start);
+                                // count = 残枠（0..2）
+                                const count = getCountForSlot(dateKey, slot.start);
+                                const past = isPastSlot(dateKey, slot.start);
 
-const past = isPastSlot(dateKey, slot.start);
+                                // 0は×、1/2は○（過去枠は×）
+                                const disabled = past || count <= 0;
 
-// 0は×、1以上は○（過去枠も×）
-const disabled = past || count <= 0;
+                                const selected =
+                                  dateKey === selectedDateKey &&
+                                  selectedSlot?.start === slot.start &&
+                                  selectedSlot?.end === slot.end &&
+                                  !disabled;
 
-const selected =
-  dateKey === selectedDateKey &&
-  selectedSlot?.start === slot.start &&
-  selectedSlot?.end === slot.end &&
-  !disabled;
-
-const char = disabled ? "×" : "○";
-
+                                const char = disabled ? "×" : "○";
 
                                 return (
                                   <button
@@ -612,14 +576,7 @@ const char = disabled ? "×" : "○";
                                     }}
                                     className="h-10 flex items-center justify-center"
                                   >
-                                    <span
-                                      className={`${getCellClass(
-                                        selected,
-                                        disabled
-                                      )} text-[20px]`}
-                                    >
-                                      {char}
-                                    </span>
+                                    <span className={`${getCellClass(selected, disabled)} text-[20px]`}>{char}</span>
                                   </button>
                                 );
                               })}
@@ -645,59 +602,38 @@ const char = disabled ? "×" : "○";
           {/* STEP2 */}
           {step === 2 && selectedSlot && (
             <div className="space-y-4 mt-4">
-              {/* 予約確定モーション */}
               {showSuccess && (
                 <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
-                  <div
-                    className="
-                      bg-white px-6 py-4 rounded-2xl shadow-lg
-                      text-green-600 text-lg font-semibold
-                      animate-fadeIn
-                    "
-                  >
+                  <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-green-600 text-lg font-semibold animate-fadeIn">
                     {isEdit ? "✓ 予約を変更しました" : "✓ 予約が確定しました"}
                   </div>
                 </div>
               )}
 
-              {/* 変更前の予約（編集時のみ） */}
               {isEdit && originalDateObj && (
                 <div className="bg-slate-50 rounded-2xl p-3 text-[13px] text-slate-700 space-y-1.5">
                   <p className="font-semibold text-slate-800">変更前の予約</p>
                   <p>
-                    <span className="text-[12px] text-slate-500">
-                      予約日：
-                    </span>
-                    {originalDateObj.getMonth() + 1}月
-                    {originalDateObj.getDate()}日（
+                    <span className="text-[12px] text-slate-500">予約日：</span>
+                    {originalDateObj.getMonth() + 1}月{originalDateObj.getDate()}日（
                     {weekdayLabel[originalDateObj.getDay()]}）
                   </p>
                   <p>
-                    <span className="text-[12px] text-slate-500">
-                      予約時間：
-                    </span>
+                    <span className="text-[12px] text-slate-500">予約時間：</span>
                     {originalTime}
                   </p>
                 </div>
               )}
 
-              {/* 変更後 / 新規の予約 */}
               <div className="bg-pink-50/70 rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5">
-                {isEdit && (
-                  <p className="font-semibold text-slate-800">変更後の予約</p>
-                )}
+                {isEdit && <p className="font-semibold text-slate-800">変更後の予約</p>}
                 <p>
-                  <span className="text-[12px] text-slate-500">
-                    予約日：
-                  </span>
-                  {selectedDateObj.getMonth() + 1}月
-                  {selectedDateObj.getDate()}日（
+                  <span className="text-[12px] text-slate-500">予約日：</span>
+                  {selectedDateObj.getMonth() + 1}月{selectedDateObj.getDate()}日（
                   {weekdayLabel[selectedDateObj.getDay()]}）
                 </p>
                 <p>
-                  <span className="text-[12px] text-slate-500">
-                    予約時間：
-                  </span>
+                  <span className="text-[12px] text-slate-500">予約時間：</span>
                   {selectedSlot.start}〜{selectedSlot.end}
                 </p>
               </div>
@@ -711,7 +647,7 @@ const char = disabled ? "×" : "○";
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handleBackToStep1}
+                  onClick={() => setStep(1)}
                   className="flex-1 h-11 rounded-2xl border border-slate-200 text-[13px] text-slate-700"
                 >
                   戻る
@@ -750,7 +686,6 @@ const char = disabled ? "×" : "○";
   );
 };
 
-// 実際に Next.js にルートとして認識されるのはこれ
 export default function Page() {
   return (
     <Suspense
