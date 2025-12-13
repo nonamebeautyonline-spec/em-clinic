@@ -224,67 +224,155 @@ export async function GET(req: Request) {
       return NextResponse.json({ date, slots });
     }
 
-    // ▼ 範囲指定（新仕様）
-    if (!start || !end) {
-      return NextResponse.json(
-        { error: "start and end are required" },
-        { status: 400 }
-      );
-    }
+// ▼ 範囲指定（連動版）: 営業枠を生成して残枠countを返す
+if (!start || !end) {
+  return NextResponse.json(
+    { error: "start and end are required" },
+    { status: 400 }
+  );
+}
 
-    const doctorId = "dr_default";
+const doctorId = "dr_default";
 
-    // ① 予約済み件数
-    const bookedRes = await gasPost({
-      type: "listRange",
-      startDate: start,
-      endDate: end,
-    });
-    if (!bookedRes.okHttp) {
-      return NextResponse.json(
-        { error: "GAS error", detail: bookedRes.text },
-        { status: 500 }
-      );
-    }
-    const booked: BookedSlot[] = bookedRes.json?.slots ?? [];
+if (!ADMIN_TOKEN) {
+  return NextResponse.json(
+    { error: "ADMIN_TOKEN is not set" },
+    { status: 500 }
+  );
+}
 
-    // ② ルール取得（管理系は token 必須）
-    if (!ADMIN_TOKEN) {
-      // token無ければ安全側（空）
-      return NextResponse.json({ start, end, slots: [] });
-    }
+// ① 予約済み件数（既存の listRange）
+const bookedRes = await fetch(GAS_RESERVATIONS_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "listRange",
+    startDate: start,
+    endDate: end,
+  }),
+  cache: "no-store",
+});
 
-    const schedRes = await gasPost({
-      type: "getScheduleRange",
-      token: ADMIN_TOKEN,
-      doctor_id: doctorId,
-      start,
-      end,
-    });
+const bookedText = await bookedRes.text();
+let bookedJson: any = {};
+try { bookedJson = JSON.parse(bookedText); } catch { bookedJson = {}; }
 
-    if (!schedRes.okHttp || !schedRes.json?.ok) {
-      return NextResponse.json({ start, end, slots: [] });
-    }
+if (!bookedRes.ok || !bookedJson?.ok) {
+  return NextResponse.json(
+    { error: "GAS listRange error", detail: bookedText },
+    { status: 500 }
+  );
+}
 
-    const weekly: WeeklyRule[] = schedRes.json.weekly_rules ?? [];
-    const overrides: Override[] = schedRes.json.overrides ?? [];
+const bookedSlots =
+  (bookedJson.slots as { date: string; time: string; count: number }[]) ?? [];
 
-    // ③ 営業枠生成→予約済を引いて残枠countに
-    const slots = buildAvailabilityRange(
-      start,
-      end,
-      weekly,
-      overrides,
-      booked,
-      doctorId
-    );
+// ② ルール取得（getScheduleRange）
+const schedRes = await fetch(GAS_RESERVATIONS_URL, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    type: "getScheduleRange",
+    token: ADMIN_TOKEN,
+    doctor_id: doctorId,
+    start,
+    end,
+  }),
+  cache: "no-store",
+});
 
-    return NextResponse.json({ start, end, slots });
-  } catch (err) {
-    console.error("GET /api/reservations error:", err);
-    return NextResponse.json({ error: "server error" }, { status: 500 });
+const schedText = await schedRes.text();
+let schedJson: any = {};
+try { schedJson = JSON.parse(schedText); } catch { schedJson = {}; }
+
+if (!schedRes.ok || !schedJson?.ok) {
+  return NextResponse.json(
+    { error: "GAS getScheduleRange error", detail: schedText },
+    { status: 500 }
+  );
+}
+
+const weekly = (schedJson.weekly_rules ?? []) as any[];
+const overrides = (schedJson.overrides ?? []) as any[];
+
+// ③ 営業枠生成（weekly/override）→ 予約済みを引いて残枠countに
+function parseMinutes(hhmm: string) {
+  const [h, m] = hhmm.split(":").map((v) => Number(v));
+  return h * 60 + m;
+}
+function toHHMM(totalMin: number) {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function ymd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const weeklyMap = new Map<number, any>();
+weekly.filter((r) => r.doctor_id === doctorId).forEach((r) => weeklyMap.set(Number(r.weekday), r));
+
+const overrideMap = new Map<string, any>();
+overrides.filter((o) => o.doctor_id === doctorId).forEach((o) => overrideMap.set(String(o.date), o));
+
+const bookedMap = new Map<string, number>();
+bookedSlots.forEach((b) => bookedMap.set(`${b.date}|${b.time}`, Number(b.count || 0)));
+
+const startDate = new Date(`${start}T00:00:00+09:00`);
+const endDate = new Date(`${end}T00:00:00+09:00`);
+
+const outSlots: { date: string; time: string; count: number }[] = [];
+
+for (let d = new Date(startDate); d <= endDate; d = addDays(d, 1)) {
+  const date = ymd(d);
+  const weekday = d.getDay();
+
+  const base = weeklyMap.get(weekday);
+  const ov = overrideMap.get(date);
+
+  if (ov?.type === "closed") continue;
+  if (!base?.enabled && ov?.type !== "open") continue;
+
+  const slotMinutes =
+    (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
+    (Number(base?.slot_minutes) || 15);
+
+  const cap =
+    (typeof ov?.capacity === "number" ? ov.capacity : undefined) ??
+    (Number(base?.capacity) || 2);
+
+  const startTime =
+    (ov?.start_time && String(ov.start_time).trim() ? String(ov.start_time) : "") ||
+    (base?.start_time || "");
+  const endTime =
+    (ov?.end_time && String(ov.end_time).trim() ? String(ov.end_time) : "") ||
+    (base?.end_time || "");
+
+  if (!startTime || !endTime) continue;
+
+  const sMin = parseMinutes(startTime);
+  const eMin = parseMinutes(endTime);
+  if (!(sMin < eMin)) continue;
+
+  for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
+    const time = toHHMM(t);
+    const key = `${date}|${time}`;
+    const bookedCount = bookedMap.get(key) ?? 0;
+    const remain = Math.max(0, cap - bookedCount);
+    outSlots.push({ date, time, count: remain });
   }
 }
+
+return NextResponse.json({ start, end, slots: outSlots });
+
 
 // =============================
 // POST /api/reservations
