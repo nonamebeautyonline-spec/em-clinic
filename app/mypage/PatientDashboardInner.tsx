@@ -72,6 +72,24 @@ interface QueryPatientParams {
 }
 
 // ------------------------- util -------------------------
+const isActiveOrder = (order: Order) => {
+  // 追跡番号がない＝未発送（常にアクティブ表示）
+  if (!order.trackingNumber) return true;
+
+  // shippingEta（発送日）が無い場合も一旦アクティブ扱い
+  if (!order.shippingEta) return true;
+
+  const shippedAt = new Date(order.shippingEta);
+  if (isNaN(shippedAt.getTime())) return true;
+
+  const now = new Date();
+  const diffDays = (now.getTime() - shippedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+  // 10日未満ならアクティブ（10日以上はアーカイブ扱い）
+  return diffDays < 10;
+};
+
+
 const useQueryPatientParams = (): QueryPatientParams => {
   const sp = useSearchParams();
   return {
@@ -632,6 +650,13 @@ const handleReorderCancel = async () => {
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
+
+  // 注文：アクティブ分だけ表示（未発送 or 発送から10日未満）
+  const visibleOrders = activeOrders.filter(isActiveOrder);
+
+  // 参考：アーカイブ側（必要なら後で「過去の配送」タブを作れる）
+  const archivedOrders = activeOrders.filter((o) => !isActiveOrder(o));
+
 
   const hasHistory = history.length > 0;
   const lastHistory = hasHistory ? history[0] : null;
