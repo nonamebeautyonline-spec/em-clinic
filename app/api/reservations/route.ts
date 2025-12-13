@@ -113,71 +113,52 @@ function buildAvailabilityRange(
     bookedMap.set(`${b.date}|${b.time}`, Number(b.count || 0))
   );
 
-let cur = start;
+  const slots: { date: string; time: string; count: number }[] = [];
 
-const slots: { date: string; time: string; count: number }[] = [];
+  let cur = start;
+  while (cur <= end) {
+    const date = cur;
+    const weekday = dayOfWeek(date);
 
-while (cur <= end) {
-  const date = cur;
-  const weekday = dayOfWeek(date);
+    const base = weeklyMap.get(weekday);
+    const ov = overrideMap.get(date);
 
-  const base = weeklyMap.get(weekday);
-  const ov = overrideMap.get(date);
+    // 休診 or 休み
+    if (ov?.type === "closed" || (!base?.enabled && ov?.type !== "open")) {
+      cur = addYmd(cur, 1);
+      continue;
+    }
 
-  if (ov?.type === "closed") {
-    cur = addYmd(cur, 1);
-    continue;
-  }
-  if (!base?.enabled && ov?.type !== "open") {
-    cur = addYmd(cur, 1);
-    continue;
-  }
+    const slotMinutes =
+      (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
+      (base?.slot_minutes ?? 15);
 
-  const slotMinutes =
-    (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
-    (base?.slot_minutes ?? 15);
+    const cap =
+      (typeof ov?.capacity === "number" ? ov.capacity : undefined) ??
+      (base?.capacity ?? 2);
 
-  const cap =
-    (typeof ov?.capacity === "number" ? ov.capacity : undefined) ??
-    (base?.capacity ?? 2);
+    const startTime =
+      (ov?.start_time && String(ov.start_time).trim()
+        ? String(ov.start_time)
+        : "") || (base?.start_time || "");
 
-  const startTime =
-    (ov?.start_time && String(ov.start_time).trim()
-      ? String(ov.start_time)
-      : "") || (base?.start_time || "");
+    const endTime =
+      (ov?.end_time && String(ov.end_time).trim()
+        ? String(ov.end_time)
+        : "") || (base?.end_time || "");
 
-  const endTime =
-    (ov?.end_time && String(ov.end_time).trim()
-      ? String(ov.end_time)
-      : "") || (base?.end_time || "");
-
-  if (!startTime || !endTime) {
-    cur = addYmd(cur, 1);
-    continue;
-  }
-
-  const sMin = parseMinutes(startTime);
-  const eMin = parseMinutes(endTime);
-  if (!(sMin < eMin) || slotMinutes <= 0) {
-    cur = addYmd(cur, 1);
-    continue;
-  }
-
-  for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
-    const time = toHHMM(t);
-    const key = `${date}|${time}`;
-    const bookedCount = bookedMap.get(key) ?? 0;
-    const remain = Math.max(0, cap - bookedCount);
-    slots.push({ date, time, count: remain });
-  }
-
-  cur = addYmd(cur, 1);
-}
-
+    if (!startTime || !endTime) {
+      cur = addYmd(cur, 1);
+      continue;
+    }
 
     const sMin = parseMinutes(startTime);
     const eMin = parseMinutes(endTime);
-    if (!(sMin < eMin) || slotMinutes <= 0) continue;
+
+    if (!(sMin < eMin) || slotMinutes <= 0) {
+      cur = addYmd(cur, 1);
+      continue;
+    }
 
     for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
       const time = toHHMM(t);
@@ -186,10 +167,13 @@ while (cur <= end) {
       const remain = Math.max(0, cap - bookedCount);
       slots.push({ date, time, count: remain });
     }
+
+    cur = addYmd(cur, 1);
   }
 
   return slots;
 }
+
 
 // =============================
 // GET /api/reservations
