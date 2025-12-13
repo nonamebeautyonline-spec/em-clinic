@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as
