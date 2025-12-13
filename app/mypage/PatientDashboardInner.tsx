@@ -1063,11 +1063,11 @@ return (
           {/* 通常の注文・発送状況 */}
           {activeOrders.length === 0 ? (
             <div className="text-sm text-slate-600">
-              処方済みのお薬は現在ありません。
+              現在、発送状況の確認が必要なお薬はありません。
             </div>
           ) : (
             <div className="space-y-3">
-              {activeOrders.map((order) => (
+              {visibleOrders.map((order) => (
                 <div
                   key={order.id}
                   className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
@@ -1215,25 +1215,30 @@ return (
           )}
         </section>
 
-        {/* サポート */}
-        <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
-          <h2 className="text-sm font-semibold text-slate-800 mb-2">
-            お困りの方へ
-          </h2>
-          <p className="text-sm text-slate-600 mb-3">
-            予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。
-          </p>
-          <button
-            type="button"
-            onClick={handleContactSupport}
-            className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text白 hover:bg-pink-600 transition"
-          >
-            LINEで問い合わせる
-          </button>
-          <p className="mt-2 text-[11px] text-slate-500">
-            ※ 診察中・夜間など、返信までお時間をいただく場合があります。
-          </p>
-        </section>
+{/* サポート */}
+<section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
+  <h2 className="text-sm font-semibold text-slate-800 mb-2">
+    お困りの方へ
+  </h2>
+
+  <p className="text-sm text-slate-600 mb-3">
+    予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。
+  </p>
+
+  <a
+    href="https://lin.ee/BlKX38U"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 transition"
+  >
+    LINEで問い合わせる
+  </a>
+
+  <p className="mt-2 text-[11px] text-slate-500">
+    ※ 診察中・夜間など、返信までお時間をいただく場合があります。
+  </p>
+</section>
+
       </main>
     </div>
   );
