@@ -62,7 +62,7 @@ const QUESTION_ITEMS: QuestionItem[] = [
     type: "textarea",
     required: false,
     placeholder:
-      "例）マンジャロ7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
+      "例）マンジャロ5mg 使用中／オゼンピック0.5mg 2025年10月まで など",
   },
 
   // 4. 内服薬の有無
@@ -112,7 +112,7 @@ const QUESTION_ITEMS: QuestionItem[] = [
     type: "choice",
     required: true,
     options: [
-      { label: "Twitter", value: "twitter" },
+      { label: "X（旧Twitter）", value: "twitter" },
       { label: "Instagram", value: "instagram" },
       { label: "ホームページ", value: "homepage" },
       { label: "検索サイト", value: "search" },
