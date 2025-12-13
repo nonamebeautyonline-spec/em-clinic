@@ -557,10 +557,16 @@ if (mpRes.ok) {
     }
   };
 
-  const handleOpenTracking = (trackingNumber: string | undefined) => {
-    if (!trackingNumber) return;
-    alert(`追跡番号: ${trackingNumber}`);
-  };
+const handleOpenTracking = (trackingNumber: string | undefined) => {
+  if (!trackingNumber) return;
+
+  const url =
+    "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=" +
+    encodeURIComponent(trackingNumber);
+
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
 
   const handleContactSupport = () => {
     alert("LINE公式アカウントをあとで紐づけます。");
@@ -1069,7 +1075,21 @@ return (
                     </div>
                     <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
                       {order.trackingNumber ? (
-                        <p>追跡番号：{order.trackingNumber}</p>
+                        <p>
+  追跡番号：
+  <a
+    href={
+      "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=" +
+      encodeURIComponent(order.trackingNumber)
+    }
+    target="_blank"
+    rel="noopener noreferrer"
+    className="ml-1 text-pink-600 underline"
+  >
+    {order.trackingNumber}
+  </a>
+</p>
+
                       ) : order.shippingEta ? (
                         <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
                       ) : null}
