@@ -262,7 +262,20 @@ export async function GET(req: Request) {
       doctorId
     );
 
-    return NextResponse.json({ start, end, slots, _ver: "avail-v2" });
+ return NextResponse.json({
+  start,
+  end,
+  slots,
+  _ver: "avail-v2",
+  _debug: {
+    weekly_len: (schedRes.json.weekly_rules || []).length,
+    overrides_len: (schedRes.json.overrides || []).length,
+    booked_len: (bookedRes.json.slots || []).length,
+    sample_weekly: (schedRes.json.weekly_rules || []).slice(0, 3),
+    sample_override: (schedRes.json.overrides || []).slice(0, 3),
+  },
+});
+
 
   } catch (err: any) {
     console.error("GET /api/reservations error:", err);
