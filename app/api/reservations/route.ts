@@ -1,13 +1,12 @@
+import { NextResponse } from "next/server";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-import { NextResponse } from "next/server";
 
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as
   | string
   | undefined;
 
-// 管理UI統合済みの予約GASを叩く（同一URLでOK）
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 
 type WeeklyRule = {
@@ -56,12 +55,14 @@ function ymd(d: Date) {
 
 async function gasPost(payload: any) {
   if (!GAS_RESERVATIONS_URL) throw new Error("Missing GAS_RESERVATIONS_URL");
+
   const res = await fetch(GAS_RESERVATIONS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
     cache: "no-store",
   });
+
   const text = await res.text();
   let json: any = {};
   try {
@@ -83,14 +84,14 @@ function buildAvailabilityRange(
   const weeklyMap = new Map<number, WeeklyRule>();
   weekly
     .filter((r) => r.doctor_id === doctorId)
-    .forEach((r) => weeklyMap.set(r.weekday, r));
+    .forEach((r) => weeklyMap.set(Number(r.weekday), r));
 
   const overrideMap = new Map<string, Override>();
   overrides
     .filter((o) => o.doctor_id === doctorId)
-    .forEach((o) => overrideMap.set(o.date, o));
+    .forEach((o) => overrideMap.set(String(o.date), o));
 
-  const bookedMap = new Map<string, number>(); // "YYYY-MM-DD|HH:mm" -> bookedCount
+  const bookedMap = new Map<string, number>();
   booked.forEach((b) =>
     bookedMap.set(`${b.date}|${b.time}`, Number(b.count || 0))
   );
@@ -102,18 +103,14 @@ function buildAvailabilityRange(
 
   for (let d = new Date(startDate); d <= endDate; d = addDays(d, 1)) {
     const date = ymd(d);
-    const weekday = d.getDay(); // 0..6
+    const weekday = d.getDay();
 
     const base = weeklyMap.get(weekday);
     const ov = overrideMap.get(date);
 
-    // 1) closed は全休
     if (ov?.type === "closed") continue;
-
-    // 2) baseが無効で、openでもないなら休み
     if (!base?.enabled && ov?.type !== "open") continue;
 
-    // 3) 値決定（override優先）
     const slotMinutes =
       (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
       (base?.slot_minutes ?? 15);
@@ -123,12 +120,14 @@ function buildAvailabilityRange(
       (base?.capacity ?? 2);
 
     const startTime =
-      (ov?.start_time && ov.start_time.trim() ? ov.start_time : "") ||
-      (base?.start_time || "");
+      (ov?.start_time && String(ov.start_time).trim()
+        ? String(ov.start_time)
+        : "") || (base?.start_time || "");
 
     const endTime =
-      (ov?.end_time && ov.end_time.trim() ? ov.end_time : "") ||
-      (base?.end_time || "");
+      (ov?.end_time && String(ov.end_time).trim()
+        ? String(ov.end_time)
+        : "") || (base?.end_time || "");
 
     if (!startTime || !endTime) continue;
 
@@ -141,7 +140,7 @@ function buildAvailabilityRange(
       const key = `${date}|${time}`;
       const bookedCount = bookedMap.get(key) ?? 0;
       const remain = Math.max(0, cap - bookedCount);
-      slots.push({ date, time, count: remain }); // count=残枠（0..2）
+      slots.push({ date, time, count: remain });
     }
   }
 
@@ -150,8 +149,6 @@ function buildAvailabilityRange(
 
 // =============================
 // GET /api/reservations
-//   - ?start=YYYY-MM-DD&end=YYYY-MM-DD  → 管理UI連動の可用枠（残枠count）
-//   - ?date=YYYY-MM-DD                  → 旧仕様互換（{date, slots:[{time,count}] }）
 // =============================
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -161,7 +158,6 @@ export async function GET(req: Request) {
 
   try {
     if (!GAS_RESERVATIONS_URL) {
-      // GAS 未設定時はモック
       return NextResponse.json({
         start: start ?? date ?? null,
         end: end ?? date ?? null,
@@ -169,30 +165,24 @@ export async function GET(req: Request) {
       });
     }
 
-    // ▼ 単日指定（旧仕様互換）
-    if (date && !start && !end) {
-      // 単日も内部的には「範囲生成」でやる（date=date）
-      const doctorId = "dr_default";
+    const doctorId = "dr_default";
 
-      // 予約済み件数（その日だけ）
+    // 単日（互換）
+    if (date && !start && !end) {
+      if (!ADMIN_TOKEN) return NextResponse.json({ date, slots: [] });
+
       const bookedRes = await gasPost({
         type: "listRange",
         startDate: date,
         endDate: date,
       });
-      if (!bookedRes.okHttp) {
+      if (!bookedRes.okHttp || !bookedRes.json?.ok) {
         return NextResponse.json(
-          { error: "GAS error", detail: bookedRes.text },
+          { error: "GAS listRange error", detail: bookedRes.text },
           { status: 500 }
         );
       }
-      const booked: BookedSlot[] = bookedRes.json?.slots ?? [];
 
-      // ルール取得（管理系は token 必須）
-      if (!ADMIN_TOKEN) {
-        // token無ければ安全側（空）
-        return NextResponse.json({ date, slots: [] });
-      }
       const schedRes = await gasPost({
         type: "getScheduleRange",
         token: ADMIN_TOKEN,
@@ -201,184 +191,89 @@ export async function GET(req: Request) {
         end: date,
       });
       if (!schedRes.okHttp || !schedRes.json?.ok) {
-        return NextResponse.json({ date, slots: [] });
+        return NextResponse.json(
+          { error: "GAS getScheduleRange error", detail: schedRes.text },
+          { status: 500 }
+        );
       }
 
-      const weekly: WeeklyRule[] = schedRes.json.weekly_rules ?? [];
-      const overrides: Override[] = schedRes.json.overrides ?? [];
-
-      const rangeSlots = buildAvailabilityRange(
+      const out = buildAvailabilityRange(
         date,
         date,
-        weekly,
-        overrides,
-        booked,
+        (schedRes.json.weekly_rules || []) as WeeklyRule[],
+        (schedRes.json.overrides || []) as Override[],
+        (bookedRes.json.slots || []) as BookedSlot[],
         doctorId
       );
 
-      // 旧仕様：{ time, count } の配列に変換（timeごと残枠count）
-      const slots = rangeSlots
-        .filter((s) => s.date === date)
-        .map((s) => ({ time: s.time, count: s.count }));
-
-      return NextResponse.json({ date, slots });
+      return NextResponse.json({
+        date,
+        slots: out.map((s) => ({ time: s.time, count: s.count })),
+      });
     }
 
-// ▼ 範囲指定（連動版）: 営業枠を生成して残枠countを返す
-if (!start || !end) {
-  return NextResponse.json(
-    { error: "start and end are required" },
-    { status: 400 }
-  );
-}
+    // 範囲（連動版）
+    if (!start || !end) {
+      return NextResponse.json(
+        { error: "start and end are required" },
+        { status: 400 }
+      );
+    }
 
-const doctorId = "dr_default";
+    if (!ADMIN_TOKEN) {
+      return NextResponse.json(
+        { error: "ADMIN_TOKEN is not set" },
+        { status: 500 }
+      );
+    }
 
-if (!ADMIN_TOKEN) {
-  return NextResponse.json(
-    { error: "ADMIN_TOKEN is not set" },
-    { status: 500 }
-  );
-}
+    const bookedRes = await gasPost({
+      type: "listRange",
+      startDate: start,
+      endDate: end,
+    });
+    if (!bookedRes.okHttp || !bookedRes.json?.ok) {
+      return NextResponse.json(
+        { error: "GAS listRange error", detail: bookedRes.text },
+        { status: 500 }
+      );
+    }
 
-// ① 予約済み件数（既存の listRange）
-const bookedRes = await fetch(GAS_RESERVATIONS_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "listRange",
-    startDate: start,
-    endDate: end,
-  }),
-  cache: "no-store",
-});
+    const schedRes = await gasPost({
+      type: "getScheduleRange",
+      token: ADMIN_TOKEN,
+      doctor_id: doctorId,
+      start,
+      end,
+    });
+    if (!schedRes.okHttp || !schedRes.json?.ok) {
+      return NextResponse.json(
+        { error: "GAS getScheduleRange error", detail: schedRes.text },
+        { status: 500 }
+      );
+    }
 
-const bookedText = await bookedRes.text();
-let bookedJson: any = {};
-try { bookedJson = JSON.parse(bookedText); } catch { bookedJson = {}; }
+    const slots = buildAvailabilityRange(
+      start,
+      end,
+      (schedRes.json.weekly_rules || []) as WeeklyRule[],
+      (schedRes.json.overrides || []) as Override[],
+      (bookedRes.json.slots || []) as BookedSlot[],
+      doctorId
+    );
 
-if (!bookedRes.ok || !bookedJson?.ok) {
-  return NextResponse.json(
-    { error: "GAS listRange error", detail: bookedText },
-    { status: 500 }
-  );
-}
-
-const bookedSlots =
-  (bookedJson.slots as { date: string; time: string; count: number }[]) ?? [];
-
-// ② ルール取得（getScheduleRange）
-const schedRes = await fetch(GAS_RESERVATIONS_URL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    type: "getScheduleRange",
-    token: ADMIN_TOKEN,
-    doctor_id: doctorId,
-    start,
-    end,
-  }),
-  cache: "no-store",
-});
-
-const schedText = await schedRes.text();
-let schedJson: any = {};
-try { schedJson = JSON.parse(schedText); } catch { schedJson = {}; }
-
-if (!schedRes.ok || !schedJson?.ok) {
-  return NextResponse.json(
-    { error: "GAS getScheduleRange error", detail: schedText },
-    { status: 500 }
-  );
-}
-
-const weekly = (schedJson.weekly_rules ?? []) as any[];
-const overrides = (schedJson.overrides ?? []) as any[];
-
-// ③ 営業枠生成（weekly/override）→ 予約済みを引いて残枠countに
-function parseMinutes(hhmm: string) {
-  const [h, m] = hhmm.split(":").map((v) => Number(v));
-  return h * 60 + m;
-}
-function toHHMM(totalMin: number) {
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-}
-function ymd(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-const weeklyMap = new Map<number, any>();
-weekly.filter((r) => r.doctor_id === doctorId).forEach((r) => weeklyMap.set(Number(r.weekday), r));
-
-const overrideMap = new Map<string, any>();
-overrides.filter((o) => o.doctor_id === doctorId).forEach((o) => overrideMap.set(String(o.date), o));
-
-const bookedMap = new Map<string, number>();
-bookedSlots.forEach((b) => bookedMap.set(`${b.date}|${b.time}`, Number(b.count || 0)));
-
-const startDate = new Date(`${start}T00:00:00+09:00`);
-const endDate = new Date(`${end}T00:00:00+09:00`);
-
-const outSlots: { date: string; time: string; count: number }[] = [];
-
-for (let d = new Date(startDate); d <= endDate; d = addDays(d, 1)) {
-  const date = ymd(d);
-  const weekday = d.getDay();
-
-  const base = weeklyMap.get(weekday);
-  const ov = overrideMap.get(date);
-
-  if (ov?.type === "closed") continue;
-  if (!base?.enabled && ov?.type !== "open") continue;
-
-  const slotMinutes =
-    (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
-    (Number(base?.slot_minutes) || 15);
-
-  const cap =
-    (typeof ov?.capacity === "number" ? ov.capacity : undefined) ??
-    (Number(base?.capacity) || 2);
-
-  const startTime =
-    (ov?.start_time && String(ov.start_time).trim() ? String(ov.start_time) : "") ||
-    (base?.start_time || "");
-  const endTime =
-    (ov?.end_time && String(ov.end_time).trim() ? String(ov.end_time) : "") ||
-    (base?.end_time || "");
-
-  if (!startTime || !endTime) continue;
-
-  const sMin = parseMinutes(startTime);
-  const eMin = parseMinutes(endTime);
-  if (!(sMin < eMin)) continue;
-
-  for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
-    const time = toHHMM(t);
-    const key = `${date}|${time}`;
-    const bookedCount = bookedMap.get(key) ?? 0;
-    const remain = Math.max(0, cap - bookedCount);
-    outSlots.push({ date, time, count: remain });
+    return NextResponse.json({ start, end, slots });
+  } catch (err: any) {
+    console.error("GET /api/reservations error:", err);
+    return NextResponse.json(
+      { error: "server error", message: String(err?.message || err) },
+      { status: 500 }
+    );
   }
 }
 
-return NextResponse.json({ start, end, slots: outSlots });
-
-
 // =============================
 // POST /api/reservations
-//   - createReservation
-//   - cancelReservation
-//   - updateReservation
 // =============================
 export async function POST(req: Request) {
   try {
@@ -388,9 +283,6 @@ export async function POST(req: Request) {
     console.log("POST /api/reservations type:", type, "body:", body);
 
     if (!GAS_RESERVATIONS_URL) {
-      console.warn(
-        "GAS_RESERVATIONS_URL is not set. /api/reservations will return mock."
-      );
       return NextResponse.json({ ok: true, mock: true, body });
     }
 
@@ -398,6 +290,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
 
     const text = await gasRes.text();
@@ -411,25 +304,14 @@ export async function POST(req: Request) {
     }
 
     if (!gasRes.ok) {
-      console.error("GAS reservations HTTP error:", {
-        status: gasRes.status,
-        text,
-      });
       return NextResponse.json(
-        {
-          ok: false,
-          error: "GAS error",
-          detail: text,
-        },
+        { ok: false, error: "GAS error", detail: text },
         { status: 500 }
       );
     }
 
-    if (typeof json.ok === "boolean") {
-      return NextResponse.json(json);
-    } else {
-      return NextResponse.json({ ok: true, ...json });
-    }
+    if (typeof json.ok === "boolean") return NextResponse.json(json);
+    return NextResponse.json({ ok: true, ...json });
   } catch (err) {
     console.error("POST /api/reservations error:", err);
     return NextResponse.json(
