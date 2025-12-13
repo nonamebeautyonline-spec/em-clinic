@@ -541,18 +541,17 @@ const handleConfirm = async () => {
                           {days.map((d) => {
                             const key = formatDateKey(d);
                             const wd = d.getDay();
-                            const isActiveDay = isDateActiveDay(d);
-                            const isSelectedDay = key === selectedDateKey;
+// const isActiveDay = isDateActiveDay(d); ← 削除
+const isSelectedDay = key === selectedDateKey;
 
-                            let dateColor = "text-slate-900";
-                            if (wd === 0) dateColor = "text-red-500";
-                            if (wd === 6) dateColor = "text-sky-500";
+let dateColor = "text-slate-900";
+if (wd === 0) dateColor = "text-red-500";
+if (wd === 6) dateColor = "text-sky-500";
 
-                            const bgCls = !isActiveDay
-                              ? "bg-slate-50 text-slate-400 border-slate-100"
-                              : isSelectedDay
-                              ? "bg-pink-50 border-pink-200"
-                              : "bg-white border-slate-100";
+const bgCls = isSelectedDay
+  ? "bg-pink-50 border-pink-200"
+  : "bg-white border-slate-100";
+
 
                             return (
                               <button
@@ -561,15 +560,10 @@ const handleConfirm = async () => {
                                 onClick={() => setSelectedDateKey(key)}
                                 className={`h-12 rounded-2xl border flex flex-col items-center justify-center ${bgCls}`}
                               >
-                                <span
-                                  className={`text-[15px] font-semibold ${
-                                    !isActiveDay
-                                      ? "text-slate-400"
-                                      : dateColor
-                                  }`}
-                                >
-                                  {d.getDate()}
-                                </span>
+<span className={`text-[15px] font-semibold ${dateColor}`}>
+  {d.getDate()}
+</span>
+
                                 <span className="text-[11px] text-slate-500">
                                   {weekdayLabel[wd]}
                                 </span>
