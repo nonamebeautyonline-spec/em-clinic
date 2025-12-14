@@ -311,12 +311,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, mock: true }, { status: 200 });
     }
 
-    const gasRes = await fetch(GAS_RESERVATIONS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-body: JSON.stringify(payload)
-      cache: "no-store",
-    });
+const gasRes = await fetch(GAS_RESERVATIONS_URL!, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+  cache: "no-store",
+});
+
 
     const text = await gasRes.text().catch(() => "");
     let json: any = {};
