@@ -111,7 +111,7 @@ const ReserveInner: React.FC = () => {
 
   // 患者基本情報（クエリ + localStorage からマージ）
   const [patientInfo, setPatientInfo] = useState<PatientBasic>({
-    lineId: "",
+    patient_id: "",
     name: "",
     kana: "",
     sex: "",
@@ -303,11 +303,12 @@ const ReserveInner: React.FC = () => {
         headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
   type: "createReservation",
-  patient_id: patientInfo.lineId, // ← ここがPID
-  name: patientInfo.name,          // ← 氏名（任意だが入れる）
+  patient_id: patientInfo.patient_id,
+  name: patientInfo.name,
   date: selectedDateKey,
   time: selectedSlot.start,
 }),
+
 
 
       });
