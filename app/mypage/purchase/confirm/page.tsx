@@ -118,22 +118,36 @@ function PurchaseConfirmContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // マイページのプロフィールから patientId を取得
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/mypage/profile");
-        if (!res.ok) return; // 未連携などはそのまま UNKNOWN で飛ばす
-        const json = await res.json();
-        if (json?.patientId) {
-          setPatientId(String(json.patientId));
-        }
-      } catch (e) {
-        console.warn("profile fetch error in purchase confirm:", e);
+// ★ identity から patientId を取得（識別子専用）
+useEffect(() => {
+  const fetchIdentity = async () => {
+    try {
+      const res = await fetch("/api/mypage/identity", {
+        cache: "no-store",
+        credentials: "include",
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok || json?.ok === false) {
+        setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
+        return;
       }
-    };
-    fetchProfile();
-  }, []);
+
+      if (json?.patientId) {
+        setPatientId(String(json.patientId));
+        return;
+      }
+
+      setError("本人確認情報の取得に失敗しました。");
+    } catch {
+      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+    }
+  };
+
+  fetchIdentity();
+}, []);
+
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode") as Mode | null;
