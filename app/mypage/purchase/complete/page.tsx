@@ -1,4 +1,4 @@
-// app/purchase/completes/page.tsx
+// app/mypage/purchase/complete/page.tsx
 "use client";
 
 import React, { useMemo, Suspense } from "react";
