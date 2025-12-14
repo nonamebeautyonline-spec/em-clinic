@@ -27,45 +27,50 @@ export default function PhoneRegisterPage() {
     return "+81" + digits; // ざっくり
   };
 
-  const handleSendCode = async () => {
-    setError(null);
+const handleSendCode = async () => {
+  setError(null);
 
-    const normalized = normalizePhone(phone);
-    if (!normalized.match(/^\+81[0-9]{9,10}$/)) {
-      setError("日本の電話番号を正しく入力してください。");
-      return;
-    }
+  const normalized = normalizePhone(phone);
+  if (!normalized.match(/^\+81[0-9]{9,10}$/)) {
+    setError("日本の電話番号を正しく入力してください。");
+    return;
+  }
 
-    setSending(true);
-    try {
-      const res = await fetch("/api/verify/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalized }),
-      });
+  setSending(true);
+  try {
+    const res = await fetch("/api/verify/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: normalized }),
+    });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("API failed:", text); // ログだけ
-        throw new Error(text || "認証コードの送信に失敗しました。");
-      }
-
-      const data = await res.json();
-      if (data.status !== "pending") {
-        throw new Error("認証コードの送信に失敗しました。");
-      }
-
-      setStep("enterCode");
-    } catch (e: any) {
-      console.error(e);
-      setError(
-        e?.message ||
-          "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。"
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("verify/send failed:", res.status, text);
+      throw new Error(
+        "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
       );
-    } finally {
-      setSending(false);
     }
-  };
+
+    const data = await res.json();
+    if (data.status !== "pending") {
+      throw new Error(
+        "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
+      );
+    }
+
+    setStep("enterCode");
+  } catch (e: any) {
+    console.error(e);
+    setError(
+      e?.message ||
+        "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。"
+    );
+  } finally {
+    setSending(false);
+  }
+};
+
 
   const handleVerifyCode = async () => {
     setError(null);
@@ -89,7 +94,9 @@ export default function PhoneRegisterPage() {
       if (!res.ok) {
         const text = await res.text();
         console.error("API failed:", text); // ログだけ
-        throw new Error(text || "認証コードの確認に失敗しました。");
+console.error("verify/check failed:", res.status, text);
+throw new Error("認証コードの確認に失敗しました。時間をおいて再度お試しください。");
+
       }
 
       const data = await res.json();
