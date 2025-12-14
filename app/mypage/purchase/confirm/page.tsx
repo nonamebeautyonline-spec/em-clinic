@@ -167,29 +167,33 @@ const handleBack = () => {
 };
 
 
-  const handleSubmit = async () => {
-    if (!product || !modeParam) return;
-    setError(null);
-    setSubmitting(true);
+const handleSubmit = async () => {
+  if (!product || !modeParam) return;
 
-    // patientId がまだ取れてなければ UNKNOWN として記録（後で手動紐付けも可能）
-    const effectivePatientId = patientId ?? "UNKNOWN";
+  // ★ 修正①：patientId 未取得なら進ませない
+  if (!patientId) {
+    setError("本人確認情報を取得中です。数秒後にもう一度お試しください。");
+    return;
+  }
 
-    try {
-const res = await fetch("/api/checkout", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-body: JSON.stringify({
-  productCode: product.code,
-  mode: modeParam,
-  patientId: effectivePatientId, // ★ 追加
-  reorderId: reorderIdParam ?? null,
-}),
+  setError(null);
+  setSubmitting(true);
 
+  // ★ UNKNOWN fallback は完全に廃止
+  const effectivePatientId = patientId;
 
-});
+  try {
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productCode: product.code,
+        mode: modeParam,
+        patientId: effectivePatientId,
+        reorderId: reorderIdParam ?? null,
+      }),
+    });
+
 
 
       if (!res.ok) {
@@ -309,11 +313,12 @@ body: JSON.stringify({
         {/* ボタン群 */}
         <div className="mt-2 flex flex-col gap-2">
           <button
-            type="button"
-            disabled={submitting}
-            onClick={handleSubmit}
-            className="w-full rounded-full bg-pink-500 text-white py-2 text-[12px] font-semibold disabled:opacity-60"
-          >
+  type="button"
+  disabled={submitting || !patientId}
+  onClick={handleSubmit}
+  className="w-full rounded-full bg-pink-500 text-white py-2 text-[12px] font-semibold disabled:opacity-60"
+>
+
             {submitting ? "決済画面を準備しています..." : "この内容で決済に進む"}
           </button>
           <button
