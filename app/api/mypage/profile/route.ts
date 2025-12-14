@@ -1,3 +1,5 @@
+// redeploy: profile route
+
 import { NextRequest, NextResponse } from "next/server";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL as string | undefined;
