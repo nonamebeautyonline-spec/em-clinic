@@ -11,20 +11,19 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({} as any));
 
-    // cookie から補完（フロントでは持たない）
     const patientId =
       req.cookies.get("__Host-patient_id")?.value ||
       req.cookies.get("patient_id")?.value ||
       "";
 
-    const lineUserId = req.cookies.get("line_user_id")?.value || "";
+    if (!patientId) {
+      return NextResponse.json({ ok: false, error: "missing_patient_id" }, { status: 400 });
+    }
 
-    // GASへ投げるpayload（必要キーはあなたのGASに合わせる）
     const payload = {
       ...body,
       type: "intake",
-      patient_id: body.patient_id || patientId,
-      line_id: body.line_id || lineUserId,
+      patient_id: patientId,
     };
 
     const gasRes = await fetch(GAS_INTAKE_URL, {
@@ -36,30 +35,30 @@ export async function POST(req: NextRequest) {
 
     const text = await gasRes.text().catch(() => "");
     let json: any = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+    try { json = text ? JSON.parse(text) : {}; } catch {}
 
-    if (!gasRes.ok || json?.ok === false) {
+    if (!gasRes.ok || json?.ok !== true) {
       return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
     }
 
-    // ★ intakeId を cookie に保存（予約で使う）
-    const intakeId = String(json?.intakeId ?? json?.intake_id ?? json?.id ?? "").trim();
-
-    const res = NextResponse.json({ ok: true }, { status: 200 });
-
-    if (intakeId) {
-      res.cookies.set("__Host-intake_id", intakeId, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30,
-      });
+    // ★ GASは { ok:true, intakeId } を返す前提
+    const intakeId = String(json.intakeId || "").trim();
+    if (!intakeId) {
+      return NextResponse.json({ ok: false, error: "missing_intake_id_from_gas" }, { status: 500 });
     }
+
+    const res = NextResponse.json({ ok: true });
+
+    res.cookies.set("__Host-intake_id", intakeId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24,
+    });
 
     return res;
   } catch {
-    console.error("POST /api/intake error");
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
