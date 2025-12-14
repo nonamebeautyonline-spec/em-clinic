@@ -280,7 +280,7 @@ export async function GET(req: NextRequest) {
 // =============================
 // POST /api/reservations
 // =============================
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
         // ★★★ ここに入れる ★★★
