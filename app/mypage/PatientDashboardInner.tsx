@@ -413,27 +413,25 @@ if (mpRes.ok) {
   }
 
   // ★ 再処方申請のローカル state 更新（元々 reRes.ok ブロックでやっていた処理）
-  if (Array.isArray(api.reorders)) {
-    const mapped: ReorderItem[] = api.reorders.map((r: any) => {
-      const code = String(r.product_code ?? "");
-      const label = PRODUCT_LABELS[code] || code || "マンジャロ";
-return {
-  id: String(r.id ?? ""),
-  timestamp: String(r.timestamp ?? ""),
+if (Array.isArray(api.reorders)) {
+  const mapped: ReorderItem[] = api.reorders.map((r: any) => {
+    const code = String(r.product_code ?? r.productCode ?? "").trim();
+    const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+    return {
+      id: String(r.id ?? ""),
+      timestamp: String(r.timestamp ?? ""),
 
-  // ★ ここが重要：snake_case を保持
-  product_code: code,
-  // 互換で camelCase も埋める
-  productCode: code,
+      product_code: code,
+      productCode: code,
 
-  productLabel: label,
-  status: (r.status ?? "pending") as ReorderItem["status"],
-  note: r.note ? String(r.note) : undefined,
-};
+      productLabel: label,
+      status: (r.status ?? "pending") as ReorderItem["status"],
+      note: r.note ? String(r.note) : undefined,
+    };
+  });
+  setReorders(mapped);
+}
 
-    });
-    setReorders(mapped);
-  }
 } else {
   console.error("api/mypage response not ok:", mpRes.status);
 }
