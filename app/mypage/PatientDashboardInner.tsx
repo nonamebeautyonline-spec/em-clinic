@@ -1005,14 +1005,17 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
   <div className="mt-2 flex gap-2 text-[11px]">
     <button
       type="button"
-      onClick={() => {
-        const code = encodeURIComponent(displayReorder.productCode);
-        const reorderId = encodeURIComponent(displayReorder.id);
-        // ★ 再処方用の内容確認に、どの再処方行かも渡す
-        router.push(
-          `/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`
-        );
-      }}
+onClick={() => {
+  const raw = String(displayReorder.product_code || "").trim();
+  if (!raw) {
+    alert("再処方の決済情報（product_code）が見つかりません。管理者にお問い合わせください。");
+    return;
+  }
+  const code = encodeURIComponent(raw);
+  const reorderId = encodeURIComponent(String(displayReorder.id || ""));
+  router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
+}}
+
       className="px-3 py-1 rounded-full bg-pink-500 text-white"
     >
       再処方を決済する
