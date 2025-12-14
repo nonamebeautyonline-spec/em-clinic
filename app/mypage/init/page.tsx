@@ -43,17 +43,11 @@ function MypageInitInner() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/verify/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalized }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("API failed:", text); // ログだけ
-        throw new Error(text || "認証コードの送信に失敗しました。");
-      }
+if (!res.ok) {
+  const text = await res.text();
+  console.error("verify/send failed:", res.status, text);
+  throw new Error("認証コードの送信に失敗しました。時間をおいて再度お試しください。");
+}
 
       const data = await res.json();
       if (data.status !== "pending") {
@@ -86,17 +80,12 @@ function MypageInitInner() {
 
     try {
       // 1) Twilio Verify でコードチェック
-      const res = await fetch("/api/verify/check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalized, code }),
-      });
+if (!res.ok) {
+  const text = await res.text();
+  console.error("verify/check failed:", res.status, text);
+  throw new Error("認証コードの確認に失敗しました。時間をおいて再度お試しください。");
+}
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("API failed:", text); // ログだけ
-        throw new Error(text || "認証コードの確認に失敗しました。");
-      }
 
       const data = await res.json();
       if (!data.valid) {
@@ -115,14 +104,23 @@ function MypageInitInner() {
         }),
       });
 
-      if (!completeRes.ok) {
-        const text = await completeRes.text();
-        throw new Error(text || "マイページとの紐付けに失敗しました。");
-      }
+if (!completeRes.ok) {
+  const text = await completeRes.text();
+  console.error("register/complete failed:", completeRes.status, text); // ログだけ
+  throw new Error("マイページとの紐付けに失敗しました。時間をおいて再度お試しください。");
+}
 
-      setStep("done");
-      // すぐマイページへ飛ばす
-      router.push("/mypage");
+// ★ 成功時も念のためJSONを確認（200でもok:falseの可能性を潰す）
+const completeJson = await completeRes.json().catch(() => ({} as any));
+if (!completeJson?.ok || !completeJson?.pid) {
+  console.error("register/complete returned unexpected JSON:", completeJson);
+  throw new Error("マイページとの紐付けに失敗しました。時間をおいて再度お試しください。");
+}
+
+setStep("done");
+// すぐマイページへ飛ばす
+router.push("/mypage");
+
     } catch (e: any) {
       console.error(e);
       setError(
