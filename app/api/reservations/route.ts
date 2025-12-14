@@ -283,6 +283,24 @@ export async function GET(req: NextRequest) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any));
+        // ★★★ ここに入れる ★★★
+    const patientId =
+      req.cookies.get("__Host-patient_id")?.value ||
+      req.cookies.get("patient_id")?.value ||
+      "";
+
+    const intakeId =
+      req.cookies.get("__Host-intake_id")?.value ||
+      req.cookies.get("intake_id")?.value ||
+      "";
+
+    const payload = {
+      ...body,
+      patient_id: body.patient_id || patientId,
+      intakeId: body.intakeId || intakeId,
+      intake_id: body.intake_id || intakeId,
+    };
+    // ★★★ ここまで ★★★
     const type = body?.type as string | undefined;
 
     // bodyはログしない
@@ -296,7 +314,7 @@ export async function POST(req: Request) {
     const gasRes = await fetch(GAS_RESERVATIONS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+body: JSON.stringify(payload)
       cache: "no-store",
     });
 
