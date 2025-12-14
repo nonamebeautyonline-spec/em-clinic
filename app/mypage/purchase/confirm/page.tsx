@@ -193,6 +193,7 @@ const res = await fetch("/api/checkout", {
 
       if (!res.ok) {
         const text = await res.text();
+        console.error("API failed:", text); // ログだけ
         throw new Error(text || "決済の準備に失敗しました。");
       }
 

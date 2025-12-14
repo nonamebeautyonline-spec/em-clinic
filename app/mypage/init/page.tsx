@@ -51,6 +51,7 @@ function MypageInitInner() {
 
       if (!res.ok) {
         const text = await res.text();
+        console.error("API failed:", text); // ログだけ
         throw new Error(text || "認証コードの送信に失敗しました。");
       }
 
@@ -93,6 +94,7 @@ function MypageInitInner() {
 
       if (!res.ok) {
         const text = await res.text();
+        console.error("API failed:", text); // ログだけ
         throw new Error(text || "認証コードの確認に失敗しました。");
       }
 
