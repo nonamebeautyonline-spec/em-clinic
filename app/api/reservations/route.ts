@@ -213,10 +213,9 @@ export async function GET(req: Request) {
         endDate: date,
       });
       if (!bookedRes.okHttp || !bookedRes.json?.ok) {
-        return NextResponse.json(
-          { error: "GAS listRange error", detail: bookedRes.text },
-          { status: 500 }
-        );
+        console.error("GAS listRange error:", bookedRes.text);
+return NextResponse.json({ error: "GAS error" }, { status: 500 });
+
       }
 
       const schedRes = await gasPost({
@@ -226,12 +225,14 @@ export async function GET(req: Request) {
         start: date,
         end: date,
       });
-      if (!schedRes.okHttp || !schedRes.json?.ok) {
-        return NextResponse.json(
-          { error: "GAS getScheduleRange error", detail: schedRes.text },
-          { status: 500 }
-        );
-      }
+if (!schedRes.okHttp || !schedRes.json?.ok) {
+  console.error("GAS getScheduleRange error:", schedRes.text);
+  return NextResponse.json(
+    { error: "GAS error" },
+    { status: 500 }
+  );
+}
+
 
       const out = buildAvailabilityRange(
         date,
@@ -269,10 +270,9 @@ export async function GET(req: Request) {
       endDate: end,
     });
     if (!bookedRes.okHttp || !bookedRes.json?.ok) {
-      return NextResponse.json(
-        { error: "GAS listRange error", detail: bookedRes.text },
-        { status: 500 }
-      );
+      console.error("GAS listRange error:", bookedRes.text);
+return NextResponse.json({ error: "GAS error" }, { status: 500 });
+
     }
 
     const schedRes = await gasPost({
@@ -282,12 +282,14 @@ export async function GET(req: Request) {
       start,
       end,
     });
-    if (!schedRes.okHttp || !schedRes.json?.ok) {
-      return NextResponse.json(
-        { error: "GAS getScheduleRange error", detail: schedRes.text },
-        { status: 500 }
-      );
-    }
+if (!schedRes.okHttp || !schedRes.json?.ok) {
+  console.error("GAS getScheduleRange error:", schedRes.text);
+  return NextResponse.json(
+    { error: "GAS error" },
+    { status: 500 }
+  );
+}
+
 
     const slots = buildAvailabilityRange(
       start,
@@ -298,27 +300,15 @@ export async function GET(req: Request) {
       doctorId
     );
 
- return NextResponse.json({
-  start,
-  end,
-  slots,
-  _ver: "avail-v2",
-  _debug: {
-    weekly_len: (schedRes.json.weekly_rules || []).length,
-    overrides_len: (schedRes.json.overrides || []).length,
-    booked_len: (bookedRes.json.slots || []).length,
-    sample_weekly: (schedRes.json.weekly_rules || []).slice(0, 3),
-    sample_override: (schedRes.json.overrides || []).slice(0, 3),
-  },
-});
+return NextResponse.json({ start, end, slots });
+
 
 
   } catch (err: any) {
     console.error("GET /api/reservations error:", err);
-    return NextResponse.json(
-      { error: "server error", message: String(err?.message || err) },
-      { status: 500 }
-    );
+    console.error("GET /api/reservations error:", err);
+return NextResponse.json({ error: "server error" }, { status: 500 });
+
   }
 }
 
@@ -353,12 +343,14 @@ export async function POST(req: Request) {
       json = {};
     }
 
-    if (!gasRes.ok) {
-      return NextResponse.json(
-        { ok: false, error: "GAS error", detail: text },
-        { status: 500 }
-      );
-    }
+if (!gasRes.ok) {
+  console.error("GAS reservations HTTP error:", gasRes.status, text);
+  return NextResponse.json(
+    { ok: false, error: "GAS error" },
+    { status: 500 }
+  );
+}
+
 
     if (typeof json.ok === "boolean") return NextResponse.json(json);
     return NextResponse.json({ ok: true, ...json });
