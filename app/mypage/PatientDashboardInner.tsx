@@ -262,7 +262,6 @@ const PRODUCT_LABELS: Record<string, string> = {
 
 // ------------------------- Component -------------------------
 export default function PatientDashboardInner() {
-  const query = useQueryPatientParams();
   const router = useRouter();
 
   const [data, setData] = useState<PatientDashboardData | null>(null);
@@ -316,8 +315,7 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
         }
 
         // ② /api/mypage/profile から patientId / name を取得
-        let profile: { patientId: string; name: string } | null = null;
-        try {
+let profileName: string | null = null;        try {
           const profileRes = await fetch("/api/mypage/profile");
 
           if (profileRes.status === 401) {
@@ -328,22 +326,17 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
 
           if (profileRes.ok) {
             const p = await profileRes.json();
-            profile = { patientId: p.patientId, name: p.name };
-          }
+profileName = p?.name ? String(p.name) : null;          }
         } catch (e) {
           console.warn("profile fetch error:", e);
         }
 
         // ③ Patient 情報
-        const patient: PatientInfo = {
-          id:
-            profile?.patientId ||
-            query.customer_id ||
-            storedBasic.customer_id ||
-            "unknown",
-          displayName:
-            profile?.name || query.name || storedBasic.name || "ゲスト",
-        };
+const patient: PatientInfo = {
+  id: "unknown",
+  displayName: profileName || "ゲスト",
+};
+
 
         // ④ localStorage の予約情報（診察前だけ）
         let nextReservation: Reservation | null = null;
@@ -375,12 +368,8 @@ const mpRes = await fetch("/api/mypage", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
     cache: "no-store",
-  body: JSON.stringify({
-    // いまは cookie の patient_id ベースなので body は実質無視されるが、
-    // 将来の拡張に備えて patient 情報を一応渡しておいてもよい
-    customer_id: patient.id,
-    name: patient.displayName,
-  }),
+body: JSON.stringify({}),
+
 });
 
 
@@ -445,27 +434,11 @@ if (mpRes.ok) {
 
         // ⑨ 問診済みフラグ
         if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "patient_basic",
-            JSON.stringify({
-              customer_id:
-                profile?.patientId ??
-                query.customer_id ??
-                storedBasic.customer_id ??
-                finalData.patient.id ??
-                "",
-              name:
-                profile?.name ??
-                query.name ??
-                storedBasic.name ??
-                finalData.patient.displayName ??
-                "",
-              kana: storedBasic.kana ?? "",
-              sex: storedBasic.sex ?? "",
-              birth: storedBasic.birth ?? "",
-              phone: storedBasic.phone ?? "",
-            })
-          );
+window.localStorage.setItem(
+  "patient_basic",
+  JSON.stringify({ customer_id: finalData.patient.id ?? "" })
+);
+
 
           const localHasIntake =
             window.localStorage.getItem("has_intake") === "1";
@@ -487,15 +460,8 @@ if (mpRes.ok) {
     };
 
     init();
-  }, [
-    query.customer_id,
-    query.name,
-    query.kana,
-    query.sex,
-    query.birth,
-    query.phone,
-    router,
-  ]);
+}, [router]);
+
 
 
 
@@ -830,7 +796,7 @@ return (
                 {patient.displayName} さん
               </div>
               <div className="text-[11px] text-slate-500">
-                Patient ID: {patient.id}
+Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` : "—"}
               </div>
             </div>
             <div className="w-9 h-9 rounded-full bg-slate-200" />

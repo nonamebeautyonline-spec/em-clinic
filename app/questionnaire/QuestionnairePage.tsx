@@ -144,21 +144,10 @@ type AnswerMap = Record<string, string>;
 
 export default function QuestionnairePage({
   reserveId,
-  customerId,
-  name,
-  kana,
-  sex,
-  birth,
-  phone,
 }: {
   reserveId: string;
-  customerId?: string;
-  name?: string;
-  kana?: string;
-  sex?: string;
-  birth?: string;
-  phone?: string;
 }) {
+
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false); // 通常完了
   const [blocked, setBlocked] = useState(false); // 禁忌に該当
@@ -171,30 +160,6 @@ export default function QuestionnairePage({
   const current = QUESTION_ITEMS[currentIndex];
 
   // 患者情報を localStorage に保持（/mypage でも使う）
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const raw = window.localStorage.getItem("patient_basic");
-    let stored: any = {};
-    if (raw) {
-      try {
-        stored = JSON.parse(raw);
-      } catch {
-        stored = {};
-      }
-    }
-
-    const merged = {
-      customer_id: customerId || stored.customer_id || "",
-      name: name || stored.name || "",
-      kana: kana || stored.kana || "",
-      sex: sex || stored.sex || "",
-      birth: birth || stored.birth || "",
-      phone: phone || stored.phone || "",
-    };
-
-    window.localStorage.setItem("patient_basic", JSON.stringify(merged));
-  }, [customerId, name, kana, sex, birth, phone]);
 
   const isVisible = (q: QuestionItem) => {
     if (!q.conditional) return true;
@@ -228,33 +193,10 @@ export default function QuestionnairePage({
   const isLastVisible = getNextIndex(currentIndex) >= total;
 
   // マイページへ戻るとき、可能ならクエリ付きで戻す
-  const goToMypage = () => {
-    let cid = customerId;
-    let nm = name;
+const goToMypage = () => {
+  router.push("/mypage");
+};
 
-    // props になければ localStorage から補完
-    if (typeof window !== "undefined" && (!cid || !nm)) {
-      const raw = window.localStorage.getItem("patient_basic");
-      if (raw) {
-        try {
-          const s = JSON.parse(raw);
-          cid = cid || s.customer_id;
-          nm = nm || s.name;
-        } catch {
-          // 何もしない
-        }
-      }
-    }
-
-    if (cid || nm) {
-      const params = new URLSearchParams();
-      if (cid) params.set("customer_id", cid);
-      if (nm) params.set("name", nm);
-      router.push(`/mypage?${params.toString()}`);
-    } else {
-      router.push("/mypage");
-    }
-  };
 
   const handleNext = async () => {
     if (!validate()) {
@@ -280,43 +222,21 @@ if (isLast) {
 
   try {
     // 患者情報を props + localStorage から補完
-    let cid = customerId || "";
-    let nm = name || "";
-    let kn = kana || "";
-    let sx = sex || "";
-    let br = birth || "";
-    let ph = phone || "";
-
-    if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem("patient_basic");
-      if (raw) {
-        try {
-          const s = JSON.parse(raw);
-          cid = cid || s.customer_id || "";
-          nm = nm || s.name || "";
-          kn = kn || s.kana || "";
-          sx = sx || s.sex || "";
-          br = br || s.birth || "";
-          ph = ph || s.phone || "";
-        } catch {
-          // 無視
-        }
-      }
-    }
+let nm = "";
+let sx = "";
+let br = "";
+let ph = "";
 
     const res = await fetch("/api/intake", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reserveId,
-        answers,
-        submittedAt: new Date().toISOString(),
-        name: nm,
-        sex: sx,
-        birth: br,
-        line_id: cid,
-        phone: ph,
-      }),
+body: JSON.stringify({
+  reserveId,
+  answers,
+  submittedAt: new Date().toISOString(),
+}),
+
+
     });
 
     if (!res.ok) throw new Error("failed");

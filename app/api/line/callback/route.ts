@@ -39,21 +39,19 @@ export async function GET(req: NextRequest) {
   );
   const lineUserId = payload.sub as string;
 
-  // ★ init に line_id をクエリで渡す
-  const redirectUrl = `${process.env.APP_BASE_URL}/mypage/init?line_id=${encodeURIComponent(
-    lineUserId
-  )}`;
+// ★ init に line_id をクエリで渡さない
+const redirectUrl = `${process.env.APP_BASE_URL}/mypage/init`;
 
-  const res = NextResponse.redirect(redirectUrl);
+const res = NextResponse.redirect(redirectUrl);
 
-  // cookie も今のまま残してOK
-  res.cookies.set("line_user_id", lineUserId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+res.cookies.set("line_user_id", lineUserId, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 30,
+});
 
-  return res;
+return res;
+
 }

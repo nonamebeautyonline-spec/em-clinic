@@ -30,19 +30,12 @@ export async function POST(req: NextRequest) {
       });
 
     return NextResponse.json({ valid: check.valid });
-  } catch (e: any) {
-    console.error("verify check error:", e, {
-      code: e?.code,
-      moreInfo: e?.moreInfo,
-      status: e?.status,
-    });
-    return NextResponse.json(
-      {
-        error:
-          e?.message ||
-          "認証コードの確認中にエラーが発生しました。時間をおいて再度お試しください。",
-      },
-      { status: 500 }
-    );
-  }
+} catch (e: any) {
+  console.error("verify check error", { code: e?.code, status: e?.status });
+  return NextResponse.json(
+    { error: "認証コードの確認中にエラーが発生しました。時間をおいて再度お試しください。" },
+    { status: 500 }
+  );
+}
+
 }

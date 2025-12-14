@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!gasRes.ok || gasJson.ok === false) {
+          console.error("GAS reorder cancel error:", gasRes.status);
       return NextResponse.json(
         { ok: false, error: gasJson.error || "GAS error" },
         { status: 500 }

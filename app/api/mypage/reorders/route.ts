@@ -6,19 +6,13 @@ const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 export async function GET(req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
-      return NextResponse.json(
-        { ok: false, error: "GAS_REORDER_URL not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
     }
 
     const cookieStore = await cookies();
     const patientId = cookieStore.get("patient_id")?.value;
     if (!patientId) {
-      return NextResponse.json(
-        { ok: false, error: "unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
     const gasRes = await fetch(GAS_REORDER_URL, {
@@ -28,24 +22,25 @@ export async function GET(req: NextRequest) {
       cache: "no-store",
     });
 
-    const gasJson = await gasRes.json().catch(() => ({}));
-
+    const gasJson = await gasRes.json().catch(() => ({} as any));
     if (!gasRes.ok || !gasJson.ok) {
-      return NextResponse.json(
-        { ok: false, error: gasJson.error || "GAS error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
     }
 
-    return NextResponse.json(
-      { ok: true, reorders: gasJson.reorders ?? [] },
-      { status: 200 }
-    );
-  } catch (e) {
-    console.error("mypage/reorders error", e);
-    return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
-    );
+    // ★ 丸返し禁止：必要最小限へ射影
+    const raw = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
+    const reorders = raw.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      createdAt: r.createdAt,
+      productCode: r.productCode ?? r.product_code,
+      mg: r.mg,
+      months: r.months,
+    }));
+
+    return NextResponse.json({ ok: true, reorders }, { status: 200 });
+  } catch {
+    console.error("mypage/reorders error");
+    return NextResponse.json({ ok: false, error: "unexpected_error" }, { status: 500 });
   }
 }

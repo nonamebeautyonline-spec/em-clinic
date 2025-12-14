@@ -22,8 +22,6 @@ function Inner() {
   const sp = useSearchParams();
 
   // LINEログイン連携済みで line_id が付いてくる想定（将来 cookie 化推奨）
-  const lineUserId = sp.get("line_id") || "";
-
   const [step, setStep] = useState<Step>("enterPhone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -106,8 +104,8 @@ function Inner() {
       const completeRes = await fetch("/api/register/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalized, lineUserId }),
-      });
+body: JSON.stringify({ phone: normalized }),
+    });
 
       // HTTPエラー
       if (!completeRes.ok) {

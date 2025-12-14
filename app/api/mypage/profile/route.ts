@@ -9,54 +9,36 @@ export async function GET(req: NextRequest) {
     "";
 
   if (!patientId) {
-    return NextResponse.json(
-      { ok: false, message: "not_linked", _dbg: "profile-v3-gasname" },
-      { status: 401 }
-    );
+    return NextResponse.json({ ok: false, message: "not_linked" }, { status: 401 });
   }
 
+  // GASが無い/落ちてる時も、余計な情報を返さない
   if (!GAS_MYPAGE_URL) {
-    return NextResponse.json({
-      ok: true,
-      patientId,
-      name: "",
-      _dbg: "profile-v3-gasname",
-      _gas: { configured: false },
-    });
+    return NextResponse.json({ ok: true, name: "" }, { status: 200 });
   }
 
   try {
-    const url = `${GAS_MYPAGE_URL}?type=getDashboard&pid=${encodeURIComponent(
-      patientId
-    )}`;
+    const url =
+      GAS_MYPAGE_URL +
+      `?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+
     const r = await fetch(url, { cache: "no-store" });
     const text = await r.text();
 
     let data: any = {};
-    let parseOk = true;
     try {
-      data = JSON.parse(text);
+      data = text ? JSON.parse(text) : {};
     } catch {
-      parseOk = false;
+      // 解析失敗でも詳細は返さない
+      return NextResponse.json({ ok: true, name: "" }, { status: 200 });
     }
 
     const name = String(data?.patient?.displayName || "").trim();
 
-    return NextResponse.json({
-      ok: true,
-      patientId,
-      name,
-      _dbg: "profile-v3-gasname",
-      _gas: { configured: true, ok: r.ok, status: r.status, parseOk, hasDisplayName: !!name },
-    });
-  } catch (e) {
-    console.error("mypage/profile: GAS fetch error:", e);
-    return NextResponse.json({
-      ok: true,
-      patientId,
-      name: "",
-      _dbg: "profile-v3-gasname",
-      _gas: { configured: true, fetchError: true },
-    });
+    // ★ 外部返却は最小：nameだけ
+    return NextResponse.json({ ok: true, name }, { status: 200 });
+  } catch {
+    // エラー詳細は返さない
+    return NextResponse.json({ ok: true, name: "" }, { status: 200 });
   }
 }

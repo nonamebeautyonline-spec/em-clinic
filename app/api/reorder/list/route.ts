@@ -47,13 +47,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      {
-        ok: true,
-        reorders: gasJson.reorders ?? [],
-      },
-      { status: 200 }
-    );
+const raw = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
+const reorders = raw.map((r: any) => ({
+  id: r.id,
+  status: r.status,
+  createdAt: r.createdAt,
+  productCode: r.productCode ?? r.product_code,
+  mg: r.mg,
+  months: r.months,
+}));
+
+return NextResponse.json(
+  {
+    ok: true,
+    reorders,
+  },
+  { status: 200 }
+);
+
   } catch (e) {
     console.error("POST /api/reorder/list error", e);
     return NextResponse.json(

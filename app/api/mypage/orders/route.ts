@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
 
     if (!gasRes.ok) {
       const text = await gasRes.text().catch(() => "");
-      console.error("GAS orders error:", gasRes.status, text);
+console.error("GAS orders error:", gasRes.status);
       return NextResponse.json(
         { ok: false, error: "failed to fetch orders from GAS" },
         { status: 500 }

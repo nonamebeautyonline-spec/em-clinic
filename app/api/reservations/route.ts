@@ -1,12 +1,10 @@
-import { NextResponse } from "next/server";
+// app/api/reservations/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as
-  | string
-  | undefined;
-
+const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 
 type WeeklyRule = {
@@ -32,6 +30,7 @@ type Override = {
 
 type BookedSlot = { date: string; time: string; count: number };
 
+// ----- 既存ヘルパー（そのまま） -----
 function parseMinutes(hhmm: string) {
   const [h, m] = hhmm.split(":").map((v) => Number(v));
   return h * 60 + m;
@@ -41,16 +40,18 @@ function toHHMM(totalMin: number) {
   const m = totalMin % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-function addDays(date: Date, n: number) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d;
+function addYmd(ymdStr: string, days: number) {
+  const [y, m, d] = ymdStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
-function ymd(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function dayOfWeek(ymdStr: string) {
+  const [y, m, d] = ymdStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCDay(); // 0..6
 }
 
 async function gasPost(payload: any) {
@@ -63,32 +64,16 @@ async function gasPost(payload: any) {
     cache: "no-store",
   });
 
-  const text = await res.text();
+  const text = await res.text().catch(() => "");
   let json: any = {};
   try {
-    json = JSON.parse(text);
+    json = text ? JSON.parse(text) : {};
   } catch {
     json = {};
   }
+  // ★ text は返すが、GET側ではログに出さない（診療/個人情報混入防止）
   return { okHttp: res.ok, status: res.status, text, json };
 }
-
-function addYmd(ymdStr: string, days: number) {
-  const [y, m, d] = ymdStr.split("-").map(Number);
-  // UTC で固定してズレ防止
-  const dt = new Date(Date.UTC(y, m - 1, d + days));
-  const yy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-function dayOfWeek(ymdStr: string) {
-  const [y, m, d] = ymdStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return dt.getUTCDay(); // 0..6
-}
-
 
 function buildAvailabilityRange(
   start: string,
@@ -123,19 +108,18 @@ function buildAvailabilityRange(
     const base = weeklyMap.get(weekday);
     const ov = overrideMap.get(date);
 
-   // 休診
-if (ov?.type === "closed") {
-  cur = addYmd(cur, 1);
-  continue;
-}
+    // 休診
+    if (ov?.type === "closed") {
+      cur = addYmd(cur, 1);
+      continue;
+    }
 
-// ★ base が休みでも、override が open / modify なら開ける
-const overrideOpens = ov?.type === "open" || ov?.type === "modify";
-if (!base?.enabled && !overrideOpens) {
-  cur = addYmd(cur, 1);
-  continue;
-}
-
+    // base が休みでも、override が open / modify なら開ける
+    const overrideOpens = ov?.type === "open" || ov?.type === "modify";
+    if (!base?.enabled && !overrideOpens) {
+      cur = addYmd(cur, 1);
+      continue;
+    }
 
     const slotMinutes =
       (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
@@ -182,11 +166,10 @@ if (!base?.enabled && !overrideOpens) {
   return slots;
 }
 
-
 // =============================
 // GET /api/reservations
 // =============================
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const start = searchParams.get("start");
   const end = searchParams.get("end");
@@ -194,28 +177,29 @@ export async function GET(req: Request) {
 
   try {
     if (!GAS_RESERVATIONS_URL) {
-      return NextResponse.json({
-        start: start ?? date ?? null,
-        end: end ?? date ?? null,
-        slots: [],
-      });
+      // GAS未設定時は空で返す（text等は返さない）
+      return NextResponse.json(
+        { start: start ?? date ?? null, end: end ?? date ?? null, slots: [] },
+        { status: 200 }
+      );
     }
 
     const doctorId = "dr_default";
 
     // 単日（互換）
     if (date && !start && !end) {
-      if (!ADMIN_TOKEN) return NextResponse.json({ date, slots: [] });
+      if (!ADMIN_TOKEN) {
+        return NextResponse.json({ date, slots: [] }, { status: 200 });
+      }
 
       const bookedRes = await gasPost({
         type: "listRange",
         startDate: date,
         endDate: date,
       });
-      if (!bookedRes.okHttp || !bookedRes.json?.ok) {
-        console.error("GAS listRange error:", bookedRes.text);
-return NextResponse.json({ error: "GAS error" }, { status: 500 });
-
+      if (!bookedRes.okHttp || bookedRes.json?.ok !== true) {
+        console.error("GAS listRange error:", bookedRes.status);
+        return NextResponse.json({ error: "GAS error" }, { status: 500 });
       }
 
       const schedRes = await gasPost({
@@ -225,14 +209,10 @@ return NextResponse.json({ error: "GAS error" }, { status: 500 });
         start: date,
         end: date,
       });
-if (!schedRes.okHttp || !schedRes.json?.ok) {
-  console.error("GAS getScheduleRange error:", schedRes.text);
-  return NextResponse.json(
-    { error: "GAS error" },
-    { status: 500 }
-  );
-}
-
+      if (!schedRes.okHttp || schedRes.json?.ok !== true) {
+        console.error("GAS getScheduleRange error:", schedRes.status);
+        return NextResponse.json({ error: "GAS error" }, { status: 500 });
+      }
 
       const out = buildAvailabilityRange(
         date,
@@ -243,25 +223,19 @@ if (!schedRes.okHttp || !schedRes.json?.ok) {
         doctorId
       );
 
-      return NextResponse.json({
-        date,
-        slots: out.map((s) => ({ time: s.time, count: s.count })),
-      });
+      return NextResponse.json(
+        { date, slots: out.map((s) => ({ time: s.time, count: s.count })) },
+        { status: 200 }
+      );
     }
 
-    // 範囲（連動版）
+    // 範囲
     if (!start || !end) {
-      return NextResponse.json(
-        { error: "start and end are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "start and end are required" }, { status: 400 });
     }
 
     if (!ADMIN_TOKEN) {
-      return NextResponse.json(
-        { error: "ADMIN_TOKEN is not set" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "ADMIN_TOKEN is not set" }, { status: 500 });
     }
 
     const bookedRes = await gasPost({
@@ -269,10 +243,9 @@ if (!schedRes.okHttp || !schedRes.json?.ok) {
       startDate: start,
       endDate: end,
     });
-    if (!bookedRes.okHttp || !bookedRes.json?.ok) {
-      console.error("GAS listRange error:", bookedRes.text);
-return NextResponse.json({ error: "GAS error" }, { status: 500 });
-
+    if (!bookedRes.okHttp || bookedRes.json?.ok !== true) {
+      console.error("GAS listRange error:", bookedRes.status);
+      return NextResponse.json({ error: "GAS error" }, { status: 500 });
     }
 
     const schedRes = await gasPost({
@@ -282,14 +255,10 @@ return NextResponse.json({ error: "GAS error" }, { status: 500 });
       start,
       end,
     });
-if (!schedRes.okHttp || !schedRes.json?.ok) {
-  console.error("GAS getScheduleRange error:", schedRes.text);
-  return NextResponse.json(
-    { error: "GAS error" },
-    { status: 500 }
-  );
-}
-
+    if (!schedRes.okHttp || schedRes.json?.ok !== true) {
+      console.error("GAS getScheduleRange error:", schedRes.status);
+      return NextResponse.json({ error: "GAS error" }, { status: 500 });
+    }
 
     const slots = buildAvailabilityRange(
       start,
@@ -300,30 +269,28 @@ if (!schedRes.okHttp || !schedRes.json?.ok) {
       doctorId
     );
 
-return NextResponse.json({ start, end, slots });
-
-
-
-  } catch (err: any) {
-    console.error("GET /api/reservations error:", err);
-    console.error("GET /api/reservations error:", err);
-return NextResponse.json({ error: "server error" }, { status: 500 });
-
+    return NextResponse.json({ start, end, slots }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/reservations error");
+    return NextResponse.json({ error: "server error" }, { status: 500 });
   }
 }
+
 
 // =============================
 // POST /api/reservations
 // =============================
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({} as any));
     const type = body?.type as string | undefined;
 
-    console.log("POST /api/reservations type:", type, "body:", body);
+    // bodyはログしない
+    console.log("POST /api/reservations type:", type);
 
     if (!GAS_RESERVATIONS_URL) {
-      return NextResponse.json({ ok: true, mock: true, body });
+      // body を返さない
+      return NextResponse.json({ ok: true, mock: true }, { status: 200 });
     }
 
     const gasRes = await fetch(GAS_RESERVATIONS_URL, {
@@ -333,32 +300,20 @@ export async function POST(req: Request) {
       cache: "no-store",
     });
 
-    const text = await gasRes.text();
-    console.log("GAS reservations POST raw:", text);
-
+    const text = await gasRes.text().catch(() => "");
     let json: any = {};
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = {};
+    try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+
+    if (!gasRes.ok || json?.ok === false) {
+      console.error("GAS reservations POST error:", gasRes.status);
+      return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
     }
 
-if (!gasRes.ok) {
-  console.error("GAS reservations HTTP error:", gasRes.status, text);
-  return NextResponse.json(
-    { ok: false, error: "GAS error" },
-    { status: 500 }
-  );
-}
-
-
-    if (typeof json.ok === "boolean") return NextResponse.json(json);
-    return NextResponse.json({ ok: true, ...json });
-  } catch (err) {
-    console.error("POST /api/reservations error:", err);
-    return NextResponse.json(
-      { ok: false, error: "server error" },
-      { status: 500 }
-    );
+    // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch {
+    console.error("POST /api/reservations error");
+    return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
+

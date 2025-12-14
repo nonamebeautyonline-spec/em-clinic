@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-
-// ★ キャッシュ完全無効化
 export const dynamic = "force-dynamic";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
@@ -28,20 +26,16 @@ type OrdersFlags = {
   hasAnyPaidOrder: boolean;
 };
 
-// GAS 側 getDashboard のレスポンス想定
+type HistoryForMyPage = {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+};
+
 type GasDashboardResponse = {
-  patient?: {
-    id: string;
-    displayName: string;
-  };
-  nextReservation?: {
-    id: string;
-    datetime: string;
-    title: string;
-    status: string;
-  } | null;
-  activeOrders?: any[]; // 互換用（今は使わない）
-  history?: any[];
+  patient?: { id: string; displayName?: string; [k: string]: any };
+  nextReservation?: { id: string; datetime: string; title: string; status: string } | null;
   orders?: {
     id: string;
     product_code: string;
@@ -55,6 +49,7 @@ type GasDashboardResponse = {
   }[];
   flags?: Partial<OrdersFlags>;
   reorders?: any[];
+  history?: any[];
 };
 
 const noCacheHeaders = {
@@ -64,110 +59,115 @@ const noCacheHeaders = {
   Expires: "0",
 };
 
+function fail(code: string, status: number) {
+  return NextResponse.json({ ok: false, error: code }, { status, headers: noCacheHeaders });
+}
+
+function safeStr(v: any) {
+  return typeof v === "string" ? v : v == null ? "" : String(v);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    if (!GAS_MYPAGE_URL) {
-      return NextResponse.json(
-        { ok: false, error: "GAS_MYPAGE_URL is not configured." },
-        { status: 500, headers: noCacheHeaders }
-      );
-    }
+    if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
 
     const cookieStore = await cookies();
     const patientId = cookieStore.get("patient_id")?.value;
+    if (!patientId) return fail("unauthorized", 401);
 
-    if (!patientId) {
-      return NextResponse.json(
-        { ok: false, error: "unauthorized: patient_id cookie not found" },
-        { status: 401, headers: noCacheHeaders }
-      );
-    }
+    const url = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
 
-    // GAS の getDashboard を patient_id ベースで1本だけ叩く
-    const url =
-      GAS_MYPAGE_URL +
-      `?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+    const gasRes = await fetch(url, { method: "GET", cache: "no-store" });
+    const rawText = await gasRes.text().catch(() => "");
 
-    const gasRes = await fetch(url, {
-      method: "GET",
-      cache: "no-store",
-    });
-
-    const rawText = await gasRes.text();
     if (!gasRes.ok) {
-      console.error("GAS getDashboard HTTP error:", gasRes.status, rawText);
-      return NextResponse.json(
-        { ok: false, error: "failed to fetch dashboard from GAS" },
-        { status: 500, headers: noCacheHeaders }
-      );
+      console.error("GAS getDashboard HTTP error:", gasRes.status);
+      return fail("gas_error", 500);
     }
 
     let gasJson: GasDashboardResponse;
     try {
       gasJson = JSON.parse(rawText) as GasDashboardResponse;
-    } catch (e) {
-      console.error("GAS getDashboard JSON parse error:", e, rawText);
-      return NextResponse.json(
-        { ok: false, error: "invalid JSON from GAS" },
-        { status: 500, headers: noCacheHeaders }
-      );
+    } catch {
+      console.error("GAS getDashboard JSON parse error");
+      return fail("gas_invalid_json", 500);
     }
 
-    // ----- orders / flags をフロント用形式にマッピング -----
-    let orders: OrderForMyPage[] = [];
-    let ordersFlags: OrdersFlags | undefined = undefined;
+    // -------- patient（最小）--------
+    const patient = gasJson.patient?.id ? { id: safeStr(gasJson.patient.id) } : undefined;
 
-    if (gasJson.orders && Array.isArray(gasJson.orders)) {
-      orders =
-        gasJson.orders.map((o) => {
+    // -------- nextReservation（最小）--------
+    const nextReservation = gasJson.nextReservation
+      ? {
+          id: safeStr(gasJson.nextReservation.id),
+          datetime: safeStr(gasJson.nextReservation.datetime),
+          title: safeStr(gasJson.nextReservation.title),
+          status: safeStr(gasJson.nextReservation.status),
+        }
+      : null;
+
+    // -------- orders（射影）--------
+    const orders: OrderForMyPage[] = Array.isArray(gasJson.orders)
+      ? gasJson.orders.map((o) => {
           let paidAtIso = "";
           if (o.paid_at_jst) {
-            const replaced = o.paid_at_jst.replace(/\//g, "-"); // "2025-12-08 10:23:00"
+            const replaced = o.paid_at_jst.replace(/\//g, "-");
             paidAtIso = replaced.replace(" ", "T") + "+09:00";
           }
-
-          const shippingStatus = (o.shipping_status || "pending") as ShippingStatus;
-          const paymentStatus = (o.payment_status || "paid") as PaymentStatus;
-
           return {
-            id: o.id,
-            productCode: o.product_code,
-            productName: o.product_name,
-            amount: o.amount,
+            id: safeStr(o.id),
+            productCode: safeStr(o.product_code),
+            productName: safeStr(o.product_name),
+            amount: Number(o.amount) || 0,
             paidAt: paidAtIso,
-            shippingStatus,
+            shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
             shippingEta: o.shipping_eta || undefined,
             trackingNumber: o.tracking_number || undefined,
-            paymentStatus,
+            paymentStatus: (o.payment_status || "paid") as PaymentStatus,
           };
-        }) ?? [];
+        })
+      : [];
 
-      ordersFlags = {
-        canPurchaseCurrentCourse:
-          gasJson.flags?.canPurchaseCurrentCourse ?? false,
-        canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
-        hasAnyPaidOrder:
-          gasJson.flags?.hasAnyPaidOrder ?? (orders.length > 0),
-      };
-    }
+    const ordersFlags: OrdersFlags = {
+      canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
+      canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
+      hasAnyPaidOrder: gasJson.flags?.hasAnyPaidOrder ?? (orders.length > 0),
+    };
+
+    // -------- reorders（患者向け最小に射影）--------
+    const rawReorders = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
+    const reorders = rawReorders.map((r: any) => ({
+      id: safeStr(r.id),
+      status: safeStr(r.status),
+      createdAt: safeStr(r.createdAt),
+      productCode: safeStr(r.productCode ?? r.product_code),
+      mg: safeStr(r.mg),
+      months: Number(r.months) || undefined,
+    }));
+
+    // -------- history（患者向け最小に射影）--------
+    const rawHistory = Array.isArray(gasJson.history) ? gasJson.history : [];
+    const history: HistoryForMyPage[] = rawHistory.map((h: any, idx: number) => ({
+      id: safeStr(h.id || h.history_id || `${idx}`),
+      date: safeStr(h.date || h.createdAt || h.paid_at_jst || ""),
+      title: safeStr(h.title || h.product_name || h.menu || ""),
+      detail: safeStr(h.detail || h.note || h.description || ""),
+    }));
 
     return NextResponse.json(
       {
         ok: true,
-        patient: gasJson.patient,
-        nextReservation: gasJson.nextReservation ?? null,
+        patient,
+        nextReservation,
         activeOrders: orders,
-        history: gasJson.history ?? [],
         ordersFlags,
-        reorders: gasJson.reorders ?? [],
+        reorders,
+        history,
       },
       { status: 200, headers: noCacheHeaders }
     );
-  } catch (err: any) {
-    console.error("POST /api/mypage error:", err);
-    return NextResponse.json(
-      { ok: false, error: String(err?.message || err) },
-      { status: 500, headers: noCacheHeaders }
-    );
+  } catch {
+    console.error("POST /api/mypage error");
+    return fail("unexpected_error", 500);
   }
 }

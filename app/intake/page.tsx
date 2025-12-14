@@ -275,24 +275,20 @@ export default function IntakePage() {
         const res = await fetch("/api/intake", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "intake",
-            reserveId: "", // まだ予約前なので空
+body: JSON.stringify({
+  type: "intake",
+  reserveId: "",
+  answers,
+  submittedAt: new Date().toISOString(),
+  name: nm,
+  sex: sx,
+  birth: br,
+  name_kana: kn,
+  tel: ph,
+  patient_id: cid,
+  // line_id: lineUserId, ←削除（サーバ側でcookieから付与）
+}),
 
-            answers,
-            submittedAt: new Date().toISOString(),
-
-            // ★ ここから個人情報（問診マスターと共通）
-            name: nm,
-            sex: sx,
-            birth: br,
-            name_kana: kn,
-            tel: ph,
-            patient_id: cid,      // ← 問診マスターのPID
-
-            // ★ LINE 情報
-            line_id: lineUserId,  // ← LINE userId
-          }),
         });
 
         if (!res.ok) throw new Error("failed");

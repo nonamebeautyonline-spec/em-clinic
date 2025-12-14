@@ -9,7 +9,6 @@ export default function PhoneRegisterPage() {
   const [step, setStep] = useState<Step>("enterPhone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [pid, setPid] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,60 +16,53 @@ export default function PhoneRegisterPage() {
   // 日本の電話番号を簡易的に E.164 (+81) に変換
   const normalizePhone = (raw: string) => {
     const digits = raw.replace(/[^0-9]/g, "");
-    if (digits.startsWith("0")) {
-      return "+81" + digits.slice(1);
-    }
-    if (digits.startsWith("81")) {
-      return "+" + digits;
-    }
+    if (!digits) return "";
+    if (digits.startsWith("0")) return "+81" + digits.slice(1);
+    if (digits.startsWith("81")) return "+" + digits;
     if (digits.startsWith("+")) return digits;
-    return "+81" + digits; // ざっくり
+    return "+81" + digits;
   };
 
-const handleSendCode = async () => {
-  setError(null);
+  const handleSendCode = async () => {
+    setError(null);
 
-  const normalized = normalizePhone(phone);
-  if (!normalized.match(/^\+81[0-9]{9,10}$/)) {
-    setError("日本の電話番号を正しく入力してください。");
-    return;
-  }
-
-  setSending(true);
-  try {
-    const res = await fetch("/api/verify/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: normalized }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("verify/send failed:", res.status, text);
-      throw new Error(
-        "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
-      );
+    const normalized = normalizePhone(phone);
+    if (!normalized.match(/^\+81[0-9]{9,10}$/)) {
+      setError("日本の電話番号を正しく入力してください。");
+      return;
     }
 
-    const data = await res.json();
-    if (data.status !== "pending") {
-      throw new Error(
-        "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
+    setSending(true);
+    try {
+      const res = await fetch("/api/verify/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: normalized }),
+      });
+
+      if (!res.ok) {
+        throw new Error(
+          "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
+        );
+      }
+
+      const data = await res.json().catch(() => ({} as any));
+      if (data.status !== "pending") {
+        throw new Error(
+          "認証コードの送信に失敗しました。時間をおいて再度お試しください。"
+        );
+      }
+
+      setStep("enterCode");
+    } catch (e: any) {
+      setError(
+        e?.message ||
+          "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。"
       );
+    } finally {
+      setSending(false);
     }
-
-    setStep("enterCode");
-  } catch (e: any) {
-    console.error(e);
-    setError(
-      e?.message ||
-        "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。"
-    );
-  } finally {
-    setSending(false);
-  }
-};
-
+  };
 
   const handleVerifyCode = async () => {
     setError(null);
@@ -85,28 +77,26 @@ const handleSendCode = async () => {
       const normalized = normalizePhone(phone);
 
       // 1) Twilio Verify でコード検証
-      const res = await fetch("/api/verify/check", {
+      const checkRes = await fetch("/api/verify/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: normalized, code }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("API failed:", text); // ログだけ
-console.error("verify/check failed:", res.status, text);
-throw new Error("認証コードの確認に失敗しました。時間をおいて再度お試しください。");
-
+      if (!checkRes.ok) {
+        throw new Error(
+          "認証コードの確認に失敗しました。時間をおいて再度お試しください。"
+        );
       }
 
-      const data = await res.json();
-      if (!data.valid) {
+      const checkJson = await checkRes.json().catch(() => ({} as any));
+      if (!checkJson.valid) {
         setError("認証コードが正しくありません。もう一度お試しください。");
         setVerifying(false);
         return;
       }
 
-      // 2) 認証OKなら、問診マスターと紐付けて PID を取得
+      // 2) 認証OKなら、問診マスターと紐付け（cookie patient_id セット）
       const linkRes = await fetch("/api/register/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,18 +104,21 @@ throw new Error("認証コードの確認に失敗しました。時間をおい
       });
 
       if (!linkRes.ok) {
-        const text = await linkRes.text();
-        throw new Error(text || "患者情報の登録・取得に失敗しました。");
+        throw new Error(
+          "患者情報の登録・取得に失敗しました。時間をおいて再度お試しください。"
+        );
       }
 
-      const linkData: { pid: string } = await linkRes.json();
-      setPid(linkData.pid);
-      // TODO: ここで PID を cookie / localStorage に保存したり、
-      //       そのままマイページにリダイレクトしてもOK
-      // e.g. router.push(`/mypage?pid=${linkData.pid}`);
+      const linkJson = await linkRes.json().catch(() => ({} as any));
+      if (!linkJson?.ok) {
+        // not_found を出したいならここで分岐も可（現状は汎用メッセージ）
+        throw new Error(
+          "患者情報の登録・取得に失敗しました。時間をおいて再度お試しください。"
+        );
+      }
+
       setStep("success");
     } catch (e: any) {
-      console.error(e);
       setError(
         e?.message ||
           "認証処理中にエラーが発生しました。時間をおいて再度お試しください。"
@@ -192,6 +185,7 @@ throw new Error("認証コードの確認に失敗しました。時間をおい
                 onChange={(e) => setPhone(e.target.value)}
               />
             </label>
+
             <p className="text-[10px] text-slate-400 leading-relaxed">
               ※ ハイフンなしの数字のみで入力してください。
               <br />
@@ -239,7 +233,6 @@ throw new Error("認証コードの確認に失敗しました。時間をおい
               >
                 電話番号を修正する
               </button>
-              {/* 再送ボタンをあとで実装しても良い */}
             </div>
 
             <button
@@ -261,13 +254,6 @@ throw new Error("認証コードの確認に失敗しました。時間をおい
               </p>
               <p className="mt-2 text-[11px] text-emerald-900 leading-relaxed">
                 問診データと診療情報の紐付けが完了しました。
-                {pid && (
-                  <>
-                    <br />
-                    患者ID（内部管理用）：{" "}
-                    <span className="font-mono text-[11px]">{pid}</span>
-                  </>
-                )}
               </p>
             </div>
 
@@ -275,8 +261,6 @@ throw new Error("認証コードの確認に失敗しました。時間をおい
               type="button"
               className="w-full rounded-full bg-pink-500 py-2 text-sm font-semibold text-white"
               onClick={() => {
-                // TODO: マイページTOPなどに遷移
-                // router.push("/mypage");
                 window.location.href = "/mypage";
               }}
             >

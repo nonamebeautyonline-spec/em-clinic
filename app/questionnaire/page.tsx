@@ -11,15 +11,6 @@ function QuestionnaireInner() {
 
   const reserveId = searchParams.get("reserveId");
 
-  // 予約→問診に付けてきたクエリをここで受け取る
-  const customerId =
-    searchParams.get("customer_id") || searchParams.get("lineId") || undefined;
-  const name = searchParams.get("name") || undefined;
-  const kana = searchParams.get("kana") || undefined;
-  const sex = searchParams.get("sex") || undefined;
-  const birth = searchParams.get("birth") || undefined;
-  const phone = searchParams.get("phone") || undefined;
-
   // reserveId が無い / 空のときは問診を出さない
   if (!reserveId) {
     return (
@@ -47,15 +38,8 @@ function QuestionnaireInner() {
   }
 
   return (
-    <QuestionnairePage
-      reserveId={reserveId}
-      customerId={customerId}
-      name={name}
-      kana={kana}
-      sex={sex}
-      birth={birth}
-      phone={phone}
-    />
+<QuestionnairePage reserveId={reserveId} />
+
   );
 }
 

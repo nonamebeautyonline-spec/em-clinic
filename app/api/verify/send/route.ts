@@ -26,15 +26,12 @@ export async function POST(req: NextRequest) {
       });
 
     return NextResponse.json({ status: verification.status });
-  } catch (e: any) {
-    console.error("verify send error:", e);
-    return NextResponse.json(
-      {
-        error:
-          e?.message ||
-          "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。",
-      },
-      { status: 500 }
-    );
-  }
+} catch (e: any) {
+  console.error("verify send error", { code: e?.code, status: e?.status });
+  return NextResponse.json(
+    { error: "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。" },
+    { status: 500 }
+  );
+}
+
 }

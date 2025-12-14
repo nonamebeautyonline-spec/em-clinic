@@ -130,55 +130,7 @@ const ReserveInner: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // ▼ 患者情報をURL + localStorageから取得してマージ
-  useEffect(() => {
-    const sp = searchParams;
 
-    const fromQuery = {
-      lineId: sp.get("lineId") || sp.get("customer_id") || "",
-      name: sp.get("name") || "",
-      kana: sp.get("kana") || "",
-      sex: sp.get("sex") || "",
-      birth: sp.get("birth") || "",
-      phone: sp.get("phone") || "",
-    };
-
-    let stored: any = {};
-    if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem("patient_basic");
-      if (raw) {
-        try {
-          stored = JSON.parse(raw);
-        } catch {
-          stored = {};
-        }
-      }
-    }
-
-    const merged: PatientBasic = {
-      lineId: fromQuery.lineId || stored.customer_id || "",
-      name: fromQuery.name || stored.name || "",
-      kana: fromQuery.kana || stored.kana || "",
-      sex: fromQuery.sex || stored.sex || "",
-      birth: fromQuery.birth || stored.birth || "",
-      phone: fromQuery.phone || stored.phone || "",
-    };
-
-    setPatientInfo(merged);
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        "patient_basic",
-        JSON.stringify({
-          customer_id: merged.lineId,
-          name: merged.name,
-          kana: merged.kana,
-          sex: merged.sex,
-          birth: merged.birth,
-          phone: merged.phone,
-        })
-      );
-    }
-  }, [searchParams]);
 
   const baseDate = useMemo(() => {
     const d = new Date();
@@ -282,8 +234,6 @@ const ReserveInner: React.FC = () => {
     if (!selectedSlot) return;
     if (booking) return;
 
-    const { lineId, name } = patientInfo;
-
     setBooking(true);
 
     try {
@@ -338,14 +288,11 @@ const ReserveInner: React.FC = () => {
           );
         }
 
-        const params = new URLSearchParams();
-        if (lineId) params.set("customer_id", lineId);
-        if (name) params.set("name", name);
+ setTimeout(() => {
+  setShowSuccess(false);
+  router.push("/mypage");
+}, 1000);
 
-        setTimeout(() => {
-          setShowSuccess(false);
-          router.push(`/mypage?${params.toString()}`);
-        }, 1000);
 
         return;
       }
@@ -354,13 +301,12 @@ const ReserveInner: React.FC = () => {
       const res = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "createReservation",
-          date: selectedDateKey,
-          time: selectedSlot.start,
-          lineId,
-          name,
-        }),
+body: JSON.stringify({
+  type: "createReservation",
+  date: selectedDateKey,
+  time: selectedSlot.start,
+}),
+
       });
 
       const data = (await res.json().catch(() => ({}))) as any;
@@ -402,14 +348,11 @@ const ReserveInner: React.FC = () => {
         );
       }
 
-      const params = new URLSearchParams();
-      if (lineId) params.set("customer_id", lineId);
-      if (name) params.set("name", name);
+setTimeout(() => {
+  setShowSuccess(false);
+  router.push("/mypage");
+}, 1000);
 
-      setTimeout(() => {
-        setShowSuccess(false);
-        router.push(`/mypage?${params.toString()}`);
-      }, 1000);
     } catch (e) {
       console.error(e);
       alert("予約確定に失敗しました。再度お試しください。");
@@ -661,7 +604,7 @@ const ReserveInner: React.FC = () => {
                     flex-1 h-11 rounded-2xl text-[13px] font-semibold shadow-sm
                     ${
                       booking
-                        ? "bg-gray-400 text白 cursor-not-allowed"
+? "bg-gray-400 text-white cursor-not-allowed"
                         : "bg-blue-600 text-white active:scale-[0.98] active:bg-blue-700"
                     }
                   `}

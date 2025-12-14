@@ -7,100 +7,74 @@ export async function POST(req: NextRequest) {
   try {
     if (!GAS_REGISTER_URL) {
       console.error("GAS_REGISTER_URL is not set");
-      return NextResponse.json(
-        { ok: false, error: "server_config_error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
     }
 
-    const { phone, lineUserId } = (await req.json()) as {
-      phone?: string;
-      lineUserId?: string;
-    };
-
+    const { phone } = (await req.json().catch(() => ({}))) as { phone?: string };
     if (!phone) {
-      return NextResponse.json(
-        { ok: false, error: "phone_required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
     }
+
+    // ★ lineUserId はクライアント入力を信用しない（cookieから取得）
+    const lineUserId = req.cookies.get("line_user_id")?.value || "";
 
     const gasRes = await fetch(GAS_REGISTER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        line_user_id: lineUserId ?? "",
-      }),
+      body: JSON.stringify({ phone, line_user_id: lineUserId }),
       cache: "no-store",
     });
 
-    const text = await gasRes.text();
+    const text = await gasRes.text().catch(() => "");
 
     if (!gasRes.ok) {
-      console.error("GAS register HTTP error:", gasRes.status, text);
-      return NextResponse.json(
-        { ok: false, error: "register_failed" },
-        { status: 500 }
-      );
+      // textはログしない
+      console.error("GAS register HTTP error:", gasRes.status);
+      return NextResponse.json({ ok: false, error: "register_failed" }, { status: 500 });
     }
 
     let data: any = {};
     try {
-      data = JSON.parse(text);
+      data = text ? JSON.parse(text) : {};
     } catch {
-      console.error("GAS register invalid JSON:", text);
-      return NextResponse.json(
-        { ok: false, error: "register_failed" },
-        { status: 500 }
-      );
+      console.error("GAS register invalid JSON");
+      return NextResponse.json({ ok: false, error: "register_failed" }, { status: 500 });
     }
 
-    // GAS側が ok:false で not_found を返すケースは「通常の失敗」
+    // GAS側 not_found は通常失敗として 200 で返す（現仕様踏襲）
     if (data?.ok === false && (data?.message === "not_found" || data?.error === "not_found")) {
-      return NextResponse.json(
-        { ok: false, error: "not_found" },
-        { status: 200 }
-      );
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 200 });
     }
 
     const pid = data?.pid ?? data?.patient_id ?? data?.Patient_ID ?? null;
-
     if (!pid) {
-      console.error("GAS register missing pid:", data);
-      return NextResponse.json(
-        { ok: false, error: "register_failed" },
-        { status: 500 }
-      );
+      // data をログしない
+      console.error("GAS register missing pid");
+      return NextResponse.json({ ok: false, error: "register_failed" }, { status: 500 });
     }
 
-const res = NextResponse.json({ ok: true, pid: String(pid) });
+    // ★ pidは返さなくてOK（cookieで完結）
+    const res = NextResponse.json({ ok: true }, { status: 200 });
 
-// ★ 安定化: __Host- cookie（推奨）
-res.cookies.set("__Host-patient_id", String(pid), {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 365,
-});
+    res.cookies.set("__Host-patient_id", String(pid), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
 
-// ★ 互換: 既存 patient_id もセット
-res.cookies.set("patient_id", String(pid), {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 365,
-});
+    res.cookies.set("patient_id", String(pid), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
 
-return res;
-
-  } catch (e) {
-    console.error("register complete exception:", e);
-    return NextResponse.json(
-      { ok: false, error: "register_failed" },
-      { status: 500 }
-    );
+    return res;
+  } catch {
+    console.error("register complete exception");
+    return NextResponse.json({ ok: false, error: "register_failed" }, { status: 500 });
   }
 }
