@@ -1,7 +1,7 @@
+// app/api/mypage/profile/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
-// ↑ すでにマイページで使っているGAS URLがあればそれを使う（名前が違うなら合わせます）
+const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL as string | undefined;
 
 export async function GET(req: NextRequest) {
   const patientId =
@@ -13,14 +13,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "not_linked" }, { status: 401 });
   }
 
-  // GASが無いなら name は空で返す（UI側がゲストにする）
-  if (!GAS_INTAKE_URL) {
+  // GAS未設定なら name 空（UIがゲストにする）
+  if (!GAS_MYPAGE_URL) {
     return NextResponse.json({ ok: true, patientId, name: "" });
   }
 
   try {
-    // GAS doGet(type=getDashboard) から displayName を取得
-    const url = `${GAS_INTAKE_URL}?type=getDashboard&pid=${encodeURIComponent(patientId)}`;
+    // GAS doGet(type=getDashboard) を叩いて displayName を取る
+    const url = `${GAS_MYPAGE_URL}?type=getDashboard&pid=${encodeURIComponent(patientId)}`;
     const r = await fetch(url, { cache: "no-store" });
     const text = await r.text();
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     try {
       data = JSON.parse(text);
     } catch {
-      console.error("profile: GAS returned non-JSON:", text);
+      console.error("mypage/profile: GAS returned non-JSON:", text);
       return NextResponse.json({ ok: true, patientId, name: "" });
     }
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, patientId, name });
   } catch (e) {
-    console.error("profile: GAS fetch error:", e);
+    console.error("mypage/profile: GAS fetch error:", e);
     return NextResponse.json({ ok: true, patientId, name: "" });
   }
 }
