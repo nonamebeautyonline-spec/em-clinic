@@ -1,24 +1,22 @@
 // app/api/mypage/profile/route.ts
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  // サーバー側の cookie ストアを取得（Promise なので await）
-  const cookieStore = await cookies();
+export async function GET(req: NextRequest) {
+  const patientId =
+    req.cookies.get("__Host-patient_id")?.value ||
+    req.cookies.get("patient_id")?.value ||
+    "";
 
-  // 初回登録でセットしている想定の cookie
-  const patientId = cookieStore.get("patient_id")?.value;
-  const name      = cookieStore.get("patient_name")?.value;
+  // name は任意（無くてもOK）
+  const name = req.cookies.get("patient_name")?.value || "";
 
-  if (!patientId || !name) {
-    // cookie が揃っていなければ「未連携」とみなして 401 を返す
+  if (!patientId) {
     return NextResponse.json(
       { ok: false, message: "not_linked" },
       { status: 401 }
     );
   }
 
-  // 正常時は pid と名前を返す
   return NextResponse.json({
     ok: true,
     patientId,

@@ -74,17 +74,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const res = NextResponse.json({ ok: true, pid: String(pid) });
+const res = NextResponse.json({ ok: true, pid: String(pid) });
 
-    res.cookies.set("patient_id", String(pid), {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+// ★ 安定化: __Host- cookie（推奨）
+res.cookies.set("__Host-patient_id", String(pid), {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+});
 
-    return res;
+// ★ 互換: 既存 patient_id もセット
+res.cookies.set("patient_id", String(pid), {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+});
+
+return res;
+
   } catch (e) {
     console.error("register complete exception:", e);
     return NextResponse.json(
