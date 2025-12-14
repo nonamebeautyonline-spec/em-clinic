@@ -184,8 +184,10 @@ const res = await fetch("/api/checkout", {
 body: JSON.stringify({
   productCode: product.code,
   mode: modeParam,
+  patientId: effectivePatientId, // ★ 追加
   reorderId: reorderIdParam ?? null,
 }),
+
 
 });
 
