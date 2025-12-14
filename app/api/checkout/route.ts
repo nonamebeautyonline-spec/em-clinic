@@ -196,8 +196,8 @@ export async function POST(req: NextRequest) {
     );
 
 if (!res.ok) {
-  const text = await res.text();
-  console.error("Square CreatePaymentLink error:", text);
+  // text をログしない（PII/識別子混入回避）
+  console.error("Square CreatePaymentLink failed:", res.status);
   return NextResponse.json(
     { error: "Failed to create checkout link." },
     { status: 500 }
@@ -211,15 +211,13 @@ if (!res.ok) {
     };
 
     const checkoutUrl = json?.payment_link?.url;
-    if (!checkoutUrl) {
-      console.error("Square response without payment_link.url:", json);
-      return NextResponse.json(
-        {
-          error: "Square did not return a payment link URL.",
-        },
-        { status: 500 }
-      );
-    }
+if (!checkoutUrl) {
+  console.error("Square response missing url");
+  return NextResponse.json(
+    { error: "Square did not return a payment link URL." },
+    { status: 500 }
+  );
+}
 
     return NextResponse.json({ checkoutUrl });
   } catch (err: any) {

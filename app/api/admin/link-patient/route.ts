@@ -56,16 +56,14 @@ export async function POST(req: NextRequest) {
     }
 
     const patientId = data.patient_id as string | undefined;
-    const name = data.name as string | undefined;
-
-    if (!patientId || !name) {
+    // name は受け取っても「保存しない」「返さない」
+    if (!patientId) {
       return NextResponse.json(
-        { ok: false, message: "患者IDまたは氏名の取得に失敗しました" },
+        { ok: false, message: "患者IDの取得に失敗しました" },
         { status: 500 }
       );
     }
 
-    // cookie に保存（patient_id は httpOnly、name は表示用）
     const res = NextResponse.json({ ok: true });
 
     res.cookies.set("patient_id", patientId, {
@@ -73,23 +71,20 @@ export async function POST(req: NextRequest) {
       secure: true,
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30日
-    });
-
-    res.cookies.set("patient_name", name, {
-      httpOnly: false, // UIで読めるようにする
-      secure: true,
-      sameSite: "lax",
-      path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
 
+    // patient_name cookie は廃止推奨
     return res;
-  } catch (err) {
-    console.error("link-patient error:", err);
+
+// ...中略...
+  } catch {
+    // err をそのままログしない
+    console.error("link-patient error");
     return NextResponse.json(
       { ok: false, message: "サーバーエラーが発生しました" },
       { status: 500 }
     );
   }
+
 }
