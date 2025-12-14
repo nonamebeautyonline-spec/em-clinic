@@ -83,7 +83,7 @@ const getCellClass = (selected: boolean, disabled: boolean) => {
 };
 
 type PatientBasic = {
-  lineId: string;
+  patient_id: string;
   name: string;
   kana: string;
   sex: string;
@@ -303,9 +303,12 @@ const ReserveInner: React.FC = () => {
         headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
   type: "createReservation",
+  patient_id: patientInfo.lineId, // ← ここがPID
+  name: patientInfo.name,          // ← 氏名（任意だが入れる）
   date: selectedDateKey,
   time: selectedSlot.start,
 }),
+
 
       });
 
