@@ -195,17 +195,15 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("Square CreatePaymentLink error:", text);
-      return NextResponse.json(
-        {
-          error: "Failed to create checkout link.",
-          detail: text,
-        },
-        { status: 500 }
-      );
-    }
+if (!res.ok) {
+  const text = await res.text();
+  console.error("Square CreatePaymentLink error:", text);
+  return NextResponse.json(
+    { error: "Failed to create checkout link." },
+    { status: 500 }
+  );
+}
+
 
     const json = (await res.json()) as {
       payment_link?: { url?: string };
