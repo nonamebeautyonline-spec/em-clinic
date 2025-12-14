@@ -36,3 +36,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, patientId, name: "" });
   }
 }
+
+return NextResponse.json({
+  ok: true,
+  patientId,
+  name,
+  _dbg: "profile-v3-gasname",  // ★これだけ入れる
+});
