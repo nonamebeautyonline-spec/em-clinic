@@ -47,11 +47,16 @@ interface OrdersFlags {
 interface ReorderItem {
   id: string;
   timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
-  productCode: string;
-  productLabel: string;                 // ★ 追加
+
+  // 互換（GASはsnake_case、フロントはcamelCaseが混在し得る）
+  productCode?: string;
+  product_code?: string;
+
+  productLabel: string;
   status: "pending" | "confirmed" | "canceled" | "paid";
   note?: string;
 }
+
 
 
 interface PatientDashboardData {
@@ -1006,7 +1011,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
     <button
       type="button"
 onClick={() => {
-  const raw = String(displayReorder.product_code || "").trim();
+const raw = String((displayReorder.product_code ?? displayReorder.productCode ?? "")).trim();
   if (!raw) {
     alert("再処方の決済情報（product_code）が見つかりません。管理者にお問い合わせください。");
     return;
