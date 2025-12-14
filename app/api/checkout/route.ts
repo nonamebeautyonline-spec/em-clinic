@@ -185,6 +185,7 @@ export async function POST(req: NextRequest) {
           },
           checkout_options: {
             redirect_url: redirectUrl,
+            ask_for_shipping_address: true, 
           },
           // ★ PatientID / product / mode / 再処方行ID を note に埋め込む
           // 例: "PID:20251200006;Product:MJL_5mg_3m (reorder);Reorder:12"
