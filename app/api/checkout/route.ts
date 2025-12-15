@@ -59,7 +59,7 @@ const PRODUCTS: Product[] = [
     mg: "5mg",
     months: 1,
     shots: 4,
-    price: 23000,
+    price: 22850,
   },
   {
     code: "MJL_5mg_2m",

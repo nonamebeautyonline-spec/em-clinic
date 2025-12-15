@@ -31,7 +31,7 @@ const PRODUCTS: Product[] = [
   { code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", mg: "2.5mg", months: 1, shots: 4, price: 13000 },
   { code: "MJL_2.5mg_2m", title: "マンジャロ 2.5mg 2ヶ月", mg: "2.5mg", months: 2, shots: 8, price: 25500 },
   { code: "MJL_2.5mg_3m", title: "マンジャロ 2.5mg 3ヶ月", mg: "2.5mg", months: 3, shots: 12, price: 35000 },
-  { code: "MJL_5mg_1m",   title: "マンジャロ 5mg 1ヶ月",   mg: "5mg",   months: 1, shots: 4, price: 23000 },
+  { code: "MJL_5mg_1m",   title: "マンジャロ 5mg 1ヶ月",   mg: "5mg",   months: 1, shots: 4, price: 22850 },
   { code: "MJL_5mg_2m",   title: "マンジャロ 5mg 2ヶ月",   mg: "5mg",   months: 2, shots: 8, price: 45500 },
   { code: "MJL_5mg_3m",   title: "マンジャロ 5mg 3ヶ月",   mg: "5mg",   months: 3, shots: 12, price: 63000 },
   { code: "MJL_7.5mg_1m", title: "マンジャロ 7.5mg 1ヶ月", mg: "7.5mg", months: 1, shots: 4, price: 34000 },
