@@ -798,26 +798,6 @@ export default function DoctorPage() {
                   })()}
 
                   {/* 下書き破棄（任意だけど便利） */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const rid = pickReserveId(selected);
-                      if (rid) {
-                        try {
-                          localStorage.removeItem(draftKeyOf(rid));
-                        } catch {}
-                      }
-                      // 表示を既存データに戻す
-                      setNote(selected.doctor_note || selected["doctor_note"] || "");
-                      const menu = selected.prescription_menu || selected["prescription_menu"] || "";
-                      setSelectedMenu(
-                        menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
-                      );
-                    }}
-                    className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-[11px]"
-                  >
-                    下書き破棄
-                  </button>
 
                   <button
                     onClick={() => setSelected(null)} // 閉じても下書きは残る
