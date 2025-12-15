@@ -112,9 +112,9 @@ export default function DoctorPage() {
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
-const today = useMemo(() => new Date(), []);
+
+  const today = useMemo(() => new Date(), []);
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = useMemo(() => {
     // weekOffset 週分ずらした「開始日」
@@ -132,36 +132,102 @@ const today = useMemo(() => new Date(), []);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
 
+  // =========================
+  // 下書き（一時保存）キー
+  // =========================
+  const draftKeyOf = (reserveId: string) => `drui_chart_draft_${reserveId}`;
 
+  // =========================
+  // 一覧取得（関数化）
+  // =========================
+  const fetchList = async () => {
+    try {
+      const r = await fetch("/api/intake/list", { cache: "no-store" });
+      const res = await r.json();
+      if (Array.isArray(res)) {
+        setRows(res);
+      } else if (res.ok) {
+        setRows(res.rows || []);
+      } else {
+        setErrorMsg(res.error || "一覧取得に失敗しました");
+      }
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("一覧取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初回ロード
   useEffect(() => {
-    fetch("/api/intake/list")
-      .then((r) => r.json())
-      .then((res) => {
-        if (Array.isArray(res)) {
-          setRows(res);
-        } else if (res.ok) {
-          setRows(res.rows || []);
-        } else {
-          setErrorMsg(res.error || "一覧取得に失敗しました");
-        }
-        setLoading(false);
-      })
-      .catch((e) => {
-        console.error(e);
-        setErrorMsg("一覧取得に失敗しました");
-        setLoading(false);
-      });
+    fetchList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ② 予約一覧のみ：10分に1回自動更新（ただしカルテモーダルが開いている間は停止）
+  useEffect(() => {
+    if (selected) return; // モーダル開いてる間は止める
+
+    const timer = setInterval(() => {
+      fetchList();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   const handleOpenDetail = (row: IntakeRow) => {
     setSelected(row);
+
+    const reserveId = pickReserveId(row);
+
+    // ③ 下書き復元を優先
+    if (reserveId) {
+      try {
+        const raw = localStorage.getItem(draftKeyOf(reserveId));
+        if (raw) {
+          const d = JSON.parse(raw);
+          if (typeof d.note === "string") setNote(d.note);
+          else setNote(row.doctor_note || row["doctor_note"] || "");
+
+          const menu = d.selectedMenu;
+          setSelectedMenu(
+            menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
+          );
+          return;
+        }
+      } catch (e) {
+        console.warn("draft restore failed", e);
+      }
+    }
+
+    // 下書きがなければ既存データを表示
     setNote(row.doctor_note || row["doctor_note"] || "");
     const menu = row.prescription_menu || row["prescription_menu"] || "";
     setSelectedMenu(
       menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
     );
   };
+
+  // ③ 下書き自動保存（モーダル開いてる時だけ）
+  useEffect(() => {
+    if (!selected) return;
+    const reserveId = pickReserveId(selected);
+    if (!reserveId) return;
+
+    try {
+      const payload = {
+        note,
+        selectedMenu,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(draftKeyOf(reserveId), JSON.stringify(payload));
+    } catch (e) {
+      console.warn("draft save failed", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, note, selectedMenu]);
 
   const updateRowLocal = (reserveId: string, updates: Partial<IntakeRow>) => {
     setRows((prev) =>
@@ -201,6 +267,12 @@ const today = useMemo(() => new Date(), []);
         alert("更新に失敗しました");
         return;
       }
+
+      // 本保存が通ったのでドラフト削除
+      try {
+        localStorage.removeItem(draftKeyOf(reserveId));
+      } catch {}
+
       updateRowLocal(reserveId, {
         status: "OK",
         doctor_note: note,
@@ -242,6 +314,12 @@ const today = useMemo(() => new Date(), []);
         alert("更新に失敗しました");
         return;
       }
+
+      // 本保存が通ったのでドラフト削除
+      try {
+        localStorage.removeItem(draftKeyOf(reserveId));
+      } catch {}
+
       updateRowLocal(reserveId, {
         status: "NG",
         doctor_note: note,
@@ -403,19 +481,20 @@ const today = useMemo(() => new Date(), []);
   };
 
   const handleInsertSideEffect = () => {
-    insertTemplateToNote(
-      "嘔気・嘔吐や低血糖に関する副作用の説明を行った。"
-    );
+    insertTemplateToNote("嘔気・嘔吐や低血糖に関する副作用の説明を行った。");
   };
 
   const handleInsertUsage = () => {
-    insertTemplateToNote(
-      "使用方法に関して説明を実施し、パンフレットの案内を行った。"
-    );
+    insertTemplateToNote("使用方法に関して説明を実施し、パンフレットの案内を行った。");
   };
 
   const handleInsertDecision = () => {
     insertTemplateToNote("以上より上記の用量の処方を行う方針とした。");
+  };
+
+  // ① 不通ボタン
+  const handleInsertNoAnswer = () => {
+    insertTemplateToNote("診療予定時間に架電するも繋がらず");
   };
 
   const capacityPerSlot = 2;
@@ -482,7 +561,6 @@ const today = useMemo(() => new Date(), []);
         </button>
       </div>
 
-
       {/* ステータスフィルタ＆サマリー */}
       <div className="flex items-center justify-between gap-2 text-[11px]">
         <div className="flex gap-1">
@@ -540,21 +618,20 @@ const today = useMemo(() => new Date(), []);
         )}
 
         {visibleRows.map((row, idx) => {
-const name = pick(row, ["name", "氏名", "お名前"]);
-const kana = pick(row, [
-  "name_kana",
-  "nameKana",
-  "kana",
-  "カナ",
-  "ﾌﾘｶﾞﾅ",
-  "フリガナ",
-  "ふりがな",
-]);
-const sex = pick(row, ["sex", "gender", "性別"]);
-const rawBirth = pick(row, ["birth", "birthday", "生年月日"]);
-const birth = formatBirthDisplay(rawBirth);
-const age = parseDateToAge(rawBirth);
-
+          const name = pick(row, ["name", "氏名", "お名前"]);
+          const kana = pick(row, [
+            "name_kana",
+            "nameKana",
+            "kana",
+            "カナ",
+            "ﾌﾘｶﾞﾅ",
+            "フリガナ",
+            "ふりがな",
+          ]);
+          const sex = pick(row, ["sex", "gender", "性別"]);
+          const rawBirth = pick(row, ["birth", "birthday", "生年月日"]);
+          const birth = formatBirthDisplay(rawBirth);
+          const age = parseDateToAge(rawBirth);
 
           const history = pick(row, ["current_disease_detail", "既往歴"]);
           const glp1 = pick(row, ["glp_history", "GLP1使用歴"]);
@@ -609,18 +686,15 @@ const age = parseDateToAge(rawBirth);
                     </div>
                   )}
 
-<div className="text-base font-semibold">
-  {name || "氏名無し"}
-</div>
-{kana && (
-  <div className="text-xs text-slate-500 mt-0.5">{kana}</div>
-)}
-<div className="text-xs text-slate-500 mt-1 space-x-2">
-  {sex && <span>{sex}</span>}
-  {birth && <span>{birth}</span>}
-  {age && <span>（{age}）</span>}
-</div>
-
+                  <div className="text-base font-semibold">
+                    {name || "氏名無し"}
+                  </div>
+                  {kana && <div className="text-xs text-slate-500 mt-0.5">{kana}</div>}
+                  <div className="text-xs text-slate-500 mt-1 space-x-2">
+                    {sex && <span>{sex}</span>}
+                    {birth && <span>{birth}</span>}
+                    {age && <span>（{age}）</span>}
+                  </div>
                 </div>
 
                 <div className="text-right text-[11px] text-slate-500 space-y-1">
@@ -649,56 +723,43 @@ const age = parseDateToAge(rawBirth);
                 onClick={() => handleOpenDetail(row)}
               >
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    既往歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">既往歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     {history ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {history}
-                      </p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{history}</p>
                     ) : (
                       <p className="text-slate-400">特記事項なし</p>
                     )}
                   </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    GLP-1 使用歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">GLP-1 使用歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     {glp1 ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {glp1}
-                      </p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{glp1}</p>
                     ) : (
                       <p className="text-slate-400">使用歴なし</p>
                     )}
                   </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    内服歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">内服歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     {meds ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {meds}
-                      </p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{meds}</p>
                     ) : (
                       <p className="text-slate-400">内服薬なし</p>
                     )}
                   </div>
                 </div>
+
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    アレルギー
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">アレルギー</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     {allergy ? (
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {allergy}
-                      </p>
+                      <p className="whitespace-pre-wrap leading-relaxed">{allergy}</p>
                     ) : (
                       <p className="text-slate-400">アレルギーなし</p>
                     )}
@@ -720,14 +781,8 @@ const age = parseDateToAge(rawBirth);
                 </h2>
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const lineId = pick(selected, [
-                      "line_id",
-                      "lineId",
-                      "LINE_ID",
-                    ]);
-                    const lineTalkUrl = lineId
-                      ? `https://line.me/R/ti/p/${lineId}`
-                      : "";
+                    const lineId = pick(selected, ["line_id", "lineId", "LINE_ID"]);
+                    const lineTalkUrl = lineId ? `https://line.me/R/ti/p/${lineId}` : "";
                     return (
                       lineTalkUrl && (
                         <a
@@ -741,8 +796,31 @@ const age = parseDateToAge(rawBirth);
                       )
                     );
                   })()}
+
+                  {/* 下書き破棄（任意だけど便利） */}
                   <button
-                    onClick={() => setSelected(null)}
+                    type="button"
+                    onClick={() => {
+                      const rid = pickReserveId(selected);
+                      if (rid) {
+                        try {
+                          localStorage.removeItem(draftKeyOf(rid));
+                        } catch {}
+                      }
+                      // 表示を既存データに戻す
+                      setNote(selected.doctor_note || selected["doctor_note"] || "");
+                      const menu = selected.prescription_menu || selected["prescription_menu"] || "";
+                      setSelectedMenu(
+                        menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
+                      );
+                    }}
+                    className="inline-flex items-center px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-[11px]"
+                  >
+                    下書き破棄
+                  </button>
+
+                  <button
+                    onClick={() => setSelected(null)} // 閉じても下書きは残る
                     className="text-slate-400 text-sm"
                   >
                     閉じる
@@ -750,101 +828,77 @@ const age = parseDateToAge(rawBirth);
                 </div>
               </div>
 
-{/* 基本情報 */}
-<div className="text-xs space-y-1">
-  <div>
-    氏名: {pick(selected, ["name", "氏名", "お名前"])}
-  </div>
-
-  <div>
-    カナ:{" "}
-    {pick(selected, [
-      "name_kana",
-      "nameKana",
-      "kana",
-      "カナ",
-      "ﾌﾘｶﾞﾅ",
-      "フリガナ",
-      "ふりがな",
-    ])}
-  </div>
-
-  <div>
-    性別: {pick(selected, ["sex", "gender", "性別"])}
-  </div>
-
-  <div>
-    生年月日:{" "}
-    {(() => {
-      const raw = pick(selected, ["birth", "birthday", "生年月日"]);
-      const birthDisp = formatBirthDisplay(raw);
-      const ageDisp = parseDateToAge(raw);
-      return (
-        <>
-          {birthDisp} {ageDisp && `（${ageDisp}）`}
-        </>
-      );
-    })()}
-  </div>
-
-  <div>
-    電話番号:{" "}
-    {formatTelDisplay(
-      pick(selected, ["tel", "phone", "電話番号", "TEL"])
-    )}
-  </div>
-
-  <div>
-    answerer_id: {pick(selected, ["answerer_id", "answererId"])}
-  </div>
-
-  <div>reserveId: {pickReserveId(selected)}</div>
-</div>
-
+              {/* 基本情報 */}
+              <div className="text-xs space-y-1">
+                <div>氏名: {pick(selected, ["name", "氏名", "お名前"])}</div>
+                <div>
+                  カナ:{" "}
+                  {pick(selected, [
+                    "name_kana",
+                    "nameKana",
+                    "kana",
+                    "カナ",
+                    "ﾌﾘｶﾞﾅ",
+                    "フリガナ",
+                    "ふりがな",
+                  ])}
+                </div>
+                <div>性別: {pick(selected, ["sex", "gender", "性別"])}</div>
+                <div>
+                  生年月日:{" "}
+                  {(() => {
+                    const raw = pick(selected, ["birth", "birthday", "生年月日"]);
+                    const birthDisp = formatBirthDisplay(raw);
+                    const ageDisp = parseDateToAge(raw);
+                    return (
+                      <>
+                        {birthDisp} {ageDisp && `（${ageDisp}）`}
+                      </>
+                    );
+                  })()}
+                </div>
+                <div>
+                  電話番号:{" "}
+                  {formatTelDisplay(pick(selected, ["tel", "phone", "電話番号", "TEL"]))}
+                </div>
+                <div>answerer_id: {pick(selected, ["answerer_id", "answererId"])}</div>
+                <div>reserveId: {pickReserveId(selected)}</div>
+              </div>
 
               {/* 問診詳細 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    既往歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">既往歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     <p className="whitespace-pre-wrap leading-relaxed">
-                      {pick(selected, ["current_disease_detail", "既往歴"]) ||
-                        "特記事項なし"}
+                      {pick(selected, ["current_disease_detail", "既往歴"]) || "特記事項なし"}
                     </p>
                   </div>
                 </div>
+
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    GLP-1 使用歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">GLP-1 使用歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     <p className="whitespace-pre-wrap leading-relaxed">
-                      {pick(selected, ["glp_history", "GLP1使用歴"]) ||
-                        "使用歴なし"}
+                      {pick(selected, ["glp_history", "GLP1使用歴"]) || "使用歴なし"}
                     </p>
                   </div>
                 </div>
+
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    内服歴
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">内服歴</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     <p className="whitespace-pre-wrap leading-relaxed">
-                      {pick(selected, ["med_detail", "内服歴"]) ||
-                        "内服薬なし"}
+                      {pick(selected, ["med_detail", "内服歴"]) || "内服薬なし"}
                     </p>
                   </div>
                 </div>
+
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    アレルギー
-                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500">アレルギー</div>
                   <div className="rounded-xl bg-slate-50 px-3 py-2 min-h-[40px]">
                     <p className="whitespace-pre-wrap leading-relaxed">
-                      {pick(selected, ["allergy_detail", "アレルギー"]) ||
-                        "アレルギーなし"}
+                      {pick(selected, ["allergy_detail", "アレルギー"]) || "アレルギーなし"}
                     </p>
                   </div>
                 </div>
@@ -856,25 +910,23 @@ const age = parseDateToAge(rawBirth);
                   処方メニュー（診察で決定した用量）
                 </div>
                 <div className="flex gap-2">
-                  {(["2.5mg", "5mg", "7.5mg"] as PrescriptionMenu[]).map(
-                    (dose) => (
-                      <button
-                        key={dose}
-                        type="button"
-                        onClick={() => setSelectedMenu(dose)}
-                        className={`
-                          flex-1 py-2 rounded-full text-xs font-semibold border
-                          ${
-                            selectedMenu === dose
-                              ? "bg-pink-500 text-white border-pink-500"
-                              : "bg-white text-slate-700 border-slate-300"
-                          }
-                        `}
-                      >
-                        マンジャロ {dose}
-                      </button>
-                    )
-                  )}
+                  {(["2.5mg", "5mg", "7.5mg"] as PrescriptionMenu[]).map((dose) => (
+                    <button
+                      key={dose}
+                      type="button"
+                      onClick={() => setSelectedMenu(dose)}
+                      className={`
+                        flex-1 py-2 rounded-full text-xs font-semibold border
+                        ${
+                          selectedMenu === dose
+                            ? "bg-pink-500 text-white border-pink-500"
+                            : "bg-white text-slate-700 border-slate-300"
+                        }
+                      `}
+                    >
+                      マンジャロ {dose}
+                    </button>
+                  ))}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
                   ※ 診察時に患者さんと相談して決定した用量を選択してください。
@@ -883,9 +935,7 @@ const age = parseDateToAge(rawBirth);
 
               {/* カルテ入力（定型文ボタン付き） */}
               <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-slate-500">
-                  カルテ
-                </div>
+                <div className="text-[11px] font-semibold text-slate-500">カルテ</div>
 
                 <div className="flex flex-wrap gap-2 mb-1">
                   <button
@@ -916,6 +966,14 @@ const age = parseDateToAge(rawBirth);
                   >
                     処方許可
                   </button>
+                  {/* ① 不通 */}
+                  <button
+                    type="button"
+                    onClick={handleInsertNoAnswer}
+                    className="px-3 py-1 rounded-full border text-[11px] border-slate-300 hover:bg-slate-50"
+                  >
+                    不通
+                  </button>
                 </div>
 
                 <textarea
@@ -926,6 +984,9 @@ const age = parseDateToAge(rawBirth);
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="診察内容・説明した内容・今後の方針などを記載"
                 />
+                <p className="text-[10px] text-slate-400">
+                  ※ 入力内容は自動で一時保存されます（この端末のブラウザ内）。
+                </p>
               </div>
 
               {/* アクションボタン */}
