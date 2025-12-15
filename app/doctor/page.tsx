@@ -641,6 +641,9 @@ export default function DoctorPage() {
           const statusRaw = pick(row, ["status"]);
           const status = (statusRaw || "").toUpperCase();
           const reserveId = pickReserveId(row);
+          const isTelMismatch =
+  String(pick(row, ["tel_mismatch"]) || "").toUpperCase() === "TRUE";
+
 
           const reservedDateRaw = pick(row, ["reserved_date", "予約日"]);
           const reservedTime = pick(row, ["reserved_time", "予約時間"]);
@@ -695,6 +698,11 @@ export default function DoctorPage() {
                     {birth && <span>{birth}</span>}
                     {age && <span>（{age}）</span>}
                   </div>
+                  {isTelMismatch && (
+  <div className="mt-1 inline-flex px-2 py-0.5 rounded-full text-[10px] bg-rose-50 text-rose-700 border border-rose-200">
+    電話 要確認（I/J不一致）
+  </div>
+)}
                 </div>
 
                 <div className="text-right text-[11px] text-slate-500 space-y-1">
@@ -837,10 +845,26 @@ export default function DoctorPage() {
                     );
                   })()}
                 </div>
-                <div>
-                  電話番号:{" "}
-                  {formatTelDisplay(pick(selected, ["tel", "phone", "電話番号", "TEL"]))}
-                </div>
+<div>
+  電話番号:{" "}
+  {(() => {
+    const telRaw = pick(selected, ["tel", "phone", "電話番号", "TEL"]);
+    const telDisp = formatTelDisplay(telRaw);
+
+    // AD列 tel_mismatch が TRUE のときに要確認表示
+    const mismatchRaw = pick(selected, ["tel_mismatch", "TEL_MISMATCH", "mismatch"]);
+    const isMismatch = String(mismatchRaw || "").toUpperCase() === "TRUE";
+
+    if (!isMismatch) return <span>{telDisp}</span>;
+
+    return (
+      <span className="font-semibold text-rose-600">
+        要確認（I/J不一致） {telDisp}
+      </span>
+    );
+  })()}
+</div>
+
                 <div>answerer_id: {pick(selected, ["answerer_id", "answererId"])}</div>
                 <div>reserveId: {pickReserveId(selected)}</div>
               </div>
