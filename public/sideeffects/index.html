@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="index,follow" />
+    <title>副作用について（マンジャロ）｜noname-beauty</title>
+    <meta
+      name="description"
+      content="マンジャロ使用中にみられる症状と対処法のご案内。多くは一時的で対処可能です。気になる症状があればLINEからご相談ください。"
+    />
+
+    <style>
+      :root {
+        --bg: #fff7fb;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #475569;
+        --border: #e5e7eb;
+        --accent: #ec4899;
+        --accent2: #db2777;
+        --okbg: #fdf2f8;
+        --warnbg: #fff7ed;
+        --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        --radius: 18px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Hiragino Sans",
+          "Noto Sans JP", "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+        color: var(--text);
+        background: linear-gradient(180deg, var(--bg), #ffffff 55%);
+        line-height: 1.75;
+      }
+      a { color: inherit; }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 16px 80px;
+      }
+      header {
+        padding: 22px 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: rgba(255,255,255,0.9);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(6px);
+      }
+      .kicker {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--okbg);
+        border: 1px solid #fbcfe8;
+        color: var(--accent2);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      h1 {
+        margin: 10px 0 6px;
+        font-size: 24px;
+        line-height: 1.25;
+        letter-spacing: 0.01em;
+      }
+      .lead {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+
+      .ctaRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        background: #fff;
+      }
+      .btnPrimary {
+        background: linear-gradient(180deg, var(--accent), var(--accent2));
+        color: #fff;
+        border: none;
+      }
+      .btnPrimary:hover { filter: brightness(0.98); }
+      .btn:hover { box-shadow: 0 10px 18px rgba(15,23,42,0.08); }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--card);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+        overflow: hidden;
+      }
+      .cardHead {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .cardHead h2 {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.35;
+      }
+      .tag {
+        flex: 0 0 auto;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: #f8fafc;
+      }
+      .tagSoft { background: var(--okbg); border-color: #fbcfe8; color: var(--accent2); }
+      .tagCare { background: var(--warnbg); border-color: #fed7aa; color: #c2410c; }
+
+      .cardBody {
+        padding: 14px 16px 16px;
+        color: var(--muted);
+        font-size: 14.5px;
+      }
+      .cardBody p { margin: 0 0 10px; }
+      .cardBody p:last-child { margin-bottom: 0; }
+      .bullets {
+        margin: 10px 0 0;
+        padding-left: 1.2em;
+      }
+      .bullets li { margin: 6px 0; }
+
+      .notice {
+        margin-top: 14px;
+        border: 1px solid #fde68a;
+        background: #fffbeb;
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        color: #92400e;
+      }
+      .notice strong { color: #7c2d12; }
+
+      .footer {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .footer .small {
+        border-top: 1px solid var(--border);
+        padding-top: 14px;
+      }
+
+      @media (min-width: 900px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+        header { padding: 26px 22px; }
+        h1 { font-size: 28px; }
+      }
+
+      /* anchor offset for fixed headers (if any) */
+      section[id] { scroll-margin-top: 16px; }
+    </style>
+  </head>
+
+  <body>
+    <main class="wrap">
+      <header>
+        <div class="kicker">副作用のご案内</div>
+        <h1>マンジャロをご使用中の方へ：副作用について</h1>
+        <p class="lead">
+          マンジャロは、<strong>継続して使用することで多くの方で副作用が軽減していくお薬</strong>です。
+          使い始めや増量のタイミングで一時的に症状が出ることがありますが、多くは対処可能です。
+          少しでも気になる症状があれば、我慢せず <strong>LINEからいつでもご相談ください</strong>。
+        </p>
+
+        <div class="ctaRow">
+          <a class="btn btnPrimary" href="https://lin.ee/BlKX38U" target="_blank" rel="noopener">
+            LINEで相談する
+          </a>
+          <a class="btn" href="#timing">受診・相談の目安を見る</a>
+        </div>
+
+        <div class="notice" role="note" aria-label="重要なお知らせ">
+          <strong>重要：</strong>強い症状がある／長引く／「いつもと違う」と感じる場合は、早めにご連絡ください。
+        </div>
+      </header>
+
+      <div class="grid" aria-label="副作用一覧">
+        <section class="card" id="stomach">
+          <div class="cardHead">
+            <h2>胃の不快感・腹痛・胃痛</h2>
+            <span class="tag tagSoft">よくある</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              胃の動きがゆっくりになることで、胃の張り・圧迫感・軽い痛みを感じることがあります。
+            </p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>脂っこい食事・刺激物は控えめに</li>
+              <li>痛みが強い場合は、市販の鎮痛薬（カロナール・イブ等）を使用しても問題ありません</li>
+              <li>症状が続く場合はお薬の調整を検討しますのでご相談ください</li>
+            </ul>
+            <p style="margin-top:10px;">
+              ※胃の動きをさらに抑える薬（ブスコパン等）は使用しないでください。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="nausea">
+          <div class="cardHead">
+            <h2>吐き気・嘔吐</h2>
+            <span class="tag tagSoft">よくある</span>
+          </div>
+          <div class="cardBody">
+            <p>使用初期や増量時に起こることがあります。多くは時間とともに軽減します。</p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>無理に食べず、ゼリー・飴などで最低限の糖分補給を</li>
+              <li>水分は少量ずつ、こまめに</li>
+              <li>翌日以降も続く場合は脱水予防のためご相談ください</li>
+            </ul>
+            <p style="margin-top:10px;">
+              症状が強い場合は、用量の調整や一時的な休薬を行います。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="hypo">
+          <div class="cardHead">
+            <h2>めまい・動悸・しびれ（低血糖様症状）</h2>
+            <span class="tag tagSoft">よくある</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              マンジャロは単独で急激な低血糖を起こす薬ではありません。
+              ただし、食事量が大きく減った場合に低血糖に似た症状が出ることがあります。
+            </p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>飴・チョコレート・ゼリーなどを摂取してください</li>
+              <li>症状が繰り返す場合は必ずご相談ください</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card" id="reflux">
+          <div class="cardHead">
+            <h2>ゲップ・胸やけ（逆流性食道炎症状）</h2>
+            <span class="tag tagSoft">よくある</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              胃の内容物が逆流しやすくなることで、ゲップや胸やけを感じることがあります。
+            </p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>少量ずつ食事をとる</li>
+              <li>就寝前の食事を避ける</li>
+              <li>市販の胃薬で一時的に改善することがあります</li>
+            </ul>
+            <p style="margin-top:10px;">症状が続く場合は、お薬の調整を検討します。</p>
+          </div>
+        </section>
+
+        <section class="card" id="thirst">
+          <div class="cardHead">
+            <h2>喉の渇き・頻尿</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              食事量が減ることで水分摂取量が増え、喉の渇きや頻尿を感じる方がいます。
+            </p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>脱水にならない範囲で、飲水量を調整してください</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card" id="bowel">
+          <div class="cardHead">
+            <h2>便秘・下痢</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>腸の動きの変化により起こることがあります。</p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>整腸剤の使用</li>
+              <li>消化に良い食事を意識する</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card" id="fatigue">
+          <div class="cardHead">
+            <h2>倦怠感・眠気・熱っぽさ</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              使用初期にみられることがありますが、継続により軽減することがほとんどです。
+              症状が強い場合はご相談ください。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="muscle">
+          <div class="cardHead">
+            <h2>筋肉痛（背中・太もも・ふくらはぎなど）</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              一時的に出ることがありますが、2〜3日で自然に改善する方がほとんどです。
+              痛みが強い場合は市販の鎮痛薬の併用も可能です。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="period">
+          <div class="cardHead">
+            <h2>月経の乱れ・不正出血</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              マンジャロ自体の直接作用ではありませんが、体重減少に伴うホルモン変化で月経が乱れることがあります。
+              無理のないペースでの減量が大切です。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="skin">
+          <div class="cardHead">
+            <h2>肌荒れ・抜け毛</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              食事量の低下による一時的な栄養不足が原因と考えられます。
+            </p>
+            <p><strong>意識したい栄養</strong></p>
+            <ul class="bullets">
+              <li>タンパク質</li>
+              <li>ビタミンB群・鉄・亜鉛</li>
+              <li>良質な脂質</li>
+              <li>十分な水分</li>
+            </ul>
+            <p style="margin-top:10px;">必要に応じてサプリメントの併用も可能です。</p>
+          </div>
+        </section>
+
+        <section class="card" id="rash">
+          <div class="cardHead">
+            <h2>発疹・かゆみ・注射部位の症状</h2>
+            <span class="tag">ときどき</span>
+          </div>
+          <div class="cardBody">
+            <p>注射部位の赤み・かゆみ・しこりが出ることがあります。</p>
+            <p><strong>対処のポイント</strong></p>
+            <ul class="bullets">
+              <li>毎回注射部位を変える</li>
+              <li>赤み・痛み・熱感が強い場合はご相談ください</li>
+              <li>アルコール消毒が合わない方は変更可能です</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card" id="mood">
+          <div class="cardHead">
+            <h2>気分の落ち込み・無気力感</h2>
+            <span class="tag">注意</span>
+          </div>
+          <div class="cardBody">
+            <p>
+              もともと気分の波がある方では、一時的に症状を感じることがあります。
+              無理せずご相談ください。
+            </p>
+          </div>
+        </section>
+
+        <section class="card" id="rare">
+          <div class="cardHead">
+            <h2>まれですが注意が必要な症状</h2>
+            <span class="tag tagCare">早めに相談</span>
+          </div>
+          <div class="cardBody">
+            <p>次のような場合は、早めにご連絡ください。</p>
+            <ul class="bullets">
+              <li>強い腹痛や背中の激しい痛み</li>
+              <li>健診での肝機能異常</li>
+              <li>胆石症の既往がある方での強い腹部症状</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" id="timing" style="margin-top:14px;">
+        <div class="cardHead">
+          <h2>受診・相談の目安</h2>
+          <span class="tag tagSoft">迷ったら相談</span>
+        </div>
+        <div class="cardBody">
+          <ul class="bullets">
+            <li>少しでも不安を感じたとき</li>
+            <li>症状がつらい、長引くとき</li>
+            <li>「これって大丈夫かな？」と思ったとき</li>
+          </ul>
+          <p style="margin-top:10px;">
+            どんな小さなことでも構いません。お気軽にLINEからご相談ください。
+          </p>
+
+          <div class="ctaRow" style="margin-top:12px;">
+            <a class="btn btnPrimary" href="https://lin.ee/BlKX38U" target="_blank" rel="noopener">
+              LINEで相談する
+            </a>
+            <a class="btn" href="#top" onclick="window.scrollTo({top:0,behavior:'smooth'}); return false;">
+              ページ上部へ戻る
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        <div class="small">
+          <p style="margin:0;">
+            ※本ページは一般的な目安です。症状の強さや持続時間、既往歴・併用薬により対応が異なる場合があります。
+            不安がある場合は、自己判断で我慢せずご相談ください。
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // Optional: smooth anchor scrolling
+      (function () {
+        document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+          a.addEventListener("click", function (e) {
+            var href = a.getAttribute("href");
+            if (!href || href === "#") return;
+            var el = document.querySelector(href);
+            if (!el) return;
+            e.preventDefault();
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
