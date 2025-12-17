@@ -159,6 +159,11 @@ export default function DoctorPage() {
     }
   };
 
+  const closeModalAndRefresh = () => {
+  setSelected(null);
+  fetchList(); // ページリロードではなく、データだけ再取得
+};
+
   // 初回ロード
   useEffect(() => {
     fetchList();
@@ -268,7 +273,7 @@ export default function DoctorPage() {
         prescription_menu: selectedMenu,
       });
       alert("処方内容を保存しました");
-      setSelected(null);
+closeModalAndRefresh();
     } catch (e) {
       console.error(e);
       alert("更新に失敗しました");
@@ -315,7 +320,7 @@ export default function DoctorPage() {
         prescription_menu: "",
       });
       alert("診察結果を保存しました");
-      setSelected(null);
+closeModalAndRefresh();
     } catch (e) {
       console.error(e);
       alert("更新に失敗しました");
@@ -797,10 +802,7 @@ export default function DoctorPage() {
                   {/* 下書き破棄（任意だけど便利） */}
 
 <button
-  onClick={() => {
-    setSelected(null);
-    fetchList(); // ★カルテを閉じた瞬間に一覧を再取得
-  }}
+  onClick={closeModalAndRefresh}
   className="text-slate-400 text-sm"
 >
   閉じる
