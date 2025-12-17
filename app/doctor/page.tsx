@@ -165,17 +165,6 @@ export default function DoctorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ② 予約一覧のみ：10分に1回自動更新（ただしカルテモーダルが開いている間は停止）
-  useEffect(() => {
-    if (selected) return; // モーダル開いてる間は止める
-
-    const timer = setInterval(() => {
-      fetchList();
-    }, 5 * 60 * 1000);
-
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
 
   const handleOpenDetail = (row: IntakeRow) => {
     setSelected(row);
@@ -807,12 +796,16 @@ export default function DoctorPage() {
 
                   {/* 下書き破棄（任意だけど便利） */}
 
-                  <button
-                    onClick={() => setSelected(null)} // 閉じても下書きは残る
-                    className="text-slate-400 text-sm"
-                  >
-                    閉じる
-                  </button>
+<button
+  onClick={() => {
+    setSelected(null);
+    fetchList(); // ★カルテを閉じた瞬間に一覧を再取得
+  }}
+  className="text-slate-400 text-sm"
+>
+  閉じる
+</button>
+
                 </div>
               </div>
 
