@@ -329,6 +329,59 @@ closeModalAndRefresh();
     }
   };
 
+  const markNoAnswer = async () => {
+  if (!selected) return;
+  const reserveId = pickReserveId(selected);
+  if (!reserveId) {
+    alert("reserveId が取得できませんでした");
+    return;
+  }
+
+  // 誤タップ防止
+  if (!confirm("不通（診療予定時間に架電するも繋がらず）として記録します。よろしいですか？")) {
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/doctor/callstatus", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reserveId,
+        callStatus: "no_answer",
+      }),
+    });
+    const json = await res.json();
+    if (!json.ok) {
+      alert("不通の記録に失敗しました");
+      return;
+    }
+
+    // 一覧にも即反映（バッジがすぐ出る）
+    updateRowLocal(reserveId, {
+      call_status: "no_answer",
+      call_status_updated_at: json.updated_at || "",
+    });
+
+    // モーダル内の selected も即反映（必要なら表示用）
+    setSelected((prev) =>
+      prev
+        ? {
+            ...prev,
+            call_status: "no_answer",
+            call_status_updated_at: json.updated_at || "",
+          }
+        : prev
+    );
+
+    alert("不通として記録しました");
+  } catch (e) {
+    console.error(e);
+    alert("不通の記録に失敗しました");
+  }
+};
+
+
   const now = new Date();
 
   const isOverdue = (row: IntakeRow) => {
@@ -634,6 +687,9 @@ closeModalAndRefresh();
 
           const statusRaw = pick(row, ["status"]);
           const status = (statusRaw || "").toUpperCase();
+          const callStatus = pick(row, ["call_status"]);
+const isNoAnswer = callStatus === "no_answer";
+
           const reserveId = pickReserveId(row);
           const isTelMismatch =
   String(pick(row, ["tel_mismatch"]) || "").toUpperCase() === "TRUE";
@@ -692,6 +748,12 @@ closeModalAndRefresh();
                     {birth && <span>{birth}</span>}
                     {age && <span>（{age}）</span>}
                   </div>
+                  {!status && isNoAnswer && (
+  <div className="mt-1 inline-flex px-2 py-0.5 rounded-full text-[10px] bg-amber-50 text-amber-700 border border-amber-200">
+    不通
+  </div>
+)}
+
                   {isTelMismatch && (
   <div className="mt-1 inline-flex px-2 py-0.5 rounded-full text-[10px] bg-rose-50 text-rose-700 border border-rose-200">
     電話 要確認（I/J不一致）
@@ -859,6 +921,14 @@ closeModalAndRefresh();
     );
   })()}
 </div>
+<button
+  type="button"
+  onClick={markNoAnswer}
+  className="mt-1 inline-flex items-center gap-1 px-3 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-800 text-[11px] hover:bg-amber-100"
+>
+  ⚠ 不通（架電したが繋がらず）
+</button>
+
 
                 <div>answerer_id: {pick(selected, ["answerer_id", "answererId"])}</div>
                 <div>reserveId: {pickReserveId(selected)}</div>
