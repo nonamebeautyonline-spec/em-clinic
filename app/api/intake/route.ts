@@ -49,13 +49,14 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ ok: true });
 
-    res.cookies.set("__Host-intake_id", intakeId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24,
-    });
+res.cookies.set("__Host-intake_id", intakeId, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none", // ← lax から none
+  path: "/",
+  maxAge: 60 * 60 * 24,
+});
+
 
     return res;
   } catch {
