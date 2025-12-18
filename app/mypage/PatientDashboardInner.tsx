@@ -915,9 +915,12 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
     </div>
 
     {/* ★ 電話案内文言 */}
-    <p className="mt-2 text-xs text-slate-600">
-      上記時間内に 090- からはじまる電話番号から携帯電話にお電話をおかけします。
-    </p>
+<p className="mt-2 text-xs text-slate-600 leading-relaxed">
+  上記時間内に、<b>090-からはじまる電話番号</b>より携帯電話へお電話いたします。<br />
+  必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。<br />
+  前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。
+</p>
+
 
     {/* ボタン群：詳細ボタンは削除 */}
     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
