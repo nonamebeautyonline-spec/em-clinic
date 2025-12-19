@@ -16,9 +16,10 @@ export async function POST(req: NextRequest) {
       req.cookies.get("patient_id")?.value ||
       "";
 
-    if (!patientId) {
-      return NextResponse.json({ ok: false, error: "missing_patient_id" }, { status: 400 });
-    }
+if (!patientId) {
+  return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+}
+
 
     const payload = {
       ...body,

@@ -42,21 +42,21 @@ type GasOrdersResponse = {
 
 const GAS_MYPAGE_ORDERS_URL = process.env.GAS_MYPAGE_ORDERS_URL;
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_ORDERS_URL) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "GAS_MYPAGE_ORDERS_URL is not configured.",
-        },
+        { ok: false, error: "GAS_MYPAGE_ORDERS_URL is not configured." },
         { status: 500 }
       );
     }
 
-    // cookie から patient_id を取得（/api/mypage/profile と揃える）
+    // cookie から patient_id を取得（__Host- を優先）
     const cookieStore = await cookies();
-    const patientId = cookieStore.get("patient_id")?.value;
+    const patientId =
+      cookieStore.get("__Host-patient_id")?.value ||
+      cookieStore.get("patient_id")?.value ||
+      "";
 
     if (!patientId) {
       return NextResponse.json(
@@ -74,8 +74,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!gasRes.ok) {
-      const text = await gasRes.text().catch(() => "");
-console.error("GAS orders error:", gasRes.status);
+      console.error("GAS orders error:", gasRes.status);
       return NextResponse.json(
         { ok: false, error: "failed to fetch orders from GAS" },
         { status: 500 }
@@ -93,10 +92,8 @@ console.error("GAS orders error:", gasRes.status);
 
     const orders: OrderForMyPage[] =
       gasJson.orders?.map((o) => {
-        // "2025/12/08 10:23:00" -> ISO に変換（簡易）
         let paidAtIso = "";
         if (o.paid_at_jst) {
-          // 「YYYY/MM/DD HH:mm:ss +09:00」という形にしてから ISO 化
           const replaced = o.paid_at_jst.replace(/\//g, "-"); // "2025-12-08 10:23:00"
           paidAtIso = replaced.replace(" ", "T") + "+09:00";
         }
@@ -123,19 +120,9 @@ console.error("GAS orders error:", gasRes.status);
       hasAnyPaidOrder: gasJson.flags?.hasAnyPaidOrder ?? orders.length > 0,
     };
 
-    return NextResponse.json(
-      {
-        ok: true,
-        orders,
-        flags,
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ ok: true, orders, flags }, { status: 200 });
   } catch (err) {
     console.error("GET /api/mypage/orders error:", err);
-    return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: "unexpected error" }, { status: 500 });
   }
 }

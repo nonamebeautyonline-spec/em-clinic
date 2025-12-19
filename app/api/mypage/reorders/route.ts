@@ -3,14 +3,21 @@ import { cookies } from "next/headers";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
-      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "server_config_error" },
+        { status: 500 }
+      );
     }
 
     const cookieStore = await cookies();
-    const patientId = cookieStore.get("patient_id")?.value;
+    const patientId =
+      cookieStore.get("__Host-patient_id")?.value ||
+      cookieStore.get("patient_id")?.value ||
+      "";
+
     if (!patientId) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }

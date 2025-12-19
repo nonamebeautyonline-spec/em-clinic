@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
       return NextResponse.json(
@@ -14,7 +14,11 @@ export async function POST(req: NextRequest) {
     }
 
     const cookieStore = await cookies();
-    const patientId = cookieStore.get("patient_id")?.value;
+    const patientId =
+      cookieStore.get("__Host-patient_id")?.value ||
+      cookieStore.get("patient_id")?.value ||
+      "";
+
     if (!patientId) {
       return NextResponse.json(
         { ok: false, error: "unauthorized: no patient_id cookie" },
@@ -32,10 +36,10 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
     });
 
-    const gasText = await gasRes.text();
+    const gasText = await gasRes.text().catch(() => "");
     let gasJson: any = {};
     try {
-      gasJson = JSON.parse(gasText);
+      gasJson = gasText ? JSON.parse(gasText) : {};
     } catch {
       gasJson = {};
     }
@@ -47,29 +51,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-const raw = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
-const reorders = raw.map((r: any) => ({
-  id: r.id,
-  status: r.status,
-  createdAt: r.createdAt,
-  productCode: r.productCode ?? r.product_code,
-  mg: r.mg,
-  months: r.months,
-}));
+    const raw = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
+    const reorders = raw.map((r: any) => ({
+      id: r.id,
+      status: r.status,
+      createdAt: r.createdAt,
+      productCode: r.productCode ?? r.product_code,
+      mg: r.mg,
+      months: r.months,
+    }));
 
-return NextResponse.json(
-  {
-    ok: true,
-    reorders,
-  },
-  { status: 200 }
-);
-
+    return NextResponse.json({ ok: true, reorders }, { status: 200 });
   } catch (e) {
     console.error("POST /api/reorder/list error", e);
-    return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: "unexpected error" }, { status: 500 });
   }
 }

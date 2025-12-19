@@ -8,11 +8,18 @@ export async function POST(req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
       console.error("GAS_REORDER_URL missing");
-      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "server_config_error" },
+        { status: 500 }
+      );
     }
 
     const cookieStore = await cookies();
-    const patientId = cookieStore.get("patient_id")?.value;
+    const patientId =
+      cookieStore.get("__Host-patient_id")?.value ||
+      cookieStore.get("patient_id")?.value ||
+      "";
+
     if (!patientId) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
@@ -26,13 +33,21 @@ export async function POST(req: NextRequest) {
     const gasRes = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "apply", patient_id: patientId, product_code: productCode }),
+      body: JSON.stringify({
+        action: "apply",
+        patient_id: patientId,
+        product_code: productCode,
+      }),
       cache: "no-store",
     });
 
     const text = await gasRes.text().catch(() => "");
     let gasJson: any = {};
-    try { gasJson = text ? JSON.parse(text) : {}; } catch { gasJson = {}; }
+    try {
+      gasJson = text ? JSON.parse(text) : {};
+    } catch {
+      gasJson = {};
+    }
 
     if (!gasRes.ok || gasJson.ok === false) {
       console.error("GAS reorder apply error:", gasRes.status);
