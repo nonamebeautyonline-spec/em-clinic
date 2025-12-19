@@ -67,15 +67,41 @@ function safeStr(v: any) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-export async function POST(req: NextRequest) {
-  try {
+function getCookieValue(name: string): string {
+  const c = cookies().get(name);
+  return c?.value ?? "";
+}
+
+export async function POST() {  try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
 
-    const cookieStore = await cookies();
-    const patientId = cookieStore.get("patient_id")?.value;
+    const patientId =
+      getCookieValue("__Host-patient_id") ||
+      getCookieValue("patient_id");
+
     if (!patientId) return fail("unauthorized", 401);
 
-    const url = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+    const lineUserId =
+      getCookieValue("__Host-line_user_id") ||
+      getCookieValue("line_user_id");
+
+    // ★ 再訪時の回収：line_user_id を master に保存（awaitしない）
+    if (lineUserId) {
+      fetch(GAS_MYPAGE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "save_line_user_id",
+          patient_id: patientId,
+          line_user_id: lineUserId,
+        }),
+        cache: "no-store",
+      }).catch(() => {});
+    }
+
+    const url =
+      GAS_MYPAGE_URL +
+      `?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
 
     const gasRes = await fetch(url, { method: "GET", cache: "no-store" });
     const rawText = await gasRes.text().catch(() => "");
@@ -93,10 +119,8 @@ export async function POST(req: NextRequest) {
       return fail("gas_invalid_json", 500);
     }
 
-    // -------- patient（最小）--------
     const patient = gasJson.patient?.id ? { id: safeStr(gasJson.patient.id) } : undefined;
 
-    // -------- nextReservation（最小）--------
     const nextReservation = gasJson.nextReservation
       ? {
           id: safeStr(gasJson.nextReservation.id),
@@ -106,7 +130,6 @@ export async function POST(req: NextRequest) {
         }
       : null;
 
-    // -------- orders（射影）--------
     const orders: OrderForMyPage[] = Array.isArray(gasJson.orders)
       ? gasJson.orders.map((o) => {
           let paidAtIso = "";
@@ -131,10 +154,9 @@ export async function POST(req: NextRequest) {
     const ordersFlags: OrdersFlags = {
       canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
       canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
-      hasAnyPaidOrder: gasJson.flags?.hasAnyPaidOrder ?? (orders.length > 0),
+      hasAnyPaidOrder: gasJson.flags?.hasAnyPaidOrder ?? orders.length > 0,
     };
 
-    // -------- reorders（患者向け最小に射影）--------
     const rawReorders = Array.isArray(gasJson.reorders) ? gasJson.reorders : [];
     const reorders = rawReorders.map((r: any) => ({
       id: safeStr(r.id),
@@ -145,7 +167,6 @@ export async function POST(req: NextRequest) {
       months: Number(r.months) || undefined,
     }));
 
-    // -------- history（患者向け最小に射影）--------
     const rawHistory = Array.isArray(gasJson.history) ? gasJson.history : [];
     const history: HistoryForMyPage[] = rawHistory.map((h: any, idx: number) => ({
       id: safeStr(h.id || h.history_id || `${idx}`),
