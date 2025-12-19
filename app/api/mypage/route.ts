@@ -67,13 +67,17 @@ function safeStr(v: any) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function getCookieValue(name: string): string {
-  const c = cookies().get(name);
-  return c?.value ?? "";
-}
-
-export async function POST() {  try {
+export async function POST(_req: NextRequest) {
+  try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
+
+    // ★ あなたの環境では cookies() が Promise なので await する
+    const cookieStore = await cookies();
+
+    const getCookieValue = (name: string): string => {
+      const c = cookieStore.get(name);
+      return c?.value ?? "";
+    };
 
     const patientId =
       getCookieValue("__Host-patient_id") ||
@@ -119,7 +123,9 @@ export async function POST() {  try {
       return fail("gas_invalid_json", 500);
     }
 
-    const patient = gasJson.patient?.id ? { id: safeStr(gasJson.patient.id) } : undefined;
+    const patient = gasJson.patient?.id
+      ? { id: safeStr(gasJson.patient.id) }
+      : undefined;
 
     const nextReservation = gasJson.nextReservation
       ? {
