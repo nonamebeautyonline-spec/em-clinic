@@ -319,28 +319,14 @@ const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
           }
         }
 
-        // ② /api/mypage/profile から patientId / name を取得
-let profileName: string | null = null;        try {
-          const profileRes = await fetch("/api/mypage/profile");
 
-          if (profileRes.status === 401) {
-            setLoading(false);
-            router.push("/mypage/init");
-            return;
-          }
-
-          if (profileRes.ok) {
-            const p = await profileRes.json();
-profileName = p?.name ? String(p.name) : null;          }
-        } catch (e) {
-          console.warn("profile fetch error:", e);
-        }
 
         // ③ Patient 情報
 const patient: PatientInfo = {
   id: "unknown",
-  displayName: profileName || "ゲスト",
+  displayName: "ゲスト",
 };
+
 
 
         // ④ localStorage の予約情報（診察前だけ）
@@ -372,11 +358,16 @@ const patient: PatientInfo = {
 const mpRes = await fetch("/api/mypage", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-body: JSON.stringify({}),
-
+  cache: "no-store",
+  body: JSON.stringify({}),
 });
 
+// ★ ここを追加：未連携なら init へ
+if (mpRes.status === 401) {
+  setLoading(false);
+  router.push("/mypage/init");
+  return;
+}
 
 // ⑥ /api/mypage（診察情報・履歴・注文・flags・reorders）
 if (mpRes.ok) {

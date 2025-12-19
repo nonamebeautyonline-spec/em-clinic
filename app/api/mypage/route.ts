@@ -123,9 +123,13 @@ export async function POST(_req: NextRequest) {
       return fail("gas_invalid_json", 500);
     }
 
-    const patient = gasJson.patient?.id
-      ? { id: safeStr(gasJson.patient.id) }
-      : undefined;
+const patient = gasJson.patient?.id
+  ? {
+      id: safeStr(gasJson.patient.id),
+      displayName: safeStr(gasJson.patient.displayName || ""),
+    }
+  : undefined;
+
 
     const nextReservation = gasJson.nextReservation
       ? {
