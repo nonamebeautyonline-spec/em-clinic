@@ -347,6 +347,7 @@ useEffect(() => {
         patient,
         nextReservation,
         activeOrders: [],
+        orders: [],   // ★追加
         history: [],
       };
 
