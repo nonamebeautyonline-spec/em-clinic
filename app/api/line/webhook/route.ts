@@ -4,7 +4,7 @@ import crypto from "crypto";
 export const runtime = "nodejs";          // crypto を使うので必須
 export const dynamic = "force-dynamic";   // キャッシュさせない
 
-const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || "";
+const LINE_CHANNEL_SECRET = process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 
@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = JSON.parse(rawBody);
+        console.log("LINE WEBHOOK BODY ↓↓↓");
+    console.log(JSON.stringify(body, null, 2));
     const events = Array.isArray(body?.events) ? body.events : [];
 
     for (const ev of events) {
