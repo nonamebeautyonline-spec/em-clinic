@@ -139,15 +139,20 @@ const formatDateTime = (iso: string) => {
   return `${date} ${startTime}〜${endTime}`;
 };
 
+const formatDateSafe = (v?: string) => {
+  const s = (v ?? "").trim();
+  if (!s) return "";
 
-const formatDate = (iso: string) => {
-  const d = new Date(iso);
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "";
+
   return d.toLocaleDateString("ja-JP", {
     year: "numeric",
     month: "numeric",
     day: "numeric",
   });
 };
+
 
 // Dr UI 診察済み表示用：YYYY/MM/DD HH:MM-HH:MM
 const formatVisitSlotRange = (iso: string) => {
@@ -633,13 +638,14 @@ const handleReorderCancel = async () => {
   const canReserve =
     hasIntake && !hasHistory && !nextReservation;
 
-  const orderHistory = (data.orders ?? [])
+    const getTimeSafe = (v?: string) => {
+  if (!v) return 0;
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
+const orderHistory = (data.orders ?? [])
   .slice()
-  .sort((a, b) => {
-    const ta = a.paidAt ? new Date(a.paidAt).getTime() : 0;
-    const tb = b.paidAt ? new Date(b.paidAt).getTime() : 0;
-    return tb - ta;
-  });
+  .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
 
 
   const hasPendingReorder = reorders.some((r) => r.status === "pending");
@@ -1170,9 +1176,9 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
           ) : (
             <div className="space-y-3">
 {orderHistory.map((o) => {
-  const paidLabel = o.paidAt ? formatDate(o.paidAt) : "";
+const paidLabel = formatDateSafe(o.paidAt);
   const isRefunded = o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
-  const refundedLabel = o.refundedAt ? formatDate(o.refundedAt) : "";
+const refundedLabel = formatDateSafe(o.refundedAt);
 
   return (
     <div
@@ -1180,12 +1186,11 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
       className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
     >
       <div className="min-w-0">
-        <div className="text-[11px] text-slate-500">
-          {paidLabel}
-          {isRefunded && refundedLabel ? (
-            <span className="ml-2">（返金日：{refundedLabel}）</span>
-          ) : null}
-        </div>
+<div className="text-[11px] text-slate-500">
+  {paidLabel || "—"}
+  {isRefunded && refundedLabel ? <span className="ml-2">（返金日：{refundedLabel}）</span> : null}
+</div>
+
 
         <div className="text-sm font-medium text-slate-900">
           {o.productName}
