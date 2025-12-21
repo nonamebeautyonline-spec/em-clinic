@@ -381,6 +381,14 @@ useEffect(() => {
         ordersFlags?: OrdersFlags;
         reorders?: any[];
       };
+      console.log(
+  "[mypage api]",
+  "activeOrders=",
+  api.activeOrders?.length,
+  "orders=",
+  api.orders?.length
+);
+
 
       if (api?.ok === false) {
         console.error("api/mypage returned ok:false");
