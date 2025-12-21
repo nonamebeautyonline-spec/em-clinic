@@ -643,6 +643,16 @@ const handleReorderCancel = async () => {
   const t = new Date(v).getTime();
   return Number.isFinite(t) ? t : 0;
 };
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+};
+
 const orderHistory = (data.orders ?? [])
   .slice()
   .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
@@ -1100,7 +1110,7 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
 </p>
 
                       ) : order.shippingEta ? (
-                        <p>発送予定日：{formatDate(order.shippingEta)} まで</p>
+<p>発送予定日：{formatDateSafe(order.shippingEta)} まで</p>
                       ) : null}
                     </div>
                   </div>
