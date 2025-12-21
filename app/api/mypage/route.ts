@@ -226,8 +226,10 @@ export async function POST(_req: NextRequest) {
       {
         ok: true,
         patient,
+            __debug_mypage_api: "v20251222_1", // ★これを追加（文字列は何でもOK）
         nextReservation,
         activeOrders,
+        orders: ordersAll, // ★追加：返金済み含む（履歴用）
         ordersFlags,
         reorders,
         history,
