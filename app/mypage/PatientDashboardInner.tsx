@@ -8,7 +8,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 // ------------------------- 型定義 -------------------------
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
-type PaymentStatus = "paid" | "pending" | "failed";
+type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+
 
 interface PatientInfo {
   id: string; // Patient ID
@@ -29,6 +31,11 @@ interface Order {
   shippingEta?: string;
   trackingNumber?: string;
   paymentStatus: PaymentStatus;
+    // ★追加
+  refundStatus?: RefundStatus;
+  refundedAt?: string;       // ISO
+  refundedAmount?: number;   // JPY
+  paidAt?: string;           // ISO（履歴表示に使うならあると便利）
 }
 
 interface PrescriptionHistoryItem {
@@ -63,6 +70,7 @@ interface PatientDashboardData {
   patient: PatientInfo;
   nextReservation?: Reservation | null;
   activeOrders: Order[];
+  orders: Order[]; // ★追加：返金済み含む注文一覧
   history: PrescriptionHistoryItem[];
   ordersFlags?: OrdersFlags;
 }
@@ -200,10 +208,13 @@ const paymentStatusLabel = (s: PaymentStatus) => {
       return "確認中";
     case "failed":
       return "エラー";
+    case "refunded":
+      return "返金済み";
     default:
       return "";
   }
 };
+
 
 const reservationStatusBadgeClass = (s: ReservationStatus) => {
   switch (s) {
@@ -292,6 +303,7 @@ useEffect(() => {
       patient: { id: "unknown", displayName: "ゲスト" },
       nextReservation: null,
       activeOrders: [],
+      orders: [], // ★追加
       history: [],
     };
 
@@ -363,6 +375,7 @@ useEffect(() => {
         patient?: PatientInfo;
         nextReservation?: Reservation | null;
         activeOrders?: Order[];
+        orders?: Order[]; // ★追加
         history?: PrescriptionHistoryItem[];
         ordersFlags?: OrdersFlags;
         reorders?: any[];
@@ -385,6 +398,7 @@ useEffect(() => {
             ? api.nextReservation
             : nextReservation,
         activeOrders: api.activeOrders ?? [],
+        orders: api.orders ?? [], // ★追加
         history: api.history ?? [],
         ordersFlags: api.ordersFlags,
       };
@@ -440,8 +454,6 @@ useEffect(() => {
 
   init();
 }, [router]);
-
-
 
   // ▼ 日時変更
   const handleChangeReservation = () => {
@@ -612,7 +624,14 @@ const handleReorderCancel = async () => {
   const canReserve =
     hasIntake && !hasHistory && !nextReservation;
 
-  const orderHistory = history.filter((item) => item.title === "処方");
+  const orderHistory = (data.orders ?? [])
+  .slice()
+  .sort((a, b) => {
+    const ta = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+    const tb = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+    return tb - ta;
+  });
+
 
   const hasPendingReorder = reorders.some((r) => r.status === "pending");
   const hasConfirmedReorder = reorders.some((r) => r.status === "confirmed");
@@ -1141,26 +1160,46 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
             </div>
           ) : (
             <div className="space-y-3">
-              {orderHistory.map((item) => {
-                const dateLabel = formatDate(item.date);
-                const mainText = item.detail || item.title || "処方";
+{orderHistory.map((o) => {
+  const paidLabel = o.paidAt ? formatDate(o.paidAt) : "";
+  const isRefunded = o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
+  const refundedLabel = o.refundedAt ? formatDate(o.refundedAt) : "";
 
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
-                  >
-                    <div>
-                      <div className="text-[11px] text-slate-500">
-                        {dateLabel}
-                      </div>
-                      <div className="text-sm font-medium text-slate-900">
-                        {mainText}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+  return (
+    <div
+      key={o.id}
+      className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
+    >
+      <div className="min-w-0">
+        <div className="text-[11px] text-slate-500">
+          {paidLabel}
+          {isRefunded && refundedLabel ? (
+            <span className="ml-2">（返金日：{refundedLabel}）</span>
+          ) : null}
+        </div>
+
+        <div className="text-sm font-medium text-slate-900">
+          {o.productName}
+        </div>
+
+        {isRefunded && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+              返金済み
+            </span>
+
+            {typeof o.refundedAmount === "number" && o.refundedAmount > 0 && (
+              <span className="text-slate-600">
+                返金額：¥{o.refundedAmount.toLocaleString()}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+})}
+
             </div>
           )}
         </section>
