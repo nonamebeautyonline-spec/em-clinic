@@ -66,6 +66,16 @@ const statusBadgeClass = (s: ReorderStatus) => {
       return "bg-slate-50 text-slate-500 border border-slate-100";
   }
 };
+const formatDate = (v: string) => {
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return v; // APIが "2025/12/01" 等で返しても壊れない
+  return d.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
 
 export default function DoctorReordersPage() {
   const [items, setItems] = useState<DoctorReorder[]>([]);
@@ -276,11 +286,12 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
             <div className="font-semibold text-slate-700">
               これまでの処方歴
             </div>
-            {item.history.map((h, idx) => (
-              <p key={idx}>
-                {h.date}　{h.label}
-              </p>
-            ))}
+{item.history.map((h, idx) => (
+  <p key={idx}>
+    {formatDate(h.date)}　{h.label}
+  </p>
+))}
+
           </div>
         )}
       </div>
