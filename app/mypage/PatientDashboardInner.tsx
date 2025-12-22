@@ -10,6 +10,8 @@ type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
 type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type Carrier = "japanpost" | "yamato";
+
 
 
 interface PatientInfo {
@@ -36,6 +38,7 @@ interface Order {
   refundedAt?: string;       // ISO
   refundedAmount?: number;   // JPY
   paidAt?: string;           // ISO（履歴表示に使うならあると便利）
+    carrier?: Carrier; // ★追加（APIから来る）
 }
 
 interface PrescriptionHistoryItem {
@@ -545,15 +548,27 @@ useEffect(() => {
     }
   };
 
-const handleOpenTracking = (trackingNumber: string | undefined) => {
-  if (!trackingNumber) return;
+const buildTrackingUrl = (carrier: Carrier, trackingNumber: string) => {
+  const tn = encodeURIComponent(trackingNumber);
 
-  const url =
-    "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=" +
-    encodeURIComponent(trackingNumber);
+  if (carrier === "japanpost") {
+    return (
+      "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=" +
+      tn
+    );
+  }
 
+  // ヤマト：荷物お問い合わせ
+  return `https://toi.kuronekoyamato.co.jp/cgi-bin/tneko?no01=${tn}&type=1`;
+};
+
+const handleOpenTracking = (order: Order) => {
+  if (!order.trackingNumber) return;
+  const carrier = (order.carrier ?? "yamato") as Carrier; // 未設定はヤマト寄せ
+  const url = buildTrackingUrl(carrier, order.trackingNumber);
   window.open(url, "_blank", "noopener,noreferrer");
 };
+
 
 
   const handleContactSupport = () => {
@@ -1092,33 +1107,33 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
                         </span>
                       </div>
                     </div>
-                    <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-                      {order.trackingNumber ? (
-                        <p>
-  追跡番号：
-  <a
-    href={
-      "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=" +
-      encodeURIComponent(order.trackingNumber)
-    }
-    target="_blank"
-    rel="noopener noreferrer"
-    className="ml-1 text-pink-600 underline"
-  >
-    {order.trackingNumber}
-  </a>
-</p>
+<div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+  {order.trackingNumber ? (
+    <p>
+      追跡番号：
+      <a
+        href={buildTrackingUrl((order.carrier ?? "yamato") as Carrier, order.trackingNumber)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="ml-1 text-pink-600 underline"
+      >
+        {order.trackingNumber}
+      </a>
+      <span className="ml-2 text-[10px] text-slate-400">
+        （{order.carrier === "japanpost" ? "日本郵便" : "ヤマト"}）
+      </span>
+    </p>
+  ) : order.shippingEta ? (
+    <p>発送予定日：{formatDateSafe(order.shippingEta)} まで</p>
+  ) : null}
+</div>
 
-                      ) : order.shippingEta ? (
-<p>発送予定日：{formatDateSafe(order.shippingEta)} まで</p>
-                      ) : null}
-                    </div>
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
                     {order.trackingNumber && (
                       <button
                         type="button"
-                        onClick={() => handleOpenTracking(order.trackingNumber)}
+onClick={() => handleOpenTracking(order)}
                         className="w-full md:w-[160px] h-11 inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white text-[13px] font-medium text-slate-700 active:scale-[0.98]"
                       >
                         配送状況を確認
