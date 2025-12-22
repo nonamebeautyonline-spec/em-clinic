@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
 type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type Carrier = "japanpost" | "yamato";
 
 type OrderForMyPage = {
   id: string;
@@ -19,6 +20,9 @@ type OrderForMyPage = {
   shippingEta?: string;
   trackingNumber?: string;
   paymentStatus: PaymentStatus;
+
+  // ★ carrier（確定値があればGASから、無ければ切替日で推測）
+  carrier?: Carrier;
 
   // refund fields
   refundStatus?: RefundStatus;
@@ -53,6 +57,9 @@ type GasDashboardResponse = {
     tracking_number?: string;
     payment_status?: string;
 
+    // ★ carrier（将来GASが返せるようになった場合に備える）
+    carrier?: string; // "japanpost" | "yamato"
+
     // refund fields (GAS側で返す想定)
     refund_status?: string; // "PENDING" | "COMPLETED" | ...
     refunded_at_jst?: string; // "2025/12/08 10:23:00"
@@ -85,6 +92,30 @@ function toIsoFromJstDateTime(jst: string): string {
   return replaced.replace(" ", "T") + "+09:00";
 }
 
+function toIsoFromJstDateOrDateTime(jst: string): string {
+  const s = safeStr(jst).trim();
+  if (!s) return "";
+
+  // "YYYY/MM/DD HH:MM:SS" or "YYYY-MM-DD HH:MM:SS" 形式
+  if (/\d{2}:\d{2}/.test(s)) {
+    // 既存の関数を利用（YYYY/MM/DD を YYYY-MM-DD にして +09:00 を付与）
+    return toIsoFromJstDateTime(s);
+  }
+
+  // "YYYY/MM/DD" or "YYYY-MM-DD" 形式（時刻なし）
+  const m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if (m) {
+    const y = m[1];
+    const mm = String(m[2]).padStart(2, "0");
+    const dd = String(m[3]).padStart(2, "0");
+    return `${y}-${mm}-${dd}T00:00:00+09:00`;
+  }
+
+  // それ以外は空にして「推測不能」に倒す（安全）
+  return "";
+}
+
+
 function normalizePaymentStatus(v: any): PaymentStatus {
   const s = safeStr(v).toLowerCase();
   if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
@@ -104,6 +135,36 @@ function toNumberOrUndefined(v: any): number | undefined {
   if (v == null || v === "") return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
+}
+
+// =========================
+// carrier 推測（暫定）
+// - GASが carrier を返す場合はそれを優先
+// - 無ければ切替日（2025-12-22 JST）で推測
+// =========================
+const TRACKING_SWITCH_AT = new Date("2025-12-22T00:00:00+09:00").getTime();
+
+function normalizeCarrier(v: any): Carrier | undefined {
+  const s = safeStr(v).toLowerCase();
+  if (s === "japanpost" || s === "yamato") return s as Carrier;
+  return undefined;
+}
+
+function inferCarrierFromDates(o: { shippingEta?: string; paidAt?: string }): Carrier {
+  const se = safeStr(o.shippingEta).trim();
+  if (se) {
+    const t = new Date(se).getTime();
+    if (Number.isFinite(t)) return t < TRACKING_SWITCH_AT ? "japanpost" : "yamato";
+  }
+
+  const pa = safeStr(o.paidAt).trim();
+  if (pa) {
+    const t = new Date(pa).getTime();
+    if (Number.isFinite(t)) return t < TRACKING_SWITCH_AT ? "japanpost" : "yamato";
+  }
+
+  // 不明は「今日からヤマト」に寄せる
+  return "yamato";
 }
 
 export async function POST(_req: NextRequest) {
@@ -177,6 +238,16 @@ export async function POST(_req: NextRequest) {
           const refundStatus = normalizeRefundStatus((o as any).refund_status);
           const refundedAt = (o as any).refunded_at_jst ? toIsoFromJstDateTime((o as any).refunded_at_jst) : "";
 
+const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
+const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
+
+const carrier =
+  normalizeCarrier((o as any).carrier) ??
+  inferCarrierFromDates({
+    shippingEta: shippingEtaIso || "", // ★判定はISOを使う
+    paidAt,
+  });
+
           return {
             id: safeStr(o.id),
             productCode: safeStr(o.product_code),
@@ -184,9 +255,11 @@ export async function POST(_req: NextRequest) {
             amount: Number(o.amount) || 0,
             paidAt,
             shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
-            shippingEta: safeStr(o.shipping_eta) || undefined,
+            shippingEta,
             trackingNumber: safeStr(o.tracking_number) || undefined,
             paymentStatus: normalizePaymentStatus(o.payment_status),
+
+            carrier,
 
             refundStatus,
             refundedAt: refundedAt || undefined,
@@ -226,7 +299,6 @@ export async function POST(_req: NextRequest) {
       {
         ok: true,
         patient,
-            __debug_mypage_api: "v20251222_1", // ★これを追加（文字列は何でもOK）
         nextReservation,
         activeOrders,
         orders: ordersAll, // ★追加：返金済み含む（履歴用）
