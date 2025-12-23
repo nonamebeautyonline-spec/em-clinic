@@ -223,6 +223,33 @@ const paymentStatusLabel = (s: PaymentStatus) => {
   }
 };
 
+const normalizeTrackingNumber = (trackingNumber: string) =>
+  String(trackingNumber ?? "").replace(/[^\d]/g, "");
+
+const isYamatoCarrier = (carrier?: Carrier) => (carrier ?? "yamato") === "yamato";
+
+const copyText = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+
 
 const reservationStatusBadgeClass = (s: ReservationStatus) => {
   switch (s) {
@@ -297,6 +324,13 @@ export default function PatientDashboardInner() {
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [hasIntake, setHasIntake] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+const showToast = (msg: string) => {
+  setToast(msg);
+  setTimeout(() => setToast(null), 1200);
+};
+
 
   const [showReorderCancelConfirm, setShowReorderCancelConfirm] = useState(false);
 const [cancelingReorder, setCancelingReorder] = useState(false);
@@ -549,7 +583,7 @@ useEffect(() => {
   };
 
 const buildTrackingUrl = (carrier: Carrier, trackingNumber: string) => {
-  const tn = encodeURIComponent(trackingNumber);
+  const tn = encodeURIComponent(normalizeTrackingNumber(trackingNumber));
 
   if (carrier === "japanpost") {
     return (
@@ -558,9 +592,10 @@ const buildTrackingUrl = (carrier: Carrier, trackingNumber: string) => {
     );
   }
 
-  // ヤマト：荷物お問い合わせ
+  // ヤマト：フォーム（結果直行は不可）
   return `https://toi.kuronekoyamato.co.jp/cgi-bin/tneko?no01=${tn}&type=1`;
 };
+
 
 const handleOpenTracking = (order: Order) => {
   if (!order.trackingNumber) return;
@@ -569,6 +604,16 @@ const handleOpenTracking = (order: Order) => {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
+const handleCopyTrackingIfYamato = async (order: Order) => {
+  if (!order.trackingNumber) return;
+  if (!isYamatoCarrier(order.carrier)) return;
+
+  const tn = normalizeTrackingNumber(order.trackingNumber);
+  const ok = await copyText(tn);
+
+  if (ok) showToast("追跡番号をコピーしました");
+  else showToast("コピーに失敗しました");
+};
 
 
   const handleContactSupport = () => {
@@ -719,6 +764,14 @@ const orderHistory = (data.orders ?? [])
 return (
   <div className="min-h-screen bg-[#FFF8FB]">
     {/* 予約キャンセル完了トースト */}
+    {toast && (
+  <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
+    <div className="bg-white px-6 py-3 rounded-2xl shadow-lg text-slate-700 text-sm font-semibold">
+      ✓ {toast}
+    </div>
+  </div>
+)}
+
     {showCancelSuccess && (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
         <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
@@ -1109,17 +1162,32 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
                     </div>
 <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
   {order.trackingNumber ? (
-    <p>
-      追跡番号：
-      <a
-        href={buildTrackingUrl((order.carrier ?? "yamato") as Carrier, order.trackingNumber)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="ml-1 text-pink-600 underline"
-      >
-        {order.trackingNumber}
-      </a>
-      <span className="ml-2 text-[10px] text-slate-400">
+    <p className="flex flex-wrap items-center gap-2">
+      <span>追跡番号：</span>
+
+      {order.carrier === "japanpost" ? (
+        // 日本郵便：今まで通りリンク（結果へ直行）
+        <a
+          href={buildTrackingUrl("japanpost", order.trackingNumber)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-pink-600 underline"
+        >
+          {order.trackingNumber}
+        </a>
+      ) : (
+        // ヤマト：リンクにせずクリックでコピー（文言は出さない）＋トースト
+        <button
+          type="button"
+          onClick={() => handleCopyTrackingIfYamato(order)}
+          className="text-pink-600 underline"
+          title="クリックでコピー"
+        >
+          {order.trackingNumber}
+        </button>
+      )}
+
+      <span className="text-[10px] text-slate-400">
         （{order.carrier === "japanpost" ? "日本郵便" : "ヤマト"}）
       </span>
     </p>
@@ -1127,6 +1195,7 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
     <p>発送予定日：{formatDateSafe(order.shippingEta)} まで</p>
   ) : null}
 </div>
+
 
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
