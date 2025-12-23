@@ -1177,14 +1177,16 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
         </a>
       ) : (
         // ヤマト：リンクにせずクリックでコピー（文言は出さない）＋トースト
-        <button
-          type="button"
-          onClick={() => handleCopyTrackingIfYamato(order)}
-          className="text-pink-600 underline"
-          title="クリックでコピー"
-        >
-          {order.trackingNumber}
-        </button>
+<button
+  type="button"
+  onClick={() => handleCopyTrackingIfYamato(order)}
+  className="inline-flex items-center gap-1 text-pink-600 underline"
+  title="タップでコピー"
+>
+  <span>{order.trackingNumber}</span>
+  <span className="text-[11px] text-slate-400 no-underline">⧉</span>
+</button>
+
       )}
 
       <span className="text-[10px] text-slate-400">
