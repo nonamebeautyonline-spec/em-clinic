@@ -1,7 +1,7 @@
 // app/intake/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type QuestionType = "text" | "textarea" | "choice" | "radio";
@@ -31,7 +31,6 @@ const QUESTION_ITEMS: QuestionItem[] = [
       { label: "該当する項目があります", value: "yes" },
     ],
   },
-
   {
     id: "current_disease_yesno",
     title: "現在治療中、または過去に大きな病気はありますか？",
@@ -50,7 +49,6 @@ const QUESTION_ITEMS: QuestionItem[] = [
     conditional: { when: "current_disease_yesno", value: "yes" },
     placeholder: "例）高血圧で内科通院中／過去に肺炎で入院 など",
   },
-
   {
     id: "glp_history",
     title:
@@ -60,7 +58,6 @@ const QUESTION_ITEMS: QuestionItem[] = [
     placeholder:
       "例）マンジャロ5mg 使用中／オゼンピック0.5mg 2025年10月まで など",
   },
-
   {
     id: "med_yesno",
     title: "現在、内服中のお薬はありますか？",
@@ -80,7 +77,6 @@ const QUESTION_ITEMS: QuestionItem[] = [
     required: true,
     conditional: { when: "med_yesno", value: "yes" },
   },
-
   {
     id: "allergy_yesno",
     title: "アレルギーはありますか？",
@@ -98,7 +94,6 @@ const QUESTION_ITEMS: QuestionItem[] = [
     required: true,
     conditional: { when: "allergy_yesno", value: "yes" },
   },
-
   {
     id: "entry_route",
     title: "今回のお申し込みは何を見てされましたか？",
@@ -124,6 +119,79 @@ const QUESTION_ITEMS: QuestionItem[] = [
 
 type AnswerMap = Record<string, string>;
 
+function CheckingUI() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <p className="text-sm text-gray-600">問診状況を確認中です…</p>
+    </div>
+  );
+}
+
+function AlreadyAnsweredUI({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b px-4 py-3">
+        <h1 className="text-lg font-semibold">問診は回答済みです</h1>
+      </header>
+      <main className="flex-1 px-4 py-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 text-sm text-gray-700 space-y-3">
+          <p>問診は1回のみ入力できます。</p>
+          <p>予約や発送状況はマイページでご確認ください。</p>
+        </div>
+      </main>
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white active:bg-blue-700"
+        >
+          マイページに戻る
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+function CheckErrorUI({
+  message,
+  onRetry,
+  onBack,
+}: {
+  message: string;
+  onRetry: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white border-b px-4 py-3">
+        <h1 className="text-lg font-semibold">問診状況の確認に失敗しました</h1>
+      </header>
+      <main className="flex-1 px-4 py-6">
+        <div className="bg-white rounded-xl shadow-sm p-4 text-sm text-gray-700 space-y-3">
+          <p>{message}</p>
+          <p>通信状況をご確認のうえ、再度お試しください。</p>
+        </div>
+      </main>
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-3 space-y-2">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="w-full rounded-full bg-blue-600 px-3 py-2 text-sm font-medium text-white active:bg-blue-700"
+        >
+          再読み込み
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full rounded-full bg-white px-3 py-2 text-sm font-medium text-slate-700 border active:bg-slate-50"
+        >
+          マイページに戻る
+        </button>
+      </footer>
+    </div>
+  );
+}
+
 export default function IntakePage() {
   const router = useRouter();
 
@@ -135,6 +203,11 @@ export default function IntakePage() {
 
   // 入力不足などフォーム内の軽いエラー
   const [inlineError, setInlineError] = useState<string | null>(null);
+
+  // ★ 入場時のPID既回答チェック
+  const [checking, setChecking] = useState(true);
+  const [alreadyAnswered, setAlreadyAnswered] = useState(false);
+  const [checkError, setCheckError] = useState<string>("");
 
   const total = QUESTION_ITEMS.length;
   const current = QUESTION_ITEMS[currentIndex];
@@ -163,12 +236,55 @@ export default function IntakePage() {
     return prev;
   };
 
-  const isLastVisible = useMemo(() => getNextIndex(currentIndex) >= total, [currentIndex, answers]);
+  const isLastVisible = useMemo(
+    () => getNextIndex(currentIndex) >= total,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentIndex, answers]
+  );
+
   const progressPercent = ((currentIndex + 1) / total) * 100;
 
   const goToMypage = () => {
     router.push("/mypage");
   };
+
+  const runPidCheck = async () => {
+    setChecking(true);
+    setCheckError("");
+    try {
+      const res = await fetch("/api/intake/has_pid", { method: "GET", cache: "no-store" });
+      const j = await res.json().catch(() => ({} as any));
+
+      if (!res.ok || !j?.ok) {
+        const msg =
+          j?.error === "unauthorized"
+            ? "ログイン情報が確認できませんでした。マイページからやり直してください。"
+            : "サーバーとの通信に失敗しました。";
+        setCheckError(msg);
+        setAlreadyAnswered(false);
+        return;
+      }
+
+      setAlreadyAnswered(!!j.exists);
+    } catch {
+      setCheckError("通信エラーが発生しました。");
+      setAlreadyAnswered(false);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    let canceled = false;
+    (async () => {
+      await runPidCheck();
+      if (canceled) return;
+    })();
+    return () => {
+      canceled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleNext = async () => {
     if (!validate()) {
@@ -201,7 +317,6 @@ export default function IntakePage() {
           cache: "no-store",
           body: JSON.stringify({
             type: "intake",
-            reserveId: "",
             answers,
             submittedAt: new Date().toISOString(),
           }),
@@ -252,7 +367,9 @@ export default function IntakePage() {
             rows={4}
             placeholder={current.placeholder}
             value={answers[current.id] || ""}
-            onChange={(e) => setAnswers({ ...answers, [current.id]: e.target.value })}
+            onChange={(e) =>
+              setAnswers({ ...answers, [current.id]: e.target.value })
+            }
           />
         );
       case "text":
@@ -261,7 +378,9 @@ export default function IntakePage() {
             className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm"
             placeholder={current.placeholder}
             value={answers[current.id] || ""}
-            onChange={(e) => setAnswers({ ...answers, [current.id]: e.target.value })}
+            onChange={(e) =>
+              setAnswers({ ...answers, [current.id]: e.target.value })
+            }
           />
         );
       case "radio":
@@ -275,7 +394,9 @@ export default function IntakePage() {
                   name={current.id}
                   value={opt.value}
                   checked={answers[current.id] === opt.value}
-                  onChange={() => setAnswers({ ...answers, [current.id]: opt.value })}
+                  onChange={() =>
+                    setAnswers({ ...answers, [current.id]: opt.value })
+                  }
                 />
                 <span>{opt.label}</span>
               </label>
@@ -286,6 +407,17 @@ export default function IntakePage() {
         return null;
     }
   };
+
+  // ★ 入場時チェック
+  if (checking) return <CheckingUI />;
+
+  if (checkError) {
+    return <CheckErrorUI message={checkError} onRetry={runPidCheck} onBack={goToMypage} />;
+  }
+
+  if (alreadyAnswered) {
+    return <AlreadyAnsweredUI onBack={goToMypage} />;
+  }
 
   // 🔴 禁忌に該当した場合の画面
   if (blocked) {
