@@ -319,14 +319,26 @@ const gasRes = await fetch(GAS_RESERVATIONS_URL!, {
 });
 
 
-    const text = await gasRes.text().catch(() => "");
-    let json: any = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+  const text = await gasRes.text().catch(() => "");
+let json: any = {};
+try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
 
-    if (!gasRes.ok || json?.ok === false) {
-      console.error("GAS reservations POST error:", gasRes.status);
-      return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
-    }
+if (!gasRes.ok || json?.ok !== true) {
+  console.error("GAS reservations POST error:", gasRes.status, text);
+
+  // ★GASの返答をそのまま返す（原因特定用）
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "gas_error",
+      gas_status: gasRes.status,
+      gas: json && Object.keys(json).length ? json : undefined,
+      detail: text, // JSONでもHTMLでもそのまま
+    },
+    { status: 500 }
+  );
+}
+
 
     // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）
     return NextResponse.json({ ok: true }, { status: 200 });
