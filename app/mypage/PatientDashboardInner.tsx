@@ -323,7 +323,7 @@ export default function PatientDashboardInner() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
-  const [hasIntake, setHasIntake] = useState(false);
+const [hasIntake, setHasIntake] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
 const showToast = (msg: string) => {
@@ -480,21 +480,29 @@ useEffect(() => {
         });
         setReorders(mapped);
       }
+      // ★ 問診提出済みチェック（has_pid を真実源にする）
+      try {
+        const ir = await fetch("/api/intake/has_pid", { cache: "no-store" });
+        const ij = await ir.json().catch(() => ({} as any));
+        const exists = !!(ir.ok && ij?.ok && ij.exists);
+        setHasIntake(exists);
 
+        // 任意：互換のため localStorage も同期
+        if (typeof window !== "undefined") {
+          if (exists) window.localStorage.setItem("has_intake", "1");
+          else window.localStorage.removeItem("has_intake");
+        }
+      } catch {
+        // 失敗時フォールバック（任意）
+        const localHasIntake =
+          typeof window !== "undefined" && window.localStorage.getItem("has_intake") === "1";
+        const historyHasIntake = finalData.history.length > 0;
+        setHasIntake(localHasIntake || historyHasIntake);
+      }
       // 最終反映（成功時のみ）
       setData(finalData);
       setError(null);
 
-      // 問診済みフラグ（PIDは保存しない）
-      if (typeof window !== "undefined") {
-        const localHasIntake = window.localStorage.getItem("has_intake") === "1";
-        const historyHasIntake = finalData.history.length > 0;
-
-        if (historyHasIntake) {
-          window.localStorage.setItem("has_intake", "1");
-        }
-        setHasIntake(localHasIntake || historyHasIntake);
-      }
     } catch (e) {
       console.error(e);
       setError("データの取得に失敗しました。");
@@ -696,8 +704,7 @@ const handleReorderCancel = async () => {
   //  - 診察履歴がまだない（初回診察前）
   //  - すでに予約が入っていない
   const canReserve =
-    hasIntake && !hasHistory && !nextReservation;
-
+  hasIntake === true && !hasHistory && !nextReservation;
     const getTimeSafe = (v?: string) => {
   if (!v) return 0;
   const t = new Date(v).getTime();
@@ -896,33 +903,42 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
 
       {/* 上部CTA */}
       <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
-        {/* 問診 */}
-        {hasIntake ? (
-          <>
-            <button
-              type="button"
-              disabled
-              className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
-            >
-              問診はすでに完了しています
-            </button>
-            <p className="mt-1 text-[11px] text-slate-500">
-              問診の入力は不要です。このまま予約にお進みください。
-            </p>
-          </>
-        ) : (
-          <>
-            <Link
-              href="/intake"
-              className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
-            >
-              問診に進む
-            </Link>
-            <p className="mt-1 text-[11px] text-slate-500">
-              ※ 問診の入力が終わると、診察予約画面に進みます。
-            </p>
-          </>
-        )}
+{/* 問診 */}
+{hasIntake === null ? (
+  <button
+    type="button"
+    disabled
+    className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
+  >
+    問診状況を確認中…
+  </button>
+) : hasIntake === true ? (
+  <>
+    <button
+      type="button"
+      disabled
+      className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
+    >
+      問診はすでに完了しています
+    </button>
+    <p className="mt-1 text-[11px] text-slate-500">
+      問診の入力は不要です。このまま予約にお進みください。
+    </p>
+  </>
+) : (
+  <>
+    <Link
+      href="/intake"
+      className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
+    >
+      問診に進む
+    </Link>
+    <p className="mt-1 text-[11px] text-slate-500">
+      ※ 問診の入力が終わると、診察予約画面に進みます。
+    </p>
+  </>
+)}
+
 
 {/* 予約（診察前だけ & 1件も予約が入っていないときだけ有効） */}
 <button
