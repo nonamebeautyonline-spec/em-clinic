@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-export const runtime = "nodejs";        // crypto 使用のため必須
-export const dynamic = "force-dynamic"; // キャッシュ無効
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // ===== 環境変数 =====
 const LINE_NOTIFY_CHANNEL_SECRET = process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
+const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN =
+  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || ""; // ★追加：承認/却下後の返信用
 
 // ===== LINE署名検証（HMAC-SHA256 → Base64）=====
 function verifyLineSignature(rawBody: string, signature: string) {
@@ -20,10 +22,7 @@ function verifyLineSignature(rawBody: string, signature: string) {
 
   if (hash.length !== signature.length) return false;
 
-  return crypto.timingSafeEqual(
-    Buffer.from(hash),
-    Buffer.from(signature)
-  );
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
 }
 
 // ===== "a=b&c=d" → { a: b, c: d } =====
@@ -36,6 +35,28 @@ function parseQueryString(data: string) {
     out[decodeURIComponent(k)] = decodeURIComponent(v || "");
   }
   return out;
+}
+
+// ===== 管理グループへ結果通知（push）=====
+async function pushToAdminGroup_(text: string) {
+  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) return;
+
+  try {
+    await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: LINE_ADMIN_GROUP_ID,
+        messages: [{ type: "text", text }],
+      }),
+      cache: "no-store",
+    });
+  } catch (e) {
+    console.error("LINE pushToAdminGroup failed", e);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -59,6 +80,8 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+    // 返信は任意（未設定でもWebhook自体は動かす）
+    // if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN) { ... }
 
     // ===== 署名検証 =====
     const rawBody = await req.text();
@@ -112,6 +135,17 @@ export async function POST(req: NextRequest) {
             reorderId,
             gasText,
           });
+
+          // ★追加：失敗時もグループへ通知（トークンがあれば）
+          await pushToAdminGroup_(
+            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: ${String(gasJson?.error || gasText || "")
+              .slice(0, 200)}`
+          );
+        } else {
+          // ★追加：成功時にグループへ返信
+          await pushToAdminGroup_(
+            `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`
+          );
         }
       }
     }
