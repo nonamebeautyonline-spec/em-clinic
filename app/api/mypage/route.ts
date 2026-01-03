@@ -339,11 +339,14 @@ addTiming("intake_parse", dur("intake_parse_start", "intake_parse_end"));
 addTiming("map", dur("map_start", "map_end"));
 addTiming("total", Date.now() - t0);
 
-// ★ 確実に Server-Timing を返す（Headers で組む）
+// ★ 100% 確実に Server-Timing を返す（new NextResponse）
 const headers = new Headers(noCacheHeaders);
 headers.set("Server-Timing", timingParts.join(", "));
 
-const res = NextResponse.json(payload, { status: 200, headers });
+const res = new NextResponse(JSON.stringify(payload), {
+  status: 200,
+  headers,
+});
 
 // ---- async save line_user_id only when missing ----
 if (shouldSaveLineUserId) {
@@ -369,6 +372,7 @@ if (shouldSaveLineUserId) {
 }
 
 return res;
+
 
   } catch (err) {
     console.error("POST /api/mypage error", err);
