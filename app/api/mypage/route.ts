@@ -44,7 +44,7 @@ type GasDashboardResponse = {
   patient?: {
     id: string;
     displayName?: string;
-    line_user_id?: string; // GAS getDashboard から返す
+    line_user_id?: string;
     [k: string]: any;
   };
   nextReservation?: { id: string; datetime: string; title: string; status: string } | null;
@@ -157,22 +157,6 @@ export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
 
-    // ---- server timing instrumentation ----
-    const t0 = Date.now();
-    const marks: Record<string, number> = {};
-    const mark = (k: string) => {
-      marks[k] = Date.now();
-    };
-    const dur = (a: string, b: string) => {
-      const ta = marks[a] ?? t0;
-      const tb = marks[b] ?? Date.now();
-      return tb - ta;
-    };
-    const timingParts: string[] = [];
-    const addTiming = (name: string, ms: number) => {
-      timingParts.push(`${name};dur=${Math.max(0, Math.round(ms))}`);
-    };
-
     const cookieStore = await cookies();
     const getCookieValue = (name: string): string => cookieStore.get(name)?.value ?? "";
 
@@ -180,7 +164,8 @@ export async function POST(_req: NextRequest) {
     if (!patientId) return fail("unauthorized", 401);
 
     const lineUserId = getCookieValue("__Host-line_user_id") || getCookieValue("line_user_id");
-    const lineSavedFlag = getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
+    const lineSavedFlag =
+      getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
     const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
     const intakeUrl =
@@ -188,46 +173,25 @@ export async function POST(_req: NextRequest) {
         ? `${GAS_INTAKE_LIST_URL}?type=hasIntakeByPid&patient_id=${encodeURIComponent(patientId)}`
         : "";
 
-    // ---- fetch in parallel ----
-    mark("fetch_start");
-
     const [dash, intake] = await Promise.all([
-      (async () => {
-        mark("dash_start");
-        const r = await fetchJsonText(dashboardUrl);
-        mark("dash_end");
-        return r;
-      })(),
-      intakeUrl
-        ? (async () => {
-            mark("intake_start");
-            const r = await fetchJsonText(intakeUrl);
-            mark("intake_end");
-            return r;
-          })()
-        : Promise.resolve({ ok: false, text: "", status: 0 }),
+      fetchJsonText(dashboardUrl),
+      intakeUrl ? fetchJsonText(intakeUrl) : Promise.resolve({ ok: false, text: "", status: 0 }),
     ]);
-
-    mark("fetch_end");
 
     if (!dash.ok) {
       console.error("GAS getDashboard HTTP error:", dash.status);
       return fail("gas_error", 500);
     }
 
-    mark("parse_start");
     let gasJson: GasDashboardResponse;
     try {
       gasJson = JSON.parse(dash.text) as GasDashboardResponse;
     } catch {
       console.error("GAS getDashboard JSON parse error");
       return fail("gas_invalid_json", 500);
-    } finally {
-      mark("parse_end");
     }
 
-    // ---- hasIntake parse ----
-    mark("intake_parse_start");
+    // hasIntake を解釈（intake側が取れない場合は false に倒す）
     let hasIntake = false;
     let intakeId = "";
     if (intakeUrl && intake.ok) {
@@ -241,15 +205,12 @@ export async function POST(_req: NextRequest) {
         // ignore
       }
     }
-    mark("intake_parse_end");
 
-    // ---- line_user_id save decision ----
+    // line_user_id 保存判断（空欄の人だけ1回）
     const existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
     const shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
 
-    // ---- map payload ----
-    mark("map_start");
-
+    // orders map（1回だけ）
     const mapOrder = (o: any): OrderForMyPage => {
       const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
       const refundStatus = normalizeRefundStatus(o.refund_status);
@@ -305,7 +266,8 @@ export async function POST(_req: NextRequest) {
         canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
         canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
         hasAnyPaidOrder:
-          gasJson.flags?.hasAnyPaidOrder ?? (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
+          gasJson.flags?.hasAnyPaidOrder ??
+          (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
       },
       reorders: Array.isArray(gasJson.reorders)
         ? gasJson.reorders.map((r: any) => ({
@@ -329,51 +291,32 @@ export async function POST(_req: NextRequest) {
       intakeId,
     };
 
-    mark("map_end");
+    const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
 
-// ---- prepare response ----
-addTiming("dash_fetch", dur("dash_start", "dash_end"));
-if (intakeUrl) addTiming("intake_fetch", dur("intake_start", "intake_end"));
-addTiming("json_parse", dur("parse_start", "parse_end"));
-addTiming("intake_parse", dur("intake_parse_start", "intake_parse_end"));
-addTiming("map", dur("map_start", "map_end"));
-addTiming("total", Date.now() - t0);
+    // 非同期で保存（画面は待たせない）
+    if (shouldSaveLineUserId) {
+      fetch(GAS_MYPAGE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "save_line_user_id",
+          patient_id: patientId,
+          line_user_id: lineUserId,
+        }),
+        cache: "no-store",
+      }).catch(() => {});
 
-// ★ 100% 確実に Server-Timing を返す（new NextResponse）
-const headers = new Headers(noCacheHeaders);
-headers.set("Server-Timing", timingParts.join(", "));
+      res.cookies.set({
+        name: "__Host-line_user_id_saved",
+        value: "1",
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: true,
+      });
+    }
 
-const res = new NextResponse(JSON.stringify(payload), {
-  status: 200,
-  headers,
-});
-
-// ---- async save line_user_id only when missing ----
-if (shouldSaveLineUserId) {
-  fetch(GAS_MYPAGE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "save_line_user_id",
-      patient_id: patientId,
-      line_user_id: lineUserId,
-    }),
-    cache: "no-store",
-  }).catch(() => {});
-
-  res.cookies.set({
-    name: "__Host-line_user_id_saved",
-    value: "1",
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: true,
-  });
-}
-
-return res;
-
-
+    return res;
   } catch (err) {
     console.error("POST /api/mypage error", err);
     return fail("unexpected_error", 500);
