@@ -422,6 +422,8 @@ useEffect(() => {
         history?: PrescriptionHistoryItem[];
         ordersFlags?: OrdersFlags;
         reorders?: any[];
+          hasIntake?: boolean; // ★追加
+  intakeId?: string;   // ★任意
       };
       console.log(
   "[mypage api]",
@@ -430,7 +432,15 @@ useEffect(() => {
   "orders=",
   api.orders?.length
 );
+// ★★★ ここに入れる ★★★
+const exists = api.hasIntake === true;
+setHasIntake(exists);
 
+if (typeof window !== "undefined") {
+  if (exists) window.localStorage.setItem("has_intake", "1");
+  else window.localStorage.removeItem("has_intake");
+}
+// ★★★ ここまで ★★★
 
       if (api?.ok === false) {
         console.error("api/mypage returned ok:false");
@@ -481,24 +491,7 @@ useEffect(() => {
         setReorders(mapped);
       }
       // ★ 問診提出済みチェック（has_pid を真実源にする）
-      try {
-        const ir = await fetch("/api/intake/has_pid", { cache: "no-store" });
-        const ij = await ir.json().catch(() => ({} as any));
-        const exists = !!(ir.ok && ij?.ok && ij.exists);
-        setHasIntake(exists);
 
-        // 任意：互換のため localStorage も同期
-        if (typeof window !== "undefined") {
-          if (exists) window.localStorage.setItem("has_intake", "1");
-          else window.localStorage.removeItem("has_intake");
-        }
-      } catch {
-        // 失敗時フォールバック（任意）
-        const localHasIntake =
-          typeof window !== "undefined" && window.localStorage.getItem("has_intake") === "1";
-        const historyHasIntake = finalData.history.length > 0;
-        setHasIntake(localHasIntake || historyHasIntake);
-      }
       // 最終反映（成功時のみ）
       setData(finalData);
       setError(null);
