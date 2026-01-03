@@ -39,9 +39,6 @@ export async function POST(req: NextRequest) {
     if (!LINE_CHANNEL_SECRET) {
       return NextResponse.json({ ok: false, error: "LINE_CHANNEL_SECRET missing" }, { status: 500 });
     }
-    if (!LINE_ADMIN_GROUP_ID) {
-      return NextResponse.json({ ok: false, error: "LINE_ADMIN_GROUP_ID missing" }, { status: 500 });
-    }
     if (!GAS_REORDER_URL) {
       return NextResponse.json({ ok: false, error: "GAS_REORDER_URL missing" }, { status: 500 });
     }
@@ -62,7 +59,8 @@ export async function POST(req: NextRequest) {
     for (const ev of events) {
       // 管理グループ以外は無視（安全柵）
       const groupId = ev?.source?.groupId;
-      if (groupId !== LINE_ADMIN_GROUP_ID) continue;
+      if (groupId) console.log("LINE groupId:", groupId);
+      if (LINE_ADMIN_GROUP_ID && groupId !== LINE_ADMIN_GROUP_ID) continue;
 
       // ボタン押下（postback）
       if (ev?.type === "postback") {
