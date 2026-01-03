@@ -9,7 +9,7 @@ const LINE_NOTIFY_CHANNEL_SECRET = process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN =
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || ""; // ★追加：承認/却下後の返信用
+  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 
 // ===== LINE署名検証（HMAC-SHA256 → Base64）=====
 function verifyLineSignature(rawBody: string, signature: string) {
@@ -37,31 +37,42 @@ function parseQueryString(data: string) {
   return out;
 }
 
-// ===== 管理グループへ結果通知（push）=====
-async function pushToAdminGroup_(text: string) {
-  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) return;
+// ===== グループへ結果通知（push）=====
+// ※送信先は「押したグループ（groupId）」を使う：これが最も確実
+async function pushToGroup_(toGroupId: string, text: string) {
+  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN) {
+    console.error("[pushToGroup] missing LINE_NOTIFY_CHANNEL_ACCESS_TOKEN");
+    return;
+  }
+  if (!toGroupId) {
+    console.error("[pushToGroup] missing toGroupId");
+    return;
+  }
 
-  try {
-    await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
-      },
-      body: JSON.stringify({
-        to: LINE_ADMIN_GROUP_ID,
-        messages: [{ type: "text", text }],
-      }),
-      cache: "no-store",
-    });
-  } catch (e) {
-    console.error("LINE pushToAdminGroup failed", e);
+  const res = await fetch("https://api.line.me/v2/bot/message/push", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      to: toGroupId,
+      messages: [{ type: "text", text }],
+    }),
+    cache: "no-store",
+  });
+
+  const body = await res.text();
+  console.log("[pushToGroup] status=", res.status, "body=", body);
+
+  if (!res.ok) {
+    console.error("[pushToGroup] failed", { status: res.status, body });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // ===== 必須環境変数チェック =====
+    // ===== 必須 env チェック =====
     if (!LINE_NOTIFY_CHANNEL_SECRET) {
       return NextResponse.json(
         { ok: false, error: "LINE_NOTIFY_CHANNEL_SECRET missing" },
@@ -80,8 +91,6 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-    // 返信は任意（未設定でもWebhook自体は動かす）
-    // if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN) { ... }
 
     // ===== 署名検証 =====
     const rawBody = await req.text();
@@ -100,17 +109,21 @@ export async function POST(req: NextRequest) {
 
     // ===== イベント処理 =====
     for (const ev of events) {
-      const groupId = ev?.source?.groupId;
+      const groupId: string = ev?.source?.groupId || "";
 
       // 管理グループ以外は無視（安全柵）
       if (groupId !== LINE_ADMIN_GROUP_ID) continue;
 
       // ボタン押下（postback）
       if (ev?.type === "postback") {
-        const q = parseQueryString(ev?.postback?.data || "");
+        const dataStr: string = ev?.postback?.data || "";
+        console.log("[postback] data=", dataStr);
 
+        const q = parseQueryString(dataStr);
         const action = q["reorder_action"]; // approve | reject
         const reorderId = q["reorder_id"]; // GAS行番号
+
+        console.log("[postback] parsed=", { action, reorderId });
 
         if (!action || !reorderId) continue;
         if (action !== "approve" && action !== "reject") continue;
@@ -130,20 +143,21 @@ export async function POST(req: NextRequest) {
         } catch {}
 
         if (!gasRes.ok || gasJson?.ok === false) {
-          console.error("GAS reorder action failed", {
+          console.error("[GAS] reorder action failed", {
             action,
             reorderId,
             gasText,
           });
 
-          // ★追加：失敗時もグループへ通知（トークンがあれば）
-          await pushToAdminGroup_(
-            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: ${String(gasJson?.error || gasText || "")
-              .slice(0, 200)}`
+          // 失敗時通知（押したグループへ返す）
+          await pushToGroup_(
+            groupId,
+            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: ${String(gasJson?.error || gasText || "").slice(0, 200)}`
           );
         } else {
-          // ★追加：成功時にグループへ返信
-          await pushToAdminGroup_(
+          // 成功時通知（押したグループへ返す）
+          await pushToGroup_(
+            groupId,
             `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`
           );
         }
