@@ -89,21 +89,25 @@ interface QueryPatientParams {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
-  // 追跡番号がない＝未発送（常にアクティブ表示）
   if (!order.trackingNumber) return true;
-
-  // shippingEta（発送日）が無い場合も一旦アクティブ扱い
   if (!order.shippingEta) return true;
 
   const shippedAt = new Date(order.shippingEta);
   if (isNaN(shippedAt.getTime())) return true;
 
-  const now = new Date();
-  const diffDays = (now.getTime() - shippedAt.getTime()) / (1000 * 60 * 60 * 24);
+  // ★ 日付だけ来た場合は 12:00 に補正
+  if (
+    shippedAt.getHours() === 0 &&
+    shippedAt.getMinutes() === 0 &&
+    shippedAt.getSeconds() === 0
+  ) {
+    shippedAt.setHours(12, 0, 0, 0);
+  }
 
-  // 10日未満ならアクティブ（10日以上はアーカイブ扱い）
+  const diffDays = (Date.now() - shippedAt.getTime()) / 86400000;
   return diffDays < 10;
 };
+
 
 
 const useQueryPatientParams = (): QueryPatientParams => {
