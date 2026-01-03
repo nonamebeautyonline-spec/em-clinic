@@ -289,6 +289,8 @@ export async function POST(_req: NextRequest) {
         : [],
       hasIntake,
       intakeId,
+        // ★追加：GASのperfをそのまま返す
+  perf: (gasJson as any).perf || [],
     };
 
     const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
