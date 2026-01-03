@@ -331,41 +331,45 @@ export async function POST(_req: NextRequest) {
 
     mark("map_end");
 
-    // ---- prepare response ----
-    addTiming("dash_fetch", dur("dash_start", "dash_end"));
-    if (intakeUrl) addTiming("intake_fetch", dur("intake_start", "intake_end"));
-    addTiming("json_parse", dur("parse_start", "parse_end"));
-    addTiming("intake_parse", dur("intake_parse_start", "intake_parse_end"));
-    addTiming("map", dur("map_start", "map_end"));
-    addTiming("total", Date.now() - t0);
+// ---- prepare response ----
+addTiming("dash_fetch", dur("dash_start", "dash_end"));
+if (intakeUrl) addTiming("intake_fetch", dur("intake_start", "intake_end"));
+addTiming("json_parse", dur("parse_start", "parse_end"));
+addTiming("intake_parse", dur("intake_parse_start", "intake_parse_end"));
+addTiming("map", dur("map_start", "map_end"));
+addTiming("total", Date.now() - t0);
 
-    const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
-    res.headers.set("Server-Timing", timingParts.join(", "));
+// ★ 確実に Server-Timing を返す（Headers で組む）
+const headers = new Headers(noCacheHeaders);
+headers.set("Server-Timing", timingParts.join(", "));
 
-    // ---- async save line_user_id only when missing ----
-    if (shouldSaveLineUserId) {
-      fetch(GAS_MYPAGE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "save_line_user_id",
-          patient_id: patientId,
-          line_user_id: lineUserId,
-        }),
-        cache: "no-store",
-      }).catch(() => {});
+const res = NextResponse.json(payload, { status: 200, headers });
 
-      res.cookies.set({
-        name: "__Host-line_user_id_saved",
-        value: "1",
-        path: "/",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: true,
-      });
-    }
+// ---- async save line_user_id only when missing ----
+if (shouldSaveLineUserId) {
+  fetch(GAS_MYPAGE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type: "save_line_user_id",
+      patient_id: patientId,
+      line_user_id: lineUserId,
+    }),
+    cache: "no-store",
+  }).catch(() => {});
 
-    return res;
+  res.cookies.set({
+    name: "__Host-line_user_id_saved",
+    value: "1",
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,
+  });
+}
+
+return res;
+
   } catch (err) {
     console.error("POST /api/mypage error", err);
     return fail("unexpected_error", 500);
