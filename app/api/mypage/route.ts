@@ -44,8 +44,7 @@ type GasDashboardResponse = {
   patient?: {
     id: string;
     displayName?: string;
-    // ★ GAS getDashboard から返す（スプレッドシート側の既存値）
-    line_user_id?: string;
+    line_user_id?: string; // GAS getDashboard から返す
     [k: string]: any;
   };
   nextReservation?: { id: string; datetime: string; title: string; status: string } | null;
@@ -158,6 +157,22 @@ export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
 
+    // ---- server timing instrumentation ----
+    const t0 = Date.now();
+    const marks: Record<string, number> = {};
+    const mark = (k: string) => {
+      marks[k] = Date.now();
+    };
+    const dur = (a: string, b: string) => {
+      const ta = marks[a] ?? t0;
+      const tb = marks[b] ?? Date.now();
+      return tb - ta;
+    };
+    const timingParts: string[] = [];
+    const addTiming = (name: string, ms: number) => {
+      timingParts.push(`${name};dur=${Math.max(0, Math.round(ms))}`);
+    };
+
     const cookieStore = await cookies();
     const getCookieValue = (name: string): string => cookieStore.get(name)?.value ?? "";
 
@@ -165,37 +180,54 @@ export async function POST(_req: NextRequest) {
     if (!patientId) return fail("unauthorized", 401);
 
     const lineUserId = getCookieValue("__Host-line_user_id") || getCookieValue("line_user_id");
-
-    // ★ 再保存抑制フラグ（1回保存したら次回以降は走らせない）
     const lineSavedFlag = getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
     const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
-
     const intakeUrl =
       GAS_INTAKE_LIST_URL
         ? `${GAS_INTAKE_LIST_URL}?type=hasIntakeByPid&patient_id=${encodeURIComponent(patientId)}`
         : "";
 
-    // ★ ここは並列でOK（GET同士）
+    // ---- fetch in parallel ----
+    mark("fetch_start");
+
     const [dash, intake] = await Promise.all([
-      fetchJsonText(dashboardUrl),
-      intakeUrl ? fetchJsonText(intakeUrl) : Promise.resolve({ ok: false, text: "", status: 0 }),
+      (async () => {
+        mark("dash_start");
+        const r = await fetchJsonText(dashboardUrl);
+        mark("dash_end");
+        return r;
+      })(),
+      intakeUrl
+        ? (async () => {
+            mark("intake_start");
+            const r = await fetchJsonText(intakeUrl);
+            mark("intake_end");
+            return r;
+          })()
+        : Promise.resolve({ ok: false, text: "", status: 0 }),
     ]);
+
+    mark("fetch_end");
 
     if (!dash.ok) {
       console.error("GAS getDashboard HTTP error:", dash.status);
       return fail("gas_error", 500);
     }
 
+    mark("parse_start");
     let gasJson: GasDashboardResponse;
     try {
       gasJson = JSON.parse(dash.text) as GasDashboardResponse;
     } catch {
       console.error("GAS getDashboard JSON parse error");
       return fail("gas_invalid_json", 500);
+    } finally {
+      mark("parse_end");
     }
 
-    // hasIntake を解釈（intake側が取れない場合は false に倒す）
+    // ---- hasIntake parse ----
+    mark("intake_parse_start");
     let hasIntake = false;
     let intakeId = "";
     if (intakeUrl && intake.ok) {
@@ -209,128 +241,108 @@ export async function POST(_req: NextRequest) {
         // ignore
       }
     }
+    mark("intake_parse_end");
 
-    // ★ patient（GASが返す既存 line_user_id を見て「空なら保存」）
+    // ---- line_user_id save decision ----
     const existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
+    const shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
 
-    // ★ 条件：cookieにlineUserIdがあり、シート上が空、かつ保存済みフラグが無い
-    const shouldSaveLineUserId =
-      !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
+    // ---- map payload ----
+    mark("map_start");
 
-    // ここでレスポンスを作りつつ、必要なら後段で cookie をセットする
-    const res = NextResponse.json(
-      {
-        ok: true,
-        patient: gasJson.patient?.id
-          ? {
-              id: safeStr(gasJson.patient.id),
-              displayName: safeStr(gasJson.patient.displayName || ""),
-            }
-          : undefined,
-        nextReservation: gasJson.nextReservation
-          ? {
-              id: safeStr(gasJson.nextReservation.id),
-              datetime: safeStr(gasJson.nextReservation.datetime),
-              title: safeStr(gasJson.nextReservation.title),
-              status: safeStr(gasJson.nextReservation.status),
-            }
-          : null,
-        activeOrders: (() => {
-          const ordersAll: OrderForMyPage[] = Array.isArray(gasJson.orders)
-            ? gasJson.orders.map((o) => {
-                const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
-                const refundStatus = normalizeRefundStatus((o as any).refund_status);
-                const refundedAt = (o as any).refunded_at_jst ? toIsoFromJstDateTime((o as any).refunded_at_jst) : "";
+    const mapOrder = (o: any): OrderForMyPage => {
+      const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
+      const refundStatus = normalizeRefundStatus(o.refund_status);
+      const refundedAt = o.refunded_at_jst ? toIsoFromJstDateTime(o.refunded_at_jst) : "";
 
-                const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
-                const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
+      const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
+      const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
 
-                const carrier =
-                  normalizeCarrier((o as any).carrier) ??
-                  inferCarrierFromDates({ shippingEta: shippingEtaIso || "", paidAt });
+      const carrier =
+        normalizeCarrier(o.carrier) ??
+        inferCarrierFromDates({ shippingEta: shippingEtaIso || "", paidAt });
 
-                return {
-                  id: safeStr(o.id),
-                  productCode: safeStr(o.product_code),
-                  productName: safeStr(o.product_name),
-                  amount: Number(o.amount) || 0,
-                  paidAt,
-                  shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
-                  shippingEta,
-                  trackingNumber: safeStr(o.tracking_number) || undefined,
-                  paymentStatus: normalizePaymentStatus(o.payment_status),
-                  carrier,
-                  refundStatus,
-                  refundedAt: refundedAt || undefined,
-                  refundedAmount: toNumberOrUndefined((o as any).refunded_amount),
-                };
-              })
-            : [];
-          return ordersAll.filter((o) => o.refundStatus !== "COMPLETED");
-        })(),
-        orders: (() => {
-          const ordersAll: OrderForMyPage[] = Array.isArray(gasJson.orders)
-            ? gasJson.orders.map((o) => {
-                const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
-                const refundStatus = normalizeRefundStatus((o as any).refund_status);
-                const refundedAt = (o as any).refunded_at_jst ? toIsoFromJstDateTime((o as any).refunded_at_jst) : "";
+      return {
+        id: safeStr(o.id),
+        productCode: safeStr(o.product_code),
+        productName: safeStr(o.product_name),
+        amount: Number(o.amount) || 0,
+        paidAt,
+        shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
+        shippingEta,
+        trackingNumber: safeStr(o.tracking_number) || undefined,
+        paymentStatus: normalizePaymentStatus(o.payment_status),
+        carrier,
+        refundStatus,
+        refundedAt: refundedAt || undefined,
+        refundedAmount: toNumberOrUndefined(o.refunded_amount),
+      };
+    };
 
-                const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
-                const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
+    const ordersAll: OrderForMyPage[] = Array.isArray(gasJson.orders)
+      ? gasJson.orders.map(mapOrder)
+      : [];
 
-                const carrier =
-                  normalizeCarrier((o as any).carrier) ??
-                  inferCarrierFromDates({ shippingEta: shippingEtaIso || "", paidAt });
-
-                return {
-                  id: safeStr(o.id),
-                  productCode: safeStr(o.product_code),
-                  productName: safeStr(o.product_name),
-                  amount: Number(o.amount) || 0,
-                  paidAt,
-                  shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
-                  shippingEta,
-                  trackingNumber: safeStr(o.tracking_number) || undefined,
-                  paymentStatus: normalizePaymentStatus(o.payment_status),
-                  carrier,
-                  refundStatus,
-                  refundedAt: refundedAt || undefined,
-                  refundedAmount: toNumberOrUndefined((o as any).refunded_amount),
-                };
-              })
-            : [];
-          return ordersAll;
-        })(),
-        ordersFlags: {
-          canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
-          canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
-          hasAnyPaidOrder: gasJson.flags?.hasAnyPaidOrder ?? (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
-        },
-        reorders: Array.isArray(gasJson.reorders)
-          ? gasJson.reorders.map((r: any) => ({
-              id: safeStr(r.id),
-              status: safeStr(r.status),
-              createdAt: safeStr(r.createdAt),
-              productCode: safeStr(r.productCode ?? r.product_code),
-              mg: safeStr(r.mg),
-              months: Number(r.months) || undefined,
-            }))
-          : [],
-        history: Array.isArray(gasJson.history)
-          ? gasJson.history.map((h: any, idx: number) => ({
-              id: safeStr(h.id || h.history_id || `${idx}`),
-              date: safeStr(h.date || h.createdAt || h.paid_at_jst || ""),
-              title: safeStr(h.title || h.product_name || h.menu || ""),
-              detail: safeStr(h.detail || h.note || h.description || ""),
-            }))
-          : [],
-        hasIntake,
-        intakeId,
+    const payload = {
+      ok: true,
+      patient: gasJson.patient?.id
+        ? {
+            id: safeStr(gasJson.patient.id),
+            displayName: safeStr(gasJson.patient.displayName || ""),
+          }
+        : undefined,
+      nextReservation: gasJson.nextReservation
+        ? {
+            id: safeStr(gasJson.nextReservation.id),
+            datetime: safeStr(gasJson.nextReservation.datetime),
+            title: safeStr(gasJson.nextReservation.title),
+            status: safeStr(gasJson.nextReservation.status),
+          }
+        : null,
+      activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED"),
+      orders: ordersAll,
+      ordersFlags: {
+        canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
+        canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
+        hasAnyPaidOrder:
+          gasJson.flags?.hasAnyPaidOrder ?? (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
       },
-      { status: 200, headers: noCacheHeaders }
-    );
+      reorders: Array.isArray(gasJson.reorders)
+        ? gasJson.reorders.map((r: any) => ({
+            id: safeStr(r.id),
+            status: safeStr(r.status),
+            createdAt: safeStr(r.createdAt),
+            productCode: safeStr(r.productCode ?? r.product_code),
+            mg: safeStr(r.mg),
+            months: Number(r.months) || undefined,
+          }))
+        : [],
+      history: Array.isArray(gasJson.history)
+        ? gasJson.history.map((h: any, idx: number) => ({
+            id: safeStr(h.id || h.history_id || `${idx}`),
+            date: safeStr(h.date || h.createdAt || h.paid_at_jst || ""),
+            title: safeStr(h.title || h.product_name || h.menu || ""),
+            detail: safeStr(h.detail || h.note || h.description || ""),
+          }))
+        : [],
+      hasIntake,
+      intakeId,
+    };
 
-    // ★ 必要なときだけ “非同期” で保存（画面は待たせない）
+    mark("map_end");
+
+    // ---- prepare response ----
+    addTiming("dash_fetch", dur("dash_start", "dash_end"));
+    if (intakeUrl) addTiming("intake_fetch", dur("intake_start", "intake_end"));
+    addTiming("json_parse", dur("parse_start", "parse_end"));
+    addTiming("intake_parse", dur("intake_parse_start", "intake_parse_end"));
+    addTiming("map", dur("map_start", "map_end"));
+    addTiming("total", Date.now() - t0);
+
+    const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
+    res.headers.set("Server-Timing", timingParts.join(", "));
+
+    // ---- async save line_user_id only when missing ----
     if (shouldSaveLineUserId) {
       fetch(GAS_MYPAGE_URL, {
         method: "POST",
@@ -343,7 +355,6 @@ export async function POST(_req: NextRequest) {
         cache: "no-store",
       }).catch(() => {});
 
-      // ★ 次回以降の無駄POST抑止（Host 付き cookie を優先）
       res.cookies.set({
         name: "__Host-line_user_id_saved",
         value: "1",
