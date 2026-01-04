@@ -248,31 +248,43 @@ export default function IntakePage() {
     router.push("/mypage");
   };
 
-  const runPidCheck = async () => {
-    setChecking(true);
-    setCheckError("");
-    try {
-      const res = await fetch("/api/intake/has_pid", { method: "GET", cache: "no-store" });
-      const j = await res.json().catch(() => ({} as any));
+const runPidCheck = async () => {
+  setChecking(true);
+  setCheckError("");
 
-      if (!res.ok || !j?.ok) {
-        const msg =
-          j?.error === "unauthorized"
-            ? "ログイン情報が確認できませんでした。マイページからやり直してください。"
-            : "サーバーとの通信に失敗しました。";
-        setCheckError(msg);
-        setAlreadyAnswered(false);
-        return;
-      }
+  try {
+    const res = await fetch("/api/mypage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({}),
+    });
 
-      setAlreadyAnswered(!!j.exists);
-    } catch {
-      setCheckError("通信エラーが発生しました。");
+    // 未ログイン（patient_id cookie なし）など
+    if (res.status === 401) {
+      setCheckError("ログイン情報が確認できませんでした。マイページからやり直してください。");
       setAlreadyAnswered(false);
-    } finally {
-      setChecking(false);
+      return;
     }
-  };
+
+    const j = await res.json().catch(() => ({} as any));
+
+    if (!res.ok || !j?.ok) {
+      setCheckError("サーバーとの通信に失敗しました。");
+      setAlreadyAnswered(false);
+      return;
+    }
+
+    // ★ /api/mypage の真実源
+    setAlreadyAnswered(j.hasIntake === true);
+
+  } catch {
+    setCheckError("通信エラーが発生しました。");
+    setAlreadyAnswered(false);
+  } finally {
+    setChecking(false);
+  }
+};
 
   useEffect(() => {
     let canceled = false;
