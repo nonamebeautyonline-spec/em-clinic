@@ -134,31 +134,30 @@ const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
 const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
 const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
+// ---- Signature check (temporary allow when header missing) ----
 if (signatureKey && !signatureHeader) {
-  // ★ ここが追加点
   console.error("Square signature header missing; accepting temporarily", {
     verifyUrl,
     bodyLen: bodyText.length,
+    keyLen: signatureKey.length,
   });
-  // 署名検証はスキップして処理を続行（401で止めない）
+  // skip
 } else if (signatureKey) {
   const payload = verifyUrl + bodyText;
-  const expected = crypto
-    .createHmac("sha1", signatureKey)
-    .update(payload, "utf8")
-    .digest("base64");
-
+  const expected = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
   const ok = timingSafeEqual(expected, signatureHeader || "");
   if (!ok) {
     console.error("Square signature mismatch", {
       expected,
       got: signatureHeader,
       verifyUrl,
+      bodyLen: bodyText.length,
       keyLen: signatureKey.length,
     });
     return new NextResponse("unauthorized", { status: 401 });
   }
 }
+// --------------------------------------------------------------
 
 
   // Squareへのレスポンスは最終的に200固定で返す（Square停止回避）
