@@ -140,18 +140,28 @@ export async function POST(req: Request) {
 
   const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
-  if (signatureKey) {
-    const ok = verifySquareSignature({
-      signatureKey,
-      signatureHeader,
-      notificationUrl: verifyUrl,
-      body: bodyText,
+if (signatureKey) {
+  const payload = verifyUrl + bodyText;
+  const expected = crypto
+    .createHmac("sha1", signatureKey)
+    .update(payload, "utf8")
+    .digest("base64");
+
+  const ok = timingSafeEqual(expected, signatureHeader || "");
+  if (!ok) {
+    console.error("Square signature mismatch", {
+      expected,
+      got: signatureHeader,
+      verifyUrl,
+      bodyLen: bodyText.length,
+      bodyPrefix: bodyText.slice(0, 200),
+      keyLen: signatureKey.length,
     });
-    if (!ok) {
-      // 署名NGは原則拒否
-      return new NextResponse("unauthorized", { status: 401 });
-    }
+
+    return new NextResponse("unauthorized", { status: 401 });
   }
+}
+
 
   // Squareへのレスポンスは最終的に200固定で返す（Square停止回避）
   let event: any = null;
