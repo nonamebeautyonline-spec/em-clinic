@@ -201,10 +201,12 @@ export async function GET(req: Request) {
   // /api/square/backfill?begin=2026-01-08T00:00:00Z&end=2026-01-08T23:59:59Z&limit=50
   // /api/square/backfill?begin=2026-01-08T00:00:00+09:00&end=2026-01-08T23:59:59+09:00
 
-  const url = new URL(req.url);
-  const begin = isoOrEmpty(url.searchParams.get("begin"));
-  const end = isoOrEmpty(url.searchParams.get("end"));
-  const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 200);
+const url = new URL(req.url);
+
+const begin = isoOrEmpty(url.searchParams.get("begin")).replaceAll(" ", "+");
+const end = isoOrEmpty(url.searchParams.get("end")).replaceAll(" ", "+");
+
+const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 200);
 
   if (!process.env.SQUARE_ACCESS_TOKEN) {
     return NextResponse.json({ ok: false, error: "SQUARE_ACCESS_TOKEN not set" }, { status: 500 });
@@ -256,3 +258,4 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ ok: true, processed, begin, end, results }, { status: 200 });
 }
+export {};
