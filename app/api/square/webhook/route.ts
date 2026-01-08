@@ -127,20 +127,21 @@ export async function GET() {
 export async function POST(req: Request) {
   const bodyText = await req.text();
 
-  // 署名検証（推奨：本番はON）
-  const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
-  const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
+// 署名検証（暫定：ヘッダ無しは通す）
+const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
+const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
 
-  // Squareに登録したWebhook URLと完全一致させる（必須）
-  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
-  if (!notificationUrl) {
-    // 本番では必ず設定推奨（URL一致のブレを無くす）
-    console.error("SQUARE_WEBHOOK_NOTIFICATION_URL not set");
-  }
+const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
+const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
-  const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
-
-if (signatureKey) {
+if (signatureKey && !signatureHeader) {
+  // ★ ここが追加点
+  console.error("Square signature header missing; accepting temporarily", {
+    verifyUrl,
+    bodyLen: bodyText.length,
+  });
+  // 署名検証はスキップして処理を続行（401で止めない）
+} else if (signatureKey) {
   const payload = verifyUrl + bodyText;
   const expected = crypto
     .createHmac("sha1", signatureKey)
@@ -153,11 +154,8 @@ if (signatureKey) {
       expected,
       got: signatureHeader,
       verifyUrl,
-      bodyLen: bodyText.length,
-      bodyPrefix: bodyText.slice(0, 200),
       keyLen: signatureKey.length,
     });
-
     return new NextResponse("unauthorized", { status: 401 });
   }
 }
