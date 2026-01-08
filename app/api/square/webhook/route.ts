@@ -3,6 +3,38 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
+async function markReorderPaidInGas(reorderId: string) {
+  const url = process.env.GAS_REORDER_URL; // 既存の /api/reorder/* が使ってるやつと同じ
+  if (!url) {
+    console.error("GAS_REORDER_URL not set; cannot mark reorder paid");
+    return;
+  }
+
+const idNum = Number(String(reorderId).trim());
+if (!Number.isFinite(idNum) || idNum < 2) {
+  console.error("invalid reorderId for paid:", reorderId);
+  return;
+}
+
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "paid", id: idNum }),
+      cache: "no-store",
+    });
+
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      console.error("GAS reorder paid failed:", res.status, text);
+    }
+  } catch (e) {
+    console.error("GAS reorder paid exception:", e);
+  }
+}
+
+
 function timingSafeEqual(a: string, b: string) {
   const abuf = Buffer.from(a, "utf8");
   const bbuf = Buffer.from(b, "utf8");
@@ -231,6 +263,10 @@ if (signatureKey && !signatureHeader) {
       const P = pRes.json?.payment || {};
       const note = String(P?.note || P?.payment_note || "");
       const { patientId, productCode, reorderId } = extractFromNote(note);
+
+if (reorderId) {
+  await markReorderPaidInGas(reorderId);
+}
 
       const createdAtIso = String(P?.created_at || "");
       const orderId = String(P?.order_id || "");
