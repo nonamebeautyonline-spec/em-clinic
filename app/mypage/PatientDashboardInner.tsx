@@ -594,7 +594,7 @@ const buildTrackingUrl = (carrier: Carrier, trackingNumber: string) => {
   }
 
   // ヤマト：フォーム（結果直行は不可）
-  return `https://toi.kuronekoyamato.co.jp/cgi-bin/tneko?no01=${tn}&type=1`;
+  return `https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${tn}`;
 };
 
 
