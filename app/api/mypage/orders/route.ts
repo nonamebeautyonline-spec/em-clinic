@@ -53,12 +53,41 @@ type GasOrdersResponse = {
 
 const GAS_MYPAGE_ORDERS_URL = process.env.GAS_MYPAGE_ORDERS_URL;
 
-function toIsoFromJstDateTime(jst: string): string {
-  const s = (typeof jst === "string" ? jst : String(jst ?? "")).trim();
+function toIsoFlexible(v: any): string {
+  const s = (typeof v === "string" ? v : String(v ?? "")).trim();
   if (!s) return "";
-  const replaced = s.replace(/\//g, "-");
-  return replaced.replace(" ", "T") + "+09:00";
+
+  // すでにISOっぽい（2026-01-13T... or ...+09:00 等）はそのまま返す
+  if (s.includes("T")) return s;
+
+  // "yyyy/MM/dd HH:mm:ss" or "yyyy/MM/dd HH:mm"
+  if (/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+    const replaced = s.replace(/\//g, "-");
+    const withSec = replaced.match(/:\d{2}$/) ? replaced : replaced + ":00";
+    return withSec.replace(" ", "T") + "+09:00";
+  }
+
+  // "yyyy-MM-dd HH:mm:ss"
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
+    return s.replace(" ", "T") + "+09:00";
+  }
+
+  // "yyyy-MM-dd" or "yyyy/MM/dd"
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(s)) {
+    const parts = s.replace(/\//g, "-").split("-");
+    const y = parts[0];
+    const mm = parts[1].padStart(2, "0");
+    const dd = parts[2].padStart(2, "0");
+    return `${y}-${mm}-${dd}T00:00:00+09:00`;
+  }
+
+  // 最後の保険：Dateで解釈できるならISO化
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString();
+
+  return "";
 }
+
 
 function normalizePaymentStatus(v: any): PaymentStatus {
   const s = (typeof v === "string" ? v : String(v ?? "")).toLowerCase();
@@ -127,28 +156,60 @@ export async function GET(_req: NextRequest) {
       );
     }
 
-    const orders: OrderForMyPage[] =
-      gasJson.orders?.map((o) => {
-        const paidAtIso = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
+const orders: OrderForMyPage[] =
+  gasJson.orders?.map((o: any) => {
+    // paidAt: paid_at_jst が無い場合の保険
+    const paidRaw =
+      o.paid_at_jst ??
+      o.paidAt ??
+      o.paid_at ??
+      o.order_datetime ??
+      o.orderDateTime ??
+      "";
 
-        const refundedAtIso = o.refunded_at_jst ? toIsoFromJstDateTime(o.refunded_at_jst) : "";
+    const paidAtIso = toIsoFlexible(paidRaw);
 
-        return {
-          id: o.id,
-          productCode: o.product_code,
-          productName: o.product_name,
-          amount: Number(o.amount) || 0,
-          paidAt: paidAtIso,
-          shippingStatus: ((o.shipping_status || "pending") as ShippingStatus) || "pending",
-          shippingEta: o.shipping_eta || undefined,
-          trackingNumber: o.tracking_number || undefined,
-          paymentStatus: normalizePaymentStatus(o.payment_status),
+    // refundedAt: refunded_at_jst が無い場合の保険
+    const refundedRaw =
+      o.refunded_at_jst ??
+      o.refundedAt ??
+      o.refunded_at ??
+      "";
 
-          refundStatus: normalizeRefundStatus(o.refund_status),
-          refundedAt: refundedAtIso || undefined,
-          refundedAmount: toNumberOrUndefined(o.refunded_amount),
-        };
-      }) ?? [];
+    const refundedAtIso = toIsoFlexible(refundedRaw);
+
+    // refund status の保険
+    const refundStatusRaw =
+      o.refund_status ??
+      o.refundStatus ??
+      "";
+
+    // refunded amount の保険
+    const refundedAmountRaw =
+      o.refunded_amount ??
+      o.refundedAmount ??
+      "";
+
+    return {
+      id: String(o.id ?? ""),
+      productCode: String(o.product_code ?? o.productCode ?? ""),
+      productName: String(o.product_name ?? o.productName ?? ""),
+      amount: Number(o.amount) || 0,
+
+      paidAt: paidAtIso,
+
+      shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
+      shippingEta: o.shipping_eta ?? o.shippingEta ?? undefined,
+      trackingNumber: o.tracking_number ?? o.trackingNumber ?? undefined,
+
+      paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
+
+      refundStatus: normalizeRefundStatus(refundStatusRaw),
+      refundedAt: refundedAtIso || undefined,
+      refundedAmount: toNumberOrUndefined(refundedAmountRaw),
+    };
+  }) ?? [];
+
 
     const flags: OrdersFlags = {
       canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
@@ -161,4 +222,8 @@ export async function GET(_req: NextRequest) {
     console.error("GET /api/mypage/orders error:", err);
     return NextResponse.json({ ok: false, error: "unexpected error" }, { status: 500 });
   }
+}
+
+export async function POST(req: NextRequest) {
+  return GET(req);
 }
