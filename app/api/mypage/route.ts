@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-const GAS_INTAKE_LIST_URL = process.env.GAS_INTAKE_LIST_URL;
 export const dynamic = "force-dynamic";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
@@ -33,13 +32,6 @@ type OrdersFlags = {
   hasAnyPaidOrder: boolean;
 };
 
-type HistoryForMyPage = {
-  id: string;
-  date: string;
-  title: string;
-  detail: string;
-};
-
 type GasDashboardResponse = {
   patient?: {
     id: string;
@@ -66,6 +58,11 @@ type GasDashboardResponse = {
   flags?: Partial<OrdersFlags>;
   reorders?: any[];
   history?: any[];
+
+  // ★GAS側 getDashboard に追加した想定
+  hasIntake?: boolean;
+  intakeId?: string;
+  perf?: any[];
 };
 
 const noCacheHeaders = {
@@ -167,16 +164,10 @@ export async function POST(_req: NextRequest) {
     const lineSavedFlag =
       getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
+    // ★ GAS 呼び出しは 1本だけ（getDashboard に hasIntake を含める想定）
     const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
-    const intakeUrl =
-      GAS_INTAKE_LIST_URL
-        ? `${GAS_INTAKE_LIST_URL}?type=hasIntakeByPid&patient_id=${encodeURIComponent(patientId)}`
-        : "";
 
-    const [dash, intake] = await Promise.all([
-      fetchJsonText(dashboardUrl),
-      intakeUrl ? fetchJsonText(intakeUrl) : Promise.resolve({ ok: false, text: "", status: 0 }),
-    ]);
+    const dash = await fetchJsonText(dashboardUrl);
 
     if (!dash.ok) {
       console.error("GAS getDashboard HTTP error:", dash.status);
@@ -191,20 +182,9 @@ export async function POST(_req: NextRequest) {
       return fail("gas_invalid_json", 500);
     }
 
-    // hasIntake を解釈（intake側が取れない場合は false に倒す）
-    let hasIntake = false;
-    let intakeId = "";
-    if (intakeUrl && intake.ok) {
-      try {
-        const j = intake.text ? JSON.parse(intake.text) : {};
-        if (j?.ok === true) {
-          hasIntake = !!j.exists;
-          intakeId = safeStr(j.intakeId || "");
-        }
-      } catch {
-        // ignore
-      }
-    }
+    // ★ hasIntake / intakeId は dashboard から取得（無ければ false/""）
+    const hasIntake = gasJson.hasIntake === true;
+    const intakeId = safeStr(gasJson.intakeId || "");
 
     // line_user_id 保存判断（空欄の人だけ1回）
     const existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
@@ -289,8 +269,9 @@ export async function POST(_req: NextRequest) {
         : [],
       hasIntake,
       intakeId,
-        // ★追加：GASのperfをそのまま返す
-  perf: (gasJson as any).perf || [],
+
+      // ★追加：GASのperfをそのまま返す
+      perf: (gasJson as any).perf || [],
     };
 
     const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
