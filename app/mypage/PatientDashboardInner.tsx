@@ -752,7 +752,13 @@ const formatDate = (iso: string) => {
 const orderHistoryAll = (data.orders ?? [])
   .slice()
   .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
-
+console.log(
+  "[history]",
+  "orders=", (data.orders ?? []).length,
+  "orderHistoryAll=", orderHistoryAll.length,
+  "hasMore=", orderHistoryAll.length > 5,
+  "showAll=", showAllHistory
+);
 const orderHistoryPreview = orderHistoryAll.slice(0, 5);
 const hasMoreOrderHistory = orderHistoryAll.length > 5;
 
