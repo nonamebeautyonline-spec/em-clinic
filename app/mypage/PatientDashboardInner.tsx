@@ -325,6 +325,10 @@ export default function PatientDashboardInner() {
   const [canceling, setCanceling] = useState(false);
 const [hasIntake, setHasIntake] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+const [historyLoading, setHistoryLoading] = useState(false);
+const [historyError, setHistoryError] = useState<string | null>(null);
+
 
 const showToast = (msg: string) => {
   setToast(msg);
@@ -480,7 +484,7 @@ if (typeof window !== "undefined") {
           const label = PRODUCT_LABELS[code] || code || "マンジャロ";
           return {
             id: String(r.id ?? ""),
-            timestamp: String(r.timestamp ?? ""),
+timestamp: String(r.timestamp ?? r.createdAt ?? ""),
             product_code: code,
             productCode: code,
             productLabel: label,
@@ -659,6 +663,30 @@ const handleReorderCancel = async () => {
     setCancelingReorder(false);
   }
 };
+const handleShowAllHistory = async () => {
+  if (historyLoading) return;
+  setHistoryLoading(true);
+  setHistoryError(null);
+
+  try {
+    const res = await fetch("/api/mypage/orders", { method: "GET", cache: "no-store" });
+    const json = await res.json().catch(() => ({} as any));
+
+    if (!res.ok || json?.ok !== true) {
+      setHistoryError("履歴の取得に失敗しました。");
+      return;
+    }
+
+    const orders: Order[] = Array.isArray(json.orders) ? json.orders : [];
+    setData((prev) => (prev ? { ...prev, orders } : prev));
+    setShowAllHistory(true);
+  } catch (e) {
+    console.error(e);
+    setHistoryError("履歴の取得に失敗しました。");
+  } finally {
+    setHistoryLoading(false);
+  }
+};
 
 
   if (loading) {
@@ -681,12 +709,24 @@ const handleReorderCancel = async () => {
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
+const getTimeSafe = (v?: string) => {
+  if (!v) return 0;
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
+// 注文：アクティブ分だけ表示（未発送 or 発送から10日未満）
+// 並び順：新しい順（paidAt優先、無ければshippingEta）
+const visibleOrders = activeOrders
+  .filter(isActiveOrder)
+  .slice()
+  .sort(
+    (a, b) =>
+      getTimeSafe(b.paidAt || b.shippingEta) - getTimeSafe(a.paidAt || a.shippingEta)
+  )
+  .slice(0, 5);
 
-  // 注文：アクティブ分だけ表示（未発送 or 発送から10日未満）
-  const visibleOrders = activeOrders.filter(isActiveOrder);
-
-  // 参考：アーカイブ側（必要なら後で「過去の配送」タブを作れる）
-  const archivedOrders = activeOrders.filter((o) => !isActiveOrder(o));
+// 参考：アーカイブ側（必要なら後で「過去の配送」タブを作れる）
+const archivedOrders = activeOrders.filter((o) => !isActiveOrder(o));
 
 
   const hasHistory = history.length > 0;
@@ -698,11 +738,7 @@ const handleReorderCancel = async () => {
   //  - すでに予約が入っていない
   const canReserve =
   hasIntake === true && !hasHistory && !nextReservation;
-    const getTimeSafe = (v?: string) => {
-  if (!v) return 0;
-  const t = new Date(v).getTime();
-  return Number.isFinite(t) ? t : 0;
-};
+
 const formatDate = (iso: string) => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -713,9 +749,14 @@ const formatDate = (iso: string) => {
   });
 };
 
-const orderHistory = (data.orders ?? [])
+const orderHistoryAll = (data.orders ?? [])
   .slice()
   .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
+
+const orderHistoryPreview = orderHistoryAll.slice(0, 5);
+const hasMoreOrderHistory = orderHistoryAll.length > 5;
+
+const orderHistoryToRender = showAllHistory ? orderHistoryAll : orderHistoryPreview;
 
 
   const hasPendingReorder = reorders.some((r) => r.status === "pending");
@@ -1264,61 +1305,71 @@ onClick={() => handleOpenTracking(order)}
             <h2 className="text-sm font-semibold text-slate-800">
               これまでの処方歴
             </h2>
-            {orderHistory.length > 0 && (
-              <button
-                type="button"
-                className="text-xs text-slate-500 hover:text-slate-700"
-              >
-                すべて表示
-              </button>
-            )}
+{hasMoreOrderHistory && !showAllHistory && (
+  <button
+    type="button"
+    onClick={handleShowAllHistory}
+    disabled={historyLoading}
+    className="text-xs text-slate-500 hover:text-slate-700 disabled:text-slate-300"
+  >
+    {historyLoading ? "読み込み中…" : "すべて表示"}
+  </button>
+)}
+
           </div>
 
-          {orderHistory.length === 0 ? (
+          {orderHistoryToRender.length === 0 ? (
             <div className="text-sm text-slate-600">
               まだ処方の履歴はありません。
             </div>
           ) : (
             <div className="space-y-3">
-{orderHistory.map((o) => {
-const paidLabel = formatDateSafe(o.paidAt);
-  const isRefunded = o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
-const refundedLabel = formatDateSafe(o.refundedAt);
+              {orderHistoryToRender.map((o) => {
+                const paidLabel = formatDateSafe(o.paidAt);
+                const isRefunded =
+                  o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
+                const refundedLabel = formatDateSafe(o.refundedAt);
 
-  return (
-    <div
-      key={o.id}
-      className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
-    >
-      <div className="min-w-0">
-<div className="text-[11px] text-slate-500">
-  {paidLabel || "—"}
-  {isRefunded && refundedLabel ? <span className="ml-2">（返金日：{refundedLabel}）</span> : null}
-</div>
+                return (
+                  <div
+                    key={o.id}
+                    className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-[11px] text-slate-500">
+                        {paidLabel || "—"}
+                        {isRefunded && refundedLabel ? (
+                          <span className="ml-2">（返金日：{refundedLabel}）</span>
+                        ) : null}
+                      </div>
 
+                      <div className="text-sm font-medium text-slate-900">
+                        {o.productName}
+                      </div>
 
-        <div className="text-sm font-medium text-slate-900">
-          {o.productName}
-        </div>
+                      {isRefunded && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+                            返金済み
+                          </span>
 
-        {isRefunded && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
-              返金済み
-            </span>
+                          {typeof o.refundedAmount === "number" && o.refundedAmount > 0 && (
+                            <span className="text-slate-600">
+                              返金額：¥{o.refundedAmount.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
-            {typeof o.refundedAmount === "number" && o.refundedAmount > 0 && (
-              <span className="text-slate-600">
-                返金額：¥{o.refundedAmount.toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-})}
-
+          {historyError && (
+            <div className="mt-2 text-[11px] text-rose-600">
+              {historyError}
             </div>
           )}
         </section>
