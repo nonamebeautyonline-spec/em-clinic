@@ -48,8 +48,8 @@ export async function GET(req: Request) {
           prescription_menu: row.prescription_menu || "",
           line_id: row.line_id,
           answerer_id: row.answerer_id,
-          answers: row.answers || {},
           created_at: row.created_at,
+          ...(row.answers || {}),  // Spread answers JSONB to flatten structure
         }));
 
         console.log(`[Supabase] Retrieved ${rows.length} rows`);
