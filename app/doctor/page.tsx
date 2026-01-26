@@ -142,7 +142,20 @@ export default function DoctorPage() {
   // =========================
   const fetchList = async () => {
     try {
-      const r = await fetch("/api/intake/list", { cache: "no-store" });
+      // 日付範囲を指定（当日-7日～+30日）
+      const now = new Date();
+      const fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 7);
+      const toDate = new Date(now);
+      toDate.setDate(now.getDate() + 30);
+
+      const fromIso = fromDate.toISOString().slice(0, 10);
+      const toIso = toDate.toISOString().slice(0, 10);
+
+      const r = await fetch(
+        `/api/intake/list?from=${fromIso}&to=${toIso}`,
+        { cache: "no-store" }
+      );
       const res = await r.json();
 
       let allRows: IntakeRow[] = [];
@@ -156,29 +169,8 @@ export default function DoctorPage() {
         return;
       }
 
-      // 優先データ：当日-2日～+5日
-      const now = new Date();
-      const priorityStart = new Date(now);
-      priorityStart.setDate(now.getDate() - 2);
-      const priorityEnd = new Date(now);
-      priorityEnd.setDate(now.getDate() + 5);
-
-      const priorityStartIso = priorityStart.toISOString().slice(0, 10);
-      const priorityEndIso = priorityEnd.toISOString().slice(0, 10);
-
-      // 優先データを先に表示
-      const priorityRows = allRows.filter((row) => {
-        const dateStr = normalizeDateStr(pick(row, ["reserved_date", "予約日"]));
-        return dateStr >= priorityStartIso && dateStr <= priorityEndIso;
-      });
-
-      setRows(priorityRows);
+      setRows(allRows);
       setLoading(false);
-
-      // 全データを後から反映（非同期）
-      setTimeout(() => {
-        setRows(allRows);
-      }, 100);
     } catch (e) {
       console.error(e);
       setErrorMsg("一覧取得に失敗しました");

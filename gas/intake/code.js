@@ -1127,6 +1127,10 @@ if (type === "getDashboard") {
 }
 
   // ② Doctor UI 用: 予約＋問診マージ一覧
+  // ★ 日付範囲フィルタリング用のパラメータ
+  const fromDate = e && e.parameter && e.parameter.from ? String(e.parameter.from).trim() : "";
+  const toDate = e && e.parameter && e.parameter.to ? String(e.parameter.to).trim() : "";
+
   const intakeSheet  = ss.getSheetByName(SHEET_NAME_INTAKE);
   const reserveSheet = ss.getSheetByName(SHEET_NAME_RESERVE);
 
@@ -1189,6 +1193,10 @@ if (type === "getDashboard") {
     const reservedDate = fmtDate(dateRaw);
     const reservedTime = fmtTime(timeRaw);
     if (!reservedDate) continue;
+
+    // ★ 日付範囲フィルタリング
+    if (fromDate && reservedDate < fromDate) continue;
+    if (toDate && reservedDate > toDate) continue;
 
     let merged = {};
     const intake = intakeByReserveId[reserveId];

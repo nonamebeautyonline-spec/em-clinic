@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 const LIST_URL = process.env.GAS_INTAKE_LIST_URL as string;
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     if (!LIST_URL) {
       console.error("GAS_INTAKE_LIST_URL is not set");
@@ -13,13 +13,26 @@ export async function GET() {
       );
     }
 
-    const res = await fetch(LIST_URL, {
+    // クエリパラメータを取得
+    const { searchParams } = new URL(req.url);
+    const fromDate = searchParams.get("from");
+    const toDate = searchParams.get("to");
+
+    // GASにクエリパラメータを渡す
+    let gasUrl = LIST_URL;
+    if (fromDate || toDate) {
+      const params = new URLSearchParams();
+      if (fromDate) params.set("from", fromDate);
+      if (toDate) params.set("to", toDate);
+      gasUrl = `${LIST_URL}?${params.toString()}`;
+    }
+
+    const res = await fetch(gasUrl, {
       method: "GET",
-      // doGet の場合は Content-Type いらないがあってもOK
     });
 
     const text = await res.text();
-    console.log("intake list raw:", text);
+    console.log("intake list raw:", text.slice(0, 200));
 
     if (!res.ok) {
       return NextResponse.json(
