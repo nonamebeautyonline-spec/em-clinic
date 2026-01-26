@@ -132,6 +132,9 @@ export default function DoctorPage() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
 
+  // ★ 取得済みの日付を管理（重複取得を避けるため）
+  const [loadedDates, setLoadedDates] = useState<Set<string>>(new Set());
+
   // =========================
   // 下書き（一時保存）キー
   // =========================
@@ -140,17 +143,19 @@ export default function DoctorPage() {
   // =========================
   // 一覧取得（関数化）
   // =========================
-  const fetchList = async () => {
+  const fetchList = async (fromIso?: string, toIso?: string) => {
     try {
-      // 日付範囲を指定（当日-2日～+5日）
-      const now = new Date();
-      const fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 2);
-      const toDate = new Date(now);
-      toDate.setDate(now.getDate() + 5);
+      // デフォルト：当日-2日～+5日
+      if (!fromIso || !toIso) {
+        const now = new Date();
+        const fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - 2);
+        const toDate = new Date(now);
+        toDate.setDate(now.getDate() + 5);
 
-      const fromIso = fromDate.toISOString().slice(0, 10);
-      const toIso = toDate.toISOString().slice(0, 10);
+        fromIso = fromDate.toISOString().slice(0, 10);
+        toIso = toDate.toISOString().slice(0, 10);
+      }
 
       const r = await fetch(
         `/api/intake/list?from=${fromIso}&to=${toIso}`,
@@ -158,18 +163,44 @@ export default function DoctorPage() {
       );
       const res = await r.json();
 
-      let allRows: IntakeRow[] = [];
+      let newRows: IntakeRow[] = [];
       if (Array.isArray(res)) {
-        allRows = res;
+        newRows = res;
       } else if (res.ok) {
-        allRows = res.rows || [];
+        newRows = res.rows || [];
       } else {
         setErrorMsg(res.error || "一覧取得に失敗しました");
         setLoading(false);
         return;
       }
 
-      setRows(allRows);
+      // ★ 既存データとマージ（重複排除）
+      setRows((prevRows) => {
+        const merged = [...prevRows];
+        const existingIds = new Set(prevRows.map((r) => pickReserveId(r)));
+
+        for (const row of newRows) {
+          const id = pickReserveId(row);
+          if (!existingIds.has(id)) {
+            merged.push(row);
+          }
+        }
+        return merged;
+      });
+
+      // ★ 取得済み日付を記録
+      const from = new Date(fromIso);
+      const to = new Date(toIso);
+      setLoadedDates((prev) => {
+        const updated = new Set(prev);
+        let current = new Date(from);
+        while (current <= to) {
+          updated.add(current.toISOString().slice(0, 10));
+          current.setDate(current.getDate() + 1);
+        }
+        return updated;
+      });
+
       setLoading(false);
     } catch (e) {
       console.error(e);
@@ -179,9 +210,31 @@ export default function DoctorPage() {
   };
 
   const closeModalAndRefresh = () => {
-  setSelected(null);
-  fetchList(); // ページリロードではなく、データだけ再取得
-};
+    setSelected(null);
+    fetchList(); // ページリロードではなく、データだけ再取得
+  };
+
+  // ★ 日付選択時：範囲外なら追加取得
+  const handleDateSelect = async (date: string) => {
+    setSelectedDate(date);
+
+    // 既に取得済みならスキップ
+    if (loadedDates.has(date)) {
+      return;
+    }
+
+    // 範囲外の日付：その日±1日を取得
+    const targetDate = new Date(date);
+    const fromDate = new Date(targetDate);
+    fromDate.setDate(targetDate.getDate() - 1);
+    const toDate = new Date(targetDate);
+    toDate.setDate(targetDate.getDate() + 1);
+
+    const fromIso = fromDate.toISOString().slice(0, 10);
+    const toIso = toDate.toISOString().slice(0, 10);
+
+    await fetchList(fromIso, toIso);
+  };
 
   // 初回ロード
   useEffect(() => {
@@ -586,7 +639,8 @@ closeModalAndRefresh();
               const next = prev - 1;
               const start = new Date(today);
               start.setDate(today.getDate() + next * 7);
-              setSelectedDate(start.toISOString().slice(0, 10));
+              const newDate = start.toISOString().slice(0, 10);
+              handleDateSelect(newDate);
               return next;
             });
           }}
@@ -601,7 +655,7 @@ closeModalAndRefresh();
             <button
               key={d}
               type="button"
-              onClick={() => setSelectedDate(d)}
+              onClick={() => handleDateSelect(d)}
               className={`
                 px-3 py-1.5 rounded-full border whitespace-nowrap
                 ${
@@ -624,7 +678,8 @@ closeModalAndRefresh();
               const next = prev + 1;
               const start = new Date(today);
               start.setDate(today.getDate() + next * 7);
-              setSelectedDate(start.toISOString().slice(0, 10));
+              const newDate = start.toISOString().slice(0, 10);
+              handleDateSelect(newDate);
               return next;
             });
           }}
