@@ -84,10 +84,10 @@ async function main() {
     .filter((row: any) => row.patient_id) // patient_idがあるもののみ
     .map((row: any) => ({
       patient_id: String(row.patient_id || "").trim(),
-      reserve_id: String(row.reserve_id || "").trim() || null,
+      reserve_id: String(row.reserveId || row.reserved || row.reserve_id || "").trim() || null,
       reserved_date: String(row.reserved_date || "").trim() || null,
       reserved_time: String(row.reserved_time || "").trim() || null,
-      patient_name: String(row.patient_name || "").trim() || null,
+      patient_name: String(row.patient_name || row.name || row["氏名"] || "").trim() || null,
       status: String(row.status || "").trim() || null,
       note: String(row.note || "").trim() || null,
       prescription_menu: String(row.prescription_menu || "").trim() || null,

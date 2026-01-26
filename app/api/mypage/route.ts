@@ -2,8 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
+import { supabase } from "@/lib/supabase";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
+const USE_SUPABASE = process.env.USE_SUPABASE === "true";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -152,6 +154,44 @@ async function fetchJsonText(url: string): Promise<{ ok: boolean; text: string; 
   return { ok: res.ok, text, status: res.status };
 }
 
+/**
+ * Supabaseから予約情報を取得
+ */
+async function getNextReservationFromSupabase(
+  patientId: string
+): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from("intake")
+      .select("reserve_id, reserved_date, reserved_time, patient_name")
+      .eq("patient_id", patientId)
+      .not("reserve_id", "is", null)
+      .not("reserved_date", "is", null)
+      .not("reserved_time", "is", null)
+      .order("reserved_date", { ascending: true })
+      .order("reserved_time", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      console.log(`[Supabase] No reservation found for patient_id=${patientId}`);
+      return null;
+    }
+
+    // GASと同じ形式に変換
+    const datetime = `${data.reserved_date} ${data.reserved_time}`;
+    return {
+      id: data.reserve_id,
+      datetime,
+      title: "診察予約",
+      status: "confirmed",
+    };
+  } catch (err) {
+    console.error("[Supabase] getNextReservation error:", err);
+    return null;
+  }
+}
+
 export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
@@ -247,6 +287,24 @@ export async function POST(_req: NextRequest) {
       ? gasJson.orders.map(mapOrder)
       : [];
 
+    // ★ USE_SUPABASE=true の場合は予約情報をSupabaseから取得
+    let nextReservation: { id: string; datetime: string; title: string; status: string } | null = null;
+
+    if (USE_SUPABASE) {
+      console.log(`[Supabase] Fetching reservation for patient_id=${patientId}`);
+      nextReservation = await getNextReservationFromSupabase(patientId);
+    } else {
+      // GASから取得（従来通り）
+      nextReservation = gasJson.nextReservation
+        ? {
+            id: safeStr(gasJson.nextReservation.id),
+            datetime: safeStr(gasJson.nextReservation.datetime),
+            title: safeStr(gasJson.nextReservation.title),
+            status: safeStr(gasJson.nextReservation.status),
+          }
+        : null;
+    }
+
     const payload = {
       ok: true,
       patient: gasJson.patient?.id
@@ -255,14 +313,7 @@ export async function POST(_req: NextRequest) {
             displayName: safeStr(gasJson.patient.displayName || ""),
           }
         : undefined,
-      nextReservation: gasJson.nextReservation
-        ? {
-            id: safeStr(gasJson.nextReservation.id),
-            datetime: safeStr(gasJson.nextReservation.datetime),
-            title: safeStr(gasJson.nextReservation.title),
-            status: safeStr(gasJson.nextReservation.status),
-          }
-        : null,
+      nextReservation,
       activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED"),
       orders: ordersAll,
       ordersFlags: {

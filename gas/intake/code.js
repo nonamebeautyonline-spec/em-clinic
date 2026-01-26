@@ -65,6 +65,134 @@ const PRODUCT_LABELS = {
   "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月"
 };
 
+// ===================================
+// Supabase書き込み関数
+// ===================================
+
+/**
+ * 予約情報をSupabase intakeテーブルに反映（upsert）
+ * @param {string} reserveId - 予約ID（null許可）
+ * @param {string} patientId - Patient ID
+ * @param {string} reservedDate - YYYY-MM-DD（null許可）
+ * @param {string} reservedTime - HH:MM（null許可）
+ */
+function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, reservedTime) {
+  Logger.log("[Supabase] updateSupabaseIntakeReservation_ called: reserveId=" + reserveId + ", patientId=" + patientId);
+
+  if (!patientId) {
+    Logger.log("[Supabase] ERROR: Missing patientId, skipping");
+    return;
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+    return;
+  }
+
+  const endpoint = supabaseUrl + "/rest/v1/intake?patient_id=eq." + patientId;
+
+  try {
+    // 既存レコードを確認
+    const getRes = UrlFetchApp.fetch(endpoint, {
+      method: "get",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    const records = JSON.parse(getRes.getContentText());
+    const exists = Array.isArray(records) && records.length > 0;
+
+    const payload = {
+      reserve_id: reserveId,
+      reserved_date: reservedDate,
+      reserved_time: reservedTime
+    };
+
+    if (exists) {
+      // PATCH更新
+      UrlFetchApp.fetch(endpoint, {
+        method: "patch",
+        headers: {
+          apikey: supabaseKey,
+          Authorization: "Bearer " + supabaseKey,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      Logger.log("[Supabase] Updated reservation for patient_id=" + patientId);
+    } else {
+      // INSERT
+      payload.patient_id = patientId;
+      UrlFetchApp.fetch(supabaseUrl + "/rest/v1/intake", {
+        method: "post",
+        headers: {
+          apikey: supabaseKey,
+          Authorization: "Bearer " + supabaseKey,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      Logger.log("[Supabase] Inserted new reservation for patient_id=" + patientId);
+    }
+  } catch (e) {
+    Logger.log("[Supabase] EXCEPTION: Error updating reservation: " + e);
+    Logger.log("[Supabase] EXCEPTION stack: " + e.stack);
+  }
+}
+
+/**
+ * Vercelキャッシュを無効化
+ * @param {string} patientId - Patient ID
+ */
+function invalidateVercelCache_(patientId) {
+  if (!patientId) return;
+
+  const props = PropertiesService.getScriptProperties();
+  const vercelUrl = props.getProperty("VERCEL_URL");
+  const adminToken = props.getProperty("ADMIN_TOKEN");
+
+  if (!vercelUrl || !adminToken) {
+    Logger.log("[invalidateCache] Missing VERCEL_URL or ADMIN_TOKEN");
+    return;
+  }
+
+  const url = vercelUrl + "/api/admin/invalidate-cache";
+
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + adminToken },
+      payload: JSON.stringify({ patient_id: patientId }),
+      muteHttpExceptions: true,
+    });
+
+    const code = res.getResponseCode();
+    const body = res.getContentText();
+
+    Logger.log("[invalidateCache] pid=" + patientId + " code=" + code + " body=" + body);
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[invalidateCache] Success for patient_id=" + patientId);
+    } else {
+      Logger.log("[invalidateCache] Failed for patient_id=" + patientId + " code=" + code);
+    }
+  } catch (e) {
+    Logger.log("[invalidateCache] Error for patient_id=" + patientId + ": " + e);
+  }
+}
+
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
 

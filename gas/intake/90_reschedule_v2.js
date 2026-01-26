@@ -177,6 +177,23 @@ function adminResetReservationByPatientId(patientId, reason) {
         intake.getRange(rowNum, COL_CALL_STATUS_INTAKE).setValue("");    // AE
         intake.getRange(rowNum, COL_CALL_STATUS_AT_INTAKE).setValue(""); // AF
         cleared++;
+
+        // ★ Supabaseにも予約情報クリアを反映
+        try {
+          updateSupabaseIntakeReservation_(null, pid, null, null);
+          Logger.log("[Reschedule] Supabase updated for patient_id=" + pid);
+        } catch (e) {
+          Logger.log("[Reschedule] Supabase update failed: " + e);
+        }
+
+        // ★ Vercelキャッシュも無効化
+        try {
+          invalidateVercelCache_(pid);
+          Logger.log("[Reschedule] Cache invalidated for patient_id=" + pid);
+        } catch (e) {
+          Logger.log("[Reschedule] Cache invalidation failed: " + e);
+        }
+
         break;
       }
     }
