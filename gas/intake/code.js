@@ -2951,46 +2951,6 @@ const tCol = iSh.getRange(2, COL_RESERVED_TIME_INTAKE, num, 1).getValues();    /
   Logger.log("backfillIntakeReservationFieldsOnce sync: updated=" + updated + " cleared=" + cleared);
 }
 
-
-// ★ Vercel キャッシュ無効化API呼び出し
-function invalidateVercelCache_(patientId) {
-  if (!patientId) return;
-
-  var props = PropertiesService.getScriptProperties();
-  var vercelUrl = props.getProperty("VERCEL_URL");
-  var adminToken = props.getProperty("ADMIN_TOKEN");
-
-  if (!vercelUrl || !adminToken) {
-    Logger.log("[invalidateCache] Missing VERCEL_URL or ADMIN_TOKEN");
-    return;
-  }
-
-  var url = vercelUrl + "/api/admin/invalidate-cache";
-
-  try {
-    var res = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      headers: { Authorization: "Bearer " + adminToken },
-      payload: JSON.stringify({ patient_id: patientId }),
-      muteHttpExceptions: true,
-    });
-
-    var code = res.getResponseCode();
-    var body = res.getContentText();
-
-    Logger.log("[invalidateCache] pid=" + patientId + " code=" + code + " body=" + body);
-
-    if (code >= 200 && code < 300) {
-      Logger.log("[invalidateCache] Success for patient_id=" + patientId);
-    } else {
-      Logger.log("[invalidateCache] Failed for patient_id=" + patientId + " code=" + code);
-    }
-  } catch (e) {
-    Logger.log("[invalidateCache] Error for patient_id=" + patientId + ": " + e);
-  }
-}
-
 // ★ テスト用：直接キャッシュ無効化を試す
 function testInvalidateCache() {
   // ★ 実際の患者IDに変更してください
