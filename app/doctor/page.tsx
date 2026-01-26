@@ -144,17 +144,44 @@ export default function DoctorPage() {
     try {
       const r = await fetch("/api/intake/list", { cache: "no-store" });
       const res = await r.json();
+
+      let allRows: IntakeRow[] = [];
       if (Array.isArray(res)) {
-        setRows(res);
+        allRows = res;
       } else if (res.ok) {
-        setRows(res.rows || []);
+        allRows = res.rows || [];
       } else {
         setErrorMsg(res.error || "一覧取得に失敗しました");
+        setLoading(false);
+        return;
       }
+
+      // 優先データ：当日-2日～+5日
+      const now = new Date();
+      const priorityStart = new Date(now);
+      priorityStart.setDate(now.getDate() - 2);
+      const priorityEnd = new Date(now);
+      priorityEnd.setDate(now.getDate() + 5);
+
+      const priorityStartIso = priorityStart.toISOString().slice(0, 10);
+      const priorityEndIso = priorityEnd.toISOString().slice(0, 10);
+
+      // 優先データを先に表示
+      const priorityRows = allRows.filter((row) => {
+        const dateStr = normalizeDateStr(pick(row, ["reserved_date", "予約日"]));
+        return dateStr >= priorityStartIso && dateStr <= priorityEndIso;
+      });
+
+      setRows(priorityRows);
+      setLoading(false);
+
+      // 全データを後から反映（非同期）
+      setTimeout(() => {
+        setRows(allRows);
+      }, 100);
     } catch (e) {
       console.error(e);
       setErrorMsg("一覧取得に失敗しました");
-    } finally {
       setLoading(false);
     }
   };
@@ -424,25 +451,29 @@ closeModalAndRefresh();
     );
   }
 
-  const sortedRows = rows.slice().sort((a, b) => {
-    const ad = `${normalizeDateStr(
-      pick(a, ["reserved_date", "予約日"])
-    )} ${pick(a, ["reserved_time", "予約時間"])}`;
-    const bd = `${normalizeDateStr(
-      pick(b, ["reserved_date", "予約日"])
-    )} ${pick(b, ["reserved_time", "予約時間"])}`;
-    return ad > bd ? 1 : -1;
-  });
+  const sortedRows = useMemo(() => {
+    return rows.slice().sort((a, b) => {
+      const ad = `${normalizeDateStr(
+        pick(a, ["reserved_date", "予約日"])
+      )} ${pick(a, ["reserved_time", "予約時間"])}`;
+      const bd = `${normalizeDateStr(
+        pick(b, ["reserved_date", "予約日"])
+      )} ${pick(b, ["reserved_time", "予約時間"])}`;
+      return ad > bd ? 1 : -1;
+    });
+  }, [rows]);
 
-  const filteredRows = sortedRows.filter((row) => {
-    const raw = pick(row, ["reserved_date", "予約日"]);
-    const dateStr = normalizeDateStr(raw);
-    if (!dateStr) return false;
-    return dateStr === selectedDate;
-  });
+  const filteredRows = useMemo(() => {
+    return sortedRows.filter((row) => {
+      const raw = pick(row, ["reserved_date", "予約日"]);
+      const dateStr = normalizeDateStr(raw);
+      if (!dateStr) return false;
+      return dateStr === selectedDate;
+    });
+  }, [sortedRows, selectedDate]);
 
   // ステータス集計（選択日のみ）
-  const stats = (() => {
+  const stats = useMemo(() => {
     let pending = 0;
     let ok = 0;
     let ng = 0;
@@ -453,17 +484,19 @@ closeModalAndRefresh();
       else if (s === "NG") ng++;
     });
     return { pending, ok, ng };
-  })();
+  }, [filteredRows]);
 
   // ステータスフィルタ適用後の一覧
-  const visibleRows = filteredRows.filter((row) => {
-    const s = (pick(row, ["status"]) || "").toUpperCase();
-    if (statusFilter === "all") return true;
-    if (statusFilter === "pending") return !s;
-    if (statusFilter === "ok") return s === "OK";
-    if (statusFilter === "ng") return s === "NG";
-    return true;
-  });
+  const visibleRows = useMemo(() => {
+    return filteredRows.filter((row) => {
+      const s = (pick(row, ["status"]) || "").toUpperCase();
+      if (statusFilter === "all") return true;
+      if (statusFilter === "pending") return !s;
+      if (statusFilter === "ok") return s === "OK";
+      if (statusFilter === "ng") return s === "NG";
+      return true;
+    });
+  }, [filteredRows, statusFilter]);
 
   const formatWeekLabel = (iso: string) => {
     const d = new Date(iso);
