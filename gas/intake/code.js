@@ -948,7 +948,7 @@ if (hasMoreHistory) {
 // =====================
 // patient_id ベースのダッシュボード（MyPage用）
 // =====================
-function buildDashboardForPatientId(ss, patientId, fallbackName, full) {
+function buildDashboardForPatientId(ss, patientId, fallbackName, full, light) {
 const t0 = new Date().getTime();
 const perfLog = [];
 const mark = (label) => perfLog.push([label, new Date().getTime() - t0]);
@@ -1041,7 +1041,18 @@ if (patientId && history.length === 0 && !hasDoctorOk) {
 mark("B_reserve_done");
 
   // ---------- ③ 注文情報（Square Webhook シート） ----------
-var ordersInfo = loadOrdersForDashboard_(patientId, full);
+  // ★ light=true の場合は注文情報をスキップ（Supabase側で取得するため）
+  var ordersInfo;
+  if (light) {
+    ordersInfo = {
+      orders: [],
+      flags: { canPurchaseCurrentCourse: true, canApplyReorder: false, hasAnyPaidOrder: false },
+      _perf_orders: [["O_skipped_light_mode", new Date().getTime() - t0]],
+    };
+  } else {
+    ordersInfo = loadOrdersForDashboard_(patientId, full);
+  }
+
   var orders = ordersInfo.orders || [];
   var flags  = ordersInfo.flags || {
     canPurchaseCurrentCourse: true,
@@ -1223,9 +1234,12 @@ if (type === "getDashboard") {
   // ★追加：full=1 なら全件モード（ordersを多めに返す）
   const full = String(e.parameter.full || "").trim() === "1";
 
+  // ★追加：light=1 なら注文情報をスキップ（Supabaseモード用）
+  const light = String(e.parameter.light || "").trim() === "1";
+
   try {
     const dashboard = pid
-      ? buildDashboardForPatientId(ss, pid, name, full)  // ★第4引数追加
+      ? buildDashboardForPatientId(ss, pid, name, full, light)  // ★第5引数追加
       : buildDashboardForLineId(ss, lineId, name);
 
     return ContentService.createTextOutput(JSON.stringify(dashboard))

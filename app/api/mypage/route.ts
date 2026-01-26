@@ -282,6 +282,7 @@ export async function POST(_req: NextRequest) {
     }
 
     console.log(`[Cache] Miss: ${cacheKey}`);
+    console.log(`[Mypage] USE_SUPABASE=${USE_SUPABASE}`);
 
     // ★ Supabaseモードでは軽量GAS呼び出し（patient情報のみ）
     let gasJson: GasDashboardResponse;
@@ -291,8 +292,9 @@ export async function POST(_req: NextRequest) {
     let shouldSaveLineUserId = false;
 
     if (USE_SUPABASE) {
-      // ★ Supabaseモード：patient情報とreordersのみGASから取得
-      const lightDashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+      // ★ Supabaseモード：patient情報とreordersのみGASから取得（light=1で注文スキップ）
+      const lightDashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}&light=1`;
+      console.log(`[Mypage] USE_SUPABASE=true, calling GAS with light=1`);
       const dash = await fetchJsonText(lightDashboardUrl);
 
       if (!dash.ok) {
@@ -343,10 +345,13 @@ export async function POST(_req: NextRequest) {
 
       // 注文情報をSupabaseから取得
       ordersAll = await getOrdersFromSupabase(patientId);
+      console.log(`[Supabase] Retrieved ${ordersAll.length} orders from Supabase`);
 
       // 予約情報をSupabaseから取得
       nextReservation = await getNextReservationFromSupabase(patientId);
+      console.log(`[Supabase] Retrieved reservation: ${nextReservation ? nextReservation.id : 'none'}`);
     } else {
+      console.log(`[Mypage] Using GAS for orders (USE_SUPABASE=false)`);
       // GASから取得（従来通り）
       const mapOrder = (o: any): OrderForMyPage => {
         const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
