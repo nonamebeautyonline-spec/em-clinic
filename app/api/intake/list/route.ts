@@ -1,10 +1,65 @@
 // app/api/intake/list/route.ts
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const LIST_URL = process.env.GAS_INTAKE_LIST_URL as string;
+const USE_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function GET(req: Request) {
   try {
+    // クエリパラメータを取得
+    const { searchParams } = new URL(req.url);
+    const fromDate = searchParams.get("from");
+    const toDate = searchParams.get("to");
+
+    // ★ Supabase優先（設定されている場合）
+    if (USE_SUPABASE) {
+      console.log("[intake/list] Using Supabase");
+
+      let query = supabase
+        .from("intake")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      // 日付フィルタ（reserved_dateで絞り込み）
+      if (fromDate && toDate) {
+        query = query
+          .gte("reserved_date", fromDate)
+          .lte("reserved_date", toDate)
+          .not("reserved_date", "is", null);  // reserved_dateがnullでないもののみ
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("[Supabase] query error:", error);
+        // Supabaseエラー時はGASにフォールバック
+        console.log("[intake/list] Falling back to GAS");
+      } else {
+        // Supabaseから取得成功
+        const rows = data.map((row: any) => ({
+          reserve_id: row.reserve_id || "",
+          patient_id: row.patient_id,
+          patient_name: row.patient_name,
+          reserved_date: row.reserved_date || "",
+          reserved_time: row.reserved_time || "",
+          status: row.status || "",
+          note: row.note || "",
+          prescription_menu: row.prescription_menu || "",
+          line_id: row.line_id,
+          answerer_id: row.answerer_id,
+          answers: row.answers || {},
+          created_at: row.created_at,
+        }));
+
+        console.log(`[Supabase] Retrieved ${rows.length} rows`);
+        return NextResponse.json({ ok: true, rows });
+      }
+    }
+
+    // ★ GASにフォールバック（Supabase未設定 or エラー時）
+    console.log("[intake/list] Using GAS");
+
     if (!LIST_URL) {
       console.error("GAS_INTAKE_LIST_URL is not set");
       return NextResponse.json(
@@ -13,12 +68,6 @@ export async function GET(req: Request) {
       );
     }
 
-    // クエリパラメータを取得
-    const { searchParams } = new URL(req.url);
-    const fromDate = searchParams.get("from");
-    const toDate = searchParams.get("to");
-
-    // GASにクエリパラメータを渡す
     let gasUrl = LIST_URL;
     if (fromDate || toDate) {
       const params = new URLSearchParams();

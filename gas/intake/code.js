@@ -1131,6 +1131,8 @@ if (type === "getDashboard") {
   const fromDate = e && e.parameter && e.parameter.from ? String(e.parameter.from).trim() : "";
   const toDate = e && e.parameter && e.parameter.to ? String(e.parameter.to).trim() : "";
 
+  Logger.log("[doGet] fromDate=" + fromDate + ", toDate=" + toDate);
+
   const intakeSheet  = ss.getSheetByName(SHEET_NAME_INTAKE);
   const reserveSheet = ss.getSheetByName(SHEET_NAME_RESERVE);
 
@@ -1552,6 +1554,13 @@ intakeSheet.getRange(i + 1, COL_CALL_STATUS_AT_INTAKE).setValue(
             invalidateVercelCache_(patientId);
           }
 
+          // ★ Supabaseを更新
+          try {
+            updateSupabaseIntakeByReserveId_(reserveId, status, note, menu);
+          } catch (e) {
+            Logger.log("[Supabase] update failed: " + e);
+          }
+
           Logger.log("doctor_update row: " + (i + 1) + ", patientId: " + patientId);
           break;
         }
@@ -1624,6 +1633,20 @@ if (existingSubmitted) {
     ];
 
     intakeSheet.appendRow(rowToAppend);
+
+    // ★ Supabaseに書き込み
+    try {
+      writeToSupabaseIntake_({
+        reserve_id: reserveId,
+        patient_id: pid,
+        answerer_id: body.answerer_id || null,
+        line_id: body.line_id || body.lineId || null,
+        patient_name: body.name || null,
+        answers: answersObj
+      });
+    } catch (e) {
+      Logger.log("[Supabase] intake write failed: " + e);
+    }
 
     // ★ master(M/N) → intake(AG/AH)
     try {
@@ -2840,6 +2863,169 @@ function testInvalidateCache() {
   Logger.log("=== Test complete - check logs above ===");
 }
 
+// ===================================
+// Supabase書き込み関数
+// ===================================
+
+/**
+ * 問診データをSupabaseに書き込む（upsert）
+ * @param {Object} data - { reserve_id, patient_id, answerer_id, line_id, patient_name, answers, reserved_date, reserved_time, status, note, prescription_menu }
+ */
+function writeToSupabaseIntake_(data) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  const url = supabaseUrl + "/rest/v1/intake";
+
+  try {
+    const payload = {
+      reserve_id: data.reserve_id || "",
+      patient_id: data.patient_id || "",
+      answerer_id: data.answerer_id || null,
+      line_id: data.line_id || null,
+      patient_name: data.patient_name || null,
+      answers: data.answers || {},
+      reserved_date: data.reserved_date || null,
+      reserved_time: data.reserved_time || null,
+      status: data.status || null,
+      note: data.note || null,
+      prescription_menu: data.prescription_menu || null
+    };
+
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "resolution=merge-duplicates"  // upsert
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    const body = res.getContentText();
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] intake written: reserve_id=" + data.reserve_id + ", patient_id=" + data.patient_id);
+    } else {
+      Logger.log("[Supabase] intake write failed: code=" + code + " body=" + body);
+    }
+  } catch (e) {
+    Logger.log("[Supabase] intake write error: " + e);
+  }
+}
+
+/**
+ * 予約データをSupabaseに書き込む（upsert）
+ * @param {Object} data - { reserve_id, patient_id, patient_name, reserved_date, reserved_time, status, note, prescription_menu }
+ */
+function writeToSupabaseReservation_(data) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  const url = supabaseUrl + "/rest/v1/reservations";
+
+  try {
+    const payload = {
+      reserve_id: data.reserve_id || "",
+      patient_id: data.patient_id || "",
+      patient_name: data.patient_name || null,
+      reserved_date: data.reserved_date || null,
+      reserved_time: data.reserved_time || null,
+      status: data.status || "pending",
+      note: data.note || null,
+      prescription_menu: data.prescription_menu || null
+    };
+
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "resolution=merge-duplicates"  // upsert
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    const body = res.getContentText();
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] reservation written: reserve_id=" + data.reserve_id);
+    } else {
+      Logger.log("[Supabase] reservation write failed: code=" + code + " body=" + body);
+    }
+  } catch (e) {
+    Logger.log("[Supabase] reservation write error: " + e);
+  }
+}
+
+/**
+ * 予約IDに紐づく問診・予約のステータスをSupabaseで更新
+ * @param {string} reserveId
+ * @param {string} status
+ * @param {string} note
+ * @param {string} prescriptionMenu
+ */
+function updateSupabaseIntakeByReserveId_(reserveId, status, note, prescriptionMenu) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  // intakeテーブルの予約情報を更新（reserve_idで検索）
+  const intakeUrl = supabaseUrl + "/rest/v1/intake?reserve_id=eq." + encodeURIComponent(reserveId);
+
+  try {
+    const payload = {
+      status: status || null,
+      note: note || null,
+      prescription_menu: prescriptionMenu || null
+    };
+
+    const res = UrlFetchApp.fetch(intakeUrl, {
+      method: "patch",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "return=minimal"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] intake updated: reserve_id=" + reserveId + ", status=" + status);
+    } else {
+      Logger.log("[Supabase] intake update failed: code=" + code + " body=" + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("[Supabase] intake update error: " + e);
+  }
+}
+
 // ★ 一括キャッシュ無効化：今日の特定時刻以降にOK/NG判定された患者
 function bulkInvalidateCacheToday() {
   Logger.log("=== Bulk Cache Invalidation Started ===");
@@ -3041,4 +3227,317 @@ function collectAnswererIdsForOKPatientsToday() {
   Logger.log("=== Collection Completed ===");
 
   return results;
+}
+
+// ===================================
+// Supabaseデータ移行スクリプト
+// ===================================
+
+/**
+ * 問診シートの全データをSupabaseに移行する
+ * Apps Scriptエディタから手動実行する
+ */
+function migrateIntakeDataToSupabase() {
+  Logger.log("=== Starting Supabase Migration ===");
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+
+  if (!intakeSheet) {
+    Logger.log("ERROR: Intake sheet not found");
+    return;
+  }
+
+  const lastRow = intakeSheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No data to migrate");
+    return;
+  }
+
+  // ヘッダー行を除いた全データを取得
+  const lastCol = 35; // AA列まで（answerer_id列を含む）
+  const values = intakeSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  Logger.log("Found " + values.length + " rows to migrate");
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < values.length; i++) {
+    const row = values[i];
+
+    // 列インデックス（0始まり）
+    const reserveId = String(row[1] || "").trim(); // B列
+    const patientId = normalizePid_(row[25]); // Z列
+    const patientName = String(row[3] || "").trim(); // D列
+    const lineId = String(row[6] || "").trim(); // G列
+    const answererId = String(row[24] || "").trim(); // Y列
+    const reservedDate = toDateStr_(row[7]); // H列
+    const reservedTime = toTimeStr_(row[8]); // I列
+    const status = String(row[19] || "").trim(); // T列
+    const note = String(row[20] || "").trim(); // U列
+    const prescriptionMenu = String(row[21] || "").trim(); // V列
+
+    // answers（J〜S列）をJSON化
+    const answers = {};
+    for (let j = 0; j < ANSWER_KEYS.length; j++) {
+      const key = ANSWER_KEYS[j];
+      const value = row[9 + j]; // J列から
+      answers[key] = value === null || value === undefined ? "" : String(value);
+    }
+
+    // patient_idは必須
+    if (!patientId) {
+      Logger.log("Skipping row " + (i + 2) + ": missing patient_id");
+      continue;
+    }
+
+    // Dr.カルテ用：予約日があるデータのみ移行（問診のみデータは今回スキップ）
+    if (!reservedDate) {
+      // Logger.log("Skipping row " + (i + 2) + ": no reserved_date (intake only)");
+      continue;
+    }
+
+    // Supabaseに書き込み
+    try {
+      writeToSupabaseIntake_({
+        reserve_id: reserveId,
+        patient_id: patientId,
+        answerer_id: answererId || null,
+        line_id: lineId || null,
+        patient_name: patientName || null,
+        answers: answers,
+        reserved_date: reservedDate || null,
+        reserved_time: reservedTime || null,
+        status: status || null,
+        note: note || null,
+        prescription_menu: prescriptionMenu || null
+      });
+
+      successCount++;
+
+      if ((i + 1) % 10 === 0) {
+        Logger.log("Progress: " + (i + 1) + " / " + values.length);
+        Utilities.sleep(100); // レート制限対策
+      }
+    } catch (e) {
+      Logger.log("Error on row " + (i + 2) + ": " + e);
+      errorCount++;
+    }
+  }
+
+  Logger.log("=== Migration Completed ===");
+  Logger.log("Success: " + successCount);
+  Logger.log("Errors: " + errorCount);
+}
+
+/**
+ * 日付をYYYY-MM-DD形式に変換
+ */
+function toDateStr_(value) {
+  if (!value) return null;
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    return Utilities.formatDate(value, TZ, "yyyy-MM-dd");
+  }
+  const str = String(value).trim();
+  if (str.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return str;
+  }
+  return null;
+}
+
+/**
+ * 時刻をHH:MM形式に変換
+ */
+function toTimeStr_(value) {
+  if (!value) return null;
+  if (Object.prototype.toString.call(value) === "[object Date]") {
+    return Utilities.formatDate(value, TZ, "HH:mm");
+  }
+  const str = String(value).trim();
+  if (str.match(/^\d{1,2}:\d{2}/)) {
+    const parts = str.split(":");
+    const h = String(parseInt(parts[0])).padStart(2, "0");
+    const m = parts[1].padStart(2, "0");
+    return h + ":" + m;
+  }
+  return null;
+}
+
+/**
+ * Supabase権限テスト用関数
+ * Apps Scriptで初回実行時に権限承認プロンプトを表示させるために使用
+ */
+function testSupabasePermission() {
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("SUPABASE_URL or SUPABASE_ANON_KEY not set");
+    return;
+  }
+
+  var url = supabaseUrl + "/rest/v1/intake?limit=1";
+
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    var code = res.getResponseCode();
+    Logger.log("Status: " + code);
+    Logger.log("Permission test successful!");
+
+    if (code >= 200 && code < 300) {
+      Logger.log("Supabase connection OK");
+    } else {
+      Logger.log("Response: " + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("Error: " + e);
+  }
+}
+
+/**
+ * Supabaseにバッチでintakeデータを書き込む（高速版）
+ * @param {Array} dataArray - 書き込むデータの配列
+ */
+function writeToSupabaseIntakeBatch_(dataArray) {
+  if (!dataArray || dataArray.length === 0) return;
+
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing URL or KEY");
+    return;
+  }
+
+  var url = supabaseUrl + "/rest/v1/intake?on_conflict=reserve_id";
+
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "return=minimal,resolution=merge-duplicates"
+      },
+      payload: JSON.stringify(dataArray),
+      muteHttpExceptions: true
+    });
+
+    var code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] Batch written: " + dataArray.length + " records");
+    } else {
+      Logger.log("[Supabase] Batch write error (code " + code + "): " + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("[Supabase] Batch write exception: " + e);
+  }
+}
+
+/**
+ * 問診データをSupabaseに高速移行（バッチ処理版）
+ * Apps Scriptエディタから手動実行する
+ */
+function migrateIntakeDataToSupabaseFast() {
+  Logger.log("=== Starting Fast Supabase Migration (Batch Mode) ===");
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+
+  if (!intakeSheet) {
+    Logger.log("ERROR: Intake sheet not found");
+    return;
+  }
+
+  var lastRow = intakeSheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No data to migrate");
+    return;
+  }
+
+  var lastCol = 35;
+  var values = intakeSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  Logger.log("Found " + values.length + " rows to process");
+
+  var batch = [];
+  var batchSize = 100;
+  var totalCount = 0;
+  var skippedCount = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+
+    var reserveId = String(row[1] || "").trim();
+    var patientId = normalizePid_(row[25]);
+    var patientName = String(row[3] || "").trim();
+    var lineId = String(row[6] || "").trim();
+    var answererId = String(row[24] || "").trim();
+    var reservedDate = toDateStr_(row[7]);
+    var reservedTime = toTimeStr_(row[8]);
+    var status = String(row[19] || "").trim();
+    var note = String(row[20] || "").trim();
+    var prescriptionMenu = String(row[21] || "").trim();
+
+    var answers = {};
+    for (var j = 0; j < ANSWER_KEYS.length; j++) {
+      var key = ANSWER_KEYS[j];
+      var value = row[9 + j];
+      answers[key] = value === null || value === undefined ? "" : String(value);
+    }
+
+    if (!patientId) {
+      skippedCount++;
+      continue;
+    }
+
+    if (!reservedDate) {
+      skippedCount++;
+      continue;
+    }
+
+    batch.push({
+      reserve_id: reserveId,
+      patient_id: patientId,
+      answerer_id: answererId || null,
+      line_id: lineId || null,
+      patient_name: patientName || null,
+      answers: answers,
+      reserved_date: reservedDate || null,
+      reserved_time: reservedTime || null,
+      status: status || null,
+      note: note || null,
+      prescription_menu: prescriptionMenu || null
+    });
+
+    if (batch.length >= batchSize) {
+      writeToSupabaseIntakeBatch_(batch);
+      totalCount += batch.length;
+      Logger.log("Progress: " + totalCount + " records written");
+      batch = [];
+      Utilities.sleep(100);
+    }
+  }
+
+  if (batch.length > 0) {
+    writeToSupabaseIntakeBatch_(batch);
+    totalCount += batch.length;
+    Logger.log("Final batch: " + batch.length + " records written");
+  }
+
+  Logger.log("=== Fast Migration Completed ===");
+  Logger.log("Total records written: " + totalCount);
+  Logger.log("Skipped records: " + skippedCount);
 }
