@@ -1254,6 +1254,14 @@ if (type === "getDashboard") {
   }
 }
 
+  // ① 全注文取得（Supabase同期用）
+  if (type === "getAllOrders") {
+    Logger.log("[doGet] getAllOrders called");
+    const result = getAllOrders_();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ② Doctor UI 用: 予約＋問診マージ一覧
   // ★ 日付範囲フィルタリング用のパラメータ
   const fromDate = e && e.parameter && e.parameter.from ? String(e.parameter.from).trim() : "";
@@ -2375,6 +2383,159 @@ mark("O_end_merge_shipping");
       _perf_orders: perfOrders,
       __orders_err: String(err && err.message ? err.message : err),
     };
+  }
+}
+
+// =====================
+// 全注文データ取得（Supabase同期用）
+// Square Webhook + のなめマスター配送情報を結合して返す
+// =====================
+function getAllOrders_() {
+  var t0 = new Date().getTime();
+  var perf = [];
+  var mark = function (label) {
+    perf.push([label, new Date().getTime() - t0]);
+  };
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty("SHEET_ID_WEBHOOK") || props.getProperty("WEBHOOK_SHEET_ID");
+    var sheetName = props.getProperty("SHEET_NAME_WEBHOOK") || props.getProperty("WEBHOOK_SHEET_NAME") || "Square Webhook";
+
+    if (!sheetId) {
+      Logger.log("[getAllOrders] SHEET_ID_WEBHOOK not set");
+      return { ok: false, error: "webhook_sheet_id_not_configured", orders: [], _perf: perf };
+    }
+
+    var ss = SpreadsheetApp.openById(sheetId);
+    mark("open_webhook_ss");
+
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      Logger.log("[getAllOrders] Sheet not found: " + sheetName);
+      return { ok: false, error: "webhook_sheet_not_found", orders: [], _perf: perf };
+    }
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      Logger.log("[getAllOrders] No data in webhook sheet");
+      return { ok: true, orders: [], _perf: perf };
+    }
+
+    // ヘッダーマップ取得
+    var map = getWebhookHeaderMapCached_(sheet);
+    mark("header_map");
+
+    var colPay = map["payment_id"];
+    var colPid = map["patient_id"] || 12; // L列（固定）
+    var colOrderDt = map["order_datetime"] || map["orderDatetime"] || 1; // A列（固定）
+    var colItems = map["items"] || 7; // G列（固定）
+    var colProd = map["product_code"] || map["productCode"] || 11; // K列（固定）
+    var colAmount = map["amount"] || 8; // H列（固定）
+    var colPayStatus = map["payment_status"] || 0;
+    var colRefund = map["refund_status"] || map["refundStatus"] || 0;
+    var colRefAmt = map["refunded_amount"] || map["refundedAmount"] || 0;
+    var colRefAt = map["refunded_at"] || map["refundedAt"] || 0;
+
+    if (!colPay) {
+      Logger.log("[getAllOrders] Missing required column: payment_id");
+      return { ok: false, error: "missing_payment_id_column", orders: [], _perf: perf };
+    }
+
+    // 必要列数を計算
+    var cols = [colPay, colPid, colOrderDt, colItems, colProd, colAmount, colPayStatus, colRefund, colRefAmt, colRefAt];
+    var NEED_COLS = 0;
+    for (var ci = 0; ci < cols.length; ci++) {
+      var c = Number(cols[ci] || 0);
+      if (c > NEED_COLS) NEED_COLS = c;
+    }
+    if (!NEED_COLS || NEED_COLS < 1) NEED_COLS = Math.min(sheet.getLastColumn(), 30);
+
+    // 全データ読み取り
+    var values = sheet.getRange(2, 1, lastRow - 1, NEED_COLS).getValues();
+    mark("read_all_webhook_data");
+
+    var orders = [];
+    var paymentIds = [];
+
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+
+      var paymentId = String(row[colPay - 1] || "").trim();
+      var patientId = String(row[colPid - 1] || "").trim();
+
+      if (!paymentId || !patientId) continue;
+
+      var orderDatetimeRaw = colOrderDt ? row[colOrderDt - 1] : "";
+      var itemsText = colItems ? String(row[colItems - 1] || "").trim() : "";
+      var productCode = colProd ? String(row[colProd - 1] || "").trim() : "";
+      var amountRaw = colAmount ? String(row[colAmount - 1] || "").trim() : "";
+      var paymentStatus = colPayStatus ? String(row[colPayStatus - 1] || "").trim() : "paid";
+      var refundStatus = colRefund ? String(row[colRefund - 1] || "").trim() : "";
+      var refundedAmountRaw = colRefAmt ? String(row[colRefAmt - 1] || "").trim() : "";
+      var refundedAtJst = colRefAt ? String(row[colRefAt - 1] || "").trim() : "";
+
+      var amount = Number(amountRaw) || 0;
+      var refundedAmount = Number(refundedAmountRaw);
+      if (!isFinite(refundedAmount)) refundedAmount = 0;
+
+      var productName = (itemsText && itemsText.trim()) ? itemsText : (productCode || "マンジャロ");
+      var paidAtJst = toJstYmdHms_(orderDatetimeRaw);
+
+      orders.push({
+        id: paymentId,
+        patient_id: patientId,
+        product_code: productCode,
+        product_name: productName,
+        amount: amount,
+        paid_at: paidAtJst,
+        shipping_status: "pending",
+        shipping_date: null,
+        tracking_number: null,
+        carrier: null,
+        payment_status: paymentStatus || "paid",
+        refund_status: refundStatus || null,
+        refunded_at: refundedAtJst || null,
+        refunded_amount: refundedAmount || null,
+      });
+
+      paymentIds.push(paymentId);
+    }
+
+    mark("parse_webhook_orders");
+    Logger.log("[getAllOrders] Parsed " + orders.length + " orders from webhook");
+
+    // 配送情報をマージ
+    mark("begin_merge_shipping");
+    try {
+      if (paymentIds.length > 0) {
+        var shipMap = getShippingIndexMap_(); // 全件取得（既存関数）
+        mark("get_all_shipping");
+
+        for (var oi = 0; oi < orders.length; oi++) {
+          var payId = orders[oi].id;
+          var s = shipMap[payId];
+          if (!s) continue;
+
+          if (s.tracking_number) orders[oi].tracking_number = s.tracking_number;
+          if (s.shipping_status) orders[oi].shipping_status = s.shipping_status;
+          if (s.shipping_date) orders[oi].shipping_date = s.shipping_date;
+          if (s.carrier) orders[oi].carrier = s.carrier;
+        }
+      }
+    } catch (eShip) {
+      Logger.log("[getAllOrders] Shipping merge error: " + eShip);
+      perf.push(["shipping_merge_error", String(eShip && eShip.message ? eShip.message : eShip)]);
+    }
+    mark("end_merge_shipping");
+
+    Logger.log("[getAllOrders] Returning " + orders.length + " orders with shipping info");
+    return { ok: true, orders: orders, _perf: perf };
+
+  } catch (err) {
+    Logger.log("[getAllOrders] Error: " + err);
+    perf.push(["exception", String(err && err.message ? err.message : err)]);
+    return { ok: false, error: String(err && err.message ? err.message : err), orders: [], _perf: perf };
   }
 }
 
@@ -3679,4 +3840,145 @@ function migrateIntakeDataToSupabaseFast() {
   Logger.log("=== Fast Migration Completed ===");
   Logger.log("Total records written: " + totalCount);
   Logger.log("Skipped records: " + skippedCount);
+}
+
+// =====================
+// onEdit トリガー：shipping_index編集時にSupabase orders更新
+// =====================
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+
+    var sheet = e.range.getSheet();
+    var sheetName = sheet.getName();
+
+    // shipping_index シートの編集のみ処理
+    if (sheetName !== "shipping_index") return;
+
+    var row = e.range.getRow();
+    if (row < 2) return; // ヘッダー行は無視
+
+    Logger.log("[onEdit] shipping_index edited at row " + row);
+
+    // 編集行のデータを取得
+    var lastCol = sheet.getLastColumn();
+    var rowData = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+
+    // ヘッダーマップを作成
+    var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var col = function(name) {
+      var idx = header.indexOf(name);
+      return idx >= 0 ? rowData[idx] : null;
+    };
+
+    var paymentId = String(col("payment_id") || "").trim();
+    if (!paymentId) {
+      Logger.log("[onEdit] No payment_id in edited row, skipping");
+      return;
+    }
+
+    // 配送情報を取得
+    var shippingStatus = String(col("shipping_status") || "").trim() || null;
+    var shippingDate = col("shipping_date");
+    var trackingNumber = String(col("tracking_number") || "").trim() || null;
+    var carrier = String(col("carrier") || "").trim() || null;
+
+    // 日付変換
+    var shippingDateStr = null;
+    if (shippingDate instanceof Date) {
+      shippingDateStr = Utilities.formatDate(shippingDate, "Asia/Tokyo", "yyyy-MM-dd");
+    } else if (shippingDate) {
+      shippingDateStr = String(shippingDate).trim();
+    }
+
+    Logger.log("[onEdit] Updating order: " + paymentId);
+    Logger.log("  shipping_status: " + shippingStatus);
+    Logger.log("  shipping_date: " + shippingDateStr);
+    Logger.log("  tracking_number: " + trackingNumber);
+    Logger.log("  carrier: " + carrier);
+
+    // Supabase更新
+    updateSupabaseOrder_(paymentId, {
+      shipping_status: shippingStatus,
+      shipping_date: shippingDateStr,
+      tracking_number: trackingNumber,
+      carrier: carrier,
+    });
+
+  } catch (err) {
+    Logger.log("[onEdit] Error: " + err);
+  }
+}
+
+/**
+ * onEditトリガーをセットアップ（初回のみ手動実行）
+ */
+function setupOnEditTrigger() {
+  // 既存のonEditトリガーを削除
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "onEdit") {
+      ScriptApp.deleteTrigger(triggers[i]);
+      Logger.log("Deleted existing onEdit trigger");
+    }
+  }
+
+  // 新しいonEditトリガーを作成
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  ScriptApp.newTrigger("onEdit")
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  Logger.log("✅ onEdit trigger created successfully");
+}
+
+/**
+ * Supabase orders テーブルを更新
+ */
+function updateSupabaseOrder_(paymentId, updates) {
+  if (!paymentId) return;
+
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[updateSupabaseOrder] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+    return;
+  }
+
+  var endpoint = supabaseUrl + "/rest/v1/orders?id=eq." + paymentId;
+
+  try {
+    var payload = {
+      shipping_status: updates.shipping_status,
+      shipping_date: updates.shipping_date,
+      tracking_number: updates.tracking_number,
+      carrier: updates.carrier,
+      updated_at: new Date().toISOString(),
+    };
+
+    var response = UrlFetchApp.fetch(endpoint, {
+      method: "patch",
+      contentType: "application/json",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: "Bearer " + supabaseKey,
+        Prefer: "return=minimal",
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[updateSupabaseOrder] Updated payment_id=" + paymentId);
+    } else {
+      var body = response.getContentText();
+      Logger.log("[updateSupabaseOrder] Failed: code=" + code + " body=" + body);
+    }
+  } catch (e) {
+    Logger.log("[updateSupabaseOrder] Error: " + e);
+  }
 }
