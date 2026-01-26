@@ -192,6 +192,61 @@ async function getNextReservationFromSupabase(
   }
 }
 
+/**
+ * Supabaseから注文情報を取得
+ */
+async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("paid_at", { ascending: false });
+
+    if (error) {
+      console.error("[Supabase] getOrders error:", error);
+      return [];
+    }
+
+    if (!data || data.length === 0) {
+      console.log(`[Supabase] No orders found for patient_id=${patientId}`);
+      return [];
+    }
+
+    console.log(`[Supabase] Found ${data.length} orders for patient_id=${patientId}`);
+
+    return data.map((o: any) => {
+      const paidAt = o.paid_at || "";
+      const refundStatus = normalizeRefundStatus(o.refund_status);
+      const refundedAt = o.refunded_at || "";
+
+      const shippingEta = o.shipping_date || undefined;
+      const carrier =
+        normalizeCarrier(o.carrier) ??
+        inferCarrierFromDates({ shippingEta: shippingEta || "", paidAt });
+
+      return {
+        id: o.id,
+        productCode: o.product_code || "",
+        productName: o.product_name || "",
+        amount: o.amount || 0,
+        paidAt,
+        shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
+        shippingEta,
+        trackingNumber: o.tracking_number || undefined,
+        paymentStatus: normalizePaymentStatus(o.payment_status),
+        carrier,
+        refundStatus,
+        refundedAt: refundedAt || undefined,
+        refundedAmount: o.refunded_amount || undefined,
+      };
+    });
+  } catch (err) {
+    console.error("[Supabase] getOrders error:", err);
+    return [];
+  }
+}
+
 export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
@@ -227,74 +282,104 @@ export async function POST(_req: NextRequest) {
 
     console.log(`[Cache] Miss: ${cacheKey}`);
 
-    // ★ GAS 呼び出しは 1本だけ（getDashboard に hasIntake を含める想定）
-    const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
-
-    const dash = await fetchJsonText(dashboardUrl);
-
-    if (!dash.ok) {
-      console.error("GAS getDashboard HTTP error:", dash.status);
-      return fail("gas_error", 500);
-    }
-
+    // ★ Supabaseモードでは軽量GAS呼び出し（patient情報のみ）
     let gasJson: GasDashboardResponse;
-    try {
-      gasJson = JSON.parse(dash.text) as GasDashboardResponse;
-    } catch {
-      console.error("GAS getDashboard JSON parse error");
-      return fail("gas_invalid_json", 500);
+    let hasIntake = false;
+    let intakeId = "";
+    let existingLineUserId = "";
+    let shouldSaveLineUserId = false;
+
+    if (USE_SUPABASE) {
+      // ★ Supabaseモード：patient情報とreordersのみGASから取得
+      const lightDashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+      const dash = await fetchJsonText(lightDashboardUrl);
+
+      if (!dash.ok) {
+        console.error("GAS getDashboard HTTP error:", dash.status);
+        return fail("gas_error", 500);
+      }
+
+      try {
+        gasJson = JSON.parse(dash.text) as GasDashboardResponse;
+      } catch {
+        console.error("GAS getDashboard JSON parse error");
+        return fail("gas_invalid_json", 500);
+      }
+
+      hasIntake = gasJson.hasIntake === true;
+      intakeId = safeStr(gasJson.intakeId || "");
+      existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
+      shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
+    } else {
+      // ★ GASモード：従来通り全データ取得
+      const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
+      const dash = await fetchJsonText(dashboardUrl);
+
+      if (!dash.ok) {
+        console.error("GAS getDashboard HTTP error:", dash.status);
+        return fail("gas_error", 500);
+      }
+
+      try {
+        gasJson = JSON.parse(dash.text) as GasDashboardResponse;
+      } catch {
+        console.error("GAS getDashboard JSON parse error");
+        return fail("gas_invalid_json", 500);
+      }
+
+      hasIntake = gasJson.hasIntake === true;
+      intakeId = safeStr(gasJson.intakeId || "");
+      existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
+      shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
     }
 
-    // ★ hasIntake / intakeId は dashboard から取得（無ければ false/""）
-    const hasIntake = gasJson.hasIntake === true;
-    const intakeId = safeStr(gasJson.intakeId || "");
-
-    // line_user_id 保存判断（空欄の人だけ1回）
-    const existingLineUserId = safeStr(gasJson.patient?.line_user_id).trim();
-    const shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
-
-    // orders map（1回だけ）
-    const mapOrder = (o: any): OrderForMyPage => {
-      const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
-      const refundStatus = normalizeRefundStatus(o.refund_status);
-      const refundedAt = o.refunded_at_jst ? toIsoFromJstDateTime(o.refunded_at_jst) : "";
-
-      const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
-      const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
-
-      const carrier =
-        normalizeCarrier(o.carrier) ??
-        inferCarrierFromDates({ shippingEta: shippingEtaIso || "", paidAt });
-
-      return {
-        id: safeStr(o.id),
-        productCode: safeStr(o.product_code),
-        productName: safeStr(o.product_name),
-        amount: Number(o.amount) || 0,
-        paidAt,
-        shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
-        shippingEta,
-        trackingNumber: safeStr(o.tracking_number) || undefined,
-        paymentStatus: normalizePaymentStatus(o.payment_status),
-        carrier,
-        refundStatus,
-        refundedAt: refundedAt || undefined,
-        refundedAmount: toNumberOrUndefined(o.refunded_amount),
-      };
-    };
-
-    const ordersAll: OrderForMyPage[] = Array.isArray(gasJson.orders)
-      ? gasJson.orders.map(mapOrder)
-      : [];
-
-    // ★ USE_SUPABASE=true の場合は予約情報をSupabaseから取得
+    // ★ USE_SUPABASE=true の場合は注文情報をSupabaseから取得
+    let ordersAll: OrderForMyPage[] = [];
     let nextReservation: { id: string; datetime: string; title: string; status: string } | null = null;
 
     if (USE_SUPABASE) {
-      console.log(`[Supabase] Fetching reservation for patient_id=${patientId}`);
+      console.log(`[Supabase] Fetching orders and reservation for patient_id=${patientId}`);
+
+      // 注文情報をSupabaseから取得
+      ordersAll = await getOrdersFromSupabase(patientId);
+
+      // 予約情報をSupabaseから取得
       nextReservation = await getNextReservationFromSupabase(patientId);
     } else {
       // GASから取得（従来通り）
+      const mapOrder = (o: any): OrderForMyPage => {
+        const paidAt = o.paid_at_jst ? toIsoFromJstDateTime(o.paid_at_jst) : "";
+        const refundStatus = normalizeRefundStatus(o.refund_status);
+        const refundedAt = o.refunded_at_jst ? toIsoFromJstDateTime(o.refunded_at_jst) : "";
+
+        const shippingEtaIso = o.shipping_eta ? toIsoFromJstDateOrDateTime(o.shipping_eta) : "";
+        const shippingEta = shippingEtaIso || (safeStr(o.shipping_eta) || undefined);
+
+        const carrier =
+          normalizeCarrier(o.carrier) ??
+          inferCarrierFromDates({ shippingEta: shippingEtaIso || "", paidAt });
+
+        return {
+          id: safeStr(o.id),
+          productCode: safeStr(o.product_code),
+          productName: safeStr(o.product_name),
+          amount: Number(o.amount) || 0,
+          paidAt,
+          shippingStatus: (safeStr(o.shipping_status) || "pending") as ShippingStatus,
+          shippingEta,
+          trackingNumber: safeStr(o.tracking_number) || undefined,
+          paymentStatus: normalizePaymentStatus(o.payment_status),
+          carrier,
+          refundStatus,
+          refundedAt: refundedAt || undefined,
+          refundedAmount: toNumberOrUndefined(o.refunded_amount),
+        };
+      };
+
+      ordersAll = Array.isArray(gasJson.orders)
+        ? gasJson.orders.map(mapOrder)
+        : [];
+
       nextReservation = gasJson.nextReservation
         ? {
             id: safeStr(gasJson.nextReservation.id),
@@ -304,6 +389,22 @@ export async function POST(_req: NextRequest) {
           }
         : null;
     }
+
+    // ★ ordersFlags を計算（Supabase or GAS）
+    const hasAnyPaidOrder = ordersAll.length > 0;
+    const ordersFlags = USE_SUPABASE
+      ? {
+          canPurchaseCurrentCourse: !hasAnyPaidOrder,
+          canApplyReorder: hasAnyPaidOrder,
+          hasAnyPaidOrder,
+        }
+      : {
+          canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
+          canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
+          hasAnyPaidOrder:
+            gasJson.flags?.hasAnyPaidOrder ??
+            (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
+        };
 
     const payload = {
       ok: true,
@@ -316,13 +417,7 @@ export async function POST(_req: NextRequest) {
       nextReservation,
       activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED"),
       orders: ordersAll,
-      ordersFlags: {
-        canPurchaseCurrentCourse: gasJson.flags?.canPurchaseCurrentCourse ?? false,
-        canApplyReorder: gasJson.flags?.canApplyReorder ?? false,
-        hasAnyPaidOrder:
-          gasJson.flags?.hasAnyPaidOrder ??
-          (Array.isArray(gasJson.orders) ? gasJson.orders.length > 0 : false),
-      },
+      ordersFlags,
       reorders: Array.isArray(gasJson.reorders)
         ? gasJson.reorders.map((r: any) => ({
             id: safeStr(r.id),
