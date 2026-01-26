@@ -168,7 +168,7 @@ async function getNextReservationFromSupabase(
       .not("reserve_id", "is", null)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
-      .neq("status", "キャンセル") // ★ キャンセルされた予約を除外
+      .or("status.is.null,status.neq.キャンセル") // ★ status=null または status!='キャンセル'
       .order("reserved_date", { ascending: true })
       .order("reserved_time", { ascending: true })
       .limit(1)
