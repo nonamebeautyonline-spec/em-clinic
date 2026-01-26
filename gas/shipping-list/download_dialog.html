@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+</head>
+<body>
+  <h3>CSV（Shift_JIS形式）をダウンロード</h3>
+  <a id="download" href="#" download="<?= name ?>.csv">▶ CSVをダウンロード</a>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.3.7/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/encoding-japanese/1.0.28/encoding.min.js"></script>
+  <script>
+    // テンプレート埋め込みは必ず文字列として受ける
+    const valuesJson = '<?= values ?>';
+    const values = JSON.parse(valuesJson);
+
+    const csv = Papa.unparse(values);
+
+    const sjisArray = Encoding.convert(csv, {
+      from: 'UNICODE',
+      to: 'SJIS',
+      type: 'array'
+    });
+
+    const blob = new Blob([new Uint8Array(sjisArray)], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    document.getElementById("download").href = url;
+  </script>
+</body>
+</html>

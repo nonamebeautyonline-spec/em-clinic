@@ -297,10 +297,10 @@ export async function POST(_req: NextRequest) {
       perf: (gasJson as any).perf || [],
     };
 
-    // ★ キャッシュに保存（60秒）
+    // ★ キャッシュに保存（30分 = 1800秒）
     try {
-      await redis.set(cacheKey, payload, { ex: 60 });
-      console.log(`[Cache] Saved: ${cacheKey} (60s)`);
+      await redis.set(cacheKey, payload, { ex: 1800 });
+      console.log(`[Cache] Saved: ${cacheKey} (30min)`);
     } catch (error) {
       console.error("[Cache] Failed to save cache:", error, {
         patientId,

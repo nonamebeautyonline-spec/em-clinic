@@ -1,0 +1,934 @@
+// ===== 予約用 GAS（1枠あたり2人まで ＋ 1人1件まで） =====
+
+const SPREADSHEET_ID = "1j932bAhjOAN1fF55gU07F4VRMWi9yTphoejCGJHFwuo";
+const SHEET_NAME_RESERVE = "予約";
+
+const SLOT_CAPACITY = 2; // 1枠あたり2人まで
+
+// 列番号（1始まり）
+const COL_TIMESTAMP   = 1; // A
+const COL_RESERVE_ID  = 2; // B
+const COL_PATIENT_ID  = 3; // C: PatientID（旧 lineId）
+const COL_NAME        = 4; // D
+const COL_DATE        = 5; // E
+const COL_TIME        = 6; // F
+const COL_STATUS      = 7; // G: status（キャンセルなど）
+
+// 問診シート（PID一致行に reserveId / 日時を同期する用）
+const SHEET_NAME_INTAKE           = "問診";
+const COL_RESERVE_ID_INTAKE       = 2;  // B: reserveId
+const COL_RESERVED_DATE_INTAKE    = 8;  // H: reserved_date
+const COL_RESERVED_TIME_INTAKE    = 9;  // I: reserved_time
+const COL_PID_INTAKE              = 26; // Z: patient_id (Patient_ID を転記済み想定)
+
+    function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+function doPost(e) {
+  try {
+    const raw = e.postData && e.postData.contents ? e.postData.contents : "{}";
+    Logger.log("RESERVE doPost raw: " + raw);
+
+    const body = JSON.parse(raw);
+    const type = body.type || "createReservation";
+
+    const adminTypes = new Set([
+  "getDoctors",
+  "upsertDoctor",
+  "getWeeklyRules",
+  "upsertWeeklyRules",
+  "getOverrides",
+  "upsertOverride",
+  "deleteOverride",
+  "getScheduleRange",
+]);
+
+const token = String(body.token || "");
+if (adminTypes.has(type)) {
+  const expected = PropertiesService.getScriptProperties().getProperty("ADMIN_TOKEN") || "";
+  if (!expected || token !== expected) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unauthorized" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+
+    function toYMD_(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, "Asia/Tokyo", "yyyy-MM-dd");
+  }
+  const s = String(v).trim();
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return s;
+}
+
+function toHHMM_(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    const h = v.getHours();
+    const m = v.getMinutes();
+    return ("0" + h).slice(-2) + ":" + ("0" + m).slice(-2);
+  }
+  const s = String(v).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) return ("0" + Number(m[1])).slice(-2) + ":" + m[2];
+  return s;
+}
+
+
+// ---------- ① 予約作成（createReservation） ----------
+if (type === "createReservation") {
+  // ★ date/time は必ず正規化（表記ゆれ吸収）
+  const reqDate = toYMD_(body.date);
+  const reqTime = toHHMM_(body.time);
+
+  const patientId = String(body.patient_id || "").trim();
+  if (!patientId) {
+    return jsonResponse({ ok: false, error: "patient_id_required" });
+  }
+
+  const name = findNameFromIntakeByPid_(ss, patientId);
+
+  if (!reqDate || !reqTime) {
+    return jsonResponse({ ok: false, error: "invalid_request" });
+  }
+
+  // 🔒 ロックを取って「1人1件制限」と「枠カウント」をまとめて制御
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    // ===== 営業時間チェック（dr_default共通枠） =====
+    const sch = getEffectiveSchedule_(ss, reqDate, SCHEDULE_DOCTOR_ID_DEFAULT);
+
+    if (!sch.isOpen) {
+      return jsonResponse({ ok: false, error: "outside_hours", reason: sch.reason });
+    }
+
+    // time が営業時間内か + 15分刻みかチェック
+    const tMin = parseMin_(reqTime);
+    const sMin = parseMin_(sch.start);
+    const eMin = parseMin_(sch.end);
+
+    if (Number.isNaN(tMin) || Number.isNaN(sMin) || Number.isNaN(eMin)) {
+      return jsonResponse({ ok: false, error: "invalid_time" });
+    }
+
+    // start <= time < end
+    if (!(sMin <= tMin && tMin < eMin)) {
+      return jsonResponse({ ok: false, error: "outside_hours" });
+    }
+
+    // 15分刻み（slot_minutes）
+    if (sch.slotMinutes > 0 && ((tMin - sMin) % sch.slotMinutes !== 0)) {
+      return jsonResponse({ ok: false, error: "invalid_slot" });
+    }
+
+    // ===== 既存予約（1人1件）＆ 枠カウント（capacity）を一括判定（高速化） =====
+    const lastRow = sheet.getLastRow();
+    const numRows = Math.max(0, lastRow - 1);
+
+    let hasActiveReservation = false;
+    let count = 0;
+
+    if (numRows > 0) {
+      // C..G（patient_id, name, date, time, status）を一括取得
+      const rows = sheet.getRange(2, COL_PATIENT_ID, numRows, 5).getDisplayValues();
+      // idx: 0=C pid, 2=E date, 3=F time, 4=G status
+
+      for (let i = 0; i < rows.length; i++) {
+        const pid = String(rows[i][0] || "").trim();
+        const d   = String(rows[i][2] || "").trim();
+        const t   = String(rows[i][3] || "").trim();
+        const st  = String(rows[i][4] || "").trim();
+
+        // 1人1件（キャンセル以外が1つでもあればNG）
+        if (pid && pid === patientId && st !== "キャンセル") {
+          hasActiveReservation = true;
+          break;
+        }
+
+        // 枠カウント（キャンセル除外）
+        if (d === reqDate && t === reqTime && st !== "キャンセル") {
+          count++;
+        }
+      }
+    }
+
+    if (hasActiveReservation) {
+      return jsonResponse({ ok: false, error: "already_reserved" });
+    }
+
+    if (count >= sch.capacity) {
+      return jsonResponse({ ok: false, error: "slot_full" });
+    }
+
+    // ===== 予約OK → 行追加 =====
+    const reserveId = "resv-" + new Date().getTime();
+    const now = new Date();
+
+    sheet.appendRow([
+      now,       // A: timestamp
+      reserveId, // B: reserveId
+      patientId, // C: PatientID（PID）
+      name,      // D: 名前
+      reqDate,   // E: "YYYY-MM-DD"
+      reqTime,   // F: "HH:mm"
+      "",        // G: status（空＝有効）
+    ]);
+
+    // ===== 問診シート側に reserveId / 日時を同期（最小アクセス） =====
+    const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+    if (intakeSheet) {
+      const lastIntakeRow = intakeSheet.getLastRow();
+      if (lastIntakeRow >= 2) {
+        // PID列（Z）だけ見る
+        const pidCol = intakeSheet.getRange(2, COL_PID_INTAKE, lastIntakeRow - 1, 1).getValues();
+
+        for (let i = pidCol.length - 1; i >= 0; i--) {
+          const pid = String(pidCol[i][0] || "").trim();
+          if (!pid || pid !== patientId) continue;
+
+          const rowNo = i + 2;
+          intakeSheet.getRange(rowNo, COL_RESERVE_ID_INTAKE).setValue(reserveId);
+          intakeSheet.getRange(rowNo, COL_RESERVED_DATE_INTAKE).setValue(reqDate);
+          intakeSheet.getRange(rowNo, COL_RESERVED_TIME_INTAKE).setValue(reqTime);
+          break; // 問診は1回のみ前提
+        }
+      }
+    }
+
+    return jsonResponse({ ok: true, reserveId: reserveId });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+    // ---------- ② 予約日時変更（updateReservation） ----------
+    if (type === "updateReservation") {
+      const reserveId = String(body.reserveId || body.reservationId || body.id || "").trim();
+      const newDate   = String(body.date || "").trim(); // "2025-12-05"
+      const newTime   = String(body.time || "").trim(); // "10:00"
+
+      Logger.log(
+        "updateReservation request: reserveId=" +
+          reserveId +
+          " date=" +
+          newDate +
+          " time=" +
+          newTime
+      );
+
+      if (!reserveId || !newDate || !newTime) {
+        return ContentService.createTextOutput(
+          JSON.stringify({
+            ok: false,
+            error: "reserveId/date/time required",
+          })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const reserveSheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+      const values = reserveSheet.getDataRange().getValues();
+
+      let found = false;
+
+      // 予約シートの日時を更新
+      for (let r = 1; r < values.length; r++) {
+        // values[0] はヘッダ
+        const rid = String(values[r][COL_RESERVE_ID - 1] || "").trim();
+        if (!rid) continue;
+        if (rid === reserveId) {
+          reserveSheet.getRange(r + 1, COL_DATE).setValue(newDate);
+          reserveSheet.getRange(r + 1, COL_TIME).setValue(newTime);
+          found = true;
+          Logger.log("updateReservation row: " + (r + 1));
+          break;
+        }
+      }
+
+      if (!found) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ ok: false, error: "reserveId not found" })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      // 問診シート側の予約日／時間も更新（あれば）
+      const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+      if (intakeSheet) {
+        const intakeValues = intakeSheet.getDataRange().getValues();
+        for (let r = 1; r < intakeValues.length; r++) {
+          const rid = String(
+            intakeValues[r][COL_RESERVE_ID_INTAKE - 1] || ""
+          ).trim();
+          if (!rid) continue;
+          if (rid === reserveId) {
+            intakeSheet
+              .getRange(r + 1, COL_RESERVED_DATE_INTAKE)
+              .setValue(newDate);
+            intakeSheet
+              .getRange(r + 1, COL_RESERVED_TIME_INTAKE)
+              .setValue(newTime);
+            Logger.log("updateReservation (intake) row: " + (r + 1));
+          }
+        }
+      }
+
+      return ContentService.createTextOutput(
+        JSON.stringify({ ok: true })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+
+    // ---------- ③ 予約キャンセル（cancelReservation） ----------
+
+    if (type === "cancelReservation") {
+      const reserveId = String(body.reserveId || body.reservationId || body.id || "").trim();
+      Logger.log("cancelReservation request: reserveId=" + reserveId);
+
+      if (!reserveId) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ ok: false, error: "reserveId required" })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ ok: false, error: "no data" })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const values = sheet.getDataRange().getValues();
+      let found = false;
+
+      // values[0] はヘッダ行なので、1行目（シート上2行目）から
+      for (let r = 1; r < values.length; r++) {
+        const row = values[r];
+        const rid = String(row[COL_RESERVE_ID - 1] || "").trim();
+        if (!rid) continue;
+        if (rid === reserveId) {
+          sheet.getRange(r + 1, COL_STATUS).setValue("キャンセル");
+          // 問診シート側の reserveId / 日時をクリア
+const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+if (intakeSheet) {
+  const intakeValues = intakeSheet.getDataRange().getValues();
+  for (let r = 1; r < intakeValues.length; r++) {
+    const rid = String(intakeValues[r][COL_RESERVE_ID_INTAKE - 1] || "").trim();
+    if (rid === reserveId) {
+      intakeSheet.getRange(r + 1, COL_RESERVE_ID_INTAKE).setValue("");
+      intakeSheet.getRange(r + 1, COL_RESERVED_DATE_INTAKE).setValue("");
+      intakeSheet.getRange(r + 1, COL_RESERVED_TIME_INTAKE).setValue("");
+      Logger.log("intake cleared for canceled reserveId at row " + (r + 1));
+    }
+  }
+}
+
+          Logger.log("cancelReservation row: " + (r + 1));
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        return ContentService.createTextOutput(
+          JSON.stringify({ ok: false, error: "reserveId not found" })
+        ).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      return ContentService.createTextOutput(
+        JSON.stringify({ ok: true })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ---------- ④ 日付別一覧（listByDate） ----------
+    // ---------- ④ 日付別一覧（listByDate） ----------
+    if (type === "listByDate") {
+      const targetDate = String(body.date || "").trim(); // "2025-12-12"
+      Logger.log("listByDate request: date=" + targetDate);
+
+      if (!targetDate) {
+        return jsonResponse({ ok: false, error: "date required" });
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: true, reservations: [] });
+      }
+
+      // E: date, F: time, G: status だけ見れば良い
+      const values = sheet.getRange(2, COL_DATE, lastRow - 1, 3).getValues();
+      const reservations = [];
+
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        const d = String(row[0] || "").trim(); // date
+        const t = String(row[1] || "").trim(); // time
+        const status = String(row[2] || "").trim(); // status
+
+        if (!d || !t) continue;
+        if (d !== targetDate) continue;
+        if (status === "キャンセル") continue;
+
+        reservations.push({
+          date: d,
+          time: t,
+        });
+      }
+
+      return jsonResponse({ ok: true, reservations });
+    }
+
+    // ---------- ⑤ 範囲一覧（listRange） ----------
+    if (type === "listRange") {
+      const startDateStr = String(body.startDate || "").trim(); // "2025-12-11"
+      const endDateStr   = String(body.endDate || "").trim();   // "2025-12-17"
+
+      Logger.log(
+        "listRange request: start=" + startDateStr + " end=" + endDateStr
+      );
+
+      if (!startDateStr || !endDateStr) {
+        return jsonResponse({ ok: false, error: "startDate/endDate required" });
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: true, slots: [] });
+      }
+
+      // E: date, F: time, G: status
+      const values = sheet.getRange(2, COL_DATE, lastRow - 1, 3).getValues();
+
+      // "YYYY-MM-DD" 形式なので、文字列比較で大小判定できる
+      const startKey = startDateStr;
+      const endKey   = endDateStr;
+
+      const map = {}; // key = "YYYY-MM-DD|HH:mm" → count
+
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+const dStr = toYMD_(row[0]);   // ★ yyyy-MM-dd に正規化
+const tStr = toHHMM_(row[1]);  // ★ HH:mm に正規化
+
+        const status = String(row[2] || "").trim(); // status
+
+        if (!dStr || !tStr) continue;
+        if (dStr < startKey || dStr > endKey) continue;
+        if (status === "キャンセル") continue;
+
+        const key = dStr + "|" + tStr;
+        map[key] = (map[key] || 0) + 1;
+      }
+
+      const slots = [];
+      for (const key in map) {
+        const [d, t] = key.split("|");
+        slots.push({
+          date: d,
+          time: t,
+          count: map[key],
+        });
+      }
+
+      // 並び替え（任意）
+      slots.sort((a, b) => {
+        if (a.date === b.date) {
+          return a.time < b.time ? -1 : a.time > b.time ? 1 : 0;
+        }
+        return a.date < b.date ? -1 : 1;
+      });
+
+      return jsonResponse({ ok: true, slots });
+    }
+
+    // =========================
+    // 管理UI（/rules / /slots）用 API
+    //  ※ adminTypes + tokenチェックを通過した後にここへ来る想定
+    // =========================
+
+    if (type === "getDoctors") {
+      const doctors = admin_getDoctors_(ss);
+      return jsonResponse({ ok: true, doctors });
+    }
+
+    if (type === "upsertDoctor") {
+      const doctor = admin_upsertDoctor_(ss, body.doctor || {});
+      return jsonResponse({ ok: true, doctor });
+    }
+
+    if (type === "getWeeklyRules") {
+      const doctorId = String(body.doctor_id || body.doctorId || "").trim();
+      const rules = admin_getWeeklyRules_(ss, doctorId);
+      return jsonResponse({ ok: true, rules });
+    }
+
+    if (type === "upsertWeeklyRules") {
+      const doctorId = String(body.doctor_id || body.doctorId || "").trim();
+      const rules = Array.isArray(body.rules) ? body.rules : [];
+      const saved = admin_upsertWeeklyRules_(ss, doctorId, rules);
+      return jsonResponse({ ok: true, rules: saved });
+    }
+
+    if (type === "getOverrides") {
+      const doctorId = String(body.doctor_id || body.doctorId || "").trim();
+      const start = String(body.start || "").trim();
+      const end = String(body.end || "").trim();
+      const overrides = admin_getOverrides_(ss, doctorId, start, end);
+      return jsonResponse({ ok: true, overrides });
+    }
+
+    if (type === "upsertOverride") {
+      const override = admin_upsertOverride_(ss, body.override || {});
+      return jsonResponse({ ok: true, override });
+    }
+
+    if (type === "deleteOverride") {
+      const doctorId = String(body.doctor_id || body.doctorId || "").trim();
+      const date = String(body.date || "").trim(); // YYYY-MM-DD
+      const deleted = admin_deleteOverride_(ss, doctorId, date);
+      return jsonResponse({ ok: true, deleted });
+    }
+
+    if (type === "getScheduleRange") {
+      const doctorId = String(body.doctor_id || body.doctorId || "").trim();
+      const start = String(body.start || "").trim();
+      const end = String(body.end || "").trim();
+
+      const doctors = admin_getDoctors_(ss);
+      const weekly_rules = admin_getWeeklyRules_(ss, doctorId);
+      const overrides = admin_getOverrides_(ss, doctorId, start, end);
+
+      return jsonResponse({ ok: true, doctors, weekly_rules, overrides });
+    }
+
+
+Logger.log("unknown type: " + type);
+return jsonResponse({ ok: false, error: "unknown type" });
+} catch (err) {
+Logger.log("RESERVE doPost ERROR: " + err);
+return jsonResponse({ ok: false, error: String(err) });
+}
+
+}
+
+// =========================
+// 管理UI用ユーティリティ & CRUD
+// =========================
+const SHEET_DOCTORS = "doctors";
+const SHEET_WEEKLY = "weekly_rules";
+const SHEET_OVERRIDES = "date_overrides";
+
+function admin_getSheet_(ss, name) {
+  const sh = ss.getSheetByName(name);
+  if (!sh) throw new Error("Missing sheet: " + name);
+  return sh;
+}
+
+function admin_read_(ss, sheetName) {
+  const sh = admin_getSheet_(ss, sheetName);
+  const values = sh.getDataRange().getValues();
+  const headers = (values[0] || []).map(String);
+  const rows = values.length >= 2 ? values.slice(1).map((r) => admin_rowToObj_(headers, r)) : [];
+  return { sh, headers, rows };
+}
+
+function admin_rowToObj_(headers, row) {
+  const o = {};
+  for (let i = 0; i < headers.length; i++) o[headers[i]] = row[i];
+  return o;
+}
+
+function admin_objToRow_(headers, obj) {
+  return headers.map((h) => (obj[h] !== undefined ? obj[h] : ""));
+}
+
+function admin_nowIso_() {
+  return new Date().toISOString();
+}
+
+// -------- doctors --------
+function admin_getDoctors_(ss) {
+  const { rows } = admin_read_(ss, SHEET_DOCTORS);
+  return rows
+    .map((d) => ({
+      doctor_id: String(d.doctor_id || "").trim(),
+      doctor_name: String(d.doctor_name || "").trim(),
+      is_active: String(d.is_active).toUpperCase() === "TRUE",
+      sort_order: Number(d.sort_order || 0),
+      color: String(d.color || "").trim(),
+    }))
+    .filter((d) => d.doctor_id)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+}
+
+function admin_upsertDoctor_(ss, doctor) {
+  const did = String(doctor.doctor_id || "").trim();
+  if (!did) throw new Error("doctor_id required");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const { sh, headers, rows } = admin_read_(ss, SHEET_DOCTORS);
+    const idx = rows.findIndex((r) =>
+  String(r.doctor_id || "").trim() === did && admin_dateToYMD_(r.date) === d
+);
+
+
+    const record = {
+      doctor_id: did,
+      doctor_name: String(doctor.doctor_name || ""),
+      is_active: doctor.is_active ? "TRUE" : "FALSE",
+      sort_order: doctor.sort_order != null ? Number(doctor.sort_order) : 0,
+      color: String(doctor.color || ""),
+    };
+
+    if (idx >= 0) {
+      sh.getRange(idx + 2, 1, 1, headers.length).setValues([admin_objToRow_(headers, record)]);
+    } else {
+      sh.appendRow(admin_objToRow_(headers, record));
+    }
+    return record;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// -------- weekly_rules --------
+function admin_getWeeklyRules_(ss, doctorId) {
+  const { rows } = admin_read_(ss, SHEET_WEEKLY);
+  const did = String(doctorId || "").trim();
+
+  return rows
+    .filter((r) => (did ? String(r.doctor_id || "").trim() === did : true))
+    .map((r) => ({
+      doctor_id: String(r.doctor_id || "").trim(),
+      weekday: Number(r.weekday),
+      enabled: String(r.enabled).toUpperCase() === "TRUE",
+start_time: admin_timeToHHMM_(r.start_time),
+end_time: admin_timeToHHMM_(r.end_time),
+      slot_minutes: Number(r.slot_minutes || 15),
+      capacity: Number(r.capacity || 2),
+      updated_at: String(r.updated_at || ""),
+    }))
+    .filter((r) => r.doctor_id && !Number.isNaN(r.weekday));
+}
+
+function admin_upsertWeeklyRules_(ss, doctorId, rules) {
+  const did = String(doctorId || "").trim();
+  if (!did) throw new Error("doctor_id required");
+  if (!Array.isArray(rules)) throw new Error("rules must be array");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const { sh, headers, rows } = admin_read_(ss, SHEET_WEEKLY);
+
+    // existing index by doctor_id + weekday
+    const map = new Map();
+    rows.forEach((r, i) => {
+      const k = String(r.doctor_id || "").trim() + "::" + String(r.weekday);
+      map.set(k, i);
+    });
+
+    for (const rule of rules) {
+      const weekday = Number(rule.weekday);
+      if (Number.isNaN(weekday) || weekday < 0 || weekday > 6) throw new Error("weekday must be 0..6");
+
+      const record = {
+        doctor_id: did,
+        weekday: weekday,
+        enabled: rule.enabled ? "TRUE" : "FALSE",
+        start_time: String(rule.start_time || ""),
+        end_time: String(rule.end_time || ""),
+        slot_minutes: rule.slot_minutes != null ? Number(rule.slot_minutes) : 15,
+        capacity: rule.capacity != null ? Number(rule.capacity) : 2,
+        updated_at: admin_nowIso_(),
+      };
+
+      const key = did + "::" + String(weekday);
+      if (map.has(key)) {
+        const idx = map.get(key);
+        sh.getRange(idx + 2, 1, 1, headers.length).setValues([admin_objToRow_(headers, record)]);
+      } else {
+        sh.appendRow(admin_objToRow_(headers, record));
+      }
+    }
+
+    return admin_getWeeklyRules_(ss, did);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// -------- date_overrides --------
+function admin_getOverrides_(ss, doctorId, start, end) {
+  const { rows } = admin_read_(ss, SHEET_OVERRIDES);
+  const did = String(doctorId || "").trim();
+  const s = String(start || "").trim();
+  const e = String(end || "").trim();
+
+  return rows
+    .filter((r) => (did ? String(r.doctor_id || "").trim() === did : true))
+    .filter((r) => {
+const d = admin_dateToYMD_(r.date);
+      if (!s && !e) return true;
+      if (s && d < s) return false;
+      if (e && d > e) return false;
+      return true;
+    })
+    .map((r) => ({
+      doctor_id: String(r.doctor_id || "").trim(),
+date: admin_dateToYMD_(r.date),
+      type: String(r.type || "").trim(), // closed/open/modify
+start_time: admin_timeToHHMM_(r.start_time),
+end_time: admin_timeToHHMM_(r.end_time),
+
+      slot_minutes: r.slot_minutes === "" ? "" : Number(r.slot_minutes || 15),
+      capacity: r.capacity === "" ? "" : Number(r.capacity || 2),
+      memo: String(r.memo || ""),
+      updated_at: String(r.updated_at || ""),
+    }))
+    .filter((r) => r.doctor_id && r.date);
+}
+
+function admin_upsertOverride_(ss, override) {
+  const did = String(override.doctor_id || "").trim();
+  const date = String(override.date || "").trim();
+  if (!did || !date) throw new Error("override.doctor_id and override.date required");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const { sh, headers, rows } = admin_read_(ss, SHEET_OVERRIDES);
+    const idx = rows.findIndex(
+      (r) => String(r.doctor_id || "").trim() === did && String(r.date || "").trim() === date
+    );
+
+    const record = {
+      doctor_id: did,
+      date: date,
+      type: String(override.type || "modify"),
+      start_time: String(override.start_time || ""),
+      end_time: String(override.end_time || ""),
+      slot_minutes: override.slot_minutes === "" || override.slot_minutes == null ? "" : Number(override.slot_minutes),
+      capacity: override.capacity === "" || override.capacity == null ? "" : Number(override.capacity),
+      memo: String(override.memo || ""),
+      updated_at: admin_nowIso_(),
+    };
+
+    if (idx >= 0) {
+      sh.getRange(idx + 2, 1, 1, headers.length).setValues([admin_objToRow_(headers, record)]);
+    } else {
+      sh.appendRow(admin_objToRow_(headers, record));
+    }
+    return record;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function admin_deleteOverride_(ss, doctorId, date) {
+  const did = String(doctorId || "").trim();
+  const d = String(date || "").trim();
+  if (!did || !d) throw new Error("doctor_id and date required");
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const { sh, rows } = admin_read_(ss, SHEET_OVERRIDES);
+    const idx = rows.findIndex(
+      (r) => String(r.doctor_id || "").trim() === did && String(r.date || "").trim() === d
+    );
+    if (idx < 0) return { found: false };
+    sh.deleteRow(idx + 2);
+    return { found: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function admin_timeToHHMM_(v) {
+  if (v === null || v === undefined || v === "") return "";
+  // Date 型（時刻セルは Date で来る）
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    const h = v.getHours();
+    const m = v.getMinutes();
+    return ("0" + h).slice(-2) + ":" + ("0" + m).slice(-2);
+  }
+  // 文字列なら HH:MM だけ拾う（"Sat Dec..." 等も救済）
+  const s = String(v).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) return ("0" + Number(m[1])).slice(-2) + ":" + m[2];
+  return s;
+}
+
+// ===== 予約時チェック用（dr_default共通枠） =====
+const SCHEDULE_DOCTOR_ID_DEFAULT = "dr_default";
+
+function admin_dateToYMD_(v) {
+  if (v === null || v === undefined || v === "") return "";
+  // Date型
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, "Asia/Tokyo", "yyyy-MM-dd");
+  }
+  // 文字列（YYYY-MM-DDが入っている場合を優先）
+  const s = String(v).trim();
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return s;
+}
+
+
+function timeToHHMM_(v) {
+  if (v === null || v === undefined || v === "") return "";
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    const h = v.getHours();
+    const m = v.getMinutes();
+    return ("0" + h).slice(-2) + ":" + ("0" + m).slice(-2);
+  }
+  const s = String(v).trim();
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) return ("0" + Number(m[1])).slice(-2) + ":" + m[2];
+  return s;
+}
+
+function parseMin_(hhmm) {
+  const m = String(hhmm || "").match(/(\d{1,2}):(\d{2})/);
+  if (!m) return NaN;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+// reqDate: "YYYY-MM-DD"
+function getEffectiveSchedule_(ss, reqDate, doctorId) {
+  const did = doctorId || SCHEDULE_DOCTOR_ID_DEFAULT;
+
+  // weekday (0..6)
+  const [y, mo, da] = reqDate.split("-").map(Number);
+  const dt = new Date(y, (mo || 1) - 1, da || 1);
+  const weekday = dt.getDay();
+
+  // weekly_rules
+  const weeklySh = ss.getSheetByName(SHEET_WEEKLY);
+  if (!weeklySh) throw new Error("Missing sheet: weekly_rules");
+
+  const wVals = weeklySh.getDataRange().getValues();
+  const wHead = wVals[0].map(String);
+  const idx = (name) => wHead.indexOf(name);
+
+  const iDoctor = idx("doctor_id");
+  const iWeekday = idx("weekday");
+  const iEnabled = idx("enabled");
+  const iStart = idx("start_time");
+  const iEnd = idx("end_time");
+  const iSlot = idx("slot_minutes");
+  const iCap = idx("capacity");
+
+  if ([iDoctor,iWeekday,iEnabled,iStart,iEnd,iSlot,iCap].some(v => v < 0)) {
+    throw new Error("weekly_rules header mismatch");
+  }
+
+  let base = null;
+  for (let r = 1; r < wVals.length; r++) {
+    const row = wVals[r];
+    const d = String(row[iDoctor] || "").trim();
+    const wd = Number(row[iWeekday]);
+    if (d === did && wd === weekday) {
+      base = row;
+      break;
+    }
+  }
+
+  const baseEnabled = base ? String(base[iEnabled]).toUpperCase() === "TRUE" : false;
+  const baseStart = base ? timeToHHMM_(base[iStart]) : "";
+  const baseEnd = base ? timeToHHMM_(base[iEnd]) : "";
+  const baseSlot = base ? Number(base[iSlot] || 15) : 15;
+  const baseCap = base ? Number(base[iCap] || 2) : 2;
+
+  // date_overrides（1 doctor × 1 date = 1行）
+  const ovSh = ss.getSheetByName(SHEET_OVERRIDES);
+  if (!ovSh) throw new Error("Missing sheet: date_overrides");
+
+  const oVals = ovSh.getDataRange().getValues();
+  const oHead = oVals[0].map(String);
+  const oIdx = (name) => oHead.indexOf(name);
+
+  const oDoctor = oIdx("doctor_id");
+  const oDate = oIdx("date");
+  const oType = oIdx("type");
+  const oStart = oIdx("start_time");
+  const oEnd = oIdx("end_time");
+  const oSlot = oIdx("slot_minutes");
+  const oCap = oIdx("capacity");
+
+  if ([oDoctor,oDate,oType,oStart,oEnd,oSlot,oCap].some(v => v < 0)) {
+    throw new Error("date_overrides header mismatch");
+  }
+
+let ov = null;
+// ★末尾（最新行）から探す
+for (let r = oVals.length - 1; r >= 1; r--) {
+  const row = oVals[r];
+  const d = String(row[oDoctor] || "").trim();
+  const date = admin_dateToYMD_(row[oDate]);
+  if (d === did && date === reqDate) {
+    ov = row;
+    break;
+  }
+}
+
+  const ovType = ov ? String(ov[oType] || "").trim() : "";
+  if (ovType === "closed") {
+    return { isOpen: false, reason: "closed" };
+  }
+
+const overrideOpens = (ovType === "open" || ovType === "modify");
+if (!baseEnabled && !overrideOpens) {
+  return { isOpen: false, reason: "weekly_closed" };
+}
+
+
+  const start = ov ? (timeToHHMM_(ov[oStart]) || baseStart) : baseStart;
+  const end = ov ? (timeToHHMM_(ov[oEnd]) || baseEnd) : baseEnd;
+
+  const slotMinutes = ov && ov[oSlot] !== "" && ov[oSlot] != null ? Number(ov[oSlot]) : baseSlot;
+  const capacity = ov && ov[oCap] !== "" && ov[oCap] != null ? Number(ov[oCap]) : baseCap;
+
+  if (!start || !end) {
+    return { isOpen: false, reason: "missing_hours" };
+  }
+
+  return { isOpen: true, start, end, slotMinutes, capacity };
+}
+
+function findNameFromIntakeByPid_(ss, patientId) {
+  const sh = ss.getSheetByName(SHEET_NAME_INTAKE);
+  if (!sh) return "";
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return "";
+
+  // 問診シート：D=氏名, Z=patient_id
+  const COL_NAME_INTAKE = 4; // D（1始まり）
+  const values = sh.getRange(2, 1, lastRow - 1, sh.getLastColumn()).getValues();
+
+  // 最新行優先
+  for (let i = values.length - 1; i >= 0; i--) {
+    const row = values[i];
+    const pid = String(row[COL_PID_INTAKE - 1] || "").trim(); // Z
+    if (pid !== String(patientId).trim()) continue;
+
+    const name = String(row[COL_NAME_INTAKE - 1] || "").trim();
+    if (name) return name;
+  }
+  return "";
+}
+
