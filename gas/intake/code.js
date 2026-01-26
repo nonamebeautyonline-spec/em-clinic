@@ -2900,9 +2900,9 @@ function bulkInvalidateCacheToday() {
   Logger.log("Total patients processed: " + invalidatedCount);
 }
 
-// ★ 今日11時以降にOKが出た患者のLINE IDを収集
-function collectLineIdsForOKPatientsToday() {
-  Logger.log("=== Collecting LINE IDs for OK patients today ===");
+// ★ 今日の予約でOKが出た患者のAnswerer IDを収集（L-Step用）
+function collectAnswererIdsForOKPatientsToday() {
+  Logger.log("=== Collecting Answerer IDs for OK patients today ===");
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_NAME_INTAKE);
@@ -2911,10 +2911,11 @@ function collectLineIdsForOKPatientsToday() {
     return;
   }
 
-  // 今日の11時（日本時間）を基準にする
+  // 今日の0時（日本時間）を基準にする
   var now = new Date();
-  var cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0, 0);
-  Logger.log("Cutoff time (JST): " + cutoffTime);
+  var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  var todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  Logger.log("Date range (JST): " + todayStart + " ~ " + todayEnd);
 
   var values = sheet.getDataRange().getValues();
   var results = [];
@@ -2940,8 +2941,8 @@ function collectLineIdsForOKPatientsToday() {
       reserveDate = new Date(reservedDateValue);
     }
 
-    // 今日11時以降の予約かチェック
-    if (reserveDate < cutoffTime) {
+    // 今日の予約かチェック
+    if (reserveDate < todayStart || reserveDate > todayEnd) {
       continue;
     }
 
@@ -2953,15 +2954,15 @@ function collectLineIdsForOKPatientsToday() {
     if (processedPatients[patientId]) continue;
     processedPatients[patientId] = true;
 
-    // LINE ID（G列、0-basedで6）を取得
-    var lineId = String(values[i][6] || "").trim();
+    // Answerer ID（Y列、24列目、0-basedで23）を取得
+    var answererId = String(values[i][23] || "").trim();
 
     // 患者名（D列、0-basedで3）を取得
     var name = String(values[i][3] || "").trim();
 
     results.push({
       patientId: patientId,
-      lineId: lineId,
+      answererId: answererId,
       name: name,
       reserveDate: reserveDate
     });
@@ -2973,23 +2974,23 @@ function collectLineIdsForOKPatientsToday() {
   Logger.log("");
 
   if (results.length === 0) {
-    Logger.log("No OK patients found after " + cutoffTime);
+    Logger.log("No OK patients found for today");
   } else {
-    Logger.log("LINE IDs (for L-Step):");
+    Logger.log("Answerer IDs (for L-Step):");
     Logger.log("----------------------");
 
-    var lineIds = [];
+    var answererIds = [];
     for (var j = 0; j < results.length; j++) {
       var r = results[j];
-      Logger.log((j + 1) + ". " + r.name + " (PID: " + r.patientId + ", LINE: " + r.lineId + ")");
-      if (r.lineId) {
-        lineIds.push(r.lineId);
+      Logger.log((j + 1) + ". " + r.name + " (PID: " + r.patientId + ", Answerer: " + r.answererId + ", Date: " + r.reserveDate + ")");
+      if (r.answererId) {
+        answererIds.push(r.answererId);
       }
     }
 
     Logger.log("");
     Logger.log("=== Copy this list for L-Step ===");
-    Logger.log(lineIds.join("\n"));
+    Logger.log(answererIds.join("\n"));
   }
 
   Logger.log("=== Collection Completed ===");
