@@ -2991,6 +2991,43 @@ function collectAnswererIdsForOKPatientsToday() {
     Logger.log("");
     Logger.log("=== Copy this list for L-Step ===");
     Logger.log(answererIds.join("\n"));
+
+    // スプレッドシートに出力
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var today = Utilities.formatDate(new Date(), TZ, "yyyyMMdd");
+    var sheetName = "L-Step_IDs_" + today;
+
+    // 既存のシートを削除（あれば）
+    var existingSheet = ss.getSheetByName(sheetName);
+    if (existingSheet) {
+      ss.deleteSheet(existingSheet);
+    }
+
+    // 新しいシートを作成
+    var newSheet = ss.insertSheet(sheetName);
+
+    // ヘッダーを追加
+    newSheet.getRange(1, 1).setValue("Answerer ID (L-Step用)");
+    newSheet.getRange(1, 2).setValue("患者名");
+    newSheet.getRange(1, 3).setValue("Patient ID");
+    newSheet.getRange(1, 4).setValue("予約日時");
+
+    // データを追加
+    for (var k = 0; k < results.length; k++) {
+      var r = results[k];
+      newSheet.getRange(k + 2, 1).setValue(r.answererId);
+      newSheet.getRange(k + 2, 2).setValue(r.name);
+      newSheet.getRange(k + 2, 3).setValue(r.patientId);
+      newSheet.getRange(k + 2, 4).setValue(r.reserveDate);
+    }
+
+    // 列幅を自動調整
+    newSheet.autoResizeColumns(1, 4);
+
+    Logger.log("");
+    Logger.log("=== Sheet Created ===");
+    Logger.log("Sheet name: " + sheetName);
+    Logger.log("A2:A" + (results.length + 1) + " contains the answerer IDs for L-Step");
   }
 
   Logger.log("=== Collection Completed ===");
