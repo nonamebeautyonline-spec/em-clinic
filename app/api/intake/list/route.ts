@@ -38,11 +38,13 @@ export async function GET(req: Request) {
       } else {
         // Supabaseから取得成功
         const rows = data.map((row: any) => ({
+          reserveId: row.reserve_id || "",  // フロントエンド互換のためcamelCase
           reserve_id: row.reserve_id || "",
           patient_id: row.patient_id,
           patient_name: row.patient_name,
           reserved_date: row.reserved_date || "",
           reserved_time: row.reserved_time || "",
+          予約時間: row.reserved_time || "",  // フロントエンド互換
           status: row.status || "",
           note: row.note || "",
           prescription_menu: row.prescription_menu || "",
