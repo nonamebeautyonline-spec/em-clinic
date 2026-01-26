@@ -142,12 +142,12 @@ export default function DoctorPage() {
   // =========================
   const fetchList = async () => {
     try {
-      // 日付範囲を指定（当日-7日～+30日）
+      // 日付範囲を指定（当日-2日～+5日）
       const now = new Date();
       const fromDate = new Date(now);
-      fromDate.setDate(now.getDate() - 7);
+      fromDate.setDate(now.getDate() - 2);
       const toDate = new Date(now);
-      toDate.setDate(now.getDate() + 30);
+      toDate.setDate(now.getDate() + 5);
 
       const fromIso = fromDate.toISOString().slice(0, 10);
       const toIso = toDate.toISOString().slice(0, 10);
