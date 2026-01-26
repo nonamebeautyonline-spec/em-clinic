@@ -2954,8 +2954,8 @@ function collectAnswererIdsForOKPatientsToday() {
     if (processedPatients[patientId]) continue;
     processedPatients[patientId] = true;
 
-    // Answerer ID（Y列、24列目、0-basedで23）を取得
-    var answererId = String(values[i][23] || "").trim();
+    // Answerer ID（Y列、25列目、0-basedで24）を取得
+    var answererId = String(values[i][24] || "").trim();
 
     // 患者名（D列、0-basedで3）を取得
     var name = String(values[i][3] || "").trim();
