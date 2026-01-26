@@ -347,7 +347,11 @@ if (!gasRes.ok || json?.ok !== true) {
     }
 
     // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({
+      ok: true,
+      reserveId: json.reserveId,
+      supabaseSync: json.supabaseSync
+    }, { status: 200 });
   } catch {
     console.error("POST /api/reservations error");
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

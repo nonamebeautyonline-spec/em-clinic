@@ -1636,13 +1636,26 @@ if (existingSubmitted) {
 
     // ★ Supabaseに書き込み
     try {
+      // answersに個人情報も含める
+      const fullAnswers = Object.assign({}, answersObj);
+      fullAnswers["氏名"] = body.name || "";
+      fullAnswers["name"] = body.name || "";
+      fullAnswers["性別"] = body.sex || "";
+      fullAnswers["sex"] = body.sex || "";
+      fullAnswers["生年月日"] = body.birth || "";
+      fullAnswers["birth"] = body.birth || "";
+      fullAnswers["カナ"] = body.name_kana || body.nameKana || "";
+      fullAnswers["name_kana"] = body.name_kana || body.nameKana || "";
+      fullAnswers["電話番号"] = body.tel || body.phone || "";
+      fullAnswers["tel"] = body.tel || body.phone || "";
+
       writeToSupabaseIntake_({
         reserve_id: reserveId,
         patient_id: pid,
         answerer_id: body.answerer_id || null,
         line_id: body.line_id || body.lineId || null,
         patient_name: body.name || null,
-        answers: answersObj
+        answers: fullAnswers
       });
     } catch (e) {
       Logger.log("[Supabase] intake write failed: " + e);
@@ -3420,7 +3433,7 @@ function writeToSupabaseIntakeBatch_(dataArray) {
     return;
   }
 
-  var url = supabaseUrl + "/rest/v1/intake?on_conflict=reserve_id";
+  var url = supabaseUrl + "/rest/v1/intake?on_conflict=patient_id";
 
   try {
     var res = UrlFetchApp.fetch(url, {
@@ -3472,9 +3485,8 @@ function migrateIntakeDataToSupabaseFast() {
 
   Logger.log("Found " + values.length + " rows to process");
 
-  var batch = [];
-  var batchSize = 100;
-  var totalCount = 0;
+  // ★ patient_idごとに最新レコードを保持（重複排除）
+  var patientMap = {};
   var skippedCount = 0;
 
   for (var i = 0; i < values.length; i++) {
@@ -3491,7 +3503,32 @@ function migrateIntakeDataToSupabaseFast() {
     var note = String(row[20] || "").trim();
     var prescriptionMenu = String(row[21] || "").trim();
 
+    // ★ answersに個人情報と問診項目を全て含める
     var answers = {};
+
+    // 個人情報フィールド（日本語キーと英語キー両方）
+    var nameVal = String(row[3] || "").trim();
+    var sexVal = String(row[4] || "").trim();
+    var birthVal = String(row[5] || "").trim();
+    var kanaVal = String(row[22] || "").trim();
+    var telVal = String(row[23] || "").trim();
+    var callStatusVal = String(row[30] || "").trim();
+    var telMismatchVal = String(row[31] || "").trim();
+
+    answers["氏名"] = nameVal;
+    answers["name"] = nameVal;
+    answers["性別"] = sexVal;
+    answers["sex"] = sexVal;
+    answers["生年月日"] = birthVal;
+    answers["birth"] = birthVal;
+    answers["カナ"] = kanaVal;
+    answers["name_kana"] = kanaVal;
+    answers["電話番号"] = telVal;
+    answers["tel"] = telVal;
+    answers["call_status"] = callStatusVal;
+    answers["tel_mismatch"] = telMismatchVal;
+
+    // 問診項目（J〜S列）
     for (var j = 0; j < ANSWER_KEYS.length; j++) {
       var key = ANSWER_KEYS[j];
       var value = row[9 + j];
@@ -3503,12 +3540,15 @@ function migrateIntakeDataToSupabaseFast() {
       continue;
     }
 
-    if (!reservedDate) {
-      skippedCount++;
-      continue;
+    // ★ patient_idの重複チェック
+    if (patientMap[patientId]) {
+      Logger.log("[WARNING] Duplicate patient_id found: " + patientId + " (row " + (i + 2) + ", name: " + patientName + ")");
+      Logger.log("  Previous: reserve_id=" + patientMap[patientId].reserve_id + ", date=" + patientMap[patientId].reserved_date);
+      Logger.log("  Current:  reserve_id=" + reserveId + ", date=" + reservedDate);
     }
 
-    batch.push({
+    // ★ patient_idごとに最新レコードを保存（後のレコードで上書き）
+    patientMap[patientId] = {
       reserve_id: reserveId,
       patient_id: patientId,
       answerer_id: answererId || null,
@@ -3520,7 +3560,18 @@ function migrateIntakeDataToSupabaseFast() {
       status: status || null,
       note: note || null,
       prescription_menu: prescriptionMenu || null
-    });
+    };
+  }
+
+  // ★ patientMapから一意のレコードをバッチ処理
+  Logger.log("Unique patients: " + Object.keys(patientMap).length);
+
+  var batch = [];
+  var batchSize = 100;
+  var totalCount = 0;
+
+  for (var pid in patientMap) {
+    batch.push(patientMap[pid]);
 
     if (batch.length >= batchSize) {
       writeToSupabaseIntakeBatch_(batch);

@@ -26,6 +26,129 @@ const COL_PID_INTAKE              = 26; // Z: patient_id (Patient_ID を転記�
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// ===================================
+// Supabase書き込み関数
+// ===================================
+
+/**
+ * 予約情報をSupabase intakeテーブルに反映（upsert）
+ * @param {string} reserveId - 予約ID
+ * @param {string} patientId - Patient ID
+ * @param {string} reservedDate - YYYY-MM-DD
+ * @param {string} reservedTime - HH:MM
+ */
+function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, reservedTime) {
+  Logger.log("[Supabase] updateSupabaseIntakeReservation_ called: reserveId=" + reserveId + ", patientId=" + patientId + ", date=" + reservedDate + ", time=" + reservedTime);
+
+  if (!patientId) {
+    Logger.log("[Supabase] ERROR: Missing patientId, skipping");
+    return;
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  Logger.log("[Supabase] Config check: URL=" + (supabaseUrl ? "SET" : "MISSING") + ", KEY=" + (supabaseKey ? "SET (length=" + supabaseKey.length + ")" : "MISSING"));
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY in Script Properties");
+    return;
+  }
+
+  // patient_idでレコードを検索してupsert
+  const url = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(patientId);
+  Logger.log("[Supabase] GET request URL: " + url);
+
+  try {
+    // 既存レコードを取得
+    const getRes = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    const code = getRes.getResponseCode();
+    const body = getRes.getContentText();
+    Logger.log("[Supabase] GET response code: " + code + ", body length: " + body.length);
+
+    if (code === 200) {
+      const records = JSON.parse(body);
+      Logger.log("[Supabase] Found " + records.length + " existing record(s)");
+
+      if (records.length > 0) {
+        // 既存レコードを更新（PATCH）
+        const record = records[0];
+        const patchUrl = supabaseUrl + "/rest/v1/intake?id=eq." + record.id;
+        Logger.log("[Supabase] PATCH request URL: " + patchUrl);
+
+        const patchRes = UrlFetchApp.fetch(patchUrl, {
+          method: "patch",
+          contentType: "application/json",
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization": "Bearer " + supabaseKey
+          },
+          payload: JSON.stringify({
+            reserve_id: reserveId,
+            reserved_date: reservedDate || null,
+            reserved_time: reservedTime || null
+          }),
+          muteHttpExceptions: true
+        });
+
+        const patchCode = patchRes.getResponseCode();
+        Logger.log("[Supabase] PATCH response code: " + patchCode);
+
+        if (patchCode >= 200 && patchCode < 300) {
+          Logger.log("[Supabase] SUCCESS: Updated reservation for patient_id=" + patientId);
+        } else {
+          Logger.log("[Supabase] ERROR: PATCH failed (code " + patchCode + "): " + patchRes.getContentText());
+        }
+      } else {
+        // レコードが存在しない場合はINSERT
+        Logger.log("[Supabase] No existing record, creating new record for patient_id=" + patientId);
+
+        const insertUrl = supabaseUrl + "/rest/v1/intake";
+        const insertRes = UrlFetchApp.fetch(insertUrl, {
+          method: "post",
+          contentType: "application/json",
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization": "Bearer " + supabaseKey,
+            "Prefer": "return=minimal"
+          },
+          payload: JSON.stringify({
+            reserve_id: reserveId,
+            patient_id: patientId,
+            reserved_date: reservedDate || null,
+            reserved_time: reservedTime || null,
+            answers: {}
+          }),
+          muteHttpExceptions: true
+        });
+
+        const insertCode = insertRes.getResponseCode();
+        Logger.log("[Supabase] INSERT response code: " + insertCode);
+
+        if (insertCode >= 200 && insertCode < 300) {
+          Logger.log("[Supabase] SUCCESS: Created reservation record for patient_id=" + patientId);
+        } else {
+          Logger.log("[Supabase] ERROR: INSERT failed (code " + insertCode + "): " + insertRes.getContentText());
+        }
+      }
+    } else {
+      Logger.log("[Supabase] ERROR: GET request failed with code " + code + ": " + body);
+    }
+  } catch (e) {
+    Logger.log("[Supabase] EXCEPTION: Error updating reservation: " + e);
+    Logger.log("[Supabase] EXCEPTION stack: " + e.stack);
+  }
+}
+
 
 function doPost(e) {
   try {
@@ -206,7 +329,20 @@ if (type === "createReservation") {
       }
     }
 
-    return jsonResponse({ ok: true, reserveId: reserveId });
+    // ===== Supabaseに予約情報を反映 =====
+    var supabaseError = null;
+    try {
+      updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime);
+    } catch (e) {
+      supabaseError = String(e);
+      Logger.log("[Supabase] Reservation update failed: " + e);
+    }
+
+    return jsonResponse({
+      ok: true,
+      reserveId: reserveId,
+      supabaseSync: supabaseError ? "failed: " + supabaseError : "attempted"
+    });
   } finally {
     lock.releaseLock();
   }
@@ -240,6 +376,7 @@ if (type === "createReservation") {
       const values = reserveSheet.getDataRange().getValues();
 
       let found = false;
+      let patientId = "";
 
       // 予約シートの日時を更新
       for (let r = 1; r < values.length; r++) {
@@ -247,6 +384,7 @@ if (type === "createReservation") {
         const rid = String(values[r][COL_RESERVE_ID - 1] || "").trim();
         if (!rid) continue;
         if (rid === reserveId) {
+          patientId = String(values[r][COL_PATIENT_ID - 1] || "").trim();
           reserveSheet.getRange(r + 1, COL_DATE).setValue(newDate);
           reserveSheet.getRange(r + 1, COL_TIME).setValue(newTime);
           found = true;
@@ -282,8 +420,22 @@ if (type === "createReservation") {
         }
       }
 
+      // ===== Supabaseに予約変更を反映 =====
+      var supabaseError = null;
+      if (patientId) {
+        try {
+          updateSupabaseIntakeReservation_(reserveId, patientId, newDate, newTime);
+        } catch (e) {
+          supabaseError = String(e);
+          Logger.log("[Supabase] Reservation update failed: " + e);
+        }
+      }
+
       return ContentService.createTextOutput(
-        JSON.stringify({ ok: true })
+        JSON.stringify({
+          ok: true,
+          supabaseSync: supabaseError ? "failed: " + supabaseError : (patientId ? "attempted" : "skipped")
+        })
       ).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -327,7 +479,20 @@ if (intakeSheet) {
       intakeSheet.getRange(r + 1, COL_RESERVE_ID_INTAKE).setValue("");
       intakeSheet.getRange(r + 1, COL_RESERVED_DATE_INTAKE).setValue("");
       intakeSheet.getRange(r + 1, COL_RESERVED_TIME_INTAKE).setValue("");
-      Logger.log("intake cleared for canceled reserveId at row " + (r + 1));
+
+      // ★ Supabaseに予約キャンセルを反映（reserve_id, 日時をnullに）
+      const patientId = String(intakeValues[r][COL_PID_INTAKE - 1] || "").trim();
+      var supabaseError = null;
+      if (patientId) {
+        try {
+          updateSupabaseIntakeReservation_(null, patientId, null, null);
+        } catch (e) {
+          supabaseError = String(e);
+          Logger.log("[Supabase] Cancel update failed: " + e);
+        }
+      }
+
+      Logger.log("intake cleared for canceled reserveId at row " + (r + 1) + ", supabase: " + (supabaseError || "ok"));
     }
   }
 }
@@ -930,5 +1095,23 @@ function findNameFromIntakeByPid_(ss, patientId) {
     if (name) return name;
   }
   return "";
+}
+
+// ★ テスト関数：Supabase更新の動作確認
+function testSupabaseUpdate() {
+  Logger.log("=== Testing Supabase Update ===");
+
+  try {
+    updateSupabaseIntakeReservation_(
+      "resv-test-12345",
+      "20251200128",
+      "2026-01-30",
+      "16:00"
+    );
+    Logger.log("=== Test completed ===");
+  } catch (e) {
+    Logger.log("=== Test FAILED: " + e + " ===");
+    Logger.log("Stack: " + e.stack);
+  }
 }
 
