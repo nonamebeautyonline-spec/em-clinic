@@ -2837,9 +2837,9 @@ function bulkInvalidateCacheToday() {
   Logger.log("=== Bulk Cache Invalidation Started ===");
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_INTAKE);
+  var sheet = ss.getSheetByName(SHEET_NAME_INTAKE);
   if (!sheet) {
-    Logger.log("ERROR: Sheet not found: " + SHEET_INTAKE);
+    Logger.log("ERROR: Sheet not found: " + SHEET_NAME_INTAKE);
     return;
   }
 
