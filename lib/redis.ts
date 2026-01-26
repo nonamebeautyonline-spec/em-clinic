@@ -1,14 +1,21 @@
 // lib/redis.ts
+"use server";
 import { Redis } from "@upstash/redis";
 
 /**
  * Upstash Redisクライアント
  * 環境変数 UPSTASH_REDIS_REST_URL と UPSTASH_REDIS_REST_TOKEN が必要
  */
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+const url = process.env.UPSTASH_REDIS_REST_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+if (!url || !token) {
+  throw new Error(
+    "[Redis] Missing environment variables: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN"
+  );
+}
+
+export const redis = new Redis({ url, token });
 
 /**
  * キャッシュキーを生成

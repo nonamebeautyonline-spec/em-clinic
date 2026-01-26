@@ -5,6 +5,7 @@ import { redis, getDashboardCacheKey } from "@/lib/redis";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
@@ -176,7 +177,11 @@ export async function POST(_req: NextRequest) {
         return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
       }
     } catch (error) {
-      console.error("[Cache] Failed to get cache:", error);
+      console.error("[Cache] Failed to get cache:", error, {
+        patientId,
+        hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
+        hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
       // キャッシュ取得失敗時は続行（GASから取得）
     }
 
@@ -297,7 +302,11 @@ export async function POST(_req: NextRequest) {
       await redis.set(cacheKey, payload, { ex: 60 });
       console.log(`[Cache] Saved: ${cacheKey} (60s)`);
     } catch (error) {
-      console.error("[Cache] Failed to save cache:", error);
+      console.error("[Cache] Failed to save cache:", error, {
+        patientId,
+        hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
+        hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
       // キャッシュ保存失敗はエラーにしない
     }
 
