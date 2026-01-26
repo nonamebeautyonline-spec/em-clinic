@@ -481,11 +481,13 @@ if (intakeSheet) {
       intakeSheet.getRange(r + 1, COL_RESERVED_TIME_INTAKE).setValue("");
 
       // ★ Supabaseに予約キャンセルを反映（reserve_id, 日時をnullに）
-      const patientId = String(intakeValues[r][COL_PID_INTAKE - 1] || "").trim();
+      const patientId = normPid_(intakeValues[r][COL_PID_INTAKE - 1]);
       var supabaseError = null;
       if (patientId) {
         try {
           updateSupabaseIntakeReservation_(null, patientId, null, null);
+          // ★ キャッシュ無効化
+          invalidateVercelCache_(patientId);
         } catch (e) {
           supabaseError = String(e);
           Logger.log("[Supabase] Cancel update failed: " + e);
@@ -1113,5 +1115,55 @@ function testSupabaseUpdate() {
     Logger.log("=== Test FAILED: " + e + " ===");
     Logger.log("Stack: " + e.stack);
   }
+}
+
+/**
+ * Vercelキャッシュを無効化
+ * @param {string} patientId - Patient ID
+ */
+function invalidateVercelCache_(patientId) {
+  if (!patientId) return;
+
+  const props = PropertiesService.getScriptProperties();
+  const vercelUrl = props.getProperty("VERCEL_URL");
+  const adminToken = props.getProperty("ADMIN_TOKEN");
+
+  if (!vercelUrl || !adminToken) {
+    Logger.log("[invalidateCache] Missing VERCEL_URL or ADMIN_TOKEN");
+    return;
+  }
+
+  const url = vercelUrl + "/api/admin/invalidate-cache";
+
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + adminToken },
+      payload: JSON.stringify({ patient_id: patientId }),
+      muteHttpExceptions: true,
+    });
+
+    const code = res.getResponseCode();
+    const body = res.getContentText();
+
+    Logger.log("[invalidateCache] pid=" + patientId + " code=" + code + " body=" + body);
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[invalidateCache] Success for patient_id=" + patientId);
+    } else {
+      Logger.log("[invalidateCache] Failed for patient_id=" + patientId + " code=" + code);
+    }
+  } catch (e) {
+    Logger.log("[invalidateCache] Error for patient_id=" + patientId + ": " + e);
+  }
+}
+
+function normPid_(v) {
+  if (v === null || v === undefined) return "";
+  var s = String(v).trim();
+  if (s.endsWith(".0")) s = s.slice(0, -2);
+  s = s.replace(/\s+/g, "");
+  return s;
 }
 

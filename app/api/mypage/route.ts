@@ -163,11 +163,12 @@ async function getNextReservationFromSupabase(
   try {
     const { data, error } = await supabase
       .from("intake")
-      .select("reserve_id, reserved_date, reserved_time, patient_name")
+      .select("reserve_id, reserved_date, reserved_time, patient_name, status")
       .eq("patient_id", patientId)
       .not("reserve_id", "is", null)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
+      .neq("status", "キャンセル") // ★ キャンセルされた予約を除外
       .order("reserved_date", { ascending: true })
       .order("reserved_time", { ascending: true })
       .limit(1)
