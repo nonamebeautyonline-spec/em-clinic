@@ -179,8 +179,8 @@ export async function POST(_req: NextRequest) {
     } catch (error) {
       console.error("[Cache] Failed to get cache:", error, {
         patientId,
-        hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
-        hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+        hasUrl: !!process.env.KV_REST_API_URL,
+        hasToken: !!process.env.KV_REST_API_TOKEN,
       });
       // キャッシュ取得失敗時は続行（GASから取得）
     }
@@ -304,8 +304,8 @@ export async function POST(_req: NextRequest) {
     } catch (error) {
       console.error("[Cache] Failed to save cache:", error, {
         patientId,
-        hasUrl: !!process.env.UPSTASH_REDIS_REST_URL,
-        hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN,
+        hasUrl: !!process.env.KV_REST_API_URL,
+        hasToken: !!process.env.KV_REST_API_TOKEN,
       });
       // キャッシュ保存失敗はエラーにしない
     }
