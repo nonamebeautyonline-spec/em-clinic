@@ -1,5 +1,4 @@
 // lib/redis.ts
-"use server";
 import { Redis } from "@upstash/redis";
 
 /**
