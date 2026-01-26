@@ -463,7 +463,9 @@ closeModalAndRefresh();
     const timeStr = pick(row, ["reserved_time", "予約時間"]);
     const dateStr = normalizeDateStr(rawDate);
     if (!dateStr || !timeStr) return false;
-    const dt = new Date(`${dateStr}T${timeStr}:00+09:00`);
+    // 時刻を HH:MM 形式に正規化（秒を除去）
+    const timeHHMM = timeStr.slice(0, 5);
+    const dt = new Date(`${dateStr}T${timeHHMM}:00+09:00`);
     dt.setMinutes(dt.getMinutes() + 15);
     return now > dt;
   };
@@ -473,7 +475,9 @@ closeModalAndRefresh();
     const timeStr = pick(row, ["reserved_time", "予約時間"]);
     const dateStr = normalizeDateStr(rawDate);
     if (!dateStr || !timeStr) return false;
-    const dt = new Date(`${dateStr}T${timeStr}:00+09:00`);
+    // 時刻を HH:MM 形式に正規化（秒を除去）
+    const timeHHMM = timeStr.slice(0, 5);
+    const dt = new Date(`${dateStr}T${timeHHMM}:00+09:00`);
     const diff = now.getTime() - dt.getTime();
     return diff >= 0 && diff < 15 * 60 * 1000;
   };
