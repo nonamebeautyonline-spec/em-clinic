@@ -1,6 +1,7 @@
 // app/api/reorder/apply/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
@@ -53,6 +54,9 @@ export async function POST(req: NextRequest) {
       console.error("GAS reorder apply error:", gasRes.status);
       return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
     }
+
+    // ★ キャッシュ削除（再処方申請時）
+    await invalidateDashboardCache(patientId);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch {

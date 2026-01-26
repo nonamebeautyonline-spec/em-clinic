@@ -1,6 +1,7 @@
 // app/api/mypage/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { redis, getDashboardCacheKey } from "@/lib/redis";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 export const dynamic = "force-dynamic";
@@ -164,6 +165,23 @@ export async function POST(_req: NextRequest) {
     const lineSavedFlag =
       getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
+    // ★ キャッシュチェック
+    const cacheKey = getDashboardCacheKey(patientId);
+    let cachedData: any = null;
+
+    try {
+      cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        console.log(`[Cache] Hit: ${cacheKey}`);
+        return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
+      }
+    } catch (error) {
+      console.error("[Cache] Failed to get cache:", error);
+      // キャッシュ取得失敗時は続行（GASから取得）
+    }
+
+    console.log(`[Cache] Miss: ${cacheKey}`);
+
     // ★ GAS 呼び出しは 1本だけ（getDashboard に hasIntake を含める想定）
     const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
 
@@ -273,6 +291,15 @@ export async function POST(_req: NextRequest) {
       // ★追加：GASのperfをそのまま返す
       perf: (gasJson as any).perf || [],
     };
+
+    // ★ キャッシュに保存（60秒）
+    try {
+      await redis.set(cacheKey, payload, { ex: 60 });
+      console.log(`[Cache] Saved: ${cacheKey} (60s)`);
+    } catch (error) {
+      console.error("[Cache] Failed to save cache:", error);
+      // キャッシュ保存失敗はエラーにしない
+    }
 
     const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
 

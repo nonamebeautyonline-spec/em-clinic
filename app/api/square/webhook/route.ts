@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 export const runtime = "nodejs";
 
@@ -223,6 +224,21 @@ if (signatureKey && !signatureHeader) {
         raw_event_type: eventType,
       });
 
+      // ★ キャッシュ削除（返金時：paymentからpatientIdを取得）
+      try {
+        const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`);
+        if (pRes.ok) {
+          const P = pRes.json?.payment || {};
+          const note = String(P?.note || P?.payment_note || "");
+          const { patientId } = extractFromNote(note);
+          if (patientId) {
+            await invalidateDashboardCache(patientId);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to invalidate cache on refund:", error);
+      }
+
       return new NextResponse("ok", { status: 200 });
     }
 
@@ -363,6 +379,11 @@ if (reorderId) {
         patient_id: patientId,
         reorder_id: reorderId, // 使うならGAS側で処理
       });
+
+      // ★ キャッシュ削除（決済完了時）
+      if (patientId) {
+        await invalidateDashboardCache(patientId);
+      }
 
       return new NextResponse("ok", { status: 200 });
     }

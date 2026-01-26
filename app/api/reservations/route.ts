@@ -1,5 +1,6 @@
 // app/api/reservations/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -339,6 +340,11 @@ if (!gasRes.ok || json?.ok !== true) {
   );
 }
 
+
+    // ★ キャッシュ削除（予約作成・変更・キャンセル時）
+    if (patientId) {
+      await invalidateDashboardCache(patientId);
+    }
 
     // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）
     return NextResponse.json({ ok: true }, { status: 200 });

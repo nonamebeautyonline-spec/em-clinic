@@ -1,5 +1,6 @@
 // app/api/intake/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
 
@@ -42,24 +43,28 @@ if (!patientId) {
       return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
     }
 
+    // ★ キャッシュ削除（問診送信時）
+    await invalidateDashboardCache(patientId);
+
     // ★ GASは { ok:true, intakeId } を返す前提
-    const intakeId = String(json.intakeId || "").trim();
-    if (!intakeId) {
-      return NextResponse.json({ ok: false, error: "missing_intake_id_from_gas" }, { status: 500 });
-    }
+const intakeId = String(json.intakeId || "").trim();
+const dedup = !!json.dedup;
 
-    const res = NextResponse.json({ ok: true });
+const res = NextResponse.json({ ok: true, dedup });
 
-res.cookies.set("__Host-intake_id", intakeId, {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none", // ← lax から none
-  path: "/",
-  maxAge: 60 * 60 * 24,
-});
+// intakeId が取れたときだけ cookie を付与（dedup時に空でもOK）
+if (intakeId) {
+  res.cookies.set("__Host-intake_id", intakeId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+    maxAge: 60 * 60 * 24,
+  });
+}
 
+return res;
 
-    return res;
   } catch {
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
