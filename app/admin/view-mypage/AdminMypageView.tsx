@@ -260,14 +260,44 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 // ------------------------- Component -------------------------
-export default function AdminMypageView({ data }: { data: PatientDashboardData }) {
+export default function AdminMypageView({ data }: { data: any }) {
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
+
   const patient = data.patient || { id: "unknown", displayName: "ゲスト" };
   const nextReservation = data.nextReservation;
-  const activeOrders = data.activeOrders || [];
-  const orders = data.orders || [];
   const history = data.history || [];
-  const ordersFlags = data.ordersFlags;
   const hasIntake = data.hasIntake;
+
+  // ★ APIから来たordersをマッピング（snake_case → camelCase）
+  const mapOrder = (o: any): Order => {
+    // payment_status: COMPLETED → paid, PENDING → pending, etc.
+    const mapPaymentStatus = (s: string): PaymentStatus => {
+      const normalized = String(s || "").toUpperCase();
+      if (normalized === "COMPLETED") return "paid";
+      if (normalized === "PENDING") return "pending";
+      if (normalized === "FAILED") return "failed";
+      if (normalized === "REFUNDED") return "refunded";
+      return "pending";
+    };
+
+    return {
+      id: o.id || o.payment_id || "",
+      productName: o.product_name || o.productName || "",
+      shippingStatus: (o.shipping_status || o.shippingStatus || "pending") as ShippingStatus,
+      shippingEta: o.shipping_eta || o.shippingEta,
+      trackingNumber: o.tracking_number || o.trackingNumber,
+      paymentStatus: mapPaymentStatus(o.payment_status || o.paymentStatus),
+      refundStatus: (o.refund_status || o.refundStatus) as RefundStatus,
+      refundedAt: o.refunded_at_jst || o.refundedAt,
+      refundedAmount: o.refunded_amount || o.refundedAmount,
+      paidAt: o.paid_at_jst || o.paidAt,
+      carrier: (o.carrier || "yamato") as Carrier,
+    };
+  };
+
+  const orders: Order[] = (data.orders || []).map(mapOrder);
+
+  const ordersFlags = data.ordersFlags || data.flags;
 
   // Reorders
   const reorders: ReorderItem[] = Array.isArray(data.reorders)
@@ -292,14 +322,16 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData }
     return Number.isFinite(t) ? t : 0;
   };
 
+  // ★ ordersからアクティブなものだけ抽出（activeOrdersは使わない）
+  const activeOrders = orders.filter(isActiveOrder);
+
   const visibleOrders = activeOrders
-    .filter(isActiveOrder)
     .slice()
     .sort(
       (a, b) =>
         getTimeSafe(b.paidAt || b.shippingEta) - getTimeSafe(a.paidAt || a.shippingEta)
     )
-    .slice(0, 5);
+    .slice(0, 10); // 管理画面では10件まで表示
 
   const hasHistory = history.length > 0;
   const lastHistory = hasHistory ? history[0] : null;
@@ -312,6 +344,8 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData }
     .sort((a, b) => getTimeSafe(b.paidAt) - getTimeSafe(a.paidAt));
 
   const orderHistoryPreview = orderHistoryAll.slice(0, 5);
+  const hasMoreOrderHistory = orderHistoryAll.length > 5;
+  const orderHistoryToRender = showAllHistory ? orderHistoryAll : orderHistoryPreview;
 
   const hasPendingReorder = reorders.some((r) => r.status === "pending");
   const hasConfirmedReorder = reorders.some((r) => r.status === "confirmed");
@@ -700,17 +734,26 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData }
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              これまでの処方歴
+              これまでの処方歴（全{orderHistoryAll.length}件）
             </h2>
+            {hasMoreOrderHistory && (
+              <button
+                type="button"
+                onClick={() => setShowAllHistory(!showAllHistory)}
+                className="text-xs text-slate-500 hover:text-slate-700"
+              >
+                {showAllHistory ? "5件のみ表示" : "すべて表示"}
+              </button>
+            )}
           </div>
 
-          {orderHistoryPreview.length === 0 ? (
+          {orderHistoryToRender.length === 0 ? (
             <div className="text-sm text-slate-600">
               まだ処方の履歴はありません。
             </div>
           ) : (
             <div className="space-y-3">
-              {orderHistoryPreview.map((o) => {
+              {orderHistoryToRender.map((o) => {
                 const paidLabel = formatDateSafe(o.paidAt);
                 const isRefunded =
                   o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
