@@ -2148,12 +2148,20 @@ orders.push({
     };
 
 // =========================
-// shipping_index で追跡・発送情報を補完（安定：全件読みは shipping_index のみ）
+// shipping_index で追跡・発送情報を補完（最適化：必要な payment_id だけ読む）
 // =========================
 mark("O_begin_merge_shipping");
 try {
   if (orders.length > 0) {
-    const shipMap = getShippingIndexMap_();
+    // ★ 注文の payment_id リストを作成
+    const paymentIds = [];
+    for (var oi = 0; oi < orders.length; oi++) {
+      var payId = String(orders[oi].payment_id || orders[oi].id || "").trim();
+      if (payId) paymentIds.push(payId);
+    }
+
+    // ★ 必要な分だけ読み取り
+    const shipMap = getShippingIndexMapForPaymentIds_(paymentIds, perfOrders);
 
     for (var oi = 0; oi < orders.length; oi++) {
       var payId = String(orders[oi].payment_id || orders[oi].id || "").trim();
@@ -2427,20 +2435,65 @@ function hasSubmittedIntakeByPid_(intakeSheet, pid) {
   }
   return false;
 }
-function getShippingIndexMap_() {
-  // ★ キャッシュチェック（30分）
-  const cache = CacheService.getScriptCache();
-  const cacheKey = "shipping_index_map_v1";
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch (e) {
-      // パース失敗時は続行（再取得）
-    }
+// ★ 最適化版：必要な payment_id だけ読み取る（全件読み取りしない）
+function getShippingIndexMapForPaymentIds_(paymentIds, perfLog) {
+  if (!paymentIds || paymentIds.length === 0) return {};
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName("shipping_index");
+  if (!sh) return {};
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return {};
+
+  const header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const col = (name) => header.indexOf(name) + 1;
+
+  const cPay = col("payment_id");
+  const cTn  = col("tracking_number");
+  const cSt  = col("shipping_status");
+  const cDt  = col("shipping_date");
+  const cCar = col("carrier");
+
+  if (!cPay) return {};
+
+  const map = {};
+
+  // ★ 各 payment_id を TextFinder で検索（必要な行だけ読む）
+  for (let i = 0; i < paymentIds.length; i++) {
+    const payId = String(paymentIds[i] || "").trim();
+    if (!payId) continue;
+
+    const rng = sh.getRange(2, cPay, lastRow - 1, 1);
+    const cell = rng.createTextFinder(payId).matchEntireCell(true).findNext();
+    if (!cell) continue;
+
+    const r = cell.getRow();
+    const needCols = Math.max(cPay, cTn || 0, cSt || 0, cDt || 0, cCar || 0);
+    const row = sh.getRange(r, 1, 1, needCols).getValues()[0];
+
+    const tracking = cTn ? String(row[cTn - 1] || "").trim() : "";
+    const st = cSt ? String(row[cSt - 1] || "").trim() : "";
+    const dtV = cDt ? row[cDt - 1] : "";
+    const carrier = cCar ? String(row[cCar - 1] || "").trim() : "";
+
+    let dt = "";
+    if (dtV instanceof Date) dt = Utilities.formatDate(dtV, "Asia/Tokyo", "yyyy-MM-dd");
+    else if (dtV) dt = String(dtV).trim();
+
+    map[payId] = {
+      tracking_number: tracking,
+      shipping_status: st,
+      shipping_date: dt,
+      carrier: carrier,
+    };
   }
 
-  // ★ キャッシュミス：全件読み取り
+  return map;
+}
+
+// ★ 旧実装（全件読み取り）- 互換性のため残す（使われていない）
+function getShippingIndexMap_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sh = ss.getSheetByName("shipping_index");
   if (!sh) return {};
@@ -2483,13 +2536,6 @@ function getShippingIndexMap_() {
       shipping_date: dt,
       carrier: carrier,
     };
-  }
-
-  // ★ キャッシュに保存（30分 = 1800秒）
-  try {
-    cache.put(cacheKey, JSON.stringify(map), 1800);
-  } catch (e) {
-    // キャッシュ保存失敗は無視（次回また取得される）
   }
 
   return map;
