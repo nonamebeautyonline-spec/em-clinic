@@ -1305,6 +1305,9 @@ function upsertShippingIndexToIntakeBook_(paymentId, trackingNumber, shippingSta
     row[cCar - 1] = car;
     row[cUp - 1]  = nowStr;
     sh.appendRow(row);
+
+    // ★ Supabase orders更新（新規追加時）
+    updateSupabaseOrder_(pay, tn, st, shipDateStr, car);
     return;
   }
 
@@ -1314,4 +1317,57 @@ function upsertShippingIndexToIntakeBook_(paymentId, trackingNumber, shippingSta
   if (shipDateStr) sh.getRange(hitRow, cDt).setValue(shipDateStr);
   if (car) sh.getRange(hitRow, cCar).setValue(car);
   sh.getRange(hitRow, cUp).setValue(nowStr);
+
+  // ★ Supabase orders更新（新規/既存どちらも）
+  updateSupabaseOrder_(pay, tn, st, shipDateStr, car);
+}
+
+/**
+ * Supabase orders テーブルを更新
+ */
+function updateSupabaseOrder_(paymentId, trackingNumber, shippingStatus, shippingDate, carrier) {
+  if (!paymentId) return;
+
+  var props = PropertiesService.getScriptProperties();
+  var supabaseUrl = props.getProperty("SUPABASE_URL");
+  var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[updateSupabaseOrder] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+    return;
+  }
+
+  var endpoint = supabaseUrl + "/rest/v1/orders?id=eq." + paymentId;
+
+  try {
+    var payload = {
+      shipping_status: shippingStatus || null,
+      shipping_date: shippingDate || null,
+      tracking_number: trackingNumber || null,
+      carrier: carrier || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    var response = UrlFetchApp.fetch(endpoint, {
+      method: "patch",
+      contentType: "application/json",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: "Bearer " + supabaseKey,
+        Prefer: "return=minimal",
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+    });
+
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[updateSupabaseOrder] Updated payment_id=" + paymentId);
+    } else {
+      var body = response.getContentText();
+      Logger.log("[updateSupabaseOrder] Failed: code=" + code + " body=" + body);
+    }
+  } catch (e) {
+    Logger.log("[updateSupabaseOrder] Error: " + e);
+  }
 }
