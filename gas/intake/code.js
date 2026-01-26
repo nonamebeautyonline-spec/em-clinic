@@ -2843,10 +2843,10 @@ function bulkInvalidateCacheToday() {
     return;
   }
 
-  // 今日の12時（日本時間）を基準にする
+  // 今日の11時（日本時間）を基準にする（KVキャッシュ実装時刻）
   var now = new Date();
-  var todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
-  Logger.log("Cutoff time (JST): " + todayNoon);
+  var cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0, 0);
+  Logger.log("Cutoff time (JST): " + cutoffTime);
 
   var values = sheet.getDataRange().getValues();
   var invalidatedCount = 0;
@@ -2874,8 +2874,8 @@ function bulkInvalidateCacheToday() {
       reserveDate = new Date(reservedDateValue);
     }
 
-    // 今日12時以降の予約かチェック
-    if (reserveDate < todayNoon) {
+    // 今日11時以降の予約かチェック
+    if (reserveDate < cutoffTime) {
       continue;
     }
 
