@@ -300,8 +300,17 @@ function handleApprove_(body) {
     return jsonResponse({ ok: false, error: "invalid id" }, 400);
   }
 
+  // ★ patient_id を取得（B列）
+  var patientId = normPid_(sheet.getRange(id, 2).getValue());
+
   // D列(status) を confirmed に
   sheet.getRange(id, 4).setValue("confirmed");
+
+  // ★ Vercel キャッシュ無効化
+  if (patientId) {
+    invalidateVercelCache_(patientId);
+  }
+
   return jsonResponse({ ok: true });
 }
 
@@ -318,7 +327,16 @@ function handleReject_(body) {
     return jsonResponse({ ok: false, error: "invalid id" }, 400);
   }
 
+  // ★ patient_id を取得（B列）
+  var patientId = normPid_(sheet.getRange(id, 2).getValue());
+
   sheet.getRange(id, 4).setValue("canceled");
+
+  // ★ Vercel キャッシュ無効化
+  if (patientId) {
+    invalidateVercelCache_(patientId);
+  }
+
   return jsonResponse({ ok: true });
 }
 
@@ -473,6 +491,9 @@ function handlePaid_(body) {
   var lastRow = sheet.getLastRow();
   if (id < 2 || id > lastRow) return jsonResponse({ ok:false, error:"invalid id" }, 400);
 
+  // ★ patient_id を取得（B列）
+  var patientId = normPid_(sheet.getRange(id, 2).getValue());
+
   sheet.getRange(id, 4).setValue("paid"); // status
 
   var pay = String(body.payment_id || body.paymentId || "").trim();
@@ -481,6 +502,12 @@ function handlePaid_(body) {
     var tag = "paid:" + pay;
     if (!cur.includes(tag)) sheet.getRange(id, 5).setValue(cur ? (cur + "\n" + tag) : tag);
   }
+
+  // ★ Vercel キャッシュ無効化
+  if (patientId) {
+    invalidateVercelCache_(patientId);
+  }
+
   return jsonResponse({ ok:true });
 }
 
@@ -491,6 +518,45 @@ function normPid_(v) {
   if (s.endsWith(".0")) s = s.slice(0, -2);
   s = s.replace(/\s+/g, "");
   return s;
+}
+
+// ★ Vercel キャッシュ無効化API呼び出し
+function invalidateVercelCache_(patientId) {
+  if (!patientId) return;
+
+  var props = PropertiesService.getScriptProperties();
+  var vercelUrl = props.getProperty("VERCEL_URL");
+  var adminToken = props.getProperty("ADMIN_TOKEN");
+
+  if (!vercelUrl || !adminToken) {
+    Logger.log("[invalidateCache] Missing VERCEL_URL or ADMIN_TOKEN");
+    return;
+  }
+
+  var url = vercelUrl + "/api/admin/invalidate-cache";
+
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: { Authorization: "Bearer " + adminToken },
+      payload: JSON.stringify({ patient_id: patientId }),
+      muteHttpExceptions: true,
+    });
+
+    var code = res.getResponseCode();
+    var body = res.getContentText();
+
+    Logger.log("[invalidateCache] pid=" + patientId + " code=" + code + " body=" + body);
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[invalidateCache] Success for patient_id=" + patientId);
+    } else {
+      Logger.log("[invalidateCache] Failed for patient_id=" + patientId + " code=" + code);
+    }
+  } catch (e) {
+    Logger.log("[invalidateCache] Error for patient_id=" + patientId + ": " + e);
+  }
 }
 
 function linePushFlexToOps_(altText, flexContents) {
@@ -759,4 +825,47 @@ function testPaidUpdate() {
   var body = { action: "paid", id: 106, payment_id: "Ud3b9239f681c04d0fe97ab72b60781c9" };
   var res = doPost({ postData: { contents: JSON.stringify(body) }});
   Logger.log(res.getContent());
+}
+
+// ★ スプレッドシートのD列（status）が手動で編集された時に実行
+function onEdit(e) {
+  if (!e) return;
+
+  var range = e.range;
+  var sheet = range.getSheet();
+
+  // シート名が一致するか確認
+  var props = PropertiesService.getScriptProperties();
+  var targetSheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
+
+  if (sheet.getName() !== targetSheetName) return;
+
+  // D列（status）が編集されたか確認
+  if (range.getColumn() === 4) {
+    var row = range.getRow();
+    if (row < 2) return; // ヘッダー行は無視
+
+    var newValue = range.getValue();
+    // confirmed, canceled, paidのいずれかに変更された場合
+    if (newValue === "confirmed" || newValue === "canceled" || newValue === "paid") {
+      var patientId = normPid_(sheet.getRange(row, 2).getValue());
+      if (patientId) {
+        Logger.log("[onEdit] Status changed to " + newValue + " for patient " + patientId);
+        invalidateVercelCache_(patientId);
+      }
+    }
+  }
+}
+
+// ★ テスト用：直接キャッシュ無効化を試す
+function testInvalidateCache() {
+  // ★ 実際の患者IDに変更してください
+  var testPatientId = "20251200006";
+
+  Logger.log("=== Testing invalidateVercelCache ===");
+  Logger.log("Patient ID: " + testPatientId);
+
+  invalidateVercelCache_(testPatientId);
+
+  Logger.log("=== Test complete - check logs above ===");
 }
