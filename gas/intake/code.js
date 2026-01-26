@@ -2899,3 +2899,100 @@ function bulkInvalidateCacheToday() {
   Logger.log("=== Bulk Cache Invalidation Completed ===");
   Logger.log("Total patients processed: " + invalidatedCount);
 }
+
+// ★ 今日11時以降にOKが出た患者のLINE IDを収集
+function collectLineIdsForOKPatientsToday() {
+  Logger.log("=== Collecting LINE IDs for OK patients today ===");
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found: " + SHEET_NAME_INTAKE);
+    return;
+  }
+
+  // 今日の11時（日本時間）を基準にする
+  var now = new Date();
+  var cutoffTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0, 0);
+  Logger.log("Cutoff time (JST): " + cutoffTime);
+
+  var values = sheet.getDataRange().getValues();
+  var results = [];
+  var processedPatients = {};
+
+  // ヘッダー行をスキップして2行目から処理
+  for (var i = 1; i < values.length; i++) {
+    var status = String(values[i][COL_STATUS_INTAKE - 1] || "").trim().toUpperCase();
+
+    // ステータスが "OK" の行のみ処理
+    if (status !== "OK") {
+      continue;
+    }
+
+    // 予約日時をチェック
+    var reservedDateValue = values[i][COL_RESERVED_DATE_INTAKE - 1];
+    if (!reservedDateValue) continue;
+
+    var reserveDate;
+    if (reservedDateValue instanceof Date) {
+      reserveDate = new Date(reservedDateValue);
+    } else {
+      reserveDate = new Date(reservedDateValue);
+    }
+
+    // 今日11時以降の予約かチェック
+    if (reserveDate < cutoffTime) {
+      continue;
+    }
+
+    // 患者IDを取得
+    var patientId = normalizePid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+    if (!patientId) continue;
+
+    // 重複を避ける
+    if (processedPatients[patientId]) continue;
+    processedPatients[patientId] = true;
+
+    // LINE ID（G列、0-basedで6）を取得
+    var lineId = String(values[i][6] || "").trim();
+
+    // 患者名（D列、0-basedで3）を取得
+    var name = String(values[i][3] || "").trim();
+
+    results.push({
+      patientId: patientId,
+      lineId: lineId,
+      name: name,
+      reserveDate: reserveDate
+    });
+  }
+
+  // 結果をログに出力
+  Logger.log("=== Results ===");
+  Logger.log("Total patients found: " + results.length);
+  Logger.log("");
+
+  if (results.length === 0) {
+    Logger.log("No OK patients found after " + cutoffTime);
+  } else {
+    Logger.log("LINE IDs (for L-Step):");
+    Logger.log("----------------------");
+
+    var lineIds = [];
+    for (var j = 0; j < results.length; j++) {
+      var r = results[j];
+      Logger.log((j + 1) + ". " + r.name + " (PID: " + r.patientId + ", LINE: " + r.lineId + ")");
+      if (r.lineId) {
+        lineIds.push(r.lineId);
+      }
+    }
+
+    Logger.log("");
+    Logger.log("=== Copy this list for L-Step ===");
+    Logger.log(lineIds.join("\n"));
+  }
+
+  Logger.log("=== Collection Completed ===");
+
+  return results;
+}
