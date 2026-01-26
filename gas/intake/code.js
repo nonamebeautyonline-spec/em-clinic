@@ -2831,3 +2831,71 @@ function testInvalidateCache() {
 
   Logger.log("=== Test complete - check logs above ===");
 }
+
+// ★ 一括キャッシュ無効化：今日の特定時刻以降にOK/NG判定された患者
+function bulkInvalidateCacheToday() {
+  Logger.log("=== Bulk Cache Invalidation Started ===");
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_INTAKE);
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found: " + SHEET_INTAKE);
+    return;
+  }
+
+  // 今日の12時（日本時間）を基準にする
+  var now = new Date();
+  var todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  Logger.log("Cutoff time (JST): " + todayNoon);
+
+  var values = sheet.getDataRange().getValues();
+  var invalidatedCount = 0;
+  var processedPatients = {};
+
+  // ヘッダー行をスキップして2行目から処理
+  for (var i = 1; i < values.length; i++) {
+    var status = String(values[i][COL_STATUS_INTAKE - 1] || "").trim().toUpperCase();
+
+    // ステータスが "OK" または "NG" の行のみ処理
+    if (status !== "OK" && status !== "NG") {
+      continue;
+    }
+
+    // 予約日時をチェック（reserved_date と reserved_time から構築）
+    var reservedDateValue = values[i][COL_RESERVED_DATE_INTAKE - 1];
+    var reservedTimeValue = values[i][COL_RESERVED_TIME_INTAKE - 1];
+
+    if (!reservedDateValue) continue;
+
+    var reserveDate;
+    if (reservedDateValue instanceof Date) {
+      reserveDate = new Date(reservedDateValue);
+    } else {
+      reserveDate = new Date(reservedDateValue);
+    }
+
+    // 今日12時以降の予約かチェック
+    if (reserveDate < todayNoon) {
+      continue;
+    }
+
+    // 患者IDを取得
+    var patientId = normalizePid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+    if (!patientId) continue;
+
+    // 重複を避ける
+    if (processedPatients[patientId]) continue;
+    processedPatients[patientId] = true;
+
+    // キャッシュ無効化
+    Logger.log("Invalidating cache for patient: " + patientId + " (status: " + status + ", date: " + reserveDate + ")");
+    invalidateVercelCache_(patientId);
+    invalidatedCount++;
+
+    // Rate limit対策：少し待機
+    Utilities.sleep(200);
+  }
+
+  Logger.log("=== Bulk Cache Invalidation Completed ===");
+  Logger.log("Total patients processed: " + invalidatedCount);
+}
