@@ -211,7 +211,7 @@ export async function GET(req: NextRequest) {
         end: date,
       });
       if (!schedRes.okHttp || schedRes.json?.ok !== true) {
-        console.error("GAS getScheduleRange error:", schedRes.status);
+        console.error("GAS getScheduleRange error:", schedRes.status, "ADMIN_TOKEN:", ADMIN_TOKEN ? "SET" : "MISSING", "response:", schedRes.json);
         return NextResponse.json({ error: "GAS error" }, { status: 500 });
       }
 
