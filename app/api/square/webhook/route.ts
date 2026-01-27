@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 async function markReorderPaidInGas(reorderId: string) {
   const url = process.env.GAS_REORDER_URL; // 既存の /api/reorder/* が使ってるやつと同じ
@@ -379,6 +385,32 @@ if (reorderId) {
         patient_id: patientId,
         reorder_id: reorderId, // 使うならGAS側で処理
       });
+
+      // ★ Supabase ordersテーブルにINSERT（マイページ用）
+      if (patientId) {
+        try {
+          const { error } = await supabase.from("orders").upsert({
+            id: paymentId,
+            patient_id: patientId,
+            product_code: productCode || null,
+            product_name: itemsText || null,
+            amount: amountText ? parseFloat(amountText) : 0,
+            paid_at: createdAtIso || new Date().toISOString(),
+            shipping_status: "pending",
+            payment_status: "COMPLETED",
+          }, {
+            onConflict: "id"
+          });
+
+          if (error) {
+            console.error("[square/webhook] Supabase upsert failed:", error);
+          } else {
+            console.log("[square/webhook] Supabase order inserted:", paymentId);
+          }
+        } catch (err) {
+          console.error("[square/webhook] Supabase insert error:", err);
+        }
+      }
 
       // ★ キャッシュ削除（決済完了時）
       if (patientId) {
