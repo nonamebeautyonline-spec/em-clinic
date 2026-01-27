@@ -2072,19 +2072,22 @@ function loadReordersForDashboard_(patientId) {
   const pid = String(patientId || "").trim();
   if (!pid) return [];
 
-  // ★ キャッシュチェック（30分）
-  const cache = CacheService.getScriptCache();
-  const cacheKey = "reorders_" + pid;
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch (e) {
-      // パース失敗時は続行（再取得）
+  const props = PropertiesService.getScriptProperties();
+  const useCache = props.getProperty("USE_GAS_CACHE") !== "false"; // ★ デフォルトtrue、false設定時のみOFF
+
+  // ★ キャッシュチェック（5分、USE_GAS_CACHE=false で無効化）
+  if (useCache) {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = "reorders_" + pid;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // パース失敗時は続行（再取得）
+      }
     }
   }
-
-  const props = PropertiesService.getScriptProperties();
   const sheetId = props.getProperty("REORDER_SHEET_ID");
   const sheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
   if (!sheetId) return [];
@@ -2116,7 +2119,7 @@ function loadReordersForDashboard_(patientId) {
   const out = [];
   // 下（新しい）から最大5件だけ拾う
   for (let i = pidColVals.length - 1; i >= 0; i--) {
-    const rowPid = String(pidColVals[i][0] || "").trim();
+    const rowPid = normPid_(pidColVals[i][0]); // ★ normPid_を使って正規化（.0削除など）
     if (rowPid !== pid) continue;
 
     const r = i + 2; // 実シート行番号
@@ -2143,11 +2146,15 @@ function loadReordersForDashboard_(patientId) {
     if (out.length >= 5) break;
   }
 
-  // ★ キャッシュに保存（30分 = 1800秒）
-  try {
-    cache.put(cacheKey, JSON.stringify(out), 1800);
-  } catch (e) {
-    // キャッシュ保存失敗は無視
+  // ★ キャッシュに保存（5分 = 300秒、USE_GAS_CACHE=false で無効化）
+  if (useCache) {
+    try {
+      const cache = CacheService.getScriptCache();
+      const cacheKey = "reorders_" + pid;
+      cache.put(cacheKey, JSON.stringify(out), 300);
+    } catch (e) {
+      // キャッシュ保存失敗は無視
+    }
   }
 
   return out;
@@ -4591,3 +4598,132 @@ function backfillAllIntakeDataToSupabase() {
   Logger.log("Errors: " + errors);
 }
 
+
+// ★ テスト用：特定患者のreordersキャッシュを削除
+function clearReordersCache() {
+  const patientId = "20251200128"; // ← 必要に応じて変更
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "reorders_" + patientId;
+  cache.remove(cacheKey);
+  Logger.log("[clearReordersCache] Deleted cache for patient_id=" + patientId);
+}
+
+// ★ 緊急対応：reordersがある全患者のVercelキャッシュを削除
+function clearAllReorderPatientsCache() {
+  const props = PropertiesService.getScriptProperties();
+  const sheetId = props.getProperty("REORDER_SHEET_ID");
+  const sheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
+  const vercelUrl = props.getProperty("VERCEL_URL");
+  const adminToken = props.getProperty("ADMIN_TOKEN");
+
+  if (!sheetId) {
+    Logger.log("ERROR: REORDER_SHEET_ID not set");
+    return;
+  }
+
+  if (!vercelUrl || !adminToken) {
+    Logger.log("ERROR: VERCEL_URL or ADMIN_TOKEN not set");
+    return;
+  }
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found: " + sheetName);
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No reorders found");
+    return;
+  }
+
+  // B列（patient_id）を全取得
+  const pidVals = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  
+  // 重複排除
+  const uniquePids = {};
+  for (let i = 0; i < pidVals.length; i++) {
+    const pid = normPid_(pidVals[i][0]);
+    if (pid) uniquePids[pid] = true;
+  }
+
+  const pids = Object.keys(uniquePids);
+  Logger.log("Found " + pids.length + " unique patients with reorders");
+
+  const url = vercelUrl + "/api/admin/invalidate-cache";
+  let success = 0;
+  let failed = 0;
+
+  for (let i = 0; i < pids.length; i++) {
+    const pid = pids[i];
+    
+    try {
+      const res = UrlFetchApp.fetch(url, {
+        method: "post",
+        contentType: "application/json",
+        headers: { Authorization: "Bearer " + adminToken },
+        payload: JSON.stringify({ patient_id: pid }),
+        muteHttpExceptions: true,
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        success++;
+        Logger.log("[" + (i+1) + "/" + pids.length + "] OK: " + pid);
+      } else {
+        failed++;
+        Logger.log("[" + (i+1) + "/" + pids.length + "] FAILED (" + code + "): " + pid);
+      }
+
+      Utilities.sleep(50); // API負荷軽減
+    } catch (e) {
+      failed++;
+      Logger.log("[" + (i+1) + "/" + pids.length + "] ERROR: " + pid + " - " + e);
+    }
+  }
+
+  Logger.log("=== Complete ===");
+  Logger.log("Success: " + success);
+  Logger.log("Failed: " + failed);
+  Logger.log("Total: " + pids.length);
+}
+
+// ★ デバッグ用：特定患者のダッシュボードを取得してログ出力
+function testGetDashboardWithReorders() {
+  const patientId = "20251200475"; // ← テストする患者IDに変更
+  
+  Logger.log("=== Testing getDashboard for patient_id=" + patientId + " ===");
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const dashboard = buildDashboardForPatientId(ss, patientId, "", false, false);
+  
+  Logger.log("Patient: " + JSON.stringify(dashboard.patient));
+  Logger.log("Reorders count: " + (dashboard.reorders ? dashboard.reorders.length : 0));
+  
+  if (dashboard.reorders && dashboard.reorders.length > 0) {
+    Logger.log("Reorders data:");
+    for (let i = 0; i < dashboard.reorders.length; i++) {
+      Logger.log("  [" + i + "] " + JSON.stringify(dashboard.reorders[i]));
+    }
+  } else {
+    Logger.log("NO REORDERS FOUND!");
+  }
+  
+  Logger.log("=== End test ===");
+}
+
+// ★ キャッシュOFF設定用（1回だけ実行）
+function disableGasCache() {
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("USE_GAS_CACHE", "false");
+  Logger.log("✓ GAS cache disabled (USE_GAS_CACHE=false)");
+}
+
+// ★ キャッシュON設定用（元に戻す時）
+function enableGasCache() {
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty("USE_GAS_CACHE"); // デフォルトがONなので削除
+  Logger.log("✓ GAS cache enabled (USE_GAS_CACHE removed, default=true)");
+}

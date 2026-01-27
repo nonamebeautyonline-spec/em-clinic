@@ -206,7 +206,7 @@ function handleList_(body) {
     var row = values[i];
 
     var rowPidRaw = row[1];                              // 生の値
-    var rowPid = String(rowPidRaw || "").trim();        // ★ トリムしてから比較
+    var rowPid = normPid_(rowPidRaw);                    // ★ normPid_を使って正規化（.0削除など）
 
     // ★ 各行の pid をログ出し
     Logger.log(
@@ -228,6 +228,11 @@ function handleList_(body) {
     var code   = String(row[2] || "");  // C列 product_code
     var status = String(row[3] || "");  // D列 status
     var note   = row[4] || "";          // E列 note
+
+    // ★ canceled, rejected, paid は患者には見せない
+    if (status === "canceled" || status === "rejected" || status === "paid") {
+      continue;
+    }
 
     list.push({
       id: String(i + 1),       // 行番号（ヘッダー行があるので +1）
@@ -829,38 +834,66 @@ function testPaidUpdate() {
 
 // ★ スプレッドシートのD列（status）が手動で編集された時に実行
 function onEdit(e) {
-  if (!e) return;
+  Logger.log("[onEdit] START");
+
+  if (!e) {
+    Logger.log("[onEdit] No event object");
+    return;
+  }
 
   var range = e.range;
   var sheet = range.getSheet();
+  var sheetName = sheet.getName();
+  var col = range.getColumn();
+  var row = range.getRow();
+
+  Logger.log("[onEdit] Sheet: " + sheetName + ", Row: " + row + ", Col: " + col);
 
   // シート名が一致するか確認
   var props = PropertiesService.getScriptProperties();
   var targetSheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
 
-  if (sheet.getName() !== targetSheetName) return;
+  Logger.log("[onEdit] Target sheet: " + targetSheetName);
+
+  if (sheetName !== targetSheetName) {
+    Logger.log("[onEdit] Sheet name mismatch, exiting");
+    return;
+  }
 
   // D列（status）が編集されたか確認
-  if (range.getColumn() === 4) {
-    var row = range.getRow();
-    if (row < 2) return; // ヘッダー行は無視
+  if (col !== 4) {
+    Logger.log("[onEdit] Not column D, exiting");
+    return;
+  }
 
-    var newValue = range.getValue();
-    // confirmed, canceled, paidのいずれかに変更された場合
-    if (newValue === "confirmed" || newValue === "canceled" || newValue === "paid") {
-      var patientId = normPid_(sheet.getRange(row, 2).getValue());
-      if (patientId) {
-        Logger.log("[onEdit] Status changed to " + newValue + " for patient " + patientId);
-        invalidateVercelCache_(patientId);
-      }
+  if (row < 2) {
+    Logger.log("[onEdit] Header row, exiting");
+    return;
+  }
+
+  var newValue = range.getValue();
+  Logger.log("[onEdit] New value: " + newValue);
+
+  // confirmed, canceled, paidのいずれかに変更された場合
+  if (newValue === "confirmed" || newValue === "canceled" || newValue === "paid") {
+    var patientId = normPid_(sheet.getRange(row, 2).getValue());
+    Logger.log("[onEdit] Patient ID: " + patientId);
+
+    if (patientId) {
+      Logger.log("[onEdit] Status changed to " + newValue + " for patient " + patientId);
+      invalidateVercelCache_(patientId);
+    } else {
+      Logger.log("[onEdit] No patient ID found");
     }
+  } else {
+    Logger.log("[onEdit] Status value not in target list (confirmed/canceled/paid)");
   }
 }
 
 // ★ テスト用：直接キャッシュ無効化を試す
 function testInvalidateCache() {
   // ★ 実際の患者IDに変更してください
-  var testPatientId = "20251200006";
+  var testPatientId = "20251200128";
 
   Logger.log("=== Testing invalidateVercelCache ===");
   Logger.log("Patient ID: " + testPatientId);
