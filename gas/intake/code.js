@@ -1413,6 +1413,22 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    // ========= backfill_patient_names（既存データ修正用）=========
+    if (type === "backfill_patient_names") {
+      const props = PropertiesService.getScriptProperties();
+      const secret = String(props.getProperty("MYPAGE_INVALIDATE_SECRET") || "").trim();
+      const got = String(body.secret || "").trim();
+
+      // SECRET を設定している場合は一致必須
+      if (secret && got !== secret) {
+        return jsonResponse({ ok: false, error: "forbidden" });
+      }
+
+      // バックフィル関数を実行
+      backfillMissingPatientNamesToSupabase();
+
+      return jsonResponse({ ok: true, message: "backfill started, check logs" });
+    }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
@@ -1685,6 +1701,8 @@ if (type === "doctor_call_status") {
             .setMimeType(ContentService.MimeType.JSON);
         }
 
+        var foundPatientId = null;
+
         const values = intakeSheet.getDataRange().getValues();
         for (let i = 1; i < values.length; i++) {
           if (String(values[i][COL_RESERVE_ID_INTAKE - 1]) === String(reserveId)) {
@@ -1701,6 +1719,7 @@ if (type === "doctor_call_status") {
 
             // ★ patient_id を取得してキャッシュ無効化
             var patientId = normalizePid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+            foundPatientId = patientId;
             if (patientId) {
               try {
                 invalidateVercelCache_(patientId);
@@ -1722,7 +1741,7 @@ if (type === "doctor_call_status") {
         }
 
         return ContentService
-          .createTextOutput(JSON.stringify({ ok:true }))
+          .createTextOutput(JSON.stringify({ ok:true, patientId: foundPatientId }))
           .setMimeType(ContentService.MimeType.JSON);
       } catch (e) {
         Logger.log("[doctor_update] Error: " + e);
@@ -1964,6 +1983,7 @@ function syncQuestionnaireFromMaster() {
 
   let updatedAA = 0;
   let updatedVer = 0;
+  const updatedPids = {}; // ★ Supabase同期用：更新されたpatient_idを追跡
 
   for (let i = 0; i < qValues.length; i++) {
     const row = qValues[i];
@@ -1972,6 +1992,8 @@ function syncQuestionnaireFromMaster() {
 
     const mRow = masterByPid[pid];
     if (!mRow) continue;
+
+    updatedPids[pid] = true; // ★ このpatient_idは更新された
 
   // 既存同期（A〜AA内）
 row[Q_COL_NAME]       = mRow[M_COL_NAME];
@@ -2027,6 +2049,13 @@ if (verPhoneFinal && telXNow !== verPhoneFinal) {
   }
 
   Logger.log(`syncQuestionnaireFromMaster updatedVerified=${updatedVer}`);
+
+  // ★ Supabaseに更新されたpatient_idを同期
+  const updatedPidList = Object.keys(updatedPids);
+  if (updatedPidList.length > 0) {
+    Logger.log("[syncMaster] Syncing " + updatedPidList.length + " patients to Supabase");
+    syncSpecificPidsToSupabase_(qSheet, updatedPidList);
+  }
 }
 
 function syncQuestionnaireFromMasterCron() {
@@ -4027,5 +4056,538 @@ function clearDiagnosisDataInSupabase_(patientId) {
   } catch (e) {
     Logger.log("[Supabase] Clear error: " + e);
   }
+}
+
+/**
+ * 特定のpatient_idリストだけをSupabaseに同期
+ */
+function syncSpecificPidsToSupabase_(qSheet, pidList) {
+  if (!pidList || pidList.length === 0) return;
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[SyncPids] ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  const lastRow = qSheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const allData = qSheet.getRange(2, 1, lastRow - 1, 27).getValues();
+
+  const pidSet = {};
+  for (let i = 0; i < pidList.length; i++) {
+    pidSet[normPid_(pidList[i])] = true;
+  }
+
+  let updated = 0;
+  let errors = 0;
+
+  for (let i = 0; i < allData.length; i++) {
+    const row = allData[i];
+    const pid = normPid_(row[25]); // Z列
+
+    if (!pid || !pidSet[pid]) continue;
+
+    const reserveId = (row[1] || "").toString().trim();
+    const name = (row[3] || "").toString().trim();
+    const sex = (row[4] || "").toString().trim();
+    const birth = row[5];
+
+    // H列 (reserved_date) - Date型変換
+    const reservedDateRaw = row[7];
+    let reservedDate = "";
+    if (reservedDateRaw) {
+      if (reservedDateRaw instanceof Date) {
+        const year = reservedDateRaw.getFullYear();
+        const month = String(reservedDateRaw.getMonth() + 1).padStart(2, '0');
+        const day = String(reservedDateRaw.getDate()).padStart(2, '0');
+        reservedDate = year + "-" + month + "-" + day;
+      } else {
+        reservedDate = String(reservedDateRaw).trim();
+      }
+    }
+
+    // I列 (reserved_time) - Date型変換
+    const reservedTimeRaw = row[8];
+    let reservedTime = "";
+    if (reservedTimeRaw) {
+      if (reservedTimeRaw instanceof Date) {
+        const hours = String(reservedTimeRaw.getHours()).padStart(2, '0');
+        const minutes = String(reservedTimeRaw.getMinutes()).padStart(2, '0');
+        reservedTime = hours + ":" + minutes;
+      } else {
+        reservedTime = String(reservedTimeRaw).trim();
+      }
+    }
+
+    const lineId = (row[6] || "").toString().trim();
+    const status = (row[19] || "").toString().trim();
+    const note = (row[20] || "").toString().trim();
+    const prescriptionMenu = (row[21] || "").toString().trim();
+    const nameKana = (row[22] || "").toString().trim();
+    const tel = (row[23] || "").toString().trim();
+    const answererId = (row[24] || "").toString().trim();
+
+    const answers = {};
+    for (let j = 0; j < ANSWER_KEYS.length; j++) {
+      const key = ANSWER_KEYS[j];
+      const val = row[9 + j];
+      answers[key] = val || "";
+    }
+
+    if (name) answers.name = name;
+    if (sex) answers.sex = sex;
+    if (tel) answers.tel = tel;
+    if (nameKana) answers.name_kana = nameKana;
+
+    if (birth) {
+      try {
+        if (birth instanceof Date) {
+          answers.birth = birth.toISOString();
+        } else {
+          answers.birth = new Date(birth).toISOString();
+        }
+      } catch (e) {
+        answers.birth = String(birth);
+      }
+    }
+
+    const updateData = { answers: answers };
+
+    if (reserveId) updateData.reserve_id = reserveId;
+    if (name) updateData.patient_name = name;
+    if (answererId) updateData.answerer_id = answererId;
+    if (lineId) updateData.line_id = lineId;
+    if (reservedDate) updateData.reserved_date = reservedDate;
+    if (reservedTime) updateData.reserved_time = reservedTime;
+    if (status) updateData.status = status;
+    if (note) updateData.note = note;
+    if (prescriptionMenu) updateData.prescription_menu = prescriptionMenu;
+
+    const endpoint = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+
+    try {
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(updateData),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        updated++;
+      } else {
+        errors++;
+        Logger.log("[SyncPids] ✗ patient_id=" + pid + " code=" + code);
+      }
+    } catch (e) {
+      errors++;
+      Logger.log("[SyncPids] ✗ patient_id=" + pid + " error=" + e);
+    }
+
+    Utilities.sleep(50);
+  }
+
+  Logger.log("[SyncPids] Updated: " + updated + ", Errors: " + errors);
+}
+
+/**
+ * patient_id を正規化（.0除去、空白除去）
+ */
+function normPid_(v) {
+  if (v === null || v === undefined) return "";
+  var s = String(v).trim();
+  if (s.endsWith(".0")) s = s.slice(0, -2);
+  s = s.replace(/\s+/g, "");
+  return s;
+}
+
+/**
+ * 既存データ修正: 問診シートからpatient_nameをSupabaseに反映
+ * Supabaseのintakeテーブルでpatient_nameが空のレコードを、問診シートのD列（氏名）で更新
+ */
+function backfillMissingPatientNamesToSupabase() {
+  Logger.log("=== backfillMissingPatientNamesToSupabase START ===");
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Backfill] ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  // 1. Supabaseから空のpatient_nameのレコードを取得
+  const getUrl = supabaseUrl + "/rest/v1/intake?select=patient_id&patient_name=is.null&order=created_at.desc";
+
+  let emptyRecords = [];
+  try {
+    const getRes = UrlFetchApp.fetch(getUrl, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    if (getRes.getResponseCode() !== 200) {
+      Logger.log("[Backfill] ERROR: Failed to fetch empty records from Supabase");
+      return;
+    }
+
+    emptyRecords = JSON.parse(getRes.getContentText());
+    Logger.log("[Backfill] Found " + emptyRecords.length + " records with empty patient_name");
+
+    if (emptyRecords.length === 0) {
+      Logger.log("[Backfill] No records to update");
+      return;
+    }
+  } catch (e) {
+    Logger.log("[Backfill] ERROR fetching from Supabase: " + e);
+    return;
+  }
+
+  // 対象patient_idのSetを作成
+  const targetPids = {};
+  for (let i = 0; i < emptyRecords.length; i++) {
+    const pid = normPid_(emptyRecords[i].patient_id);
+    if (pid) targetPids[pid] = true;
+  }
+
+  // 2. 問診シートを取得
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const qSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+  if (!qSheet) {
+    Logger.log("[Backfill] ERROR: Sheet not found: " + SHEET_NAME_INTAKE);
+    return;
+  }
+
+  const lastRow = qSheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("[Backfill] No data rows in intake sheet");
+    return;
+  }
+
+  // D列(name)とZ列(patient_id)のみ取得
+  const names = qSheet.getRange(2, 4, lastRow - 1, 1).getValues(); // D列
+  const pids = qSheet.getRange(2, 26, lastRow - 1, 1).getValues(); // Z列
+
+  // 3. patient_id -> name のマップを作成（対象のみ）
+  const pidToName = {};
+  for (let i = 0; i < pids.length; i++) {
+    const pid = normPid_(pids[i][0]);
+    const name = (names[i][0] || "").toString().trim();
+
+    if (pid && name && targetPids[pid]) {
+      pidToName[pid] = name;
+    }
+  }
+
+  Logger.log("[Backfill] Found " + Object.keys(pidToName).length + " names to update in intake sheet");
+
+  // 4. Supabaseを一括更新
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (const pid in pidToName) {
+    const name = pidToName[pid];
+    const endpoint = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+
+    try {
+      const payload = { patient_name: name };
+
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        Logger.log("[Backfill] ✓ patient_id=" + pid + " name=" + name);
+        updated++;
+      } else {
+        Logger.log("[Backfill] ✗ patient_id=" + pid + " code=" + code);
+        errors++;
+      }
+    } catch (e) {
+      Logger.log("[Backfill] ✗ patient_id=" + pid + " error: " + e);
+      errors++;
+    }
+
+    // レート制限対策: 50ms待機（短縮）
+    Utilities.sleep(50);
+  }
+
+  // 5. 問診シートに名前がないpatient_id
+  for (const pid in targetPids) {
+    if (!pidToName[pid]) {
+      Logger.log("[Backfill] ⚠ patient_id=" + pid + " has no name in intake sheet");
+      skipped++;
+    }
+  }
+
+  Logger.log("=== backfillMissingPatientNamesToSupabase COMPLETE ===");
+  Logger.log("Empty records in Supabase: " + emptyRecords.length);
+  Logger.log("Updated: " + updated);
+  Logger.log("Skipped (no name in sheet): " + skipped);
+  Logger.log("Errors: " + errors);
+}
+
+/**
+ * 問診シートからSupabaseのintakeテーブルに全データをバックフィル
+ * answers、reserved_date、reserved_time、statusなどが空のレコードを修正
+ */
+function backfillAllIntakeDataToSupabase() {
+  Logger.log("=== backfillAllIntakeDataToSupabase START ===");
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[BackfillAll] ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  // 1. Supabaseからanswersまたはreserved_dateが空のレコードを取得（高速化）
+  const getUrl = supabaseUrl + "/rest/v1/intake?select=patient_id,reserve_id,answers,reserved_date,answerer_id&order=created_at.desc&limit=10000";
+
+  let emptyRecords = [];
+  try {
+    const getRes = UrlFetchApp.fetch(getUrl, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    if (getRes.getResponseCode() !== 200) {
+      Logger.log("[BackfillAll] ERROR: Failed to fetch records from Supabase");
+      return;
+    }
+
+    const allRecords = JSON.parse(getRes.getContentText());
+
+    // answersが空 OR reserved_dateが空 OR 基本情報が空 OR answerer_idが空のレコードをフィルタ
+    for (let i = 0; i < allRecords.length; i++) {
+      const rec = allRecords[i];
+      const ans = rec.answers || {};
+      const keys = Object.keys(ans);
+      const hasAnswers = keys.length > 0 && ans.ng_check;
+      const hasBasicInfo = ans.name || ans.sex || ans.birth || ans.tel || ans.name_kana;
+      const hasReservedDate = rec.reserved_date && rec.reserved_date.trim() !== "";
+      const hasAnswerId = rec.answerer_id && rec.answerer_id !== "null" && rec.answerer_id.trim() !== "";
+
+      if (!hasAnswers || !hasReservedDate || !hasBasicInfo || !hasAnswerId) {
+        emptyRecords.push(rec);
+      }
+    }
+
+    Logger.log("[BackfillAll] Total records in Supabase: " + allRecords.length);
+    Logger.log("[BackfillAll] Records with incomplete data: " + emptyRecords.length);
+  } catch (e) {
+    Logger.log("[BackfillAll] ERROR fetching from Supabase: " + e);
+    return;
+  }
+
+  if (emptyRecords.length === 0) {
+    Logger.log("[BackfillAll] No records to process");
+    return;
+  }
+
+  // 2. 問診シートを取得
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const qSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+  if (!qSheet) {
+    Logger.log("[BackfillAll] ERROR: Sheet not found: " + SHEET_NAME_INTAKE);
+    return;
+  }
+
+  const lastRow = qSheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("[BackfillAll] No data rows in intake sheet");
+    return;
+  }
+
+  // 対象patient_idのSetを作成
+  const targetPids = {};
+  for (let i = 0; i < emptyRecords.length; i++) {
+    const pid = normPid_(emptyRecords[i].patient_id);
+    if (pid) targetPids[pid] = true;
+  }
+
+  // 全データを取得（AA列まで=27列）
+  const allData = qSheet.getRange(2, 1, lastRow - 1, 27).getValues();
+
+  // 3. patient_id -> row データのマップを作成（対象のみ）
+  const pidToData = {};
+  for (let i = 0; i < allData.length; i++) {
+    const row = allData[i];
+    const pid = normPid_(row[25]); // Z列 (patient_id)
+    if (!pid || !targetPids[pid]) continue;
+
+    const reserveId = (row[1] || "").toString().trim(); // B列
+    const name = (row[3] || "").toString().trim(); // D列
+    const sex = (row[4] || "").toString().trim(); // E列
+    const birth = row[5]; // F列
+    const lineId = (row[6] || "").toString().trim(); // G列
+
+    // H列 (reserved_date) - Date型の場合はYYYY-MM-DD形式に変換
+    const reservedDateRaw = row[7];
+    let reservedDate = "";
+    if (reservedDateRaw) {
+      if (reservedDateRaw instanceof Date) {
+        const year = reservedDateRaw.getFullYear();
+        const month = String(reservedDateRaw.getMonth() + 1).padStart(2, '0');
+        const day = String(reservedDateRaw.getDate()).padStart(2, '0');
+        reservedDate = year + "-" + month + "-" + day;
+      } else {
+        reservedDate = String(reservedDateRaw).trim();
+      }
+    }
+
+    // I列 (reserved_time) - Date型の場合はHH:MM形式に変換
+    const reservedTimeRaw = row[8];
+    let reservedTime = "";
+    if (reservedTimeRaw) {
+      if (reservedTimeRaw instanceof Date) {
+        const hours = String(reservedTimeRaw.getHours()).padStart(2, '0');
+        const minutes = String(reservedTimeRaw.getMinutes()).padStart(2, '0');
+        reservedTime = hours + ":" + minutes;
+      } else {
+        reservedTime = String(reservedTimeRaw).trim();
+      }
+    }
+    const status = (row[19] || "").toString().trim(); // T列
+    const note = (row[20] || "").toString().trim(); // U列
+    const prescriptionMenu = (row[21] || "").toString().trim(); // V列
+    const nameKana = (row[22] || "").toString().trim(); // W列
+    const tel = (row[23] || "").toString().trim(); // X列
+    const answererId = (row[24] || "").toString().trim(); // Y列
+
+    // J〜S列 (answers) + 基本情報
+    const answers = {};
+
+    // 問診内容（J-S列）
+    for (let j = 0; j < ANSWER_KEYS.length; j++) {
+      const key = ANSWER_KEYS[j];
+      const val = row[9 + j]; // J列=9, K列=10, ...
+      answers[key] = val || "";
+    }
+
+    // 基本情報をanswersに含める
+    if (name) answers.name = name;
+    if (sex) answers.sex = sex;
+    if (tel) answers.tel = tel;
+    if (nameKana) answers.name_kana = nameKana;
+
+    // birthをISO文字列に変換
+    if (birth) {
+      try {
+        if (birth instanceof Date) {
+          answers.birth = birth.toISOString();
+        } else {
+          answers.birth = new Date(birth).toISOString();
+        }
+      } catch (e) {
+        answers.birth = String(birth);
+      }
+    }
+
+    // 値がある場合のみフィールドをセット（既存値を保持するため）
+    const updateData = {
+      answers: answers
+    };
+
+    if (reserveId) updateData.reserve_id = reserveId;
+    if (name) updateData.patient_name = name;
+    if (answererId) updateData.answerer_id = answererId;
+    if (lineId) updateData.line_id = lineId;
+    if (reservedDate) updateData.reserved_date = reservedDate;
+    if (reservedTime) updateData.reserved_time = reservedTime;
+    if (status) updateData.status = status;
+    if (note) updateData.note = note;
+    if (prescriptionMenu) updateData.prescription_menu = prescriptionMenu;
+
+    pidToData[pid] = updateData;
+  }
+
+  Logger.log("[BackfillAll] Found " + Object.keys(pidToData).length + " records in intake sheet");
+
+  // 4. Supabaseを更新
+  let updated = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (let i = 0; i < emptyRecords.length; i++) {
+    const pid = normPid_(emptyRecords[i].patient_id);
+    if (!pid || !pidToData[pid]) {
+      skipped++;
+      continue;
+    }
+
+    const data = pidToData[pid];
+    const endpoint = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+
+    try {
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(data),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        Logger.log("[BackfillAll] ✓ patient_id=" + pid);
+        updated++;
+      } else {
+        Logger.log("[BackfillAll] ✗ patient_id=" + pid + " code=" + code);
+        errors++;
+      }
+    } catch (e) {
+      Logger.log("[BackfillAll] ✗ patient_id=" + pid + " error: " + e);
+      errors++;
+    }
+
+    // レート制限対策: 50ms待機
+    Utilities.sleep(50);
+  }
+
+  Logger.log("=== backfillAllIntakeDataToSupabase COMPLETE ===");
+  Logger.log("Records with empty answers: " + emptyRecords.length);
+  Logger.log("Updated: " + updated);
+  Logger.log("Skipped (no data in sheet): " + skipped);
+  Logger.log("Errors: " + errors);
 }
 
