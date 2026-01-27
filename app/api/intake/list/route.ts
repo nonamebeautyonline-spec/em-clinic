@@ -41,7 +41,6 @@ export async function GET(req: Request) {
           reserveId: row.reserve_id || "",  // フロントエンド互換のためcamelCase
           reserve_id: row.reserve_id || "",
           patient_id: row.patient_id,
-          patient_name: row.patient_name,
           reserved_date: row.reserved_date || "",
           reserved_time: row.reserved_time || "",
           予約時間: row.reserved_time || "",  // フロントエンド互換
@@ -52,6 +51,9 @@ export async function GET(req: Request) {
           answerer_id: row.answerer_id,
           created_at: row.created_at,
           ...(row.answers || {}),  // Spread answers JSONB to flatten structure
+          // ★ answersのnameが空の場合があるので、patient_nameを最後に設定
+          patient_name: row.patient_name,
+          name: row.patient_name,  // フロントエンド互換（answersのnameを上書き）
         }));
 
         console.log(`[Supabase] Retrieved ${rows.length} rows`);
