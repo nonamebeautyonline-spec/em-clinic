@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "vercel": "vercel",
+    "vercel:env": "vercel env ls",
+    "vercel:env:pull": "vercel env pull",
+    "vercel:deploy": "vercel --prod"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.91.1",
@@ -15,7 +19,8 @@
     "next": "^16.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "twilio": "^5.10.7"
+    "twilio": "^5.10.7",
+    "vercel": "^50.6.0"
   },
   "devDependencies": {
     "@google/clasp": "^3.1.3",
