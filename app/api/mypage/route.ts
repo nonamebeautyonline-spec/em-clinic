@@ -445,11 +445,15 @@ export async function POST(_req: NextRequest) {
     };
 
     // ★ キャッシュ保存（TTL=30分）
+    console.log(`[Cache] Attempting to save: ${cacheKey}`);
+    console.log(`[Cache] Payload size: ${JSON.stringify(payload).length} bytes`);
     try {
-      await redis.set(cacheKey, payload, { ex: 1800 });
+      const result = await redis.set(cacheKey, payload, { ex: 1800 });
+      console.log(`[Cache] Redis.set result:`, result);
       console.log(`[Cache] Saved: ${cacheKey} (30min)`);
     } catch (error) {
-      console.error("[Cache] Failed to save cache:", error);
+      console.error(`[Cache] Failed to save cache: ${error}`);
+      console.error(`[Cache] Error details:`, error);
     }
 
     const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });
