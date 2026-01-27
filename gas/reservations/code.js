@@ -333,6 +333,8 @@ if (type === "createReservation") {
     var supabaseError = null;
     try {
       updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime);
+      // ★ キャッシュ無効化
+      invalidateVercelCache_(patientId);
     } catch (e) {
       supabaseError = String(e);
       Logger.log("[Supabase] Reservation update failed: " + e);
@@ -425,6 +427,8 @@ if (type === "createReservation") {
       if (patientId) {
         try {
           updateSupabaseIntakeReservation_(reserveId, patientId, newDate, newTime);
+          // ★ キャッシュ無効化
+          invalidateVercelCache_(patientId);
         } catch (e) {
           supabaseError = String(e);
           Logger.log("[Supabase] Reservation update failed: " + e);

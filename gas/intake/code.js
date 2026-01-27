@@ -176,6 +176,7 @@ function invalidateVercelCache_(patientId) {
       headers: { Authorization: "Bearer " + adminToken },
       payload: JSON.stringify({ patient_id: patientId }),
       muteHttpExceptions: true,
+      timeout: 10  // ★ 10秒でタイムアウト
     });
 
     const code = res.getResponseCode();
@@ -201,11 +202,10 @@ function onOpen() {
     .addItem("氏名検索 → 予約をまっさらにする", "openRescheduleResetModal")
     .addToUi();
 
-  // ここに既存メニューがある場合は、同様に追記して統合する
-  // 例：
-  // ui.createMenu("🩺 問診")
-  //   .addItem("問診マスター同期", "syncQuestionnaireFromMaster")
-  //   .addToUi();
+  // 🩺 問診メニュー
+  ui.createMenu("🩺 問診")
+    .addItem("診察判定削除（患者指定）", "clearDiagnosisForPatient")
+    .addToUi();
 }
 function headerIndexMap_(sheet) {
   const header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -1673,52 +1673,63 @@ if (type === "doctor_call_status") {
 
     // ========= ② doctor_update =========
     if (type === "doctor_update") {
-      const reserveId = body.reserveId;
-      const status = body.status || "";
-      const note   = body.note   || "";
-      const menu   = body.prescriptionMenu || "";
+      try {
+        const reserveId = body.reserveId;
+        const status = body.status || "";
+        const note   = body.note   || "";
+        const menu   = body.prescriptionMenu || "";
 
-      if (!reserveId) {
+        if (!reserveId) {
+          return ContentService
+            .createTextOutput(JSON.stringify({ ok:false, error:"reserveId required" }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        const values = intakeSheet.getDataRange().getValues();
+        for (let i = 1; i < values.length; i++) {
+          if (String(values[i][COL_RESERVE_ID_INTAKE - 1]) === String(reserveId)) {
+            if (status) {
+              intakeSheet.getRange(i + 1, COL_STATUS_INTAKE).setValue(status);
+            }
+            intakeSheet.getRange(i + 1, COL_NOTE_INTAKE).setValue(note);
+            intakeSheet.getRange(i + 1, COL_MENU_INTAKE).setValue(menu);
+            // ★ OK/NG確定のタイミングで「不通」を解除（AE/AF）
+            intakeSheet.getRange(i + 1, COL_CALL_STATUS_INTAKE).setValue("");
+            intakeSheet.getRange(i + 1, COL_CALL_STATUS_AT_INTAKE).setValue(
+              Utilities.formatDate(new Date(), TZ, "yyyy/MM/dd HH:mm:ss")
+            );
+
+            // ★ patient_id を取得してキャッシュ無効化
+            var patientId = normalizePid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+            if (patientId) {
+              try {
+                invalidateVercelCache_(patientId);
+              } catch (e) {
+                Logger.log("[invalidateCache] failed: " + e);
+              }
+            }
+
+            // ★ Supabaseを更新
+            try {
+              updateSupabaseIntakeByReserveId_(reserveId, status, note, menu);
+            } catch (e) {
+              Logger.log("[Supabase] update failed: " + e);
+            }
+
+            Logger.log("doctor_update row: " + (i + 1) + ", patientId: " + patientId);
+            break;
+          }
+        }
+
         return ContentService
-          .createTextOutput(JSON.stringify({ ok:false, error:"reserveId required" }))
+          .createTextOutput(JSON.stringify({ ok:true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (e) {
+        Logger.log("[doctor_update] Error: " + e);
+        return ContentService
+          .createTextOutput(JSON.stringify({ ok:false, error: "doctor_update_error", details: String(e) }))
           .setMimeType(ContentService.MimeType.JSON);
       }
-
-      const values = intakeSheet.getDataRange().getValues();
-      for (let i = 1; i < values.length; i++) {
-        if (String(values[i][COL_RESERVE_ID_INTAKE - 1]) === String(reserveId)) {
-          if (status) {
-            intakeSheet.getRange(i + 1, COL_STATUS_INTAKE).setValue(status);
-          }
-          intakeSheet.getRange(i + 1, COL_NOTE_INTAKE).setValue(note);
-          intakeSheet.getRange(i + 1, COL_MENU_INTAKE).setValue(menu);
-          // ★ OK/NG確定のタイミングで「不通」を解除（AE/AF）
-intakeSheet.getRange(i + 1, COL_CALL_STATUS_INTAKE).setValue("");
-intakeSheet.getRange(i + 1, COL_CALL_STATUS_AT_INTAKE).setValue(
-  Utilities.formatDate(new Date(), TZ, "yyyy/MM/dd HH:mm:ss")
-);
-
-          // ★ patient_id を取得してキャッシュ無効化
-          var patientId = normalizePid_(values[i][COL_PID_INTAKE - 1]);
-          if (patientId) {
-            invalidateVercelCache_(patientId);
-          }
-
-          // ★ Supabaseを更新
-          try {
-            updateSupabaseIntakeByReserveId_(reserveId, status, note, menu);
-          } catch (e) {
-            Logger.log("[Supabase] update failed: " + e);
-          }
-
-          Logger.log("doctor_update row: " + (i + 1) + ", patientId: " + patientId);
-          break;
-        }
-      }
-
-      return ContentService
-        .createTextOutput(JSON.stringify({ ok:true }))
-        .setMimeType(ContentService.MimeType.JSON);
     }
 
 // ========= ③ intake（問診保存） =========
@@ -3288,7 +3299,8 @@ function updateSupabaseIntakeByReserveId_(reserveId, status, note, prescriptionM
         "Prefer": "return=minimal"
       },
       payload: JSON.stringify(payload),
-      muteHttpExceptions: true
+      muteHttpExceptions: true,
+      timeout: 10  // ★ 10秒でタイムアウト（デフォルトは60秒）
     });
 
     const code = res.getResponseCode();
@@ -3854,5 +3866,166 @@ function migrateIntakeDataToSupabaseFast() {
   Logger.log("=== Fast Migration Completed ===");
   Logger.log("Total records written: " + totalCount);
   Logger.log("Skipped records: " + skippedCount);
+}
+
+// =====================
+// 診察判定削除機能
+// =====================
+
+/**
+ * 特定患者の診察判定を削除（UIから呼び出し）
+ */
+function clearDiagnosisForPatient() {
+  const ui = SpreadsheetApp.getUi();
+
+  // 患者IDを入力
+  const response = ui.prompt(
+    "診察判定削除",
+    "削除する患者のpatient_idを入力してください:",
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    ui.alert("キャンセルしました");
+    return;
+  }
+
+  const inputPatientId = response.getResponseText().trim();
+  if (!inputPatientId) {
+    ui.alert("エラー", "patient_idが入力されていません", ui.ButtonSet.OK);
+    return;
+  }
+
+  const patientId = normalizePid_(inputPatientId);
+
+  // 確認ダイアログ
+  const confirmResponse = ui.alert(
+    "確認",
+    "患者ID: " + patientId + " の診察判定データ（ステータス、メモ、処方メニュー）を削除します。\n" +
+    "スプレッドシートとSupabase両方から削除されます。\n\nよろしいですか？",
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmResponse !== ui.Button.YES) {
+    ui.alert("キャンセルしました");
+    return;
+  }
+
+  try {
+    Logger.log("=== Clear Diagnosis for patient_id: " + patientId + " ===");
+
+    // スプレッドシートから削除
+    const clearedRows = clearDiagnosisDataInSheet_(patientId);
+
+    // Supabaseから削除
+    clearDiagnosisDataInSupabase_(patientId);
+
+    // キャッシュ無効化
+    try {
+      invalidateVercelCache_(patientId);
+    } catch (e) {
+      Logger.log("[clearDiagnosisForPatient] Cache invalidation failed: " + e);
+    }
+
+    ui.alert(
+      "完了",
+      "患者ID: " + patientId + " の診察判定を削除しました。\n" +
+      "対象行数: " + clearedRows + "行",
+      ui.ButtonSet.OK
+    );
+
+    Logger.log("=== Clear Diagnosis Completed ===");
+  } catch (e) {
+    Logger.log("[clearDiagnosisForPatient] Error: " + e);
+    ui.alert("エラー", "削除中にエラーが発生しました: " + e, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * スプレッドシートから特定患者の診察判定データを削除
+ * @param {string} patientId - 患者ID
+ * @return {number} 削除した行数
+ */
+function clearDiagnosisDataInSheet_(patientId) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+  if (!sheet) {
+    throw new Error("Sheet not found: " + SHEET_NAME_INTAKE);
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    Logger.log("No data in sheet");
+    return 0;
+  }
+
+  const values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  let clearedCount = 0;
+
+  for (let i = 0; i < values.length; i++) {
+    const rowPatientId = normalizePid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+
+    if (rowPatientId === patientId) {
+      const rowNumber = i + 2; // ヘッダー行を除くため+2
+
+      // T/U/V列（status, note, prescription_menu）をクリア
+      sheet.getRange(rowNumber, COL_STATUS_INTAKE).clearContent();
+      sheet.getRange(rowNumber, COL_NOTE_INTAKE).clearContent();
+      sheet.getRange(rowNumber, COL_MENU_INTAKE).clearContent();
+
+      clearedCount++;
+      Logger.log("Cleared row " + rowNumber + " for patient_id: " + patientId);
+    }
+  }
+
+  Logger.log("Cleared " + clearedCount + " rows in sheet");
+  return clearedCount;
+}
+
+/**
+ * Supabaseから特定患者の診察判定データを削除
+ * @param {string} patientId - 患者ID
+ */
+function clearDiagnosisDataInSupabase_(patientId) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing credentials, skipping Supabase clear");
+    return;
+  }
+
+  const endpoint = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(patientId);
+
+  try {
+    const payload = {
+      status: null,
+      note: null,
+      prescription_menu: null
+    };
+
+    const res = UrlFetchApp.fetch(endpoint, {
+      method: "patch",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "return=minimal"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+      timeout: 10
+    });
+
+    const code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] Diagnosis data cleared for patient_id: " + patientId);
+    } else {
+      Logger.log("[Supabase] Clear failed: code=" + code + " body=" + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("[Supabase] Clear error: " + e);
+  }
 }
 

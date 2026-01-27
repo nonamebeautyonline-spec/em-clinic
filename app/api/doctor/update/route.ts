@@ -21,10 +21,16 @@ export async function POST(req: Request) {
     try {
       json = text ? JSON.parse(text) : {};
     } catch {
+      console.error("[doctor/update] GAS response is not JSON:", text);
       return fail("GAS_NON_JSON", 500);
     }
 
-    if (!res.ok || json?.ok !== true) return fail("GAS_ERROR", 500);
+    console.log("[doctor/update] GAS response:", json);
+
+    if (!res.ok || json?.ok !== true) {
+      console.error("[doctor/update] GAS error:", { status: res.status, json });
+      return fail("GAS_ERROR", 500);
+    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch {
