@@ -342,8 +342,15 @@ if (!gasRes.ok || json?.ok !== true) {
 
 
     // ★ キャッシュ削除（予約作成・変更・キャンセル時）
-    if (patientId) {
-      await invalidateDashboardCache(patientId);
+    // GASレスポンスからpatient_idを取得（cookieよりも確実）
+    const pidFromGas = json.patientId || json.patient_id;
+    const finalPid = pidFromGas || patientId;
+
+    if (finalPid) {
+      await invalidateDashboardCache(finalPid);
+      console.log(`[reservations] Cache invalidated for patient_id=${finalPid}`);
+    } else {
+      console.warn(`[reservations] No patient_id found for cache invalidation (type=${type})`);
     }
 
     // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）

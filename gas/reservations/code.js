@@ -36,8 +36,9 @@ const COL_PID_INTAKE              = 26; // Z: patient_id (Patient_ID を転記�
  * @param {string} patientId - Patient ID
  * @param {string} reservedDate - YYYY-MM-DD
  * @param {string} reservedTime - HH:MM
+ * @param {SpreadsheetApp.Spreadsheet} ss - スプレッドシート（患者情報取得用）
  */
-function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, reservedTime) {
+function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, reservedTime, ss) {
   Logger.log("[Supabase] updateSupabaseIntakeReservation_ called: reserveId=" + reserveId + ", patientId=" + patientId + ", date=" + reservedDate + ", time=" + reservedTime);
 
   if (!patientId) {
@@ -54,6 +55,17 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
   if (!supabaseUrl || !supabaseKey) {
     Logger.log("[Supabase] ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY in Script Properties");
     return;
+  }
+
+  // ★ 問診マスターから患者情報を取得
+  let patientInfo = null;
+  if (ss) {
+    patientInfo = findPatientInfoFromMaster_(ss, patientId);
+    if (patientInfo) {
+      Logger.log("[Supabase] Found patient info from master: name=" + patientInfo.name);
+    } else {
+      Logger.log("[Supabase] No patient info found in master for patient_id=" + patientId);
+    }
   }
 
   // patient_idでレコードを検索してupsert
@@ -85,6 +97,33 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
         const patchUrl = supabaseUrl + "/rest/v1/intake?id=eq." + record.id;
         Logger.log("[Supabase] PATCH request URL: " + patchUrl);
 
+        // ★ patient_nameが空の場合は患者情報も更新
+        const patchData = {
+          reserve_id: reserveId,
+          reserved_date: reservedDate || null,
+          reserved_time: reservedTime || null
+        };
+
+        if (patientInfo && (!record.patient_name || record.patient_name.trim() === "")) {
+          Logger.log("[Supabase] Updating patient_name and answers (was empty)");
+          patchData.patient_name = patientInfo.name;
+
+          // answersに個人情報を含める
+          const answers = record.answers || {};
+          answers.name = patientInfo.name;
+          answers["氏名"] = patientInfo.name;
+          answers.sex = patientInfo.sex;
+          answers["性別"] = patientInfo.sex;
+          answers.birth = patientInfo.birth;
+          answers["生年月日"] = patientInfo.birth;
+          answers.tel = patientInfo.tel;
+          answers["電話番号"] = patientInfo.tel;
+          answers.name_kana = patientInfo.name_kana;
+          answers["カナ"] = patientInfo.name_kana;
+
+          patchData.answers = answers;
+        }
+
         const patchRes = UrlFetchApp.fetch(patchUrl, {
           method: "patch",
           contentType: "application/json",
@@ -92,11 +131,7 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
             "apikey": supabaseKey,
             "Authorization": "Bearer " + supabaseKey
           },
-          payload: JSON.stringify({
-            reserve_id: reserveId,
-            reserved_date: reservedDate || null,
-            reserved_time: reservedTime || null
-          }),
+          payload: JSON.stringify(patchData),
           muteHttpExceptions: true
         });
 
@@ -112,6 +147,34 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
         // レコードが存在しない場合はINSERT
         Logger.log("[Supabase] No existing record, creating new record for patient_id=" + patientId);
 
+        // ★ 患者情報を含めて新規作成
+        const insertData = {
+          reserve_id: reserveId,
+          patient_id: patientId,
+          reserved_date: reservedDate || null,
+          reserved_time: reservedTime || null,
+          answers: {}
+        };
+
+        if (patientInfo) {
+          Logger.log("[Supabase] Including patient info in INSERT");
+          insertData.patient_name = patientInfo.name;
+
+          // answersに個人情報を含める
+          insertData.answers = {
+            name: patientInfo.name,
+            "氏名": patientInfo.name,
+            sex: patientInfo.sex,
+            "性別": patientInfo.sex,
+            birth: patientInfo.birth,
+            "生年月日": patientInfo.birth,
+            tel: patientInfo.tel,
+            "電話番号": patientInfo.tel,
+            name_kana: patientInfo.name_kana,
+            "カナ": patientInfo.name_kana
+          };
+        }
+
         const insertUrl = supabaseUrl + "/rest/v1/intake";
         const insertRes = UrlFetchApp.fetch(insertUrl, {
           method: "post",
@@ -121,13 +184,7 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
             "Authorization": "Bearer " + supabaseKey,
             "Prefer": "return=minimal"
           },
-          payload: JSON.stringify({
-            reserve_id: reserveId,
-            patient_id: patientId,
-            reserved_date: reservedDate || null,
-            reserved_time: reservedTime || null,
-            answers: {}
-          }),
+          payload: JSON.stringify(insertData),
           muteHttpExceptions: true
         });
 
@@ -332,7 +389,7 @@ if (type === "createReservation") {
     // ===== Supabaseに予約情報を反映 =====
     var supabaseError = null;
     try {
-      updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime);
+      updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime, ss);
       // ★ キャッシュ無効化
       invalidateVercelCache_(patientId);
     } catch (e) {
@@ -426,7 +483,7 @@ if (type === "createReservation") {
       var supabaseError = null;
       if (patientId) {
         try {
-          updateSupabaseIntakeReservation_(reserveId, patientId, newDate, newTime);
+          updateSupabaseIntakeReservation_(reserveId, patientId, newDate, newTime, ss);
           // ★ キャッシュ無効化
           invalidateVercelCache_(patientId);
         } catch (e) {
@@ -438,6 +495,7 @@ if (type === "createReservation") {
       return ContentService.createTextOutput(
         JSON.stringify({
           ok: true,
+          patientId: patientId || null,
           supabaseSync: supabaseError ? "failed: " + supabaseError : (patientId ? "attempted" : "skipped")
         })
       ).setMimeType(ContentService.MimeType.JSON);
@@ -489,7 +547,7 @@ if (intakeSheet) {
       var supabaseError = null;
       if (patientId) {
         try {
-          updateSupabaseIntakeReservation_(null, patientId, null, null);
+          updateSupabaseIntakeReservation_(null, patientId, null, null, ss);
           // ★ キャッシュ無効化
           invalidateVercelCache_(patientId);
         } catch (e) {
@@ -1101,6 +1159,77 @@ function findNameFromIntakeByPid_(ss, patientId) {
     if (name) return name;
   }
   return "";
+}
+
+/**
+ * 問診マスターシートからpatient_idで患者情報を取得
+ * @param {SpreadsheetApp.Spreadsheet} ss - スプレッドシート
+ * @param {string} patientId - Patient ID
+ * @return {Object|null} - 患者情報オブジェクト（name, sex, birth, tel, name_kana）または null
+ */
+function findPatientInfoFromMaster_(ss, patientId) {
+  const SHEET_NAME_MASTER = "問診マスター";
+  const sh = ss.getSheetByName(SHEET_NAME_MASTER);
+  if (!sh) {
+    Logger.log("[findPatientInfoFromMaster_] Sheet not found: " + SHEET_NAME_MASTER);
+    return null;
+  }
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("[findPatientInfoFromMaster_] No data in master sheet");
+    return null;
+  }
+
+  // 問診マスター列構成：E=氏名, F=性別, H=生年月日, I=電話番号, K=カナ, L=Patient_ID
+  const COL_NAME = 5;  // E
+  const COL_SEX = 6;   // F
+  const COL_BIRTH = 8; // H
+  const COL_TEL = 9;   // I
+  const COL_KANA = 11; // K
+  const COL_PID = 12;  // L
+
+  const values = sh.getRange(2, 1, lastRow - 1, 15).getValues(); // A-O列まで読む
+
+  // 最新行優先で検索
+  for (let i = values.length - 1; i >= 0; i--) {
+    const row = values[i];
+    const pid = String(row[COL_PID - 1] || "").trim();
+    if (pid !== String(patientId).trim()) continue;
+
+    const name = String(row[COL_NAME - 1] || "").trim();
+    const sex = String(row[COL_SEX - 1] || "").trim();
+    const birth = row[COL_BIRTH - 1]; // Date型の可能性あり
+    const tel = String(row[COL_TEL - 1] || "").trim();
+    const nameKana = String(row[COL_KANA - 1] || "").trim();
+
+    if (name) {
+      // birthをISO文字列に変換
+      let birthStr = "";
+      if (birth) {
+        try {
+          if (birth instanceof Date) {
+            birthStr = birth.toISOString();
+          } else {
+            birthStr = new Date(birth).toISOString();
+          }
+        } catch (e) {
+          birthStr = String(birth);
+        }
+      }
+
+      return {
+        name: name,
+        sex: sex,
+        birth: birthStr,
+        tel: tel,
+        name_kana: nameKana
+      };
+    }
+  }
+
+  Logger.log("[findPatientInfoFromMaster_] No patient info found for patient_id=" + patientId);
+  return null;
 }
 
 // ★ テスト関数：Supabase更新の動作確認
