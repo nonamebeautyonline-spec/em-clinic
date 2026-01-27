@@ -1406,9 +1406,17 @@ function doPost(e) {
         cache.remove("pid_webhook_index_mirror_v1");
         cache.remove("pay_master_index_map_v1");
         cache.remove("shipping_index_map_v1");
-        // NOTE: reorders_{pid} は患者ごとなので個別削除が必要
-        // 現状はNext.js側のinvalidateDashboardCache()で対応
-      } catch (e2) {}
+
+        // ★ patient_id が指定されている場合は、その患者の reorders キャッシュも削除
+        const patientId = body.patient_id || body.patientId;
+        if (patientId) {
+          const pid = normPid_(patientId);
+          cache.remove("reorders_" + pid);
+          Logger.log("[invalidate_cache] Cleared reorders cache for patient: " + pid);
+        }
+      } catch (e2) {
+        Logger.log("[invalidate_cache] Error clearing cache: " + e2);
+      }
 
       return jsonResponse({ ok: true });
     }
@@ -4707,6 +4715,33 @@ function testGetDashboardWithReorders() {
     Logger.log("NO REORDERS FOUND!");
   }
   
+  Logger.log("=== End test ===");
+}
+
+// ★ 再処方データのデバッグ用テスト関数
+function testLoadReorders() {
+  const testPatientId = "20251200128"; // ★ 実際の患者IDに変更
+
+  Logger.log("=== Testing loadReordersForDashboard_ ===");
+  Logger.log("Patient ID: " + testPatientId);
+
+  // キャッシュクリア
+  const cache = CacheService.getScriptCache();
+  cache.remove("reorders_" + testPatientId);
+  Logger.log("Cache cleared for patient: " + testPatientId);
+
+  const reorders = loadReordersForDashboard_(testPatientId);
+
+  Logger.log("Result count: " + reorders.length);
+
+  if (reorders.length > 0) {
+    for (let i = 0; i < reorders.length; i++) {
+      Logger.log("  [" + i + "] " + JSON.stringify(reorders[i]));
+    }
+  } else {
+    Logger.log("NO REORDERS FOUND!");
+  }
+
   Logger.log("=== End test ===");
 }
 
