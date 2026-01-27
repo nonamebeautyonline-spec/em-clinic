@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 const USE_SUPABASE = process.env.USE_SUPABASE === "true";
-const USE_CACHE = process.env.USE_MYPAGE_CACHE === "true"; // ★ キャッシュ制御用
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -264,23 +263,19 @@ export async function POST(_req: NextRequest) {
     const lineSavedFlag =
       getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
-    // ★ キャッシュチェック（USE_MYPAGE_CACHE=true で有効化）
+    // ★ キャッシュチェック
     const cacheKey = getDashboardCacheKey(patientId);
 
-    if (USE_CACHE) {
-      try {
-        const cachedData = await redis.get(cacheKey);
-        if (cachedData) {
-          console.log(`[Cache] Hit: ${cacheKey}`);
-          return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
-        }
-      } catch (error) {
-        console.error("[Cache] Failed to get cache:", error);
+    try {
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        console.log(`[Cache] Hit: ${cacheKey}`);
+        return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
       }
-      console.log(`[Cache] Miss: ${cacheKey}`);
-    } else {
-      console.log(`[NoCache] Cache disabled for patient_id=${patientId}`);
+    } catch (error) {
+      console.error("[Cache] Failed to get cache:", error);
     }
+    console.log(`[Cache] Miss: ${cacheKey}`);
 
     console.log(`[Mypage] USE_SUPABASE=${USE_SUPABASE}`);
 
@@ -449,14 +444,12 @@ export async function POST(_req: NextRequest) {
       perf: (gasJson as any).perf || [],
     };
 
-    // ★ キャッシュ保存（USE_MYPAGE_CACHE=true で有効化、TTL=5分）
-    if (USE_CACHE) {
-      try {
-        await redis.set(cacheKey, payload, { ex: 300 });
-        console.log(`[Cache] Saved: ${cacheKey} (5min)`);
-      } catch (error) {
-        console.error("[Cache] Failed to save cache:", error);
-      }
+    // ★ キャッシュ保存（TTL=30分）
+    try {
+      await redis.set(cacheKey, payload, { ex: 1800 });
+      console.log(`[Cache] Saved: ${cacheKey} (30min)`);
+    } catch (error) {
+      console.error("[Cache] Failed to save cache:", error);
     }
 
     const res = NextResponse.json(payload, { status: 200, headers: noCacheHeaders });

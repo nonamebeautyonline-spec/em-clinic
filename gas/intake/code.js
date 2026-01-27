@@ -2073,21 +2073,19 @@ function loadReordersForDashboard_(patientId) {
   if (!pid) return [];
 
   const props = PropertiesService.getScriptProperties();
-  const useCache = props.getProperty("USE_GAS_CACHE") !== "false"; // ★ デフォルトtrue、false設定時のみOFF
 
-  // ★ キャッシュチェック（5分、USE_GAS_CACHE=false で無効化）
-  if (useCache) {
-    const cache = CacheService.getScriptCache();
-    const cacheKey = "reorders_" + pid;
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      try {
-        return JSON.parse(cached);
-      } catch (e) {
-        // パース失敗時は続行（再取得）
-      }
+  // ★ キャッシュチェック（30分）
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "reorders_" + pid;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      // パース失敗時は続行（再取得）
     }
   }
+
   const sheetId = props.getProperty("REORDER_SHEET_ID");
   const sheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
   if (!sheetId) return [];
@@ -2146,15 +2144,13 @@ function loadReordersForDashboard_(patientId) {
     if (out.length >= 5) break;
   }
 
-  // ★ キャッシュに保存（5分 = 300秒、USE_GAS_CACHE=false で無効化）
-  if (useCache) {
-    try {
-      const cache = CacheService.getScriptCache();
-      const cacheKey = "reorders_" + pid;
-      cache.put(cacheKey, JSON.stringify(out), 300);
-    } catch (e) {
-      // キャッシュ保存失敗は無視
-    }
+  // ★ キャッシュに保存（30分 = 1800秒）
+  try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = "reorders_" + pid;
+    cache.put(cacheKey, JSON.stringify(out), 1800);
+  } catch (e) {
+    // キャッシュ保存失敗は無視
   }
 
   return out;
