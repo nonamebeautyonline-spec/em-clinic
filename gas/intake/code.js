@@ -1901,6 +1901,14 @@ if (existingSubmitted) {
       Logger.log("[syncQuestionnaireFromMaster] failed: " + e);
     }
 
+    // ★ キャッシュ無効化（問診提出後、マイページに即反映させる）
+    try {
+      invalidateVercelCache_(pid);
+      Logger.log("[invalidateCache] called for patient_id=" + pid);
+    } catch (e) {
+      Logger.log("[invalidateCache] failed: " + e);
+    }
+
     return jsonResponse({ ok: true, intakeId: intakeId });
   } finally {
     lock.releaseLock();

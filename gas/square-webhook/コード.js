@@ -102,10 +102,15 @@ function doPost(e) {
           payment_status: "COMPLETED",
         });
 
-          // ★★★ ここ（決済反映が終わった直後） ★★★
-  invalidateMypageCache_();
+          // ★★★ キャッシュ削除はVercel側で実行済み（多層防御として残す場合のみ） ★★★
+  var patientIdForCache = String(body.patient_id || "").trim();
+  if (patientIdForCache) {
+    invalidateMypageCache_(patientIdForCache);
+  } else {
+    Logger.log("[doPost] payment_completed: patient_id not provided, cache not invalidated");
+  }
 
-        // 再処方 paid 通知が必要なら “ここで” ではなく、
+        // 再処方 paid 通知が必要なら "ここで" ではなく、
         // Next側から再処方GASへ直接叩くのがおすすめ（GASのUrlFetchをゼロに保つため）
         return _textResponse("ok");
       }
@@ -116,15 +121,15 @@ function doPost(e) {
         if (!pid) return _textResponse("ok");
 
         var refundedAtJst = _toJstString(String(body.refunded_at_iso || ""));
-        upsertRefundToRow_(sheet, pid, {
+        var patientId = upsertRefundToRow_(sheet, pid, {
           refund_status: String(body.refund_status || ""),
           refunded_amount: String(body.refunded_amount || ""),
           refunded_at: refundedAtJst,
           refund_id: String(body.refund_id || ""),
         });
 
-          // ★★★ ここ（決済反映が終わった直後） ★★★
-  invalidateMypageCache_();
+          // ★★★ ここ（返金反映が終わった直後） ★★★
+  if (patientId) invalidateMypageCache_(patientId);
         return _textResponse("ok");
       }
 
@@ -479,6 +484,13 @@ function copySelectedToNonameMaster() {
     .getRange(startRowMaster, 1, rowsToAppend.length, rowsToAppend[0].length)
     .setValues(rowsToAppend);
 // pay_master_index は使わない（行ズレ事故の原因になるため
+
+  // ★ Supabaseにも同期
+  try {
+    syncNonameMasterRowsToSupabase_(rowsToAppend);
+  } catch (e) {
+    Logger.log("[copySelectedToNonameMaster] Supabase sync failed: " + e);
+  }
 
   SpreadsheetApp.getUi().alert(
     rowsToAppend.length + "件を のなめマスター に転記しました。\n" +
@@ -1117,7 +1129,7 @@ function upsertRefundToRow_(sheet, paymentId, data) {
     const before = sheet.getLastRow();
     sheet.appendRow(newRow);
     // patientIdは不明なのでここでは索引更新しない（後でpayment_completedが来れば更新される）
-    return;
+    return null;
   }
 
   if (map["refund_status"]) sheet.getRange(row, map["refund_status"]).setValue(data.refund_status || "");
@@ -1125,11 +1137,16 @@ function upsertRefundToRow_(sheet, paymentId, data) {
   if (map["refunded_at"]) sheet.getRange(row, map["refunded_at"]).setValue(data.refunded_at || "");
   if (map["refund_id"]) sheet.getRange(row, map["refund_id"]).setValue(data.refund_id || "");
 
-  // ★ ここでpatientIdを拾って索引更新
+  // ★ ここでpatientIdを拾って索引更新し、返り値として返す
+  var patientId = null;
   if (colPid) {
     const pid = String(sheet.getRange(row, colPid).getValue() || "").trim();
-    if (pid) pidWebhookIndexAddRow_(pid, row);
+    if (pid) {
+      pidWebhookIndexAddRow_(pid, row);
+      patientId = pid;
+    }
   }
+  return patientId;
 }
 
 function upsertCompletedPaymentRow_(sheet, paymentId, d) {
@@ -1873,21 +1890,46 @@ function buildPayMasterIndexOnce() {
   Logger.log("buildPayMasterIndexOnce done: " + out.length);
 }
 
-const MYPAGE_INVALIDATE_URL =
-  "https://script.google.com/macros/s/AKfycbxWrQPowxYyCkUDRNNqik--L-zzfRGzdhbqTaFqP9tFWzJIUWy0UGK8fiV0owGVw0Q4/exec";
+// ★ Vercel キャッシュ無効化API呼び出し
+function invalidateMypageCache_(patientId) {
+  if (!patientId) {
+    Logger.log("[invalidateMypageCache_] No patient_id provided");
+    return;
+  }
 
-function invalidateMypageCache_() {
-  const props = PropertiesService.getScriptProperties();
-  const secret = String(props.getProperty("MYPAGE_INVALIDATE_SECRET") || "").trim();
+  var props = PropertiesService.getScriptProperties();
+  var vercelUrl = props.getProperty("VERCEL_URL");
+  var adminToken = props.getProperty("ADMIN_TOKEN");
+
+  if (!vercelUrl || !adminToken) {
+    Logger.log("[invalidateMypageCache_] Missing VERCEL_URL or ADMIN_TOKEN");
+    return;
+  }
+
+  var url = vercelUrl + "/api/admin/invalidate-cache";
 
   try {
-    UrlFetchApp.fetch(MYPAGE_INVALIDATE_URL, {
+    var res = UrlFetchApp.fetch(url, {
       method: "post",
       contentType: "application/json",
-      payload: JSON.stringify({ type: "invalidate_cache", secret }),
+      headers: { Authorization: "Bearer " + adminToken },
+      payload: JSON.stringify({ patient_id: patientId }),
       muteHttpExceptions: true,
     });
-  } catch (e) {}
+
+    var code = res.getResponseCode();
+    var body = res.getContentText();
+
+    Logger.log("[invalidateMypageCache_] pid=" + patientId + " code=" + code + " body=" + body);
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[invalidateMypageCache_] Success for patient_id=" + patientId);
+    } else {
+      Logger.log("[invalidateMypageCache_] Failed for patient_id=" + patientId + " code=" + code);
+    }
+  } catch (e) {
+    Logger.log("[invalidateMypageCache_] Error for patient_id=" + patientId + ": " + e);
+  }
 }
 function getPidWebhookIndexSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1944,3 +1986,492 @@ function mirrorPidIndexToMypage_(patientId, rowsCsv) {
   sh.appendRow([pid, csv, nowJst_()]);
 }
 
+
+// ================================
+// Square Webhook → Supabase 同期
+// ================================
+
+function normPid_(v) {
+  if (v === null || v === undefined) return "";
+  var s = String(v).trim();
+  if (s.endsWith(".0")) s = s.slice(0, -2);
+  s = s.replace(/\s+/g, "");
+  return s;
+}
+
+function syncWebhookSinglePatient_20260101106() {
+  const targetPatientId = "20260101106";
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+  const sheetId = props.getProperty("SHEET_ID");
+
+  if (!supabaseUrl || !supabaseKey || !sheetId) {
+    Logger.log("ERROR: Missing required properties");
+    return;
+  }
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = ss.getSheetByName(SHEET_NAME_WEBHOOK);
+
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found");
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No data");
+    return;
+  }
+
+  const allData = sheet.getRange(2, 1, lastRow - 1, 18).getValues();
+
+  let synced = 0;
+  let errors = 0;
+
+  for (let i = 0; i < allData.length; i++) {
+    const row = allData[i];
+    const patientId = normPid_(row[11]); // L列
+
+    if (patientId !== targetPatientId) continue;
+
+    const paymentId = normPid_(row[9]); // J列
+
+    if (!paymentId) {
+      Logger.log("Row " + (i + 2) + ": No payment_id, skipping");
+      continue;
+    }
+
+    // order_datetime
+    const orderDatetimeRaw = row[0];
+    let paidAt = null;
+    if (orderDatetimeRaw) {
+      try {
+        if (orderDatetimeRaw instanceof Date) {
+          paidAt = orderDatetimeRaw.toISOString();
+        } else {
+          const str = String(orderDatetimeRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            paidAt = jstDate.toISOString();
+          } else {
+            paidAt = new Date(orderDatetimeRaw).toISOString();
+          }
+        }
+      } catch (e) {
+        Logger.log("Failed to parse order_datetime: " + e);
+      }
+    }
+
+    // refunded_at
+    const refundedAtRaw = row[16];
+    let refundedAt = null;
+    if (refundedAtRaw) {
+      try {
+        if (refundedAtRaw instanceof Date) {
+          refundedAt = refundedAtRaw.toISOString();
+        } else {
+          const str = String(refundedAtRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            refundedAt = jstDate.toISOString();
+          } else {
+            refundedAt = new Date(refundedAtRaw).toISOString();
+          }
+        }
+      } catch (e) {
+        Logger.log("Failed to parse refunded_at: " + e);
+      }
+    }
+
+    const updateData = {
+      id: paymentId,
+      patient_id: patientId || null,
+      product_code: (row[10] || "").toString().trim() || null,
+      product_name: (row[6] || "").toString().trim() || null,
+      amount: parseFloat(row[7]) || 0,
+      paid_at: paidAt,
+      shipping_status: "pending",
+      payment_status: (row[13] || "").toString().trim() || "COMPLETED",
+      refund_status: (row[14] || "").toString().trim() || null,
+      refunded_at: refundedAt,
+      refunded_amount: parseFloat(row[15]) || null
+    };
+
+    Logger.log("=== Syncing Row " + (i + 2) + " ===");
+    Logger.log("Payment ID: " + paymentId);
+    Logger.log("Product: " + updateData.product_name);
+    Logger.log("Amount: " + updateData.amount);
+
+    const endpoint = supabaseUrl + "/rest/v1/orders";
+
+    try {
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "post",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        payload: JSON.stringify(updateData),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        synced++;
+        Logger.log("✓ Synced successfully");
+      } else {
+        errors++;
+        const responseText = res.getContentText();
+        Logger.log("✗ Failed with code " + code);
+        Logger.log("Response: " + responseText);
+      }
+    } catch (e) {
+      errors++;
+      Logger.log("✗ Error: " + e);
+    }
+  }
+
+  Logger.log("\n=== COMPLETE ===");
+  Logger.log("Synced: " + synced);
+  Logger.log("Errors: " + errors);
+
+  if (synced === 0 && errors === 0) {
+    Logger.log("❌ No data found for patient_id=" + targetPatientId);
+  }
+}
+
+// 全件同期（バッチ実行）
+function syncWebhookToSupabaseAll() {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+  const sheetId = props.getProperty("SHEET_ID");
+
+  if (!supabaseUrl || !supabaseKey || !sheetId) {
+    Logger.log("ERROR: Missing required properties");
+    return;
+  }
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = ss.getSheetByName(SHEET_NAME_WEBHOOK);
+
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found");
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log("No data");
+    return;
+  }
+
+  const totalRows = lastRow - 1;
+  Logger.log("=== Sync Webhook → Supabase (ALL) ===");
+  Logger.log("Total rows: " + totalRows);
+  Logger.log("");
+
+  const allData = sheet.getRange(2, 1, totalRows, 18).getValues();
+
+  let synced = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (let i = 0; i < allData.length; i++) {
+    const row = allData[i];
+    const paymentId = normPid_(row[9]); // J列
+    const patientId = normPid_(row[11]); // L列
+
+    if (!paymentId) {
+      skipped++;
+      continue;
+    }
+
+    // patient_id必須（Supabase NOT NULL制約）
+    if (!patientId) {
+      skipped++;
+      continue;
+    }
+
+    // order_datetime
+    const orderDatetimeRaw = row[0];
+    let paidAt = null;
+    if (orderDatetimeRaw) {
+      try {
+        if (orderDatetimeRaw instanceof Date) {
+          paidAt = orderDatetimeRaw.toISOString();
+        } else {
+          const str = String(orderDatetimeRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            paidAt = jstDate.toISOString();
+          } else {
+            paidAt = new Date(orderDatetimeRaw).toISOString();
+          }
+        }
+      } catch (e) {
+        // skip
+      }
+    }
+
+    // refunded_at
+    const refundedAtRaw = row[16];
+    let refundedAt = null;
+    if (refundedAtRaw) {
+      try {
+        if (refundedAtRaw instanceof Date) {
+          refundedAt = refundedAtRaw.toISOString();
+        } else {
+          const str = String(refundedAtRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            refundedAt = jstDate.toISOString();
+          } else {
+            refundedAt = new Date(refundedAtRaw).toISOString();
+          }
+        }
+      } catch (e) {
+        // skip
+      }
+    }
+
+    const updateData = {
+      id: paymentId,
+      patient_id: patientId || null,
+      product_code: (row[10] || "").toString().trim() || null,
+      product_name: (row[6] || "").toString().trim() || null,
+      amount: parseFloat(row[7]) || 0,
+      paid_at: paidAt,
+      shipping_status: "pending",
+      payment_status: (row[13] || "").toString().trim() || "COMPLETED",
+      refund_status: (row[14] || "").toString().trim() || null,
+      refunded_at: refundedAt,
+      refunded_amount: parseFloat(row[15]) || null
+    };
+
+    const endpoint = supabaseUrl + "/rest/v1/orders";
+
+    try {
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "post",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        payload: JSON.stringify(updateData),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        synced++;
+        if ((synced % 50) === 0) {
+          Logger.log("[Progress] Synced: " + synced + "/" + totalRows);
+        }
+      } else {
+        errors++;
+        if (errors <= 5) {
+          Logger.log("✗ payment_id=" + paymentId + " code=" + code);
+        }
+      }
+    } catch (e) {
+      errors++;
+      if (errors <= 5) {
+        Logger.log("✗ payment_id=" + paymentId + " error=" + e);
+      }
+    }
+
+    Utilities.sleep(50);
+  }
+
+  Logger.log("");
+  Logger.log("=== COMPLETE ===");
+  Logger.log("Synced: " + synced);
+  Logger.log("Skipped: " + skipped);
+  Logger.log("Errors: " + errors);
+}
+
+// バッチ同期（100件ずつ）
+function syncWebhookBatch(offset, limit) {
+  offset = offset || 0;
+  limit = limit || 100;
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+  const sheetId = props.getProperty("SHEET_ID");
+
+  if (!supabaseUrl || !supabaseKey || !sheetId) {
+    Logger.log("ERROR: Missing required properties");
+    return;
+  }
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = ss.getSheetByName(SHEET_NAME_WEBHOOK);
+
+  if (!sheet) {
+    Logger.log("ERROR: Sheet not found");
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  const totalRows = lastRow - 1;
+  const startRow = offset + 2;
+  const actualBatchSize = Math.min(limit, totalRows - offset);
+
+  if (actualBatchSize <= 0) {
+    Logger.log("No rows to process at offset=" + offset);
+    return;
+  }
+
+  Logger.log("=== Sync Webhook Batch ===");
+  Logger.log("Total rows: " + totalRows);
+  Logger.log("Processing: " + startRow + " to " + (startRow + actualBatchSize - 1));
+  Logger.log("");
+
+  const allData = sheet.getRange(startRow, 1, actualBatchSize, 18).getValues();
+
+  let synced = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  for (let i = 0; i < allData.length; i++) {
+    const row = allData[i];
+    const paymentId = normPid_(row[9]);
+    const patientId = normPid_(row[11]);
+
+    if (!paymentId) {
+      skipped++;
+      continue;
+    }
+
+    // patient_id必須（Supabase NOT NULL制約）
+    if (!patientId) {
+      skipped++;
+      continue;
+    }
+
+    const orderDatetimeRaw = row[0];
+    let paidAt = null;
+    if (orderDatetimeRaw) {
+      try {
+        if (orderDatetimeRaw instanceof Date) {
+          paidAt = orderDatetimeRaw.toISOString();
+        } else {
+          const str = String(orderDatetimeRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            paidAt = jstDate.toISOString();
+          } else {
+            paidAt = new Date(orderDatetimeRaw).toISOString();
+          }
+        }
+      } catch (e) {}
+    }
+
+    const refundedAtRaw = row[16];
+    let refundedAt = null;
+    if (refundedAtRaw) {
+      try {
+        if (refundedAtRaw instanceof Date) {
+          refundedAt = refundedAtRaw.toISOString();
+        } else {
+          const str = String(refundedAtRaw).trim();
+          const match = str.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+          if (match) {
+            const [, y, m, d, hh, mm, ss] = match;
+            const jstDate = new Date(y + "-" + m + "-" + d + "T" + hh + ":" + mm + ":" + ss + "+09:00");
+            refundedAt = jstDate.toISOString();
+          } else {
+            refundedAt = new Date(refundedAtRaw).toISOString();
+          }
+        }
+      } catch (e) {}
+    }
+
+    const amount = parseFloat(row[7]);
+    const refundedAmount = parseFloat(row[15]);
+
+    const updateData = {
+      id: paymentId,
+      patient_id: patientId || null,
+      product_code: (row[10] || "").toString().trim() || null,
+      product_name: (row[6] || "").toString().trim() || null,
+      amount: isNaN(amount) ? 0 : amount,
+      paid_at: paidAt,
+      shipping_status: "pending",
+      payment_status: (row[13] || "").toString().trim() || "COMPLETED",
+      refund_status: (row[14] || "").toString().trim() || null,
+      refunded_at: refundedAt,
+      refunded_amount: isNaN(refundedAmount) ? null : refundedAmount
+    };
+
+    const endpoint = supabaseUrl + "/rest/v1/orders";
+
+    try {
+      const res = UrlFetchApp.fetch(endpoint, {
+        method: "post",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        payload: JSON.stringify(updateData),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        synced++;
+      } else {
+        errors++;
+        if (errors <= 3) {
+          Logger.log("✗ Row " + (startRow + i) + " payment_id=" + paymentId + " code=" + code);
+          Logger.log("  Response: " + res.getContentText());
+          Logger.log("  Data: " + JSON.stringify(updateData));
+        }
+      }
+    } catch (e) {
+      errors++;
+      if (errors <= 3) {
+        Logger.log("✗ Row " + (startRow + i) + " payment_id=" + paymentId + " error=" + e);
+      }
+    }
+
+    Utilities.sleep(10); // 50ms → 10msに短縮
+  }
+
+  Logger.log("");
+  Logger.log("=== Batch Complete ===");
+  Logger.log("Synced: " + synced);
+  Logger.log("Skipped: " + skipped);
+  Logger.log("Errors: " + errors);
+}
+
+// バッチ実行用（500件ずつ）
+function syncWebhookBatch500_1() { syncWebhookBatch(0, 500); }
+function syncWebhookBatch500_2() { syncWebhookBatch(500, 500); }
+function syncWebhookBatch500_3() { syncWebhookBatch(1000, 500); }
+function syncWebhookBatch500_4() { syncWebhookBatch(1500, 500); }
+function syncWebhookBatch500_5() { syncWebhookBatch(2000, 500); }

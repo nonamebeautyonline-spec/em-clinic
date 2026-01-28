@@ -269,6 +269,7 @@ function doPost(e) {
   "deleteOverride",
   "getScheduleRange",
   "backfill_reservations",
+  "backfill_all_future_reservations",
 ]);
 
 const token = String(body.token || "");
@@ -373,6 +374,109 @@ if (adminTypes.has(type)) {
         skipped: skipped,
         total_rows: values.length,
         details: details.slice(0, 50) // 最大50件まで返す
+      });
+    }
+
+    // ========= backfill_all_future_reservations（今後の全予約をSupabaseに同期） =========
+    if (type === "backfill_all_future_reservations") {
+      Logger.log("[Backfill] Starting ALL future reservations backfill");
+
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const sheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+
+      if (!sheet) {
+        return jsonResponse({ ok: false, error: "sheet_not_found" });
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: true, processed: 0, synced: 0, errors: 0, details: [] });
+      }
+
+      // 今日の日付を取得
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = toYMD_(today);
+
+      Logger.log("[Backfill] Today: " + todayStr);
+
+      // A〜G（timestamp, reserveId, patientId, name, date, time, status）を読む
+      const values = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+
+      let processed = 0;
+      let synced = 0;
+      let errors = 0;
+      let skipped = 0;
+      const details = [];
+
+      Logger.log("[Backfill] Total rows: " + values.length);
+
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        const reserveId = String(row[1] || "").trim();  // B: reserveId
+        const patientId = String(row[2] || "").trim();  // C: patientId
+        const name = String(row[3] || "").trim();       // D: name
+        const dateRaw = row[4];  // E: date（Date型の可能性）
+        const timeRaw = row[5];  // F: time（Date型の可能性）
+        const status = String(row[6] || "").trim();     // G: status
+
+        // 日付を正規化
+        const date = toYMD_(dateRaw);
+        const time = toHHMM_(timeRaw);
+
+        // 今日以降の予約のみ対象
+        if (!date || date < todayStr) {
+          skipped++;
+          continue;
+        }
+
+        // キャンセルされた予約はスキップ
+        if (status === "キャンセル") {
+          skipped++;
+          continue;
+        }
+
+        processed++;
+
+        if (!reserveId || !patientId) {
+          errors++;
+          details.push(`Row ${i + 2}: Missing reserveId or patientId`);
+          continue;
+        }
+
+        try {
+          writeToSupabaseReservation_({
+            reserve_id: reserveId,
+            patient_id: patientId,
+            patient_name: name,
+            reserved_date: date,
+            reserved_time: time,
+            status: "pending",
+            note: null,
+            prescription_menu: null
+          });
+          synced++;
+          if (details.length < 50) {
+            details.push(`✓ ${reserveId} (${name}) - ${date} ${time}`);
+          }
+        } catch (e) {
+          errors++;
+          details.push(`✗ ${reserveId}: ${e}`);
+          Logger.log("[Backfill] Error syncing reservation " + reserveId + ": " + e);
+        }
+      }
+
+      Logger.log("[Backfill] Completed: processed=" + processed + " synced=" + synced + " errors=" + errors + " skipped=" + skipped);
+
+      return jsonResponse({
+        ok: true,
+        processed: processed,
+        synced: synced,
+        errors: errors,
+        skipped: skipped,
+        total_rows: values.length,
+        today: todayStr,
+        details: details
       });
     }
 
