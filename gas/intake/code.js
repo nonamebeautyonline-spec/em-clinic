@@ -4745,6 +4745,23 @@ function testLoadReorders() {
   Logger.log("=== End test ===");
 }
 
+// ★ 特定患者のreordersキャッシュをクリア（手動実行用）
+function clearReordersCache20251200128() {
+  const cache = CacheService.getScriptCache();
+  const patientId = "20251200128";
+  cache.remove("reorders_" + patientId);
+  Logger.log("✓ Cleared reorders cache for patient: " + patientId);
+
+  // 再取得してログ出力
+  const reorders = loadReordersForDashboard_(patientId);
+  Logger.log("Fresh data count: " + reorders.length);
+  if (reorders.length > 0) {
+    for (let i = 0; i < reorders.length; i++) {
+      Logger.log("  [" + i + "] status=" + reorders[i].status + ", code=" + reorders[i].productCode);
+    }
+  }
+}
+
 // ★ キャッシュOFF設定用（1回だけ実行）
 function disableGasCache() {
   const props = PropertiesService.getScriptProperties();

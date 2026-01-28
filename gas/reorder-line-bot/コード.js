@@ -49,6 +49,9 @@ function doPost(e) {
     } else if (action === "paid") {
       return handlePaid_(body);
 
+    } else if (action === "debug") {
+      return handleDebug_(body);
+
     } else {
       return jsonResponse({ ok: false, error: "unknown action" }, 400);
     }
@@ -516,6 +519,52 @@ function handlePaid_(body) {
   return jsonResponse({ ok:true });
 }
 
+// Debug: 患者の全再処方データを返す（キャッシュなし）
+function handleDebug_(body) {
+  var patientId = String(body.patient_id || "").trim();
+  if (!patientId) {
+    return jsonResponse({ ok: false, error: "patient_id required" }, 400);
+  }
+
+  Logger.log("DEBUG patient_id=" + patientId);
+
+  // キャッシュクリア
+  var cache = CacheService.getScriptCache();
+  cache.remove("reorders_" + patientId);
+
+  var sheet = getReorderSheet_();
+  var values = sheet.getDataRange().getValues();
+
+  var list = [];
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var rowPidRaw = row[1];
+    var rowPid = normPid_(rowPidRaw);
+
+    if (rowPid !== patientId) continue;
+
+    var ts = row[0];
+    var tsStr = ts instanceof Date
+      ? Utilities.formatDate(ts, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss")
+      : String(ts);
+
+    var code = String(row[2] || "");
+    var status = String(row[3] || "");
+    var note = row[4] || "";
+
+    list.push({
+      row: i + 1,
+      timestamp: tsStr,
+      product_code: code,
+      status: status,
+      note: note,
+    });
+  }
+
+  return jsonResponse({ ok: true, patient_id: patientId, count: list.length, reorders: list });
+}
+
 
 function normPid_(v) {
   if (v === null || v === undefined) return "";
@@ -901,4 +950,58 @@ function testInvalidateCache() {
   invalidateVercelCache_(testPatientId);
 
   Logger.log("=== Test complete - check logs above ===");
+}
+
+// ★ デバッグ用：患者の全再処方データをシートから直接読み取り
+function debugLoadReorders20251200128() {
+  var patientId = "20251200128";
+
+  Logger.log("=== Debug: Loading reorders for " + patientId + " ===");
+
+  // 1. キャッシュクリア
+  var cache = CacheService.getScriptCache();
+  cache.remove("reorders_" + patientId);
+  Logger.log("✓ Cache cleared");
+
+  // 2. シートから直接読み取り
+  var props = PropertiesService.getScriptProperties();
+  var sheetId = props.getProperty("REORDER_SHEET_ID");
+  var sheetName = props.getProperty("REORDER_SHEET_NAME") || "シート1";
+
+  Logger.log("Sheet ID: " + sheetId);
+  Logger.log("Sheet Name: " + sheetName);
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName(sheetName);
+
+  var values = sheet.getDataRange().getValues();
+
+  Logger.log("Total rows: " + values.length);
+  Logger.log("");
+  Logger.log("=== All rows for patient " + patientId + " ===");
+
+  var count = 0;
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var rowPidRaw = row[1]; // B列 patient_id
+    var rowPid = normPid_(rowPidRaw);
+
+    if (rowPid === patientId) {
+      count++;
+      var ts = row[0];  // A列 timestamp
+      var code = row[2]; // C列 product_code
+      var status = row[3]; // D列 status
+      var note = row[4] || ""; // E列 note
+
+      var tsStr = ts instanceof Date
+        ? Utilities.formatDate(ts, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss")
+        : String(ts);
+
+      Logger.log("Row " + (i+1) + ": status=" + status + ", code=" + code + ", ts=" + tsStr);
+    }
+  }
+
+  Logger.log("");
+  Logger.log("Total matching rows: " + count);
+  Logger.log("=== End debug ===");
 }
