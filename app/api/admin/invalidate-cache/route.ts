@@ -26,19 +26,30 @@ export async function POST(req: NextRequest) {
     // ★ Vercel Redis キャッシュ削除
     await invalidateDashboardCache(patientId);
 
-    // ★ GAS キャッシュ削除（非同期、エラーは無視）
+    // ★ GAS キャッシュ削除（確実に待つ）
     if (GAS_MYPAGE_URL) {
-      fetch(GAS_MYPAGE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "invalidate_cache",
-          patient_id: patientId,
-          secret: MYPAGE_INVALIDATE_SECRET,
-        }),
-      }).catch((err) => {
+      try {
+        const gasResponse = await fetch(GAS_MYPAGE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "invalidate_cache",
+            patient_id: patientId,
+            secret: MYPAGE_INVALIDATE_SECRET,
+          }),
+          signal: AbortSignal.timeout(10000), // 10秒タイムアウト
+        });
+
+        if (!gasResponse.ok) {
+          console.error(`[invalidate-cache] GAS returned status ${gasResponse.status}`);
+        } else {
+          const gasData = await gasResponse.json().catch(() => ({}));
+          console.log(`[invalidate-cache] GAS cache cleared for patient ${patientId}:`, gasData);
+        }
+      } catch (err) {
         console.error("[invalidate-cache] GAS call failed:", err);
-      });
+        // GAS失敗してもVercel Redisは削除済みなので、エラーにはしない
+      }
     }
 
     return NextResponse.json({ ok: true, patientId }, { status: 200 });
