@@ -50,6 +50,8 @@ export async function GET(req: Request) {
           line_id: row.line_id,
           answerer_id: row.answerer_id,
           created_at: row.created_at,
+          call_status: row.call_status || "",  // 不通フラグ
+          call_status_updated_at: row.call_status_updated_at || "",
           ...(row.answers || {}),  // Spread answers JSONB to flatten structure
           // ★ answersのnameが空の場合があるので、patient_nameを最後に設定
           patient_name: row.patient_name,
