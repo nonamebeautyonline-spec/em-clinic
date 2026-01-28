@@ -1885,7 +1885,12 @@ if (existingSubmitted) {
       Logger.log("write verified to intake failed: " + e);
     }
 
-    syncQuestionnaireFromMaster();
+    // ★ masterシートとの同期（失敗しても問診送信は成功させる）
+    try {
+      syncQuestionnaireFromMaster();
+    } catch (e) {
+      Logger.log("[syncQuestionnaireFromMaster] failed: " + e);
+    }
 
     return jsonResponse({ ok: true, intakeId: intakeId });
   } finally {
