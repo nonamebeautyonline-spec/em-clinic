@@ -57,14 +57,40 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
     return;
   }
 
-  // ★ 問診マスターから患者情報を取得
+  // ★ 患者情報を取得（問診シート → 問診マスター → reservationsテーブルの順）
   let patientInfo = null;
+  let patientName = null;
+
   if (ss) {
-    patientInfo = findPatientInfoFromMaster_(ss, patientId);
-    if (patientInfo) {
-      Logger.log("[Supabase] Found patient info from master: name=" + patientInfo.name);
+    // 1. 問診シートから氏名を取得（最優先）
+    patientName = findNameFromIntakeByPid_(ss, patientId);
+    if (patientName) {
+      Logger.log("[Supabase] Found patient name from intake sheet: " + patientName);
     } else {
-      Logger.log("[Supabase] No patient info found in master for patient_id=" + patientId);
+      Logger.log("[Supabase] No patient name in intake sheet, trying master");
+    }
+
+    // 2. 問診マスターから取得（問診シートになければ、または追加情報のため）
+    patientInfo = findPatientInfoFromMaster_(ss, patientId);
+    if (patientInfo && patientInfo.name) {
+      Logger.log("[Supabase] Found patient info from master: name=" + patientInfo.name);
+      // 問診シートから取得できなかった場合のみ、マスターの氏名を使用
+      if (!patientName) {
+        patientName = patientInfo.name;
+      }
+    } else {
+      Logger.log("[Supabase] No patient info in master");
+    }
+  }
+
+  // 3. それでも無い場合は、reservationsテーブルから取得を試みる
+  if (!patientName && reserveId) {
+    Logger.log("[Supabase] Trying to fetch patient_name from reservations table");
+    patientName = findNameFromReservationsTable_(reserveId, supabaseUrl, supabaseKey);
+    if (patientName) {
+      Logger.log("[Supabase] Found patient name from reservations table: " + patientName);
+    } else {
+      Logger.log("[Supabase] No patient name found in reservations table either");
     }
   }
 
@@ -104,24 +130,35 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
           reserved_time: reservedTime || null
         };
 
-        if (patientInfo && (!record.patient_name || record.patient_name.trim() === "")) {
-          Logger.log("[Supabase] Updating patient_name and answers (was empty)");
-          patchData.patient_name = patientInfo.name;
+        // patientNameがある場合は常に更新（どのソースからでも）
+        if (patientName && (!record.patient_name || record.patient_name.trim() === "")) {
+          Logger.log("[Supabase] Updating patient_name (was empty): " + patientName);
+          patchData.patient_name = patientName;
 
-          // answersに個人情報を含める
-          const answers = record.answers || {};
-          answers.name = patientInfo.name;
-          answers["氏名"] = patientInfo.name;
-          answers.sex = patientInfo.sex;
-          answers["性別"] = patientInfo.sex;
-          answers.birth = patientInfo.birth;
-          answers["生年月日"] = patientInfo.birth;
-          answers.tel = patientInfo.tel;
-          answers["電話番号"] = patientInfo.tel;
-          answers.name_kana = patientInfo.name_kana;
-          answers["カナ"] = patientInfo.name_kana;
+          // patientInfoがある場合（マスターから取得できた場合）は全情報を含める
+          if (patientInfo) {
+            Logger.log("[Supabase] Including full patient info from master");
+            const answers = record.answers || {};
+            answers.name = patientInfo.name;
+            answers["氏名"] = patientInfo.name;
+            answers.sex = patientInfo.sex;
+            answers["性別"] = patientInfo.sex;
+            answers.birth = patientInfo.birth;
+            answers["生年月日"] = patientInfo.birth;
+            answers.tel = patientInfo.tel;
+            answers["電話番号"] = patientInfo.tel;
+            answers.name_kana = patientInfo.name_kana;
+            answers["カナ"] = patientInfo.name_kana;
 
-          patchData.answers = answers;
+            patchData.answers = answers;
+          } else {
+            // マスター以外から取得した場合は氏名だけ更新
+            Logger.log("[Supabase] Updating name only (from intake sheet or reservations table)");
+            const answers = record.answers || {};
+            answers.name = patientName;
+            answers["氏名"] = patientName;
+            patchData.answers = answers;
+          }
         }
 
         const patchRes = UrlFetchApp.fetch(patchUrl, {
@@ -157,7 +194,7 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
         };
 
         if (patientInfo) {
-          Logger.log("[Supabase] Including patient info in INSERT");
+          Logger.log("[Supabase] Including full patient info in INSERT (from master)");
           insertData.patient_name = patientInfo.name;
 
           // answersに個人情報を含める
@@ -172,6 +209,13 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
             "電話番号": patientInfo.tel,
             name_kana: patientInfo.name_kana,
             "カナ": patientInfo.name_kana
+          };
+        } else if (patientName) {
+          Logger.log("[Supabase] Including patient name in INSERT (from intake sheet or reservations table)");
+          insertData.patient_name = patientName;
+          insertData.answers = {
+            name: patientName,
+            "氏名": patientName
           };
         }
 
@@ -224,6 +268,7 @@ function doPost(e) {
   "upsertOverride",
   "deleteOverride",
   "getScheduleRange",
+  "backfill_reservations",
 ]);
 
 const token = String(body.token || "");
@@ -235,6 +280,101 @@ if (adminTypes.has(type)) {
   }
 }
 
+    // ========= backfill_reservations（既存予約データをSupabaseに同期） =========
+    if (type === "backfill_reservations") {
+      const targetDate = String(body.date || "").trim();
+      Logger.log("[Backfill] Starting reservation backfill for date: " + targetDate);
+
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const sheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+
+      if (!sheet) {
+        return jsonResponse({ ok: false, error: "sheet_not_found" });
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: true, processed: 0, synced: 0, errors: 0, details: [] });
+      }
+
+      // A〜G（timestamp, reserveId, patientId, name, date, time, status）を読む
+      const values = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+
+      let processed = 0;
+      let synced = 0;
+      let errors = 0;
+      let skipped = 0;
+      const details = [];
+      const MAX_PROCESS = 100; // 一度に最大100件まで処理
+
+      // 最初の5件をログ出力（デバッグ用）
+      Logger.log("[Backfill] Total rows: " + values.length);
+      for (let i = 0; i < Math.min(5, values.length); i++) {
+        Logger.log("[Backfill] Sample row " + (i + 2) + ": " + JSON.stringify(values[i]));
+      }
+
+      for (let i = 0; i < values.length && processed < MAX_PROCESS; i++) {
+        const row = values[i];
+        const reserveId = String(row[1] || "").trim();  // B: reserveId
+        const patientId = String(row[2] || "").trim();  // C: patientId
+        const name = String(row[3] || "").trim();       // D: name
+        const dateRaw = row[4];  // E: date（Date型の可能性）
+        const timeRaw = row[5];  // F: time（Date型の可能性）
+        const status = String(row[6] || "").trim();     // G: status
+
+        // 日付を正規化
+        const date = toYMD_(dateRaw);
+        const time = toHHMM_(timeRaw);
+
+        // ターゲット日付が指定されている場合はフィルタ
+        if (targetDate && date !== targetDate) {
+          skipped++;
+          continue;
+        }
+
+        // キャンセルされた予約はスキップ
+        if (status === "キャンセル") continue;
+
+        processed++;
+
+        if (!reserveId || !patientId) {
+          errors++;
+          details.push(`Row ${i + 2}: Missing reserveId or patientId`);
+          continue;
+        }
+
+        try {
+          writeToSupabaseReservation_({
+            reserve_id: reserveId,
+            patient_id: patientId,
+            patient_name: name,
+            reserved_date: date,
+            reserved_time: time,
+            status: "pending",
+            note: null,
+            prescription_menu: null
+          });
+          synced++;
+          details.push(`✓ ${reserveId} (${name}) - ${date} ${time}`);
+        } catch (e) {
+          errors++;
+          details.push(`✗ ${reserveId}: ${e}`);
+          Logger.log("[Backfill] Error syncing reservation " + reserveId + ": " + e);
+        }
+      }
+
+      Logger.log("[Backfill] Completed: processed=" + processed + " synced=" + synced + " errors=" + errors + " skipped=" + skipped);
+
+      return jsonResponse({
+        ok: true,
+        processed: processed,
+        synced: synced,
+        errors: errors,
+        skipped: skipped,
+        total_rows: values.length,
+        details: details.slice(0, 50) // 最大50件まで返す
+      });
+    }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_NAME_RESERVE);
@@ -389,7 +529,21 @@ if (type === "createReservation") {
     // ===== Supabaseに予約情報を反映 =====
     var supabaseError = null;
     try {
+      // ★ intakeテーブルを更新
       updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime, ss);
+
+      // ★ reservationsテーブルにも書き込む
+      writeToSupabaseReservation_({
+        reserve_id: reserveId,
+        patient_id: patientId,
+        patient_name: name,
+        reserved_date: reqDate,
+        reserved_time: reqTime,
+        status: "pending",
+        note: null,
+        prescription_menu: null
+      });
+
       // ★ キャッシュ無効化
       invalidateVercelCache_(patientId);
     } catch (e) {
@@ -483,7 +637,22 @@ if (type === "createReservation") {
       var supabaseError = null;
       if (patientId) {
         try {
+          // ★ intakeテーブルを更新
           updateSupabaseIntakeReservation_(reserveId, patientId, newDate, newTime, ss);
+
+          // ★ reservationsテーブルも更新
+          const patientName = findNameFromIntakeByPid_(ss, patientId);
+          writeToSupabaseReservation_({
+            reserve_id: reserveId,
+            patient_id: patientId,
+            patient_name: patientName,
+            reserved_date: newDate,
+            reserved_time: newTime,
+            status: "pending",
+            note: null,
+            prescription_menu: null
+          });
+
           // ★ キャッシュ無効化
           invalidateVercelCache_(patientId);
         } catch (e) {
@@ -542,12 +711,27 @@ if (intakeSheet) {
       intakeSheet.getRange(r + 1, COL_RESERVED_DATE_INTAKE).setValue("");
       intakeSheet.getRange(r + 1, COL_RESERVED_TIME_INTAKE).setValue("");
 
-      // ★ Supabaseに予約キャンセルを反映（reserve_id, 日時をnullに）
+      // ★ Supabaseに予約キャンセルを反映
       const patientId = normPid_(intakeValues[r][COL_PID_INTAKE - 1]);
       var supabaseError = null;
       if (patientId) {
         try {
+          // ★ intakeテーブルの予約情報をクリア
           updateSupabaseIntakeReservation_(null, patientId, null, null, ss);
+
+          // ★ reservationsテーブルのステータスを"canceled"に更新
+          const patientName = findNameFromIntakeByPid_(ss, patientId);
+          writeToSupabaseReservation_({
+            reserve_id: reserveId,
+            patient_id: patientId,
+            patient_name: patientName,
+            reserved_date: null,
+            reserved_time: null,
+            status: "canceled",
+            note: null,
+            prescription_menu: null
+          });
+
           // ★ キャッシュ無効化
           invalidateVercelCache_(patientId);
         } catch (e) {
@@ -1162,6 +1346,45 @@ function findNameFromIntakeByPid_(ss, patientId) {
 }
 
 /**
+ * Supabaseのreservationsテーブルからreserve_idで患者氏名を取得
+ * @param {string} reserveId - Reserve ID
+ * @param {string} supabaseUrl - Supabase URL
+ * @param {string} supabaseKey - Supabase API key
+ * @return {string} - 患者氏名（見つからない場合は空文字）
+ */
+function findNameFromReservationsTable_(reserveId, supabaseUrl, supabaseKey) {
+  if (!reserveId || !supabaseUrl || !supabaseKey) return "";
+
+  const url = supabaseUrl + "/rest/v1/reservations?reserve_id=eq." + encodeURIComponent(reserveId);
+
+  try {
+    const res = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    if (code !== 200) {
+      Logger.log("[findNameFromReservationsTable_] Failed to fetch: code=" + code);
+      return "";
+    }
+
+    const records = JSON.parse(res.getContentText());
+    if (records.length > 0 && records[0].patient_name) {
+      return String(records[0].patient_name).trim();
+    }
+  } catch (e) {
+    Logger.log("[findNameFromReservationsTable_] Error: " + e.message);
+  }
+
+  return "";
+}
+
+/**
  * 問診マスターシートからpatient_idで患者情報を取得
  * @param {SpreadsheetApp.Spreadsheet} ss - スプレッドシート
  * @param {string} patientId - Patient ID
@@ -1247,6 +1470,59 @@ function testSupabaseUpdate() {
   } catch (e) {
     Logger.log("=== Test FAILED: " + e + " ===");
     Logger.log("Stack: " + e.stack);
+  }
+}
+
+/**
+ * 予約データをSupabaseのreservationsテーブルに書き込む（upsert）
+ * @param {Object} data - { reserve_id, patient_id, patient_name, reserved_date, reserved_time, status, note, prescription_menu }
+ */
+function writeToSupabaseReservation_(data) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  const url = supabaseUrl + "/rest/v1/reservations";
+
+  try {
+    const payload = {
+      reserve_id: data.reserve_id || "",
+      patient_id: data.patient_id || "",
+      patient_name: data.patient_name || null,
+      reserved_date: data.reserved_date || null,
+      reserved_time: data.reserved_time || null,
+      status: data.status || "pending",
+      note: data.note || null,
+      prescription_menu: data.prescription_menu || null
+    };
+
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "resolution=merge-duplicates"  // upsert
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    const body = res.getContentText();
+
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] reservation written: reserve_id=" + data.reserve_id);
+    } else {
+      Logger.log("[Supabase] reservation write failed: code=" + code + " body=" + body);
+    }
+  } catch (e) {
+    Logger.log("[Supabase] reservation write error: " + e);
   }
 }
 

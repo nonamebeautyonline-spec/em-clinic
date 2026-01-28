@@ -1438,6 +1438,23 @@ function doPost(e) {
       return jsonResponse({ ok: true, message: "backfill started, check logs" });
     }
 
+    // ========= backfill_all_intake（全データ修正用：answers + 予約情報）=========
+    if (type === "backfill_all_intake") {
+      const props = PropertiesService.getScriptProperties();
+      const adminToken = String(props.getProperty("ADMIN_TOKEN") || "").trim();
+      const gotToken = String(body.token || "").trim();
+
+      // ADMIN_TOKEN を設定している場合は一致必須
+      if (adminToken && gotToken !== adminToken) {
+        return jsonResponse({ ok: false, error: "forbidden" });
+      }
+
+      // バックフィル関数を実行
+      backfillAllIntakeDataToSupabase();
+
+      return jsonResponse({ ok: true, message: "backfill_all started, check logs" });
+    }
+
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
     const masterSheet = ss.getSheetByName(SHEET_NAME_MASTER);
