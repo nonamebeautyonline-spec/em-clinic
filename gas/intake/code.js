@@ -1808,6 +1808,15 @@ if (existingSubmitted) {
       return v == null ? "" : String(v);
     });
 
+    // ★ answersから個人情報を抽出（bodyに直接入っていない場合の対応）
+    const name = body.name || answersObj.氏名 || answersObj.name || "";
+    const sex = body.sex || answersObj.性別 || answersObj.sex || "";
+    const birth = body.birth || answersObj.生年月日 || answersObj.birth || "";
+    const nameKana = body.name_kana || body.nameKana || answersObj.カナ || answersObj.name_kana || "";
+    const tel = body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "";
+    const lineId = body.line_id || body.lineId || answersObj.line_id || "";
+    const answererId = body.answerer_id || answersObj.answerer_id || "";
+
     // 問診→予約フローなので reserveId/日時は空でOK
     const reserveId = "";
     const reservedDate = "";
@@ -1820,19 +1829,19 @@ if (existingSubmitted) {
       new Date(),                 // A timestamp
       reserveId,                  // B reserveId（空）
       body.submittedAt || new Date(),   // C submittedAt
-      body.name || "",            // D name
-      body.sex || "",             // E sex
-      body.birth || "",           // F birth
-      body.line_id || body.lineId || "", // G line_id
+      name,                       // D name
+      sex,                        // E sex
+      birth,                      // F birth
+      lineId,                     // G line_id
       reservedDate,               // H reserved_date（空）
       reservedTime,               // I reserved_time（空）
       ...answerValues,            // J〜S answers
       "",                         // T status
       "",                         // U doctor_note
       "",                         // V prescription_menu
-      body.name_kana || body.nameKana || "", // W name_kana
-      body.tel || body.phone || "",          // X tel
-      body.answerer_id || "",     // Y answerer_id
+      nameKana,                   // W name_kana
+      tel,                        // X tel
+      answererId,                 // Y answerer_id
       pid,                        // Z patient_id（正規化済み）
       intakeId,                   // AA intakeId
     ];
@@ -1841,25 +1850,25 @@ if (existingSubmitted) {
 
     // ★ Supabaseに書き込み
     try {
-      // answersに個人情報も含める
+      // answersに個人情報も含める（既に抽出した値を使用）
       const fullAnswers = Object.assign({}, answersObj);
-      fullAnswers["氏名"] = body.name || "";
-      fullAnswers["name"] = body.name || "";
-      fullAnswers["性別"] = body.sex || "";
-      fullAnswers["sex"] = body.sex || "";
-      fullAnswers["生年月日"] = body.birth || "";
-      fullAnswers["birth"] = body.birth || "";
-      fullAnswers["カナ"] = body.name_kana || body.nameKana || "";
-      fullAnswers["name_kana"] = body.name_kana || body.nameKana || "";
-      fullAnswers["電話番号"] = body.tel || body.phone || "";
-      fullAnswers["tel"] = body.tel || body.phone || "";
+      fullAnswers["氏名"] = name;
+      fullAnswers["name"] = name;
+      fullAnswers["性別"] = sex;
+      fullAnswers["sex"] = sex;
+      fullAnswers["生年月日"] = birth;
+      fullAnswers["birth"] = birth;
+      fullAnswers["カナ"] = nameKana;
+      fullAnswers["name_kana"] = nameKana;
+      fullAnswers["電話番号"] = tel;
+      fullAnswers["tel"] = tel;
 
       writeToSupabaseIntake_({
         reserve_id: reserveId,
         patient_id: pid,
-        answerer_id: body.answerer_id || null,
-        line_id: body.line_id || body.lineId || null,
-        patient_name: body.name || null,
+        answerer_id: answererId || null,
+        line_id: lineId || null,
+        patient_name: name || null,
         answers: fullAnswers
       });
     } catch (e) {
