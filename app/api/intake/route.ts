@@ -46,9 +46,22 @@ if (!patientId) {
     // ★ キャッシュ削除（問診送信時）
     await invalidateDashboardCache(patientId);
 
-    // ★ GASは { ok:true, intakeId } を返す前提
+    // ★ GASは { ok:true, intakeId, timing } を返す前提
 const intakeId = String(json.intakeId || "").trim();
 const dedup = !!json.dedup;
+
+// ★ タイミング情報をVercelログに記録
+if (json.timing) {
+  console.log("[Intake Timing]", {
+    patientId,
+    total: `${json.timing.total}ms`,
+    sheetWrite: `${json.timing.sheetWrite}ms`,
+    supabaseWrite: `${json.timing.supabaseWrite}ms`,
+    masterSync: `${json.timing.masterSync}ms`,
+    questionnaireSync: `${json.timing.questionnaireSync}ms`,
+    cacheInvalidate: `${json.timing.cacheInvalidate}ms`
+  });
+}
 
 const res = NextResponse.json({ ok: true, dedup });
 
