@@ -803,6 +803,34 @@ const isNoAnswer = callStatus === "no_answer";
           if (status === "NG") cardBg = "bg-rose-50 border-rose-200";
           if (overdue) cardBg = "bg-amber-50 border-amber-300";
 
+          const patientId = pick(row, ["patient_id", "Patient_ID", "patientId"]);
+          const answererId = pick(row, ["answerer_id", "answererId"]);
+
+          const handleCopyPatientId = async (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!patientId) {
+              alert("Patient IDが見つかりません");
+              return;
+            }
+            try {
+              await navigator.clipboard.writeText(patientId);
+              alert(`Patient ID ${patientId} をコピーしました`);
+            } catch (err) {
+              console.error("コピーに失敗しました", err);
+              alert("コピーに失敗しました");
+            }
+          };
+
+          const handleOpenLstep = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!answererId) {
+              alert("answerer_idが見つかりません");
+              return;
+            }
+            const url = `https://manager.linestep.net/line/visual?member=${answererId}`;
+            window.open(url, "_blank");
+          };
+
           return (
             <div
               key={idx}
@@ -812,7 +840,32 @@ const isNoAnswer = callStatus === "no_answer";
                 ${currentSlot ? "border-l-4 border-l-red-500" : ""}
               `}
             >
-              <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                {/* 左側のアクションボタン */}
+                <div className="flex flex-col gap-2">
+                  {/* Patient IDコピーボタン */}
+                  <button
+                    type="button"
+                    onClick={handleCopyPatientId}
+                    className="w-10 h-10 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md flex items-center justify-center"
+                    title="Patient IDをコピー"
+                  >
+                    📋
+                  </button>
+
+                  {/* Lステップボタン */}
+                  {answererId && (
+                    <button
+                      type="button"
+                      onClick={handleOpenLstep}
+                      className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold shadow-md flex items-center justify-center text-sm"
+                      title="Lステップで開く"
+                    >
+                      L
+                    </button>
+                  )}
+                </div>
+
                 <div
                   className="flex-1 cursor-pointer"
                   onClick={() => handleOpenDetail(row)}
@@ -846,7 +899,7 @@ const isNoAnswer = callStatus === "no_answer";
 )}
                 </div>
 
-                <div className="text-right text-[11px] text-slate-500 space-y-1">
+                <div className="text-right text-[11px] text-slate-500 space-y-1 flex-shrink-0">
                   {reserveId && <div>reserveId: {reserveId}</div>}
                   {status && (
                     <div>
