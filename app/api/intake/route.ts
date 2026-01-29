@@ -96,8 +96,8 @@ export async function POST(req: NextRequest) {
       skipSupabase: true, // ★ GAS側でSupabase書き込みをスキップ
     };
 
-    const [supabaseResult, gasResult] = await Promise.allSettled([
-      // 1. Supabaseに直接書き込み（リトライあり）
+    const [supabaseIntakeResult, supabaseAnswererResult, gasResult] = await Promise.allSettled([
+      // 1. Supabase intakeテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
         const result = await supabase
           .from("intake")
@@ -123,7 +123,30 @@ export async function POST(req: NextRequest) {
         return result;
       }),
 
-      // 2. GASにPOST
+      // 2. Supabase answerersテーブルに書き込み（リトライあり）
+      retrySupabaseWrite(async () => {
+        const result = await supabase
+          .from("answerers")
+          .upsert({
+            patient_id: patientId,
+            answerer_id: answererId,
+            line_id: lineId || null,
+            name: name || null,
+            name_kana: nameKana || null,
+            sex: sex || null,
+            birthday: birth || null,
+            tel: tel || null,
+          }, {
+            onConflict: "patient_id",
+          });
+
+        if (result.error) {
+          throw result.error;
+        }
+        return result;
+      }),
+
+      // 3. GASにPOST
       fetch(GAS_INTAKE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,11 +160,11 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    // Supabase結果チェック
-    if (supabaseResult.status === "rejected" || (supabaseResult.status === "fulfilled" && supabaseResult.value.error)) {
-      const error = supabaseResult.status === "rejected"
-        ? supabaseResult.reason
-        : supabaseResult.value.error;
+    // Supabase intake結果チェック
+    if (supabaseIntakeResult.status === "rejected" || (supabaseIntakeResult.status === "fulfilled" && supabaseIntakeResult.value.error)) {
+      const error = supabaseIntakeResult.status === "rejected"
+        ? supabaseIntakeResult.reason
+        : supabaseIntakeResult.value.error;
 
       // ★ Supabase失敗はログ出力のみ（GAS成功なら予約は確保される）
       console.error("❌❌❌ [CRITICAL] Supabase intake write FAILED ❌❌❌");
@@ -153,6 +176,21 @@ export async function POST(req: NextRequest) {
       console.error("⚠️ DATA INCONSISTENCY: Record exists in GAS but not in Supabase");
       console.error("⚠️ MANUAL FIX REQUIRED: Run bulk-fix-missing-info.mjs or create-missing script");
       // 処理は続行（GAS成功なら予約は有効）
+    }
+
+    // Supabase answerers結果チェック
+    if (supabaseAnswererResult.status === "rejected" || (supabaseAnswererResult.status === "fulfilled" && supabaseAnswererResult.value.error)) {
+      const error = supabaseAnswererResult.status === "rejected"
+        ? supabaseAnswererResult.reason
+        : supabaseAnswererResult.value.error;
+
+      console.error("❌ [WARNING] Supabase answerers write FAILED");
+      console.error("[Answerers Error]", {
+        patientId,
+        error: error?.message || String(error),
+        timestamp: new Date().toISOString()
+      });
+      // 処理は続行（intakeとGASが成功すれば問題なし）
     }
 
     // GAS結果チェック
