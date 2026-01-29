@@ -717,6 +717,44 @@ function findVerifiedFromMasterByPid_(masterSheet, pid) {
   return null;
 }
 
+// ★ 問診マスターから1人分の個人情報を取得
+function findMasterInfoByPid_(masterSheet, pid) {
+  if (!masterSheet || !pid) return null;
+
+  const lastRow = masterSheet.getLastRow();
+  if (lastRow < 2) return null;
+
+  // A〜O（15列）を読む
+  const MASTER_COLS = 15;
+  const values = masterSheet.getRange(2, 1, lastRow - 1, MASTER_COLS).getValues();
+
+  const IDX_ANSWERER_ID = 2;   // C
+  const IDX_NAME        = 4;   // E
+  const IDX_NAME_KANA   = 5;   // F
+  const IDX_SEX         = 6;   // G
+  const IDX_BIRTH       = 7;   // H
+  const IDX_PID         = 11;  // L
+  const IDX_LINE_USERID = 14;  // O
+
+  // 後勝ち（最新行を優先）
+  for (let i = values.length - 1; i >= 0; i--) {
+    const row = values[i];
+    const rowPid = String(row[IDX_PID] || "").trim();
+    if (rowPid !== String(pid).trim()) continue;
+
+    return {
+      name: String(row[IDX_NAME] || "").trim(),
+      nameKana: String(row[IDX_NAME_KANA] || "").trim(),
+      sex: String(row[IDX_SEX] || "").trim(),
+      birth: String(row[IDX_BIRTH] || "").trim(),
+      answererId: String(row[IDX_ANSWERER_ID] || "").trim(),
+      lineUserId: String(row[IDX_LINE_USERID] || "").trim()
+    };
+  }
+
+  return null;
+}
+
 // =====================
 // 処方履歴（決済履歴）を history に追加（Square Webhook シート）
 // =====================
@@ -1421,6 +1459,11 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    // ========= copy_verified_phone_to_tel（AG列→X列コピー）=========
+    if (type === "copy_verified_phone_to_tel") {
+      return copyVerifiedPhoneToTel(e);
+    }
+
     // ========= backfill_patient_names（既存データ修正用）=========
     if (type === "backfill_patient_names") {
       const props = PropertiesService.getScriptProperties();
@@ -1787,6 +1830,9 @@ if (type === "intake" || body.answers) {
     return jsonResponse({ ok: false, error: "patient_id_required" });
   }
 
+  // ★ 処理時間計測開始
+  const startTime = new Date();
+
   // 🔒 PID単位で二重登録を防ぐ
   const lock = LockService.getDocumentLock();
   lock.waitLock(20000);
@@ -1847,33 +1893,40 @@ if (existingSubmitted) {
     ];
 
     intakeSheet.appendRow(rowToAppend);
+    const sheetWriteTime = new Date();
 
-    // ★ Supabaseに書き込み
-    try {
-      // answersに個人情報も含める（既に抽出した値を使用）
-      const fullAnswers = Object.assign({}, answersObj);
-      fullAnswers["氏名"] = name;
-      fullAnswers["name"] = name;
-      fullAnswers["性別"] = sex;
-      fullAnswers["sex"] = sex;
-      fullAnswers["生年月日"] = birth;
-      fullAnswers["birth"] = birth;
-      fullAnswers["カナ"] = nameKana;
-      fullAnswers["name_kana"] = nameKana;
-      fullAnswers["電話番号"] = tel;
-      fullAnswers["tel"] = tel;
+    // ★ Supabaseに書き込み（skipSupabaseフラグがない場合のみ）
+    const skipSupabase = body.skipSupabase === true;
+    if (!skipSupabase) {
+      try {
+        // answersに個人情報も含める（既に抽出した値を使用）
+        const fullAnswers = Object.assign({}, answersObj);
+        fullAnswers["氏名"] = name;
+        fullAnswers["name"] = name;
+        fullAnswers["性別"] = sex;
+        fullAnswers["sex"] = sex;
+        fullAnswers["生年月日"] = birth;
+        fullAnswers["birth"] = birth;
+        fullAnswers["カナ"] = nameKana;
+        fullAnswers["name_kana"] = nameKana;
+        fullAnswers["電話番号"] = tel;
+        fullAnswers["tel"] = tel;
 
-      writeToSupabaseIntake_({
-        reserve_id: reserveId,
-        patient_id: pid,
-        answerer_id: answererId || null,
-        line_id: lineId || null,
-        patient_name: name || null,
-        answers: fullAnswers
-      });
-    } catch (e) {
-      Logger.log("[Supabase] intake write failed: " + e);
+        writeToSupabaseIntake_({
+          reserve_id: reserveId,
+          patient_id: pid,
+          answerer_id: answererId || null,
+          line_id: lineId || null,
+          patient_name: name || null,
+          answers: fullAnswers
+        });
+      } catch (e) {
+        Logger.log("[Supabase] intake write failed: " + e);
+      }
+    } else {
+      Logger.log("[Supabase] intake write skipped (skipSupabase=true)");
     }
+    const supabaseWriteTime = new Date();
 
     // ★ master(M/N) → intake(AG/AH)
     try {
@@ -1888,28 +1941,76 @@ if (existingSubmitted) {
           intakeSheet.getRange(row, COL_VERIFIED_AT_INTAKE).setValue(
             v.at || Utilities.formatDate(new Date(), TZ, "yyyy/MM/dd HH:mm:ss")
           );
+          // ★ AG列（verified_phone）をX列（tel）にも即座にコピー
+          intakeSheet.getRange(row, 24).setValue(v.phone); // X列 = 24
+          Logger.log("Copied verified_phone to tel (X column) for pid=" + pid);
         }
       }
     } catch (e) {
       Logger.log("write verified to intake failed: " + e);
     }
+    const masterSyncTime = new Date();
 
-    // ★ masterシートとの同期（失敗しても問診送信は成功させる）
+    // ★ 今提出した患者の情報を問診マスターから取得して更新（全行スキャンせず1人分のみ）
     try {
-      syncQuestionnaireFromMaster();
+      const masterInfo = findMasterInfoByPid_(masterSheet, pid);
+      if (masterInfo) {
+        const lastRow = intakeSheet.getLastRow();
+
+        // D列: 氏名
+        if (masterInfo.name) {
+          intakeSheet.getRange(lastRow, 4).setValue(masterInfo.name);
+        }
+
+        // E列: 性別
+        if (masterInfo.sex) {
+          intakeSheet.getRange(lastRow, 5).setValue(masterInfo.sex);
+        }
+
+        // F列: 生年月日
+        if (masterInfo.birth) {
+          intakeSheet.getRange(lastRow, 6).setValue(masterInfo.birth);
+        }
+
+        // W列: カナ
+        if (masterInfo.nameKana) {
+          intakeSheet.getRange(lastRow, 23).setValue(masterInfo.nameKana);
+        }
+
+        // Y列: 回答者ID
+        if (masterInfo.answererId) {
+          intakeSheet.getRange(lastRow, 25).setValue(masterInfo.answererId);
+        }
+
+        // G列: line_id（空の場合のみ）
+        if (!lineId && masterInfo.lineUserId) {
+          intakeSheet.getRange(lastRow, 7).setValue(masterInfo.lineUserId);
+        }
+      }
     } catch (e) {
-      Logger.log("[syncQuestionnaireFromMaster] failed: " + e);
+      Logger.log("[syncFromMaster] failed: " + e);
     }
+    const syncQuestionnaireTime = new Date();
 
     // ★ キャッシュ無効化（問診提出後、マイページに即反映させる）
     try {
       invalidateVercelCache_(pid);
-      Logger.log("[invalidateCache] called for patient_id=" + pid);
     } catch (e) {
       Logger.log("[invalidateCache] failed: " + e);
     }
+    const cacheInvalidateTime = new Date();
 
-    return jsonResponse({ ok: true, intakeId: intakeId });
+    // ★ 処理時間をレスポンスに含める
+    const timing = {
+      total: cacheInvalidateTime - startTime,
+      sheetWrite: sheetWriteTime - startTime,
+      supabaseWrite: supabaseWriteTime - sheetWriteTime,
+      masterSync: masterSyncTime - supabaseWriteTime,
+      questionnaireSync: syncQuestionnaireTime - masterSyncTime,
+      cacheInvalidate: cacheInvalidateTime - syncQuestionnaireTime
+    };
+
+    return jsonResponse({ ok: true, intakeId: intakeId, timing: timing });
   } finally {
     lock.releaseLock();
   }
@@ -2107,6 +2208,56 @@ if (verPhoneFinal && telXNow !== verPhoneFinal) {
 
 function syncQuestionnaireFromMasterCron() {
   syncQuestionnaireFromMaster();
+}
+
+// =====================
+// 特定の患者のAG列（verified_phone）→X列（tel）コピー
+// =====================
+function copyVerifiedPhoneToTel(e) {
+  const body = e && e.postData && e.postData.contents
+    ? JSON.parse(e.postData.contents)
+    : e || {};
+
+  const pid = String(body.patient_id || "").trim();
+  if (!pid) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: "patient_id required"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const intakeSheet = ss.getSheetByName("問診");
+
+  if (!intakeSheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: "Sheet not found"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const values = intakeSheet.getDataRange().getValues();
+  let updated = false;
+
+  for (let i = 1; i < values.length; i++) {
+    const rowPid = normPid_(values[i][25]); // Z列 = patient_id (index 25)
+    if (rowPid === pid) {
+      const verifiedPhone = String(values[i][32] || "").trim(); // AG列 (index 32)
+      const currentTel = String(values[i][23] || "").trim(); // X列 (index 23)
+
+      if (verifiedPhone && verifiedPhone !== currentTel) {
+        intakeSheet.getRange(i + 1, 24).setValue(verifiedPhone); // X列 = 24
+        Logger.log(`Updated tel for pid=${pid}: ${verifiedPhone}`);
+        updated = true;
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    ok: true,
+    updated: updated,
+    patient_id: pid
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // =====================
@@ -3213,7 +3364,78 @@ const tCol = iSh.getRange(2, COL_RESERVED_TIME_INTAKE, num, 1).getValues();    /
     iSh.getRange(2, COL_RESERVED_TIME_INTAKE, num, 1).setValues(tCol);
   }
 
+  // ---- 6) Supabaseに同期（予約データ更新） ----
+  if (updated > 0 || cleared > 0) {
+    try {
+      syncReservationDataToSupabase_(pidToResv, pidToRow, pidCol, bCol, hCol, tCol);
+    } catch (e) {
+      Logger.log("[Supabase] reservation sync failed: " + e);
+    }
+  }
+
   Logger.log("backfillIntakeReservationFieldsOnce sync: updated=" + updated + " cleared=" + cleared);
+}
+
+// ★ 予約データをSupabaseに同期（patient_idベースでupsert）
+function syncReservationDataToSupabase_(pidToResv, pidToRow, pidCol, bCol, hCol, tCol) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  let synced = 0;
+  let failed = 0;
+
+  // 予約データが更新された患者のみ同期
+  Object.keys(pidToRow).forEach((pid) => {
+    const target = pidToRow[pid];
+    const idx = target.idx;
+
+    const reserveId = String(bCol[idx][0] || "").trim();
+    const reservedDate = String(hCol[idx][0] || "").trim();
+    const reservedTime = String(tCol[idx][0] || "").trim();
+
+    // Supabase更新（patient_idをキーにPATCH）
+    try {
+      const url = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+
+      const payload = {
+        reserve_id: reserveId || null,
+        reserved_date: reservedDate || null,
+        reserved_time: reservedTime || null
+      };
+
+      const res = UrlFetchApp.fetch(url, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        synced++;
+      } else {
+        Logger.log("[Supabase] reservation sync failed for pid=" + pid + " code=" + code);
+        failed++;
+      }
+    } catch (e) {
+      Logger.log("[Supabase] reservation sync error for pid=" + pid + ": " + e);
+      failed++;
+    }
+  });
+
+  Logger.log("[Supabase] reservation sync completed: synced=" + synced + " failed=" + failed);
 }
 
 // ★ テスト用：直接キャッシュ無効化を試す
@@ -4813,4 +5035,230 @@ function enableGasCache() {
   const props = PropertiesService.getScriptProperties();
   props.deleteProperty("USE_GAS_CACHE"); // デフォルトがONなので削除
   Logger.log("✓ GAS cache enabled (USE_GAS_CACHE removed, default=true)");
+}
+
+// ★★★ 予約シートへの書き込みを監視してリアルタイム同期 ★★★
+function onEdit(e) {
+  try {
+    // 予約シートへの変更のみ処理
+    const sheet = e.source.getActiveSheet();
+    if (!sheet || sheet.getName() !== SHEET_NAME_RESERVE) {
+      return;
+    }
+
+    const range = e.range;
+    if (!range) return;
+
+    // 新しい行が追加/編集された場合
+    const editedRow = range.getRow();
+    if (editedRow < 2) return; // ヘッダー行は無視
+
+    // 予約データを取得
+    const row = sheet.getRange(editedRow, 1, 1, 7).getValues()[0];
+    // [A ts, B reserveId, C pid, D name, E date, F time, G status]
+
+    const reserveId = String(row[1] || "").trim();
+    const pid = normalizePid_(row[2]);
+    const name = String(row[3] || "").trim();
+    const date = String(row[4] || "").trim();
+    const time = String(row[5] || "").trim();
+    const status = String(row[6] || "").trim();
+
+    if (!reserveId || !pid || !date || !time) {
+      Logger.log("[onEdit] Incomplete reservation data, skipping");
+      return;
+    }
+
+    // キャンセルは同期しない
+    if (status === "キャンセル") {
+      Logger.log("[onEdit] Cancelled reservation, skipping");
+      return;
+    }
+
+    Logger.log("[onEdit] Reservation change detected: reserveId=" + reserveId + ", pid=" + pid);
+
+    // 問診シートを更新
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+    if (!intakeSheet) {
+      Logger.log("[onEdit] Intake sheet not found");
+      return;
+    }
+
+    // 該当する患者の問診データを検索して予約情報を更新
+    const intakeValues = intakeSheet.getDataRange().getValues();
+    let updated = false;
+
+    for (let i = 1; i < intakeValues.length; i++) {
+      const intakePid = normalizePid_(intakeValues[i][COL_PATIENT_ID_INTAKE - 1]);
+      if (intakePid !== pid) continue;
+
+      // 予約情報を更新
+      intakeSheet.getRange(i + 1, COL_RESERVE_ID_INTAKE).setValue(reserveId);
+      intakeSheet.getRange(i + 1, COL_RESERVED_DATE_INTAKE).setValue(date);
+      intakeSheet.getRange(i + 1, COL_RESERVED_TIME_INTAKE).setValue(time);
+
+      updated = true;
+      Logger.log("[onEdit] Updated intake sheet row " + (i + 1));
+      break;
+    }
+
+    // Supabaseに即座に反映
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const supabaseUrl = props.getProperty("SUPABASE_URL");
+      const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+      if (!supabaseUrl || !supabaseKey) {
+        Logger.log("[onEdit] Supabase credentials missing");
+        return;
+      }
+
+      // patient_idで検索してupsert
+      const url = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+      const payload = {
+        reserve_id: reserveId,
+        reserved_date: date,
+        reserved_time: time,
+        patient_name: name || null
+      };
+
+      const res = UrlFetchApp.fetch(url, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        Logger.log("[onEdit] Supabase updated successfully for pid=" + pid);
+      } else {
+        Logger.log("[onEdit] Supabase update failed: code=" + code + " body=" + res.getContentText());
+      }
+    } catch (e) {
+      Logger.log("[onEdit] Supabase update error: " + e);
+    }
+
+  } catch (err) {
+    Logger.log("[onEdit] Error: " + err);
+  }
+}
+
+// ★★★ シート変更（行追加）を監視してリアルタイム同期 ★★★
+function onChange(e) {
+  try {
+    // 予約シートへの変更のみ処理
+    if (e.changeType !== "INSERT_ROW") {
+      return;
+    }
+
+    Logger.log("[onChange] Row insertion detected, checking reservation sheet");
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const reserveSheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+    if (!reserveSheet) return;
+
+    // 最後の行を取得（新しく追加された行）
+    const lastRow = reserveSheet.getLastRow();
+    if (lastRow < 2) return; // ヘッダー行のみ
+
+    const row = reserveSheet.getRange(lastRow, 1, 1, 7).getValues()[0];
+    // [A ts, B reserveId, C pid, D name, E date, F time, G status]
+
+    const reserveId = String(row[1] || "").trim();
+    const pid = normalizePid_(row[2]);
+    const name = String(row[3] || "").trim();
+    const date = String(row[4] || "").trim();
+    const time = String(row[5] || "").trim();
+    const status = String(row[6] || "").trim();
+
+    if (!reserveId || !pid || !date || !time) {
+      Logger.log("[onChange] Incomplete reservation data, skipping");
+      return;
+    }
+
+    // キャンセルは同期しない
+    if (status === "キャンセル") {
+      Logger.log("[onChange] Cancelled reservation, skipping");
+      return;
+    }
+
+    Logger.log("[onChange] New reservation detected: reserveId=" + reserveId + ", pid=" + pid);
+
+    // 問診シートを更新
+    const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+    if (!intakeSheet) {
+      Logger.log("[onChange] Intake sheet not found");
+      return;
+    }
+
+    // 該当する患者の問診データを検索して予約情報を更新
+    const intakeValues = intakeSheet.getDataRange().getValues();
+
+    for (let i = 1; i < intakeValues.length; i++) {
+      const intakePid = normalizePid_(intakeValues[i][COL_PATIENT_ID_INTAKE - 1]);
+      if (intakePid !== pid) continue;
+
+      // 予約情報を更新
+      intakeSheet.getRange(i + 1, COL_RESERVE_ID_INTAKE).setValue(reserveId);
+      intakeSheet.getRange(i + 1, COL_RESERVED_DATE_INTAKE).setValue(date);
+      intakeSheet.getRange(i + 1, COL_RESERVED_TIME_INTAKE).setValue(time);
+
+      Logger.log("[onChange] Updated intake sheet row " + (i + 1));
+      break;
+    }
+
+    // Supabaseに即座に反映
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const supabaseUrl = props.getProperty("SUPABASE_URL");
+      const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+      if (!supabaseUrl || !supabaseKey) {
+        Logger.log("[onChange] Supabase credentials missing");
+        return;
+      }
+
+      // patient_idで検索してupsert
+      const url = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(pid);
+      const payload = {
+        reserve_id: reserveId,
+        reserved_date: date,
+        reserved_time: time,
+        patient_name: name || null
+      };
+
+      const res = UrlFetchApp.fetch(url, {
+        method: "patch",
+        contentType: "application/json",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": "Bearer " + supabaseKey,
+          "Prefer": "return=minimal"
+        },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true,
+        timeout: 10
+      });
+
+      const code = res.getResponseCode();
+      if (code >= 200 && code < 300) {
+        Logger.log("[onChange] Supabase updated successfully for pid=" + pid);
+      } else {
+        Logger.log("[onChange] Supabase update failed: code=" + code + " body=" + res.getContentText());
+      }
+    } catch (e) {
+      Logger.log("[onChange] Supabase update error: " + e);
+    }
+
+  } catch (err) {
+    Logger.log("[onChange] Error: " + err);
+  }
 }

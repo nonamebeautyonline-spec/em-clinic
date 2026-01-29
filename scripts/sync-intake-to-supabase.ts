@@ -14,16 +14,25 @@ envContent.split("\n").forEach((line) => {
   if (!trimmed || trimmed.startsWith("#")) return;
   const [key, ...valueParts] = trimmed.split("=");
   if (key && valueParts.length > 0) {
-    envVars[key.trim()] = valueParts.join("=").trim();
+    let value = valueParts.join("=").trim();
+    // Remove surrounding quotes
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    envVars[key.trim()] = value;
   }
 });
 
-const GAS_INTAKE_URL = envVars.GAS_INTAKE_URL;
+const GAS_INTAKE_URL = envVars.GAS_INTAKE_URL || envVars.GAS_INTAKE_LIST_URL;
 const SUPABASE_URL = envVars.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = envVars.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!GAS_INTAKE_URL || !SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("Missing environment variables");
+  console.error("Missing environment variables:");
+  console.error("  GAS_INTAKE_URL:", GAS_INTAKE_URL ? "✓" : "✗");
+  console.error("  SUPABASE_URL:", SUPABASE_URL ? "✓" : "✗");
+  console.error("  SUPABASE_KEY:", SUPABASE_KEY ? "✓" : "✗");
   process.exit(1);
 }
 

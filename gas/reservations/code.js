@@ -596,7 +596,8 @@ if (type === "createReservation") {
     }
 
     // ===== 予約OK → 行追加 =====
-    const reserveId = "resv-" + new Date().getTime();
+    // ★ Next.jsから渡されたreserveIdを優先、なければ生成
+    const reserveId = body.reserveId || body.reserve_id || ("resv-" + new Date().getTime());
     const now = new Date();
 
     sheet.appendRow([
@@ -630,35 +631,40 @@ if (type === "createReservation") {
       }
     }
 
-    // ===== Supabaseに予約情報を反映 =====
+    // ===== Supabaseに予約情報を反映（skipSupabaseフラグがない場合のみ） =====
     var supabaseError = null;
-    try {
-      // ★ intakeテーブルを更新
-      updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime, ss);
+    const skipSupabase = body.skipSupabase === true;
+    if (!skipSupabase) {
+      try {
+        // ★ intakeテーブルを更新
+        updateSupabaseIntakeReservation_(reserveId, patientId, reqDate, reqTime, ss);
 
-      // ★ reservationsテーブルにも書き込む
-      writeToSupabaseReservation_({
-        reserve_id: reserveId,
-        patient_id: patientId,
-        patient_name: name,
-        reserved_date: reqDate,
-        reserved_time: reqTime,
-        status: "pending",
-        note: null,
-        prescription_menu: null
-      });
+        // ★ reservationsテーブルにも書き込む
+        writeToSupabaseReservation_({
+          reserve_id: reserveId,
+          patient_id: patientId,
+          patient_name: name,
+          reserved_date: reqDate,
+          reserved_time: reqTime,
+          status: "pending",
+          note: null,
+          prescription_menu: null
+        });
 
-      // ★ キャッシュ無効化
-      invalidateVercelCache_(patientId);
-    } catch (e) {
-      supabaseError = String(e);
-      Logger.log("[Supabase] Reservation update failed: " + e);
+        // ★ キャッシュ無効化
+        invalidateVercelCache_(patientId);
+      } catch (e) {
+        supabaseError = String(e);
+        Logger.log("[Supabase] Reservation update failed: " + e);
+      }
+    } else {
+      Logger.log("[Supabase] Reservation write skipped (skipSupabase=true)");
     }
 
     return jsonResponse({
       ok: true,
       reserveId: reserveId,
-      supabaseSync: supabaseError ? "failed: " + supabaseError : "attempted"
+      supabaseSync: skipSupabase ? "skipped" : (supabaseError ? "failed: " + supabaseError : "attempted")
     });
   } finally {
     lock.releaseLock();
