@@ -106,6 +106,13 @@ export async function POST(req: NextRequest) {
         ? supabaseResult.reason
         : supabaseResult.value.error;
       console.error("[Supabase] Intake write failed:", error);
+
+      // ★ Supabase失敗時もエラーレスポンスを返してデータ不整合を防ぐ
+      return NextResponse.json({
+        ok: false,
+        error: "supabase_error",
+        details: error?.message || String(error)
+      }, { status: 500 });
     }
 
     // GAS結果チェック
