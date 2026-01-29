@@ -185,8 +185,8 @@ if (json.masterInfo) {
       birth: masterInfo.birth || existingAnswers.birth || "",
       カナ: masterInfo.nameKana || existingAnswers.カナ || "",
       name_kana: masterInfo.nameKana || existingAnswers.name_kana || "",
-      電話番号: tel || existingAnswers.電話番号 || "",
-      tel: tel || existingAnswers.tel || "",
+      電話番号: masterInfo.tel || tel || existingAnswers.電話番号 || "",
+      tel: masterInfo.tel || tel || existingAnswers.tel || "",
       answerer_id: masterInfo.answererId || existingAnswers.answerer_id || "",
       line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
     };

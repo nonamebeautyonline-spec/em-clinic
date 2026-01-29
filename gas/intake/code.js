@@ -733,6 +733,7 @@ function findMasterInfoByPid_(masterSheet, pid) {
   const IDX_NAME_KANA   = 5;   // F
   const IDX_SEX         = 6;   // G
   const IDX_BIRTH       = 7;   // H
+  const IDX_TEL         = 8;   // I 電話番号
   const IDX_PID         = 11;  // L
   const IDX_LINE_USERID = 14;  // O
 
@@ -747,6 +748,7 @@ function findMasterInfoByPid_(masterSheet, pid) {
       nameKana: String(row[IDX_NAME_KANA] || "").trim(),
       sex: String(row[IDX_SEX] || "").trim(),
       birth: String(row[IDX_BIRTH] || "").trim(),
+      tel: String(row[IDX_TEL] || "").trim(),
       answererId: String(row[IDX_ANSWERER_ID] || "").trim(),
       lineUserId: String(row[IDX_LINE_USERID] || "").trim()
     };
@@ -1861,6 +1863,7 @@ if (existingSubmitted) {
       sex: masterInfo.sex || "",
       birth: masterInfo.birth || "",
       nameKana: masterInfo.nameKana || "",
+      tel: masterInfo.tel || "",
       answererId: masterInfo.answererId || "",
       lineUserId: masterInfo.lineUserId || ""
     } : null
@@ -2050,6 +2053,7 @@ if (existingSubmitted) {
         sex: masterInfo.sex || "",
         birth: masterInfo.birth || "",
         nameKana: masterInfo.nameKana || "",
+        tel: masterInfo.tel || tel || "",
         answererId: masterInfo.answererId || "",
         lineUserId: masterInfo.lineUserId || ""
       } : null
