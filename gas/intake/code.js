@@ -733,7 +733,6 @@ function findMasterInfoByPid_(masterSheet, pid) {
   const IDX_NAME_KANA   = 5;   // F
   const IDX_SEX         = 6;   // G
   const IDX_BIRTH       = 7;   // H
-  const IDX_TEL         = 8;   // I 電話番号
   const IDX_PID         = 11;  // L
   const IDX_LINE_USERID = 14;  // O
 
@@ -748,7 +747,6 @@ function findMasterInfoByPid_(masterSheet, pid) {
       nameKana: String(row[IDX_NAME_KANA] || "").trim(),
       sex: String(row[IDX_SEX] || "").trim(),
       birth: String(row[IDX_BIRTH] || "").trim(),
-      tel: String(row[IDX_TEL] || "").trim(),
       answererId: String(row[IDX_ANSWERER_ID] || "").trim(),
       lineUserId: String(row[IDX_LINE_USERID] || "").trim()
     };
@@ -1218,6 +1216,38 @@ function findExistingSubmittedIntakeByPid_(intakeSheet, pid) {
 
   return "";
 }
+
+// ★ 問診シートのX列（tel）を取得する関数
+function findIntakeTelByPid_(intakeSheet, pid) {
+  if (!intakeSheet || !pid) return "";
+
+  const lastRow = intakeSheet.getLastRow();
+  if (lastRow < 2) return "";
+
+  // A〜X(24列)：X=tel
+  const values = intakeSheet.getRange(2, 1, lastRow - 1, 24).getValues();
+
+  const pidKey = String(pid).trim();
+  const IDX_PID = 25;  // Z（0-based, but we only read 24 cols, so check separately）
+  const IDX_TEL = 23;  // X（0-based）
+
+  // 全列読む必要があるので修正
+  const allValues = intakeSheet.getRange(2, 1, lastRow - 1, 26).getValues();
+  const IDX_PID_FULL = 25; // Z（0-based）
+
+  // 新しい行を優先（末尾から探索）
+  for (let i = allValues.length - 1; i >= 0; i--) {
+    const row = allValues[i];
+    const rowPid = String(row[IDX_PID_FULL] || "").trim();
+    if (rowPid !== pidKey) continue;
+
+    const tel = String(row[IDX_TEL] || "").trim();
+    return tel;
+  }
+
+  return "";
+}
+
 // Z列(patient_id)で完全一致する「全行番号」を返す
 function findRowsByPidInIntake_(intakeSheet, pid) {
   if (!intakeSheet || !pid) return [];
@@ -1854,6 +1884,16 @@ if (existingSubmitted) {
     }
   }
 
+  // ★ 問診シートのX列（verify済みtel）を取得
+  let telFromIntake = "";
+  if (skipSupabase) {
+    try {
+      telFromIntake = findIntakeTelByPid_(intakeSheet, pid);
+    } catch (e) {
+      Logger.log("[Dedup] Failed to get tel from intake sheet: " + e);
+    }
+  }
+
   return jsonResponse({
     ok: true,
     intakeId: existingSubmitted === "submitted" ? "" : String(existingSubmitted),
@@ -1863,7 +1903,7 @@ if (existingSubmitted) {
       sex: masterInfo.sex || "",
       birth: masterInfo.birth || "",
       nameKana: masterInfo.nameKana || "",
-      tel: masterInfo.tel || "",
+      tel: telFromIntake || "",
       answererId: masterInfo.answererId || "",
       lineUserId: masterInfo.lineUserId || ""
     } : null
@@ -2053,7 +2093,7 @@ if (existingSubmitted) {
         sex: masterInfo.sex || "",
         birth: masterInfo.birth || "",
         nameKana: masterInfo.nameKana || "",
-        tel: masterInfo.tel || tel || "",
+        tel: tel || "",
         answererId: masterInfo.answererId || "",
         lineUserId: masterInfo.lineUserId || ""
       } : null
