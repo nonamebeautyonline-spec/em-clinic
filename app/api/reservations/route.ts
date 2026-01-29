@@ -480,7 +480,121 @@ export async function POST(req: NextRequest) {
       }, { status: 200 });
     }
 
-    // ★ 予約作成以外（キャンセルなど）は従来通りGASのみ
+    // ★ 予約キャンセルの場合はSupabaseにも並列書き込み
+    if (type === "cancelReservation") {
+      const reserveId = body.reserveId || body.reservationId || body.id || "";
+      const pid = body.patient_id || patientId;
+
+      if (!reserveId) {
+        return NextResponse.json({ ok: false, error: "reserveId required" }, { status: 400 });
+      }
+
+      const payload = {
+        ...body,
+        patient_id: pid,
+        intakeId: body.intakeId || intakeId,
+        intake_id: body.intake_id || intakeId,
+      };
+
+      // Supabase と GAS に並列書き込み
+      const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
+        // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
+        retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("reservations")
+            .update({ status: "canceled" })
+            .eq("reserve_id", reserveId);
+
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        }),
+
+        // 2. intakeテーブルの予約情報をクリア（リトライあり）
+        pid ? retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("intake")
+            .update({
+              reserve_id: null,
+              reserved_date: null,
+              reserved_time: null,
+            })
+            .eq("patient_id", pid);
+
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        }) : Promise.resolve({ error: null }),
+
+        // 3. GASにPOST
+        fetch(GAS_RESERVATIONS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        }).then(async (res) => {
+          const text = await res.text().catch(() => "");
+          let json: any = {};
+          try { json = text ? JSON.parse(text) : {}; } catch {}
+          return { ok: res.ok && json?.ok === true, json, text, status: res.status };
+        }),
+      ]);
+
+      // Supabase結果チェック
+      if (supabaseReservationResult.status === "rejected" ||
+          (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
+        const error = supabaseReservationResult.status === "rejected"
+          ? supabaseReservationResult.reason
+          : supabaseReservationResult.value.error;
+        console.error("[Supabase] Reservation cancel failed:", error);
+      }
+
+      if (supabaseIntakeResult.status === "rejected" ||
+          (supabaseIntakeResult.status === "fulfilled" && supabaseIntakeResult.value.error)) {
+        const error = supabaseIntakeResult.status === "rejected"
+          ? supabaseIntakeResult.reason
+          : supabaseIntakeResult.value.error;
+        console.error("[Supabase] Intake clear failed:", error);
+      }
+
+      // GAS結果チェック
+      if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
+        const error = gasResult.status === "rejected"
+          ? gasResult.reason
+          : gasResult.value.text;
+        console.error("GAS cancelReservation error:", error);
+
+        const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
+        const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "gas_error",
+            gas_status: status,
+            gas: gasJson && Object.keys(gasJson).length ? gasJson : undefined,
+            detail: error,
+          },
+          { status: 500 }
+        );
+      }
+
+      // キャッシュ削除
+      if (pid) {
+        await invalidateDashboardCache(pid);
+        console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        reserveId,
+        supabaseSync: true,
+      }, { status: 200 });
+    }
+
+    // ★ その他の操作は従来通りGASのみ
     const payload = {
       ...body,
       patient_id: body.patient_id || patientId,

@@ -270,6 +270,7 @@ function doPost(e) {
   "getScheduleRange",
   "backfill_reservations",
   "backfill_all_future_reservations",
+  "getAllReservations",
 ]);
 
 const token = String(body.token || "");
@@ -971,6 +972,45 @@ const tStr = toHHMM_(row[1]);  // ★ HH:mm に正規化
       });
 
       return jsonResponse({ ok: true, slots });
+    }
+
+    // ---------- ⑥ 全予約取得（getAllReservations）管理用 ----------
+    if (type === "getAllReservations") {
+      // ADMIN_TOKEN必須
+      const token = String(body.token || "");
+      const props = PropertiesService.getScriptProperties();
+      const adminToken = String(props.getProperty("ADMIN_TOKEN") || "");
+
+      if (!adminToken || token !== adminToken) {
+        return jsonResponse({ ok: false, error: "unauthorized" });
+      }
+
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: true, reservations: [] });
+      }
+
+      // A〜G列全て取得: timestamp, reserve_id, patient_id, name, date, time, status
+      const values = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+
+      const reservations = [];
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        const reserveId = String(row[COL_RESERVE_ID - 1] || "").trim();
+        if (!reserveId) continue;
+
+        reservations.push({
+          timestamp: row[COL_TIMESTAMP - 1] || null,
+          reserve_id: reserveId,
+          patient_id: String(row[COL_PATIENT_ID - 1] || "").trim(),
+          name: String(row[COL_NAME - 1] || "").trim(),
+          date: toYMD_(row[COL_DATE - 1]),
+          time: toHHMM_(row[COL_TIME - 1]),
+          status: String(row[COL_STATUS - 1] || "").trim(),
+        });
+      }
+
+      return jsonResponse({ ok: true, reservations });
     }
 
     // =========================
