@@ -2010,7 +2010,30 @@ if (existingSubmitted) {
       cacheInvalidate: cacheInvalidateTime - syncQuestionnaireTime
     };
 
-    return jsonResponse({ ok: true, intakeId: intakeId, timing: timing });
+    // ★ skipSupabase=true の場合、問診マスター情報をレスポンスに含める
+    let masterInfo = null;
+    if (skipSupabase) {
+      try {
+        masterInfo = findMasterInfoByPid_(masterSheet, pid);
+        Logger.log("[Response] Including master info for Next.js to update Supabase");
+      } catch (e) {
+        Logger.log("[Response] Failed to get master info: " + e);
+      }
+    }
+
+    return jsonResponse({
+      ok: true,
+      intakeId: intakeId,
+      timing: timing,
+      masterInfo: masterInfo ? {
+        name: masterInfo.name || "",
+        sex: masterInfo.sex || "",
+        birth: masterInfo.birth || "",
+        nameKana: masterInfo.nameKana || "",
+        answererId: masterInfo.answererId || "",
+        lineUserId: masterInfo.lineUserId || ""
+      } : null
+    });
   } finally {
     lock.releaseLock();
   }
@@ -3612,6 +3635,85 @@ function updateSupabaseIntakeByReserveId_(reserveId, status, note, prescriptionM
     }
   } catch (e) {
     Logger.log("[Supabase] intake update error: " + e);
+  }
+}
+
+// ★ 問診マスター情報をSupabaseに同期（個人情報のみ）
+function updateSupabaseIntakeMasterInfo_(patientId, masterInfo) {
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+    return;
+  }
+
+  const intakeUrl = supabaseUrl + "/rest/v1/intake?patient_id=eq." + encodeURIComponent(patientId);
+
+  try {
+    // ★ 1. 既存のanswersを取得
+    const getRes = UrlFetchApp.fetch(intakeUrl + "&select=answers", {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey
+      },
+      muteHttpExceptions: true,
+      timeout: 10
+    });
+
+    let existingAnswers = {};
+    if (getRes.getResponseCode() === 200) {
+      const rows = JSON.parse(getRes.getContentText());
+      if (rows && rows.length > 0 && rows[0].answers) {
+        existingAnswers = rows[0].answers;
+      }
+    }
+
+    // ★ 2. answersをマージ
+    const mergedAnswers = Object.assign({}, existingAnswers, {
+      氏名: masterInfo.name || existingAnswers.氏名 || "",
+      name: masterInfo.name || existingAnswers.name || "",
+      性別: masterInfo.sex || existingAnswers.性別 || "",
+      sex: masterInfo.sex || existingAnswers.sex || "",
+      生年月日: masterInfo.birth || existingAnswers.生年月日 || "",
+      birth: masterInfo.birth || existingAnswers.birth || "",
+      カナ: masterInfo.nameKana || existingAnswers.カナ || "",
+      name_kana: masterInfo.nameKana || existingAnswers.name_kana || "",
+      answerer_id: masterInfo.answererId || existingAnswers.answerer_id || "",
+      line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
+    });
+
+    // ★ 3. 更新
+    const payload = {
+      patient_name: masterInfo.name || null,
+      answerer_id: masterInfo.answererId || null,
+      line_id: masterInfo.lineUserId || null,
+      answers: mergedAnswers
+    };
+
+    const res = UrlFetchApp.fetch(intakeUrl, {
+      method: "patch",
+      contentType: "application/json",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Prefer": "return=minimal"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true,
+      timeout: 10
+    });
+
+    const code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] Master info updated: patient_id=" + patientId);
+    } else {
+      Logger.log("[Supabase] Master info update failed: code=" + code + " body=" + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("[Supabase] Master info update error: " + e);
   }
 }
 

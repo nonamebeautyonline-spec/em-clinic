@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
 
     const answersObj = body.answers || {};
 
+    // ★ デバッグログ：bodyの構造を確認
+    console.log("[Intake Debug] patientId:", patientId);
+    console.log("[Intake Debug] body keys:", Object.keys(body));
+    console.log("[Intake Debug] answersObj keys:", Object.keys(answersObj));
+    console.log("[Intake Debug] body.name:", body.name);
+    console.log("[Intake Debug] body.answerer_id:", body.answerer_id);
+
     // answersから個人情報を抽出（GASと同じロジック）
     const name = body.name || answersObj.氏名 || answersObj.name || "";
     const sex = body.sex || answersObj.性別 || answersObj.sex || "";
@@ -32,6 +39,9 @@ export async function POST(req: NextRequest) {
     const tel = body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "";
     const lineId = body.line_id || body.lineId || answersObj.line_id || "";
     const answererId = body.answerer_id || answersObj.answerer_id || null;
+
+    // ★ デバッグログ：抽出後の値を確認
+    console.log("[Intake Debug] Extracted - name:", name, "sex:", sex, "answererId:", answererId);
 
     // answersに個人情報を明示的に含める
     const fullAnswers = {
@@ -130,6 +140,57 @@ if (json.timing) {
     questionnaireSync: `${json.timing.questionnaireSync}ms`,
     cacheInvalidate: `${json.timing.cacheInvalidate}ms`
   });
+}
+
+// ★ GASから返された問診マスター情報でSupabaseを更新
+if (json.masterInfo) {
+  try {
+    const masterInfo = json.masterInfo;
+    console.log("[Intake] Updating Supabase with master info:", masterInfo.name);
+
+    // 既存のanswersを取得してマージ
+    const { data: existingData } = await supabase
+      .from("intake")
+      .select("answers")
+      .eq("patient_id", patientId)
+      .single();
+
+    const existingAnswers = existingData?.answers || {};
+    const mergedAnswers = {
+      ...existingAnswers,
+      氏名: masterInfo.name || existingAnswers.氏名 || "",
+      name: masterInfo.name || existingAnswers.name || "",
+      性別: masterInfo.sex || existingAnswers.性別 || "",
+      sex: masterInfo.sex || existingAnswers.sex || "",
+      生年月日: masterInfo.birth || existingAnswers.生年月日 || "",
+      birth: masterInfo.birth || existingAnswers.birth || "",
+      カナ: masterInfo.nameKana || existingAnswers.カナ || "",
+      name_kana: masterInfo.nameKana || existingAnswers.name_kana || "",
+      電話番号: tel || existingAnswers.電話番号 || "",
+      tel: tel || existingAnswers.tel || "",
+      answerer_id: masterInfo.answererId || existingAnswers.answerer_id || "",
+      line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
+    };
+
+    // Supabaseを更新
+    const { error } = await supabase
+      .from("intake")
+      .update({
+        patient_name: masterInfo.name || null,
+        answerer_id: masterInfo.answererId || null,
+        line_id: masterInfo.lineUserId || null,
+        answers: mergedAnswers
+      })
+      .eq("patient_id", patientId);
+
+    if (error) {
+      console.error("[Intake] Failed to update master info in Supabase:", error);
+    } else {
+      console.log("[Intake] Successfully updated master info in Supabase");
+    }
+  } catch (e) {
+    console.error("[Intake] Error updating master info:", e);
+  }
 }
 
 const res = NextResponse.json({ ok: true, dedup });
