@@ -142,6 +142,15 @@ if (json.timing) {
   });
 }
 
+// ★ デバッグ：GASレスポンスの構造を確認
+console.log("[Intake Debug] GAS Response keys:", Object.keys(json));
+console.log("[Intake Debug] masterInfo exists:", !!json.masterInfo);
+if (json.masterInfo) {
+  console.log("[Intake Debug] masterInfo keys:", Object.keys(json.masterInfo));
+} else {
+  console.log("[Intake Debug] ❌ masterInfo is missing from GAS response");
+}
+
 // ★ GASから返された問診マスター情報でSupabaseを更新
 if (json.masterInfo) {
   try {
