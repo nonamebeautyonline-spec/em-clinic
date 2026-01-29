@@ -183,6 +183,18 @@ function handleApply_(body) {
 
   } catch (e) {
     Logger.log("LINE notify error: " + e);
+    // ★ エラー時もnote列に記録
+    try {
+      var stamp = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy/MM/dd HH:mm:ss");
+      sheet.getRange(rowNum, 5).setValue(stamp + " LINE_ERROR:" + String(e).substring(0, 100));
+    } catch (e2) {
+      Logger.log("Failed to write error to note: " + e2);
+    }
+  }
+
+  // ★ キャッシュ無効化（新規申請時も古いデータをクリア）
+  if (patientId) {
+    invalidateVercelCache_(patientId);
   }
 
   return jsonResponse({ ok: true });
@@ -574,19 +586,30 @@ function normPid_(v) {
   return s;
 }
 
-// ★ Vercel キャッシュ無効化API呼び出し
+// ★ Vercel キャッシュ無効化API呼び出し + GAS Script Cache クリア + Intake GAS キャッシュクリア
 function invalidateVercelCache_(patientId) {
   if (!patientId) return;
+
+  // ★ 1. このGAS (reorder-line-bot) の Script Cache をクリア
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.remove("reorders_" + patientId);
+    Logger.log("[invalidateCache] Cleared reorder-line-bot GAS cache for reorders_" + patientId);
+  } catch (e) {
+    Logger.log("[invalidateCache] Error clearing reorder-line-bot GAS cache: " + e);
+  }
 
   var props = PropertiesService.getScriptProperties();
   var vercelUrl = props.getProperty("VERCEL_URL");
   var adminToken = props.getProperty("ADMIN_TOKEN");
+  var intakeGasUrl = props.getProperty("INTAKE_GAS_URL");
 
   if (!vercelUrl || !adminToken) {
     Logger.log("[invalidateCache] Missing VERCEL_URL or ADMIN_TOKEN");
     return;
   }
 
+  // ★ 2. Vercel Redis キャッシュをクリア
   var url = vercelUrl + "/api/admin/invalidate-cache";
 
   try {
@@ -601,15 +624,45 @@ function invalidateVercelCache_(patientId) {
     var code = res.getResponseCode();
     var body = res.getContentText();
 
-    Logger.log("[invalidateCache] pid=" + patientId + " code=" + code + " body=" + body);
+    Logger.log("[invalidateCache] Vercel: pid=" + patientId + " code=" + code + " body=" + body);
 
     if (code >= 200 && code < 300) {
-      Logger.log("[invalidateCache] Success for patient_id=" + patientId);
+      Logger.log("[invalidateCache] Vercel cache cleared for patient_id=" + patientId);
     } else {
-      Logger.log("[invalidateCache] Failed for patient_id=" + patientId + " code=" + code);
+      Logger.log("[invalidateCache] Vercel cache clear failed: patient_id=" + patientId + " code=" + code);
     }
   } catch (e) {
-    Logger.log("[invalidateCache] Error for patient_id=" + patientId + ": " + e);
+    Logger.log("[invalidateCache] Vercel error for patient_id=" + patientId + ": " + e);
+  }
+
+  // ★ 3. Intake GAS のキャッシュもクリア（reorders_${pid} キャッシュ）
+  if (intakeGasUrl) {
+    try {
+      var intakeRes = UrlFetchApp.fetch(intakeGasUrl, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify({
+          type: "invalidate_cache",
+          patient_id: patientId
+        }),
+        muteHttpExceptions: true,
+      });
+
+      var intakeCode = intakeRes.getResponseCode();
+      var intakeBody = intakeRes.getContentText();
+
+      Logger.log("[invalidateCache] Intake GAS: pid=" + patientId + " code=" + intakeCode + " body=" + intakeBody);
+
+      if (intakeCode >= 200 && intakeCode < 300) {
+        Logger.log("[invalidateCache] Intake GAS cache cleared for patient_id=" + patientId);
+      } else {
+        Logger.log("[invalidateCache] Intake GAS cache clear failed: patient_id=" + patientId + " code=" + intakeCode);
+      }
+    } catch (e) {
+      Logger.log("[invalidateCache] Intake GAS error for patient_id=" + patientId + ": " + e);
+    }
+  } else {
+    Logger.log("[invalidateCache] INTAKE_GAS_URL not configured, skipping intake cache clear");
   }
 }
 
