@@ -247,7 +247,7 @@ if (json.masterInfo) {
       .from("intake")
       .select("answers")
       .eq("patient_id", patientId)
-      .single();
+      .maybeSingle();
 
     const existingAnswers = existingData?.answers || {};
     const mergedAnswers = {
@@ -266,18 +266,26 @@ if (json.masterInfo) {
       line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
     };
 
-    // Supabaseを更新（リトライあり）
+    // Supabaseをupsert（リトライあり）- 最初のupsertが失敗している可能性を考慮
     try {
       await retrySupabaseWrite(async () => {
         const result = await supabase
           .from("intake")
-          .update({
+          .upsert({
+            patient_id: patientId,
             patient_name: masterInfo.name || null,
             answerer_id: masterInfo.answererId || null,
             line_id: masterInfo.lineUserId || null,
+            reserve_id: null,
+            reserved_date: null,
+            reserved_time: null,
+            status: null,
+            note: null,
+            prescription_menu: null,
             answers: mergedAnswers
-          })
-          .eq("patient_id", patientId);
+          }, {
+            onConflict: "patient_id",
+          });
 
         if (result.error) {
           throw result.error;
@@ -285,9 +293,9 @@ if (json.masterInfo) {
         return result;
       });
 
-      console.log("[Intake] Successfully updated master info in Supabase");
+      console.log("[Intake] Successfully upserted master info in Supabase");
     } catch (error) {
-      console.error("[Intake] Failed to update master info in Supabase after retries:", error);
+      console.error("[Intake] Failed to upsert master info in Supabase after retries:", error);
     }
   } catch (e) {
     console.error("[Intake] Error updating master info:", e);
@@ -309,7 +317,13 @@ if (gasIntakeId) {
 
 return res;
 
-  } catch {
+  } catch (error: any) {
+    console.error("❌❌❌ [CRITICAL] Unhandled error in /api/intake ❌❌❌");
+    console.error("[Error Details]", {
+      message: error?.message || String(error),
+      stack: error?.stack,
+      timestamp: new Date().toISOString()
+    });
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });
   }
 }
