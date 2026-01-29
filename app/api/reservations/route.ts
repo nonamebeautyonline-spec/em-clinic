@@ -322,6 +322,15 @@ export async function POST(req: NextRequest) {
         skipSupabase: true, // GAS側でSupabase書き込みをスキップ
       };
 
+      // ★ answerersテーブルから名前を取得（問診マスター = 最上流のデータソース）
+      const { data: answererData } = await supabase
+        .from("answerers")
+        .select("name")
+        .eq("patient_id", pid)
+        .maybeSingle();
+
+      const patientName = answererData?.name || null;
+
       // Supabase と GAS に並列書き込み
       const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
         // 1. reservationsテーブルに予約を作成
@@ -330,7 +339,7 @@ export async function POST(req: NextRequest) {
           .insert({
             reserve_id: reserveId,
             patient_id: pid,
-            patient_name: null,
+            patient_name: patientName,
             reserved_date: date || null,
             reserved_time: time || null,
             status: "pending",
