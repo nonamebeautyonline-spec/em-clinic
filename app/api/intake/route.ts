@@ -5,6 +5,36 @@ import { supabase } from "@/lib/supabase";
 
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
 
+// ★ Supabase書き込みリトライ機能
+async function retrySupabaseWrite<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await operation();
+      if (attempt > 1) {
+        console.log(`[Supabase Retry] Success on attempt ${attempt}`);
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error(`[Supabase Retry] Attempt ${attempt}/${maxRetries} failed:`, error);
+
+      if (attempt < maxRetries) {
+        const delay = delayMs * attempt; // 指数バックオフ
+        console.log(`[Supabase Retry] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!GAS_INTAKE_URL) {
@@ -67,24 +97,31 @@ export async function POST(req: NextRequest) {
     };
 
     const [supabaseResult, gasResult] = await Promise.allSettled([
-      // 1. Supabaseに直接書き込み
-      supabase
-        .from("intake")
-        .upsert({
-          patient_id: patientId,
-          patient_name: name || null,
-          answerer_id: answererId,
-          line_id: lineId || null,
-          reserve_id: null,
-          reserved_date: null,
-          reserved_time: null,
-          status: null,
-          note: null,
-          prescription_menu: null,
-          answers: fullAnswers,
-        }, {
-          onConflict: "patient_id",
-        }),
+      // 1. Supabaseに直接書き込み（リトライあり）
+      retrySupabaseWrite(async () => {
+        const result = await supabase
+          .from("intake")
+          .upsert({
+            patient_id: patientId,
+            patient_name: name || null,
+            answerer_id: answererId,
+            line_id: lineId || null,
+            reserve_id: null,
+            reserved_date: null,
+            reserved_time: null,
+            status: null,
+            note: null,
+            prescription_menu: null,
+            answers: fullAnswers,
+          }, {
+            onConflict: "patient_id",
+          });
+
+        if (result.error) {
+          throw result.error;
+        }
+        return result;
+      }),
 
       // 2. GASにPOST
       fetch(GAS_INTAKE_URL, {
@@ -191,21 +228,28 @@ if (json.masterInfo) {
       line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
     };
 
-    // Supabaseを更新
-    const { error } = await supabase
-      .from("intake")
-      .update({
-        patient_name: masterInfo.name || null,
-        answerer_id: masterInfo.answererId || null,
-        line_id: masterInfo.lineUserId || null,
-        answers: mergedAnswers
-      })
-      .eq("patient_id", patientId);
+    // Supabaseを更新（リトライあり）
+    try {
+      await retrySupabaseWrite(async () => {
+        const result = await supabase
+          .from("intake")
+          .update({
+            patient_name: masterInfo.name || null,
+            answerer_id: masterInfo.answererId || null,
+            line_id: masterInfo.lineUserId || null,
+            answers: mergedAnswers
+          })
+          .eq("patient_id", patientId);
 
-    if (error) {
-      console.error("[Intake] Failed to update master info in Supabase:", error);
-    } else {
+        if (result.error) {
+          throw result.error;
+        }
+        return result;
+      });
+
       console.log("[Intake] Successfully updated master info in Supabase");
+    } catch (error) {
+      console.error("[Intake] Failed to update master info in Supabase after retries:", error);
     }
   } catch (e) {
     console.error("[Intake] Error updating master info:", e);

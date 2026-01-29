@@ -9,6 +9,36 @@ export const revalidate = 0;
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 
+// ★ Supabase書き込みリトライ機能
+async function retrySupabaseWrite<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 1000
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await operation();
+      if (attempt > 1) {
+        console.log(`[Supabase Retry] Success on attempt ${attempt}`);
+      }
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error(`[Supabase Retry] Attempt ${attempt}/${maxRetries} failed:`, error);
+
+      if (attempt < maxRetries) {
+        const delay = delayMs * attempt; // 指数バックオフ
+        console.log(`[Supabase Retry] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 type WeeklyRule = {
   doctor_id: string;
   weekday: number; // 0..6
@@ -335,29 +365,43 @@ export async function POST(req: NextRequest) {
 
       // Supabase と GAS に並列書き込み
       const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
-        // 1. reservationsテーブルに予約を作成
-        supabase
-          .from("reservations")
-          .insert({
-            reserve_id: reserveId,
-            patient_id: pid,
-            patient_name: patientName,
-            reserved_date: date || null,
-            reserved_time: time || null,
-            status: "pending",
-            note: null,
-            prescription_menu: null,
-          }),
+        // 1. reservationsテーブルに予約を作成（リトライあり）
+        retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("reservations")
+            .insert({
+              reserve_id: reserveId,
+              patient_id: pid,
+              patient_name: patientName,
+              reserved_date: date || null,
+              reserved_time: time || null,
+              status: "pending",
+              note: null,
+              prescription_menu: null,
+            });
 
-        // 2. intakeテーブルの予約情報を更新
-        pid ? supabase
-          .from("intake")
-          .update({
-            reserve_id: reserveId,
-            reserved_date: date || null,
-            reserved_time: time || null,
-          })
-          .eq("patient_id", pid) : Promise.resolve({ error: null }),
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        }),
+
+        // 2. intakeテーブルの予約情報を更新（リトライあり）
+        pid ? retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("intake")
+            .update({
+              reserve_id: reserveId,
+              reserved_date: date || null,
+              reserved_time: time || null,
+            })
+            .eq("patient_id", pid);
+
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        }) : Promise.resolve({ error: null }),
 
         // 3. GASにPOST
         fetch(GAS_RESERVATIONS_URL, {
