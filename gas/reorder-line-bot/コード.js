@@ -1058,3 +1058,59 @@ function debugLoadReorders20251200128() {
   Logger.log("Total matching rows: " + count);
   Logger.log("=== End debug ===");
 }
+
+// ★ デバッグ用：問診シートからLINE UIDマップを読み込みテスト
+function testLoadLineAndLstepMap() {
+  Logger.log("=== Testing loadLineAndLstepMapFromIntake_ ===");
+
+  try {
+    var map = loadLineAndLstepMapFromIntake_();
+
+    Logger.log("Map loaded successfully");
+    Logger.log("Total patients in map: " + Object.keys(map).length);
+
+    // サンプルを5件表示
+    var count = 0;
+    for (var pid in map) {
+      if (count >= 5) break;
+      var data = map[pid];
+      Logger.log("PID: " + pid + " -> line_id: " + (data.line_id || "(なし)") + ", answerer_id: " + (data.answerer_id || "(なし)"));
+      count++;
+    }
+
+    // 特定のpatient_idをテスト
+    var testPid = "20251200389"; // 333行目のpatient_id
+    if (map[testPid]) {
+      Logger.log("");
+      Logger.log("Test PID " + testPid + ":");
+      Logger.log("  line_id: " + (map[testPid].line_id || "(なし)"));
+      Logger.log("  answerer_id: " + (map[testPid].answerer_id || "(なし)"));
+    } else {
+      Logger.log("");
+      Logger.log("❌ Test PID " + testPid + " not found in map");
+    }
+
+  } catch (e) {
+    Logger.log("❌ Error: " + e);
+    Logger.log("Stack: " + e.stack);
+  }
+
+  Logger.log("=== Test complete ===");
+}
+
+// ★ 一括バックフィル実行
+function runBackfillReorderLineAndLstep() {
+  Logger.log("=== Running backfillReorderLineAndLstep ===");
+
+  try {
+    var result = backfillReorderLineAndLstep();
+    Logger.log("Result: " + JSON.stringify(result));
+    Logger.log("✅ Backfill completed successfully");
+    Logger.log("Updated rows: " + result.updated);
+  } catch (e) {
+    Logger.log("❌ Error during backfill: " + e);
+    Logger.log("Stack: " + e.stack);
+  }
+
+  Logger.log("=== Backfill complete ===");
+}
