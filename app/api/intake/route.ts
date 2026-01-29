@@ -105,14 +105,17 @@ export async function POST(req: NextRequest) {
       const error = supabaseResult.status === "rejected"
         ? supabaseResult.reason
         : supabaseResult.value.error;
-      console.error("[Supabase] Intake write failed:", error);
 
-      // ★ Supabase失敗時もエラーレスポンスを返してデータ不整合を防ぐ
-      return NextResponse.json({
-        ok: false,
-        error: "supabase_error",
-        details: error?.message || String(error)
-      }, { status: 500 });
+      // ★ Supabase失敗はログ出力のみ（GAS成功なら予約は確保される）
+      console.error("❌❌❌ [CRITICAL] Supabase intake write FAILED ❌❌❌");
+      console.error("[Supabase Error Details]", {
+        patientId,
+        error: error?.message || String(error),
+        timestamp: new Date().toISOString()
+      });
+      console.error("⚠️ DATA INCONSISTENCY: Record exists in GAS but not in Supabase");
+      console.error("⚠️ MANUAL FIX REQUIRED: Run bulk-fix-missing-info.mjs or create-missing script");
+      // 処理は続行（GAS成功なら予約は有効）
     }
 
     // GAS結果チェック
