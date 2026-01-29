@@ -1,0 +1,143 @@
+// fix-588.mjs
+// patient_id: 20260101588のSupabaseデータを修正
+
+import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'fs';
+
+const envFile = readFileSync('.env.local', 'utf-8');
+const envVars = {};
+envFile.split('\n').forEach(line => {
+  const match = line.match(/^([^=]+)=(.*)$/);
+  if (match) {
+    const key = match[1].trim();
+    let value = match[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    envVars[key] = value;
+  }
+});
+
+const supabase = createClient(
+  envVars.NEXT_PUBLIC_SUPABASE_URL,
+  envVars.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+const patientId = "20260101588";
+
+console.log(`=== Patient ID: ${patientId} の修正 ===\n`);
+
+try {
+  // 1. 現在のデータを取得
+  const { data: current } = await supabase
+    .from('intake')
+    .select('patient_name, answerer_id, line_id, answers')
+    .eq('patient_id', patientId)
+    .single();
+
+  console.log("現在のデータ:");
+  console.log("  patient_name:", current.patient_name || "(なし)");
+  console.log("  answerer_id:", current.answerer_id || "(なし)");
+  console.log("  line_id:", current.line_id || "(なし)");
+  console.log("  answers.氏名:", current.answers?.氏名 || "(なし)");
+  console.log("");
+
+  // 2. GASシートの情報
+  const masterInfo = {
+    name: "江口　凜華",
+    sex: "女",
+    birth: "2002-11-15",
+    nameKana: "エグチ　リンカ",
+    tel: "08079831102",
+    answererId: "235585341",
+    lineUserId: "U949f1f048d28f0f8497d648ecfa9adce"
+  };
+
+  // 3. answersをマージ
+  const updatedAnswers = {
+    ...current.answers,
+    氏名: masterInfo.name,
+    name: masterInfo.name,
+    性別: masterInfo.sex || current.answers?.性別 || "",
+    sex: masterInfo.sex || current.answers?.sex || "",
+    生年月日: masterInfo.birth || current.answers?.生年月日 || "",
+    birth: masterInfo.birth || current.answers?.birth || "",
+    カナ: masterInfo.nameKana || current.answers?.カナ || "",
+    name_kana: masterInfo.nameKana || current.answers?.name_kana || "",
+    電話番号: masterInfo.tel || current.answers?.電話番号 || "",
+    tel: masterInfo.tel || current.answers?.tel || "",
+    answerer_id: masterInfo.answererId || current.answers?.answerer_id || "",
+    line_id: masterInfo.lineUserId || current.answers?.line_id || ""
+  };
+
+  console.log("更新内容:");
+  console.log("  patient_name:", masterInfo.name);
+  console.log("  answerer_id:", masterInfo.answererId);
+  console.log("  line_id:", masterInfo.lineUserId);
+  console.log("  answers.氏名:", updatedAnswers.氏名);
+  console.log("  answers.性別:", updatedAnswers.性別);
+  console.log("  answers.カナ:", updatedAnswers.カナ);
+  console.log("");
+
+  // 4. Supabaseを更新
+  const { error: updateError } = await supabase
+    .from('intake')
+    .update({
+      patient_name: masterInfo.name,
+      answerer_id: masterInfo.answererId || null,
+      line_id: masterInfo.lineUserId || null,
+      answers: updatedAnswers
+    })
+    .eq('patient_id', patientId);
+
+  if (updateError) {
+    console.error("❌ 更新エラー:", updateError.message);
+    process.exit(1);
+  }
+
+  console.log("✅ 更新完了");
+
+  // 5. 確認
+  const { data: updated } = await supabase
+    .from('intake')
+    .select('patient_name, answerer_id, line_id, answers')
+    .eq('patient_id', patientId)
+    .single();
+
+  console.log("\n更新後のデータ:");
+  console.log("  patient_name:", updated.patient_name);
+  console.log("  answerer_id:", updated.answerer_id || "(なし)");
+  console.log("  line_id:", updated.line_id || "(なし)");
+  console.log("  answers.氏名:", updated.answers?.氏名);
+  console.log("  answers.性別:", updated.answers?.性別);
+  console.log("  answers.カナ:", updated.answers?.カナ);
+
+  // 6. キャッシュ無効化
+  console.log("\n6. キャッシュ無効化中...");
+  const ADMIN_TOKEN = envVars.ADMIN_TOKEN;
+  const APP_BASE_URL = envVars.APP_BASE_URL || envVars.NEXT_PUBLIC_APP_URL;
+
+  if (!ADMIN_TOKEN || !APP_BASE_URL) {
+    console.log("⚠️  ADMIN_TOKEN または APP_BASE_URL が設定されていません。キャッシュ無効化をスキップします。");
+  } else {
+    const cacheRes = await fetch(`${APP_BASE_URL}/api/admin/invalidate-cache`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ADMIN_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ patient_id: patientId })
+    });
+
+    if (cacheRes.ok) {
+      console.log("✅ キャッシュ無効化完了");
+    } else {
+      console.log("⚠️  キャッシュ無効化に失敗:", cacheRes.status);
+    }
+  }
+
+} catch (err) {
+  console.error("❌ エラー:", err.message);
+  process.exit(1);
+}
