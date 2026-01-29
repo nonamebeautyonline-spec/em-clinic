@@ -1840,10 +1840,30 @@ if (type === "intake" || body.answers) {
     // ★ 既に同一PIDの問診が1件でもあれば追加しない（= 問診は1回のみ）
 const existingSubmitted = findExistingSubmittedIntakeByPid_(intakeSheet, pid);
 if (existingSubmitted) {
+  // ★ dedupの場合でも、skipSupabase=trueならmasterInfoを返す
+  const skipSupabase = body.skipSupabase === true;
+  let masterInfo = null;
+  if (skipSupabase) {
+    try {
+      masterInfo = findMasterInfoByPid_(masterSheet, pid);
+      Logger.log("[Dedup] Including master info for Next.js to update Supabase");
+    } catch (e) {
+      Logger.log("[Dedup] Failed to get master info: " + e);
+    }
+  }
+
   return jsonResponse({
     ok: true,
     intakeId: existingSubmitted === "submitted" ? "" : String(existingSubmitted),
     dedup: true,
+    masterInfo: masterInfo ? {
+      name: masterInfo.name || "",
+      sex: masterInfo.sex || "",
+      birth: masterInfo.birth || "",
+      nameKana: masterInfo.nameKana || "",
+      answererId: masterInfo.answererId || "",
+      lineUserId: masterInfo.lineUserId || ""
+    } : null
   });
 }
 

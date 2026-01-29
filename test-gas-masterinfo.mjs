@@ -1,6 +1,4 @@
 // test-gas-masterinfo.mjs
-// GASがmasterInfoを返すかテスト
-
 import { readFileSync } from 'fs';
 
 const envFile = readFileSync('.env.local', 'utf-8');
@@ -18,59 +16,58 @@ envFile.split('\n').forEach(line => {
   }
 });
 
-const GAS_INTAKE_URL = envVars.GAS_INTAKE_URL;
+const GAS_INTAKE_LIST_URL = envVars.GAS_INTAKE_LIST_URL;
 
 console.log('=== GAS masterInfo返却テスト ===\n');
 
-// 既存の患者でテスト（20260101591: 問診マスターに存在）
-const testPayload = {
-  type: 'intake',
-  patient_id: '20260101591',
-  skipSupabase: true,  // ★ これがキー
+const testPatientId = "20260101596";
+const payload = {
+  type: "intake",
+  patient_id: testPatientId,
+  skipSupabase: true,
   answers: {
-    test: 'data'
-  }
+    ng_check: "no",
+    current_disease_yesno: "no"
+  },
+  reserve_id: "test-reserve-" + Date.now(),
+  reserved_date: "2026-02-01",
+  reserved_time: "10:00"
 };
 
-console.log('送信データ:');
-console.log('  patient_id:', testPayload.patient_id);
-console.log('  skipSupabase:', testPayload.skipSupabase);
-console.log('');
+console.log('1. GASにPOSTリクエスト送信');
+console.log('  patient_id:', testPatientId);
+console.log('  skipSupabase:', payload.skipSupabase);
 
-const res = await fetch(GAS_INTAKE_URL, {
+const response = await fetch(GAS_INTAKE_LIST_URL, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(testPayload)
+  body: JSON.stringify(payload)
 });
 
-const text = await res.text();
-
-console.log('レスポンスステータス:', res.status);
-console.log('');
-
+const text = await response.text();
 let json;
 try {
   json = JSON.parse(text);
 } catch (e) {
-  console.error('❌ JSON parseエラー:', e.message);
-  console.log('レスポンス:', text.substring(0, 500));
+  console.error('❌ JSONパースエラー');
   process.exit(1);
 }
 
-console.log('レスポンスキー:', Object.keys(json));
-console.log('');
+console.log('\n2. レスポンス受信');
+console.log('  ok:', json.ok);
 
+console.log('\n3. masterInfo確認');
 if (json.masterInfo) {
-  console.log('✅ masterInfoが返されています:');
-  console.log('  name:', json.masterInfo.name || '(なし)');
-  console.log('  sex:', json.masterInfo.sex || '(なし)');
-  console.log('  birth:', json.masterInfo.birth || '(なし)');
-  console.log('  nameKana:', json.masterInfo.nameKana || '(なし)');
-  console.log('  answererId:', json.masterInfo.answererId || '(なし)');
-  console.log('  lineUserId:', json.masterInfo.lineUserId || '(なし)');
+  console.log('  ✅ masterInfoが返されました');
+  console.log('  name:', json.masterInfo.name || '(空)');
+  console.log('  answererId:', json.masterInfo.answererId || '(空)');
+  console.log('  lineUserId:', json.masterInfo.lineUserId || '(空)');
+
+  if (json.masterInfo.name) {
+    console.log('\n✅ GASは正しくmasterInfoを返しています');
+    console.log('→ 問題はVercel側のmasterInfo処理にあります');
+  }
 } else {
-  console.log('❌ masterInfoが返されていません');
-  console.log('');
-  console.log('レスポンス全体:');
-  console.log(JSON.stringify(json, null, 2));
+  console.log('  ❌ masterInfoが返されていません');
+  console.log('  レスポンスキー:', Object.keys(json));
 }
