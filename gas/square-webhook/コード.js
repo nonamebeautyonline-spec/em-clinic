@@ -333,21 +333,27 @@ const SHEET_NAME_MASTER  = "のなめマスター";  // のなめマスターの
  */
 function copySelectedToNonameMaster() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const webhookSheet = ss.getSheetByName(SHEET_NAME_WEBHOOK);
+  const activeSheet = ss.getActiveSheet();
+  const activeSheetName = activeSheet.getName();
   const masterSheet  = ss.getSheetByName(SHEET_NAME_MASTER);
 
-  if (!webhookSheet) {
-    SpreadsheetApp.getUi().alert("Webhook シートが見つかりません: " + SHEET_NAME_WEBHOOK);
+  // Square Webhookまたは銀行振込シートのみ転記可能
+  if (activeSheetName !== SHEET_NAME_WEBHOOK && activeSheetName !== BANK_TRANSFER_SHEET) {
+    SpreadsheetApp.getUi().alert(
+      "転記元シートは「" + SHEET_NAME_WEBHOOK + "」または「" + BANK_TRANSFER_SHEET + "」シートで選択してください。\n" +
+      "現在: " + activeSheetName
+    );
     return;
   }
+
   if (!masterSheet) {
     SpreadsheetApp.getUi().alert("のなめマスター シートが見つかりません: " + SHEET_NAME_MASTER);
     return;
   }
 
-  const range = webhookSheet.getActiveRange();
+  const range = activeSheet.getActiveRange();
   if (!range) {
-    SpreadsheetApp.getUi().alert("Square Webhook シートで転記したい行を選択してください。");
+    SpreadsheetApp.getUi().alert("転記したい行を選択してください。");
     return;
   }
 
@@ -368,7 +374,7 @@ function copySelectedToNonameMaster() {
   }
 
   // --- ヘッダーから必要列を特定（列追加に強い） ---
-  const header = webhookSheet.getRange(1, 1, 1, webhookSheet.getLastColumn()).getValues()[0];
+  const header = activeSheet.getRange(1, 1, 1, activeSheet.getLastColumn()).getValues()[0];
   const col = (name) => {
     const idx = header.indexOf(name);
     return idx >= 0 ? idx : -1; // 0-based
@@ -1055,6 +1061,35 @@ function ensureWebhookHeader_(sheet) {
 
   const header = sheet.getRange(1, 1, 1, Math.max(lastCol, 1)).getValues()[0];
   // 既存ヘッダーに足りない列だけ追加（末尾）
+  const headerSet = {};
+  header.forEach(h => headerSet[String(h || "").trim()] = true);
+
+  const toAdd = baseHeader.filter(h => !headerSet[h]);
+  if (toAdd.length > 0) {
+    sheet.getRange(1, header.length + 1, 1, toAdd.length).setValues([toAdd]);
+  }
+}
+
+// 銀行振込CSV用ヘッダー（銀行から取得したCSVを貼り付ける用）
+function ensureBankTransferCsvHeader_(sheet) {
+  const baseHeader = [
+    "振込日",
+    "振込名義",
+    "振込金額",
+    "備考",
+    "照合済み",        // 手動でチェック
+    "該当patient_id", // 手動で記入
+  ];
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow === 0) {
+    sheet.appendRow(baseHeader);
+    return;
+  }
+
+  const header = sheet.getRange(1, 1, 1, Math.max(lastCol, 1)).getValues()[0];
   const headerSet = {};
   header.forEach(h => headerSet[String(h || "").trim()] = true);
 
@@ -2475,3 +2510,5 @@ function syncWebhookBatch500_2() { syncWebhookBatch(500, 500); }
 function syncWebhookBatch500_3() { syncWebhookBatch(1000, 500); }
 function syncWebhookBatch500_4() { syncWebhookBatch(1500, 500); }
 function syncWebhookBatch500_5() { syncWebhookBatch(2000, 500); }
+
+// ========================================

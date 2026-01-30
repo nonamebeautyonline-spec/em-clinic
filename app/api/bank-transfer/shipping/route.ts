@@ -71,45 +71,86 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ★ 銀行振込管理GASに記録
+    // ★ 銀行振込管理GASに記録（リトライ機能付き）
     const gasUrl = process.env.GAS_BANK_TRANSFER_URL;
     console.log("[BankTransfer] GAS_BANK_TRANSFER_URL:", gasUrl);
     if (gasUrl) {
-      try {
-        const gasPayload = {
-          type: "bank_transfer_order",
-          order_id: String(data?.[0]?.id || ""), // Supabaseから返されたID
-          patient_id: patientId,
-          product_code: productCode,
-          mode: mode || "first", // ★ 追加
-          reorder_id: reorderId || null, // ★ 追加
-          account_name: accountName,
-          phone_number: phoneNumber,
-          email: email,
-          postal_code: postalCode,
-          address: address,
-          submitted_at: now,
-        };
-        console.log("[BankTransfer] Calling GAS with payload:", JSON.stringify(gasPayload));
+      const gasPayload = {
+        type: "bank_transfer_order",
+        order_id: String(data?.[0]?.id || ""), // Supabaseから返されたID
+        patient_id: patientId,
+        product_code: productCode,
+        mode: mode || "first",
+        reorder_id: reorderId || null,
+        account_name: accountName,
+        phone_number: phoneNumber,
+        email: email,
+        postal_code: postalCode,
+        address: address,
+        submitted_at: now,
+      };
 
-        const gasResponse = await fetch(gasUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(gasPayload),
-        });
+      const MAX_RETRIES = 3;
+      const TIMEOUT_MS = 10000; // 10秒タイムアウト
+      let lastError: any = null;
+      let success = false;
 
-        const gasResponseText = await gasResponse.text();
-        console.log("[BankTransfer] GAS response status:", gasResponse.status);
-        console.log("[BankTransfer] GAS response body:", gasResponseText);
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`[BankTransfer] GAS call attempt ${attempt}/${MAX_RETRIES}`);
+          if (attempt === 1) {
+            console.log("[BankTransfer] Payload:", JSON.stringify(gasPayload));
+          }
 
-        if (!gasResponse.ok) {
-          console.error("[BankTransfer] GAS call failed with status:", gasResponse.status);
-        } else {
-          console.log("[BankTransfer] Successfully added to bank transfer management sheet");
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+          const gasResponse = await fetch(gasUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(gasPayload),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          const gasResponseText = await gasResponse.text();
+          console.log(`[BankTransfer] GAS response status: ${gasResponse.status}`);
+          console.log(`[BankTransfer] GAS response body: ${gasResponseText}`);
+
+          if (gasResponse.ok) {
+            console.log("[BankTransfer] ✅ Successfully added to bank transfer management sheet");
+            success = true;
+            break; // 成功したらループ終了
+          } else {
+            lastError = new Error(`HTTP ${gasResponse.status}: ${gasResponseText}`);
+            console.error(`[BankTransfer] ❌ Attempt ${attempt} failed:`, lastError.message);
+
+            if (attempt < MAX_RETRIES) {
+              const delayMs = Math.pow(2, attempt - 1) * 1000; // 指数バックオフ: 1s, 2s, 4s
+              console.log(`[BankTransfer] Retrying in ${delayMs}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+          }
+        } catch (e: any) {
+          lastError = e;
+          const errorMsg = e.name === 'AbortError' ? 'Timeout (10s)' : e.message;
+          console.error(`[BankTransfer] ❌ Attempt ${attempt} error:`, errorMsg);
+
+          if (attempt < MAX_RETRIES) {
+            const delayMs = Math.pow(2, attempt - 1) * 1000;
+            console.log(`[BankTransfer] Retrying in ${delayMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
         }
-      } catch (e) {
-        console.error("[BankTransfer] GAS call error:", e);
+      }
+
+      // 全てのリトライ失敗
+      if (!success) {
+        console.error("[BankTransfer] ⚠️ CRITICAL: All retry attempts failed for patient_id:", patientId, "order_id:", data?.[0]?.id);
+        console.error("[BankTransfer] Last error:", lastError);
         // GAS呼び出しエラーでも処理は続行（Supabaseには保存済み）
+        // TODO: 後でDBとGASを同期するバックフィル処理が必要
       }
     } else {
       console.error("[BankTransfer] GAS_BANK_TRANSFER_URL is not set");
