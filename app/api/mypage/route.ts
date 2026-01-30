@@ -24,6 +24,7 @@ type OrderForMyPage = {
   shippingEta?: string;
   trackingNumber?: string;
   paymentStatus: PaymentStatus;
+  paymentMethod?: "credit_card" | "bank_transfer";
   carrier?: Carrier;
   refundStatus?: RefundStatus;
   refundedAt?: string;
@@ -231,6 +232,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         shippingEta,
         trackingNumber: o.tracking_number || undefined,
         paymentStatus: normalizePaymentStatus(o.payment_status),
+        paymentMethod: "credit_card" as const,
         carrier,
         refundStatus,
         refundedAt: refundedAt || undefined,
@@ -278,6 +280,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         shippingEta: undefined,
         trackingNumber: undefined,
         paymentStatus: "paid" as PaymentStatus, // confirmed = 決済完了
+        paymentMethod: "bank_transfer" as const,
         carrier: undefined,
         refundStatus: undefined,
         refundedAt: undefined,
@@ -423,6 +426,7 @@ export async function POST(_req: NextRequest) {
           shippingEta,
           trackingNumber: safeStr(o.tracking_number) || undefined,
           paymentStatus: normalizePaymentStatus(o.payment_status),
+          paymentMethod: "credit_card" as const,
           carrier,
           refundStatus,
           refundedAt: refundedAt || undefined,
