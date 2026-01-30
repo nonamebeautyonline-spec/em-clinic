@@ -33,6 +33,7 @@ interface Order {
   shippingEta?: string;
   trackingNumber?: string;
   paymentStatus: PaymentStatus;
+  paymentMethod?: "credit_card" | "bank_transfer"; // ★追加：決済方法
     // ★追加
   refundStatus?: RefundStatus;
   refundedAt?: string;       // ISO
@@ -1216,6 +1217,18 @@ const raw = String((displayReorder.product_code ?? displayReorder.productCode ??
                         </span>
                       </div>
                     </div>
+
+                    {/* ★ 銀行振込の場合の説明 */}
+                    {order.paymentMethod === "bank_transfer" && (
+                      <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                        <p className="text-[10px] text-blue-900 leading-relaxed">
+                          <strong>銀行振込について</strong>
+                          <br />
+                          金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
+                        </p>
+                      </div>
+                    )}
+
 <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
   {order.trackingNumber ? (
     <p className="flex flex-wrap items-center gap-2">

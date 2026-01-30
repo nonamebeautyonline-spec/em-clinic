@@ -324,30 +324,61 @@ const handleSubmit = async () => {
           </div>
         )}
 
-        {/* ボタン群 */}
-        <div className="mt-2 flex flex-col gap-2">
-          <button
-  type="button"
-  disabled={submitting || !patientId}
-  onClick={handleSubmit}
-  className="w-full rounded-full bg-pink-500 text-white py-2 text-[12px] font-semibold disabled:opacity-60"
->
+        {/* 発送タイミングの案内 */}
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-[11px] text-blue-900 leading-relaxed">
+            <strong>当日発送について</strong>
+            <br />
+            12時までに決済が完了した場合、当日発送いたします。
+          </p>
+        </div>
 
-            {submitting ? "決済画面を準備しています..." : "この内容で決済に進む"}
-          </button>
+        {/* 決済方法選択 */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">決済方法を選択</h3>
+
+          {/* クレジットカード決済 */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled={submitting || !patientId}
+              onClick={handleSubmit}
+              className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+            >
+              {submitting ? "決済画面を準備しています..." : "クレジットカードで決済"}
+            </button>
+            <p className="text-[10px] text-slate-500 px-2">
+              即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+            </p>
+          </div>
+
+          {/* 銀行振込 */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled={!patientId || !product}
+              onClick={() => router.push(`/mypage/purchase/bank-transfer?code=${product?.code}`)}
+              className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+            >
+              銀行振込で決済
+            </button>
+            <p className="text-[10px] text-slate-500 px-2">
+              金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
+            </p>
+          </div>
+
+          {/* 戻るボタン */}
           <button
             type="button"
             disabled={submitting}
             onClick={handleBack}
-            className="w-full rounded-full border border-slate-200 bg-white text-slate-700 py-2 text-[11px] font-medium"
+            className="w-full rounded-full border border-slate-200 bg-white text-slate-700 py-2 text-[11px] font-medium mt-2"
           >
             プラン選択画面に戻る
           </button>
         </div>
 
         <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
-          ※ 決済画面はSquareの安全な決済システムを利用します。
-          <br />
           ※ 決済完了後のキャンセル・変更についてはクリニックの規約に従います。
         </p>
       </div>

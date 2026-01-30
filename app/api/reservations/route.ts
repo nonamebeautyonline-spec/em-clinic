@@ -341,6 +341,29 @@ export async function POST(req: NextRequest) {
       const date = body.date || "";
       const time = body.time || "";
       const pid = body.patient_id || patientId;
+
+      // ★★ GASと同じ1人1件制限：既存のアクティブな予約をチェック ★★
+      const { data: existingReservations } = await supabase
+        .from("reservations")
+        .select("reserve_id, reserved_date, reserved_time")
+        .eq("patient_id", pid)
+        .neq("status", "canceled")
+        .limit(1);
+
+      if (existingReservations && existingReservations.length > 0) {
+        const existing = existingReservations[0];
+        console.log(`[Reservation] already_reserved: patient_id=${pid}, existing=${existing.reserve_id}`);
+        return NextResponse.json({
+          ok: false,
+          error: "already_reserved",
+          existing: {
+            reserve_id: existing.reserve_id,
+            reserved_date: existing.reserved_date,
+            reserved_time: existing.reserved_time,
+          },
+        }, { status: 400 });
+      }
+
       const reserveId = "resv-" + Date.now();
 
       const payload = {
@@ -353,15 +376,33 @@ export async function POST(req: NextRequest) {
       };
 
       // ★ intakeテーブルから名前を取得（最新のレコード）
-      const { data: intakeData } = await supabase
+      // ★★ 予約作成前にintakeレコードの存在を必須チェック ★★
+      const { data: intakeData, error: intakeCheckError } = await supabase
         .from("intake")
-        .select("patient_name")
+        .select("patient_name, patient_id")
         .eq("patient_id", pid)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      const patientName = intakeData?.patient_name || null;
+      if (intakeCheckError) {
+        console.error("[Reservation] Intake check error:", intakeCheckError);
+        return NextResponse.json({
+          ok: false,
+          error: "intake_check_failed",
+        }, { status: 500 });
+      }
+
+      if (!intakeData) {
+        console.error("[Reservation] Intake record not found:", { patient_id: pid });
+        return NextResponse.json({
+          ok: false,
+          error: "intake_not_found",
+          message: "問診データが見つかりません。先に問診を完了してください。",
+        }, { status: 400 });
+      }
+
+      const patientName = intakeData.patient_name || null;
 
       // Supabase と GAS に並列書き込み
       const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
@@ -387,20 +428,51 @@ export async function POST(req: NextRequest) {
         }),
 
         // 2. intakeテーブルの予約情報を更新（リトライあり）
+        // ★ まずupdateを試し、失敗したらレコードがないので警告ログを出す
         pid ? retrySupabaseWrite(async () => {
-          const result = await supabase
+          const updateResult = await supabase
             .from("intake")
             .update({
               reserve_id: reserveId,
               reserved_date: date || null,
               reserved_time: time || null,
             })
-            .eq("patient_id", pid);
+            .eq("patient_id", pid)
+            .select();  // ★ 更新されたレコードを返す
 
-          if (result.error) {
-            throw result.error;
+          if (updateResult.error) {
+            throw updateResult.error;
           }
-          return result;
+
+          // ★ 更新されたレコードがない場合（intakeレコードが存在しない）
+          if (!updateResult.data || updateResult.data.length === 0) {
+            console.error("❌❌❌ [CRITICAL] Patient intake record NOT FOUND ❌❌❌");
+            console.error("[Missing Intake]", {
+              patient_id: pid,
+              reserve_id: reserveId,
+              reserved_date: date,
+              reserved_time: time,
+              timestamp: new Date().toISOString(),
+            });
+            console.error("⚠️ MANUAL FIX REQUIRED: Run scripts/sync-missing-intake.mjs");
+            // ★ エラーではなく警告として扱う（予約は作成される）
+          } else {
+            // ★ 更新成功時の確認ログ（更新されたデータも表示）
+            const updated = updateResult.data[0];
+            console.log(`✓ Intake updated: patient_id=${pid}, reserve_id=${reserveId}, date=${date}, time=${time}`);
+            console.log(`  Updated data: reserve_id=${updated?.reserve_id}, date=${updated?.reserved_date}, time=${updated?.reserved_time}`);
+
+            // ★ 検証: 更新したデータが正しく保存されているか確認
+            if (updated?.reserve_id !== reserveId ||
+                updated?.reserved_date !== date ||
+                updated?.reserved_time !== time) {
+              console.error(`❌❌❌ [CRITICAL] Intake update verification FAILED ❌❌❌`);
+              console.error(`  Expected: reserve_id=${reserveId}, date=${date}, time=${time}`);
+              console.error(`  Got:      reserve_id=${updated?.reserve_id}, date=${updated?.reserved_date}, time=${updated?.reserved_time}`);
+            }
+          }
+
+          return updateResult;
         }) : Promise.resolve({ error: null }),
 
         // 3. GASにPOST
@@ -520,7 +592,8 @@ export async function POST(req: NextRequest) {
               reserved_date: null,
               reserved_time: null,
             })
-            .eq("patient_id", pid);
+            .eq("patient_id", pid)
+            .eq("reserve_id", reserveId);  // ★ reserve_idも条件に追加
 
           if (result.error) {
             throw result.error;
@@ -565,6 +638,135 @@ export async function POST(req: NextRequest) {
           ? gasResult.reason
           : gasResult.value.text;
         console.error("GAS cancelReservation error:", error);
+
+        const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
+        const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "gas_error",
+            gas_status: status,
+            gas: gasJson && Object.keys(gasJson).length ? gasJson : undefined,
+            detail: error,
+          },
+          { status: 500 }
+        );
+      }
+
+      // キャッシュ削除
+      if (pid) {
+        await invalidateDashboardCache(pid);
+        console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
+      }
+
+      return NextResponse.json({
+        ok: true,
+        reserveId,
+        supabaseSync: true,
+      }, { status: 200 });
+    }
+
+    // ★ 予約変更（日時のみ更新）
+    if (type === "updateReservation") {
+      const reserveId = body.reserveId || body.reservationId || "";
+      const newDate = body.date || "";
+      const newTime = body.time || "";
+      const pid = body.patient_id || patientId;
+
+      if (!reserveId || !newDate || !newTime) {
+        return NextResponse.json({ ok: false, error: "missing parameters" }, { status: 400 });
+      }
+
+      const payload = {
+        ...body,
+        patient_id: pid,
+        intakeId: body.intakeId || intakeId,
+        intake_id: body.intake_id || intakeId,
+      };
+
+      // Supabase と GAS に並列書き込み
+      const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
+        // 1. reservationsテーブルの日時を更新（リトライあり）
+        retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("reservations")
+            .update({
+              reserved_date: newDate,
+              reserved_time: newTime,
+            })
+            .eq("reserve_id", reserveId);
+
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        }),
+
+        // 2. intakeテーブルの日時を更新（リトライあり）
+        pid ? retrySupabaseWrite(async () => {
+          const result = await supabase
+            .from("intake")
+            .update({
+              reserved_date: newDate,
+              reserved_time: newTime,
+            })
+            .eq("patient_id", pid)
+            .eq("reserve_id", reserveId)
+            .select();
+
+          if (result.error) {
+            throw result.error;
+          }
+
+          // 更新成功確認
+          if (!result.data || result.data.length === 0) {
+            console.error("❌❌❌ [CRITICAL] Intake update failed for updateReservation ❌❌❌");
+            console.error(`  patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
+          } else {
+            console.log(`✓ Intake updated (reservation change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
+          }
+
+          return result;
+        }) : Promise.resolve({ error: null }),
+
+        // 3. GASにPOST
+        fetch(GAS_RESERVATIONS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          cache: "no-store",
+        }).then(async (res) => {
+          const text = await res.text().catch(() => "");
+          let json: any = {};
+          try { json = text ? JSON.parse(text) : {}; } catch {}
+          return { ok: res.ok && json?.ok === true, json, text, status: res.status };
+        }),
+      ]);
+
+      // Supabase結果チェック
+      if (supabaseReservationResult.status === "rejected" ||
+          (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
+        const error = supabaseReservationResult.status === "rejected"
+          ? supabaseReservationResult.reason
+          : supabaseReservationResult.value.error;
+        console.error("[Supabase] Reservation update failed:", error);
+      }
+
+      if (supabaseIntakeResult.status === "rejected" ||
+          (supabaseIntakeResult.status === "fulfilled" && supabaseIntakeResult.value.error)) {
+        const error = supabaseIntakeResult.status === "rejected"
+          ? supabaseIntakeResult.reason
+          : supabaseIntakeResult.value.error;
+        console.error("[Supabase] Intake update failed:", error);
+      }
+
+      // GAS結果チェック
+      if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
+        const error = gasResult.status === "rejected"
+          ? gasResult.reason
+          : gasResult.value.text;
+        console.error("GAS updateReservation error:", error);
 
         const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
         const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};

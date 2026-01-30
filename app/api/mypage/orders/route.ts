@@ -22,6 +22,7 @@ type OrderForMyPage = {
   shippingEta?: string;
   trackingNumber?: string;
   paymentStatus: PaymentStatus;
+  paymentMethod?: "credit_card" | "bank_transfer"; // ★ 決済方法
   refundStatus?: RefundStatus;
   refundedAt?: string; // ISO
   refundedAmount?: number;
@@ -34,6 +35,19 @@ type OrdersFlags = {
 };
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
+
+// ★ 商品マスターデータ（product_codeから名前と価格を取得）
+const PRODUCTS: Record<string, { name: string; price: number }> = {
+  "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
+  "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
+  "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
+  "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
+  "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
+  "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
+  "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
+  "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
+  "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
+};
 
 function toIsoFlexible(v: any): string {
   const s = (typeof v === "string" ? v : String(v ?? "")).trim();
@@ -115,6 +129,18 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
+    // ★ 銀行振込の注文も取得
+    const { data: rawBankTransferOrders, error: bankTransferError } = await supabase
+      .from("bank_transfer_orders")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+
+    if (bankTransferError) {
+      console.error("[mypage/orders] Bank transfer query error:", bankTransferError);
+      // エラーでも続行（クレカ決済分は表示できる）
+    }
+
     const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
       const paidRaw =
         o.paid_at_jst ??
@@ -140,11 +166,40 @@ export async function GET(_req: NextRequest) {
         shippingEta: (o.shipping_eta ?? o.shippingEta) || undefined,
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
         paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
+        paymentMethod: "credit_card", // ★ ordersテーブル = クレカ決済
         refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
       };
     });
+
+    // ★ 銀行振込の注文を統合
+    if (rawBankTransferOrders && rawBankTransferOrders.length > 0) {
+      const bankTransferOrders: OrderForMyPage[] = rawBankTransferOrders.map((o: any) => {
+        const productCode = String(o.product_code ?? "");
+        const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
+
+        return {
+          id: `bank_${o.id}`, // ★ IDを区別するためにプレフィックス
+          productCode,
+          productName: productInfo.name,
+          amount: productInfo.price,
+          paidAt: toIsoFlexible(o.confirmed_at ?? o.created_at ?? ""),
+          shippingStatus: "pending", // ★ 銀行振込は振込確認後に発送ステータス更新
+          paymentStatus: "paid", // ★ confirmed = 決済完了とみなす
+          paymentMethod: "bank_transfer", // ★ 銀行振込フラグ
+        };
+      });
+
+      orders.push(...bankTransferOrders);
+
+      // ★ 日付でソート（新しい順）
+      orders.sort((a, b) => {
+        const dateA = new Date(a.paidAt).getTime();
+        const dateB = new Date(b.paidAt).getTime();
+        return dateB - dateA;
+      });
+    }
 
     // ★ Flags computed from Supabase orders data
     const flags: OrdersFlags = {
