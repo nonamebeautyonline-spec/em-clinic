@@ -141,6 +141,8 @@ function BankTransferContent() {
   }, []);
 
   const codeParam = searchParams.get("code") as ProductCode | null;
+  const modeParam = searchParams.get("mode"); // ★ 追加
+  const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
 
   const product = useMemo(
     () => (codeParam ? PRODUCTS.find((p) => p.code === codeParam) ?? null : null),
@@ -148,14 +150,25 @@ function BankTransferContent() {
   );
 
   const handleBack = () => {
-    router.push("/mypage/purchase");
+    if (modeParam === "reorder") {
+      router.push("/mypage");
+    } else {
+      router.push("/mypage/purchase");
+    }
   };
 
   const handleTransferCompleted = () => {
     if (!product || !patientId) return;
 
-    // 配送先情報入力画面へ遷移
-    router.push(`/mypage/purchase/bank-transfer/shipping?code=${product.code}&patientId=${patientId}`);
+    // ★ 配送先情報入力画面へ遷移（mode, reorder_idも渡す）
+    const params = new URLSearchParams({
+      code: product.code,
+      patientId
+    });
+    if (modeParam) params.append("mode", modeParam);
+    if (reorderIdParam) params.append("reorder_id", reorderIdParam);
+
+    router.push(`/mypage/purchase/bank-transfer/shipping?${params.toString()}`);
   };
 
   if (!codeParam || !product) {

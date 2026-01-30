@@ -10,6 +10,8 @@ function ShippingFormContent() {
 
   const codeParam = searchParams.get("code");
   const patientIdParam = searchParams.get("patientId");
+  const modeParam = searchParams.get("mode"); // ★ 追加
+  const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
 
   const [accountName, setAccountName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -36,13 +38,15 @@ function ShippingFormContent() {
     setSubmitting(true);
 
     try {
-      // 配送先情報を保存するAPIを呼び出す
+      // ★ 配送先情報を保存するAPIを呼び出す（mode, reorder_idも送る）
       const res = await fetch("/api/bank-transfer/shipping", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patientIdParam,
           productCode: codeParam,
+          mode: modeParam || undefined, // ★ 追加
+          reorderId: reorderIdParam || undefined, // ★ 追加
           accountName,
           phoneNumber,
           email,

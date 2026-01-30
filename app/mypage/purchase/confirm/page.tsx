@@ -357,7 +357,12 @@ const handleSubmit = async () => {
             <button
               type="button"
               disabled={!patientId || !product}
-              onClick={() => router.push(`/mypage/purchase/bank-transfer?code=${product?.code}`)}
+              onClick={() => {
+                const params = new URLSearchParams({ code: product?.code || "" });
+                if (modeParam) params.append("mode", modeParam);
+                if (reorderIdParam) params.append("reorder_id", reorderIdParam);
+                router.push(`/mypage/purchase/bank-transfer?${params.toString()}`);
+              }}
               className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
             >
               銀行振込で決済

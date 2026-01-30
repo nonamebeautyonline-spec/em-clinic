@@ -8,7 +8,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { patientId, productCode, accountName, phoneNumber, email, postalCode, address } = body;
+    const { patientId, productCode, mode, reorderId, accountName, phoneNumber, email, postalCode, address } = body;
 
     // バリデーション
     if (!patientId || !productCode || !accountName || !phoneNumber || !email || !postalCode || !address) {
@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       created_at: now,
       submitted_at: now, // 住所入力完了時刻
       confirmed_at: now, // 決済完了時刻
+      mode: mode || null, // ★ 追加: 初回/再購入の区別
+      reorder_id: reorderId || null, // ★ 追加: 再購入申請ID
     }).select();
 
     if (error) {
@@ -42,6 +44,31 @@ export async function POST(req: NextRequest) {
         { error: "配送先情報の保存に失敗しました" },
         { status: 500 }
       );
+    }
+
+    // ★ 再購入の場合、reorderステータスを "paid" に更新
+    if (mode === "reorder" && reorderId) {
+      const gasReorderUrl = process.env.GAS_REORDER_URL;
+      if (gasReorderUrl) {
+        try {
+          const reorderResponse = await fetch(gasReorderUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "paid",
+              id: reorderId,
+            }),
+          });
+
+          if (!reorderResponse.ok) {
+            console.error("[BankTransfer] Reorder status update failed:", await reorderResponse.text());
+          } else {
+            console.log("[BankTransfer] Reorder status updated to paid");
+          }
+        } catch (e) {
+          console.error("[BankTransfer] Reorder status update error:", e);
+        }
+      }
     }
 
     // ★ 銀行振込管理GASに記録
@@ -56,6 +83,8 @@ export async function POST(req: NextRequest) {
             order_id: String(data?.[0]?.id || ""), // Supabaseから返されたID
             patient_id: patientId,
             product_code: productCode,
+            mode: mode || "first", // ★ 追加
+            reorder_id: reorderId || null, // ★ 追加
             account_name: accountName,
             phone_number: phoneNumber,
             email: email,
