@@ -73,29 +73,37 @@ export async function POST(req: NextRequest) {
 
     // ★ 銀行振込管理GASに記録
     const gasUrl = process.env.GAS_BANK_TRANSFER_URL;
+    console.log("[BankTransfer] GAS_BANK_TRANSFER_URL:", gasUrl);
     if (gasUrl) {
       try {
+        const gasPayload = {
+          type: "bank_transfer_order",
+          order_id: String(data?.[0]?.id || ""), // Supabaseから返されたID
+          patient_id: patientId,
+          product_code: productCode,
+          mode: mode || "first", // ★ 追加
+          reorder_id: reorderId || null, // ★ 追加
+          account_name: accountName,
+          phone_number: phoneNumber,
+          email: email,
+          postal_code: postalCode,
+          address: address,
+          submitted_at: now,
+        };
+        console.log("[BankTransfer] Calling GAS with payload:", JSON.stringify(gasPayload));
+
         const gasResponse = await fetch(gasUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "bank_transfer_order",
-            order_id: String(data?.[0]?.id || ""), // Supabaseから返されたID
-            patient_id: patientId,
-            product_code: productCode,
-            mode: mode || "first", // ★ 追加
-            reorder_id: reorderId || null, // ★ 追加
-            account_name: accountName,
-            phone_number: phoneNumber,
-            email: email,
-            postal_code: postalCode,
-            address: address,
-            submitted_at: now,
-          }),
+          body: JSON.stringify(gasPayload),
         });
 
+        const gasResponseText = await gasResponse.text();
+        console.log("[BankTransfer] GAS response status:", gasResponse.status);
+        console.log("[BankTransfer] GAS response body:", gasResponseText);
+
         if (!gasResponse.ok) {
-          console.error("[BankTransfer] GAS call failed:", await gasResponse.text());
+          console.error("[BankTransfer] GAS call failed with status:", gasResponse.status);
         } else {
           console.log("[BankTransfer] Successfully added to bank transfer management sheet");
         }
@@ -103,6 +111,36 @@ export async function POST(req: NextRequest) {
         console.error("[BankTransfer] GAS call error:", e);
         // GAS呼び出しエラーでも処理は続行（Supabaseには保存済み）
       }
+    } else {
+      console.error("[BankTransfer] GAS_BANK_TRANSFER_URL is not set");
+    }
+
+    // ★ マイページキャッシュを無効化（最新の注文状況を表示するため）
+    try {
+      const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;
+      const adminToken = process.env.ADMIN_TOKEN;
+
+      if (adminToken) {
+        const invalidateResponse = await fetch(invalidateUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ patient_id: patientId }),
+        });
+
+        if (invalidateResponse.ok) {
+          console.log("[BankTransfer] Cache invalidated for patient:", patientId);
+        } else {
+          console.error("[BankTransfer] Cache invalidation failed:", await invalidateResponse.text());
+        }
+      } else {
+        console.warn("[BankTransfer] ADMIN_TOKEN not set, skipping cache invalidation");
+      }
+    } catch (e) {
+      console.error("[BankTransfer] Cache invalidation error:", e);
+      // エラーでも処理は続行
     }
 
     return NextResponse.json({ ok: true });

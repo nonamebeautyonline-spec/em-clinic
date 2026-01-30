@@ -28,13 +28,15 @@ const ADDRESS_HEADER = [
   "注文ID",           // B: order_id (Supabase ID)
   "患者ID",           // C: patient_id
   "商品コード",       // D: product_code
-  "口座名義",         // E: account_name (カタカナ)
-  "電話番号",         // F: phone_number
-  "メールアドレス",   // G: email
-  "郵便番号",         // H: postal_code
-  "住所",             // I: address
-  "ステータス",       // J: status (pending_confirmation, confirmed, shipped)
-  "送信日時",         // K: submitted_at
+  "モード",           // E: mode (first, current, reorder)
+  "再購入ID",         // F: reorder_id
+  "口座名義",         // G: account_name (カタカナ)
+  "電話番号",         // H: phone_number
+  "メールアドレス",   // I: email
+  "郵便番号",         // J: postal_code
+  "住所",             // K: address
+  "ステータス",       // L: status (pending_confirmation, confirmed, shipped)
+  "送信日時",         // M: submitted_at
 ];
 
 // 入金CSVシートのヘッダー (銀行からダウンロードしたCSVをそのまま貼り付け)
@@ -71,6 +73,17 @@ const VERIFIED_HEADER = [
 
 // 商品情報マスター
 const PRODUCT_INFO = {
+  // 新しい商品コード形式
+  "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
+  "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
+  "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
+  "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
+  "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
+  "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
+  "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
+  "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
+  "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
+  // 旧形式（後方互換性のため）
   "MANJ_2_5MG_0_25": { name: "マンジャロ 2.5mg初回セット 0.25ml×4本", price: 32780 },
   "MANJ_2_5MG_0_5": { name: "マンジャロ 2.5mg継続セット 0.5ml×4本", price: 35780 },
   "MANJ_5MG": { name: "マンジャロ 5mg 0.5ml×4本", price: 52580 },
@@ -111,6 +124,8 @@ function handleBankTransferOrder_(body) {
   var orderId = String(body.order_id || "").trim();
   var patientId = String(body.patient_id || "").trim();
   var productCode = String(body.product_code || "").trim();
+  var mode = String(body.mode || "first").trim();  // ★ 追加
+  var reorderId = String(body.reorder_id || "").trim();  // ★ 追加
   var accountName = String(body.account_name || "").trim();
   var phoneNumber = String(body.phone_number || "").trim();
   var email = String(body.email || "").trim();
@@ -175,13 +190,15 @@ function handleBankTransferOrder_(body) {
     orderId,          // B: 注文ID
     patientId,        // C: 患者ID
     productCode,      // D: 商品コード
-    accountName,      // E: 口座名義
-    phoneNumber,      // F: 電話番号
-    email,            // G: メールアドレス
-    postalCode,       // H: 郵便番号
-    address,          // I: 住所
-    "confirmed",      // J: ステータス (住所入力完了 = 決済完了)
-    submittedAt,      // K: 送信日時
+    mode,             // E: モード (first, current, reorder)
+    reorderId,        // F: 再購入ID
+    accountName,      // G: 口座名義
+    phoneNumber,      // H: 電話番号
+    email,            // I: メールアドレス
+    postalCode,       // J: 郵便番号
+    address,          // K: 住所
+    "confirmed",      // L: ステータス (住所入力完了 = 決済完了)
+    submittedAt,      // M: 送信日時
   ];
 
   var lastRow = addressSheet.getLastRow();
@@ -271,12 +288,14 @@ function moveSelectedToVerified() {
     var orderId = rowData[1];          // B: 注文ID
     var patientId = rowData[2];        // C: 患者ID
     var productCode = rowData[3];      // D: 商品コード
-    var accountName = rowData[4];      // E: 口座名義
-    var phoneNumber = rowData[5];      // F: 電話番号
-    var email = rowData[6];            // G: メールアドレス
-    var postalCode = rowData[7];       // H: 郵便番号
-    var address = rowData[8];          // I: 住所
-    var submittedAt = rowData[10];     // K: 送信日時
+    var mode = rowData[4];             // E: モード
+    var reorderId = rowData[5];        // F: 再購入ID
+    var accountName = rowData[6];      // G: 口座名義
+    var phoneNumber = rowData[7];      // H: 電話番号
+    var email = rowData[8];            // I: メールアドレス
+    var postalCode = rowData[9];       // J: 郵便番号
+    var address = rowData[10];         // K: 住所
+    var submittedAt = rowData[12];     // M: 送信日時
 
     var productInfo = PRODUCT_INFO[productCode] || { name: "マンジャロ", price: 0 };
     var paymentId = "bt_" + orderId;
@@ -401,6 +420,98 @@ function copyVerifiedToNonameMaster() {
 }
 
 // ==========================================
+// シート構造修正関数（モード・再購入ID列追加）
+// ==========================================
+function fixSheetStructure() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = "2026-01 住所情報";
+  var sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    Logger.log("❌ シート「" + sheetName + "」が見つかりません");
+    SpreadsheetApp.getUi().alert("シート「" + sheetName + "」が見つかりません");
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    Logger.log("データがありません");
+    SpreadsheetApp.getUi().alert("データがありません");
+    return;
+  }
+
+  Logger.log("📊 " + (lastRow - 1) + " 件のデータを処理中...");
+
+  // 現在のデータを取得（ヘッダー含む）
+  var allData = sheet.getRange(1, 1, lastRow, 13).getValues();
+
+  // シートをクリア
+  sheet.clear();
+
+  // 新しいヘッダーを設定
+  var newHeaders = [
+    "受信日時",
+    "注文ID",
+    "患者ID",
+    "商品コード",
+    "モード",
+    "再購入ID",
+    "口座名義",
+    "電話番号",
+    "メールアドレス",
+    "郵便番号",
+    "住所",
+    "ステータス",
+    "送信日時"
+  ];
+
+  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+  sheet.getRange(1, 1, 1, newHeaders.length).setFontWeight("bold").setBackground("#f3f3f3");
+
+  // 既存データを新しい構造に移行
+  var newData = [];
+  for (var i = 1; i < allData.length; i++) {
+    var oldRow = allData[i];
+
+    // 旧構造から新構造へ変換
+    var newRow = [
+      oldRow[0],  // A: 受信日時
+      oldRow[1],  // B: 注文ID
+      oldRow[2],  // C: 患者ID
+      oldRow[3],  // D: 商品コード
+      "current",  // E: モード (デフォルト値 - 後で手動修正)
+      "",         // F: 再購入ID (空欄 - 後で手動修正)
+      oldRow[4],  // G: 口座名義
+      oldRow[5],  // H: 電話番号
+      oldRow[6],  // I: メールアドレス
+      oldRow[7],  // J: 郵便番号
+      oldRow[8],  // K: 住所
+      "confirmed", // L: ステータス (★ 強制的にconfirmed)
+      oldRow[10]  // M: 送信日時
+    ];
+
+    newData.push(newRow);
+  }
+
+  // 新しいデータを書き込み
+  if (newData.length > 0) {
+    sheet.getRange(2, 1, newData.length, newHeaders.length).setValues(newData);
+  }
+
+  Logger.log("✅ 完了: " + newData.length + " 件のデータを移行しました");
+  Logger.log("📝 手動確認が必要:");
+  Logger.log("  - 再購入の行（patient_id: 20251200404）のE列を「reorder」、F列を「322」に変更");
+
+  SpreadsheetApp.getUi().alert(
+    "完了!\n\n" +
+    newData.length + " 件のデータを移行しました。\n\n" +
+    "ステータスは全て「confirmed」に設定されました。\n\n" +
+    "手動確認:\n" +
+    "- 再購入の行があれば、モード列を「reorder」、再購入ID列にIDを入力してください。"
+  );
+}
+
+// ==========================================
 // テスト関数
 // ==========================================
 function testHandleBankTransferOrder() {
@@ -408,7 +519,9 @@ function testHandleBankTransferOrder() {
     type: "bank_transfer_order",
     order_id: "123",
     patient_id: "20251200001",
-    product_code: "MANJ_2_5MG_0_25",
+    product_code: "MJL_2.5mg_1m",  // ★ 新しい商品コード
+    mode: "first",  // ★ 追加
+    reorder_id: null,  // ★ 追加
     account_name: "ヤマダタロウ",
     phone_number: "09012345678",
     email: "test@example.com",

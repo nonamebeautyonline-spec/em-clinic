@@ -195,10 +195,11 @@ async function getNextReservationFromSupabase(
 }
 
 /**
- * Supabaseから注文情報を取得
+ * Supabaseから注文情報を取得（クレカ + 銀行振込）
  */
 async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
   try {
+    // ★ クレカ決済の注文
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -210,14 +211,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       return [];
     }
 
-    if (!data || data.length === 0) {
-      console.log(`[Supabase] No orders found for patient_id=${patientId}`);
-      return [];
-    }
-
-    console.log(`[Supabase] Found ${data.length} orders for patient_id=${patientId}`);
-
-    return data.map((o: any) => {
+    const creditCardOrders = (data || []).map((o: any) => {
       const paidAt = o.paid_at || "";
       const refundStatus = normalizeRefundStatus(o.refund_status);
       const refundedAt = o.refunded_at || "";
@@ -243,6 +237,65 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         refundedAmount: o.refunded_amount || undefined,
       };
     });
+
+    // ★ 銀行振込の注文
+    const { data: bankTransferData, error: bankTransferError } = await supabase
+      .from("bank_transfer_orders")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+
+    if (bankTransferError) {
+      console.error("[Supabase] getBankTransferOrders error:", bankTransferError);
+    }
+
+    // ★ 商品マスターデータ
+    const PRODUCTS: Record<string, { name: string; price: number }> = {
+      "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
+      "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
+      "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
+      "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
+      "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
+      "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
+      "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
+      "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
+      "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
+    };
+
+    const bankTransferOrders = (bankTransferData || []).map((o: any) => {
+      const productCode = String(o.product_code ?? "");
+      const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
+
+      const paidAt = o.confirmed_at || o.created_at || "";
+
+      return {
+        id: `bank_${o.id}`,
+        productCode,
+        productName: productInfo.name,
+        amount: productInfo.price,
+        paidAt,
+        shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
+        shippingEta: undefined,
+        trackingNumber: undefined,
+        paymentStatus: "paid" as PaymentStatus, // confirmed = 決済完了
+        carrier: undefined,
+        refundStatus: undefined,
+        refundedAt: undefined,
+        refundedAmount: undefined,
+      };
+    });
+
+    // ★ 統合して日付順にソート
+    const allOrders = [...creditCardOrders, ...bankTransferOrders];
+    allOrders.sort((a, b) => {
+      const dateA = new Date(a.paidAt).getTime();
+      const dateB = new Date(b.paidAt).getTime();
+      return dateB - dateA; // 新しい順
+    });
+
+    console.log(`[Supabase] Found ${creditCardOrders.length} credit card orders + ${bankTransferOrders.length} bank transfer orders for patient_id=${patientId}`);
+
+    return allOrders;
   } catch (err) {
     console.error("[Supabase] getOrders error:", err);
     return [];
