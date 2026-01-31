@@ -196,30 +196,39 @@ export async function GET(req: NextRequest) {
         shippingEta: (o.shipping_date ?? o.shipping_eta ?? o.shippingEta) || undefined,
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
         paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
-        paymentMethod: "credit_card",
+        paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
         refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
       };
     });
 
-    // ★ 銀行振込の注文を統合
-    if (rawBankTransferOrders && rawBankTransferOrders.length > 0) {
-      const bankTransferOrders: OrderForMyPage[] = rawBankTransferOrders.map((o: any) => {
-        const productCode = String(o.product_code ?? "");
-        const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
+    // ★ ordersテーブルに存在するbt_*のIDを取得（追跡番号の有無に関わらず）
+    const existingBtIds = new Set(
+      orders
+        .filter(o => o.id.startsWith("bt_"))
+        .map(o => o.id.replace("bt_", ""))
+    );
 
-        return {
-          id: `bank_${o.id}`,
-          productCode,
-          productName: productInfo.name,
-          amount: productInfo.price,
-          paidAt: toIsoFlexible(o.confirmed_at ?? o.created_at ?? ""),
-          shippingStatus: "pending",
-          paymentStatus: "paid",
-          paymentMethod: "bank_transfer",
-        };
-      });
+    // ★ 銀行振込の注文を統合（ordersに存在しないもののみ）
+    if (rawBankTransferOrders && rawBankTransferOrders.length > 0) {
+      const bankTransferOrders: OrderForMyPage[] = rawBankTransferOrders
+        .filter((o: any) => !existingBtIds.has(String(o.id))) // ordersに存在するものは除外
+        .map((o: any) => {
+          const productCode = String(o.product_code ?? "");
+          const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
+
+          return {
+            id: `bank_${o.id}`,
+            productCode,
+            productName: productInfo.name,
+            amount: productInfo.price,
+            paidAt: toIsoFlexible(o.confirmed_at ?? o.created_at ?? ""),
+            shippingStatus: "pending",
+            paymentStatus: "pending",
+            paymentMethod: "bank_transfer",
+          };
+        });
 
       orders.push(...bankTransferOrders);
 
