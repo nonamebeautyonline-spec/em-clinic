@@ -152,6 +152,59 @@ function updateSupabaseIntakeReservation_(reserveId, patientId, reservedDate, re
 }
 
 /**
+ * reservationsテーブルの予約をキャンセルに変更
+ * @param {string} patientId - Patient ID
+ */
+function cancelSupabaseReservationsByPatientId_(patientId) {
+  Logger.log("[Supabase] cancelSupabaseReservationsByPatientId_ called: patientId=" + patientId);
+
+  if (!patientId) {
+    Logger.log("[Supabase] ERROR: Missing patientId, skipping");
+    return;
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const supabaseUrl = props.getProperty("SUPABASE_URL");
+  const supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseKey) {
+    Logger.log("[Supabase] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+    return;
+  }
+
+  const endpoint = supabaseUrl + "/rest/v1/reservations?patient_id=eq." + patientId;
+
+  try {
+    // pendingまたはscheduledの予約をcanceledに変更
+    const payload = {
+      status: "canceled"
+    };
+
+    const res = UrlFetchApp.fetch(endpoint, {
+      method: "patch",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: "Bearer " + supabaseKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const code = res.getResponseCode();
+    if (code >= 200 && code < 300) {
+      Logger.log("[Supabase] Canceled all reservations for patient_id=" + patientId);
+    } else {
+      Logger.log("[Supabase] Failed to cancel reservations: HTTP " + code + " - " + res.getContentText());
+    }
+  } catch (e) {
+    Logger.log("[Supabase] EXCEPTION: Error canceling reservations: " + e);
+    Logger.log("[Supabase] EXCEPTION stack: " + e.stack);
+  }
+}
+
+/**
  * Vercelキャッシュを無効化
  * @param {string} patientId - Patient ID
  */

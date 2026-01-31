@@ -181,9 +181,17 @@ function adminResetReservationByPatientId(patientId, reason) {
         // ★ Supabaseにも予約情報クリアを反映
         try {
           updateSupabaseIntakeReservation_(null, pid, null, null);
-          Logger.log("[Reschedule] Supabase updated for patient_id=" + pid);
+          Logger.log("[Reschedule] Supabase intake updated for patient_id=" + pid);
         } catch (e) {
-          Logger.log("[Reschedule] Supabase update failed: " + e);
+          Logger.log("[Reschedule] Supabase intake update failed: " + e);
+        }
+
+        // ★ reservationsテーブルの予約もキャンセルに変更
+        try {
+          cancelSupabaseReservationsByPatientId_(pid);
+          Logger.log("[Reschedule] Supabase reservations canceled for patient_id=" + pid);
+        } catch (e) {
+          Logger.log("[Reschedule] Supabase reservations cancel failed: " + e);
         }
 
         // ★ Vercelキャッシュも無効化
