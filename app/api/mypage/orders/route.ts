@@ -173,7 +173,7 @@ export async function GET(_req: NextRequest) {
       "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
     };
 
-    // 既にordersテーブルに存在するbt_*のIDを取得（重複を避けるため）
+    // ★ ordersテーブルに存在するbt_*のIDを取得（追跡番号の有無に関わらず）
     const existingBtIds = new Set(
       creditCardOrders
         .filter(o => o.id.startsWith("bt_"))
@@ -181,7 +181,7 @@ export async function GET(_req: NextRequest) {
     );
 
     const bankTransferOrders: OrderForMyPage[] = (bankTransferData || [])
-      .filter((o: any) => !existingBtIds.has(String(o.id))) // 既にordersテーブルにあるものは除外
+      .filter((o: any) => !existingBtIds.has(String(o.id))) // ordersに存在するものは除外
       .map((o: any) => {
         const productCode = String(o.product_code ?? "");
         const productInfo = PRODUCTS[productCode] || { name: "マンジャロ", price: 0 };
@@ -205,7 +205,7 @@ export async function GET(_req: NextRequest) {
         };
       });
 
-    // ★ 統合して日付順にソート
+    // ★ 統合して日付順にソート（ordersテーブルの全データ + bank_transfer_ordersの未移行データ）
     const orders = [...creditCardOrders, ...bankTransferOrders];
     orders.sort((a, b) => {
       const dateA = new Date(a.paidAt).getTime();

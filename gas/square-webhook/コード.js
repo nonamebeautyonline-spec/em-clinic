@@ -288,6 +288,20 @@ function _toJstString(isoString) {
 }
 
 /**
+ * ISO日付を yyyy/MM/dd 形式に変換（日付のみ）
+ */
+function _toJstDateOnly(isoString) {
+  try {
+    if (!isoString) return "";
+    var date = new Date(isoString);
+    return Utilities.formatDate(date, "Asia/Tokyo", "yyyy/MM/dd");
+  } catch (e) {
+    Logger.log("_toJstDateOnly error: " + e);
+    return "";
+  }
+}
+
+/**
 /**
  * シンプルなテキストレスポンス
  */
@@ -357,6 +371,129 @@ function testDoPost() {
  */
 const SHEET_NAME_WEBHOOK = "Square Webhook"; // Webhook シート名
 const SHEET_NAME_MASTER  = "のなめマスター";  // のなめマスターのシート名
+const BANK_TRANSFER_SHEET = "銀行振込";      // 銀行振込シート名
+
+/**
+ * 銀行振込シートのA列（order_datetime）を yyyy/MM/dd 形式に統一
+ */
+function fixBankTransferDates() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(BANK_TRANSFER_SHEET);
+
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert("銀行振込シートが見つかりません");
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    SpreadsheetApp.getUi().alert("データがありません");
+    return;
+  }
+
+  // A列のデータを取得（ヘッダー除く）
+  const dateRange = sheet.getRange(2, 1, lastRow - 1, 1);
+  const dates = dateRange.getValues();
+  const newDates = [];
+
+  let convertedCount = 0;
+
+  for (let i = 0; i < dates.length; i++) {
+    const dateValue = dates[i][0];
+
+    if (!dateValue) {
+      newDates.push([""]);
+      continue;
+    }
+
+    const dateStr = String(dateValue);
+
+    // すでに yyyy/MM/dd 形式かチェック
+    if (dateStr.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+      newDates.push([dateStr]);
+      continue;
+    }
+
+    // ISO形式を変換
+    const converted = _toJstDateOnly(dateStr);
+    if (converted) {
+      newDates.push([converted]);
+      convertedCount++;
+    } else {
+      newDates.push([dateStr]); // 変換失敗時は元の値を保持
+    }
+  }
+
+  // A列に書き戻し
+  dateRange.setValues(newDates);
+
+  Logger.log("[fixBankTransferDates] 変換完了: " + convertedCount + "件");
+  SpreadsheetApp.getUi().alert(
+    "日付フォーマット変換完了\n\n" +
+    convertedCount + "件の日付を yyyy/MM/dd 形式に変換しました。"
+  );
+}
+
+/**
+ * のなめマスターのB列（決済日時）を yyyy/MM/dd 形式に統一
+ */
+function fixNonameMasterDates() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME_MASTER);
+
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert("のなめマスターシートが見つかりません");
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    SpreadsheetApp.getUi().alert("データがありません");
+    return;
+  }
+
+  // B列のデータを取得（ヘッダー除く）
+  const dateRange = sheet.getRange(2, 2, lastRow - 1, 1);
+  const dates = dateRange.getValues();
+  const newDates = [];
+
+  let convertedCount = 0;
+
+  for (let i = 0; i < dates.length; i++) {
+    const dateValue = dates[i][0];
+
+    if (!dateValue) {
+      newDates.push([""]);
+      continue;
+    }
+
+    const dateStr = String(dateValue);
+
+    // すでに yyyy/MM/dd 形式かチェック
+    if (dateStr.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+      newDates.push([dateStr]);
+      continue;
+    }
+
+    // yyyy/MM/dd HH:mm:ss または ISO形式を変換
+    const converted = _toJstDateOnly(dateStr);
+    if (converted) {
+      newDates.push([converted]);
+      convertedCount++;
+    } else {
+      newDates.push([dateStr]); // 変換失敗時は元の値を保持
+    }
+  }
+
+  // B列に書き戻し
+  dateRange.setValues(newDates);
+
+  Logger.log("[fixNonameMasterDates] 変換完了: " + convertedCount + "件");
+  SpreadsheetApp.getUi().alert(
+    "日付フォーマット変換完了\n\n" +
+    convertedCount + "件の日付を yyyy/MM/dd 形式に変換しました。"
+  );
+}
 
 
 /**
@@ -467,7 +604,8 @@ function copySelectedToNonameMaster() {
     }
 
     // --- 値取得（列が無い場合は空） ---
-    const orderDatetime = cOrderDatetime >= 0 ? row[cOrderDatetime] : "";
+    let orderDatetime = cOrderDatetime >= 0 ? row[cOrderDatetime] : "";
+
     const name          = cShipName      >= 0 ? row[cShipName]      : "";
     const postal        = cPostal        >= 0 ? row[cPostal]        : "";
     const address       = cAddress       >= 0 ? row[cAddress]       : "";
@@ -485,11 +623,29 @@ function copySelectedToNonameMaster() {
       continue;
     }
 
+    // ★ のなめマスターのB列（決済日時）は yyyy/MM/dd 形式に統一
+    let formattedDatetime = "";
+    if (orderDatetime) {
+      if (typeof orderDatetime === "string") {
+        // 既に yyyy/MM/dd 形式かチェック
+        if (orderDatetime.match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+          formattedDatetime = orderDatetime;
+        } else {
+          // yyyy/MM/dd HH:mm:ss, ISO形式など → yyyy/MM/dd に変換
+          formattedDatetime = _toJstDateOnly(orderDatetime);
+        }
+      } else if (orderDatetime instanceof Date) {
+        formattedDatetime = Utilities.formatDate(orderDatetime, "Asia/Tokyo", "yyyy/MM/dd");
+      } else {
+        formattedDatetime = _toJstDateOnly(String(orderDatetime));
+      }
+    }
+
     // ★ のなめマスター 1行分（A〜W: 23列分）
     const masterRow = [
-      "",            // A user_id
-      orderDatetime, // B 決済日時
-      name,          // C Name
+      "",                 // A user_id
+      formattedDatetime,  // B 決済日時 (yyyy/MM/dd)
+      name,               // C Name
       postal,        // D Postal Code
       address,       // E Address
       email,         // F Email
