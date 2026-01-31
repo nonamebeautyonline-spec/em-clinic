@@ -193,7 +193,7 @@ export async function GET(req: NextRequest) {
         amount: Number(o.amount) || 0,
         paidAt: toIsoFlexible(paidRaw),
         shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
-        shippingEta: (o.shipping_eta ?? o.shippingEta) || undefined,
+        shippingEta: (o.shipping_date ?? o.shipping_eta ?? o.shippingEta) || undefined,
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
         paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
         paymentMethod: "credit_card",

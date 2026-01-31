@@ -72,14 +72,18 @@ interface PatientDashboardData {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
+  // 追跡番号がない場合は表示（発送前）
   if (!order.trackingNumber) return true;
-  if (!order.shippingEta) return true;
 
-  const shippedAt = new Date(order.shippingEta);
-  if (isNaN(shippedAt.getTime())) return true;
+  // 発送予定日または決済日から10日経過判定
+  const dateStr = order.shippingEta || order.paidAt;
+  if (!dateStr) return true;
+
+  const baseDate = new Date(dateStr);
+  if (isNaN(baseDate.getTime())) return true;
 
   const now = new Date();
-  const diffDays = (now.getTime() - shippedAt.getTime()) / (1000 * 60 * 60 * 24);
+  const diffDays = (now.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24);
 
   return diffDays < 10;
 };
