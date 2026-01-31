@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const now = new Date().toISOString();
 
     // bank_transfer_ordersテーブルに保存
-    const now = new Date().toISOString();
     const { data, error } = await supabase.from("bank_transfer_orders").insert({
       patient_id: patientId,
       product_code: productCode,

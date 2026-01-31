@@ -232,7 +232,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         shippingEta,
         trackingNumber: o.tracking_number || undefined,
         paymentStatus: normalizePaymentStatus(o.payment_status),
-        paymentMethod: "credit_card" as const,
+        paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
         carrier,
         refundStatus,
         refundedAt: refundedAt || undefined,
@@ -240,7 +240,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       };
     });
 
-    // ★ 銀行振込の注文
+    // ★ 銀行振込の確認中データを取得（ordersテーブルにまだ入っていないもの）
     const { data: bankTransferData, error: bankTransferError } = await supabase
       .from("bank_transfer_orders")
       .select("*")
@@ -264,29 +264,38 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
     };
 
-    const bankTransferOrders = (bankTransferData || []).map((o: any) => {
-      const productCode = String(o.product_code ?? "");
-      const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
+    // 既にordersテーブルに存在するbt_*のIDを取得（重複を避けるため）
+    const existingBtIds = new Set(
+      creditCardOrders
+        .filter(o => o.id.startsWith("bt_"))
+        .map(o => o.id.replace("bt_", ""))
+    );
 
-      const paidAt = o.confirmed_at || o.created_at || "";
+    const bankTransferOrders = (bankTransferData || [])
+      .filter((o: any) => !existingBtIds.has(String(o.id))) // 既にordersテーブルにあるものは除外
+      .map((o: any) => {
+        const productCode = String(o.product_code ?? "");
+        const productInfo = PRODUCTS[productCode] || { name: "マンジャロ", price: 0 };
 
-      return {
-        id: `bank_${o.id}`,
-        productCode,
-        productName: productInfo.name,
-        amount: productInfo.price,
-        paidAt,
-        shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
-        shippingEta: undefined,
-        trackingNumber: undefined,
-        paymentStatus: "paid" as PaymentStatus, // confirmed = 決済完了
-        paymentMethod: "bank_transfer" as const,
-        carrier: undefined,
-        refundStatus: undefined,
-        refundedAt: undefined,
-        refundedAmount: undefined,
-      };
-    });
+        const paidAt = o.confirmed_at || o.created_at || "";
+
+        return {
+          id: `bank_${o.id}`, // 一時的なID（ordersテーブルに保存されたらbt_に変わる）
+          productCode,
+          productName: productInfo.name,
+          amount: productInfo.price,
+          paidAt,
+          shippingStatus: "pending" as ShippingStatus,
+          shippingEta: undefined,
+          trackingNumber: undefined,
+          paymentStatus: "pending" as PaymentStatus, // ★ 確認中
+          paymentMethod: "bank_transfer" as const,
+          carrier: undefined,
+          refundStatus: undefined,
+          refundedAt: undefined,
+          refundedAmount: undefined,
+        };
+      });
 
     // ★ 統合して日付順にソート
     const allOrders = [...creditCardOrders, ...bankTransferOrders];
@@ -296,7 +305,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       return dateB - dateA; // 新しい順
     });
 
-    console.log(`[Supabase] Found ${creditCardOrders.length} credit card orders + ${bankTransferOrders.length} bank transfer orders for patient_id=${patientId}`);
+    console.log(`[Supabase] Found ${creditCardOrders.length} credit card orders + ${bankTransferOrders.length} bank transfer orders (pending) for patient_id=${patientId}`);
 
     return allOrders;
   } catch (err) {
@@ -426,7 +435,7 @@ export async function POST(_req: NextRequest) {
           shippingEta,
           trackingNumber: safeStr(o.tracking_number) || undefined,
           paymentStatus: normalizePaymentStatus(o.payment_status),
-          paymentMethod: "credit_card" as const,
+          paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
           carrier,
           refundStatus,
           refundedAt: refundedAt || undefined,

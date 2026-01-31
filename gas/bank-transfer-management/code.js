@@ -41,10 +41,12 @@ const ADDRESS_HEADER = [
 
 // 入金CSVシートのヘッダー (銀行からダウンロードしたCSVをそのまま貼り付け)
 const CSV_HEADER = [
-  "取引日",
-  "金額",
-  "口座名義",
-  "備考",
+  "日付",
+  "内容",
+  "出金金額(円)",
+  "入金金額(円)",
+  "残高(円)",
+  "メモ",
 ];
 
 // 照合済みシートのヘッダー (照合完了した注文情報)
@@ -121,107 +123,149 @@ function doPost(e) {
 // 銀行振込注文の処理
 // ==========================================
 function handleBankTransferOrder_(body) {
-  var orderId = String(body.order_id || "").trim();
-  var patientId = String(body.patient_id || "").trim();
-  var productCode = String(body.product_code || "").trim();
-  var mode = String(body.mode || "first").trim();  // ★ 追加
-  var reorderId = String(body.reorder_id || "").trim();  // ★ 追加
-  var accountName = String(body.account_name || "").trim();
-  var phoneNumber = String(body.phone_number || "").trim();
-  var email = String(body.email || "").trim();
-  var postalCode = String(body.postal_code || "").trim();
-  var address = String(body.address || "").trim();
-  var submittedAt = String(body.submitted_at || "").trim();
+  try {
+    Logger.log("[handleBankTransferOrder] START");
 
-  if (!orderId || !patientId || !productCode) {
-    throw new Error("Missing required fields: order_id, patient_id, product_code");
-  }
+    var orderId = String(body.order_id || "").trim();
+    var patientId = String(body.patient_id || "").trim();
+    var productCode = String(body.product_code || "").trim();
+    var mode = String(body.mode || "first").trim();  // ★ 追加
+    var reorderId = String(body.reorder_id || "").trim();  // ★ 追加
+    var accountName = String(body.account_name || "").trim();
+    var phoneNumber = String(body.phone_number || "").trim();
+    var email = String(body.email || "").trim();
+    var postalCode = String(body.postal_code || "").trim();
+    var address = String(body.address || "").trim();
+    var submittedAt = String(body.submitted_at || "").trim();
 
-  // 現在の年月 (YYYY-MM 形式)
-  var now = new Date();
-  var yearMonth = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM");
+    Logger.log("[handleBankTransferOrder] Parsed fields - orderId: " + orderId + ", patientId: " + patientId + ", productCode: " + productCode);
 
-  // 銀行振込管理ブックを開く
-  var props = PropertiesService.getScriptProperties();
-  var sheetId = props.getProperty("BANK_TRANSFER_SHEET_ID");
-  if (!sheetId) {
-    throw new Error("BANK_TRANSFER_SHEET_ID not set in script properties");
-  }
-
-  var ss = SpreadsheetApp.openById(sheetId);
-
-  // 月別「住所情報」シートを取得または作成
-  var addressSheetName = yearMonth + SHEET_ADDRESS_SUFFIX;
-  var addressSheet = ss.getSheetByName(addressSheetName);
-
-  if (!addressSheet) {
-    // シートが存在しない場合は作成
-    addressSheet = ss.insertSheet(addressSheetName);
-    addressSheet.getRange(1, 1, 1, ADDRESS_HEADER.length).setValues([ADDRESS_HEADER]);
-    addressSheet.getRange(1, 1, 1, ADDRESS_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
-    addressSheet.setFrozenRows(1);
-
-    // 入金CSVシートと照合済みシートも作成
-    var csvSheetName = yearMonth + SHEET_CSV_SUFFIX;
-    var csvSheet = ss.getSheetByName(csvSheetName);
-    if (!csvSheet) {
-      csvSheet = ss.insertSheet(csvSheetName);
-      csvSheet.getRange(1, 1, 1, CSV_HEADER.length).setValues([CSV_HEADER]);
-      csvSheet.getRange(1, 1, 1, CSV_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
-      csvSheet.setFrozenRows(1);
+    if (!orderId || !patientId || !productCode) {
+      var error = "Missing required fields: order_id=" + orderId + ", patient_id=" + patientId + ", product_code=" + productCode;
+      Logger.log("[handleBankTransferOrder] ERROR: " + error);
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, error: error, step: "validation" }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
-    var verifiedSheetName = yearMonth + SHEET_VERIFIED_SUFFIX;
-    var verifiedSheet = ss.getSheetByName(verifiedSheetName);
-    if (!verifiedSheet) {
-      verifiedSheet = ss.insertSheet(verifiedSheetName);
-      verifiedSheet.getRange(1, 1, 1, VERIFIED_HEADER.length).setValues([VERIFIED_HEADER]);
-      verifiedSheet.getRange(1, 1, 1, VERIFIED_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
-      verifiedSheet.setFrozenRows(1);
+    // 現在の年月 (YYYY-MM 形式)
+    var now = new Date();
+    var yearMonth = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM");
+    Logger.log("[handleBankTransferOrder] YearMonth: " + yearMonth);
+
+    // 銀行振込管理ブックを開く
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty("BANK_TRANSFER_SHEET_ID");
+    Logger.log("[handleBankTransferOrder] BANK_TRANSFER_SHEET_ID: " + (sheetId ? "SET" : "NOT SET"));
+
+    if (!sheetId) {
+      var error = "BANK_TRANSFER_SHEET_ID not set in script properties";
+      Logger.log("[handleBankTransferOrder] ERROR: " + error);
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, error: error, step: "config" }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
-    Logger.log("[handleBankTransferOrder] Created new monthly sheets for " + yearMonth);
+    Logger.log("[handleBankTransferOrder] Opening spreadsheet: " + sheetId);
+    var ss = SpreadsheetApp.openById(sheetId);
+    Logger.log("[handleBankTransferOrder] Spreadsheet opened successfully");
+
+    // 月別「住所情報」シートを取得または作成
+    var addressSheetName = yearMonth + SHEET_ADDRESS_SUFFIX;
+    Logger.log("[handleBankTransferOrder] Looking for sheet: " + addressSheetName);
+    var addressSheet = ss.getSheetByName(addressSheetName);
+
+    if (!addressSheet) {
+      Logger.log("[handleBankTransferOrder] Sheet not found, creating new monthly sheets...");
+      // シートが存在しない場合は作成
+      addressSheet = ss.insertSheet(addressSheetName);
+      addressSheet.getRange(1, 1, 1, ADDRESS_HEADER.length).setValues([ADDRESS_HEADER]);
+      addressSheet.getRange(1, 1, 1, ADDRESS_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
+      addressSheet.setFrozenRows(1);
+      Logger.log("[handleBankTransferOrder] Created address sheet: " + addressSheetName);
+
+      // 入金CSVシートと照合済みシートも作成
+      var csvSheetName = yearMonth + SHEET_CSV_SUFFIX;
+      var csvSheet = ss.getSheetByName(csvSheetName);
+      if (!csvSheet) {
+        csvSheet = ss.insertSheet(csvSheetName);
+        csvSheet.getRange(1, 1, 1, CSV_HEADER.length).setValues([CSV_HEADER]);
+        csvSheet.getRange(1, 1, 1, CSV_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
+        csvSheet.setFrozenRows(1);
+        Logger.log("[handleBankTransferOrder] Created CSV sheet: " + csvSheetName);
+      }
+
+      var verifiedSheetName = yearMonth + SHEET_VERIFIED_SUFFIX;
+      var verifiedSheet = ss.getSheetByName(verifiedSheetName);
+      if (!verifiedSheet) {
+        verifiedSheet = ss.insertSheet(verifiedSheetName);
+        verifiedSheet.getRange(1, 1, 1, VERIFIED_HEADER.length).setValues([VERIFIED_HEADER]);
+        verifiedSheet.getRange(1, 1, 1, VERIFIED_HEADER.length).setFontWeight("bold").setBackground("#f3f3f3");
+        verifiedSheet.setFrozenRows(1);
+        Logger.log("[handleBankTransferOrder] Created verified sheet: " + verifiedSheetName);
+      }
+
+      Logger.log("[handleBankTransferOrder] ✅ Created new monthly sheets for " + yearMonth);
+    } else {
+      Logger.log("[handleBankTransferOrder] Sheet found: " + addressSheetName);
+    }
+
+    // 住所情報シートに追記
+    Logger.log("[handleBankTransferOrder] Preparing data for insertion");
+    var receivedAt = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
+    var newRow = [
+      receivedAt,       // A: 受信日時
+      orderId,          // B: 注文ID
+      patientId,        // C: 患者ID
+      productCode,      // D: 商品コード
+      mode,             // E: モード (first, current, reorder)
+      reorderId,        // F: 再購入ID
+      accountName,      // G: 口座名義
+      phoneNumber,      // H: 電話番号
+      email,            // I: メールアドレス
+      postalCode,       // J: 郵便番号
+      address,          // K: 住所
+      "confirmed",      // L: ステータス (住所入力完了 = 決済完了)
+      submittedAt,      // M: 送信日時
+    ];
+
+    Logger.log("[handleBankTransferOrder] Inserting data to sheet: " + addressSheetName);
+    var lastRow = addressSheet.getLastRow();
+    Logger.log("[handleBankTransferOrder] Current last row: " + lastRow + ", inserting at row: " + (lastRow + 1));
+
+    addressSheet.getRange(lastRow + 1, 1, 1, newRow.length).setValues([newRow]);
+
+    Logger.log("[handleBankTransferOrder] ✅ SUCCESS - Added to " + addressSheetName + " row " + (lastRow + 1));
+
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true,
+      sheet: addressSheetName,
+      row: lastRow + 1,
+      yearMonth: yearMonth,
+      orderId: orderId,
+      patientId: patientId
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    Logger.log("[handleBankTransferOrder] ❌ ERROR: " + err);
+    Logger.log("[handleBankTransferOrder] Error stack: " + err.stack);
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: String(err),
+      errorStack: String(err.stack || ""),
+      step: "unknown"
+    })).setMimeType(ContentService.MimeType.JSON);
   }
-
-  // 住所情報シートに追記
-  var receivedAt = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
-  var newRow = [
-    receivedAt,       // A: 受信日時
-    orderId,          // B: 注文ID
-    patientId,        // C: 患者ID
-    productCode,      // D: 商品コード
-    mode,             // E: モード (first, current, reorder)
-    reorderId,        // F: 再購入ID
-    accountName,      // G: 口座名義
-    phoneNumber,      // H: 電話番号
-    email,            // I: メールアドレス
-    postalCode,       // J: 郵便番号
-    address,          // K: 住所
-    "confirmed",      // L: ステータス (住所入力完了 = 決済完了)
-    submittedAt,      // M: 送信日時
-  ];
-
-  var lastRow = addressSheet.getLastRow();
-  addressSheet.getRange(lastRow + 1, 1, 1, newRow.length).setValues([newRow]);
-
-  Logger.log("[handleBankTransferOrder] Added to " + addressSheetName + " row " + (lastRow + 1));
-
-  return ContentService.createTextOutput(JSON.stringify({
-    ok: true,
-    sheet: addressSheetName,
-    row: lastRow + 1,
-    yearMonth: yearMonth
-  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ==========================================
-// メニュー関数: 選択行を照合済みシートに移動
+// メニュー関数
 // ==========================================
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu("銀行振込管理")
+    .addItem("自動照合（住所情報 × 入金CSV）", "reconcileBankTransfers")
+    .addSeparator()
     .addItem("選択行を照合済みに移動", "moveSelectedToVerified")
-    .addItem("照合済みシートから\u306e\u306a\u3081マスターに転記", "copyVerifiedToNonameMaster")
+    .addItem("選択行をのなめマスターに転記", "copyVerifiedToNonameMaster")
     .addToUi();
 }
 
@@ -344,6 +388,206 @@ function moveSelectedToVerified() {
 }
 
 // ==========================================
+// patient_idから氏名を取得（Supabase intakeテーブルから）
+// ==========================================
+function getPatientNameFromSupabase_(patientId) {
+  if (!patientId) return "";
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var supabaseUrl = props.getProperty("SUPABASE_URL");
+    var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
+      Logger.log("[getPatientNameFromSupabase] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+      return "";
+    }
+
+    // patient_idを正規化（.0を削除、空白を削除）
+    var normalizedPid = String(patientId).trim().replace(/\.0$/, "").replace(/\s+/g, "");
+
+    // intakeテーブルから氏名を取得（patient_nameが氏名）
+    var url = supabaseUrl + "/rest/v1/intake?select=patient_name&patient_id=eq." + encodeURIComponent(normalizedPid) + "&limit=1";
+
+    var response = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Content-Type": "application/json"
+      },
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    if (code !== 200) {
+      Logger.log("[getPatientNameFromSupabase] HTTP " + code + " for patient_id: " + patientId);
+      return "";
+    }
+
+    var data = JSON.parse(response.getContentText());
+    Logger.log("[getPatientNameFromSupabase] Response data for " + normalizedPid + ": " + JSON.stringify(data));
+
+    if (data && data.length > 0 && data[0].patient_name) {
+      var name = String(data[0].patient_name).trim();
+      Logger.log("[getPatientNameFromSupabase] Found: " + normalizedPid + " = " + name);
+      return name;
+    }
+
+    Logger.log("[getPatientNameFromSupabase] Not found for patient_id: " + normalizedPid + " (original: " + patientId + ")");
+    return "";
+  } catch (e) {
+    Logger.log("[getPatientNameFromSupabase] Error for patient_id " + patientId + ": " + e);
+    return "";
+  }
+}
+
+// ==========================================
+// のなめマスター「銀行振込」シートからordersテーブルに全件バックフィル
+// ==========================================
+function backfillOrdersFromNonameMaster() {
+  var props = PropertiesService.getScriptProperties();
+  var nonameMasterId = props.getProperty("NONAME_MASTER_SHEET_ID");
+
+  if (!nonameMasterId) {
+    SpreadsheetApp.getUi().alert("NONAME_MASTER_SHEET_IDが設定されていません");
+    return;
+  }
+
+  var nonameMasterSs = SpreadsheetApp.openById(nonameMasterId);
+  var bankTransferSheet = nonameMasterSs.getSheetByName(NONAME_BANK_TRANSFER_SHEET);
+
+  if (!bankTransferSheet) {
+    SpreadsheetApp.getUi().alert("のなめマスターに「" + NONAME_BANK_TRANSFER_SHEET + "」シートが見つかりません");
+    return;
+  }
+
+  var lastRow = bankTransferSheet.getLastRow();
+  if (lastRow <= 1) {
+    SpreadsheetApp.getUi().alert("データがありません");
+    return;
+  }
+
+  // Square webhookと同じヘッダー構造
+  // A=注文日時, B=配送先名前, C=郵便番号, D=住所, E=メール, F=電話,
+  // G=商品名, H=金額, I=請求先名前, J=決済ID, K=商品コード, L=患者ID,
+  // M=注文ID, N=決済ステータス
+
+  var allData = bankTransferSheet.getRange(2, 1, lastRow - 1, 14).getValues();
+
+  var insertedCount = 0;
+  var errorCount = 0;
+
+  for (var i = 0; i < allData.length; i++) {
+    var row = allData[i];
+
+    var orderDatetime = row[0];    // A
+    var productName = row[6];      // G
+    var amount = row[7];           // H
+    var paymentId = String(row[9] || "").trim(); // J (bt_123)
+    var productCode = row[10];     // K
+    var patientId = String(row[11] || "").trim(); // L
+    var paymentStatus = row[13];   // N
+
+    if (!paymentId || !patientId) {
+      Logger.log("[backfill] Skipping row " + (i+2) + ": missing payment_id or patient_id");
+      continue;
+    }
+
+    var paidAtIso = "";
+    try {
+      if (orderDatetime instanceof Date) {
+        paidAtIso = orderDatetime.toISOString();
+      } else if (typeof orderDatetime === "string") {
+        // yyyy/MM/dd形式をパース
+        var match = String(orderDatetime).match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+        if (match) {
+          paidAtIso = new Date(match[1] + "-" + match[2] + "-" + match[3] + "T00:00:00+09:00").toISOString();
+        } else {
+          paidAtIso = new Date(orderDatetime).toISOString();
+        }
+      }
+    } catch (e) {
+      Logger.log("[backfill] Date conversion error for row " + (i+2) + ": " + e);
+      paidAtIso = new Date().toISOString();
+    }
+
+    var orderData = {
+      id: paymentId,
+      patient_id: patientId,
+      product_code: productCode || null,
+      product_name: productName || null,
+      amount: Number(amount) || 0,
+      paid_at: paidAtIso,
+      payment_method: "bank_transfer",
+      shipping_status: "pending",
+      payment_status: paymentStatus || "COMPLETED",
+    };
+
+    var inserted = insertOrderToSupabase_(orderData);
+    if (inserted) {
+      insertedCount++;
+      if ((i + 1) % 10 === 0) {
+        Logger.log("[backfill] Progress: " + (i + 1) + "/" + allData.length);
+      }
+    } else {
+      errorCount++;
+      Logger.log("[backfill] ❌ Row " + (i+2) + ": " + paymentId);
+    }
+  }
+
+  var message = "バックフィル完了\n\n";
+  message += "成功: " + insertedCount + "件\n";
+  message += "失敗: " + errorCount + "件";
+
+  SpreadsheetApp.getUi().alert(message);
+  Logger.log("[backfillOrdersFromNonameMaster] Success: " + insertedCount + ", Errors: " + errorCount);
+}
+
+// ==========================================
+// Supabase ordersテーブルにデータを保存
+// ==========================================
+function insertOrderToSupabase_(orderData) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var supabaseUrl = props.getProperty("SUPABASE_URL");
+    var supabaseKey = props.getProperty("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !supabaseKey) {
+      Logger.log("[insertOrderToSupabase] SUPABASE_URL or SUPABASE_ANON_KEY not set");
+      return false;
+    }
+
+    var url = supabaseUrl + "/rest/v1/orders";
+
+    var response = UrlFetchApp.fetch(url, {
+      method: "post",
+      headers: {
+        "apikey": supabaseKey,
+        "Authorization": "Bearer " + supabaseKey,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates"
+      },
+      payload: JSON.stringify(orderData),
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    if (code === 201 || code === 200) {
+      Logger.log("[insertOrderToSupabase] SUCCESS for order_id: " + orderData.id);
+      return true;
+    } else {
+      Logger.log("[insertOrderToSupabase] HTTP " + code + " for order_id: " + orderData.id);
+      Logger.log("[insertOrderToSupabase] Response: " + response.getContentText());
+      return false;
+    }
+  } catch (e) {
+    Logger.log("[insertOrderToSupabase] Error for order_id " + orderData.id + ": " + e);
+    return false;
+  }
+}
+
+// ==========================================
 // 照合済みシート → のなめマスター「銀行振込」シートへの転記
 // ==========================================
 function copyVerifiedToNonameMaster() {
@@ -404,19 +648,100 @@ function copyVerifiedToNonameMaster() {
     return;
   }
 
-  // 照合済みシートのデータをそのまま転記
+  // 照合済みシートのデータを転記（氏名をSupabaseから取得 & ordersテーブルに保存）
   var copiedCount = 0;
+  var notFoundCount = 0;
+  var ordersInsertedCount = 0;
+  var ordersErrorCount = 0;
+
   for (var i = 0; i < rowsToCopy.length; i++) {
     var rowNum = rowsToCopy[i];
     var rowData = activeSheet.getRange(rowNum, 1, 1, VERIFIED_HEADER.length).getValues()[0];
+
+    // patient_id (L列、インデックス11)から氏名を取得
+    var patientId = String(rowData[11] || "").trim();
+    var kanjiName = getPatientNameFromSupabase_(patientId);
+
+    // B列（配送先名前、インデックス1）を漢字の氏名に置き換え
+    if (kanjiName) {
+      rowData[1] = kanjiName;
+      Logger.log("[copyVerifiedToNonameMaster] " + patientId + ": " + kanjiName);
+    } else {
+      notFoundCount++;
+      Logger.log("[copyVerifiedToNonameMaster] ⚠️  氏名が見つかりません: " + patientId + " (カタカナのまま転記)");
+    }
+
+    // ★ A列（注文日時）をyyyy/MM/dd形式に変換
+    var orderDatetime = rowData[0];
+    if (orderDatetime) {
+      try {
+        var date = new Date(orderDatetime);
+        rowData[0] = Utilities.formatDate(date, "Asia/Tokyo", "yyyy/MM/dd");
+      } catch (e) {
+        Logger.log("[copyVerifiedToNonameMaster] 日付変換エラー: " + e);
+      }
+    }
+
+    // ★ Supabase ordersテーブルに保存（銀行振込データ）
+    var paymentId = String(rowData[9] || "").trim(); // J列: 決済ID (bt_123など)
+    var productCode = String(rowData[10] || "").trim(); // K列: 商品コード
+    var productName = String(rowData[6] || "").trim(); // G列: 商品名
+    var amount = rowData[7] || 0; // H列: 金額
+    var paidAtRaw = rowData[0]; // A列: 注文日時（既にDate型またはISO形式文字列）
+
+    if (paymentId && patientId) {
+      var paidAtIso = "";
+      try {
+        if (paidAtRaw instanceof Date) {
+          paidAtIso = paidAtRaw.toISOString();
+        } else if (typeof paidAtRaw === "string") {
+          paidAtIso = new Date(paidAtRaw).toISOString();
+        }
+      } catch (e) {
+        Logger.log("[copyVerifiedToNonameMaster] paid_at変換エラー: " + e);
+        paidAtIso = new Date().toISOString(); // フォールバック
+      }
+
+      var orderData = {
+        id: paymentId,
+        patient_id: patientId,
+        product_code: productCode || null,
+        product_name: productName || null,
+        amount: Number(amount) || 0,
+        paid_at: paidAtIso,
+        payment_method: "bank_transfer",
+        shipping_status: "pending",
+        payment_status: "COMPLETED",
+      };
+
+      var inserted = insertOrderToSupabase_(orderData);
+      if (inserted) {
+        ordersInsertedCount++;
+        Logger.log("[copyVerifiedToNonameMaster] ✅ ordersテーブルに保存: " + paymentId);
+      } else {
+        ordersErrorCount++;
+        Logger.log("[copyVerifiedToNonameMaster] ❌ ordersテーブル保存エラー: " + paymentId);
+      }
+    }
 
     var lastRow = bankTransferSheet.getLastRow();
     bankTransferSheet.getRange(lastRow + 1, 1, 1, rowData.length).setValues([rowData]);
     copiedCount++;
   }
 
-  SpreadsheetApp.getUi().alert(copiedCount + "件を\u306e\u306a\u3081マスター「銀行振込」シートに転記しました");
-  Logger.log("[copyVerifiedToNonameMaster] Copied " + copiedCount + " rows to Noname Master");
+  var message = copiedCount + "件を\u306e\u306a\u3081マスター「銀行振込」シートに転記しました";
+  if (notFoundCount > 0) {
+    message += "\n\n⚠️ " + notFoundCount + "件の患者IDで氏名が見つかりませんでした（カタカナのまま転記）";
+  }
+  if (ordersInsertedCount > 0) {
+    message += "\n\n✅ " + ordersInsertedCount + "件をordersテーブルに保存しました";
+  }
+  if (ordersErrorCount > 0) {
+    message += "\n\n❌ " + ordersErrorCount + "件のordersテーブル保存でエラーが発生しました";
+  }
+
+  SpreadsheetApp.getUi().alert(message);
+  Logger.log("[copyVerifiedToNonameMaster] Copied: " + copiedCount + " rows, Not found: " + notFoundCount + ", Orders inserted: " + ordersInsertedCount + ", Orders errors: " + ordersErrorCount);
 }
 
 // ==========================================
