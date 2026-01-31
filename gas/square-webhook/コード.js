@@ -133,6 +133,46 @@ function doPost(e) {
         return _textResponse("ok");
       }
 
+      // 4) merge_patients（患者統合）
+      if (kind === "merge_patients") {
+        var oldPid = String(body.old_patient_id || "").trim();
+        var newPid = String(body.new_patient_id || "").trim();
+
+        if (!oldPid || !newPid) {
+          return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "patient_ids_required" }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        if (oldPid === newPid) {
+          return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "same_patient_id" }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        var nonameMasterSheet = ss.getSheetByName("のなめマスター");
+        if (!nonameMasterSheet) {
+          Logger.log("[merge_patients] のなめマスター not found");
+          return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "noname_master_not_found" }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+
+        var lastRow = nonameMasterSheet.getLastRow();
+        var updated = 0;
+
+        if (lastRow >= 2) {
+          for (var i = 2; i <= lastRow; i++) {
+            var currentPid = String(nonameMasterSheet.getRange(i, 16).getValue() || "").trim(); // P列
+            if (currentPid === oldPid) {
+              nonameMasterSheet.getRange(i, 16).setValue(newPid);
+              updated++;
+            }
+          }
+        }
+
+        Logger.log("[merge_patients] のなめマスター: Updated " + updated + " rows (" + oldPid + " -> " + newPid + ")");
+        return ContentService.createTextOutput(JSON.stringify({ ok: true, updated: updated }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
       return _textResponse("ok");
     } finally {
       try { lock.releaseLock(); } catch (e2) {}

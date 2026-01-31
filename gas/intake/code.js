@@ -1505,9 +1505,86 @@ function doPost(e) {
     const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
     const masterSheet = ss.getSheetByName(SHEET_NAME_MASTER);
 
+    // ========= merge_patients（Admin用：患者統合）=========
+    if (type === "merge_patients") {
+      if (!masterSheet) return jsonResponse({ ok: false, error: "sheet_not_found" });
+
+      const oldPid = String(body.old_patient_id || "").trim();
+      const newPid = String(body.new_patient_id || "").trim();
+
+      if (!oldPid || !newPid) {
+        return jsonResponse({ ok: false, error: "patient_ids_required" });
+      }
+
+      if (oldPid === newPid) {
+        return jsonResponse({ ok: false, error: "same_patient_id" });
+      }
+
+      // ★ 問診マスターの旧patient_idを新patient_idに置き換え
+      const lastRow = masterSheet.getLastRow();
+      if (lastRow < 2) return jsonResponse({ ok: false, error: "no_data" });
+
+      let masterUpdated = 0;
+      for (let i = 2; i <= lastRow; i++) {
+        const pid = String(masterSheet.getRange(i, 12).getValue() || "").trim(); // L列
+        if (pid === oldPid) {
+          masterSheet.getRange(i, 12).setValue(newPid);
+          masterUpdated++;
+          Logger.log("[merge_patients] Master: Updated patient_id at row " + i);
+        }
+      }
+
+      if (masterUpdated === 0) {
+        Logger.log("[merge_patients] No rows found for old_patient_id=" + oldPid + " in 問診マスター");
+      }
+
+      // ★ 問診シートの旧patient_idを新patient_idに置き換え
+      if (!intakeSheet) {
+        Logger.log("[merge_patients] 問診シート not found, skipping intake sheet update");
+      } else {
+        const intakeLastRow = intakeSheet.getLastRow();
+        let intakeUpdated = 0;
+
+        if (intakeLastRow >= 2) {
+          for (let i = 2; i <= intakeLastRow; i++) {
+            const pid = String(intakeSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue() || "").trim();
+            if (pid === oldPid) {
+              intakeSheet.getRange(i, COL_PATIENT_ID_INTAKE).setValue(newPid);
+              intakeUpdated++;
+            }
+          }
+        }
+
+        Logger.log("[merge_patients] Intake: Updated " + intakeUpdated + " rows");
+      }
+
+      // ★ 予約シートの旧patient_idを新patient_idに置き換え
+      const reserveSheet = ss.getSheetByName(SHEET_NAME_RESERVE);
+      if (!reserveSheet) {
+        Logger.log("[merge_patients] 予約シート not found, skipping reserve sheet update");
+      } else {
+        const reserveLastRow = reserveSheet.getLastRow();
+        let reserveUpdated = 0;
+
+        if (reserveLastRow >= 2) {
+          for (let i = 2; i <= reserveLastRow; i++) {
+            const pid = String(reserveSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue() || "").trim();
+            if (pid === oldPid) {
+              reserveSheet.getRange(i, COL_PATIENT_ID_INTAKE).setValue(newPid);
+              reserveUpdated++;
+            }
+          }
+        }
+
+        Logger.log("[merge_patients] Reserve: Updated " + reserveUpdated + " rows");
+      }
+
+      Logger.log("[merge_patients] Success: " + oldPid + " -> " + newPid + " (Master: " + masterUpdated + " rows)");
+      return jsonResponse({ ok: true, master_updated: masterUpdated });
+    }
+
     // ========= 0. phone だけで PID を返す（/api/register/complete 用） =========
-// ========= 0. phone だけで PID を返す（/api/register/complete 用） =========
-if (body.phone) {
+    if (body.phone) {
   const phoneInputRaw = body.phone || "";
   const lineUserId = body.line_user_id || ""; // 今は空でもOK（将来紐付け用）
 
