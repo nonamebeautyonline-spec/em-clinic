@@ -9,6 +9,7 @@ interface DashboardStats {
     completed: number;
     cancelled: number;
     cancelRate: number;
+    consultationCompletionRate: number;
   };
   shipping: {
     total: number;
@@ -36,6 +37,14 @@ interface DashboardStats {
   bankTransfer: {
     pending: number;
     confirmed: number;
+  };
+  kpi: {
+    paymentRateAfterConsultation: number;
+    reservationRateAfterIntake: number;
+    consultationCompletionRate: number;
+    lineRegisteredCount: number;
+    todayNewReservations: number;
+    todayPaidCount: number;
   };
 }
 
@@ -193,6 +202,77 @@ export default function AdminDashboard() {
           </div>
           <div className="text-xs text-green-600 mt-1">
             新規患者: {stats?.patients.new || 0}
+          </div>
+        </div>
+      </div>
+
+      {/* 新しいKPI カード（転換率） */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* 診療後の決済率 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-cyan-500">
+          <div className="text-sm text-slate-600 mb-2">診療後の決済率</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.paymentRateAfterConsultation || 0}%</div>
+          <div className="text-xs text-slate-500 mt-2">
+            診察完了後に決済した患者の割合
+          </div>
+        </div>
+
+        {/* 問診後の予約率 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
+          <div className="text-sm text-slate-600 mb-2">問診後の予約率</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.reservationRateAfterIntake || 0}%</div>
+          <div className="text-xs text-slate-500 mt-2">
+            問診完了後に予約した患者の割合
+          </div>
+        </div>
+
+        {/* 予約後の受診率 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
+          <div className="text-sm text-slate-600 mb-2">予約後の受診率</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.consultationCompletionRate || 0}%</div>
+          <div className="text-xs text-slate-500 mt-2">
+            予約後に診察を完了した患者の割合
+          </div>
+        </div>
+      </div>
+
+      {/* 本日の活動KPI */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* LINE登録者数 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-emerald-500">
+          <div className="text-sm text-slate-600 mb-2">LINE登録者数</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.lineRegisteredCount || 0}</div>
+          <div className="text-xs text-slate-500 mt-2">
+            LINE連携済みの患者数
+          </div>
+        </div>
+
+        {/* 本日の予約数 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-sky-500">
+          <div className="text-sm text-slate-600 mb-2">本日の予約数</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayNewReservations || 0}</div>
+          <div className="text-xs text-slate-500 mt-2">
+            今日作成された予約の数
+          </div>
+        </div>
+
+        {/* 本日の決済人数 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-violet-500">
+          <div className="text-sm text-slate-600 mb-2">本日の決済人数</div>
+          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayPaidCount || 0}</div>
+          <div className="text-xs text-slate-500 mt-2">
+            今日決済した患者の数
+          </div>
+        </div>
+
+        {/* 顧客単価 */}
+        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-rose-500">
+          <div className="text-sm text-slate-600 mb-2">顧客単価</div>
+          <div className="text-3xl font-bold text-slate-900">
+            ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-slate-500 mt-2">
+            平均注文額
           </div>
         </div>
       </div>

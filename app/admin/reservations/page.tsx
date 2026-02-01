@@ -117,6 +117,44 @@ export default function ReservationsPage() {
         </button>
       </div>
 
+      {/* 予約人数表示 */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6 border-l-4 border-blue-500">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm text-slate-600 mb-1">
+              {selectedDate === today ? "本日" : formatDate(selectedDate)}の予約人数
+            </div>
+            <div className="text-4xl font-bold text-slate-900">
+              {reservations.length}
+              <span className="text-lg text-slate-500 ml-2">件</span>
+            </div>
+          </div>
+          <div className="text-right space-y-1">
+            {reservations.filter(r => r.status === "pending").length > 0 && (
+              <div className="text-sm text-slate-600">
+                予約中: <span className="font-semibold text-slate-900">
+                  {reservations.filter(r => r.status === "pending").length}件
+                </span>
+              </div>
+            )}
+            {reservations.filter(r => r.status === "OK" || r.status === "NG").length > 0 && (
+              <div className="text-sm text-slate-600">
+                完了: <span className="font-semibold text-green-700">
+                  {reservations.filter(r => r.status === "OK" || r.status === "NG").length}件
+                </span>
+              </div>
+            )}
+            {reservations.filter(r => r.status === "canceled").length > 0 && (
+              <div className="text-sm text-slate-600">
+                キャンセル: <span className="font-semibold text-red-700">
+                  {reservations.filter(r => r.status === "canceled").length}件
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
@@ -204,10 +242,6 @@ export default function ReservationsPage() {
             </div>
           ))
         )}
-      </div>
-
-      <div className="text-xs text-slate-400 mt-4">
-        合計 {reservations.length} 件の予約
       </div>
 
       {/* カルテモーダル */}

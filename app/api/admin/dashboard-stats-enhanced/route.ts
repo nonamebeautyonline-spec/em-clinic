@@ -37,19 +37,29 @@ export async function GET(request: NextRequest) {
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate);
 
-    const { count: completedReservations } = await supabase
+    // 診察完了: status = "OK" or "NG"
+    const { count: completedReservationsOK } = await supabase
       .from("reservations")
       .select("*", { count: "exact", head: true })
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
-      .eq("status", "completed");
+      .eq("status", "OK");
+
+    const { count: completedReservationsNG } = await supabase
+      .from("reservations")
+      .select("*", { count: "exact", head: true })
+      .gte("reserved_date", reservationStartDate)
+      .lt("reserved_date", reservationEndDate)
+      .eq("status", "NG");
+
+    const completedReservations = (completedReservationsOK ?? 0) + (completedReservationsNG ?? 0);
 
     const { count: cancelledReservations } = await supabase
       .from("reservations")
       .select("*", { count: "exact", head: true })
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
-      .eq("status", "cancelled");
+      .eq("status", "canceled");
 
     const cancelRate =
       (totalReservations ?? 0) > 0 ? Math.round(((cancelledReservations ?? 0) / (totalReservations ?? 0)) * 100) : 0;
@@ -318,12 +328,157 @@ export async function GET(request: NextRequest) {
       .gte("submitted_at", startISO)
       .lt("submitted_at", endISO);
 
+    // 7. 新しいKPI: 診療後の決済率
+    // 診察完了した患者数（status = "OK" or "NG"）
+    const { count: consultedPatients } = await supabase
+      .from("intake")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["OK", "NG"])
+      .gte("created_at", startISO)
+      .lt("created_at", endISO);
+
+    // 診察完了した患者のpatient_idを取得
+    let consultedPatientIds: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: consultedData } = await supabase
+        .from("intake")
+        .select("patient_id")
+        .in("status", ["OK", "NG"])
+        .gte("created_at", startISO)
+        .lt("created_at", endISO)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!consultedData || consultedData.length === 0) break;
+      consultedPatientIds = consultedPatientIds.concat(consultedData);
+      if (consultedData.length < pageSize) break;
+      page++;
+    }
+
+    // その中で決済した患者数
+    let paidPatientCount = 0;
+    if (consultedPatientIds.length > 0) {
+      const uniqueConsultedIds = [...new Set(consultedPatientIds.map(i => i.patient_id))];
+
+      const { data: paidOrders } = await supabase
+        .from("orders")
+        .select("patient_id")
+        .in("patient_id", uniqueConsultedIds)
+        .not("paid_at", "is", null);
+
+      paidPatientCount = new Set(paidOrders?.map(o => o.patient_id) || []).size;
+    }
+
+    const paymentRateAfterConsultation = (consultedPatients ?? 0) > 0
+      ? Math.round((paidPatientCount / (consultedPatients ?? 0)) * 100)
+      : 0;
+
+    // 8. 新しいKPI: 問診後の予約率
+    // 問診完了した患者数（全statusまたは特定のstatus？ここでは全intake）
+    const { count: intakePatients } = await supabase
+      .from("intake")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startISO)
+      .lt("created_at", endISO);
+
+    // 問診した患者のpatient_idを取得
+    let intakePatientIds: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: intakeData } = await supabase
+        .from("intake")
+        .select("patient_id")
+        .gte("created_at", startISO)
+        .lt("created_at", endISO)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!intakeData || intakeData.length === 0) break;
+      intakePatientIds = intakePatientIds.concat(intakeData);
+      if (intakeData.length < pageSize) break;
+      page++;
+    }
+
+    // その中で予約した患者数
+    let reservedPatientCount = 0;
+    if (intakePatientIds.length > 0) {
+      const uniqueIntakeIds = [...new Set(intakePatientIds.map(i => i.patient_id))];
+
+      const { data: reservations } = await supabase
+        .from("reservations")
+        .select("patient_id")
+        .in("patient_id", uniqueIntakeIds);
+
+      reservedPatientCount = new Set(reservations?.map(r => r.patient_id) || []).size;
+    }
+
+    const reservationRateAfterIntake = (intakePatients ?? 0) > 0
+      ? Math.round((reservedPatientCount / (intakePatients ?? 0)) * 100)
+      : 0;
+
+    // 9. 新しいKPI: 予約後の受診率（診察完了率）
+    // キャンセルを除いた予約総数
+    const nonCancelledReservations = (totalReservations ?? 0) - (cancelledReservations ?? 0);
+    const consultationCompletionRate = nonCancelledReservations > 0
+      ? Math.round(((completedReservations ?? 0) / nonCancelledReservations) * 100)
+      : 0;
+
+    // 10. LINE登録者数（全期間）
+    // countではなくデータを取得してカウント
+    let allLineUsers: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: lineUsers } = await supabase
+        .from("intake")
+        .select("patient_id, line_user_id")
+        .not("line_user_id", "is", null)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!lineUsers || lineUsers.length === 0) break;
+      allLineUsers = allLineUsers.concat(lineUsers);
+      if (lineUsers.length < pageSize) break;
+      page++;
+    }
+
+    const lineRegisteredCount = allLineUsers.length;
+
+    // 11. 本日の予約された数（今日作成された予約の数）
+    const { count: todayNewReservations } = await supabase
+      .from("reservations")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startISO)
+      .lt("created_at", endISO);
+
+    // 12. 今日決済した人数（重複なし）
+    let todayPaidPatients: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: paidOrders } = await supabase
+        .from("orders")
+        .select("patient_id")
+        .not("paid_at", "is", null)
+        .gte("paid_at", startISO)
+        .lt("paid_at", endISO)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!paidOrders || paidOrders.length === 0) break;
+      todayPaidPatients = todayPaidPatients.concat(paidOrders);
+      if (paidOrders.length < pageSize) break;
+      page++;
+    }
+
+    const todayPaidCount = new Set(todayPaidPatients.map(o => o.patient_id)).size;
+
     return NextResponse.json({
       reservations: {
         total: totalReservations || 0,
         completed: completedReservations || 0,
         cancelled: cancelledReservations || 0,
         cancelRate,
+        consultationCompletionRate,
       },
       shipping: {
         total: shippingTotal || 0,
@@ -346,6 +501,14 @@ export async function GET(request: NextRequest) {
       bankTransfer: {
         pending: pendingBankTransfer || 0,
         confirmed: confirmedBankTransfer || 0,
+      },
+      kpi: {
+        paymentRateAfterConsultation,
+        reservationRateAfterIntake,
+        consultationCompletionRate,
+        lineRegisteredCount,
+        todayNewReservations,
+        todayPaidCount,
       },
     });
   } catch (error) {
