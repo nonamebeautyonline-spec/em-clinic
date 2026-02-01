@@ -16,6 +16,23 @@ export async function GET(req: Request) {
     if (USE_SUPABASE) {
       console.log("[intake/list] Using Supabase");
 
+      // ★ キャンセル除外のため、reservationsテーブルから有効なreserve_idを取得
+      let validReserveIds: Set<string> | null = null;
+
+      if (fromDate && toDate) {
+        const { data: reservationsData } = await supabase
+          .from("reservations")
+          .select("reserve_id")
+          .gte("reserved_date", fromDate)
+          .lte("reserved_date", toDate)
+          .neq("status", "canceled");
+
+        if (reservationsData) {
+          validReserveIds = new Set(reservationsData.map((r: any) => r.reserve_id));
+          console.log(`[Supabase] Valid (non-canceled) reservations: ${validReserveIds.size}`);
+        }
+      }
+
       let query = supabase
         .from("intake")
         .select("*")
@@ -36,8 +53,20 @@ export async function GET(req: Request) {
         // Supabaseエラー時はGASにフォールバック
         console.log("[intake/list] Falling back to GAS");
       } else {
+        // ★ キャンセル済み予約を除外
+        let filteredData = data;
+        if (validReserveIds) {
+          filteredData = data.filter((row: any) => {
+            // reserve_idがない場合は含める（予約なし問診）
+            if (!row.reserve_id) return true;
+            // reserve_idがある場合、有効な予約リストに含まれるかチェック
+            return validReserveIds!.has(row.reserve_id);
+          });
+          console.log(`[Supabase] Filtered ${data.length} -> ${filteredData.length} (excluded canceled)`);
+        }
+
         // Supabaseから取得成功
-        const rows = data.map((row: any) => ({
+        const rows = filteredData.map((row: any) => ({
           reserveId: row.reserve_id || "",  // フロントエンド互換のためcamelCase
           reserve_id: row.reserve_id || "",
           patient_id: row.patient_id,
