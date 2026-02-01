@@ -35,10 +35,11 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "100");
 
     // ordersテーブルから全決済を取得（★ shipping_name, statusを追加）
+    // ★ created_atで並び替え（paid_atがnullの未照合も含むため）
     const { data: orders, error } = await supabase
       .from("orders")
       .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at")
-      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -86,13 +87,13 @@ export async function GET(req: NextRequest) {
 
       // ★ 決済日時の判定: 銀行振込の場合、照合済みなら paid_at、申請中なら created_at
       const isBankTransfer = order.payment_method === "bank_transfer";
-      const isConfirmed = order.status === "confirmed";
-      let paymentDate = order.paid_at;
+      const isPendingConfirmation = order.status === "pending_confirmation";
+      let paymentDate = order.paid_at || order.created_at;
       let paymentDateLabel = "";
 
-      if (isBankTransfer) {
-        paymentDate = isConfirmed && order.paid_at ? order.paid_at : order.created_at;
-        paymentDateLabel = isConfirmed ? "" : "（申請日時）";
+      if (isBankTransfer && isPendingConfirmation) {
+        paymentDate = order.created_at;
+        paymentDateLabel = "（未照合）";
       }
 
       return {

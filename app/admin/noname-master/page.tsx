@@ -178,7 +178,7 @@ export default function NonameMasterPage() {
                         </span>
                         {order.payment_date_label && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-200 text-slate-700">
-                            （申請中）
+                            {order.payment_date_label}
                           </span>
                         )}
                       </div>

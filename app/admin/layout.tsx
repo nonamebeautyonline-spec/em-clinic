@@ -154,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/shipping/pending"
             icon="📦"
-            label="発送待ちリスト"
+            label="本日の発送リスト"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/pending"}
           />
