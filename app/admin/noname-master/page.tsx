@@ -11,6 +11,7 @@ interface Order {
   product_name: string;
   payment_method: string;
   payment_date: string;
+  payment_date_label?: string; // "（申請日時）" or ""
   shipping_date: string;
   tracking_number: string;
   purchase_count: number;
@@ -153,6 +154,7 @@ export default function NonameMasterPage() {
                   <tr key={order.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {formatDate(order.payment_date)}
+                      {order.payment_date_label && <span className="text-slate-500 ml-1">{order.payment_date_label}</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span

@@ -239,12 +239,15 @@ export async function POST(req: NextRequest) {
       const nextBtId = `bt_${maxNum + 1}`;
 
       // 更新
+      const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from("orders")
         .update({
           status: "confirmed",
           id: nextBtId, // 新しいpayment_idに変更
-          updated_at: new Date().toISOString(),
+          paid_at: now, // ★ 照合完了時に決済日時を設定
+          payment_status: "COMPLETED",
+          updated_at: now,
         })
         .eq("id", orderId);
 

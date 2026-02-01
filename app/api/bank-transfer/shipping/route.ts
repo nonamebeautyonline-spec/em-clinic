@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       product_code: productCode,
       product_name: null, // 商品名は後で補完
       amount: 0, // 金額は後で補完
-      paid_at: now,
+      paid_at: null, // ★ 照合完了時に設定する
       payment_method: "bank_transfer",
       payment_status: "PENDING", // 振込確認待ち
       status: "pending_confirmation", // ★ Plan A: 振込確認中

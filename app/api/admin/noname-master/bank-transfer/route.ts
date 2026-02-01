@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // ★ Plan A: ordersテーブルから銀行振込のみを取得（shipping_nameも追加）
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, created_at, shipping_date, tracking_number, shipping_name")
+      .select("id, patient_id, product_code, amount, payment_method, status, created_at, paid_at, shipping_date, tracking_number, shipping_name")
       .eq("payment_method", "bank_transfer")
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -87,6 +87,11 @@ export async function GET(req: NextRequest) {
       // ★ shipping_nameの正規化（"null"文字列や空文字をnullとして扱う）
       const shippingName = order.shipping_name && order.shipping_name !== "null" ? order.shipping_name : "";
 
+      // ★ 決済日時の判定: 照合済みなら paid_at、申請中なら created_at
+      const isConfirmed = order.status === "confirmed";
+      const paymentDate = isConfirmed && order.paid_at ? order.paid_at : order.created_at;
+      const paymentDateLabel = isConfirmed ? "" : "（申請日時）";
+
       return {
         id: order.id,
         patient_id: order.patient_id,
@@ -94,7 +99,8 @@ export async function GET(req: NextRequest) {
         patient_name: shippingName || patientNameMap[order.patient_id] || "",
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
-        payment_date: order.created_at, // ★ 申請日時: ordersテーブルのcreated_at
+        payment_date: paymentDate,
+        payment_date_label: paymentDateLabel, // ★ 申請中のみ "（申請日時）"
         shipping_date: order.shipping_date || "", // ★ ordersテーブルのshipping_date
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 0, // ★ 0件の場合は0を表示

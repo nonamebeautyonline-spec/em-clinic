@@ -34,10 +34,10 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "100");
 
-    // ordersテーブルから全決済を取得（★ shipping_nameを追加）
+    // ordersテーブルから全決済を取得（★ shipping_name, statusを追加）
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, paid_at, shipping_date, tracking_number, shipping_name, created_at")
+      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at")
       .order("paid_at", { ascending: false })
       .limit(limit);
 
@@ -84,6 +84,17 @@ export async function GET(req: NextRequest) {
       // ★ shipping_nameの正規化（"null"文字列や空文字をnullとして扱う）
       const shippingName = order.shipping_name && order.shipping_name !== "null" ? order.shipping_name : "";
 
+      // ★ 決済日時の判定: 銀行振込の場合、照合済みなら paid_at、申請中なら created_at
+      const isBankTransfer = order.payment_method === "bank_transfer";
+      const isConfirmed = order.status === "confirmed";
+      let paymentDate = order.paid_at;
+      let paymentDateLabel = "";
+
+      if (isBankTransfer) {
+        paymentDate = isConfirmed && order.paid_at ? order.paid_at : order.created_at;
+        paymentDateLabel = isConfirmed ? "" : "（申請日時）";
+      }
+
       return {
         id: order.id,
         patient_id: order.patient_id,
@@ -92,7 +103,8 @@ export async function GET(req: NextRequest) {
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",
-        payment_date: order.paid_at,
+        payment_date: paymentDate,
+        payment_date_label: paymentDateLabel, // ★ 銀行振込の申請中のみ "（申請日時）"
         shipping_date: order.shipping_date || "",
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 1,

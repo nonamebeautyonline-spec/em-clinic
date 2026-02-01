@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface MatchedItem {
@@ -36,12 +36,60 @@ interface ReconcileResult {
   };
 }
 
+interface PendingOrder {
+  id: string;
+  patient_id: string;
+  product_code: string;
+  product_name: string;
+  amount: number;
+  shipping_name: string;
+  account_name: string;
+  address: string;
+  postal_code: string;
+  phone: string;
+  created_at: string;
+}
+
 export default function BankTransferReconcilePage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReconcileResult | null>(null);
   const [error, setError] = useState("");
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [loadingPending, setLoadingPending] = useState(true);
+  const [previewResult, setPreviewResult] = useState<ReconcileResult | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    loadPendingOrders();
+  }, []);
+
+  const loadPendingOrders = async () => {
+    setLoadingPending(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/bank-transfer/pending", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`データ取得失敗 (${res.status})`);
+      }
+
+      const data = await res.json();
+      setPendingOrders(data.orders || []);
+    } catch (err) {
+      console.error("Pending orders fetch error:", err);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -52,7 +100,7 @@ export default function BankTransferReconcilePage() {
     }
   };
 
-  const handleReconcile = async () => {
+  const handlePreview = async () => {
     if (!file) {
       setError("CSVファイルを選択してください");
       return;
@@ -60,6 +108,8 @@ export default function BankTransferReconcilePage() {
 
     setLoading(true);
     setError("");
+    setPreviewResult(null);
+    setResult(null);
 
     try {
       const token = localStorage.getItem("adminToken");
@@ -71,7 +121,7 @@ export default function BankTransferReconcilePage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/admin/bank-transfer/reconcile", {
+      const res = await fetch("/api/admin/bank-transfer/reconcile/preview", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -85,12 +135,52 @@ export default function BankTransferReconcilePage() {
       }
 
       const data = await res.json();
-      setResult(data);
+      setPreviewResult(data);
     } catch (err) {
-      console.error("Reconcile error:", err);
-      setError(err instanceof Error ? err.message : "照合処理に失敗しました");
+      console.error("Preview error:", err);
+      setError(err instanceof Error ? err.message : "照合プレビューに失敗しました");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirm = async () => {
+    if (!previewResult) return;
+
+    setConfirming(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/bank-transfer/reconcile/confirm", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ matches: previewResult.matched }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `エラー (${res.status})`);
+      }
+
+      const data = await res.json();
+      setResult(data);
+      setPreviewResult(null);
+      setFile(null);
+      loadPendingOrders(); // 未照合一覧を更新
+    } catch (err) {
+      console.error("Confirm error:", err);
+      setError(err instanceof Error ? err.message : "照合確定に失敗しました");
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -101,6 +191,84 @@ export default function BankTransferReconcilePage() {
         <p className="text-slate-600 text-sm mt-1">
           銀行CSVをアップロードして、振込確認待ちの注文と自動照合します
         </p>
+      </div>
+
+      {/* 未照合一覧 */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">未照合一覧</h2>
+            <p className="text-sm text-slate-600 mt-1">振込確認待ちの注文（{pendingOrders.length}件）</p>
+          </div>
+          <button
+            onClick={loadPendingOrders}
+            className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
+          >
+            🔄 更新
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          {loadingPending ? (
+            <div className="p-8 text-center text-slate-500">読み込み中...</div>
+          ) : pendingOrders.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">未照合の注文はありません</div>
+          ) : (
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    申請日時
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    患者ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    振込名義人
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    商品名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    金額
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    送付先
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-200">
+                {pendingOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      {new Date(order.created_at).toLocaleString("ja-JP", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
+                      {order.patient_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      {order.account_name || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {order.product_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                      ¥{order.amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {order.shipping_name} 〒{order.postal_code}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -129,7 +297,7 @@ export default function BankTransferReconcilePage() {
         </div>
 
         <button
-          onClick={handleReconcile}
+          onClick={handlePreview}
           disabled={!file || loading}
           className={`px-6 py-3 rounded-lg font-medium ${
             !file || loading
@@ -137,7 +305,7 @@ export default function BankTransferReconcilePage() {
               : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
         >
-          {loading ? "照合中..." : "🔍 自動照合を実行"}
+          {loading ? "照合確認中..." : "🔍 照合確認"}
         </button>
 
         <div className="mt-4 p-4 bg-slate-50 rounded-lg text-sm text-slate-600">
@@ -155,6 +323,87 @@ export default function BankTransferReconcilePage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           <p className="font-semibold">エラー</p>
           <p className="text-sm mt-1">{error}</p>
+        </div>
+      )}
+
+      {/* 照合確認プレビュー（Lステップ風） */}
+      {previewResult && (
+        <div className="mb-6 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 bg-green-50 border-b border-green-200">
+            <h2 className="text-lg font-semibold text-green-900">2. データ確認</h2>
+            <p className="text-sm text-green-700 mt-1">
+              照合候補 {previewResult.matched.length}件を表示します。問題なければ「このデータを反映する」ボタンを押してください。
+            </p>
+          </div>
+
+          {previewResult.matched.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      振込日
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      摘要（名義人）
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      金額
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      患者ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                      商品コード
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {previewResult.matched.map((item, i) => (
+                    <tr key={i} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                        ✅ {item.transfer.date}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-900">
+                        {item.transfer.description}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                        ¥{item.transfer.amount.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
+                        {item.order.patient_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                        {item.order.product_code}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              マッチ: <span className="font-semibold text-green-600">{previewResult.matched.length}件</span>
+              {previewResult.unmatched.length > 0 && (
+                <span className="ml-4">
+                  未マッチ: <span className="font-semibold text-yellow-600">{previewResult.unmatched.length}件</span>
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleConfirm}
+              disabled={confirming || previewResult.matched.length === 0}
+              className={`px-6 py-3 rounded-lg font-medium ${
+                confirming || previewResult.matched.length === 0
+                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {confirming ? "反映中..." : "このデータを反映する"}
+            </button>
+          </div>
         </div>
       )}
 
