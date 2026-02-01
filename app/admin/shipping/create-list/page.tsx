@@ -110,7 +110,7 @@ export default function CreateShippingListPage() {
   };
 
   const calculateDosage = (productCode: string): Record<string, number> => {
-    const dosages = { "2.5mg": 0, "5mg": 0, "7.5mg": 0, "10mg": 0 };
+    const dosages: Record<string, number> = { "2.5mg": 0, "5mg": 0, "7.5mg": 0, "10mg": 0 };
 
     // MJL_2.5mg_1m → 2.5mg x 4本
     // MJL_5mg_2m → 5mg x 8本
@@ -120,7 +120,10 @@ export default function CreateShippingListPage() {
       const months = parseInt(match[2], 10);
       const count = months * 4; // 1ヶ月 = 4本
 
-      dosages[`${strength}mg`] = count;
+      const key = `${strength}mg`;
+      if (key in dosages) {
+        dosages[key] = count;
+      }
     }
 
     return dosages;
