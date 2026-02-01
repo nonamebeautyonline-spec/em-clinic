@@ -368,13 +368,12 @@ export default function CreateShippingListPage() {
       const today = new Date().toLocaleDateString("ja-JP");
       doc.text(`作成日: ${today}`, 14, 22);
 
-      // テーブルデータ
+      // テーブルデータ（user_id, patient_id, payment_idは除外）
       const headers = [
-        ["user_id", "決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg", "patient_id", "payment_id"]
+        ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"]
       ];
 
       const data = selectedItems.map((item) => [
-        item.user_id,
         new Date(item.payment_date).toLocaleDateString("ja-JP"),
         item.editable.name,
         item.editable.postal_code,
@@ -387,8 +386,6 @@ export default function CreateShippingListPage() {
         item.dosage_5mg.toString(),
         item.dosage_7_5mg.toString(),
         item.dosage_10mg.toString(),
-        item.patient_id,
-        item.payment_id,
       ]);
 
       // RGB変換関数
@@ -410,17 +407,17 @@ export default function CreateShippingListPage() {
 
         const colorMap: Record<string, [number, number, number]> = {
           "2.5mg-12": [96, 165, 250],   // blue-400
-          "2.5mg-8": [147, 197, 253],   // blue-300
-          "2.5mg-4": [191, 219, 254],   // blue-200
-          "5mg-12": [248, 113, 113],    // red-400
-          "5mg-8": [252, 165, 165],     // red-300
-          "5mg-4": [254, 202, 202],     // red-200
-          "7.5mg-12": [250, 204, 21],   // yellow-400
-          "7.5mg-8": [253, 224, 71],    // yellow-300
-          "7.5mg-4": [254, 240, 138],   // yellow-200
-          "10mg-12": [74, 222, 128],    // green-400
-          "10mg-8": [134, 239, 172],    // green-300
-          "10mg-4": [187, 247, 208],    // green-200
+          "2.5mg-8": [248, 113, 113],   // red-400
+          "2.5mg-4": [250, 204, 21],    // yellow-400
+          "5mg-12": [74, 222, 128],     // green-400
+          "5mg-8": [192, 132, 252],     // purple-400
+          "5mg-4": [251, 146, 60],      // orange-400
+          "7.5mg-12": [244, 114, 182],  // pink-400
+          "7.5mg-8": [34, 211, 238],    // cyan-400
+          "7.5mg-4": [163, 230, 53],    // lime-400
+          "10mg-12": [129, 140, 248],   // indigo-400
+          "10mg-8": [251, 113, 133],    // rose-400
+          "10mg-4": [251, 191, 36],     // amber-400
         };
 
         const key = `${primaryDosage}-${maxCount}`;
@@ -442,21 +439,18 @@ export default function CreateShippingListPage() {
           fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 15 }, // user_id
-          1: { cellWidth: 20 }, // 決済日時
-          2: { cellWidth: 20 }, // Name
-          3: { cellWidth: 20 }, // Postal Code
-          4: { cellWidth: 40 }, // Address
-          5: { cellWidth: 25 }, // Email
-          6: { cellWidth: 18 }, // Phone
-          7: { cellWidth: 25 }, // Product Name
-          8: { cellWidth: 15 }, // Price
-          9: { cellWidth: 10 }, // 2.5mg
-          10: { cellWidth: 10 }, // 5mg
-          11: { cellWidth: 10 }, // 7.5mg
-          12: { cellWidth: 10 }, // 10mg
-          13: { cellWidth: 20 }, // patient_id
-          14: { cellWidth: 20 }, // payment_id
+          0: { cellWidth: 20 }, // 決済日時
+          1: { cellWidth: 25 }, // Name
+          2: { cellWidth: 20 }, // Postal Code
+          3: { cellWidth: 50 }, // Address
+          4: { cellWidth: 30 }, // Email
+          5: { cellWidth: 20 }, // Phone
+          6: { cellWidth: 30 }, // Product Name
+          7: { cellWidth: 18 }, // Price
+          8: { cellWidth: 12 }, // 2.5mg
+          9: { cellWidth: 12 }, // 5mg
+          10: { cellWidth: 12 }, // 7.5mg
+          11: { cellWidth: 12 }, // 10mg
         },
         didDrawCell: (data) => {
           // 各セルの背景色を設定
@@ -502,20 +496,20 @@ export default function CreateShippingListPage() {
       return "bg-slate-200";
     }
 
-    // (用量, 本数) の組み合わせごとに色を割り当て（対照的な色）
+    // (用量, 本数) の組み合わせごとに色を割り当て（全て対照的な色）
     const colorMap: Record<string, string> = {
       "2.5mg-12": "bg-blue-400",    // 青
-      "2.5mg-8": "bg-blue-300",
-      "2.5mg-4": "bg-blue-200",
-      "5mg-12": "bg-red-400",       // 赤（青の対照）
-      "5mg-8": "bg-red-300",
-      "5mg-4": "bg-red-200",
-      "7.5mg-12": "bg-yellow-400",  // 黄色（赤の対照）
-      "7.5mg-8": "bg-yellow-300",
-      "7.5mg-4": "bg-yellow-200",
-      "10mg-12": "bg-green-400",    // 緑（黄色の対照）
-      "10mg-8": "bg-green-300",
-      "10mg-4": "bg-green-200",
+      "2.5mg-8": "bg-red-400",      // 赤（対照）
+      "2.5mg-4": "bg-yellow-400",   // 黄（対照）
+      "5mg-12": "bg-green-400",     // 緑
+      "5mg-8": "bg-purple-400",     // 紫（対照）
+      "5mg-4": "bg-orange-400",     // オレンジ（対照）
+      "7.5mg-12": "bg-pink-400",    // ピンク
+      "7.5mg-8": "bg-cyan-400",     // シアン（対照）
+      "7.5mg-4": "bg-lime-400",     // ライム（対照）
+      "10mg-12": "bg-indigo-400",   // インディゴ
+      "10mg-8": "bg-rose-400",      // ローズ（対照）
+      "10mg-4": "bg-amber-400",     // アンバー（対照）
     };
 
     const key = `${primaryDosage}-${maxCount}`;
