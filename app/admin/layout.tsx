@@ -240,12 +240,12 @@ function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
   return (
     <button
       onClick={() => router.push(href)}
-      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
+      className={`w-full px-5 py-3.5 flex items-center gap-3.5 hover:bg-slate-800 transition-colors ${
         isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
       }`}
     >
-      <span className="text-xl">{icon}</span>
-      {isOpen && <span className="text-sm">{label}</span>}
+      <span className="text-lg">{icon}</span>
+      {isOpen && <span className="text-[15px] font-medium">{label}</span>}
     </button>
   );
 }
