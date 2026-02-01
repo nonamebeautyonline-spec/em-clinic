@@ -50,6 +50,8 @@ interface DashboardStats {
   };
 }
 
+type TabType = "overview" | "reservations" | "revenue" | "patients";
+
 export default function EnhancedDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -58,6 +60,7 @@ export default function EnhancedDashboard() {
   const [dateRange, setDateRange] = useState("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [activeTab, setActiveTab] = useState<TabType>("overview");
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -108,21 +111,34 @@ export default function EnhancedDashboard() {
     );
   }
 
+  const getRangeLabelJa = () => {
+    const labels: Record<string, string> = {
+      today: "今日",
+      yesterday: "昨日",
+      this_week: "今週",
+      last_week: "先週",
+      this_month: "今月",
+      last_month: "先月",
+      custom: `${startDate} 〜 ${endDate}`,
+    };
+    return labels[dateRange] || "今日";
+  };
+
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-7xl mx-auto">
       {/* ヘッダー */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">ダッシュボード</h1>
-          <p className="text-slate-600 text-sm mt-1">運営KPIと業績指標</p>
+          <h1 className="text-3xl font-bold text-slate-900">ダッシュボード</h1>
+          <p className="text-slate-500 text-sm mt-1">{getRangeLabelJa()}の運営指標</p>
         </div>
 
         {/* 日付選択 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
           >
             <option value="today">今日</option>
             <option value="yesterday">昨日</option>
@@ -130,7 +146,7 @@ export default function EnhancedDashboard() {
             <option value="last_week">先週</option>
             <option value="this_month">今月</option>
             <option value="last_month">先月</option>
-            <option value="custom">カスタム範囲</option>
+            <option value="custom">カスタム</option>
           </select>
 
           {dateRange === "custom" && (
@@ -139,14 +155,14 @@ export default function EnhancedDashboard() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <span className="text-slate-600">〜</span>
+              <span className="text-slate-400">〜</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </>
           )}
@@ -154,173 +170,345 @@ export default function EnhancedDashboard() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg text-red-700">
+          {error}
+        </div>
       )}
 
-      {/* KPI カード */}
+      {/* メインKPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* 予約件数 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-          <div className="text-sm text-slate-600 mb-2">予約</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.reservations.total || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            完了: {stats?.reservations.completed || 0} / キャンセル: {stats?.reservations.cancelled || 0}
-          </div>
-          <div className="text-xs text-red-600 mt-1">
-            キャンセル率: {stats?.reservations.cancelRate || 0}%
-          </div>
-        </div>
+        <KPICard
+          title="総売上"
+          value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
+          subtitle={`平均 ¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+          icon="💰"
+          color="blue"
+        />
+        <KPICard
+          title="LINE登録者"
+          value={`${stats?.kpi.lineRegisteredCount || 0}`}
+          subtitle="LINE友だち数"
+          icon="💬"
+          color="green"
+        />
+        <KPICard
+          title="本日の予約"
+          value={`${stats?.kpi.todayNewReservations || 0}`}
+          subtitle="新規予約数"
+          icon="📅"
+          color="purple"
+        />
+        <KPICard
+          title="本日の決済"
+          value={`${stats?.kpi.todayPaidCount || 0}`}
+          subtitle="決済完了数"
+          icon="✅"
+          color="orange"
+        />
+      </div>
 
-        {/* 配送件数 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-          <div className="text-sm text-slate-600 mb-2">配送</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.shipping.total || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            新規: {stats?.shipping.first || 0} / 再処方: {stats?.shipping.reorder || 0}
-          </div>
-          <div className="text-xs text-orange-600 mt-1">
-            未発送: {stats?.shipping.pending || 0} / 遅延: {stats?.shipping.delayed || 0}
-          </div>
-        </div>
-
-        {/* 売上 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-          <div className="text-sm text-slate-600 mb-2">売上</div>
-          <div className="text-3xl font-bold text-slate-900">
-            ¥{(stats?.revenue.total || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            カード: ¥{(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥
-            {(stats?.revenue.bankTransfer || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-blue-600 mt-1">
-            平均注文額: ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
-          </div>
-        </div>
-
-        {/* リピート率 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-          <div className="text-sm text-slate-600 mb-2">リピート率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.patients.repeatRate || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            総患者: {stats?.patients.total || 0} / アクティブ: {stats?.patients.active || 0}
-          </div>
-          <div className="text-xs text-green-600 mt-1">
-            新規患者: {stats?.patients.new || 0}
-          </div>
+      {/* 転換率KPI */}
+      <div className="mb-8">
+        <h2 className="text-lg font-bold text-slate-900 mb-4">転換率</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <ConversionCard
+            title="診療後の決済率"
+            rate={stats?.kpi.paymentRateAfterConsultation || 0}
+            description="診察完了後に決済した患者の割合"
+          />
+          <ConversionCard
+            title="問診後の予約率"
+            rate={stats?.kpi.reservationRateAfterIntake || 0}
+            description="問診完了後に予約した患者の割合"
+          />
+          <ConversionCard
+            title="予約後の受診率"
+            rate={stats?.kpi.consultationCompletionRate || 0}
+            description="予約後に診察を完了した患者の割合"
+          />
         </div>
       </div>
 
-      {/* 新しいKPI カード（転換率） */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* 診療後の決済率 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-cyan-500">
-          <div className="text-sm text-slate-600 mb-2">診療後の決済率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.paymentRateAfterConsultation || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            診察完了後に決済した患者の割合
-          </div>
+      {/* タブナビゲーション */}
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+        <div className="border-b border-slate-200">
+          <nav className="flex -mb-px">
+            <TabButton
+              active={activeTab === "overview"}
+              onClick={() => setActiveTab("overview")}
+              label="概要"
+            />
+            <TabButton
+              active={activeTab === "reservations"}
+              onClick={() => setActiveTab("reservations")}
+              label="予約・配送"
+            />
+            <TabButton
+              active={activeTab === "revenue"}
+              onClick={() => setActiveTab("revenue")}
+              label="売上・商品"
+            />
+            <TabButton
+              active={activeTab === "patients"}
+              onClick={() => setActiveTab("patients")}
+              label="患者"
+            />
+          </nav>
         </div>
 
-        {/* 問診後の予約率 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
-          <div className="text-sm text-slate-600 mb-2">問診後の予約率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.reservationRateAfterIntake || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            問診完了後に予約した患者の割合
-          </div>
-        </div>
-
-        {/* 予約後の受診率 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
-          <div className="text-sm text-slate-600 mb-2">予約後の受診率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.consultationCompletionRate || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            予約後に診察を完了した患者の割合
-          </div>
-        </div>
-      </div>
-
-      {/* 本日の活動KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* LINE登録者数 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-emerald-500">
-          <div className="text-sm text-slate-600 mb-2">LINE登録者数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.lineRegisteredCount || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            LINE連携済みの患者数
-          </div>
-        </div>
-
-        {/* 本日の予約数 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-sky-500">
-          <div className="text-sm text-slate-600 mb-2">本日の予約数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayNewReservations || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            今日作成された予約の数
-          </div>
-        </div>
-
-        {/* 本日の決済人数 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-violet-500">
-          <div className="text-sm text-slate-600 mb-2">本日の決済人数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayPaidCount || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            今日決済した患者の数
-          </div>
-        </div>
-
-        {/* 顧客単価 */}
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-rose-500">
-          <div className="text-sm text-slate-600 mb-2">顧客単価</div>
-          <div className="text-3xl font-bold text-slate-900">
-            ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            平均注文額
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 商品別売上 */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">商品別売上</h2>
-          <div className="space-y-3">
-            {stats?.products.map((product) => (
-              <div key={product.code} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">{product.name}</div>
-                  <div className="text-xs text-slate-600">{product.code}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-slate-900">
-                    ¥{product.revenue.toLocaleString()}
+        <div className="p-6">
+          {activeTab === "overview" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 銀行振込状況 */}
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">銀行振込状況</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <span className="text-sm font-medium text-yellow-900">入金待ち</span>
+                    <span className="text-2xl font-bold text-yellow-900">
+                      {stats?.bankTransfer.pending || 0}
+                    </span>
                   </div>
-                  <div className="text-xs text-slate-600">{product.count}件</div>
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                    <span className="text-sm font-medium text-green-900">確認済み</span>
+                    <span className="text-2xl font-bold text-green-900">
+                      {stats?.bankTransfer.confirmed || 0}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* 銀行振込状況 */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-bold text-slate-900 mb-4">銀行振込状況</h2>
-          <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="text-sm text-yellow-800 mb-2">入金待ち</div>
-              <div className="text-3xl font-bold text-yellow-900">{stats?.bankTransfer.pending || 0}</div>
-              <div className="text-xs text-yellow-700 mt-1">件</div>
+              {/* クイック統計 */}
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">その他統計</h3>
+                <div className="space-y-3">
+                  <StatRow label="リピート率" value={`${stats?.patients.repeatRate || 0}%`} />
+                  <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
+                  <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
+                  <StatRow label="キャンセル率" value={`${stats?.reservations.cancelRate || 0}%`} />
+                </div>
+              </div>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-sm text-green-800 mb-2">確認済み</div>
-              <div className="text-3xl font-bold text-green-900">{stats?.bankTransfer.confirmed || 0}</div>
-              <div className="text-xs text-green-700 mt-1">件</div>
+          )}
+
+          {activeTab === "reservations" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">予約</h3>
+                <div className="space-y-3">
+                  <StatRow label="総予約数" value={`${stats?.reservations.total || 0}件`} />
+                  <StatRow label="完了" value={`${stats?.reservations.completed || 0}件`} />
+                  <StatRow label="キャンセル" value={`${stats?.reservations.cancelled || 0}件`} />
+                  <StatRow
+                    label="キャンセル率"
+                    value={`${stats?.reservations.cancelRate || 0}%`}
+                    highlight="red"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">配送</h3>
+                <div className="space-y-3">
+                  <StatRow label="総配送数" value={`${stats?.shipping.total || 0}件`} />
+                  <StatRow label="新規" value={`${stats?.shipping.first || 0}件`} />
+                  <StatRow label="再処方" value={`${stats?.shipping.reorder || 0}件`} />
+                  <StatRow
+                    label="未発送"
+                    value={`${stats?.shipping.pending || 0}件`}
+                    highlight="orange"
+                  />
+                  <StatRow
+                    label="遅延"
+                    value={`${stats?.shipping.delayed || 0}件`}
+                    highlight="red"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {activeTab === "revenue" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard label="総売上" value={`¥${(stats?.revenue.total || 0).toLocaleString()}`} />
+                <StatCard
+                  label="カード決済"
+                  value={`¥${(stats?.revenue.square || 0).toLocaleString()}`}
+                />
+                <StatCard
+                  label="銀行振込"
+                  value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`}
+                />
+              </div>
+
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">商品別売上</h3>
+                <div className="space-y-2">
+                  {stats?.products.map((product) => (
+                    <div
+                      key={product.code}
+                      className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+                    >
+                      <div>
+                        <div className="text-sm font-medium text-slate-900">{product.name}</div>
+                        <div className="text-xs text-slate-500">{product.code}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-md font-bold text-slate-900">
+                          ¥{product.revenue.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-slate-500">{product.count}件</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "patients" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">患者統計</h3>
+                <div className="space-y-3">
+                  <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
+                  <StatRow label="アクティブ患者" value={`${stats?.patients.active || 0}人`} />
+                  <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
+                  <StatRow
+                    label="リピート率"
+                    value={`${stats?.patients.repeatRate || 0}%`}
+                    highlight="green"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-md font-bold text-slate-900 mb-4">エンゲージメント</h3>
+                <div className="space-y-3">
+                  <StatRow label="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}人`} />
+                  <StatRow
+                    label="問診後の予約率"
+                    value={`${stats?.kpi.reservationRateAfterIntake || 0}%`}
+                  />
+                  <StatRow
+                    label="予約後の受診率"
+                    value={`${stats?.kpi.consultationCompletionRate || 0}%`}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface KPICardProps {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: string;
+  color: "blue" | "green" | "purple" | "orange";
+}
+
+function KPICard({ title, value, subtitle, icon, color }: KPICardProps) {
+  const colorClasses = {
+    blue: "border-blue-500 bg-blue-50",
+    green: "border-green-500 bg-green-50",
+    purple: "border-purple-500 bg-purple-50",
+    orange: "border-orange-500 bg-orange-50",
+  };
+
+  return (
+    <div className={`bg-white rounded-lg shadow-sm p-6 border-l-4 ${colorClasses[color]}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-medium text-slate-600">{title}</div>
+        <div className="text-2xl">{icon}</div>
+      </div>
+      <div className="text-3xl font-bold text-slate-900 mb-1">{value}</div>
+      <div className="text-xs text-slate-500">{subtitle}</div>
+    </div>
+  );
+}
+
+interface ConversionCardProps {
+  title: string;
+  rate: number;
+  description: string;
+}
+
+function ConversionCard({ title, rate, description }: ConversionCardProps) {
+  const getRateColor = (rate: number) => {
+    if (rate >= 80) return "text-green-600";
+    if (rate >= 60) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-white to-slate-50 rounded-lg shadow-sm p-6 border border-slate-200">
+      <div className="text-sm font-medium text-slate-600 mb-3">{title}</div>
+      <div className={`text-4xl font-bold mb-2 ${getRateColor(rate)}`}>{rate}%</div>
+      <div className="text-xs text-slate-500">{description}</div>
+    </div>
+  );
+}
+
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}
+
+function TabButton({ active, onClick, label }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+        active
+          ? "border-blue-500 text-blue-600"
+          : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+interface StatRowProps {
+  label: string;
+  value: string;
+  highlight?: "red" | "orange" | "green";
+}
+
+function StatRow({ label, value, highlight }: StatRowProps) {
+  const highlightClasses = {
+    red: "text-red-600",
+    orange: "text-orange-600",
+    green: "text-green-600",
+  };
+
+  return (
+    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+      <span className="text-sm text-slate-600">{label}</span>
+      <span className={`text-sm font-bold ${highlight ? highlightClasses[highlight] : "text-slate-900"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+interface StatCardProps {
+  label: string;
+  value: string;
+}
+
+function StatCard({ label, value }: StatCardProps) {
+  return (
+    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-6 border border-slate-200">
+      <div className="text-xs font-medium text-slate-500 mb-2">{label}</div>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
     </div>
   );
 }
