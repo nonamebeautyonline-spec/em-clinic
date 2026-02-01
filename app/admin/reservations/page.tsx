@@ -15,12 +15,30 @@ interface Reservation {
   [key: string]: any; // その他のフィールド
 }
 
+interface ReminderData {
+  lstep_id: string;
+  patient_id: string;
+  patient_name: string;
+  reserved_time: string;
+  phone: string;
+  message: string;
+}
+
+interface ReminderPreviewResult {
+  date: string;
+  reminders: ReminderData[];
+  total: number;
+  errors: string[];
+}
+
 export default function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [reminderPreview, setReminderPreview] = useState<ReminderPreviewResult | null>(null);
+  const [loadingReminder, setLoadingReminder] = useState(false);
 
   // デフォルトは今日の日付
   const today = new Date().toISOString().slice(0, 10);
@@ -84,6 +102,84 @@ export default function ReservationsPage() {
     return `${month}/${day}(${dayOfWeek})`;
   };
 
+  const handleReminderPreview = async () => {
+    setLoadingReminder(true);
+    setError("");
+    setReminderPreview(null);
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/reservations/reminder-preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ date: selectedDate }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `エラー (${res.status})`);
+      }
+
+      const data = await res.json();
+      setReminderPreview(data);
+    } catch (err) {
+      console.error("Reminder preview error:", err);
+      setError(err instanceof Error ? err.message : "付帯情報作成に失敗しました");
+    } finally {
+      setLoadingReminder(false);
+    }
+  };
+
+  const handleDownloadReminderCSV = async () => {
+    if (!reminderPreview) return;
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/reservations/reminder-csv", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reminders: reminderPreview.reminders,
+          date: selectedDate,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("診療リマインドCSV生成に失敗しました");
+      }
+
+      // CSVダウンロード
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reminder_${selectedDate.replace(/-/g, "")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV download error:", err);
+      alert(err instanceof Error ? err.message : "ダウンロードに失敗しました");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -114,6 +210,17 @@ export default function ReservationsPage() {
           className="px-3 py-2 text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"
         >
           今日
+        </button>
+        <button
+          onClick={handleReminderPreview}
+          disabled={loadingReminder || reservations.length === 0}
+          className={`ml-auto px-4 py-2 text-sm rounded-lg font-medium ${
+            loadingReminder || reservations.length === 0
+              ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+              : "bg-purple-600 text-white hover:bg-purple-700"
+          }`}
+        >
+          {loadingReminder ? "作成中..." : "📋 付帯情報を作成"}
         </button>
       </div>
 
@@ -157,6 +264,110 @@ export default function ReservationsPage() {
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+      )}
+
+      {/* 診療リマインドプレビュー */}
+      {reminderPreview && (
+        <div className="mb-6 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 bg-purple-50 border-b border-purple-200">
+            <h2 className="text-lg font-semibold text-purple-900">診療リマインド付帯情報</h2>
+            <p className="text-sm text-purple-700 mt-1">
+              {reminderPreview.total}件のリマインドを作成します。問題なければCSVをダウンロードしてLステップにインポートしてください。
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    予約時間
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    患者名
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    患者ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    LステップID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    電話番号
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    リマインドメッセージ
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-200">
+                {reminderPreview.reminders.map((reminder, i) => (
+                  <tr key={i} className="hover:bg-slate-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">
+                      {formatTime(reminder.reserved_time)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                      {reminder.patient_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
+                      {reminder.patient_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-600">
+                      ✅ {reminder.lstep_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      {reminder.phone}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600 max-w-md">
+                      {reminder.message}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {reminderPreview.errors.length > 0 && (
+            <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-2">⚠️ 警告</h3>
+              <ul className="list-disc list-inside text-xs text-yellow-700 space-y-1">
+                {reminderPreview.errors.map((err, idx) => (
+                  <li key={idx}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              リマインド対象: <span className="font-semibold text-purple-600">{reminderPreview.total}件</span>
+              {reminderPreview.errors.length > 0 && (
+                <span className="ml-4 text-yellow-600">
+                  スキップ: {reminderPreview.errors.length}件
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setReminderPreview(null)}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 underline"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDownloadReminderCSV}
+                disabled={reminderPreview.total === 0}
+                className={`px-6 py-3 rounded-lg font-medium ${
+                  reminderPreview.total === 0
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-purple-600 text-white hover:bg-purple-700"
+                }`}
+              >
+                📥 診療リマインドCSVをダウンロード
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="space-y-2">
