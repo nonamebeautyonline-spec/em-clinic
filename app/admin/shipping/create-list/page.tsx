@@ -308,7 +308,7 @@ export default function CreateShippingListPage() {
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const selectedItems = items.filter((item) => item.selected);
 
     if (selectedItems.length === 0) {
@@ -317,11 +317,28 @@ export default function CreateShippingListPage() {
     }
 
     try {
+      // 日本語フォントを動的に読み込み
+      const fontResponse = await fetch('/fonts/NotoSansJP-Regular.ttf');
+      const fontArrayBuffer = await fontResponse.arrayBuffer();
+
+      // ArrayBufferをBase64に変換
+      const fontBase64 = btoa(
+        new Uint8Array(fontArrayBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ''
+        )
+      );
+
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
         format: "a4",
       });
+
+      // 日本語フォントを登録
+      doc.addFileToVFS('NotoSansJP-Regular.ttf', fontBase64);
+      doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
+      doc.setFont('NotoSansJP');
 
       // タイトル
       doc.setFontSize(16);
@@ -398,7 +415,7 @@ export default function CreateShippingListPage() {
         styles: {
           fontSize: 6,
           cellPadding: 2,
-          font: "helvetica", // 日本語サポートのため
+          font: "NotoSansJP", // 日本語フォント
         },
         headStyles: {
           fillColor: [71, 85, 105],
@@ -429,7 +446,8 @@ export default function CreateShippingListPage() {
             const color = getRgbColor(item);
             doc.setFillColor(color[0], color[1], color[2]);
             doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
-            // テキストを再描画
+            // テキストを再描画（日本語フォント使用）
+            doc.setFont('NotoSansJP');
             doc.setTextColor(0, 0, 0);
             const text = String(data.cell.text);
             doc.text(text, data.cell.x + 2, data.cell.y + data.cell.height / 2 + 2);
