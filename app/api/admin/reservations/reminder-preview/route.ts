@@ -15,6 +15,9 @@ interface ReminderData {
   reserved_time: string;
   phone: string;
   message: string;
+  doctor_status: string; // 前回診察：OK/NG
+  call_status: string; // 電話状態：不通など
+  prescription_menu: string; // 処方メニュー
 }
 
 export async function POST(req: NextRequest) {
@@ -81,6 +84,9 @@ export async function POST(req: NextRequest) {
       const patientName = row.patient_name || "";
       const reservedTime = row.reserved_time || "";
       const phone = row.phone || "";
+      const doctorStatus = row.status || ""; // 前回診察ステータス（OK/NG）
+      const callStatus = row.call_status || ""; // 電話ステータス（不通など）
+      const prescriptionMenu = row.prescription_menu || ""; // 処方メニュー
 
       if (!lstepId) {
         errors.push(`患者ID ${row.patient_id}: LステップIDがありません`);
@@ -98,6 +104,9 @@ export async function POST(req: NextRequest) {
         reserved_time: reservedTime,
         phone: phone,
         message: message,
+        doctor_status: doctorStatus,
+        call_status: callStatus,
+        prescription_menu: prescriptionMenu,
       });
     }
 

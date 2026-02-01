@@ -375,11 +375,11 @@ export async function POST(req: NextRequest) {
         skipSupabase: true, // GAS側でSupabase書き込みをスキップ
       };
 
-      // ★ intakeテーブルから名前を取得（最新のレコード）
+      // ★ intakeテーブルから名前とステータスを取得（最新のレコード）
       // ★★ 予約作成前にintakeレコードの存在を必須チェック ★★
       const { data: intakeData, error: intakeCheckError } = await supabase
         .from("intake")
-        .select("patient_name, patient_id")
+        .select("patient_name, patient_id, status")
         .eq("patient_id", pid)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -403,6 +403,21 @@ export async function POST(req: NextRequest) {
       }
 
       const patientName = intakeData.patient_name || null;
+
+      // ★ 前回NGの患者が再予約を取った場合、NGステータスをクリア
+      if (intakeData.status === "NG") {
+        console.log(`[Reservation] Resetting NG status for patient_id=${pid}`);
+        const { error: resetError } = await supabase
+          .from("intake")
+          .update({ status: null })
+          .eq("patient_id", pid);
+
+        if (resetError) {
+          console.error("[Reservation] Failed to reset NG status:", resetError);
+        } else {
+          console.log(`[Reservation] ✅ NG status cleared for patient_id=${pid}`);
+        }
+      }
 
       // Supabase と GAS に並列書き込み
       const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([

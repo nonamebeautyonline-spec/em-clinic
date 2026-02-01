@@ -22,6 +22,9 @@ interface ReminderData {
   reserved_time: string;
   phone: string;
   message: string;
+  doctor_status: string; // 前回診察：OK/NG
+  call_status: string; // 電話状態：不通など
+  prescription_menu: string; // 処方メニュー
 }
 
 interface ReminderPreviewResult {
@@ -287,13 +290,16 @@ export default function ReservationsPage() {
                     患者名
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    患者ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     LステップID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    電話番号
+                    前回診察
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    電話状態
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    処方メニュー
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     リマインドメッセージ
@@ -301,28 +307,74 @@ export default function ReservationsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
-                {reminderPreview.reminders.map((reminder, i) => (
-                  <tr key={i} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">
-                      {formatTime(reminder.reserved_time)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {reminder.patient_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                      {reminder.patient_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-600">
-                      ✅ {reminder.lstep_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                      {reminder.phone}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-md">
-                      {reminder.message}
-                    </td>
-                  </tr>
-                ))}
+                {reminderPreview.reminders.map((reminder, i) => {
+                  const isNG = reminder.doctor_status === "NG";
+                  const isUnreachable = reminder.call_status === "unreachable" || reminder.call_status === "不通";
+                  const rowClass = isNG || isUnreachable ? "bg-yellow-50" : "hover:bg-slate-50";
+
+                  return (
+                    <tr key={i} className={rowClass}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">
+                        {formatTime(reminder.reserved_time)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                        {reminder.patient_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                        {reminder.lstep_id ? (
+                          <a
+                            href={getLStepUrl(reminder.lstep_id) || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-600 hover:text-green-700 hover:underline"
+                          >
+                            ✅ {reminder.lstep_id}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {reminder.doctor_status ? (
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              isNG
+                                ? "bg-red-100 text-red-800"
+                                : reminder.doctor_status === "OK"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {reminder.doctor_status}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {reminder.call_status ? (
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              isUnreachable
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {reminder.call_status}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                        {reminder.prescription_menu || "-"}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600 max-w-md">
+                        {reminder.message}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
