@@ -132,9 +132,19 @@ export default function CreateShippingListPage() {
     return dosages;
   };
 
-  // ★ ソート順を修正: 2.5mg → 5mg → 7.5mg → 10mg の順で、本数が多い順（降順）
+  // ★ アイテムが統合されたものか判定
+  const isMergedItem = (item: ShippingItem): boolean => {
+    const counts = [item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg];
+    const nonZeroCount = counts.filter(c => c > 0).length;
+    return nonZeroCount > 1; // 2つ以上の用量に本数がある = 統合
+  };
+
+  // ★ ソート順: 単一用量アイテム（2.5mg → 5mg → 7.5mg → 10mg、本数降順） → 統合アイテム
   const sortByDosage = (items: ShippingItem[]): ShippingItem[] => {
-    return [...items].sort((a, b) => {
+    const single = items.filter(item => !isMergedItem(item));
+    const merged = items.filter(item => isMergedItem(item));
+
+    const sortedSingle = single.sort((a, b) => {
       // 2.5mgの本数で降順ソート
       if (a.dosage_2_5mg !== b.dosage_2_5mg) {
         return b.dosage_2_5mg - a.dosage_2_5mg;
@@ -155,6 +165,13 @@ export default function CreateShippingListPage() {
       // 全て同じ場合は決済日時順
       return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
     });
+
+    // 統合アイテムは決済日時順
+    const sortedMerged = merged.sort((a, b) =>
+      new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime()
+    );
+
+    return [...sortedSingle, ...sortedMerged];
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -340,6 +357,14 @@ export default function CreateShippingListPage() {
 
       // RGB変換関数
       const getRgbColor = (item: ShippingItem): [number, number, number] => {
+        // 統合アイテムは特別な色（グレー系）
+        if (isMergedItem(item)) {
+          const totalCount = item.dosage_2_5mg + item.dosage_5mg + item.dosage_7_5mg + item.dosage_10mg;
+          if (totalCount >= 12) return [148, 163, 184]; // slate-400
+          if (totalCount >= 8) return [203, 213, 225];  // slate-300
+          return [226, 232, 240];                       // slate-200
+        }
+
         const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
         let primaryDosage = "";
         if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
@@ -348,18 +373,18 @@ export default function CreateShippingListPage() {
         else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
 
         const colorMap: Record<string, [number, number, number]> = {
-          "2.5mg-12": [147, 197, 253], // blue-400
-          "2.5mg-8": [191, 219, 254],  // blue-300
-          "2.5mg-4": [219, 234, 254],  // blue-200
-          "5mg-12": [134, 239, 172],   // green-400
-          "5mg-8": [167, 243, 208],    // green-300
-          "5mg-4": [187, 247, 208],    // green-200
-          "7.5mg-12": [250, 204, 21],  // yellow-400
-          "7.5mg-8": [253, 224, 71],   // yellow-300
-          "7.5mg-4": [254, 240, 138],  // yellow-200
-          "10mg-12": [192, 132, 252],  // purple-400
-          "10mg-8": [216, 180, 254],   // purple-300
-          "10mg-4": [233, 213, 255],   // purple-200
+          "2.5mg-12": [96, 165, 250],   // blue-400
+          "2.5mg-8": [147, 197, 253],   // blue-300
+          "2.5mg-4": [191, 219, 254],   // blue-200
+          "5mg-12": [248, 113, 113],    // red-400
+          "5mg-8": [252, 165, 165],     // red-300
+          "5mg-4": [254, 202, 202],     // red-200
+          "7.5mg-12": [250, 204, 21],   // yellow-400
+          "7.5mg-8": [253, 224, 71],    // yellow-300
+          "7.5mg-4": [254, 240, 138],   // yellow-200
+          "10mg-12": [74, 222, 128],    // green-400
+          "10mg-8": [134, 239, 172],    // green-300
+          "10mg-4": [187, 247, 208],    // green-200
         };
 
         const key = `${primaryDosage}-${maxCount}`;
@@ -432,20 +457,28 @@ export default function CreateShippingListPage() {
 
     if (!primaryDosage) return "";
 
-    // (用量, 本数) の組み合わせごとに色を割り当て
+    // 統合アイテムは特別な色（グレー系）
+    if (isMergedItem(item)) {
+      const totalCount = item.dosage_2_5mg + item.dosage_5mg + item.dosage_7_5mg + item.dosage_10mg;
+      if (totalCount >= 12) return "bg-slate-400";
+      if (totalCount >= 8) return "bg-slate-300";
+      return "bg-slate-200";
+    }
+
+    // (用量, 本数) の組み合わせごとに色を割り当て（対照的な色）
     const colorMap: Record<string, string> = {
-      "2.5mg-12": "bg-blue-400",
+      "2.5mg-12": "bg-blue-400",    // 青
       "2.5mg-8": "bg-blue-300",
       "2.5mg-4": "bg-blue-200",
-      "5mg-12": "bg-green-400",
-      "5mg-8": "bg-green-300",
-      "5mg-4": "bg-green-200",
-      "7.5mg-12": "bg-yellow-400",
+      "5mg-12": "bg-red-400",       // 赤（青の対照）
+      "5mg-8": "bg-red-300",
+      "5mg-4": "bg-red-200",
+      "7.5mg-12": "bg-yellow-400",  // 黄色（赤の対照）
       "7.5mg-8": "bg-yellow-300",
       "7.5mg-4": "bg-yellow-200",
-      "10mg-12": "bg-purple-400",
-      "10mg-8": "bg-purple-300",
-      "10mg-4": "bg-purple-200",
+      "10mg-12": "bg-green-400",    // 緑（黄色の対照）
+      "10mg-8": "bg-green-300",
+      "10mg-4": "bg-green-200",
     };
 
     const key = `${primaryDosage}-${maxCount}`;
