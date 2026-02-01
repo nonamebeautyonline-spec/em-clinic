@@ -37,9 +37,9 @@ export async function GET(req: NextRequest) {
     // ★ Plan A: ordersテーブルから銀行振込のみを取得（shipping_nameも追加）
     const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name")
+      .select("id, patient_id, product_code, amount, payment_method, status, created_at, shipping_date, tracking_number, shipping_name")
       .eq("payment_method", "bank_transfer")
-      .order("paid_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
         patient_name: shippingName || patientNameMap[order.patient_id] || "",
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
-        payment_date: order.paid_at, // ★ ordersテーブルのpaid_at
+        payment_date: order.created_at, // ★ 申請日時: ordersテーブルのcreated_at
         shipping_date: order.shipping_date || "", // ★ ordersテーブルのshipping_date
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 0, // ★ 0件の場合は0を表示
