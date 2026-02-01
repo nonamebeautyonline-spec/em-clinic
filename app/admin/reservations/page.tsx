@@ -301,9 +301,6 @@ export default function ReservationsPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     処方メニュー
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    リマインドメッセージ
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
@@ -368,9 +365,6 @@ export default function ReservationsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {reminder.prescription_menu || "-"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600 max-w-md">
-                        {reminder.message}
                       </td>
                     </tr>
                   );
