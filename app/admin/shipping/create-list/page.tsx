@@ -228,31 +228,9 @@ export default function CreateShippingListPage() {
       }
     });
 
-    // ★ 統合後の並び順: 7.5mgのみ → 2.5+5統合 → 5+7.5統合 の順
-    const sorted = merged.sort((a, b) => {
-      // 7.5mgのみ（2.5mg=0, 5mg=0, 7.5mg>0）を最初に
-      const aIs75Only = a.dosage_2_5mg === 0 && a.dosage_5mg === 0 && a.dosage_7_5mg > 0;
-      const bIs75Only = b.dosage_2_5mg === 0 && b.dosage_5mg === 0 && b.dosage_7_5mg > 0;
-      if (aIs75Only && !bIs75Only) return -1;
-      if (!aIs75Only && bIs75Only) return 1;
-
-      // 2.5+5統合（2.5mg>0 && 5mg>0, 7.5mg=0）を次に
-      const aIs25Plus5 = a.dosage_2_5mg > 0 && a.dosage_5mg > 0 && a.dosage_7_5mg === 0;
-      const bIs25Plus5 = b.dosage_2_5mg > 0 && b.dosage_5mg > 0 && b.dosage_7_5mg === 0;
-      if (aIs25Plus5 && !bIs25Plus5) return -1;
-      if (!aIs25Plus5 && bIs25Plus5) return 1;
-
-      // 5+7.5統合（5mg>0 && 7.5mg>0）を次に
-      const aIs5Plus75 = a.dosage_5mg > 0 && a.dosage_7_5mg > 0;
-      const bIs5Plus75 = b.dosage_5mg > 0 && b.dosage_7_5mg > 0;
-      if (aIs5Plus75 && !bIs5Plus75) return -1;
-      if (!aIs5Plus75 && bIs5Plus75) return 1;
-
-      // その他は用量順ソート
-      return sortByDosage([a, b])[0] === a ? -1 : 1;
-    });
-
-    setItems([...sorted, ...unselectedItems]);
+    // ★ 統合後も同じ用量順にソート（2.5mg → 5mg → 7.5mg → 10mg、本数降順）
+    const sorted = sortByDosage([...merged, ...unselectedItems]);
+    setItems(sorted);
   };
 
   const handleExportYamatoB2 = async () => {
@@ -360,6 +338,34 @@ export default function CreateShippingListPage() {
         item.payment_id,
       ]);
 
+      // RGB変換関数
+      const getRgbColor = (item: ShippingItem): [number, number, number] => {
+        const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
+        let primaryDosage = "";
+        if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
+        else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
+        else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
+        else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
+
+        const colorMap: Record<string, [number, number, number]> = {
+          "2.5mg-12": [147, 197, 253], // blue-400
+          "2.5mg-8": [191, 219, 254],  // blue-300
+          "2.5mg-4": [219, 234, 254],  // blue-200
+          "5mg-12": [134, 239, 172],   // green-400
+          "5mg-8": [167, 243, 208],    // green-300
+          "5mg-4": [187, 247, 208],    // green-200
+          "7.5mg-12": [250, 204, 21],  // yellow-400
+          "7.5mg-8": [253, 224, 71],   // yellow-300
+          "7.5mg-4": [254, 240, 138],  // yellow-200
+          "10mg-12": [192, 132, 252],  // purple-400
+          "10mg-8": [216, 180, 254],   // purple-300
+          "10mg-4": [233, 213, 255],   // purple-200
+        };
+
+        const key = `${primaryDosage}-${maxCount}`;
+        return colorMap[key] || [255, 255, 255];
+      };
+
       autoTable(doc, {
         head: headers,
         body: data,
@@ -367,6 +373,7 @@ export default function CreateShippingListPage() {
         styles: {
           fontSize: 6,
           cellPadding: 2,
+          font: "helvetica", // 日本語サポートのため
         },
         headStyles: {
           fillColor: [71, 85, 105],
@@ -390,6 +397,19 @@ export default function CreateShippingListPage() {
           13: { cellWidth: 20 }, // patient_id
           14: { cellWidth: 20 }, // payment_id
         },
+        didDrawCell: (data) => {
+          // 各セルの背景色を設定
+          if (data.section === "body") {
+            const item = selectedItems[data.row.index];
+            const color = getRgbColor(item);
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
+            // テキストを再描画
+            doc.setTextColor(0, 0, 0);
+            const text = String(data.cell.text);
+            doc.text(text, data.cell.x + 2, data.cell.y + data.cell.height / 2 + 2);
+          }
+        },
       });
 
       // PDF保存
@@ -400,14 +420,36 @@ export default function CreateShippingListPage() {
     }
   };
 
-  // ★ 行全体の背景色を取得（12本=青、8本=緑、4本=黄色）
+  // ★ 行全体の背景色を取得（各用量×各本数の組み合わせごとに固有の色）
   const getRowColor = (item: ShippingItem): string => {
-    // 最も多い本数で色を決定
+    // 主要な用量と本数を決定
     const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
-    if (maxCount === 12) return "bg-blue-50";
-    if (maxCount === 8) return "bg-green-50";
-    if (maxCount === 4) return "bg-yellow-50";
-    return "";
+    let primaryDosage = "";
+    if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
+    else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
+    else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
+    else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
+
+    if (!primaryDosage) return "";
+
+    // (用量, 本数) の組み合わせごとに色を割り当て
+    const colorMap: Record<string, string> = {
+      "2.5mg-12": "bg-blue-400",
+      "2.5mg-8": "bg-blue-300",
+      "2.5mg-4": "bg-blue-200",
+      "5mg-12": "bg-green-400",
+      "5mg-8": "bg-green-300",
+      "5mg-4": "bg-green-200",
+      "7.5mg-12": "bg-yellow-400",
+      "7.5mg-8": "bg-yellow-300",
+      "7.5mg-4": "bg-yellow-200",
+      "10mg-12": "bg-purple-400",
+      "10mg-8": "bg-purple-300",
+      "10mg-4": "bg-purple-200",
+    };
+
+    const key = `${primaryDosage}-${maxCount}`;
+    return colorMap[key] || "";
   };
 
   if (loading) {
