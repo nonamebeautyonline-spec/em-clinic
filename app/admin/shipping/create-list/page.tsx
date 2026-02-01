@@ -424,8 +424,7 @@ export default function CreateShippingListPage() {
         return colorMap[key] || [255, 255, 255];
       };
 
-      // @ts-ignore - jspdf-autotableの型定義が不完全なため
-      doc.autoTable({
+      autoTable(doc, {
         head: headers,
         body: data,
         startY: 28,
