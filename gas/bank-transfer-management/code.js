@@ -109,6 +109,10 @@ function doPost(e) {
       return handleBankTransferOrder_(body);
     }
 
+    if (type === "check_sheet") {
+      return handleCheckSheet_(body);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unknown type" }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -116,6 +120,87 @@ function doPost(e) {
     Logger.log("[doPost] Error: " + err);
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ==========================================
+// シート内容確認（デバッグ用）
+// ==========================================
+function handleCheckSheet_(body) {
+  try {
+    var patientIds = body.patient_ids || [];
+    var yearMonth = body.year_month || "2026-01"; // デフォルト
+
+    Logger.log("[handleCheckSheet] patient_ids: " + JSON.stringify(patientIds));
+    Logger.log("[handleCheckSheet] year_month: " + yearMonth);
+
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty("BANK_TRANSFER_SHEET_ID");
+
+    if (!sheetId) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: false,
+        error: "BANK_TRANSFER_SHEET_ID not set"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var ss = SpreadsheetApp.openById(sheetId);
+    var sheetName = yearMonth + SHEET_ADDRESS_SUFFIX;
+    var sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: false,
+        error: "Sheet not found: " + sheetName
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: true,
+        sheet: sheetName,
+        found: [],
+        total_rows: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    var found = [];
+
+    data.forEach(function(row, index) {
+      var pid = String(row[2] || "").trim(); // C列: 患者ID
+
+      // 指定された患者IDリストに含まれているか
+      if (patientIds.length === 0 || patientIds.indexOf(pid) >= 0) {
+        found.push({
+          row: index + 2,
+          received_at: row[0],
+          order_id: row[1],
+          patient_id: pid,
+          product_code: row[3],
+          account_name: row[6],
+          address: row[10],
+          status: row[11]
+        });
+      }
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true,
+      sheet: sheetName,
+      total_rows: data.length,
+      found: found,
+      found_count: found.length
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    Logger.log("[handleCheckSheet] Error: " + err);
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: String(err),
+      errorStack: String(err.stack || "")
+    })).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -264,15 +349,15 @@ function onOpen() {
   ui.createMenu("銀行振込管理")
     .addItem("自動照合（住所情報 × 入金CSV）", "reconcileBankTransfers")
     .addSeparator()
-    .addItem("選択行を照合済みに移動", "moveSelectedToVerified")
+    .addItem("選択行を照合済みにコピー", "copySelectedToVerified")
     .addItem("選択行をのなめマスターに転記", "copyVerifiedToNonameMaster")
     .addToUi();
 }
 
 // ==========================================
-// 住所情報シート → 照合済みシートへの移動
+// 住所情報シート → 照合済みシートへのコピー
 // ==========================================
-function moveSelectedToVerified() {
+function copySelectedToVerified() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var activeSheet = ss.getActiveSheet();
   var sheetName = activeSheet.getName();
@@ -378,13 +463,8 @@ function moveSelectedToVerified() {
     verifiedSheet.getRange(lastRow + 1, 1, 1, verifiedRow.length).setValues([verifiedRow]);
   }
 
-  // 元の行を削除 (降順で削除)
-  for (var i = 0; i < rowsToMove.length; i++) {
-    activeSheet.deleteRow(rowsToMove[i]);
-  }
-
-  SpreadsheetApp.getUi().alert(rowsToMove.length + "件を照合済みシートに移動しました");
-  Logger.log("[moveSelectedToVerified] Moved " + rowsToMove.length + " rows to " + verifiedSheetName);
+  SpreadsheetApp.getUi().alert(rowsToMove.length + "件を照合済みシートにコピーしました");
+  Logger.log("[copySelectedToVerified] Copied " + rowsToMove.length + " rows to " + verifiedSheetName);
 }
 
 // ==========================================
