@@ -371,42 +371,6 @@ export default function CreateShippingListPage() {
         item.dosage_10mg.toString(),
       ]);
 
-      // RGB変換関数
-      const getRgbColor = (item: ShippingItem): [number, number, number] => {
-        // 統合アイテムは特別な色（グレー系・薄い）
-        if (isMergedItem(item)) {
-          const totalCount = item.dosage_2_5mg + item.dosage_5mg + item.dosage_7_5mg + item.dosage_10mg;
-          if (totalCount >= 12) return [226, 232, 240]; // slate-200
-          if (totalCount >= 8) return [241, 245, 249];  // slate-100
-          return [248, 250, 252];                       // slate-50
-        }
-
-        const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
-        let primaryDosage = "";
-        if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
-        else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
-        else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
-        else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
-
-        const colorMap: Record<string, [number, number, number]> = {
-          "2.5mg-12": [191, 219, 254],  // blue-200
-          "2.5mg-8": [254, 202, 202],   // red-200
-          "2.5mg-4": [254, 240, 138],   // yellow-200
-          "5mg-12": [187, 247, 208],    // green-200
-          "5mg-8": [233, 213, 255],     // purple-200
-          "5mg-4": [254, 215, 170],     // orange-200
-          "7.5mg-12": [251, 207, 232],  // pink-200
-          "7.5mg-8": [165, 243, 252],   // cyan-200
-          "7.5mg-4": [217, 249, 157],   // lime-200
-          "10mg-12": [199, 210, 254],   // indigo-200
-          "10mg-8": [254, 205, 211],    // rose-200
-          "10mg-4": [253, 230, 138],    // amber-200
-        };
-
-        const key = `${primaryDosage}-${maxCount}`;
-        return colorMap[key] || [255, 255, 255];
-      };
-
       autoTable(doc, {
         head: headers,
         body: data,
@@ -419,14 +383,6 @@ export default function CreateShippingListPage() {
           fillColor: [71, 85, 105],
           textColor: [255, 255, 255],
           fontSize: 7,
-        },
-        willDrawCell: (hookData: any) => {
-          // セルを描画する直前に背景色を設定
-          if (hookData.section === 'body' && hookData.row.index < selectedItems.length) {
-            const item = selectedItems[hookData.row.index];
-            const color = getRgbColor(item);
-            doc.setFillColor(color[0], color[1], color[2]);
-          }
         },
       });
 
