@@ -222,6 +222,12 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         normalizeCarrier(o.carrier) ??
         inferCarrierFromDates({ shippingEta: shippingEta || "", paidAt });
 
+      // ★ Plan A: status='pending_confirmation'の場合はpaymentStatusを'pending'にする
+      let paymentStatus = normalizePaymentStatus(o.payment_status);
+      if (o.status === "pending_confirmation") {
+        paymentStatus = "pending" as PaymentStatus;
+      }
+
       return {
         id: o.id,
         productCode: o.product_code || "",
@@ -231,7 +237,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
         shippingEta,
         trackingNumber: o.tracking_number || undefined,
-        paymentStatus: normalizePaymentStatus(o.payment_status),
+        paymentStatus,
         paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
         carrier,
         refundStatus,

@@ -21,31 +21,41 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const now = new Date().toISOString();
 
-    // bank_transfer_ordersテーブルに保存
-    const { data, error } = await supabase.from("bank_transfer_orders").insert({
+    // ★ Plan A完全版: ordersテーブルのみに保存（bank_transfer_orders不要）
+    // 仮IDを生成（照合時に bt_XXX に更新される）
+    const tempOrderId = `bt_pending_${Date.now()}`;
+
+    const { data, error } = await supabase.from("orders").insert({
+      id: tempOrderId,
       patient_id: patientId,
       product_code: productCode,
-      account_name: accountName,
-      shipping_name: shippingName, // ★ 追加: 配送先氏名（漢字）
-      phone_number: phoneNumber,
-      email: email,
+      product_name: null, // 商品名は後で補完
+      amount: 0, // 金額は後で補完
+      paid_at: now,
+      payment_method: "bank_transfer",
+      payment_status: "PENDING", // 振込確認待ち
+      status: "pending_confirmation", // ★ Plan A: 振込確認中
+      shipping_status: "pending",
+      // ★ 住所情報
+      shipping_name: shippingName,
       postal_code: postalCode,
       address: address,
-      status: "confirmed", // 住所入力完了 = 決済完了とみなす
+      phone: phoneNumber,
+      email: email,
+      account_name: accountName, // 振込名義人
       created_at: now,
-      submitted_at: now, // 住所入力完了時刻
-      confirmed_at: now, // 決済完了時刻
-      mode: mode || null, // ★ 追加: 初回/再購入の区別
-      reorder_id: reorderId || null, // ★ 追加: 再購入申請ID
+      updated_at: now,
     }).select();
 
     if (error) {
-      console.error("[BankTransfer] Supabase insert error:", error);
+      console.error("[BankTransfer] orders insert error:", error);
       return NextResponse.json(
         { error: "配送先情報の保存に失敗しました" },
         { status: 500 }
       );
     }
+
+    console.log("[BankTransfer] ✅ ordersテーブルに登録完了:", tempOrderId);
 
     // ★ 再購入の場合、reorderステータスを "paid" に更新
     if (mode === "reorder" && reorderId) {

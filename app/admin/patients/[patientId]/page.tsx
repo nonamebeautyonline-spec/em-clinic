@@ -1,7 +1,7 @@
 // app/admin/patients/[patientId]/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 type Patient = { id: string; name: string; phone: string } | null;
@@ -30,9 +30,10 @@ function fmtMaybe(v: any) {
 export default function PatientDetailPage({
   params,
 }: {
-  params: { patientId: string };
+  params: Promise<{ patientId: string }>;
 }) {
-  const patientId = decodeURIComponent(params.patientId || "").trim();
+  const { patientId: rawPatientId } = use(params);
+  const patientId = decodeURIComponent(rawPatientId || "").trim();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

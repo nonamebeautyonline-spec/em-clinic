@@ -386,7 +386,7 @@ if (reorderId) {
         reorder_id: reorderId, // 使うならGAS側で処理
       });
 
-      // ★ Supabase ordersテーブルにINSERT（マイページ用）
+      // ★ Supabase ordersテーブルにINSERT（マイページ用 + 発送管理用）
       if (patientId) {
         try {
           const { error } = await supabase.from("orders").upsert({
@@ -398,6 +398,14 @@ if (reorderId) {
             paid_at: createdAtIso || new Date().toISOString(),
             shipping_status: "pending",
             payment_status: "COMPLETED",
+            payment_method: "credit_card",
+            status: "confirmed", // クレカ決済は常に確認済み
+            // ★ 住所情報追加（発送管理用）
+            shipping_name: shipName || null,
+            postal_code: postal || null,
+            address: address || null,
+            phone: finalPhone || null,
+            email: finalEmail || null,
           }, {
             onConflict: "id"
           });
@@ -405,7 +413,7 @@ if (reorderId) {
           if (error) {
             console.error("[square/webhook] Supabase upsert failed:", error);
           } else {
-            console.log("[square/webhook] Supabase order inserted:", paymentId);
+            console.log("[square/webhook] Supabase order inserted with address:", paymentId);
           }
         } catch (err) {
           console.error("[square/webhook] Supabase insert error:", err);

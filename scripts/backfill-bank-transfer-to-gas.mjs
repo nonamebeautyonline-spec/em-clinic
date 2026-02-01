@@ -78,6 +78,7 @@ for (const [index, row] of realData.entries()) {
     mode: row.mode || "first",
     reorder_id: row.reorder_id || null,
     account_name: row.account_name,
+    shipping_name: row.shipping_name || "", // ★ 追加: 配送先氏名（なければ空文字）
     phone_number: row.phone_number,
     email: row.email,
     postal_code: row.postal_code,

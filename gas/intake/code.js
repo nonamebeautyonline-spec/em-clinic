@@ -1370,6 +1370,14 @@ if (type === "getDashboard") {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // ② 全問診取得（Supabase同期用・問診シートから直接取得）
+  if (type === "getAllIntake") {
+    Logger.log("[doGet] getAllIntake called");
+    const result = getAllIntake_();
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ② Doctor UI 用: 予約＋問診マージ一覧
   // ★ 日付範囲フィルタリング用のパラメータ
   const fromDate = e && e.parameter && e.parameter.from ? String(e.parameter.from).trim() : "";
@@ -1432,9 +1440,10 @@ if (type === "getDashboard") {
     const timeRaw              = row[5];               // F: time
     const reserveStatusRaw     = String(row[6] || ""); // G: status
 
-    if (reserveStatusRaw === "キャンセル") {
-      continue;
-    }
+    // ★ キャンセル済みも含めて全問診データを返す（再予約対応）
+    // if (reserveStatusRaw === "キャンセル") {
+    //   continue;
+    // }
 
     const reservedDate = fmtDate(dateRaw);
     const reservedTime = fmtTime(timeRaw);
@@ -2816,6 +2825,82 @@ mark("O_end_merge_shipping");
       _perf_orders: perfOrders,
       __orders_err: String(err && err.message ? err.message : err),
     };
+  }
+}
+
+// =====================
+// 全問診データ取得（Supabase同期用・問診シートから直接取得）
+// =====================
+function getAllIntake_() {
+  var t0 = new Date().getTime();
+  var perf = [];
+  var mark = function (label) {
+    perf.push([label, new Date().getTime() - t0]);
+  };
+
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+
+    if (!intakeSheet) {
+      Logger.log("[getAllIntake] Intake sheet not found");
+      return { ok: false, error: "intake_sheet_not_found", data: [], _perf: perf };
+    }
+
+    var lastRow = intakeSheet.getLastRow();
+    if (lastRow < 2) {
+      Logger.log("[getAllIntake] No data in intake sheet");
+      return { ok: true, data: [], _perf: perf };
+    }
+
+    mark("open_intake_sheet");
+
+    // ヘッダー行を取得
+    var header = intakeSheet.getRange(1, 1, 1, intakeSheet.getLastColumn()).getValues()[0];
+    mark("read_header");
+
+    // 全データを取得
+    var values = intakeSheet.getRange(2, 1, lastRow - 1, header.length).getValues();
+    mark("read_all_data");
+
+    var result = [];
+
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      var obj = {};
+
+      // ヘッダーをキーにしてオブジェクト化
+      for (var j = 0; j < header.length; j++) {
+        var key = String(header[j] || "").trim();
+        if (key) {
+          var value = row[j];
+
+          // 日付フィールドの処理
+          if (key === "reserved_date" || key === "予約日") {
+            obj[key] = fmtDate(value);
+          } else if (key === "reserved_time" || key === "予約時間") {
+            obj[key] = fmtTime(value);
+          } else {
+            obj[key] = value;
+          }
+        }
+      }
+
+      // patient_idがある行のみ追加
+      var patientId = String(obj["patient_id"] || obj["Patient_ID"] || "").trim();
+      if (patientId) {
+        result.push(obj);
+      }
+    }
+
+    mark("parse_data");
+    Logger.log("[getAllIntake] Parsed " + result.length + " intake records");
+
+    return { ok: true, data: result, _perf: perf };
+
+  } catch (e) {
+    Logger.log("[getAllIntake] Error: " + e);
+    return { ok: false, error: String(e), data: [], _perf: perf };
   }
 }
 

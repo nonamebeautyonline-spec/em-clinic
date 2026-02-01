@@ -173,6 +173,39 @@ function doPost(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
 
+      // 5) list_all（全データ取得：Supabaseバックフィル用）
+      if (kind === "list_all") {
+        Logger.log("[list_all] 全データ取得リクエスト");
+
+        try {
+          var lastRow = sheet.getLastRow();
+          if (lastRow < 2) {
+            // ヘッダーのみ、またはデータなし
+            return ContentService.createTextOutput(JSON.stringify({ rows: [] }))
+              .setMimeType(ContentService.MimeType.JSON);
+          }
+
+          var lastCol = sheet.getLastColumn();
+
+          // ヘッダー行をスキップして、2行目から最終行までを取得
+          var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
+          var values = dataRange.getValues();
+
+          Logger.log("[list_all] " + values.length + "件のデータを返します");
+
+          return ContentService.createTextOutput(JSON.stringify({ rows: values }))
+            .setMimeType(ContentService.MimeType.JSON);
+
+        } catch (e) {
+          Logger.log("[list_all] エラー: " + e.message);
+          return ContentService.createTextOutput(JSON.stringify({
+            error: e.message,
+            rows: []
+          }))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
       return _textResponse("ok");
     } finally {
       try { lock.releaseLock(); } catch (e2) {}

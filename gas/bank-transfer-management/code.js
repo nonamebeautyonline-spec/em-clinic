@@ -114,6 +114,10 @@ function doPost(e) {
       return handleCheckSheet_(body);
     }
 
+    if (type === "delete_test_data") {
+      return handleDeleteTestData_(body);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ ok: false, error: "unknown type" }))
       .setMimeType(ContentService.MimeType.JSON);
 
@@ -991,4 +995,82 @@ function testHandleBankTransferOrder() {
 
   var result = handleBankTransferOrder_(testBody);
   Logger.log("Test result: " + result.getContent());
+}
+
+// ==========================================
+// テストデータ削除
+// ==========================================
+function handleDeleteTestData_(body) {
+  try {
+    Logger.log("[handleDeleteTestData] START");
+
+    var props = PropertiesService.getScriptProperties();
+    var sheetId = props.getProperty("BANK_TRANSFER_SHEET_ID");
+
+    if (!sheetId) {
+      return ContentService.createTextOutput(JSON.stringify({
+        ok: false,
+        error: "BANK_TRANSFER_SHEET_ID not set"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var ss = SpreadsheetApp.openById(sheetId);
+    var deletedCount = 0;
+    var sheets = ss.getSheets();
+
+    // 全シートを走査
+    for (var i = 0; i < sheets.length; i++) {
+      var sheet = sheets[i];
+      var sheetName = sheet.getName();
+
+      // 住所情報シートまたは照合済みシートのみ処理
+      if (!sheetName.endsWith(SHEET_ADDRESS_SUFFIX) && !sheetName.endsWith(SHEET_VERIFIED_SUFFIX)) {
+        continue;
+      }
+
+      Logger.log("[handleDeleteTestData] Processing sheet: " + sheetName);
+
+      var lastRow = sheet.getLastRow();
+      if (lastRow < 2) {
+        continue; // データなし
+      }
+
+      // 患者IDの列番号を判定
+      var patientIdCol;
+      if (sheetName.endsWith(SHEET_ADDRESS_SUFFIX)) {
+        patientIdCol = 3; // C列: 患者ID
+      } else if (sheetName.endsWith(SHEET_VERIFIED_SUFFIX)) {
+        patientIdCol = 12; // L列: 患者ID
+      } else {
+        continue;
+      }
+
+      // 下から上に削除（行番号のズレを防ぐ）
+      for (var row = lastRow; row >= 2; row--) {
+        var patientId = String(sheet.getRange(row, patientIdCol).getValue() || "").trim();
+
+        if (patientId.toUpperCase().startsWith("TEST")) {
+          Logger.log("[handleDeleteTestData] Deleting row " + row + " in " + sheetName + ": " + patientId);
+          sheet.deleteRow(row);
+          deletedCount++;
+        }
+      }
+    }
+
+    Logger.log("[handleDeleteTestData] Total deleted: " + deletedCount);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: true,
+      message: deletedCount + "件のテストデータを削除しました",
+      deleted_count: deletedCount
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    Logger.log("[handleDeleteTestData] Error: " + err);
+    return ContentService.createTextOutput(JSON.stringify({
+      ok: false,
+      error: String(err),
+      errorStack: String(err.stack || "")
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
