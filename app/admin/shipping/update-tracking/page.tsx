@@ -65,7 +65,11 @@ export default function UpdateTrackingPage() {
     setConfirmResult(null);
 
     try {
-      const text = await file.text();
+      // ★ Shift-JISエンコーディングでCSVを読み込む（ヤマトCSV対応）
+      const arrayBuffer = await file.arrayBuffer();
+      const decoder = new TextDecoder("shift-jis");
+      const text = decoder.decode(arrayBuffer);
+
       const token = localStorage.getItem("adminToken");
       if (!token) {
         router.push("/admin/login");
