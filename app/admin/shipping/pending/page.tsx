@@ -36,6 +36,7 @@ export default function ShippingPendingPage() {
   const [mergeableGroups, setMergeableGroups] = useState<MergeableGroup[]>([]);
   const [error, setError] = useState("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
   // 今日の日付（発送日）
   const today = new Date();
@@ -85,8 +86,12 @@ export default function ShippingPendingPage() {
       }
 
       const data = await res.json();
-      setOrders(data.orders || []);
+      const fetchedOrders = data.orders || [];
+      setOrders(fetchedOrders);
       setMergeableGroups(data.mergeableGroups || []);
+
+      // デフォルトで全選択
+      setSelectedOrderIds(new Set(fetchedOrders.map((o: Order) => o.id)));
     } catch (err) {
       console.error("Orders fetch error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -106,6 +111,30 @@ export default function ShippingPendingPage() {
       minute: "2-digit",
     });
   };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleAllOrders = () => {
+    if (selectedOrderIds.size === orders.length) {
+      // 全選択 → 全解除
+      setSelectedOrderIds(new Set());
+    } else {
+      // 一部選択または全解除 → 全選択
+      setSelectedOrderIds(new Set(orders.map((o) => o.id)));
+    }
+  };
+
+  const selectedOrders = orders.filter((o) => selectedOrderIds.has(o.id));
 
   if (loading) {
     return (
@@ -161,13 +190,31 @@ export default function ShippingPendingPage() {
           <span className="text-sm text-slate-600">
             合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件）
           </span>
+          <span className="text-sm font-semibold text-blue-600">
+            選択中: {selectedOrderIds.size} 件
+          </span>
+          <button
+            onClick={toggleAllOrders}
+            className="text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            {selectedOrderIds.size === orders.length ? "全解除" : "全選択"}
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => router.push("/admin/shipping/create-list")}
-            className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700"
+            onClick={() => {
+              if (selectedOrderIds.size === 0) {
+                alert("発送する注文を選択してください");
+                return;
+              }
+              // 選択された注文IDをクエリパラメータで渡す
+              const ids = Array.from(selectedOrderIds).join(",");
+              router.push(`/admin/shipping/create-list?ids=${encodeURIComponent(ids)}`);
+            }}
+            disabled={selectedOrderIds.size === 0}
+            className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
-            📋 発送リストを作成
+            📋 発送リストを作成 ({selectedOrderIds.size}件)
           </button>
         </div>
       </div>
@@ -177,6 +224,14 @@ export default function ShippingPendingPage() {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
+                <th className="px-4 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedOrderIds.size === orders.length && orders.length > 0}
+                    onChange={toggleAllOrders}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   決済日時
                 </th>
@@ -212,7 +267,7 @@ export default function ShippingPendingPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
                     発送待ちの注文はありません
                   </td>
                 </tr>
@@ -230,6 +285,14 @@ export default function ShippingPendingPage() {
                           : "hover:bg-slate-50"
                       }`}
                     >
+                    <td className="px-4 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrderIds.has(order.id)}
+                        onChange={() => toggleOrderSelection(order.id)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
                       {formatDate(order.payment_date)}
                     </td>
