@@ -270,15 +270,33 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
     };
 
-    // ★ ordersテーブルに存在するbt_*のIDを取得（追跡番号の有無に関わらず）
-    const existingBtIds = new Set(
-      creditCardOrders
-        .filter(o => o.id.startsWith("bt_"))
-        .map(o => o.id.replace("bt_", ""))
+    // ★ ordersテーブルに存在する銀行振込注文のcreated_atを記録（重複除外用）
+    const bankTransferOrdersInOrders = creditCardOrders.filter(o => o.paymentMethod === 'bank_transfer');
+
+    // ★ bt_で始まるIDの場合はIDで、それ以外はcreated_atで紐付ける
+    const existingBankTransferOrderIds = new Set(
+      bankTransferOrdersInOrders
+        .map(o => {
+          // IDが"bt_"で始まる場合は"bt_"を除去（例: bt_53 → 53）
+          if (o.id.startsWith("bt_")) return o.id.replace("bt_", "");
+          return null;
+        })
+        .filter((id): id is string => id !== null)
     );
 
     const bankTransferOrders = (bankTransferData || [])
-      .filter((o: any) => !existingBtIds.has(String(o.id))) // ordersに存在するものは除外
+      .filter((o: any) => {
+        // IDで紐付け可能な場合はIDで除外
+        if (existingBankTransferOrderIds.has(String(o.id))) return false;
+
+        // IDで紐付けできない場合は、created_atで紐付け（同じ秒数のレコードは同一とみなす）
+        const btCreatedAt = new Date(o.created_at).getTime();
+        return !bankTransferOrdersInOrders.some(orderRecord => {
+          const orderCreatedAt = new Date(orderRecord.paidAt || "").getTime();
+          // 1秒以内の差なら同一レコードとみなす
+          return Math.abs(btCreatedAt - orderCreatedAt) < 1000;
+        });
+      })
       .map((o: any) => {
         const productCode = String(o.product_code ?? "");
         const productInfo = PRODUCTS[productCode] || { name: "マンジャロ", price: 0 };

@@ -1,66 +1,80 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import { createClient } from "@supabase/supabase-js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const envPath = resolve(process.cwd(), ".env.local");
+const envContent = readFileSync(envPath, "utf-8");
+const envVars = {};
 
-dotenv.config({ path: join(__dirname, '..', '.env.local') });
+envContent.split("\n").forEach((line) => {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return;
+  const [key, ...valueParts] = trimmed.split("=");
+  if (key && valueParts.length > 0) {
+    let value = valueParts.join("=").trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    envVars[key.trim()] = value;
+  }
+});
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  envVars.NEXT_PUBLIC_SUPABASE_URL,
+  envVars.SUPABASE_SERVICE_ROLE_KEY
 );
 
-async function checkPatient() {
-  console.log('=== 患者 20260101083 ===\n');
+const patientId = '20260101083';
 
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('patient_id', '20260101083')
-    .eq('payment_method', 'bank_transfer')
-    .single();
+console.log(`=== 患者 ${patientId} のデータ確認 ===\n`);
 
-  if (error) {
-    console.error('Error:', error);
-    return;
-  }
+// ordersテーブルを確認
+const { data: orders, error: ordersError } = await supabase
+  .from('orders')
+  .select('*')
+  .eq('patient_id', patientId)
+  .order('created_at', { ascending: true });
 
-  console.log('ID:', data.id);
-  console.log('patient_id:', data.patient_id);
-  console.log('created_at:', data.created_at);
-  console.log('updated_at:', data.updated_at);
-  console.log('payment_method:', data.payment_method);
-  console.log('product_code:', data.product_code || '(なし)');
-  console.log('shipping_name:', data.shipping_name || '(なし)');
-  console.log('account_name:', data.account_name || '(なし)');
-  console.log('address:', data.address ? '入力済み' : '未入力');
-  console.log('postal_code:', data.postal_code || '(なし)');
-  console.log('phone:', data.phone || '(なし)');
-  console.log('email:', data.email || '(なし)');
-  console.log('status:', data.status || '(なし)');
-  console.log('payment_status:', data.payment_status || '(なし)');
-  console.log('shipping_status:', data.shipping_status || '(なし)');
-  console.log('shipping_date:', data.shipping_date || '(なし)');
-
-  // bank_transfer_ordersにも存在するか確認
-  const { data: btData } = await supabase
-    .from('bank_transfer_orders')
-    .select('*')
-    .eq('patient_id', '20260101083')
-    .single();
-
-  console.log('\n=== bank_transfer_orders ===');
-  if (btData) {
-    console.log('存在する');
-    console.log('created_at:', btData.created_at);
-    console.log('shipping_name:', btData.shipping_name || '(なし)');
-    console.log('account_name:', btData.account_name || '(なし)');
-  } else {
-    console.log('存在しない（新規追加された患者）');
+console.log(`■ ordersテーブル: ${orders?.length || 0}件\n`);
+if (orders && orders.length > 0) {
+  for (const order of orders) {
+    console.log(`ID: ${order.id}`);
+    console.log(`  決済方法: ${order.payment_method}`);
+    console.log(`  商品名: ${order.product_name}`);
+    console.log(`  金額: ¥${order.amount}`);
+    console.log(`  ステータス: ${order.status}`);
+    console.log(`  決済日: ${order.payment_date || order.paid_at}`);
+    console.log(`  作成日: ${order.created_at}`);
+    console.log('');
   }
 }
 
-checkPatient().catch(console.error);
+if (ordersError) {
+  console.error('ordersエラー:', ordersError);
+}
+
+// bank_transfer_ordersテーブルを確認
+const { data: bankTransfers, error: btError } = await supabase
+  .from('bank_transfer_orders')
+  .select('*')
+  .eq('patient_id', patientId)
+  .order('created_at', { ascending: true });
+
+console.log(`■ bank_transfer_ordersテーブル: ${bankTransfers?.length || 0}件\n`);
+if (bankTransfers && bankTransfers.length > 0) {
+  for (const bt of bankTransfers) {
+    console.log(`ID: ${bt.id}`);
+    console.log(`  商品コード: ${bt.product_code}`);
+    console.log(`  商品名: ${bt.product_name || '(null)'}`);
+    console.log(`  金額: ¥${bt.amount || '(null)'}`);
+    console.log(`  ステータス: ${bt.status}`);
+    console.log(`  作成日: ${bt.created_at}`);
+    console.log(`  更新日: ${bt.updated_at}`);
+    console.log('');
+  }
+}
+
+if (btError) {
+  console.error('bank_transfer_ordersエラー:', btError);
+}

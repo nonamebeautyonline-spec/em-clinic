@@ -157,15 +157,22 @@ export default function NonameMasterPage() {
                       {order.payment_date_label && <span className="text-slate-500 ml-1">{order.payment_date_label}</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          order.payment_method === "クレジットカード"
-                            ? "bg-yellow-300 text-black"
-                            : "bg-cyan-300 text-black"
-                        }`}
-                      >
-                        {order.payment_method}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            order.payment_method === "クレジットカード"
+                              ? "bg-yellow-300 text-black"
+                              : "bg-cyan-300 text-black"
+                          }`}
+                        >
+                          {order.payment_method}
+                        </span>
+                        {order.payment_date_label && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-200 text-slate-700">
+                            （申請中）
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {order.patient_name || "-"}

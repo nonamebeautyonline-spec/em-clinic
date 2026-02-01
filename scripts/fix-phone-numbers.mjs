@@ -47,18 +47,42 @@ function normalizePhone(phone) {
   return digits;
 }
 
-console.log('=== 電話番号の修正 ===\n');
+console.log('=== 電話番号の修正（ページネーション対応） ===\n');
 
-const { data: orders, error } = await supabase
-  .from('orders')
-  .select('id, patient_id, phone, payment_method')
-  .not('phone', 'is', null)
-  .order('created_at', { ascending: false });
+// 全レコードをページネーションで取得
+let allOrders = [];
+let hasMore = true;
+let offset = 0;
+const limit = 1000;
 
-if (error) {
-  console.error('Error:', error);
-  process.exit(1);
+console.log('全レコードを取得中...\n');
+
+while (hasMore) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, patient_id, phone, payment_method')
+    .not('phone', 'is', null)
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  }
+
+  if (data && data.length > 0) {
+    allOrders = allOrders.concat(data);
+    console.log(`取得済み: ${allOrders.length}件`);
+    offset += limit;
+    hasMore = data.length === limit;
+  } else {
+    hasMore = false;
+  }
 }
+
+console.log(`\n全件取得完了: ${allOrders.length}件\n`);
+
+// ordersという変数名を維持するため
+const orders = allOrders;
 
 const toFix = orders.filter(o => {
   const phone = o.phone || '';
@@ -67,24 +91,34 @@ const toFix = orders.filter(o => {
 
 console.log(`修正対象: ${toFix.length}件\n`);
 
+if (toFix.length === 0) {
+  console.log('修正が必要なレコードはありません');
+  process.exit(0);
+}
+
 let successCount = 0;
 let errorCount = 0;
+let skippedCount = 0;
 
 for (const order of toFix) {
   const originalPhone = order.phone;
   const normalizedPhone = normalizePhone(originalPhone);
-  
-  if (originalPhone === normalizedPhone) continue;
-  
+
+  if (originalPhone === normalizedPhone) {
+    skippedCount++;
+    continue;
+  }
+
   console.log(`ID: ${order.id}`);
   console.log(`  患者ID: ${order.patient_id}`);
+  console.log(`  決済方法: ${order.payment_method}`);
   console.log(`  ${originalPhone} (${originalPhone.length}桁) -> ${normalizedPhone} (${normalizedPhone.length}桁)`);
-  
+
   const { error: updateError } = await supabase
     .from('orders')
     .update({ phone: normalizedPhone })
     .eq('id', order.id);
-  
+
   if (updateError) {
     console.log(`  ❌ エラー: ${updateError.message}`);
     errorCount++;
@@ -92,8 +126,15 @@ for (const order of toFix) {
     console.log(`  ✅ 更新完了`);
     successCount++;
   }
+
+  // 進捗表示
+  const processed = successCount + errorCount + skippedCount;
+  if (processed % 100 === 0) {
+    console.log(`\n--- 進捗: ${processed}/${toFix.length}件処理済み ---\n`);
+  }
 }
 
 console.log(`\n=== 修正完了 ===`);
 console.log(`成功: ${successCount}件`);
 console.log(`失敗: ${errorCount}件`);
+console.log(`スキップ: ${skippedCount}件`);

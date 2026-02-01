@@ -342,20 +342,6 @@ export default function CreateShippingListPage() {
         format: "a4",
       });
 
-      // 日本語フォント読み込み
-      const fontResponse = await fetch('/fonts/NotoSansJP-Regular.ttf');
-      const fontArrayBuffer = await fontResponse.arrayBuffer();
-      const fontBase64 = btoa(
-        new Uint8Array(fontArrayBuffer).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
-          ''
-        )
-      );
-
-      doc.addFileToVFS('NotoSansJP-Regular.ttf', fontBase64);
-      doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
-      doc.setFont('NotoSansJP');
-
       // タイトル
       doc.setFontSize(16);
       doc.text("Shipping List", 14, 15);
@@ -426,12 +412,10 @@ export default function CreateShippingListPage() {
         body: data,
         startY: 28,
         styles: {
-          font: 'NotoSansJP',
           fontSize: 8,
           cellPadding: 2,
         },
         headStyles: {
-          font: 'NotoSansJP',
           fillColor: [71, 85, 105],
           textColor: [255, 255, 255],
           fontSize: 9,

@@ -111,6 +111,13 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    // ★ payment_date（実際の決済/申請日時）で降順ソート
+    formattedOrders.sort((a, b) => {
+      const dateA = new Date(a.payment_date || "").getTime();
+      const dateB = new Date(b.payment_date || "").getTime();
+      return dateB - dateA; // 新しい順
+    });
+
     return NextResponse.json({ orders: formattedOrders });
   } catch (error) {
     console.error("API error:", error);
