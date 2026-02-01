@@ -37,6 +37,14 @@ export default function ShippingPendingPage() {
   const [error, setError] = useState("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
 
+  // 今日の日付（発送日）
+  const today = new Date();
+  const shippingDate = today.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
     if (!token) {
@@ -57,13 +65,16 @@ export default function ShippingPendingPage() {
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(15, 0, 0, 0);
 
-      setCutoffTime(yesterday.toLocaleString("ja-JP", {
+      // 表示用の締め切り時刻文字列
+      const cutoffStr = yesterday.toLocaleString("ja-JP", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
-      }));
+      });
+
+      setCutoffTime(cutoffStr);
 
       const res = await fetch("/api/admin/shipping/pending", {
         headers: { Authorization: `Bearer ${token}` },
@@ -110,15 +121,18 @@ export default function ShippingPendingPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">本日の発送リスト</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{shippingDate} 発送リスト</h1>
         <p className="text-slate-600 text-sm mt-1">
-          未発送の注文一覧（クレカ・銀行振込統合）
+          未発送の注文一覧（追跡番号未付与）
         </p>
         {cutoffTime && (
           <p className="text-slate-500 text-xs mt-1">
-            📅 表示範囲: {cutoffTime} 以降の注文
+            📅 表示範囲: {cutoffTime} 以降に決済された注文
           </p>
         )}
+        <p className="text-slate-500 text-xs mt-1">
+          ℹ️ 追跡番号を付与すると発送リストから自動的に削除されます
+        </p>
       </div>
 
       {error && (

@@ -56,7 +56,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside
         className={`${
           isSidebarOpen ? "w-64" : "w-20"
-        } bg-slate-900 text-white transition-all duration-300 flex flex-col`}
+        } bg-slate-900 text-white transition-all duration-300 flex flex-col h-screen sticky top-0`}
       >
         {/* ロゴ・トグル */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
