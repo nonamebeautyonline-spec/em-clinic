@@ -342,6 +342,20 @@ export default function CreateShippingListPage() {
         format: "a4",
       });
 
+      // 日本語フォント読み込み
+      const fontResponse = await fetch('/fonts/NotoSansJP-Regular.ttf');
+      const fontArrayBuffer = await fontResponse.arrayBuffer();
+      const fontBase64 = btoa(
+        new Uint8Array(fontArrayBuffer).reduce(
+          (data, byte) => data + String.fromCharCode(byte),
+          ''
+        )
+      );
+
+      doc.addFileToVFS('NotoSansJP-Regular.ttf', fontBase64);
+      doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
+      doc.setFont('NotoSansJP');
+
       // タイトル
       doc.setFontSize(16);
       doc.text("Shipping List", 14, 15);
@@ -412,13 +426,31 @@ export default function CreateShippingListPage() {
         body: data,
         startY: 28,
         styles: {
-          fontSize: 6,
+          font: 'NotoSansJP',
+          fontSize: 8,
           cellPadding: 2,
+          fontStyle: 'bold',
         },
         headStyles: {
+          font: 'NotoSansJP',
           fillColor: [71, 85, 105],
           textColor: [255, 255, 255],
-          fontSize: 7,
+          fontSize: 9,
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          0: { cellWidth: 22 },  // 決済日時
+          1: { cellWidth: 30 },  // Name（氏名 - 広く）
+          2: { cellWidth: 15 },  // Postal Code（狭く）
+          3: { cellWidth: 35 },  // Address（狭く）
+          4: { cellWidth: 20 },  // Email（狭く）
+          5: { cellWidth: 15 },  // Phone（狭く）
+          6: { cellWidth: 25 },  // Product Name（狭く）
+          7: { cellWidth: 15 },  // Price（狭く）
+          8: { cellWidth: 15 },  // 2.5mg（本数 - 広く）
+          9: { cellWidth: 15 },  // 5mg（本数 - 広く）
+          10: { cellWidth: 15 }, // 7.5mg（本数 - 広く）
+          11: { cellWidth: 15 }, // 10mg（本数 - 広く）
         },
         didParseCell: (hookData: any) => {
           // セルが解析されたときに背景色を設定（描画前）
