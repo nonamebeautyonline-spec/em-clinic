@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface ShippingItem {
@@ -438,24 +438,10 @@ export default function CreateShippingListPage() {
           textColor: [255, 255, 255],
           fontSize: 7,
         },
-        columnStyles: {
-          0: { cellWidth: 20 }, // 決済日時
-          1: { cellWidth: 25 }, // Name
-          2: { cellWidth: 20 }, // Postal Code
-          3: { cellWidth: 50 }, // Address
-          4: { cellWidth: 30 }, // Email
-          5: { cellWidth: 20 }, // Phone
-          6: { cellWidth: 30 }, // Product Name
-          7: { cellWidth: 18 }, // Price
-          8: { cellWidth: 12 }, // 2.5mg
-          9: { cellWidth: 12 }, // 5mg
-          10: { cellWidth: 12 }, // 7.5mg
-          11: { cellWidth: 12 }, // 10mg
-        },
-        willDrawCell: (data) => {
+        willDrawCell: (hookData) => {
           // セルを描画する直前に背景色を設定
-          if (data.section === 'body' && data.row.index < selectedItems.length) {
-            const item = selectedItems[data.row.index];
+          if (hookData.section === 'body' && hookData.row.index < selectedItems.length) {
+            const item = selectedItems[hookData.row.index];
             const color = getRgbColor(item);
             doc.setFillColor(color[0], color[1], color[2]);
           }
