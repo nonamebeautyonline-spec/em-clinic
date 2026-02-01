@@ -37,8 +37,11 @@ export default function CreateShippingListPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ShippingItem[]>([]);
+  const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
+  const [isMerged, setIsMerged] = useState(false); // 統合済みフラグ
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
 
   useEffect(() => {
     loadPendingOrders();
@@ -98,7 +101,7 @@ export default function CreateShippingListPage() {
           };
         });
 
-      // 用量順にソート（2.5mg → 5mg → 7.5mg → 10mg）
+      // 用量順にソート（2.5mg → 5mg → 7.5mg → 10mg、本数が多い順）
       const sorted = sortByDosage(formattedItems);
       setItems(sorted);
     } catch (err) {
@@ -129,19 +132,27 @@ export default function CreateShippingListPage() {
     return dosages;
   };
 
+  // ★ ソート順を修正: 2.5mg → 5mg → 7.5mg → 10mg の順で、本数が多い順（降順）
   const sortByDosage = (items: ShippingItem[]): ShippingItem[] => {
     return [...items].sort((a, b) => {
-      // 2.5mg → 5mg → 7.5mg → 10mg の順
-      if (a.dosage_2_5mg > 0 && b.dosage_2_5mg === 0) return -1;
-      if (a.dosage_2_5mg === 0 && b.dosage_2_5mg > 0) return 1;
-      if (a.dosage_5mg > 0 && b.dosage_5mg === 0) return -1;
-      if (a.dosage_5mg === 0 && b.dosage_5mg > 0) return 1;
-      if (a.dosage_7_5mg > 0 && b.dosage_7_5mg === 0) return -1;
-      if (a.dosage_7_5mg === 0 && b.dosage_7_5mg > 0) return 1;
-      if (a.dosage_10mg > 0 && b.dosage_10mg === 0) return -1;
-      if (a.dosage_10mg === 0 && b.dosage_10mg > 0) return 1;
+      // 2.5mgの本数で降順ソート
+      if (a.dosage_2_5mg !== b.dosage_2_5mg) {
+        return b.dosage_2_5mg - a.dosage_2_5mg;
+      }
+      // 5mgの本数で降順ソート
+      if (a.dosage_5mg !== b.dosage_5mg) {
+        return b.dosage_5mg - a.dosage_5mg;
+      }
+      // 7.5mgの本数で降順ソート
+      if (a.dosage_7_5mg !== b.dosage_7_5mg) {
+        return b.dosage_7_5mg - a.dosage_7_5mg;
+      }
+      // 10mgの本数で降順ソート
+      if (a.dosage_10mg !== b.dosage_10mg) {
+        return b.dosage_10mg - a.dosage_10mg;
+      }
 
-      // 同じ用量の場合は決済日時順
+      // 全て同じ場合は決済日時順
       return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
     });
   };
@@ -164,7 +175,22 @@ export default function CreateShippingListPage() {
     );
   };
 
-  const handleMergeByName = () => {
+  // ★ 統合/解除のトグル機能
+  const handleToggleMerge = () => {
+    if (isMerged) {
+      // 統合を解除
+      setItems(originalItems);
+      setIsMerged(false);
+    } else {
+      // 統合実行
+      setOriginalItems([...items]); // 現在の状態を保存
+      mergeByName();
+      setIsMerged(true);
+    }
+  };
+
+  // ★ 同じ氏名を統合（並び順を修正）
+  const mergeByName = () => {
     const grouped: Record<string, ShippingItem[]> = {};
 
     // 選択されている項目のみグルーピング
@@ -202,9 +228,31 @@ export default function CreateShippingListPage() {
       }
     });
 
-    // 用量順に再ソート
-    const sorted = sortByDosage([...merged, ...unselectedItems]);
-    setItems(sorted);
+    // ★ 統合後の並び順: 7.5mgのみ → 2.5+5統合 → 5+7.5統合 の順
+    const sorted = merged.sort((a, b) => {
+      // 7.5mgのみ（2.5mg=0, 5mg=0, 7.5mg>0）を最初に
+      const aIs75Only = a.dosage_2_5mg === 0 && a.dosage_5mg === 0 && a.dosage_7_5mg > 0;
+      const bIs75Only = b.dosage_2_5mg === 0 && b.dosage_5mg === 0 && b.dosage_7_5mg > 0;
+      if (aIs75Only && !bIs75Only) return -1;
+      if (!aIs75Only && bIs75Only) return 1;
+
+      // 2.5+5統合（2.5mg>0 && 5mg>0, 7.5mg=0）を次に
+      const aIs25Plus5 = a.dosage_2_5mg > 0 && a.dosage_5mg > 0 && a.dosage_7_5mg === 0;
+      const bIs25Plus5 = b.dosage_2_5mg > 0 && b.dosage_5mg > 0 && b.dosage_7_5mg === 0;
+      if (aIs25Plus5 && !bIs25Plus5) return -1;
+      if (!aIs25Plus5 && bIs25Plus5) return 1;
+
+      // 5+7.5統合（5mg>0 && 7.5mg>0）を次に
+      const aIs5Plus75 = a.dosage_5mg > 0 && a.dosage_7_5mg > 0;
+      const bIs5Plus75 = b.dosage_5mg > 0 && b.dosage_7_5mg > 0;
+      if (aIs5Plus75 && !bIs5Plus75) return -1;
+      if (!aIs5Plus75 && bIs5Plus75) return 1;
+
+      // その他は用量順ソート
+      return sortByDosage([a, b])[0] === a ? -1 : 1;
+    });
+
+    setItems([...sorted, ...unselectedItems]);
   };
 
   const handleExportYamatoB2 = async () => {
@@ -352,6 +400,14 @@ export default function CreateShippingListPage() {
     }
   };
 
+  // ★ 本数に応じた背景色を取得（12本、8本、4本）
+  const getDosageColor = (count: number): string => {
+    if (count === 12) return "bg-blue-100";
+    if (count === 8) return "bg-green-100";
+    if (count === 4) return "bg-yellow-100";
+    return "";
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -386,10 +442,14 @@ export default function CreateShippingListPage() {
             合計 {items.length} 件 / 選択 {selectedCount} 件
           </span>
           <button
-            onClick={handleMergeByName}
-            className="px-4 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+            onClick={handleToggleMerge}
+            className={`px-4 py-2 text-sm rounded-lg ${
+              isMerged
+                ? "bg-slate-500 text-white hover:bg-slate-600"
+                : "bg-yellow-500 text-white hover:bg-yellow-600"
+            }`}
           >
-            🔗 同じ氏名を統合
+            {isMerged ? "🔓 統合を解除" : "🔗 同じ氏名を統合"}
           </button>
         </div>
         <div className="flex items-center gap-2">
@@ -402,7 +462,7 @@ export default function CreateShippingListPage() {
                 : "bg-red-600 text-white hover:bg-red-700"
             }`}
           >
-            📄 PDF出力（${selectedCount}件）
+            📄 PDF出力（{selectedCount}件）
           </button>
           <button
             onClick={handleExportYamatoB2}
@@ -433,9 +493,9 @@ export default function CreateShippingListPage() {
                 </th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">user_id</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">決済日時</th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase min-w-[150px]">Name</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Postal Code</th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Address</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase min-w-[250px]">Address</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Email</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Phone</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Product Name</th>
@@ -474,38 +534,84 @@ export default function CreateShippingListPage() {
                         day: "2-digit",
                       })}
                     </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={item.editable.name}
-                        onChange={(e) => handleEditField(item.id, "name", e.target.value)}
-                        className="w-full px-1 py-1 text-xs border border-slate-300 rounded"
-                      />
+                    {/* ★ 氏名: クリックで編集可能、幅を広げる */}
+                    <td className="px-2 py-2 min-w-[150px]">
+                      {editingCell?.id === item.id && editingCell?.field === "name" ? (
+                        <input
+                          type="text"
+                          value={item.editable.name}
+                          onChange={(e) => handleEditField(item.id, "name", e.target.value)}
+                          onBlur={() => setEditingCell(null)}
+                          autoFocus
+                          className="w-full px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => setEditingCell({ id: item.id, field: "name" })}
+                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded"
+                        >
+                          {item.editable.name || "-"}
+                        </div>
+                      )}
                     </td>
+                    {/* ★ 郵便番号: クリックで編集可能 */}
                     <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={item.editable.postal_code}
-                        onChange={(e) => handleEditField(item.id, "postal_code", e.target.value)}
-                        className="w-24 px-1 py-1 text-xs border border-slate-300 rounded"
-                      />
+                      {editingCell?.id === item.id && editingCell?.field === "postal_code" ? (
+                        <input
+                          type="text"
+                          value={item.editable.postal_code}
+                          onChange={(e) => handleEditField(item.id, "postal_code", e.target.value)}
+                          onBlur={() => setEditingCell(null)}
+                          autoFocus
+                          className="w-24 px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => setEditingCell({ id: item.id, field: "postal_code" })}
+                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded"
+                        >
+                          {item.editable.postal_code || "-"}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={item.editable.address}
-                        onChange={(e) => handleEditField(item.id, "address", e.target.value)}
-                        className="w-full px-1 py-1 text-xs border border-slate-300 rounded"
-                      />
+                    {/* ★ 住所: クリックで編集可能、2行表示 */}
+                    <td className="px-2 py-2 min-w-[250px]">
+                      {editingCell?.id === item.id && editingCell?.field === "address" ? (
+                        <textarea
+                          value={item.editable.address}
+                          onChange={(e) => handleEditField(item.id, "address", e.target.value)}
+                          onBlur={() => setEditingCell(null)}
+                          autoFocus
+                          rows={2}
+                          className="w-full px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => setEditingCell({ id: item.id, field: "address" })}
+                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded whitespace-pre-wrap break-words"
+                          style={{ maxHeight: "3rem", overflow: "auto" }}
+                        >
+                          {item.editable.address || "-"}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-2 text-xs">{item.email}</td>
                     <td className="px-2 py-2 text-xs">{item.phone}</td>
                     <td className="px-2 py-2 text-xs">{item.product_name}</td>
                     <td className="px-2 py-2 text-xs text-right">{item.price.toLocaleString()}</td>
-                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_2_5mg || 0}</td>
-                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_5mg || 0}</td>
-                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_7_5mg || 0}</td>
-                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_10mg || 0}</td>
+                    {/* ★ 用量セルに本数に応じた背景色 */}
+                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_2_5mg)}`}>
+                      {item.dosage_2_5mg || 0}
+                    </td>
+                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_5mg)}`}>
+                      {item.dosage_5mg || 0}
+                    </td>
+                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_7_5mg)}`}>
+                      {item.dosage_7_5mg || 0}
+                    </td>
+                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_10mg)}`}>
+                      {item.dosage_10mg || 0}
+                    </td>
                     <td className="px-2 py-2 text-xs font-mono">{item.patient_id}</td>
                     <td className="px-2 py-2 text-xs font-mono">{item.payment_id}</td>
                   </tr>
