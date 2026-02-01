@@ -48,10 +48,11 @@ export async function POST(req: NextRequest) {
 
     // ★ Shift-JISエンコーディングに変換（Lステップ対応）
     const shiftJisBuffer = iconv.encode(csvContent, "shift-jis");
+    const uint8Array = new Uint8Array(shiftJisBuffer);
 
     console.log(`[LstepTagCSV] Generated CSV for ${uniqueIds.length} IDs (Shift-JIS)`);
 
-    return new NextResponse(shiftJisBuffer, {
+    return new NextResponse(uint8Array, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=shift-jis",
