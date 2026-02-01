@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as iconv from "iconv-lite";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const TAG_ATTR_ID = "9217653"; // タグID（GASと同じ）
@@ -45,16 +46,15 @@ export async function POST(req: NextRequest) {
 
     const csvContent = csvLines.join("\n");
 
-    // Shift-JISエンコード（ブラウザでダウンロード時に変換）
-    // ここではUTF-8で返し、フロントエンドでShift-JIS変換する
-    // または、バックエンドでShift-JISに変換して返すことも可能
+    // ★ Shift-JISエンコーディングに変換（Lステップ対応）
+    const shiftJisBuffer = iconv.encode(csvContent, "shift-jis");
 
-    console.log(`[LstepTagCSV] Generated CSV for ${uniqueIds.length} IDs`);
+    console.log(`[LstepTagCSV] Generated CSV for ${uniqueIds.length} IDs (Shift-JIS)`);
 
-    return new NextResponse(csvContent, {
+    return new NextResponse(shiftJisBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Type": "text/csv; charset=shift-jis",
         "Content-Disposition": `attachment; filename="lstep_tag_${new Date().toISOString().split("T")[0]}.csv"`,
       },
     });

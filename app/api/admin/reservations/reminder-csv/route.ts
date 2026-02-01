@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as iconv from "iconv-lite";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -57,15 +58,18 @@ export async function POST(req: NextRequest) {
 
     const csvContent = csvLines.join("\n");
 
+    // ★ Shift-JISエンコーディングに変換（Lステップ対応）
+    const shiftJisBuffer = iconv.encode(csvContent, "shift-jis");
+
     // ファイル名に日付を含める
     const filename = `reminder_tag_${date.replace(/-/g, "")}.csv`;
 
-    console.log(`[ReminderCSV] Generated CSV: ${filename}, ${reminders.length} rows`);
+    console.log(`[ReminderCSV] Generated CSV: ${filename}, ${reminders.length} rows (Shift-JIS)`);
 
-    return new NextResponse(csvContent, {
+    return new NextResponse(shiftJisBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Type": "text/csv; charset=shift-jis",
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
