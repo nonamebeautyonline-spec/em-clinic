@@ -261,7 +261,7 @@ export default function BankTransferReconcilePage() {
                       ¥{order.amount.toLocaleString()}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      {order.shipping_name} 〒{order.postal_code}
+                      〒{order.postal_code} {order.address}
                     </td>
                   </tr>
                 ))}
