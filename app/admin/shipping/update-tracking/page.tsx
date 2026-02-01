@@ -83,6 +83,11 @@ export default function UpdateTrackingPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
+        // ★ デバッグ情報をコンソールに出力
+        if (errorData.debug) {
+          console.error("[UpdateTracking] Debug info:", errorData.debug);
+          console.error("[UpdateTracking] Headers found:", errorData.debug.headers);
+        }
         throw new Error(errorData.error || `エラー (${res.status})`);
       }
 
@@ -120,6 +125,11 @@ export default function UpdateTrackingPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
+        // ★ デバッグ情報をコンソールに出力
+        if (errorData.debug) {
+          console.error("[UpdateTracking] Debug info:", errorData.debug);
+          console.error("[UpdateTracking] Headers found:", errorData.debug.headers);
+        }
         throw new Error(errorData.error || `エラー (${res.status})`);
       }
 
