@@ -429,14 +429,12 @@ export default function CreateShippingListPage() {
           font: 'NotoSansJP',
           fontSize: 8,
           cellPadding: 2,
-          fontStyle: 'bold',
         },
         headStyles: {
           font: 'NotoSansJP',
           fillColor: [71, 85, 105],
           textColor: [255, 255, 255],
           fontSize: 9,
-          fontStyle: 'bold',
         },
         columnStyles: {
           0: { cellWidth: 22 },  // 決済日時
