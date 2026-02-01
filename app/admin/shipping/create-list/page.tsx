@@ -424,6 +424,14 @@ export default function CreateShippingListPage() {
         return colorMap[key] || [255, 255, 255];
       };
 
+      // 行ごとのスタイルを事前に計算
+      const bodyStyles = selectedItems.map((item) => {
+        const color = getRgbColor(item);
+        return {
+          fillColor: color,
+        };
+      });
+
       autoTable(doc, {
         head: headers,
         body: data,
@@ -452,14 +460,10 @@ export default function CreateShippingListPage() {
           10: { cellWidth: 12 }, // 7.5mg
           11: { cellWidth: 12 }, // 10mg
         },
-        willDrawCell: (data) => {
+        didParseCell: (hookData) => {
           // 各行の背景色を設定
-          if (data.section === "body" && data.row && data.row.index !== undefined) {
-            const item = selectedItems[data.row.index];
-            if (item) {
-              const color = getRgbColor(item);
-              doc.setFillColor(color[0], color[1], color[2]);
-            }
+          if (hookData.section === "body" && hookData.row.index < bodyStyles.length) {
+            hookData.cell.styles.fillColor = bodyStyles[hookData.row.index].fillColor;
           }
         },
       });
