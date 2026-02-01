@@ -424,25 +424,30 @@ export async function GET(request: NextRequest) {
       ? Math.round(((completedReservations ?? 0) / nonCancelledReservations) * 100)
       : 0;
 
-    // 10. LINE登録者数（全期間）
-    // countではなくデータを取得してカウント
-    let allLineUsers: any[] = [];
-    page = 0;
+    // 10. LINE登録者数（全期間）- LINE Messaging APIから取得
+    let lineRegisteredCount = 0;
 
-    while (true) {
-      const { data: lineUsers } = await supabase
-        .from("intake")
-        .select("patient_id, line_user_id")
-        .not("line_user_id", "is", null)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+    try {
+      // 内部APIエンドポイントを呼び出してLINE友だち数を取得
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      const lineFollowersRes = await fetch(`${baseUrl}/api/admin/line/followers`, {
+        headers: {
+          Authorization: `Bearer ${process.env.ADMIN_TOKEN}`,
+        },
+      });
 
-      if (!lineUsers || lineUsers.length === 0) break;
-      allLineUsers = allLineUsers.concat(lineUsers);
-      if (lineUsers.length < pageSize) break;
-      page++;
+      if (lineFollowersRes.ok) {
+        const lineData = await lineFollowersRes.json();
+        lineRegisteredCount = lineData.followers || 0;
+        console.log(`[Dashboard] LINE followers: ${lineRegisteredCount}`);
+      } else {
+        console.error("[Dashboard] Failed to fetch LINE followers, using 0");
+        lineRegisteredCount = 0;
+      }
+    } catch (error) {
+      console.error("[Dashboard] Error fetching LINE followers:", error);
+      lineRegisteredCount = 0;
     }
-
-    const lineRegisteredCount = allLineUsers.length;
 
     // 11. 本日の予約された数（今日作成された予約の数）
     const { count: todayNewReservations } = await supabase
