@@ -39,29 +39,26 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ReminderCSV] Generating CSV for ${reminders.length} reminders`);
 
-    // CSV生成（Lステップメッセージ配信形式）
+    // CSV生成（Lステップタグ付与形式）
+    const TAG_ATTR_ID = "9321522"; // 診療リマインドタグID
+    const tagColName = `タグ_${TAG_ATTR_ID}`;
+    const tagDesc = "診療リマインド";
+
     const csvLines: string[] = [];
 
     // 1行目: ヘッダー
-    csvLines.push("登録ID,メッセージ1");
-
-    // 2行目以降: データ
+    csvLines.push("登録ID," + tagColName);
+    // 2行目: 説明
+    csvLines.push("ID," + tagDesc);
+    // 3行目以降: データ
     for (const reminder of reminders) {
-      // CSVエスケープ処理（カンマやダブルクォートを含む場合）
-      const escapeCSV = (str: string) => {
-        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-      };
-
-      csvLines.push(`${reminder.lstep_id},${escapeCSV(reminder.message)}`);
+      csvLines.push(`${reminder.lstep_id},1`);
     }
 
     const csvContent = csvLines.join("\n");
 
     // ファイル名に日付を含める
-    const filename = `reminder_${date.replace(/-/g, "")}.csv`;
+    const filename = `reminder_tag_${date.replace(/-/g, "")}.csv`;
 
     console.log(`[ReminderCSV] Generated CSV: ${filename}, ${reminders.length} rows`);
 
