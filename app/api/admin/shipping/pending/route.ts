@@ -60,14 +60,26 @@ export async function GET(req: NextRequest) {
 
     const cutoffISO = cutoffTime.toISOString();
 
-    // ★ Plan A: ordersテーブルから未発送の注文を取得（status='confirmed'のみ、住所情報も含む）
-    const { data: orders, error: ordersError } = await supabase
+    // ★ ordersテーブルから未発送の注文を取得（confirmed + pending_confirmation、住所情報も含む）
+    const { data: ordersConfirmed, error: ordersConfirmedError } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email")
+      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at")
       .is("shipping_date", null)
-      .eq("status", "confirmed") // ★ 振込確認済みのみ
+      .eq("status", "confirmed")
       .gte("paid_at", cutoffISO)
       .order("paid_at", { ascending: false });
+
+    const { data: ordersPending, error: ordersPendingError } = await supabase
+      .from("orders")
+      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at")
+      .is("shipping_date", null)
+      .eq("status", "pending_confirmation")
+      .eq("payment_method", "bank_transfer")
+      .gte("created_at", cutoffISO)
+      .order("created_at", { ascending: false });
+
+    const ordersError = ordersConfirmedError || ordersPendingError;
+    const orders = [...(ordersConfirmed || []), ...(ordersPending || [])];
 
     if (ordersError) {
       console.error("Supabase orders error:", ordersError);
@@ -126,8 +138,9 @@ export async function GET(req: NextRequest) {
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",
-        payment_date: order.paid_at,
+        payment_date: order.paid_at || order.created_at, // ★ pending時はcreated_atを使用
         amount: order.amount || 0,
+        status: order.status, // ★ ステータスを追加（フロントエンドでグレーアウト判定に使用）
         // ★ 住所情報はordersテーブルから
         postal_code: order.postal_code || "",
         address: order.address || "",

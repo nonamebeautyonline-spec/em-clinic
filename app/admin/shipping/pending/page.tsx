@@ -13,6 +13,7 @@ interface Order {
   payment_method: string;
   payment_date: string;
   amount: number;
+  status: string; // ★ ステータス（confirmed / pending_confirmation）
   postal_code: string;
   address: string;
   phone: string;
@@ -86,7 +87,9 @@ export default function ShippingPendingPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedOrders(new Set(orders.map((o) => o.id)));
+      // ★ confirmed のみ選択可能（pending_confirmation は除外）
+      const selectableOrders = orders.filter((o) => o.status === "confirmed");
+      setSelectedOrders(new Set(selectableOrders.map((o) => o.id)));
     } else {
       setSelectedOrders(new Set());
     }
@@ -206,7 +209,7 @@ export default function ShippingPendingPage() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-600">
-            合計 {orders.length} 件 / 選択 {selectedOrders.size} 件
+            合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件） / 選択 {selectedOrders.size} 件
           </span>
         </div>
         <button
@@ -230,7 +233,10 @@ export default function ShippingPendingPage() {
                 <th className="px-6 py-3 text-left">
                   <input
                     type="checkbox"
-                    checked={selectedOrders.size === orders.length && orders.length > 0}
+                    checked={
+                      orders.filter((o) => o.status === "confirmed").length > 0 &&
+                      selectedOrders.size === orders.filter((o) => o.status === "confirmed").length
+                    }
                     onChange={(e) => handleSelectAll(e.target.checked)}
                     className="rounded border-slate-300"
                   />
@@ -275,70 +281,90 @@ export default function ShippingPendingPage() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className={`hover:bg-slate-50 ${
-                      mergeableGroups.some((g) => g.patient_id === order.patient_id)
-                        ? "bg-yellow-50"
-                        : ""
-                    }`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        checked={selectedOrders.has(order.id)}
-                        onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
-                        className="rounded border-slate-300"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                orders.map((order) => {
+                  const isPending = order.status === "pending_confirmation";
+                  return (
+                    <tr
+                      key={order.id}
+                      className={`${
+                        isPending
+                          ? "bg-slate-100 text-slate-400"
+                          : mergeableGroups.some((g) => g.patient_id === order.patient_id)
+                          ? "bg-yellow-50 hover:bg-yellow-100"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.has(order.id)}
+                          onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
+                          disabled={isPending}
+                          className={`rounded border-slate-300 ${
+                            isPending ? "cursor-not-allowed opacity-50" : ""
+                          }`}
+                        />
+                      </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
                       {formatDate(order.payment_date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          order.payment_method === "クレジットカード"
-                            ? "bg-yellow-300 text-black"
-                            : "bg-cyan-300 text-black"
-                        }`}
-                      >
-                        {order.payment_method}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            order.payment_method === "クレジットカード"
+                              ? "bg-yellow-300 text-black"
+                              : "bg-cyan-300 text-black"
+                          } ${isPending ? "opacity-50" : ""}`}
+                        >
+                          {order.payment_method}
+                        </span>
+                        {isPending && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-300 text-slate-600">
+                            振込確認待ち
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
                       {order.patient_name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => router.push(`/admin/patients/${order.patient_id}`)}
-                        className="text-blue-600 hover:text-blue-900 hover:underline font-mono"
+                        className={`font-mono ${
+                          isPending
+                            ? "text-slate-400 cursor-default"
+                            : "text-blue-600 hover:text-blue-900 hover:underline"
+                        }`}
+                        disabled={isPending}
                       >
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-600">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${isPending ? "text-slate-400" : "text-slate-600"}`}>
                       {order.lstep_id || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
                       {order.product_name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-600"}`}>
                       {order.postal_code || "-"}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">
+                    <td className={`px-6 py-4 text-sm ${isPending ? "text-slate-400" : "text-slate-600"} max-w-xs truncate`}>
                       {order.address || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-600"}`}>
                       {order.phone || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold">
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${isPending ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-700"} font-semibold`}>
                         {order.purchase_count}
                       </span>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
