@@ -336,37 +336,20 @@ export default function CreateShippingListPage() {
     }
 
     try {
-      // 日本語フォントを動的に読み込み
-      const fontResponse = await fetch('/fonts/NotoSansJP-Regular.ttf');
-      const fontArrayBuffer = await fontResponse.arrayBuffer();
-
-      // ArrayBufferをBase64に変換
-      const fontBase64 = btoa(
-        new Uint8Array(fontArrayBuffer).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
-          ''
-        )
-      );
-
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
         format: "a4",
       });
 
-      // 日本語フォントを登録
-      doc.addFileToVFS('NotoSansJP-Regular.ttf', fontBase64);
-      doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
-      doc.setFont('NotoSansJP');
-
       // タイトル
       doc.setFontSize(16);
-      doc.text("発送リスト", 14, 15);
+      doc.text("Shipping List", 14, 15);
 
       // 日付
       doc.setFontSize(10);
       const today = new Date().toLocaleDateString("ja-JP");
-      doc.text(`作成日: ${today}`, 14, 22);
+      doc.text(`Date: ${today}`, 14, 22);
 
       // テーブルデータ（user_id, patient_id, payment_idは除外）
       const headers = [
@@ -431,7 +414,6 @@ export default function CreateShippingListPage() {
         styles: {
           fontSize: 6,
           cellPadding: 2,
-          font: "NotoSansJP", // 日本語フォント
         },
         headStyles: {
           fillColor: [71, 85, 105],
