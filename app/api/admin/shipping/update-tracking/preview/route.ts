@@ -42,14 +42,21 @@ export async function POST(req: NextRequest) {
       console.log("[UpdateTrackingPreview] Removed UTF-8 BOM");
     }
 
-    // CSVをパース（タブ区切り）
+    // CSVをパース（カンマ区切り or タブ区切り自動判定）
     const lines = csvContent.split("\n").filter((line: string) => line.trim());
     if (lines.length < 2) {
       return NextResponse.json({ error: "CSVが空です" }, { status: 400 });
     }
 
-    // ヘッダー行を解析（タブ区切り）
-    const headers = lines[0].split("\t").map((h: string) => h.trim().replace(/\s+/g, ""));
+    // ★ ヘッダー行を解析（カンマ区切りかタブ区切りか自動判定）
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes("\t") ? "\t" : ",";
+    console.log(`[UpdateTrackingPreview] Detected delimiter: ${delimiter === "\t" ? "TAB" : "COMMA"}`);
+
+    // ダブルクォートを除去してからパース
+    const headers = firstLine.split(delimiter).map((h: string) =>
+      h.trim().replace(/^"|"$/g, "").replace(/\s+/g, "")
+    );
 
     // ★ デバッグ: ヘッダーを出力
     console.log("[UpdateTrackingPreview] Headers:", JSON.stringify(headers));
@@ -86,7 +93,7 @@ export async function POST(req: NextRequest) {
       const line = lines[i];
       if (!line.trim()) continue;
 
-      const columns = line.split("\t");
+      const columns = line.split(delimiter).map((c: string) => c.trim().replace(/^"|"$/g, ""));
       const rawPaymentId = columns[paymentIdColIndex]?.trim();
       const trackingNumber = columns[trackingNumberColIndex]?.trim();
 
@@ -152,7 +159,7 @@ export async function POST(req: NextRequest) {
         const line = lines[i];
         if (!line.trim()) continue;
 
-        const columns = line.split("\t");
+        const columns = line.split(delimiter).map((c: string) => c.trim().replace(/^"|"$/g, ""));
         const rawPaymentId = columns[paymentIdColIndex]?.trim();
         const trackingNumber = columns[trackingNumberColIndex]?.trim();
 
