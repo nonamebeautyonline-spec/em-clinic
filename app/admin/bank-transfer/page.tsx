@@ -6,15 +6,14 @@ import { useRouter } from "next/navigation";
 interface BankTransferOrder {
   id: number;
   patient_id: string;
-  patient_name?: string;
-  order_id?: string;
   payment_method: string;
   product_code?: string;
   shipping_name?: string;
-  shipping_address?: string;
-  shipping_postal_code?: string;
+  address?: string;
+  postal_code?: string;
   phone?: string;
   email?: string;
+  account_name?: string;
   shipping_date?: string;
   tracking_number?: string;
   created_at: string;
@@ -124,9 +123,9 @@ export default function BankTransferManagementPage() {
 
   const filteredOrders = orders.filter((order) => {
     if (filter === "all") return true;
-    // ordersテーブルではshipping_addressの有無でステータス判定
-    if (filter === "pending_confirmation") return !order.shipping_address;
-    if (filter === "confirmed") return !!order.shipping_address;
+    // ordersテーブルではaddressの有無でステータス判定
+    if (filter === "pending_confirmation") return !order.address;
+    if (filter === "confirmed") return !!order.address;
     return true;
   });
 
@@ -185,7 +184,7 @@ export default function BankTransferManagementPage() {
                 : "bg-white text-slate-700 border border-slate-300"
             }`}
           >
-            住所未入力 ({orders.filter((o) => !o.shipping_address).length})
+            住所未入力 ({orders.filter((o) => !o.address).length})
           </button>
           <button
             onClick={() => setFilter("confirmed")}
@@ -195,7 +194,7 @@ export default function BankTransferManagementPage() {
                 : "bg-white text-slate-700 border border-slate-300"
             }`}
           >
-            住所入力済み ({orders.filter((o) => !!o.shipping_address).length})
+            住所入力済み ({orders.filter((o) => !!o.address).length})
           </button>
         </div>
 
@@ -236,8 +235,8 @@ export default function BankTransferManagementPage() {
                         <td className="px-4 py-3 text-sm text-slate-600">{order.product_code || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-900">{order.shipping_name || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-600 max-w-xs truncate">
-                          {order.shipping_address ? (
-                            <span title={order.shipping_address}>{order.shipping_address}</span>
+                          {order.address ? (
+                            <span title={order.address}>{order.address}</span>
                           ) : (
                             <span className="text-red-600 font-semibold">未入力</span>
                           )}
@@ -246,12 +245,12 @@ export default function BankTransferManagementPage() {
                         <td className="px-4 py-3">
                           <span
                             className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                              order.shipping_address
+                              order.address
                                 ? "bg-green-100 text-green-700"
                                 : "bg-yellow-100 text-yellow-700"
                             }`}
                           >
-                            {order.shipping_address ? "住所あり" : "住所なし"}
+                            {order.address ? "住所あり" : "住所なし"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">
