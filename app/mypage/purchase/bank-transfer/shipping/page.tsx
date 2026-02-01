@@ -14,6 +14,7 @@ function ShippingFormContent() {
   const reorderIdParam = searchParams.get("reorder_id"); // ★ 追加
 
   const [accountName, setAccountName] = useState("");
+  const [shippingName, setShippingName] = useState(""); // ★ 追加: 配送先氏名（漢字）
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -24,7 +25,7 @@ function ShippingFormContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!accountName.trim() || !phoneNumber.trim() || !email.trim() || !postalCode.trim() || !address.trim()) {
+    if (!accountName.trim() || !shippingName.trim() || !phoneNumber.trim() || !email.trim() || !postalCode.trim() || !address.trim()) {
       setError("すべての項目を入力してください。");
       return;
     }
@@ -48,6 +49,7 @@ function ShippingFormContent() {
           mode: modeParam || undefined, // ★ 追加
           reorderId: reorderIdParam || undefined, // ★ 追加
           accountName,
+          shippingName, // ★ 追加: 配送先氏名
           phoneNumber,
           email,
           postalCode,
@@ -193,6 +195,28 @@ function ShippingFormContent() {
             />
             <p className="mt-1 text-[10px] text-slate-500">
               ※ 都道府県から建物名・部屋番号まで正確に入力してください
+            </p>
+          </div>
+
+          {/* 配送先氏名 */}
+          <div>
+            <label
+              htmlFor="shippingName"
+              className="block text-sm font-semibold text-slate-900 mb-2"
+            >
+              配送先氏名
+            </label>
+            <input
+              type="text"
+              id="shippingName"
+              value={shippingName}
+              onChange={(e) => setShippingName(e.target.value)}
+              placeholder="例: 山田太郎"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+              disabled={submitting}
+            />
+            <p className="mt-1 text-[10px] text-slate-500">
+              ※ 漢字で配送先のお名前を入力してください
             </p>
           </div>
 

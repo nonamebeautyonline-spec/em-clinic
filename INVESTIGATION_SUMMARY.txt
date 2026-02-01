@@ -1,0 +1,63 @@
+================================================================================
+           patient_id 20260100211 調査結果サマリー
+================================================================================
+
+【問題】
+GAS予約問診シートに「1/30(金) 15:15-15:30」の予約が表示されているが、
+DBでは全てcanceled状態
+
+【調査結果】
+
+1. Supabase DB の状態
+   ✓ 総レコード数: 16件
+   ✓ 全てのstatusがcanceled
+   ✓ pendingの予約: 0件
+   
+2. 最も可能性の高い該当予約
+   Reserve ID: resv-1769729904218
+   予約日時: 2026-01-30 15:15:00
+   DB Status: canceled
+   作成: 2026-01-30 08:38:25 (JST)
+   キャンセル: 2026-01-30 11:07:40 (JST)
+
+3. 重要な発見
+   - 15件の予約が 11:07:40 に一斉キャンセル
+   - 1件の予約が 15:31:10 にキャンセル
+   - DBは正しくキャンセル処理されている
+
+【問題の原因（推定）】
+GASシートとSupabaseの同期エラー
+- DB: 全てcanceled（正しい状態）
+- GASシート: pendingのまま残っている（要確認）
+
+【確認方法】
+1. 以下のURLでGoogleスプレッドシートを開く:
+   https://docs.google.com/spreadsheets/d/1j932bAhjOAN1fF55gU07F4VRMWi9yTphoejCGJHFwuo/edit
+
+2. Ctrl+F で "20260100211" を検索
+
+3. 該当行のカラムT（status列）を確認
+   - "pending" になっている場合 → 同期エラー確定
+   - "canceled" になっている場合 → 表示の問題
+
+【修正方法】
+
+Option A: 手動修正（即効性あり）
+  1. スプレッドシートで該当行を特定
+  2. カラムT（status）を "canceled" に変更
+
+Option B: 同期スクリプト再実行
+  1. gas/intake/sync-all-to-supabase.js を実行
+  2. または gas/intake/sync-missing-to-supabase.js を実行
+
+【関連ファイル】
+- /Users/administer/em-clinic/final_report.md (詳細レポート)
+- /Users/administer/em-clinic/check_patient.js (DBクエリスクリプト)
+- /Users/administer/em-clinic/detailed_analysis.js (詳細分析スクリプト)
+
+【次のステップ】
+1. GASシートの直接確認
+2. status列の値確認
+3. 必要に応じて修正実行
+
+================================================================================

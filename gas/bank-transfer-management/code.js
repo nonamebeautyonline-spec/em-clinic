@@ -35,8 +35,9 @@ const ADDRESS_HEADER = [
   "メールアドレス",   // I: email
   "郵便番号",         // J: postal_code
   "住所",             // K: address
-  "ステータス",       // L: status (pending_confirmation, confirmed, shipped)
-  "送信日時",         // M: submitted_at
+  "配送先氏名",       // L: shipping_name (漢字)
+  "ステータス",       // M: status (pending_confirmation, confirmed, shipped)
+  "送信日時",         // N: submitted_at
 ];
 
 // 入金CSVシートのヘッダー (銀行からダウンロードしたCSVをそのまま貼り付け)
@@ -217,6 +218,7 @@ function handleBankTransferOrder_(body) {
     var mode = String(body.mode || "first").trim();  // ★ 追加
     var reorderId = String(body.reorder_id || "").trim();  // ★ 追加
     var accountName = String(body.account_name || "").trim();
+    var shippingName = String(body.shipping_name || "").trim();  // ★ 追加: 配送先氏名
     var phoneNumber = String(body.phone_number || "").trim();
     var email = String(body.email || "").trim();
     var postalCode = String(body.postal_code || "").trim();
@@ -308,8 +310,9 @@ function handleBankTransferOrder_(body) {
       email,            // I: メールアドレス
       postalCode,       // J: 郵便番号
       address,          // K: 住所
-      "confirmed",      // L: ステータス (住所入力完了 = 決済完了)
-      submittedAt,      // M: 送信日時
+      shippingName,     // L: 配送先氏名 (漢字)
+      "confirmed",      // M: ステータス (住所入力完了 = 決済完了)
+      submittedAt,      // N: 送信日時
     ];
 
     Logger.log("[handleBankTransferOrder] Inserting data to sheet: " + addressSheetName);
@@ -424,7 +427,8 @@ function copySelectedToVerified() {
     var email = rowData[8];            // I: メールアドレス
     var postalCode = rowData[9];       // J: 郵便番号
     var address = rowData[10];         // K: 住所
-    var submittedAt = rowData[12];     // M: 送信日時
+    var shippingName = rowData[11];    // L: 配送先氏名 (漢字)
+    var submittedAt = rowData[13];     // N: 送信日時
 
     var productInfo = PRODUCT_INFO[productCode] || { name: "マンジャロ", price: 0 };
     var paymentId = "bt_" + orderId;
@@ -438,7 +442,7 @@ function copySelectedToVerified() {
 
     var verifiedRow = [
       orderDatetime,       // A: 注文日時
-      accountName,         // B: 配送先名前
+      shippingName || accountName, // B: 配送先名前 (shipping_nameがあればそれを使用、なければaccountName)
       postalCode,          // C: 郵便番号
       address,             // D: 住所
       email,               // E: メールアドレス
@@ -777,17 +781,25 @@ function copyVerifiedToNonameMaster() {
     var rowNum = rowsToCopy[i];
     var rowData = activeSheet.getRange(rowNum, 1, 1, VERIFIED_HEADER.length).getValues()[0];
 
-    // patient_id (L列、インデックス11)から氏名を取得
+    // B列（配送先名前、インデックス1）に既に氏名（漢字）が入っている場合はそのまま使う
+    // 入っていない場合（古いデータ）はpatient_idからSupabaseで取得
     var patientId = String(rowData[11] || "").trim();
-    var kanjiName = getPatientNameFromSupabase_(patientId);
+    var shippingName = String(rowData[1] || "").trim();
 
-    // B列（配送先名前、インデックス1）を漢字の氏名に置き換え
-    if (kanjiName) {
-      rowData[1] = kanjiName;
-      Logger.log("[copyVerifiedToNonameMaster] " + patientId + ": " + kanjiName);
+    // shipping_nameがカタカナのみの場合、Supabaseから漢字の氏名を取得
+    var isKatakana = /^[ァ-ヶー\s]+$/.test(shippingName);
+    if (!shippingName || isKatakana) {
+      var kanjiName = getPatientNameFromSupabase_(patientId);
+      if (kanjiName) {
+        rowData[1] = kanjiName;
+        Logger.log("[copyVerifiedToNonameMaster] " + patientId + ": Supabaseから取得 - " + kanjiName);
+      } else {
+        notFoundCount++;
+        Logger.log("[copyVerifiedToNonameMaster] ⚠️  氏名が見つかりません: " + patientId + " (カタカナのまま転記)");
+      }
     } else {
-      notFoundCount++;
-      Logger.log("[copyVerifiedToNonameMaster] ⚠️  氏名が見つかりません: " + patientId + " (カタカナのまま転記)");
+      // 既に漢字の氏名がある場合
+      Logger.log("[copyVerifiedToNonameMaster] " + patientId + ": 既存の氏名を使用 - " + shippingName);
     }
 
     // ★ A列（注文日時）をyyyy/MM/dd形式に変換

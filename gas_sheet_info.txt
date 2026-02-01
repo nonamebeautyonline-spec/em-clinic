@@ -1,0 +1,29 @@
+=== GAS予約問診シートの情報 ===
+
+スプレッドシートID: 1j932bAhjOAN1fF55gU07F4VRMWi9yTphoejCGJHFwuo
+直接アクセスURL: https://docs.google.com/spreadsheets/d/1j932bAhjOAN1fF55gU07F4VRMWi9yTphoejCGJHFwuo/edit
+
+シート構造:
+- カラムZ (26列目): patient_id
+- カラムH (8列目): reserved_date
+- カラムI (9列目): reserved_time
+- カラムB (2列目): reserve_id
+- カラムT (20列目): status
+
+確認する内容:
+1. patient_id = 20260100211 の行を検索
+2. その行のstatusを確認（pending/canceled）
+3. reserved_date と reserved_time を確認
+
+ユーザーの報告:
+- GASシートでは「1/30(金) 15:15-15:30」の予約として表示されている
+
+DBの状態:
+- patient_id = 20260100211 のレコードは16件存在
+- 全てのレコードが status = 'canceled'
+- 最も古い予約: 2026-01-30 15:15 (ID: 2381, created: 2026-01-29T23:38:25)
+- 最も新しい予約: 2026-01-30 16:45 (ID: 2398, created: 2026-01-30T00:28:37, updated: 2026-01-30T06:31:10)
+
+予想される問題:
+1. DBでは全てcanceledだが、GASシート上では古い予約(15:15)がpendingとして残っている
+2. GASとSupabaseの同期が失敗している可能性

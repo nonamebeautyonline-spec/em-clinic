@@ -8,10 +8,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { patientId, productCode, mode, reorderId, accountName, phoneNumber, email, postalCode, address } = body;
+    const { patientId, productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = body;
 
     // バリデーション
-    if (!patientId || !productCode || !accountName || !phoneNumber || !email || !postalCode || !address) {
+    if (!patientId || !productCode || !accountName || !shippingName || !phoneNumber || !email || !postalCode || !address) {
       return NextResponse.json(
         { error: "必須項目が不足しています" },
         { status: 400 }
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       patient_id: patientId,
       product_code: productCode,
       account_name: accountName,
+      shipping_name: shippingName, // ★ 追加: 配送先氏名（漢字）
       phone_number: phoneNumber,
       email: email,
       postal_code: postalCode,
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
         mode: mode || "first",
         reorder_id: reorderId || null,
         account_name: accountName,
+        shipping_name: shippingName, // ★ 追加: 配送先氏名（漢字）
         phone_number: phoneNumber,
         email: email,
         postal_code: postalCode,

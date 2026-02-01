@@ -54,7 +54,7 @@ function reconcileBankTransfers() {
     return;
   }
 
-  var addressData = addressSheet.getRange(2, 1, addressLastRow - 1, 13).getValues();
+  var addressData = addressSheet.getRange(2, 1, addressLastRow - 1, 14).getValues(); // ★ 14列に変更
   var csvData = csvSheet.getRange(2, 1, csvLastRow - 1, 6).getValues();
 
   Logger.log("[reconcileBankTransfers] 住所情報: " + addressData.length + " 件");
@@ -78,8 +78,9 @@ function reconcileBankTransfers() {
     var email = addressRow[8];           // I: メールアドレス
     var postalCode = addressRow[9];      // J: 郵便番号
     var address = addressRow[10];        // K: 住所
-    var status = addressRow[11];         // L: ステータス
-    var submittedAt = addressRow[12];    // M: 送信日時
+    var shippingName = addressRow[11];   // L: 配送先氏名 (漢字)
+    var status = addressRow[12];         // M: ステータス
+    var submittedAt = addressRow[13];    // N: 送信日時
 
     // 口座名義で入金CSVを検索
     var normalizedAccountName = normalizeAccountName_(accountName);
@@ -121,7 +122,7 @@ function reconcileBankTransfers() {
         // 照合済みシートに転記
         var verifiedRow = [
           orderDatetime,       // A: 注文日時
-          accountName,         // B: 配送先名前
+          shippingName || accountName, // B: 配送先名前 (shipping_nameがあればそれを使用、なければaccountName)
           postalCode,          // C: 郵便番号
           address,             // D: 住所
           email,               // E: メールアドレス
