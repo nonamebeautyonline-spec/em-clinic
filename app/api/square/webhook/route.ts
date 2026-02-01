@@ -121,12 +121,21 @@ function normalizeJPPhone(raw: string) {
   let digits = s.replace(/[^\d]/g, "");
   if (!digits) return "";
 
-  if (digits.startsWith("81")) {
-    const rest = digits.slice(2);
-    if (/^(70|80|90)/.test(rest)) digits = "0" + rest;
-    else digits = "0" + rest;
+  // 00プレフィックスを削除（国際電話の発信コード）
+  if (digits.startsWith("00")) {
+    digits = digits.slice(2);
   }
-  if (!digits.startsWith("0") && /^(70|80|90)/.test(digits)) digits = "0" + digits;
+
+  // 81（国際番号）を削除して0を追加
+  if (digits.startsWith("81")) {
+    digits = "0" + digits.slice(2);
+  }
+
+  // 先頭に0がなく、7/8/9で始まる場合は0を追加
+  if (!digits.startsWith("0") && /^[789]/.test(digits)) {
+    digits = "0" + digits;
+  }
+
   return digits;
 }
 
