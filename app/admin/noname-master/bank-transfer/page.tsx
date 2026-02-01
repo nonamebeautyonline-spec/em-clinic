@@ -56,13 +56,10 @@ export default function NonameMasterBankTransferPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatTime = (dateStr: string) => {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
     return date.toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -136,7 +133,7 @@ export default function NonameMasterBankTransferPage() {
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  申請日時
+                  決済日時
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   氏名
@@ -172,7 +169,7 @@ export default function NonameMasterBankTransferPage() {
                 orders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {formatDate(order.payment_date)}
+                      {formatTime(order.payment_date)}
                       {order.payment_date_label && <span className="text-slate-500 ml-1">{order.payment_date_label}</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">

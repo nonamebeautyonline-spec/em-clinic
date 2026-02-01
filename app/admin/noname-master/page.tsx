@@ -57,13 +57,10 @@ export default function NonameMasterPage() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatTime = (dateStr: string) => {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
     return date.toLocaleString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -153,7 +150,7 @@ export default function NonameMasterPage() {
                 orders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {formatDate(order.payment_date)}
+                      {formatTime(order.payment_date)}
                       {order.payment_date_label && <span className="text-slate-500 ml-1">{order.payment_date_label}</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
