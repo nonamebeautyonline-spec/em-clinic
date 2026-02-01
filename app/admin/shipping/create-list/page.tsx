@@ -424,7 +424,8 @@ export default function CreateShippingListPage() {
         return colorMap[key] || [255, 255, 255];
       };
 
-      autoTable(doc, {
+      // @ts-ignore - jspdf-autotableの型定義が不完全なため
+      doc.autoTable({
         head: headers,
         body: data,
         startY: 28,
@@ -438,7 +439,7 @@ export default function CreateShippingListPage() {
           textColor: [255, 255, 255],
           fontSize: 7,
         },
-        willDrawCell: (hookData) => {
+        willDrawCell: (hookData: any) => {
           // セルを描画する直前に背景色を設定
           if (hookData.section === 'body' && hookData.row.index < selectedItems.length) {
             const item = selectedItems[hookData.row.index];
