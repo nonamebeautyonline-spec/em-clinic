@@ -33,6 +33,19 @@ export async function GET(req: NextRequest) {
       targetDate = jstNow.toISOString().slice(0, 10);
     }
 
+    // ★ キャンセル除外のため、reservationsテーブルから有効なreserve_idを取得
+    const { data: reservationsData } = await supabase
+      .from("reservations")
+      .select("reserve_id")
+      .eq("reserved_date", targetDate)
+      .neq("status", "canceled");
+
+    const validReserveIds = reservationsData
+      ? new Set(reservationsData.map((r: any) => r.reserve_id))
+      : new Set();
+
+    console.log(`[Admin Reservations] Valid (non-canceled) reservations for ${targetDate}: ${validReserveIds.size}`);
+
     // intakeテーブルから予約データを取得（reserved_dateで日付フィルタ）
     const { data, error } = await supabase
       .from("intake")
@@ -50,8 +63,18 @@ export async function GET(req: NextRequest) {
       }, { status: 500 });
     }
 
+    // ★ キャンセル済み予約を除外
+    const filteredData = data.filter((row: any) => {
+      // reserve_idがない場合は含める（予約なし問診）
+      if (!row.reserve_id) return true;
+      // reserve_idがある場合、有効な予約リストに含まれるかチェック
+      return validReserveIds.has(row.reserve_id);
+    });
+
+    console.log(`[Admin Reservations] Filtered ${data.length} -> ${filteredData.length} (excluded canceled)`);
+
     // レスポンス用に整形
-    const reservations = (data || []).map((row: any) => ({
+    const reservations = (filteredData || []).map((row: any) => ({
       id: row.id || row.reserve_id,
       reserve_id: row.reserve_id,
       patient_id: row.patient_id,
