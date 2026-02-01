@@ -158,8 +158,8 @@ export default function NonameMasterPage() {
                       <span
                         className={`px-3 py-1 text-xs font-medium rounded-full ${
                           order.payment_method === "クレジットカード"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-green-100 text-green-800"
+                            ? "bg-yellow-300 text-black"
+                            : "bg-cyan-300 text-black"
                         }`}
                       >
                         {order.payment_method}
