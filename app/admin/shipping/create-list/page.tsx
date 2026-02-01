@@ -139,13 +139,23 @@ export default function CreateShippingListPage() {
     return nonZeroCount > 1; // 2つ以上の用量に本数がある = 統合
   };
 
-  // ★ ソート順: 単一用量アイテム（2.5mg → 5mg → 7.5mg → 10mg、本数降順） → 統合アイテム（同じ用量・本数順）
+  // ★ 統合アイテムの組み合わせパターンを取得（例: "2.5mg+5mg", "5mg+7.5mg"）
+  const getCombinationPattern = (item: ShippingItem): string => {
+    const dosages = [];
+    if (item.dosage_2_5mg > 0) dosages.push('2.5mg');
+    if (item.dosage_5mg > 0) dosages.push('5mg');
+    if (item.dosage_7_5mg > 0) dosages.push('7.5mg');
+    if (item.dosage_10mg > 0) dosages.push('10mg');
+    return dosages.join('+');
+  };
+
+  // ★ ソート順: 単一用量アイテム（2.5mg → 5mg → 7.5mg → 10mg、本数降順） → 統合アイテム（組み合わせパターン順）
   const sortByDosage = (items: ShippingItem[]): ShippingItem[] => {
     const single = items.filter(item => !isMergedItem(item));
     const merged = items.filter(item => isMergedItem(item));
 
-    // 用量・本数でソートする共通関数
-    const sortByDosageAndCount = (a: ShippingItem, b: ShippingItem) => {
+    // 単一用量アイテムのソート（用量・本数降順）
+    const sortedSingle = single.sort((a, b) => {
       // 2.5mgの本数で降順ソート
       if (a.dosage_2_5mg !== b.dosage_2_5mg) {
         return b.dosage_2_5mg - a.dosage_2_5mg;
@@ -162,13 +172,23 @@ export default function CreateShippingListPage() {
       if (a.dosage_10mg !== b.dosage_10mg) {
         return b.dosage_10mg - a.dosage_10mg;
       }
-
       // 全て同じ場合は決済日時順
       return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
-    };
+    });
 
-    const sortedSingle = single.sort(sortByDosageAndCount);
-    const sortedMerged = merged.sort(sortByDosageAndCount);
+    // 統合アイテムのソート（組み合わせパターン順、同パターン内は決済日時順）
+    const sortedMerged = merged.sort((a, b) => {
+      const patternA = getCombinationPattern(a);
+      const patternB = getCombinationPattern(b);
+
+      // 組み合わせパターンで比較（辞書順）
+      if (patternA !== patternB) {
+        return patternA.localeCompare(patternB);
+      }
+
+      // 同じパターンなら決済日時順
+      return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
+    });
 
     return [...sortedSingle, ...sortedMerged];
   };
