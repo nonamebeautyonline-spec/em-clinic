@@ -420,8 +420,8 @@ export default function CreateShippingListPage() {
           textColor: [255, 255, 255],
           fontSize: 7,
         },
-        didDrawCell: (hookData: any) => {
-          // セルを描画した後に背景色を設定（次のセルのために）
+        didParseCell: (hookData: any) => {
+          // セルが解析されたときに背景色を設定（描画前）
           if (hookData.section === 'body' && hookData.row.index < selectedItems.length) {
             const item = selectedItems[hookData.row.index];
             const color = getRgbColor(item);
