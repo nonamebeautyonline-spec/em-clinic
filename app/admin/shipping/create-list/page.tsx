@@ -400,11 +400,13 @@ export default function CreateShippingListPage() {
     }
   };
 
-  // ★ 本数に応じた背景色を取得（12本、8本、4本）
-  const getDosageColor = (count: number): string => {
-    if (count === 12) return "bg-blue-100";
-    if (count === 8) return "bg-green-100";
-    if (count === 4) return "bg-yellow-100";
+  // ★ 行全体の背景色を取得（12本=青、8本=緑、4本=黄色）
+  const getRowColor = (item: ShippingItem): string => {
+    // 最も多い本数で色を決定
+    const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
+    if (maxCount === 12) return "bg-blue-50";
+    if (maxCount === 8) return "bg-green-50";
+    if (maxCount === 4) return "bg-yellow-50";
     return "";
   };
 
@@ -517,7 +519,7 @@ export default function CreateShippingListPage() {
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className={item.selected ? "" : "bg-slate-100 opacity-50"}>
+                  <tr key={item.id} className={`${item.selected ? getRowColor(item) : "bg-slate-100 opacity-50"}`}>
                     <td className="px-2 py-2">
                       <input
                         type="checkbox"
@@ -599,17 +601,17 @@ export default function CreateShippingListPage() {
                     <td className="px-2 py-2 text-xs">{item.phone}</td>
                     <td className="px-2 py-2 text-xs">{item.product_name}</td>
                     <td className="px-2 py-2 text-xs text-right">{item.price.toLocaleString()}</td>
-                    {/* ★ 用量セルに本数に応じた背景色 */}
-                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_2_5mg)}`}>
+                    {/* ★ 用量セル（行全体で色分け済み） */}
+                    <td className="px-2 py-2 text-xs text-right font-semibold">
                       {item.dosage_2_5mg || 0}
                     </td>
-                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_5mg)}`}>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">
                       {item.dosage_5mg || 0}
                     </td>
-                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_7_5mg)}`}>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">
                       {item.dosage_7_5mg || 0}
                     </td>
-                    <td className={`px-2 py-2 text-xs text-right font-semibold ${getDosageColor(item.dosage_10mg)}`}>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">
                       {item.dosage_10mg || 0}
                     </td>
                     <td className="px-2 py-2 text-xs font-mono">{item.patient_id}</td>

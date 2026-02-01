@@ -34,7 +34,6 @@ export default function ShippingPendingPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [mergeableGroups, setMergeableGroups] = useState<MergeableGroup[]>([]);
-  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
 
@@ -82,69 +81,6 @@ export default function ShippingPendingPage() {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      // ★ confirmed のみ選択可能（pending_confirmation は除外）
-      const selectableOrders = orders.filter((o) => o.status === "confirmed");
-      setSelectedOrders(new Set(selectableOrders.map((o) => o.id)));
-    } else {
-      setSelectedOrders(new Set());
-    }
-  };
-
-  const handleSelectOrder = (orderId: string, checked: boolean) => {
-    const newSelected = new Set(selectedOrders);
-    if (checked) {
-      newSelected.add(orderId);
-    } else {
-      newSelected.delete(orderId);
-    }
-    setSelectedOrders(newSelected);
-  };
-
-  const handleExportYamatoB2 = async () => {
-    if (selectedOrders.size === 0) {
-      alert("注文を選択してください");
-      return;
-    }
-
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/admin/shipping/export-yamato-b2", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          order_ids: Array.from(selectedOrders),
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`CSV生成失敗 (${res.status})`);
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `yamato_b2_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error("Export error:", err);
-      alert(err instanceof Error ? err.message : "CSVエクスポートに失敗しました");
     }
   };
 
@@ -209,7 +145,7 @@ export default function ShippingPendingPage() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-600">
-            合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件） / 選択 {selectedOrders.size} 件
+            合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件）
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -219,17 +155,6 @@ export default function ShippingPendingPage() {
           >
             📋 発送リストを作成
           </button>
-          <button
-            onClick={handleExportYamatoB2}
-            disabled={selectedOrders.size === 0}
-            className={`px-4 py-2 rounded-lg font-medium ${
-              selectedOrders.size === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            📦 ヤマトB2 CSV出力（選択: {selectedOrders.size}件）
-          </button>
         </div>
       </div>
 
@@ -238,17 +163,6 @@ export default function ShippingPendingPage() {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={
-                      orders.filter((o) => o.status === "confirmed").length > 0 &&
-                      selectedOrders.size === orders.filter((o) => o.status === "confirmed").length
-                    }
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="rounded border-slate-300"
-                  />
-                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   決済日時
                 </th>
@@ -284,7 +198,7 @@ export default function ShippingPendingPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
                     発送待ちの注文はありません
                   </td>
                 </tr>
@@ -302,17 +216,6 @@ export default function ShippingPendingPage() {
                           : "hover:bg-slate-50"
                       }`}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          checked={selectedOrders.has(order.id)}
-                          onChange={(e) => handleSelectOrder(order.id, e.target.checked)}
-                          disabled={isPending}
-                          className={`rounded border-slate-300 ${
-                            isPending ? "cursor-not-allowed opacity-50" : ""
-                          }`}
-                        />
-                      </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
                       {formatDate(order.payment_date)}
                     </td>
