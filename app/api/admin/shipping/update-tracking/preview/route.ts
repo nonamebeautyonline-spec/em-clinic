@@ -30,10 +30,16 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { csvContent } = body;
+    let { csvContent } = body;
 
     if (!csvContent) {
       return NextResponse.json({ error: "CSV content is required" }, { status: 400 });
+    }
+
+    // ★ BOM除去（UTF-8 BOM: 0xFEFF）
+    if (csvContent.charCodeAt(0) === 0xFEFF) {
+      csvContent = csvContent.slice(1);
+      console.log("[UpdateTrackingPreview] Removed UTF-8 BOM");
     }
 
     // CSVをパース（タブ区切り）
@@ -43,13 +49,28 @@ export async function POST(req: NextRequest) {
     }
 
     // ヘッダー行を解析（タブ区切り）
-    const headers = lines[0].split("\t").map((h: string) => h.trim());
+    const headers = lines[0].split("\t").map((h: string) => h.trim().replace(/\s+/g, ""));
+
+    // ★ デバッグ: ヘッダーを出力
+    console.log("[UpdateTrackingPreview] Headers:", JSON.stringify(headers));
+    console.log("[UpdateTrackingPreview] Header count:", headers.length);
+
     const paymentIdColIndex = headers.indexOf("お客様管理番号");
     const trackingNumberColIndex = headers.indexOf("伝票番号");
 
     if (paymentIdColIndex === -1 || trackingNumberColIndex === -1) {
+      console.error("[UpdateTrackingPreview] Column search failed");
+      console.error("[UpdateTrackingPreview] Looking for: お客様管理番号, 伝票番号");
+      console.error("[UpdateTrackingPreview] Available headers:", headers);
       return NextResponse.json(
-        { error: "必須カラムが見つかりません（お客様管理番号、伝票番号）" },
+        {
+          error: "必須カラムが見つかりません（お客様管理番号、伝票番号）",
+          debug: {
+            headers: headers,
+            paymentIdIndex: paymentIdColIndex,
+            trackingIndex: trackingNumberColIndex
+          }
+        },
         { status: 400 }
       );
     }
