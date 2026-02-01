@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -35,6 +35,7 @@ interface ShippingItem {
 
 export default function CreateShippingListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ShippingItem[]>([]);
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
@@ -67,9 +68,20 @@ export default function CreateShippingListPage() {
       const data = await res.json();
       const orders = data.orders || [];
 
+      // ★ URLクエリパラメータから選択されたIDを取得
+      const idsParam = searchParams.get("ids");
+      const selectedIds = idsParam ? idsParam.split(",").map(id => id.trim()) : null;
+
       // 用量を計算してフォーマット
       const formattedItems: ShippingItem[] = orders
         .filter((o: any) => o.status === "confirmed") // 確認済みのみ
+        .filter((o: any) => {
+          // ★ idsパラメータがある場合は、そのIDだけをフィルタ
+          if (selectedIds && selectedIds.length > 0) {
+            return selectedIds.includes(o.id);
+          }
+          return true; // idsパラメータがない場合は全て表示
+        })
         .map((order: any) => {
           const dosages = calculateDosage(order.product_code);
           return {
