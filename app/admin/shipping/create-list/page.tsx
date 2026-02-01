@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
-// ★ Dynamic rendering required for useSearchParams
-export const dynamic = 'force-dynamic';
 
 interface ShippingItem {
   id: string;
@@ -38,7 +35,6 @@ interface ShippingItem {
 
 export default function CreateShippingListPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ShippingItem[]>([]);
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
@@ -71,8 +67,9 @@ export default function CreateShippingListPage() {
       const data = await res.json();
       const orders = data.orders || [];
 
-      // ★ URLクエリパラメータから選択されたIDを取得
-      const idsParam = searchParams.get("ids");
+      // ★ URLクエリパラメータから選択されたIDを取得（クライアントサイドのみ）
+      const urlParams = new URLSearchParams(window.location.search);
+      const idsParam = urlParams.get("ids");
       const selectedIds = idsParam ? idsParam.split(",").map(id => id.trim()) : null;
 
       // 用量を計算してフォーマット
