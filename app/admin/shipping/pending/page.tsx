@@ -89,9 +89,6 @@ export default function ShippingPendingPage() {
       const fetchedOrders = data.orders || [];
       setOrders(fetchedOrders);
       setMergeableGroups(data.mergeableGroups || []);
-
-      // デフォルトで全選択
-      setSelectedOrderIds(new Set(fetchedOrders.map((o: Order) => o.id)));
     } catch (err) {
       console.error("Orders fetch error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
