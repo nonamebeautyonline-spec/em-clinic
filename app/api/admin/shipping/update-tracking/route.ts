@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
 
       // payment_idにカンマが含まれる場合は分割（合箱対応）
-      const paymentIds = rawPaymentId.split(",").map((id) => id.trim()).filter(Boolean);
+      const paymentIds = rawPaymentId.split(",").map((id: string) => id.trim()).filter(Boolean);
 
       console.log(`[UpdateTracking] Row ${i + 1}: paymentIds=${paymentIds.join(",")}, tracking=${trackingNumber}`);
 
