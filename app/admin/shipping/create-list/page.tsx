@@ -435,7 +435,7 @@ export default function CreateShippingListPage() {
         },
         headStyles: {
           fillColor: [71, 85, 105],
-          textColor: 255,
+          textColor: [255, 255, 255],
           fontSize: 7,
         },
         columnStyles: {
@@ -452,12 +452,14 @@ export default function CreateShippingListPage() {
           10: { cellWidth: 12 }, // 7.5mg
           11: { cellWidth: 12 }, // 10mg
         },
-        didParseCell: (data) => {
+        willDrawCell: (data) => {
           // 各行の背景色を設定
-          if (data.section === "body") {
+          if (data.section === "body" && data.row && data.row.index !== undefined) {
             const item = selectedItems[data.row.index];
-            const color = getRgbColor(item);
-            data.cell.styles.fillColor = color;
+            if (item) {
+              const color = getRgbColor(item);
+              doc.setFillColor(color[0], color[1], color[2]);
+            }
           }
         },
       });
