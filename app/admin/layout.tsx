@@ -158,6 +158,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/pending"}
           />
+          <MenuItem
+            href="/admin/shipping/update-tracking"
+            icon="🏷️"
+            label="追跡番号付与"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/shipping/update-tracking"}
+          />
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
           <MenuItem

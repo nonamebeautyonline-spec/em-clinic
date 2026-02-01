@@ -74,6 +74,15 @@ export default function NonameMasterPage() {
     return dateStr;
   };
 
+  const normalizeTrackingNumber = (trackingNumber: string) => {
+    return String(trackingNumber ?? "").replace(/[^\d]/g, "");
+  };
+
+  const buildTrackingUrl = (trackingNumber: string) => {
+    const normalized = normalizeTrackingNumber(trackingNumber);
+    return `https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${encodeURIComponent(normalized)}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -191,8 +200,19 @@ export default function NonameMasterPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {formatDateOnly(order.shipping_date)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
-                      {order.tracking_number || "-"}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                      {order.tracking_number ? (
+                        <a
+                          href={buildTrackingUrl(order.tracking_number)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-900 hover:underline"
+                        >
+                          {order.tracking_number}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                       <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold">
