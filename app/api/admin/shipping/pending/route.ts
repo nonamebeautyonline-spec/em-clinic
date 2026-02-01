@@ -79,7 +79,14 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false });
 
     const ordersError = ordersConfirmedError || ordersPendingError;
-    const orders = [...(ordersConfirmed || []), ...(ordersPending || [])];
+
+    // ★ confirmed と pending を時間順にマージ（新しい順）
+    const allOrders = [...(ordersConfirmed || []), ...(ordersPending || [])];
+    const orders = allOrders.sort((a, b) => {
+      const timeA = a.paid_at || a.created_at;
+      const timeB = b.paid_at || b.created_at;
+      return new Date(timeB).getTime() - new Date(timeA).getTime();
+    });
 
     if (ordersError) {
       console.error("Supabase orders error:", ordersError);

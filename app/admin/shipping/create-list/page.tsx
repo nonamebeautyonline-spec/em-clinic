@@ -1,0 +1,517 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+interface ShippingItem {
+  id: string;
+  user_id: string;
+  patient_id: string;
+  payment_id: string;
+  payment_date: string;
+  name: string;
+  postal_code: string;
+  address: string;
+  email: string;
+  phone: string;
+  product_name: string;
+  product_code: string;
+  price: number;
+  dosage_2_5mg: number;
+  dosage_5mg: number;
+  dosage_7_5mg: number;
+  dosage_10mg: number;
+  tracking_number: string;
+  status: string;
+  selected: boolean;
+  editable: {
+    name: string;
+    postal_code: string;
+    address: string;
+  };
+}
+
+export default function CreateShippingListPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<ShippingItem[]>([]);
+  const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    loadPendingOrders();
+  }, []);
+
+  const loadPendingOrders = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/shipping/pending", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error(`データ取得失敗 (${res.status})`);
+      }
+
+      const data = await res.json();
+      const orders = data.orders || [];
+
+      // 用量を計算してフォーマット
+      const formattedItems: ShippingItem[] = orders
+        .filter((o: any) => o.status === "confirmed") // 確認済みのみ
+        .map((order: any) => {
+          const dosages = calculateDosage(order.product_code);
+          return {
+            id: order.id,
+            user_id: order.lstep_id || "",
+            patient_id: order.patient_id,
+            payment_id: order.id,
+            payment_date: order.payment_date,
+            name: order.patient_name || "",
+            postal_code: order.postal_code || "",
+            address: order.address || "",
+            email: order.email || "",
+            phone: order.phone || "",
+            product_name: order.product_name,
+            product_code: order.product_code,
+            price: order.amount || 0,
+            dosage_2_5mg: dosages["2.5mg"],
+            dosage_5mg: dosages["5mg"],
+            dosage_7_5mg: dosages["7.5mg"],
+            dosage_10mg: dosages["10mg"],
+            tracking_number: "",
+            status: order.status,
+            selected: true, // デフォルトで全選択
+            editable: {
+              name: order.patient_name || "",
+              postal_code: order.postal_code || "",
+              address: order.address || "",
+            },
+          };
+        });
+
+      // 用量順にソート（2.5mg → 5mg → 7.5mg → 10mg）
+      const sorted = sortByDosage(formattedItems);
+      setItems(sorted);
+    } catch (err) {
+      console.error("Orders fetch error:", err);
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateDosage = (productCode: string): Record<string, number> => {
+    const dosages = { "2.5mg": 0, "5mg": 0, "7.5mg": 0, "10mg": 0 };
+
+    // MJL_2.5mg_1m → 2.5mg x 4本
+    // MJL_5mg_2m → 5mg x 8本
+    const match = productCode.match(/MJL_([\d.]+)mg_(\d+)m/);
+    if (match) {
+      const strength = match[1];
+      const months = parseInt(match[2], 10);
+      const count = months * 4; // 1ヶ月 = 4本
+
+      dosages[`${strength}mg`] = count;
+    }
+
+    return dosages;
+  };
+
+  const sortByDosage = (items: ShippingItem[]): ShippingItem[] => {
+    return [...items].sort((a, b) => {
+      // 2.5mg → 5mg → 7.5mg → 10mg の順
+      if (a.dosage_2_5mg > 0 && b.dosage_2_5mg === 0) return -1;
+      if (a.dosage_2_5mg === 0 && b.dosage_2_5mg > 0) return 1;
+      if (a.dosage_5mg > 0 && b.dosage_5mg === 0) return -1;
+      if (a.dosage_5mg === 0 && b.dosage_5mg > 0) return 1;
+      if (a.dosage_7_5mg > 0 && b.dosage_7_5mg === 0) return -1;
+      if (a.dosage_7_5mg === 0 && b.dosage_7_5mg > 0) return 1;
+      if (a.dosage_10mg > 0 && b.dosage_10mg === 0) return -1;
+      if (a.dosage_10mg === 0 && b.dosage_10mg > 0) return 1;
+
+      // 同じ用量の場合は決済日時順
+      return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setItems(items.map((item) => ({ ...item, selected: checked })));
+  };
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    setItems(items.map((item) => (item.id === id ? { ...item, selected: checked } : item)));
+  };
+
+  const handleEditField = (id: string, field: keyof ShippingItem["editable"], value: string) => {
+    setItems(
+      items.map((item) =>
+        item.id === id
+          ? { ...item, editable: { ...item.editable, [field]: value } }
+          : item
+      )
+    );
+  };
+
+  const handleMergeByName = () => {
+    const grouped: Record<string, ShippingItem[]> = {};
+
+    // 選択されている項目のみグルーピング
+    const selectedItems = items.filter((item) => item.selected);
+    const unselectedItems = items.filter((item) => !item.selected);
+
+    // 氏名でグルーピング
+    selectedItems.forEach((item) => {
+      const name = item.editable.name.trim();
+      if (!grouped[name]) {
+        grouped[name] = [];
+      }
+      grouped[name].push(item);
+    });
+
+    const merged: ShippingItem[] = [];
+
+    Object.entries(grouped).forEach(([name, group]) => {
+      if (group.length === 1) {
+        merged.push(group[0]);
+      } else {
+        // 重複している場合は統合
+        const first = group[0];
+        const mergedItem: ShippingItem = {
+          ...first,
+          dosage_2_5mg: group.reduce((sum, item) => sum + item.dosage_2_5mg, 0),
+          dosage_5mg: group.reduce((sum, item) => sum + item.dosage_5mg, 0),
+          dosage_7_5mg: group.reduce((sum, item) => sum + item.dosage_7_5mg, 0),
+          dosage_10mg: group.reduce((sum, item) => sum + item.dosage_10mg, 0),
+          price: group.reduce((sum, item) => sum + item.price, 0),
+          id: group.map((item) => item.id).join(","), // 複数IDを結合
+          product_name: group.map((item) => item.product_name).join(", "),
+        };
+        merged.push(mergedItem);
+      }
+    });
+
+    // 用量順に再ソート
+    const sorted = sortByDosage([...merged, ...unselectedItems]);
+    setItems(sorted);
+  };
+
+  const handleExportYamatoB2 = async () => {
+    const selectedItems = items.filter((item) => item.selected);
+
+    if (selectedItems.length === 0) {
+      alert("発送する注文を選択してください");
+      return;
+    }
+
+    setExporting(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      // 編集されたデータを送信
+      const exportData = selectedItems.map((item) => ({
+        payment_id: item.id,
+        name: item.editable.name,
+        postal: item.editable.postal_code,
+        address: item.editable.address,
+        email: item.email,
+        phone: item.phone,
+      }));
+
+      const res = await fetch("/api/admin/shipping/export-yamato-b2-custom", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ items: exportData }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`CSV生成失敗 (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `yamato_b2_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Export error:", err);
+      setError(err instanceof Error ? err.message : "CSVエクスポートに失敗しました");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportPDF = () => {
+    const selectedItems = items.filter((item) => item.selected);
+
+    if (selectedItems.length === 0) {
+      alert("発送する注文を選択してください");
+      return;
+    }
+
+    try {
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4",
+      });
+
+      // タイトル
+      doc.setFontSize(16);
+      doc.text("発送リスト", 14, 15);
+
+      // 日付
+      doc.setFontSize(10);
+      const today = new Date().toLocaleDateString("ja-JP");
+      doc.text(`作成日: ${today}`, 14, 22);
+
+      // テーブルデータ
+      const headers = [
+        ["user_id", "決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg", "patient_id", "payment_id"]
+      ];
+
+      const data = selectedItems.map((item) => [
+        item.user_id,
+        new Date(item.payment_date).toLocaleDateString("ja-JP"),
+        item.editable.name,
+        item.editable.postal_code,
+        item.editable.address,
+        item.email,
+        item.phone,
+        item.product_name,
+        `¥${item.price.toLocaleString()}`,
+        item.dosage_2_5mg.toString(),
+        item.dosage_5mg.toString(),
+        item.dosage_7_5mg.toString(),
+        item.dosage_10mg.toString(),
+        item.patient_id,
+        item.payment_id,
+      ]);
+
+      autoTable(doc, {
+        head: headers,
+        body: data,
+        startY: 28,
+        styles: {
+          fontSize: 6,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [71, 85, 105],
+          textColor: 255,
+          fontSize: 7,
+        },
+        columnStyles: {
+          0: { cellWidth: 15 }, // user_id
+          1: { cellWidth: 20 }, // 決済日時
+          2: { cellWidth: 20 }, // Name
+          3: { cellWidth: 20 }, // Postal Code
+          4: { cellWidth: 40 }, // Address
+          5: { cellWidth: 25 }, // Email
+          6: { cellWidth: 18 }, // Phone
+          7: { cellWidth: 25 }, // Product Name
+          8: { cellWidth: 15 }, // Price
+          9: { cellWidth: 10 }, // 2.5mg
+          10: { cellWidth: 10 }, // 5mg
+          11: { cellWidth: 10 }, // 7.5mg
+          12: { cellWidth: 10 }, // 10mg
+          13: { cellWidth: 20 }, // patient_id
+          14: { cellWidth: 20 }, // payment_id
+        },
+      });
+
+      // PDF保存
+      doc.save(`shipping_list_${new Date().toISOString().split("T")[0]}.pdf`);
+    } catch (err) {
+      console.error("PDF export error:", err);
+      setError(err instanceof Error ? err.message : "PDF出力に失敗しました");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-4 text-slate-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedCount = items.filter((item) => item.selected).length;
+
+  return (
+    <div className="p-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900">発送リスト作成</h1>
+        <p className="text-slate-600 text-sm mt-1">
+          発送する注文を選択・編集して、ヤマトB2 CSVを出力します
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-600">
+            合計 {items.length} 件 / 選択 {selectedCount} 件
+          </span>
+          <button
+            onClick={handleMergeByName}
+            className="px-4 py-2 text-sm bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+          >
+            🔗 同じ氏名を統合
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportPDF}
+            disabled={selectedCount === 0}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              selectedCount === 0
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-red-600 text-white hover:bg-red-700"
+            }`}
+          >
+            📄 PDF出力（${selectedCount}件）
+          </button>
+          <button
+            onClick={handleExportYamatoB2}
+            disabled={exporting || selectedCount === 0}
+            className={`px-6 py-2 rounded-lg font-medium ${
+              exporting || selectedCount === 0
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            {exporting ? "出力中..." : `📦 ヤマトB2 CSV出力（${selectedCount}件）`}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-xs">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-2 py-2 text-left">
+                  <input
+                    type="checkbox"
+                    checked={items.every((item) => item.selected)}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-slate-300"
+                  />
+                </th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">user_id</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">決済日時</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Postal Code</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Address</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Email</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Phone</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Product Name</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 uppercase">Price</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 uppercase">2.5mg</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 uppercase">5mg</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 uppercase">7.5mg</th>
+                <th className="px-2 py-2 text-right text-xs font-medium text-slate-500 uppercase">10mg</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">patient_id</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">payment_id</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-200">
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={16} className="px-6 py-8 text-center text-slate-500">
+                    発送可能な注文がありません
+                  </td>
+                </tr>
+              ) : (
+                items.map((item) => (
+                  <tr key={item.id} className={item.selected ? "" : "bg-slate-100 opacity-50"}>
+                    <td className="px-2 py-2">
+                      <input
+                        type="checkbox"
+                        checked={item.selected}
+                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                        className="rounded border-slate-300"
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-xs font-mono">{item.user_id}</td>
+                    <td className="px-2 py-2 text-xs whitespace-nowrap">
+                      {new Date(item.payment_date).toLocaleString("ja-JP", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="text"
+                        value={item.editable.name}
+                        onChange={(e) => handleEditField(item.id, "name", e.target.value)}
+                        className="w-full px-1 py-1 text-xs border border-slate-300 rounded"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="text"
+                        value={item.editable.postal_code}
+                        onChange={(e) => handleEditField(item.id, "postal_code", e.target.value)}
+                        className="w-24 px-1 py-1 text-xs border border-slate-300 rounded"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="text"
+                        value={item.editable.address}
+                        onChange={(e) => handleEditField(item.id, "address", e.target.value)}
+                        className="w-full px-1 py-1 text-xs border border-slate-300 rounded"
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-xs">{item.email}</td>
+                    <td className="px-2 py-2 text-xs">{item.phone}</td>
+                    <td className="px-2 py-2 text-xs">{item.product_name}</td>
+                    <td className="px-2 py-2 text-xs text-right">{item.price.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_2_5mg || 0}</td>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_5mg || 0}</td>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_7_5mg || 0}</td>
+                    <td className="px-2 py-2 text-xs text-right font-semibold">{item.dosage_10mg || 0}</td>
+                    <td className="px-2 py-2 text-xs font-mono">{item.patient_id}</td>
+                    <td className="px-2 py-2 text-xs font-mono">{item.payment_id}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

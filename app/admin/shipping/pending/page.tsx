@@ -212,17 +212,25 @@ export default function ShippingPendingPage() {
             合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件） / 選択 {selectedOrders.size} 件
           </span>
         </div>
-        <button
-          onClick={handleExportYamatoB2}
-          disabled={selectedOrders.size === 0}
-          className={`px-4 py-2 rounded-lg font-medium ${
-            selectedOrders.size === 0
-              ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-          }`}
-        >
-          📦 ヤマトB2 CSV出力（選択: {selectedOrders.size}件）
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push("/admin/shipping/create-list")}
+            className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700"
+          >
+            📋 発送リストを作成
+          </button>
+          <button
+            onClick={handleExportYamatoB2}
+            disabled={selectedOrders.size === 0}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              selectedOrders.size === 0
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            📦 ヤマトB2 CSV出力（選択: {selectedOrders.size}件）
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
