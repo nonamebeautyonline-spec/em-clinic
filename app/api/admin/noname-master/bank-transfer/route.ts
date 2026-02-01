@@ -89,8 +89,9 @@ export async function GET(req: NextRequest) {
 
       // ★ 決済日時の判定: 照合済みなら paid_at、申請中なら created_at
       const isConfirmed = order.status === "confirmed";
+      const isPendingConfirmation = order.status === "pending_confirmation";
       const paymentDate = isConfirmed && order.paid_at ? order.paid_at : order.created_at;
-      const paymentDateLabel = isConfirmed ? "" : "（申請日時）";
+      const paymentDateLabel = isPendingConfirmation ? "（申請中）" : "";
 
       return {
         id: order.id,

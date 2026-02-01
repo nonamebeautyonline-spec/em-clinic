@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 
       if (isBankTransfer && isPendingConfirmation) {
         paymentDate = order.created_at;
-        paymentDateLabel = "（未照合）";
+        paymentDateLabel = "（申請中）";
       }
 
       return {
