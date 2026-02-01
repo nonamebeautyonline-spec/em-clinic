@@ -139,12 +139,13 @@ export default function CreateShippingListPage() {
     return nonZeroCount > 1; // 2つ以上の用量に本数がある = 統合
   };
 
-  // ★ ソート順: 単一用量アイテム（2.5mg → 5mg → 7.5mg → 10mg、本数降順） → 統合アイテム
+  // ★ ソート順: 単一用量アイテム（2.5mg → 5mg → 7.5mg → 10mg、本数降順） → 統合アイテム（同じ用量・本数順）
   const sortByDosage = (items: ShippingItem[]): ShippingItem[] => {
     const single = items.filter(item => !isMergedItem(item));
     const merged = items.filter(item => isMergedItem(item));
 
-    const sortedSingle = single.sort((a, b) => {
+    // 用量・本数でソートする共通関数
+    const sortByDosageAndCount = (a: ShippingItem, b: ShippingItem) => {
       // 2.5mgの本数で降順ソート
       if (a.dosage_2_5mg !== b.dosage_2_5mg) {
         return b.dosage_2_5mg - a.dosage_2_5mg;
@@ -164,12 +165,10 @@ export default function CreateShippingListPage() {
 
       // 全て同じ場合は決済日時順
       return new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
-    });
+    };
 
-    // 統合アイテムは決済日時順
-    const sortedMerged = merged.sort((a, b) =>
-      new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime()
-    );
+    const sortedSingle = single.sort(sortByDosageAndCount);
+    const sortedMerged = merged.sort(sortByDosageAndCount);
 
     return [...sortedSingle, ...sortedMerged];
   };
