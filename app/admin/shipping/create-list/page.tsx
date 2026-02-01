@@ -104,7 +104,7 @@ export default function CreateShippingListPage() {
             dosage_10mg: dosages["10mg"],
             tracking_number: "",
             status: order.status,
-            selected: false, // デフォルトで未選択
+            selected: true, // デフォルトで全選択（フィルタリング済みリスト）
             editable: {
               name: order.patient_name || "",
               postal_code: order.postal_code || "",
