@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+// ★ Dynamic rendering required for useSearchParams
+export const dynamic = 'force-dynamic';
+
 interface ShippingItem {
   id: string;
   user_id: string;
