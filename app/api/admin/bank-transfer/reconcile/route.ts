@@ -206,7 +206,12 @@ export async function POST(req: NextRequest) {
     console.log(`[Reconcile] Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
 
     // マッチした注文をstatus='confirmed'に更新
-    const updateResults = [];
+    const updateResults: Array<{
+      orderId: string;
+      success: boolean;
+      newId?: string;
+      error?: string;
+    }> = [];
     for (const match of matched) {
       const orderId = match.order.id;
 
