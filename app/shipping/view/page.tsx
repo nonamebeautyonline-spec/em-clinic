@@ -179,9 +179,9 @@ function ShippingViewContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+    <div className="min-h-screen bg-slate-50 p-2">
+      <div className="max-w-full mx-auto">
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">発送リスト</h1>
           <p className="text-sm text-slate-600">合計: {items.length}件</p>
         </div>
@@ -196,18 +196,18 @@ function ShippingViewContent() {
               <table className="min-w-full divide-y divide-slate-200 text-xs">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">決済日時</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Name</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Postal Code</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Address</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Email</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Phone</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Product Name</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">Price</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">2.5mg</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">5mg</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">7.5mg</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-700">10mg</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 whitespace-nowrap">決済日時</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 whitespace-nowrap">Name</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 whitespace-nowrap">Postal Code</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700">Address</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 max-w-[100px]">Email</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 whitespace-nowrap">Phone</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 max-w-[120px]">Product Name</th>
+                    <th className="px-2 py-2 text-left font-medium text-slate-700 whitespace-nowrap">Price</th>
+                    <th className="px-2 py-2 text-center font-medium text-slate-700 whitespace-nowrap">2.5mg</th>
+                    <th className="px-2 py-2 text-center font-medium text-slate-700 whitespace-nowrap">5mg</th>
+                    <th className="px-2 py-2 text-center font-medium text-slate-700 whitespace-nowrap">7.5mg</th>
+                    <th className="px-2 py-2 text-center font-medium text-slate-700 whitespace-nowrap">10mg</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -215,22 +215,22 @@ function ShippingViewContent() {
                     const bgColor = getRowColor(item);
                     return (
                       <tr key={item.id} className={`${bgColor}`}>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-2 py-2 whitespace-nowrap text-xs">
                           {item.payment_date
                             ? new Date(item.payment_date).toLocaleDateString("ja-JP")
                             : "-"}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">{item.name}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{item.postal_code}</td>
-                        <td className="px-4 py-3 max-w-xs break-words">{item.address}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{item.email}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{item.phone}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">{item.product_name}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">¥{item.price.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-center">{item.dosage_2_5mg || "-"}</td>
-                        <td className="px-4 py-3 text-center">{item.dosage_5mg || "-"}</td>
-                        <td className="px-4 py-3 text-center">{item.dosage_7_5mg || "-"}</td>
-                        <td className="px-4 py-3 text-center">{item.dosage_10mg || "-"}</td>
+                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.name}</td>
+                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.postal_code}</td>
+                        <td className="px-2 py-2 max-w-xs break-words text-xs">{item.address}</td>
+                        <td className="px-2 py-2 text-xs max-w-[100px] truncate" title={item.email}>{item.email}</td>
+                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.phone}</td>
+                        <td className="px-2 py-2 text-xs max-w-[120px] truncate" title={item.product_name}>{item.product_name}</td>
+                        <td className="px-2 py-2 whitespace-nowrap text-xs">¥{item.price.toLocaleString()}</td>
+                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_2_5mg || "-"}</td>
+                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_5mg || "-"}</td>
+                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_7_5mg || "-"}</td>
+                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_10mg || "-"}</td>
                       </tr>
                     );
                   })}
