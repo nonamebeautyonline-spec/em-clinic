@@ -159,11 +159,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/shipping/pending"}
           />
           <MenuItem
-            href="/admin/shipping/update-tracking"
+            href="/admin/shipping/tracking"
             icon="🏷️"
             label="追跡番号付与"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/shipping/update-tracking"}
+            isActive={pathname === "/admin/shipping/tracking"}
           />
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
