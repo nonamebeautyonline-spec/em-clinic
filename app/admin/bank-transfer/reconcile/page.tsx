@@ -34,6 +34,12 @@ interface ReconcileResult {
     unmatched: number;
     updated: number;
   };
+  debug?: {
+    csvTransfers: Array<{ date: string; description: string; amount: number; descNormalized: string }>;
+    pendingOrders: Array<{ id: string; patient_id: string; amount: number; account_name: string; accountNormalized: string }>;
+    totalTransfers: number;
+    totalPendingOrders: number;
+  };
 }
 
 interface PendingOrder {
@@ -404,6 +410,86 @@ export default function BankTransferReconcilePage() {
               {confirming ? "反映中..." : "このデータを反映する"}
             </button>
           </div>
+
+          {/* ★ デバッグ情報セクション */}
+          {previewResult.debug && (
+            <div className="px-6 py-4 bg-slate-100 border-t border-slate-300">
+              <details>
+                <summary className="cursor-pointer font-semibold text-slate-700 hover:text-slate-900">
+                  🔍 照合デバッグ情報（クリックで表示）
+                </summary>
+                <div className="mt-4 space-y-4">
+                  <div className="bg-white rounded p-4">
+                    <h4 className="font-semibold text-sm text-slate-700 mb-2">
+                      📊 全体統計
+                    </h4>
+                    <div className="text-xs text-slate-600 space-y-1">
+                      <p>CSVの振込データ: {previewResult.debug.totalTransfers}件</p>
+                      <p>未照合の注文: {previewResult.debug.totalPendingOrders}件</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded p-4">
+                    <h4 className="font-semibold text-sm text-slate-700 mb-2">
+                      📄 CSVデータサンプル（最初の5件）
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-2 py-1 text-left">日付</th>
+                            <th className="px-2 py-1 text-left">摘要</th>
+                            <th className="px-2 py-1 text-left">金額</th>
+                            <th className="px-2 py-1 text-left">正規化後</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewResult.debug.csvTransfers.map((t, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-2 py-1">{t.date}</td>
+                              <td className="px-2 py-1">{t.description}</td>
+                              <td className="px-2 py-1">¥{t.amount.toLocaleString()}</td>
+                              <td className="px-2 py-1 font-mono text-blue-600">{t.descNormalized}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded p-4">
+                    <h4 className="font-semibold text-sm text-slate-700 mb-2">
+                      💳 未照合注文サンプル（最初の5件）
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-2 py-1 text-left">注文ID</th>
+                            <th className="px-2 py-1 text-left">患者ID</th>
+                            <th className="px-2 py-1 text-left">金額</th>
+                            <th className="px-2 py-1 text-left">振込名義人</th>
+                            <th className="px-2 py-1 text-left">正規化後</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewResult.debug.pendingOrders.map((o, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-2 py-1 font-mono">{o.id}</td>
+                              <td className="px-2 py-1 font-mono">{o.patient_id}</td>
+                              <td className="px-2 py-1">¥{o.amount.toLocaleString()}</td>
+                              <td className="px-2 py-1">{o.account_name}</td>
+                              <td className="px-2 py-1 font-mono text-blue-600">{o.accountNormalized}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          )}
         </div>
       )}
 

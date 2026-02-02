@@ -208,6 +208,25 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
 
+    // ★ デバッグ情報を追加
+    const debugInfo = {
+      csvTransfers: transfers.slice(0, 5).map(t => ({
+        date: t.date,
+        description: t.description,
+        amount: t.amount,
+        descNormalized: normalizeKana(t.description),
+      })),
+      pendingOrders: pendingOrdersWithNames.slice(0, 5).map(o => ({
+        id: o.id,
+        patient_id: o.patient_id,
+        amount: o.amount,
+        account_name: o.account_name,
+        accountNormalized: normalizeKana(o.account_name || ""),
+      })),
+      totalTransfers: transfers.length,
+      totalPendingOrders: pendingOrdersWithNames.length,
+    };
+
     return NextResponse.json({
       matched: matched.map((m) => ({
         transfer: m.transfer,
@@ -226,6 +245,7 @@ export async function POST(req: NextRequest) {
         unmatched: unmatched.length,
         updated: 0, // プレビューなので0
       },
+      debug: debugInfo, // ★ デバッグ情報を追加
     });
   } catch (e: any) {
     console.error("[Preview] Error:", e);
