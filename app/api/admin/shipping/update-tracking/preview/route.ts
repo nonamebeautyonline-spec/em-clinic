@@ -29,12 +29,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    let { csvContent } = body;
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
 
-    if (!csvContent) {
-      return NextResponse.json({ error: "CSV content is required" }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ error: "CSVファイルが指定されていません" }, { status: 400 });
     }
+
+    // CSVを読み込み（Shift_JISエンコーディング対応）
+    const arrayBuffer = await file.arrayBuffer();
+    const decoder = new TextDecoder("shift_jis");
+    let csvContent = decoder.decode(arrayBuffer);
 
     // ★ BOM除去（UTF-8 BOM: 0xFEFF）
     if (csvContent.charCodeAt(0) === 0xFEFF) {
