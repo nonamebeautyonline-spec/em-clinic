@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import LZString from "lz-string";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -55,9 +56,13 @@ function ShippingViewContent() {
         return;
       }
 
-      // Base64デコード → JSON parse
-      const decoded = decodeURIComponent(atob(dataParam));
-      const shareData = JSON.parse(decoded);
+      // lz-string解凍 → JSON parse
+      const decompressed = LZString.decompressFromEncodedURIComponent(dataParam);
+      if (!decompressed) {
+        setError("データの解凍に失敗しました");
+        return;
+      }
+      const shareData = JSON.parse(decompressed);
 
       if (!Array.isArray(shareData) || shareData.length === 0) {
         setError("データが見つかりません");

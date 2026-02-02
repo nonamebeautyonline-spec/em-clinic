@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
+import LZString from "lz-string";
 
 interface ShippingItem {
   id: string;
@@ -638,9 +639,10 @@ export default function CreateShippingListPage() {
                 dosage_10mg: item.dosage_10mg,
               }));
 
+              // lz-stringで圧縮してからBase64エンコード（URLを短縮）
               const json = JSON.stringify(shareData);
-              const encoded = btoa(encodeURIComponent(json));
-              const shareUrl = `${window.location.origin}/shipping/view?data=${encoded}`;
+              const compressed = LZString.compressToEncodedURIComponent(json);
+              const shareUrl = `${window.location.origin}/shipping/view?data=${compressed}`;
               navigator.clipboard.writeText(shareUrl);
               alert(`共有URLをコピーしました\n\nパスワード: 1995a`);
             }}
