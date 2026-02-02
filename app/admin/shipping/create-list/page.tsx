@@ -323,10 +323,17 @@ export default function CreateShippingListPage() {
         // 選択されているアイテムの名前リスト
         const selectedNames = selectedItems.map((item) => item.editable.name);
 
+        console.log("[ExportYamatoB2] Merged mode detected");
+        console.log("[ExportYamatoB2] Selected names:", selectedNames);
+        console.log("[ExportYamatoB2] OriginalItems count:", originalItems.length);
+
         // 統合前のoriginalItemsから、選択されている名前と同じものを全て取得
+        // ★ item.selectedのチェックを外す（統合前の選択状態は関係ない）
         const originalSelectedItems = originalItems.filter((item) =>
-          selectedNames.includes(item.editable.name) && item.selected
+          selectedNames.includes(item.editable.name)
         );
+
+        console.log("[ExportYamatoB2] OriginalSelectedItems count:", originalSelectedItems.length);
 
         allPaymentIds = Array.from(new Set([
           ...selectedItems.map((item) => item.id),
@@ -334,6 +341,7 @@ export default function CreateShippingListPage() {
         ]));
 
         console.log(`[ExportYamatoB2] Merged mode: CSV has ${exportData.length} items, but marking ${allPaymentIds.length} orders`);
+        console.log("[ExportYamatoB2] All payment IDs:", allPaymentIds);
       }
 
       const res = await fetch("/api/admin/shipping/export-yamato-b2-custom", {
