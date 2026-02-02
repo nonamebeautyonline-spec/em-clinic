@@ -312,6 +312,31 @@ export default function TrackingNumberPage() {
   const validEntries = displayEntries.filter((e) => e.tracking_number.trim() !== "");
   const foundCount = displayEntries.filter((e) => e.matched).length;
 
+  // 患者名でグループ化して色を割り当て
+  const getPatientColor = (patientName: string): string => {
+    // 同じ患者名の注文数を数える
+    const samePatientCount = displayEntries.filter((e) => e.patient_name === patientName).length;
+
+    // 1件のみの場合は色づけしない
+    if (samePatientCount === 1) return "";
+
+    // 複数ある場合は色づけ
+    const colors = [
+      "bg-blue-50",
+      "bg-green-50",
+      "bg-yellow-50",
+      "bg-pink-50",
+      "bg-purple-50",
+      "bg-indigo-50",
+      "bg-orange-50",
+      "bg-cyan-50",
+    ];
+
+    // 患者名からハッシュ値を生成して色を選択
+    const hash = patientName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -502,14 +527,16 @@ export default function TrackingNumberPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {displayEntries.map((entry) => (
-                    <tr key={entry.payment_id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                        {entry.payment_id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                        {entry.patient_name}
-                      </td>
+                  {displayEntries.map((entry) => {
+                    const rowColor = getPatientColor(entry.patient_name);
+                    return (
+                      <tr key={entry.payment_id} className={`${rowColor} hover:brightness-95`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
+                          {entry.payment_id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">
+                          {entry.patient_name}
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <input
                           type="text"
@@ -546,7 +573,8 @@ export default function TrackingNumberPage() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

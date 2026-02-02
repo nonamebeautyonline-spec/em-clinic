@@ -316,13 +316,36 @@ export default function CreateShippingListPage() {
         phone: item.phone,
       }));
 
+      // ★ 統合されている場合は、統合前の全payment_idも送信
+      let allPaymentIds: string[] = selectedItems.map((item) => item.id);
+
+      if (isMerged && originalItems.length > 0) {
+        // 選択されているアイテムの名前リスト
+        const selectedNames = selectedItems.map((item) => item.editable.name);
+
+        // 統合前のoriginalItemsから、選択されている名前と同じものを全て取得
+        const originalSelectedItems = originalItems.filter((item) =>
+          selectedNames.includes(item.editable.name) && item.selected
+        );
+
+        allPaymentIds = Array.from(new Set([
+          ...selectedItems.map((item) => item.id),
+          ...originalSelectedItems.map((item) => item.id),
+        ]));
+
+        console.log(`[ExportYamatoB2] Merged mode: CSV has ${exportData.length} items, but marking ${allPaymentIds.length} orders`);
+      }
+
       const res = await fetch("/api/admin/shipping/export-yamato-b2-custom", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ items: exportData }),
+        body: JSON.stringify({
+          items: exportData,
+          all_payment_ids: allPaymentIds, // 統合前を含む全payment_id
+        }),
       });
 
       if (!res.ok) {

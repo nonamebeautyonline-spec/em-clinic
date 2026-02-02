@@ -30,12 +30,13 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const items: CustomShippingItem[] = body.items || [];
+    const allPaymentIds: string[] = body.all_payment_ids || items.map((item) => item.payment_id);
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: "items required" }, { status: 400 });
     }
 
-    console.log(`[ExportYamatoB2Custom] Exporting ${items.length} items`);
+    console.log(`[ExportYamatoB2Custom] Exporting ${items.length} items (marking ${allPaymentIds.length} orders)`);
 
     // 出荷予定日（今日の日付 yyyy/MM/dd）
     const today = new Date();
@@ -46,11 +47,10 @@ export async function POST(req: NextRequest) {
     // CSV生成
     const csv = generateYamatoB2Csv(items, shipDate);
 
-    // ★ CSV出力後、注文の shipping_list_created_at を更新
-    const paymentIds = items.map((item) => item.payment_id);
+    // ★ CSV出力後、注文の shipping_list_created_at を更新（統合前を含む全payment_id）
     const now = new Date().toISOString();
 
-    console.log(`[ExportYamatoB2Custom] Marking ${paymentIds.length} orders as list_created`);
+    console.log(`[ExportYamatoB2Custom] Marking ${allPaymentIds.length} orders as list_created`);
 
     const { data: updatedOrders, error: updateError } = await supabase
       .from("orders")
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         shipping_list_created_at: now,
         updated_at: now,
       })
-      .in("id", paymentIds)
+      .in("id", allPaymentIds)
       .select("patient_id");
 
     if (updateError) {
