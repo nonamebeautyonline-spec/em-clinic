@@ -614,6 +614,28 @@ export default function CreateShippingListPage() {
             {exporting ? "PDF出力中..." : `📄 PDF出力（${selectedCount}件）`}
           </button>
           <button
+            onClick={() => {
+              const selectedItems = items.filter((item) => item.selected);
+              if (selectedItems.length === 0) {
+                alert("共有する注文を選択してください");
+                return;
+              }
+              const orderIds = selectedItems.map((item) => item.id).join(",");
+              const encoded = btoa(orderIds);
+              const shareUrl = `${window.location.origin}/shipping/view?data=${encoded}`;
+              navigator.clipboard.writeText(shareUrl);
+              alert(`共有URLをコピーしました\n\nパスワード: 1995a`);
+            }}
+            disabled={selectedCount === 0}
+            className={`px-4 py-2 rounded-lg font-medium ${
+              selectedCount === 0
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            🔗 共有リンク（{selectedCount}件）
+          </button>
+          <button
             onClick={handleExportYamatoB2}
             disabled={exporting || selectedCount === 0}
             className={`px-6 py-2 rounded-lg font-medium ${

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -25,10 +26,10 @@ interface ShippingItem {
   dosage_10mg: number;
 }
 
-export default function ShippingListPage() {
+function ShippingViewContent() {
+  const searchParams = useSearchParams();
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [items, setItems] = useState<ShippingItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -48,17 +49,30 @@ export default function ShippingListPage() {
   const loadShippingItems = async () => {
     setLoadingItems(true);
     try {
+      const dataParam = searchParams.get("data");
+      if (!dataParam) {
+        setError("URLが無効です");
+        return;
+      }
+
+      // Base64デコード
+      const decoded = atob(dataParam);
+      const orderIds = decoded.split(",");
+
+      if (orderIds.length === 0) {
+        setError("注文IDが見つかりません");
+        return;
+      }
+
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // 発送対象の注文を取得（confirmed かつ shipping_status が pending または preparing）
+      // 指定されたIDの注文を取得
       const { data: orders, error: ordersError } = await supabase
         .from("orders")
         .select(
-          "id, patient_id, product_name, amount, shipping_name, postal_code, address, email, phone, paid_at, status, shipping_status"
+          "id, patient_id, product_name, amount, shipping_name, postal_code, address, email, phone, paid_at"
         )
-        .eq("status", "confirmed")
-        .in("shipping_status", ["pending", "preparing"])
-        .order("paid_at", { ascending: true });
+        .in("id", orderIds);
 
       if (ordersError) {
         console.error("Orders fetch error:", ordersError);
@@ -157,14 +171,9 @@ export default function ShippingListPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className={`w-full px-4 py-2 rounded-lg font-medium ${
-                loading
-                  ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
+              className="w-full px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700"
             >
-              {loading ? "確認中..." : "閲覧する"}
+              閲覧する
             </button>
           </form>
         </div>
@@ -187,12 +196,12 @@ export default function ShippingListPage() {
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h1 className="text-2xl font-bold text-slate-900 mb-2">発送リスト</h1>
-          <p className="text-sm text-slate-600">発送予定: {items.length}件</p>
+          <p className="text-sm text-slate-600">合計: {items.length}件</p>
         </div>
 
         {items.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-slate-600">発送予定の注文はありません</p>
+            <p className="text-slate-600">注文が見つかりません</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -242,5 +251,21 @@ export default function ShippingListPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ShippingViewPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-lg font-medium text-slate-700">読み込み中...</div>
+          </div>
+        </div>
+      }
+    >
+      <ShippingViewContent />
+    </Suspense>
   );
 }
