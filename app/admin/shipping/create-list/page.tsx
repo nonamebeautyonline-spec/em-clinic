@@ -463,7 +463,8 @@ export default function CreateShippingListPage() {
       // 一時テーブルを削除
       document.body.removeChild(tempTable);
 
-      const imgData = canvas.toDataURL("image/png");
+      // JPEG圧縮でファイルサイズを削減（品質: 0.85）
+      const imgData = canvas.toDataURL("image/jpeg", 0.85);
       const imgWidth = 277; // A4横向きの幅（mm）- マージン除く
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
@@ -499,7 +500,7 @@ export default function CreateShippingListPage() {
 
         doc.addImage(
           imgData,
-          "PNG",
+          "JPEG",
           10,
           yPosition,
           imgWidth,
