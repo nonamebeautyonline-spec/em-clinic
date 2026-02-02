@@ -625,7 +625,7 @@ export default function TrackingNumberPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                         ステータス
                       </th>
-                      {result.details.some((d) => d.error) && (
+                      {result.details?.some((d) => d.error) && (
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                           エラー
                         </th>
@@ -649,7 +649,7 @@ export default function TrackingNumberPage() {
                             </span>
                           )}
                         </td>
-                        {result.details.some((d) => d.error) && (
+                        {result.details?.some((d) => d.error) && (
                           <td className="px-6 py-4 text-sm text-red-600">
                             {detail.error || "-"}
                           </td>
