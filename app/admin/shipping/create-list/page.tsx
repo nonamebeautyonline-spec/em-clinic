@@ -615,45 +615,67 @@ export default function CreateShippingListPage() {
             {exporting ? "PDF出力中..." : `📄 PDF出力（${selectedCount}件）`}
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               const selectedItems = items.filter((item) => item.selected);
               if (selectedItems.length === 0) {
                 alert("共有する注文を選択してください");
                 return;
               }
 
-              // 表示されているデータをそのまま共有（編集済み、用量、背景色含む）
-              const shareData = selectedItems.map((item) => ({
-                id: item.id,
-                payment_date: item.payment_date,
-                name: item.editable.name,
-                postal_code: item.editable.postal_code,
-                address: item.editable.address,
-                email: item.email,
-                phone: item.phone,
-                product_name: item.product_name,
-                price: item.price,
-                dosage_2_5mg: item.dosage_2_5mg,
-                dosage_5mg: item.dosage_5mg,
-                dosage_7_5mg: item.dosage_7_5mg,
-                dosage_10mg: item.dosage_10mg,
-              }));
+              try {
+                setExporting(true);
 
-              // lz-stringで圧縮してからBase64エンコード（URLを短縮）
-              const json = JSON.stringify(shareData);
-              const compressed = LZString.compressToEncodedURIComponent(json);
-              const shareUrl = `${window.location.origin}/shipping/view?data=${compressed}`;
-              navigator.clipboard.writeText(shareUrl);
-              alert(`共有URLをコピーしました\n\nパスワード: 1995a`);
+                // 表示されているデータをそのまま共有（編集済み、用量、背景色含む）
+                const shareData = selectedItems.map((item) => ({
+                  id: item.id,
+                  payment_date: item.payment_date,
+                  name: item.editable.name,
+                  postal_code: item.editable.postal_code,
+                  address: item.editable.address,
+                  email: item.email,
+                  phone: item.phone,
+                  product_name: item.product_name,
+                  price: item.price,
+                  dosage_2_5mg: item.dosage_2_5mg,
+                  dosage_5mg: item.dosage_5mg,
+                  dosage_7_5mg: item.dosage_7_5mg,
+                  dosage_10mg: item.dosage_10mg,
+                }));
+
+                // データを一時保存して短いIDを取得
+                const token = localStorage.getItem("adminToken");
+                const res = await fetch("/api/admin/shipping/share", {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ data: shareData }),
+                });
+
+                if (!res.ok) {
+                  throw new Error("共有リンクの作成に失敗しました");
+                }
+
+                const { shareId } = await res.json();
+                const shareUrl = `${window.location.origin}/shipping/view?id=${shareId}`;
+                navigator.clipboard.writeText(shareUrl);
+                alert(`共有URLをコピーしました（3日間有効）\n\nパスワード: 1995a\n\nURL: ${shareUrl}`);
+              } catch (err) {
+                console.error("Share error:", err);
+                alert("共有リンクの作成に失敗しました");
+              } finally {
+                setExporting(false);
+              }
             }}
-            disabled={selectedCount === 0}
+            disabled={exporting || selectedCount === 0}
             className={`px-4 py-2 rounded-lg font-medium ${
-              selectedCount === 0
+              exporting || selectedCount === 0
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                 : "bg-green-600 text-white hover:bg-green-700"
             }`}
           >
-            🔗 共有リンク（{selectedCount}件）
+            {exporting ? "作成中..." : `🔗 共有リンク（${selectedCount}件）`}
           </button>
           <button
             onClick={handleExportYamatoB2}

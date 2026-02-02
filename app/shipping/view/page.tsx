@@ -50,19 +50,38 @@ function ShippingViewContent() {
   const loadShippingItems = async () => {
     setLoadingItems(true);
     try {
+      const idParam = searchParams.get("id");
       const dataParam = searchParams.get("data");
-      if (!dataParam) {
+
+      let shareData: any[];
+
+      if (idParam) {
+        // 新方式：IDから取得
+        const res = await fetch(`/api/shipping/share/${idParam}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            setError("共有リンクが見つかりません");
+          } else if (res.status === 410) {
+            setError("共有リンクの有効期限が切れています（3日間）");
+          } else {
+            setError("データの読み込みに失敗しました");
+          }
+          return;
+        }
+        const json = await res.json();
+        shareData = json.data;
+      } else if (dataParam) {
+        // 旧方式：URL圧縮データ（後方互換性）
+        const decompressed = LZString.decompressFromEncodedURIComponent(dataParam);
+        if (!decompressed) {
+          setError("データの解凍に失敗しました");
+          return;
+        }
+        shareData = JSON.parse(decompressed);
+      } else {
         setError("URLが無効です");
         return;
       }
-
-      // lz-string解凍 → JSON parse
-      const decompressed = LZString.decompressFromEncodedURIComponent(dataParam);
-      if (!decompressed) {
-        setError("データの解凍に失敗しました");
-        return;
-      }
-      const shareData = JSON.parse(decompressed);
 
       if (!Array.isArray(shareData) || shareData.length === 0) {
         setError("データが見つかりません");
