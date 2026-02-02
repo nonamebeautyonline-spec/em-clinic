@@ -301,16 +301,28 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
           return false;
         }
 
-        // IDで紐付けできない場合は、created_atで紐付け（同じ秒数のレコードは同一とみなす）
+        // IDで紐付けできない場合は、複数の条件でマッチング
         const btCreatedAt = new Date(o.created_at).getTime();
+        const btProductCode = String(o.product_code ?? "");
+
         const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
+          // 条件1: タイムスタンプマッチング（手動移行を考慮して60秒以内）
           const orderCreatedAt = new Date(orderRecord.paidAt || "").getTime();
-          // 1秒以内の差なら同一レコードとみなす
           const timeDiff = Math.abs(btCreatedAt - orderCreatedAt);
-          if (timeDiff < 1000) {
-            console.log(`[Supabase] ❌ Excluded by timestamp match: ${o.id} (diff=${timeDiff}ms, order_id=${orderRecord.id})`);
-            return true;
+
+          if (timeDiff < 60000) {
+            // さらに商品コードも一致する場合は同一レコードと確定
+            if (btProductCode === orderRecord.productCode) {
+              console.log(`[Supabase] ❌ Excluded by timestamp+product match: ${o.id} (diff=${timeDiff}ms, product=${btProductCode}, order_id=${orderRecord.id})`);
+              return true;
+            }
+            // 商品コードが異なる場合は1秒以内のみ同一とみなす（誤検出防止）
+            if (timeDiff < 1000) {
+              console.log(`[Supabase] ❌ Excluded by strict timestamp match: ${o.id} (diff=${timeDiff}ms, order_id=${orderRecord.id})`);
+              return true;
+            }
           }
+
           return false;
         });
 
