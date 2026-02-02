@@ -352,122 +352,6 @@ export default function CreateShippingListPage() {
     try {
       setExporting(true);
 
-      // ★ 一時的なテーブルを作成（選択された行のみ）
-      const tempTable = document.createElement("table");
-      tempTable.style.position = "absolute";
-      tempTable.style.left = "-9999px";
-      tempTable.style.top = "0";
-      tempTable.style.fontSize = "18px"; // フォントサイズを大きく（14px → 18px）
-      tempTable.style.fontFamily = "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif";
-      tempTable.style.borderCollapse = "collapse";
-      tempTable.style.width = "auto";
-      tempTable.style.backgroundColor = "#ffffff";
-
-      // ヘッダー行
-      const thead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-      headerRow.style.backgroundColor = "#475569";
-      headerRow.style.color = "#ffffff";
-      headerRow.style.height = "50px"; // ヘッダー行の高さを増やす（40px → 50px）
-
-      const headers = ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
-      headers.forEach(h => {
-        const th = document.createElement("th");
-        th.textContent = h;
-        th.style.padding = "14px 12px"; // パディングを増やす（12px 10px → 14px 12px）
-        th.style.textAlign = "left";
-        th.style.border = "1px solid #e2e8f0";
-        th.style.whiteSpace = "nowrap";
-        th.style.fontWeight = "bold";
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-      tempTable.appendChild(thead);
-
-      // データ行
-      const tbody = document.createElement("tbody");
-      selectedItems.forEach((item) => {
-        const row = document.createElement("tr");
-        const bgColor = getRowColor(item);
-        row.style.height = "auto"; // 自動的に高さを調整
-        row.style.minHeight = "55px"; // 最小高さを増やす（45px → 55px）
-
-        // 背景色のマッピング（Tailwind CSSクラス → RGB）
-        const colorMapping: Record<string, string> = {
-          "bg-blue-200": "#bfdbfe",
-          "bg-red-200": "#fecaca",
-          "bg-yellow-200": "#fef08a",
-          "bg-green-200": "#bbf7d0",
-          "bg-purple-200": "#e9d5ff",
-          "bg-orange-200": "#fed7aa",
-          "bg-pink-200": "#fbcfe8",
-          "bg-cyan-200": "#a5f3fc",
-          "bg-lime-200": "#d9f99d",
-          "bg-indigo-200": "#c7d2fe",
-          "bg-rose-200": "#fecdd3",
-          "bg-amber-200": "#fde68a",
-          "bg-slate-200": "#e2e8f0",
-          "bg-slate-100": "#f1f5f9",
-          "bg-slate-50": "#f8fafc",
-        };
-        row.style.backgroundColor = colorMapping[bgColor] || "#ffffff";
-
-        const cells = [
-          new Date(item.payment_date).toLocaleDateString("ja-JP"),
-          item.editable.name,
-          item.editable.postal_code,
-          item.editable.address,
-          item.email,
-          item.phone,
-          item.product_name,
-          `¥${item.price.toLocaleString()}`,
-          item.dosage_2_5mg.toString(),
-          item.dosage_5mg.toString(),
-          item.dosage_7_5mg.toString(),
-          item.dosage_10mg.toString(),
-        ];
-
-        cells.forEach((text, idx) => {
-          const td = document.createElement("td");
-          td.textContent = text;
-          td.style.padding = "12px 12px"; // パディングを増やす（10px → 12px）
-          td.style.border = "1px solid #e2e8f0";
-          td.style.verticalAlign = "top"; // 上揃え
-          td.style.lineHeight = "1.7"; // 行間を広げる（1.6 → 1.7）
-
-          // 住所のみ折り返し、他は1行
-          if (idx === 3) {
-            td.style.whiteSpace = "normal";
-            td.style.maxWidth = "400px"; // 住所の最大幅を広げる（350px → 400px）
-            td.style.wordBreak = "break-all";
-          } else {
-            td.style.whiteSpace = "nowrap";
-          }
-
-          row.appendChild(td);
-        });
-
-        tbody.appendChild(row);
-      });
-      tempTable.appendChild(tbody);
-      document.body.appendChild(tempTable);
-
-      // html2canvasでテーブルを画像化（日本語フォントも正しくレンダリング）
-      const canvas = await html2canvas(tempTable, {
-        scale: 2, // 解像度を調整（ファイルサイズと可読性のバランス）
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-      });
-
-      // 一時テーブルを削除
-      document.body.removeChild(tempTable);
-
-      // JPEG圧縮でファイルサイズを削減（品質: 0.85）
-      const imgData = canvas.toDataURL("image/jpeg", 0.85);
-      const imgWidth = 277; // A4横向きの幅（mm）- マージン除く
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -481,37 +365,76 @@ export default function CreateShippingListPage() {
       const today = new Date().toLocaleDateString("ja-JP");
       doc.text(`Date: ${today}`, 14, 22);
 
-      // テーブル画像を追加（複数ページ対応）
-      let yPosition = 28;
-      let remainingHeight = imgHeight;
-      const pageHeight = 210; // A4横向きの高さ
-      let currentPage = 0;
+      // 背景色のマッピング（Tailwind CSSクラス → RGB配列）
+      const colorMapping: Record<string, [number, number, number]> = {
+        "bg-blue-200": [191, 219, 254],
+        "bg-red-200": [254, 202, 202],
+        "bg-yellow-200": [254, 240, 138],
+        "bg-green-200": [187, 247, 208],
+        "bg-purple-200": [233, 213, 255],
+        "bg-orange-200": [254, 215, 170],
+        "bg-pink-200": [251, 207, 232],
+        "bg-cyan-200": [165, 243, 252],
+        "bg-lime-200": [217, 249, 157],
+        "bg-indigo-200": [199, 210, 254],
+        "bg-rose-200": [254, 205, 211],
+        "bg-amber-200": [253, 230, 138],
+        "bg-slate-200": [226, 232, 240],
+        "bg-slate-100": [241, 245, 249],
+        "bg-slate-50": [248, 250, 252],
+      };
 
-      while (remainingHeight > 0) {
-        if (currentPage > 0) {
-          doc.addPage();
-          yPosition = 10;
-        }
-
-        const availableHeight = pageHeight - yPosition - 10; // 下部マージン10mm
-        const heightToAdd = Math.min(remainingHeight, availableHeight);
-        const sourceY = (imgHeight - remainingHeight) * (canvas.height / imgHeight);
-        const sourceHeight = heightToAdd * (canvas.height / imgHeight);
-
-        doc.addImage(
-          imgData,
-          "JPEG",
-          10,
-          yPosition,
-          imgWidth,
-          heightToAdd,
-          undefined,
-          "FAST"
-        );
-
-        remainingHeight -= heightToAdd;
-        currentPage++;
-      }
+      // autoTableでテーブルを生成
+      autoTable(doc, {
+        head: [["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"]],
+        body: selectedItems.map((item) => [
+          new Date(item.payment_date).toLocaleDateString("ja-JP"),
+          item.editable.name,
+          item.editable.postal_code,
+          item.editable.address,
+          item.email,
+          item.phone,
+          item.product_name,
+          `¥${item.price.toLocaleString()}`,
+          item.dosage_2_5mg.toString(),
+          item.dosage_5mg.toString(),
+          item.dosage_7_5mg.toString(),
+          item.dosage_10mg.toString(),
+        ]),
+        startY: 28,
+        styles: {
+          fontSize: 9,
+          font: "helvetica",
+          cellPadding: 3,
+          lineWidth: 0.1,
+          lineColor: [226, 232, 240],
+        },
+        headStyles: {
+          fillColor: [71, 85, 105],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: "bold",
+          halign: "left",
+        },
+        bodyStyles: {
+          valign: "top",
+        },
+        columnStyles: {
+          3: { cellWidth: 60 }, // Address列を広めに
+        },
+        didParseCell: (data) => {
+          // 各行の背景色を設定
+          if (data.section === "body") {
+            const item = selectedItems[data.row.index];
+            const bgColor = getRowColor(item);
+            const rgb = colorMapping[bgColor];
+            if (rgb) {
+              data.cell.styles.fillColor = rgb;
+            }
+          }
+        },
+        margin: { top: 10, right: 10, bottom: 10, left: 10 },
+      });
 
       // PDF保存
       doc.save(`shipping_list_${new Date().toISOString().split("T")[0]}.pdf`);
