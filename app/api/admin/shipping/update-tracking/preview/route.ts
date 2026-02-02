@@ -196,12 +196,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // クライアントが期待する形式に変換
+    const entries = updates.map((u) => ({
+      payment_id: u.paymentId,
+      patient_name: u.order?.patient_name || "",
+      tracking_number: u.trackingNumber,
+      matched: u.order !== null,
+    }));
+
     return NextResponse.json({
-      updates,
+      entries,
       errors,
-      total: updates.length,
-      foundOrders: updates.filter((u) => u.order !== null).length,
-      notFoundOrders: updates.filter((u) => u.order === null).length,
+      summary: {
+        total: updates.length,
+        found: updates.filter((u) => u.order !== null).length,
+        notFound: updates.filter((u) => u.order === null).length,
+      },
     });
   } catch (error) {
     console.error("[UpdateTrackingPreview] API error:", error);

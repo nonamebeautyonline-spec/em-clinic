@@ -126,15 +126,16 @@ export default function TrackingNumberPage() {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
+      // ファイルを読み込む（Shift_JISまたはUTF-8）
+      const csvContent = await file.text();
 
       const res = await fetch("/api/admin/shipping/update-tracking/preview", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: formData,
+        body: JSON.stringify({ csvContent }),
       });
 
       if (!res.ok) {
