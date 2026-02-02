@@ -357,7 +357,7 @@ export default function CreateShippingListPage() {
       tempTable.style.position = "absolute";
       tempTable.style.left = "-9999px";
       tempTable.style.top = "0";
-      tempTable.style.fontSize = "14px"; // フォントサイズを大きく
+      tempTable.style.fontSize = "18px"; // フォントサイズを大きく（14px → 18px）
       tempTable.style.fontFamily = "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif";
       tempTable.style.borderCollapse = "collapse";
       tempTable.style.width = "auto";
@@ -368,13 +368,13 @@ export default function CreateShippingListPage() {
       const headerRow = document.createElement("tr");
       headerRow.style.backgroundColor = "#475569";
       headerRow.style.color = "#ffffff";
-      headerRow.style.height = "40px"; // ヘッダー行の高さを明示的に設定
+      headerRow.style.height = "50px"; // ヘッダー行の高さを増やす（40px → 50px）
 
       const headers = ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
       headers.forEach(h => {
         const th = document.createElement("th");
         th.textContent = h;
-        th.style.padding = "12px 10px"; // パディングを増やす
+        th.style.padding = "14px 12px"; // パディングを増やす（12px 10px → 14px 12px）
         th.style.textAlign = "left";
         th.style.border = "1px solid #e2e8f0";
         th.style.whiteSpace = "nowrap";
@@ -390,7 +390,7 @@ export default function CreateShippingListPage() {
         const row = document.createElement("tr");
         const bgColor = getRowColor(item);
         row.style.height = "auto"; // 自動的に高さを調整
-        row.style.minHeight = "45px"; // 最小高さを設定
+        row.style.minHeight = "55px"; // 最小高さを増やす（45px → 55px）
 
         // 背景色のマッピング（Tailwind CSSクラス → RGB）
         const colorMapping: Record<string, string> = {
@@ -430,15 +430,15 @@ export default function CreateShippingListPage() {
         cells.forEach((text, idx) => {
           const td = document.createElement("td");
           td.textContent = text;
-          td.style.padding = "10px 10px"; // パディングを増やす
+          td.style.padding = "12px 12px"; // パディングを増やす（10px → 12px）
           td.style.border = "1px solid #e2e8f0";
           td.style.verticalAlign = "top"; // 上揃え
-          td.style.lineHeight = "1.6"; // 行間を広げる
+          td.style.lineHeight = "1.7"; // 行間を広げる（1.6 → 1.7）
 
           // 住所のみ折り返し、他は1行
           if (idx === 3) {
             td.style.whiteSpace = "normal";
-            td.style.maxWidth = "350px";
+            td.style.maxWidth = "400px"; // 住所の最大幅を広げる（350px → 400px）
             td.style.wordBreak = "break-all";
           } else {
             td.style.whiteSpace = "nowrap";
@@ -454,7 +454,7 @@ export default function CreateShippingListPage() {
 
       // html2canvasでテーブルを画像化（日本語フォントも正しくレンダリング）
       const canvas = await html2canvas(tempTable, {
-        scale: 2, // 高解像度化
+        scale: 3, // 高解像度化（2 → 3）
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
