@@ -142,8 +142,14 @@ export async function POST(req: NextRequest) {
     const unmatched: any[] = [];
     const usedOrderIds = new Set<string>();
 
+    console.log(`[Preview] Starting reconciliation...`);
+    console.log(`[Preview] Transfers to match: ${transfers.length}`);
+    console.log(`[Preview] Pending orders: ${pendingOrdersWithNames.length}`);
+
     for (const transfer of transfers) {
       let matchedOrder = null;
+
+      console.log(`\n[Preview] ===== Transfer: ${transfer.description} (¥${transfer.amount}) =====`);
 
       // 金額と振込名義人で照合
       for (const order of pendingOrdersWithNames) {
@@ -152,17 +158,33 @@ export async function POST(req: NextRequest) {
         if (order.amount === transfer.amount) {
           const accountName = order.account_name || "";
 
-          if (!accountName) continue;
+          if (!accountName) {
+            console.log(`[Preview] Order ${order.id}: amount match (¥${order.amount}), but no account_name - SKIP`);
+            continue;
+          }
 
           const descNormalized = normalizeKana(transfer.description);
           const accountNormalized = normalizeKana(accountName);
 
-          if (
-            descNormalized.includes(accountNormalized) ||
-            transfer.description.includes(accountName)
-          ) {
+          console.log(`[Preview] Order ${order.id} (${order.patient_id}):`);
+          console.log(`  amount: ¥${order.amount} (MATCH)`);
+          console.log(`  account_name: "${accountName}"`);
+          console.log(`  accountNormalized: "${accountNormalized}"`);
+          console.log(`  transfer.description: "${transfer.description}"`);
+          console.log(`  descNormalized: "${descNormalized}"`);
+
+          const normalizedMatch = descNormalized.includes(accountNormalized);
+          const rawMatch = transfer.description.includes(accountName);
+
+          console.log(`  normalizedMatch: ${normalizedMatch}`);
+          console.log(`  rawMatch: ${rawMatch}`);
+
+          if (normalizedMatch || rawMatch) {
             matchedOrder = order;
+            console.log(`  ✅ MATCHED!`);
             break;
+          } else {
+            console.log(`  ❌ No name match`);
           }
         }
       }
@@ -174,6 +196,7 @@ export async function POST(req: NextRequest) {
         });
         usedOrderIds.add(matchedOrder.id);
       } else {
+        console.log(`[Preview] ⚠️ No match found for this transfer`);
         unmatched.push({
           date: transfer.date,
           description: transfer.description,
@@ -215,17 +238,23 @@ export async function POST(req: NextRequest) {
 
 /**
  * カタカナを正規化（全角→半角、濁点分離など）
+ * - スペース、ハイフン、括弧を削除
+ * - 全角カタカナ→ひらがな変換
+ * - 小文字（ァィゥェォ等）も正規化
  */
 function normalizeKana(str: string): string {
   if (!str) return "";
 
-  let normalized = str
-    .replace(/[\u30a1-\u30f6]/g, (s) =>
-      String.fromCharCode(s.charCodeAt(0) - 0x60)
-    )
-    .toUpperCase();
+  // 1. スペース、記号、括弧を削除
+  let normalized = str.replace(/[\s\-\(\)（）、。・]/g, "");
 
-  normalized = normalized.replace(/[\s\-\(\)（）]/g, "");
+  // 2. 全角カタカナ→ひらがな変換
+  normalized = normalized.replace(/[\u30a1-\u30f6]/g, (s) =>
+    String.fromCharCode(s.charCodeAt(0) - 0x60)
+  );
+
+  // 3. 英字を大文字化（銀行のフリガナに英字が含まれる場合）
+  normalized = normalized.toUpperCase();
 
   return normalized;
 }
