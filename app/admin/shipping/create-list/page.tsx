@@ -454,7 +454,7 @@ export default function CreateShippingListPage() {
 
       // html2canvasでテーブルを画像化（日本語フォントも正しくレンダリング）
       const canvas = await html2canvas(tempTable, {
-        scale: 3, // 高解像度化（2 → 3）
+        scale: 2, // 解像度を調整（ファイルサイズと可読性のバランス）
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
