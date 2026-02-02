@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 interface ShippingItem {
   id: string;
@@ -42,6 +43,7 @@ export default function CreateShippingListPage() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
     loadPendingOrders();
@@ -348,119 +350,162 @@ export default function CreateShippingListPage() {
     }
 
     try {
+      setExporting(true);
+
+      // ★ 一時的なテーブルを作成（選択された行のみ）
+      const tempTable = document.createElement("table");
+      tempTable.style.position = "absolute";
+      tempTable.style.left = "-9999px";
+      tempTable.style.top = "0";
+      tempTable.style.fontSize = "12px";
+      tempTable.style.fontFamily = "sans-serif";
+      tempTable.style.borderCollapse = "collapse";
+      tempTable.style.width = "auto";
+      tempTable.style.backgroundColor = "#ffffff";
+
+      // ヘッダー行
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      headerRow.style.backgroundColor = "#475569";
+      headerRow.style.color = "#ffffff";
+
+      const headers = ["izn sMD", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        th.style.padding = "8px";
+        th.style.textAlign = "left";
+        th.style.border = "1px solid #e2e8f0";
+        th.style.whiteSpace = "nowrap";
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      tempTable.appendChild(thead);
+
+      // データ行
+      const tbody = document.createElement("tbody");
+      selectedItems.forEach((item) => {
+        const row = document.createElement("tr");
+        const bgColor = getRowColor(item);
+        row.style.backgroundColor = bgColor.replace("bg-", "").replace("-200", "").replace("-", "");
+
+        // 背景色のマッピング（Tailwind CSSクラス → RGB）
+        const colorMapping: Record<string, string> = {
+          "bg-blue-200": "#bfdbfe",
+          "bg-red-200": "#fecaca",
+          "bg-yellow-200": "#fef08a",
+          "bg-green-200": "#bbf7d0",
+          "bg-purple-200": "#e9d5ff",
+          "bg-orange-200": "#fed7aa",
+          "bg-pink-200": "#fbcfe8",
+          "bg-cyan-200": "#a5f3fc",
+          "bg-lime-200": "#d9f99d",
+          "bg-indigo-200": "#c7d2fe",
+          "bg-rose-200": "#fecdd3",
+          "bg-amber-200": "#fde68a",
+          "bg-slate-200": "#e2e8f0",
+          "bg-slate-100": "#f1f5f9",
+          "bg-slate-50": "#f8fafc",
+        };
+        row.style.backgroundColor = colorMapping[bgColor] || "#ffffff";
+
+        const cells = [
+          new Date(item.payment_date).toLocaleDateString("ja-JP"),
+          item.editable.name,
+          item.editable.postal_code,
+          item.editable.address,
+          item.email,
+          item.phone,
+          item.product_name,
+          `¥${item.price.toLocaleString()}`,
+          item.dosage_2_5mg.toString(),
+          item.dosage_5mg.toString(),
+          item.dosage_7_5mg.toString(),
+          item.dosage_10mg.toString(),
+        ];
+
+        cells.forEach((text, idx) => {
+          const td = document.createElement("td");
+          td.textContent = text;
+          td.style.padding = "6px 8px";
+          td.style.border = "1px solid #e2e8f0";
+          td.style.whiteSpace = idx === 3 ? "normal" : "nowrap"; // 住所のみ折り返し
+          td.style.maxWidth = idx === 3 ? "300px" : "auto";
+          row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+      });
+      tempTable.appendChild(tbody);
+      document.body.appendChild(tempTable);
+
+      // html2canvasでテーブルを画像化（日本語フォントも正しくレンダリング）
+      const canvas = await html2canvas(tempTable, {
+        scale: 2, // 高解像度化
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      // 一時テーブルを削除
+      document.body.removeChild(tempTable);
+
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = 277; // A4横向きの幅（mm）- マージン除く
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
       const doc = new jsPDF({
         orientation: "landscape",
         unit: "mm",
         format: "a4",
       });
 
-      // タイトル
+      // タイトルと日付
       doc.setFontSize(16);
       doc.text("Shipping List", 14, 15);
-
-      // 日付
       doc.setFontSize(10);
       const today = new Date().toLocaleDateString("ja-JP");
       doc.text(`Date: ${today}`, 14, 22);
 
-      // テーブルデータ（user_id, patient_id, payment_idは除外）
-      const headers = [
-        ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"]
-      ];
+      // テーブル画像を追加（複数ページ対応）
+      let yPosition = 28;
+      let remainingHeight = imgHeight;
+      const pageHeight = 210; // A4横向きの高さ
+      let currentPage = 0;
 
-      const data = selectedItems.map((item) => [
-        new Date(item.payment_date).toLocaleDateString("ja-JP"),
-        item.editable.name,
-        item.editable.postal_code,
-        item.editable.address,
-        item.email,
-        item.phone,
-        item.product_name,
-        `¥${item.price.toLocaleString()}`,
-        item.dosage_2_5mg.toString(),
-        item.dosage_5mg.toString(),
-        item.dosage_7_5mg.toString(),
-        item.dosage_10mg.toString(),
-      ]);
-
-      // RGB変換関数
-      const getRgbColor = (item: ShippingItem): [number, number, number] => {
-        // 統合アイテムは特別な色（グレー系・薄い）
-        if (isMergedItem(item)) {
-          const totalCount = item.dosage_2_5mg + item.dosage_5mg + item.dosage_7_5mg + item.dosage_10mg;
-          if (totalCount >= 12) return [226, 232, 240]; // slate-200
-          if (totalCount >= 8) return [241, 245, 249];  // slate-100
-          return [248, 250, 252];                       // slate-50
+      while (remainingHeight > 0) {
+        if (currentPage > 0) {
+          doc.addPage();
+          yPosition = 10;
         }
 
-        const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
-        let primaryDosage = "";
-        if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
-        else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
-        else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
-        else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
+        const availableHeight = pageHeight - yPosition - 10; // 下部マージン10mm
+        const heightToAdd = Math.min(remainingHeight, availableHeight);
+        const sourceY = (imgHeight - remainingHeight) * (canvas.height / imgHeight);
+        const sourceHeight = heightToAdd * (canvas.height / imgHeight);
 
-        const colorMap: Record<string, [number, number, number]> = {
-          "2.5mg-12": [191, 219, 254],  // blue-200
-          "2.5mg-8": [254, 202, 202],   // red-200
-          "2.5mg-4": [254, 240, 138],   // yellow-200
-          "5mg-12": [187, 247, 208],    // green-200
-          "5mg-8": [233, 213, 255],     // purple-200
-          "5mg-4": [254, 215, 170],     // orange-200
-          "7.5mg-12": [251, 207, 232],  // pink-200
-          "7.5mg-8": [165, 243, 252],   // cyan-200
-          "7.5mg-4": [217, 249, 157],   // lime-200
-          "10mg-12": [199, 210, 254],   // indigo-200
-          "10mg-8": [254, 205, 211],    // rose-200
-          "10mg-4": [253, 230, 138],    // amber-200
-        };
+        doc.addImage(
+          imgData,
+          "PNG",
+          10,
+          yPosition,
+          imgWidth,
+          heightToAdd,
+          undefined,
+          "FAST"
+        );
 
-        const key = `${primaryDosage}-${maxCount}`;
-        return colorMap[key] || [255, 255, 255];
-      };
-
-      autoTable(doc, {
-        head: headers,
-        body: data,
-        startY: 28,
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [71, 85, 105],
-          textColor: [255, 255, 255],
-          fontSize: 9,
-        },
-        columnStyles: {
-          0: { cellWidth: 22 },  // 決済日時
-          1: { cellWidth: 30 },  // Name（氏名 - 広く）
-          2: { cellWidth: 15 },  // Postal Code（狭く）
-          3: { cellWidth: 35 },  // Address（狭く）
-          4: { cellWidth: 20 },  // Email（狭く）
-          5: { cellWidth: 15 },  // Phone（狭く）
-          6: { cellWidth: 25 },  // Product Name（狭く）
-          7: { cellWidth: 15 },  // Price（狭く）
-          8: { cellWidth: 15 },  // 2.5mg（本数 - 広く）
-          9: { cellWidth: 15 },  // 5mg（本数 - 広く）
-          10: { cellWidth: 15 }, // 7.5mg（本数 - 広く）
-          11: { cellWidth: 15 }, // 10mg（本数 - 広く）
-        },
-        didParseCell: (hookData: any) => {
-          // セルが解析されたときに背景色を設定（描画前）
-          if (hookData.section === 'body' && hookData.row.index < selectedItems.length) {
-            const item = selectedItems[hookData.row.index];
-            const color = getRgbColor(item);
-            hookData.cell.styles.fillColor = color;
-          }
-        },
-      });
+        remainingHeight -= heightToAdd;
+        currentPage++;
+      }
 
       // PDF保存
       doc.save(`shipping_list_${new Date().toISOString().split("T")[0]}.pdf`);
     } catch (err) {
       console.error("PDF export error:", err);
       setError(err instanceof Error ? err.message : "PDF出力に失敗しました");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -551,14 +596,14 @@ export default function CreateShippingListPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportPDF}
-            disabled={selectedCount === 0}
+            disabled={exporting || selectedCount === 0}
             className={`px-4 py-2 rounded-lg font-medium ${
-              selectedCount === 0
+              exporting || selectedCount === 0
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                 : "bg-red-600 text-white hover:bg-red-700"
             }`}
           >
-            📄 PDF出力（{selectedCount}件）
+            {exporting ? "PDF出力中..." : `📄 PDF出力（${selectedCount}件）`}
           </button>
           <button
             onClick={handleExportYamatoB2}
@@ -576,7 +621,7 @@ export default function CreateShippingListPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-xs">
+          <table ref={tableRef} className="min-w-full divide-y divide-slate-200 text-xs">
             <thead className="bg-slate-50">
               <tr>
                 <th className="px-2 py-2 text-left">

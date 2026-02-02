@@ -367,17 +367,18 @@ function pickNextReservationFromReserveSheet_(reserveSheet, patientKey, now, gra
   const slotMs = 15 * 60 * 1000; // 15分枠
 
   let best = null;
+  const normalizedPatientKey = normPid_(patientKey);
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
 
     const reserveId = String(row[1] || "").trim(); // B
-    const rowPid    = String(row[2] || "").trim(); // C
+    const rowPid    = normPid_(row[2]); // C
     const dateRaw   = row[4];                      // E
     const timeRaw   = row[5];                      // F
     const statusRaw = String(row[6] || "").trim(); // G
 
-    if (!reserveId || rowPid !== patientKey) continue;
+    if (!reserveId || rowPid !== normalizedPatientKey) continue;
     if (statusRaw === "キャンセル") continue;
 
     const dStr = fmtDate(dateRaw);
@@ -534,8 +535,8 @@ function findNameFromMasterByPid_(ss, patientId) {
   // 新しい行を優先（末尾から探索）
   for (let i = values.length - 1; i >= 0; i--) {
     const row = values[i];
-    const pid = String(row[IDX_PID] || "").trim();
-    if (pid !== String(patientId).trim()) continue;
+    const pid = normPid_(row[IDX_PID]);
+    if (pid !== normPid_(patientId)) continue;
 
     const name = String(row[IDX_NAME] || "").trim();
     if (name) return name;
@@ -544,7 +545,7 @@ function findNameFromMasterByPid_(ss, patientId) {
 }
 // PIDから問診マスター（問診マスターシート）で line_user_id（O列）を引く
 function findLineUserIdFromMasterByPid_(ss, patientId) {
-  const pid = String(patientId || "").trim();
+  const pid = normPid_(patientId);
   if (!pid) return "";
 
   const sh = ss.getSheetByName(SHEET_NAME_MASTER);
@@ -583,8 +584,8 @@ function findNameFromReserveByPid_(ss, patientId) {
   // 予約シート想定: C=patient_id, D=name（0-based: 2,3）
   for (let i = values.length - 1; i >= 1; i--) {
     const row = values[i];
-    const pid = String(row[2] || "").trim();
-    if (pid !== String(patientId).trim()) continue;
+    const pid = normPid_(row[2]);
+    if (pid !== normPid_(patientId)) continue;
 
     const name = String(row[3] || "").trim();
     if (name) return name;
@@ -677,7 +678,7 @@ function normalizeToDomesticJP_(raw) {
 function setVerifiedPhoneToIntake_(intakeSheet, patientId, answererId, phoneRaw) {
   if (!intakeSheet) return;
 
-  const pid = String(patientId || "").trim();
+  const pid = normPid_(patientId);
   const aid = String(answererId || "").trim();
   const phoneE164 = normalizeToE164JP_(phoneRaw);
   if (!phoneE164) return;
@@ -704,7 +705,7 @@ function setVerifiedPhoneToIntake_(intakeSheet, patientId, answererId, phoneRaw)
   for (let i = 0; i < values.length; i++) {
     const row = values[i];
 
-    const rowPid = String(row[IDX_PID] || "").trim();
+    const rowPid = normPid_(row[IDX_PID]);
     const rowAid = String(row[IDX_ANSWERERID] || "").trim();
 
     // マッチ条件：PID一致を最優先。PIDがまだ入ってない段階に備えて answerer_id も許可
@@ -757,8 +758,8 @@ function findVerifiedFromMasterByPid_(masterSheet, pid) {
 
   for (let i = values.length - 1; i >= 0; i--) {
     const row = values[i];
-    const rowPid = String(row[IDX_PID] || "").trim();
-    if (rowPid !== String(pid).trim()) continue;
+    const rowPid = normPid_(row[IDX_PID]);
+    if (rowPid !== normPid_(pid)) continue;
 
     const vPhone = String(row[IDX_VPHONE] || "").trim();
     const vAt    = String(row[IDX_VAT] || "").trim();
@@ -793,8 +794,8 @@ function findMasterInfoByPid_(masterSheet, pid) {
   // 後勝ち（最新行を優先）
   for (let i = values.length - 1; i >= 0; i--) {
     const row = values[i];
-    const rowPid = String(row[IDX_PID] || "").trim();
-    if (rowPid !== String(pid).trim()) continue;
+    const rowPid = normPid_(row[IDX_PID]);
+    if (rowPid !== normPid_(pid)) continue;
 
     return {
       name: String(row[IDX_NAME] || "").trim(),
@@ -843,11 +844,12 @@ logErrorSafe_("appendOrderHistoryForPatient open webhook sheet", e);
   // 想定ヘッダー：
   // A:order_datetime, G:items, H:amount, I:name（請求先）, J:payment_id,
   // K:product_code, L:patient_id
+  const normalizedPatientId = normPid_(patientId);
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
 
-    const rowPid      = String(row[11] || ""); // L列 patient_id (0-based index 11)
-    if (!rowPid || rowPid !== patientId) continue;
+    const rowPid      = normPid_(row[11]); // L列 patient_id (0-based index 11)
+    if (!rowPid || rowPid !== normalizedPatientId) continue;
 
     const orderDateRaw = row[0];               // A列 order_datetime
     const itemsText    = String(row[6] || ""); // G列 items ("マンジャロ 2.5mg 1ヶ月 x 1" など)
@@ -1126,7 +1128,7 @@ if (patientId && history.length === 0 && !hasDoctorOk) {
   const GRACE_MINUTES = 10; // ★ 15分枠 + 10分猶予
   nextReservation = pickNextReservationFromReserveSheet_(
     reserveSheet,
-    String(patientId).trim(),
+    normPid_(patientId),
     now,
     GRACE_MINUTES
   );
@@ -1228,12 +1230,12 @@ function findExistingIntakeIdByPid_(intakeSheet, pid) {
   // A〜AA(27列)で十分：Z=patient_id, AA=intakeId
   const values = intakeSheet.getRange(2, 1, lastRow - 1, 27).getValues();
 
-  const pidKey = String(pid).trim();
+  const pidKey = normPid_(pid);
   const IDX_PID = 25;       // Z
   const IDX_INTAKE_ID = 26; // AA
 
   for (let i = values.length - 1; i >= 0; i--) {
-    const rowPid = String(values[i][IDX_PID] || "").trim();
+    const rowPid = normPid_(values[i][IDX_PID]);
     if (rowPid !== pidKey) continue;
 
     const intakeId = String(values[i][IDX_INTAKE_ID] || "").trim();
@@ -1251,7 +1253,7 @@ function findExistingSubmittedIntakeByPid_(intakeSheet, pid) {
   // A〜AA(27列)で十分：C=submittedAt, Z=patient_id, AA=intakeId
   const values = intakeSheet.getRange(2, 1, lastRow - 1, 27).getValues();
 
-  const pidKey = String(pid).trim();
+  const pidKey = normPid_(pid);
   const IDX_SUBMITTED_AT = 2; // C（0-based）
   const IDX_PID = 25;         // Z（0-based）
   const IDX_INTAKE_ID = 26;   // AA（0-based）
@@ -1259,7 +1261,7 @@ function findExistingSubmittedIntakeByPid_(intakeSheet, pid) {
   // 新しい行を優先（末尾から探索）
   for (let i = values.length - 1; i >= 0; i--) {
     const row = values[i];
-    const rowPid = String(row[IDX_PID] || "").trim();
+    const rowPid = normPid_(row[IDX_PID]);
     if (rowPid !== pidKey) continue;
 
     const submittedAt = String(row[IDX_SUBMITTED_AT] || "").trim();
@@ -1275,7 +1277,7 @@ function findExistingSubmittedIntakeByPid_(intakeSheet, pid) {
 // Z列(patient_id)で完全一致する「全行番号」を返す
 function findRowsByPidInIntake_(intakeSheet, pid) {
   if (!intakeSheet || !pid) return [];
-  const pidKey = String(pid).trim();
+  const pidKey = normPid_(pid);
   if (!pidKey) return [];
 
   const lastRow = intakeSheet.getLastRow();
@@ -1587,9 +1589,10 @@ function doPost(e) {
       if (lastRow < 2) return jsonResponse({ ok: false, error: "no_data" });
 
       let masterUpdated = 0;
+      const normalizedOldPid = normPid_(oldPid);
       for (let i = 2; i <= lastRow; i++) {
-        const pid = String(masterSheet.getRange(i, 12).getValue() || "").trim(); // L列
-        if (pid === oldPid) {
+        const pid = normPid_(masterSheet.getRange(i, 12).getValue()); // L列
+        if (pid === normalizedOldPid) {
           masterSheet.getRange(i, 12).setValue(newPid);
           masterUpdated++;
           Logger.log("[merge_patients] Master: Updated patient_id at row " + i);
@@ -1609,8 +1612,8 @@ function doPost(e) {
 
         if (intakeLastRow >= 2) {
           for (let i = 2; i <= intakeLastRow; i++) {
-            const pid = String(intakeSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue() || "").trim();
-            if (pid === oldPid) {
+            const pid = normPid_(intakeSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue());
+            if (pid === normalizedOldPid) {
               intakeSheet.getRange(i, COL_PATIENT_ID_INTAKE).setValue(newPid);
               intakeUpdated++;
             }
@@ -1630,8 +1633,8 @@ function doPost(e) {
 
         if (reserveLastRow >= 2) {
           for (let i = 2; i <= reserveLastRow; i++) {
-            const pid = String(reserveSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue() || "").trim();
-            if (pid === oldPid) {
+            const pid = normPid_(reserveSheet.getRange(i, COL_PATIENT_ID_INTAKE).getValue());
+            if (pid === normalizedOldPid) {
               reserveSheet.getRange(i, COL_PATIENT_ID_INTAKE).setValue(newPid);
               reserveUpdated++;
             }
@@ -2207,7 +2210,7 @@ if (existingSubmitted) {
 if (type === "save_line_user_id") {
   if (!masterSheet) return jsonResponse({ ok: false, error: "sheet_not_found" });
 
-  const pid  = String(body.patient_id || body.pid || "").trim();
+  const pid  = normPid_(body.patient_id || body.pid);
   const luid = String(body.line_user_id || "").trim();
 
   if (!pid || !luid) return jsonResponse({ ok: false, error: "bad_request" });
@@ -2221,7 +2224,7 @@ if (type === "save_line_user_id") {
   const IDX_LUID = 14; // O (0-based)
 
   for (let i = values.length - 1; i >= 0; i--) {
-    const rowPid = String(values[i][IDX_PID] || "").trim();
+    const rowPid = normPid_(values[i][IDX_PID]);
     if (rowPid !== pid) continue;
 
     const cur = String(values[i][IDX_LUID] || "").trim();
@@ -2286,7 +2289,7 @@ function syncQuestionnaireFromMaster() {
   const masterByPid = {};
   for (let i = 0; i < mValues.length; i++) {
     const row = mValues[i];
-    const pid = String(row[M_COL_PID] || "").trim();
+    const pid = normPid_(row[M_COL_PID]);
     if (!pid) continue;
     masterByPid[pid] = row;
   }
@@ -2322,7 +2325,7 @@ function syncQuestionnaireFromMaster() {
 
   for (let i = 0; i < qValues.length; i++) {
     const row = qValues[i];
-    const pid = String(row[Q_COL_PID] || "").trim();
+    const pid = normPid_(row[Q_COL_PID]);
     if (!pid) continue;
 
     const mRow = masterByPid[pid];
@@ -3134,7 +3137,7 @@ function backfillLineUserIdMasterToIntakeOnce() {
   const pidToLine = {};
   for (let i = 0; i < mVals.length; i++) {
     const row = mVals[i];
-    const pid = String(row[11] || "").trim(); // L(0-based 11)
+    const pid = normPid_(row[11]); // L(0-based 11)
     const luid = String(row[COL_LINE_USER_ID_MASTER - 1] || "").trim(); // O
     if (pid && luid) pidToLine[pid] = luid;
   }
@@ -3153,7 +3156,7 @@ function backfillLineUserIdMasterToIntakeOnce() {
     const curLine = String(row[IDX_LINE_G] || "").trim();
     if (curLine) continue; // 既に入ってるなら上書きしない
 
-    const pid = String(row[IDX_PID_Z] || "").trim();
+    const pid = normPid_(row[IDX_PID_Z]);
     if (!pid) continue;
 
     const luid = pidToLine[pid];
