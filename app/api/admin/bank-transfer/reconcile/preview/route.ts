@@ -29,8 +29,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // CSVを読み込み
-    const csvText = await file.text();
+    // CSVを読み込み（Shift_JISエンコーディング対応）
+    const arrayBuffer = await file.arrayBuffer();
+    const decoder = new TextDecoder("shift_jis");
+    const csvText = decoder.decode(arrayBuffer);
     const lines = csvText.split("\n").filter((line) => line.trim());
 
     if (lines.length === 0) {
@@ -257,24 +259,15 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * カタカナを正規化（全角→半角、濁点分離など）
+ * カタカナを正規化
  * - スペース、ハイフン、括弧を削除
- * - 全角カタカナ→ひらがな変換
- * - 小文字（ァィゥェォ等）も正規化
+ * - カタカナのまま照合（ひらがな変換しない）
  */
 function normalizeKana(str: string): string {
   if (!str) return "";
 
-  // 1. スペース、記号、括弧を削除
-  let normalized = str.replace(/[\s\-\(\)（）、。・]/g, "");
-
-  // 2. 全角カタカナ→ひらがな変換
-  normalized = normalized.replace(/[\u30a1-\u30f6]/g, (s) =>
-    String.fromCharCode(s.charCodeAt(0) - 0x60)
-  );
-
-  // 3. 英字を大文字化（銀行のフリガナに英字が含まれる場合）
-  normalized = normalized.toUpperCase();
+  // スペース、記号、括弧を削除（カタカナはそのまま維持）
+  const normalized = str.replace(/[\s\-\(\)（）、。・]/g, "");
 
   return normalized;
 }
