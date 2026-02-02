@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     const birth = body.birth || answersObj.生年月日 || answersObj.birth || "";
     const nameKana = body.name_kana || body.nameKana || answersObj.カナ || answersObj.name_kana || "";
     const tel = body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "";
+    const email = body.email || answersObj.メールアドレス || answersObj.email || "";
     const lineId = body.line_id || body.lineId || answersObj.line_id || "";
     const answererId = body.answerer_id || answersObj.answerer_id || null;
 
@@ -104,6 +105,9 @@ export async function POST(req: NextRequest) {
           .upsert({
             patient_id: patientId,
             patient_name: name || null,
+            patient_kana: nameKana || null,
+            phone: tel || null,
+            email: email || null,
             answerer_id: answererId,
             line_id: lineId || null,
             reserve_id: null,
