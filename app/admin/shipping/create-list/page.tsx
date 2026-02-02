@@ -357,8 +357,8 @@ export default function CreateShippingListPage() {
       tempTable.style.position = "absolute";
       tempTable.style.left = "-9999px";
       tempTable.style.top = "0";
-      tempTable.style.fontSize = "12px";
-      tempTable.style.fontFamily = "sans-serif";
+      tempTable.style.fontSize = "14px"; // フォントサイズを大きく
+      tempTable.style.fontFamily = "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif";
       tempTable.style.borderCollapse = "collapse";
       tempTable.style.width = "auto";
       tempTable.style.backgroundColor = "#ffffff";
@@ -368,15 +368,17 @@ export default function CreateShippingListPage() {
       const headerRow = document.createElement("tr");
       headerRow.style.backgroundColor = "#475569";
       headerRow.style.color = "#ffffff";
+      headerRow.style.height = "40px"; // ヘッダー行の高さを明示的に設定
 
-      const headers = ["izn sMD", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
+      const headers = ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
       headers.forEach(h => {
         const th = document.createElement("th");
         th.textContent = h;
-        th.style.padding = "8px";
+        th.style.padding = "12px 10px"; // パディングを増やす
         th.style.textAlign = "left";
         th.style.border = "1px solid #e2e8f0";
         th.style.whiteSpace = "nowrap";
+        th.style.fontWeight = "bold";
         headerRow.appendChild(th);
       });
       thead.appendChild(headerRow);
@@ -387,7 +389,8 @@ export default function CreateShippingListPage() {
       selectedItems.forEach((item) => {
         const row = document.createElement("tr");
         const bgColor = getRowColor(item);
-        row.style.backgroundColor = bgColor.replace("bg-", "").replace("-200", "").replace("-", "");
+        row.style.height = "auto"; // 自動的に高さを調整
+        row.style.minHeight = "45px"; // 最小高さを設定
 
         // 背景色のマッピング（Tailwind CSSクラス → RGB）
         const colorMapping: Record<string, string> = {
@@ -427,10 +430,20 @@ export default function CreateShippingListPage() {
         cells.forEach((text, idx) => {
           const td = document.createElement("td");
           td.textContent = text;
-          td.style.padding = "6px 8px";
+          td.style.padding = "10px 10px"; // パディングを増やす
           td.style.border = "1px solid #e2e8f0";
-          td.style.whiteSpace = idx === 3 ? "normal" : "nowrap"; // 住所のみ折り返し
-          td.style.maxWidth = idx === 3 ? "300px" : "auto";
+          td.style.verticalAlign = "top"; // 上揃え
+          td.style.lineHeight = "1.6"; // 行間を広げる
+
+          // 住所のみ折り返し、他は1行
+          if (idx === 3) {
+            td.style.whiteSpace = "normal";
+            td.style.maxWidth = "350px";
+            td.style.wordBreak = "break-all";
+          } else {
+            td.style.whiteSpace = "nowrap";
+          }
+
           row.appendChild(td);
         });
 

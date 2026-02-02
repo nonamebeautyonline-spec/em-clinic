@@ -121,8 +121,14 @@ function normalizeJPPhone(raw: string) {
   let digits = s.replace(/[^\d]/g, "");
   if (!digits) return "";
 
+  // ★ 0080/0090 を 080/090 に変換（国際電話プレフィックス00の誤入力）
+  if (digits.startsWith("0080")) {
+    digits = "080" + digits.slice(4);
+  } else if (digits.startsWith("0090")) {
+    digits = "090" + digits.slice(4);
+  }
   // 00プレフィックスを削除（国際電話の発信コード）
-  if (digits.startsWith("00")) {
+  else if (digits.startsWith("00")) {
     digits = digits.slice(2);
   }
 
