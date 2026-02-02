@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import * as iconv from "iconv-lite";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -95,23 +96,15 @@ export async function GET(req: NextRequest) {
 
     const csvContent = csvRows.join("\n");
 
-    // Shift_JISにエンコード
-    const encoder = new TextEncoder();
-    const utf8Bytes = encoder.encode(csvContent);
-
-    // ブラウザのダウンロードではShift_JISが必要な場合があるが、
-    // TextEncoderはUTF-8のみサポートなので、UTF-8 BOMを追加
-    const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
-    const csvBytes = new Uint8Array(BOM.length + utf8Bytes.length);
-    csvBytes.set(BOM);
-    csvBytes.set(utf8Bytes, BOM.length);
+    // Shift_JISにエンコード（Lステップが要求する形式）
+    const shiftJisBuffer = iconv.encode(csvContent, "Shift_JIS");
 
     console.log(`[ExportLstepTags] Generated CSV with ${validPatients.length} entries`);
 
-    return new NextResponse(csvBytes, {
+    return new NextResponse(shiftJisBuffer, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=UTF-8",
+        "Content-Type": "text/csv; charset=Shift_JIS",
         "Content-Disposition": `attachment; filename="lstep_tags_${today}.csv"`,
       },
     });
