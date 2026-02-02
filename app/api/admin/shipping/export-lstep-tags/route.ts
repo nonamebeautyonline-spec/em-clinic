@@ -85,10 +85,12 @@ export async function GET(req: NextRequest) {
 
     console.log(`[ExportLstepTags] Found ${validPatients.length} patients with Lstep ID`);
 
-    // CSV生成（Lステップ形式: 友だちID,タグ）
+    // CSV生成（Lステップ形式）
+    // タグID: 9217653 = 「発送したよ」
     const csvRows = [
-      "友だちID,タグ", // ヘッダー
-      ...validPatients.map((p: any) => `${p.answerer_id},発送したよ`),
+      "登録ID,タグ_9217653", // ヘッダー行1: タグIDを含む
+      "ID,発送したよ", // ヘッダー行2: タグ名
+      ...validPatients.map((p: any) => `${p.answerer_id},1`), // データ行: 友だちID,1
     ];
 
     const csvContent = csvRows.join("\n");
