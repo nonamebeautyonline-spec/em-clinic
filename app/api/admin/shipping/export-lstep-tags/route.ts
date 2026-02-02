@@ -98,10 +98,11 @@ export async function GET(req: NextRequest) {
 
     // Shift_JISにエンコード（Lステップが要求する形式）
     const shiftJisBuffer = iconv.encode(csvContent, "Shift_JIS");
+    const shiftJisBytes = new Uint8Array(shiftJisBuffer);
 
     console.log(`[ExportLstepTags] Generated CSV with ${validPatients.length} entries`);
 
-    return new NextResponse(shiftJisBuffer, {
+    return new NextResponse(shiftJisBytes, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=Shift_JIS",
