@@ -396,17 +396,29 @@ export default function TrackingNumberPage() {
         <p className="text-sm text-slate-600 mb-4">
           本日Yamato B2 CSVを出力した全注文を読み込みます。まとめ配送で消えたpayment_idも含めて表示されます。
         </p>
-        <button
-          onClick={handleLoadTodayShipped}
-          disabled={loading}
-          className={`px-6 py-3 rounded-lg font-medium ${
-            loading
-              ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-              : "bg-green-600 text-white hover:bg-green-700"
-          }`}
-        >
-          {loading ? "読み込み中..." : "📋 本日発送分を読み込む"}
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleLoadTodayShipped}
+            disabled={loading}
+            className={`px-6 py-3 rounded-lg font-medium ${
+              loading
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {loading ? "読み込み中..." : "📋 本日発送分を読み込む"}
+          </button>
+
+          <button
+            onClick={handleDownloadLstepTags}
+            className="px-6 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700"
+          >
+            📥 Lステップタグをダウンロード
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mt-3">
+          ※ Lステップタグは本日追跡番号を付与した患者に「発送したよ」タグを付けるためのCSVです
+        </p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
