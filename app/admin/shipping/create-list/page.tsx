@@ -620,8 +620,26 @@ export default function CreateShippingListPage() {
                 alert("共有する注文を選択してください");
                 return;
               }
-              const orderIds = selectedItems.map((item) => item.id).join(",");
-              const encoded = btoa(orderIds);
+
+              // 表示されているデータをそのまま共有（編集済み、用量、背景色含む）
+              const shareData = selectedItems.map((item) => ({
+                id: item.id,
+                payment_date: item.payment_date,
+                name: item.editable.name,
+                postal_code: item.editable.postal_code,
+                address: item.editable.address,
+                email: item.email,
+                phone: item.phone,
+                product_name: item.product_name,
+                price: item.price,
+                dosage_2_5mg: item.dosage_2_5mg,
+                dosage_5mg: item.dosage_5mg,
+                dosage_7_5mg: item.dosage_7_5mg,
+                dosage_10mg: item.dosage_10mg,
+              }));
+
+              const json = JSON.stringify(shareData);
+              const encoded = btoa(encodeURIComponent(json));
               const shareUrl = `${window.location.origin}/shipping/view?data=${encoded}`;
               navigator.clipboard.writeText(shareUrl);
               alert(`共有URLをコピーしました\n\nパスワード: 1995a`);

@@ -55,80 +55,32 @@ function ShippingViewContent() {
         return;
       }
 
-      // Base64デコード
-      const decoded = atob(dataParam);
-      const orderIds = decoded.split(",");
+      // Base64デコード → JSON parse
+      const decoded = decodeURIComponent(atob(dataParam));
+      const shareData = JSON.parse(decoded);
 
-      if (orderIds.length === 0) {
-        setError("注文IDが見つかりません");
+      if (!Array.isArray(shareData) || shareData.length === 0) {
+        setError("データが見つかりません");
         return;
       }
 
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
-      // 指定されたIDの注文を取得
-      const { data: orders, error: ordersError } = await supabase
-        .from("orders")
-        .select(
-          "id, patient_id, product_name, amount, shipping_name, postal_code, address, email, phone, paid_at"
-        )
-        .in("id", orderIds);
-
-      if (ordersError) {
-        console.error("Orders fetch error:", ordersError);
-        setError("注文情報の取得に失敗しました");
-        return;
-      }
-
-      if (!orders || orders.length === 0) {
-        setItems([]);
-        return;
-      }
-
-      // データを整形
-      const formattedItems: ShippingItem[] = orders.map((order) => {
-        // 商品名から用量と本数を推測
-        const productName = order.product_name || "";
-        let dosage25mg = 0;
-        let dosage5mg = 0;
-        let dosage75mg = 0;
-        let dosage10mg = 0;
-
-        if (productName.includes("2.5mg")) {
-          if (productName.includes("1ヶ月") || productName.includes("1m")) dosage25mg = 4;
-          else if (productName.includes("2ヶ月") || productName.includes("2m")) dosage25mg = 8;
-          else if (productName.includes("3ヶ月") || productName.includes("3m")) dosage25mg = 12;
-        } else if (productName.includes("5mg") && !productName.includes("7.5mg")) {
-          if (productName.includes("1ヶ月") || productName.includes("1m")) dosage5mg = 4;
-          else if (productName.includes("2ヶ月") || productName.includes("2m")) dosage5mg = 8;
-          else if (productName.includes("3ヶ月") || productName.includes("3m")) dosage5mg = 12;
-        } else if (productName.includes("7.5mg")) {
-          if (productName.includes("1ヶ月") || productName.includes("1m")) dosage75mg = 4;
-          else if (productName.includes("2ヶ月") || productName.includes("2m")) dosage75mg = 8;
-          else if (productName.includes("3ヶ月") || productName.includes("3m")) dosage75mg = 12;
-        } else if (productName.includes("10mg")) {
-          if (productName.includes("1ヶ月") || productName.includes("1m")) dosage10mg = 4;
-          else if (productName.includes("2ヶ月") || productName.includes("2m")) dosage10mg = 8;
-          else if (productName.includes("3ヶ月") || productName.includes("3m")) dosage10mg = 12;
-        }
-
-        return {
-          id: order.id,
-          patient_id: order.patient_id,
-          payment_date: order.paid_at || "",
-          name: order.shipping_name || "",
-          postal_code: order.postal_code || "",
-          address: order.address || "",
-          email: order.email || "",
-          phone: order.phone || "",
-          product_name: productName,
-          price: order.amount || 0,
-          dosage_2_5mg: dosage25mg,
-          dosage_5mg: dosage5mg,
-          dosage_7_5mg: dosage75mg,
-          dosage_10mg: dosage10mg,
-        };
-      });
+      // 管理画面から渡されたデータをそのまま使用
+      const formattedItems: ShippingItem[] = shareData.map((item: any) => ({
+        id: item.id,
+        patient_id: item.patient_id || "",
+        payment_date: item.payment_date || "",
+        name: item.name || "",
+        postal_code: item.postal_code || "",
+        address: item.address || "",
+        email: item.email || "",
+        phone: item.phone || "",
+        product_name: item.product_name || "",
+        price: item.price || 0,
+        dosage_2_5mg: item.dosage_2_5mg || 0,
+        dosage_5mg: item.dosage_5mg || 0,
+        dosage_7_5mg: item.dosage_7_5mg || 0,
+        dosage_10mg: item.dosage_10mg || 0,
+      }));
 
       setItems(formattedItems);
     } catch (err) {
@@ -137,6 +89,36 @@ function ShippingViewContent() {
     } finally {
       setLoadingItems(false);
     }
+  };
+
+  // 行の背景色を取得（管理画面と同じロジック）
+  const getRowColor = (item: ShippingItem): string => {
+    const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
+    let primaryDosage = "";
+    if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
+    else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
+    else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
+    else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
+
+    if (!primaryDosage) return "";
+
+    const colorMap: Record<string, string> = {
+      "2.5mg-12": "bg-blue-200",
+      "2.5mg-8": "bg-red-200",
+      "2.5mg-4": "bg-yellow-200",
+      "5mg-12": "bg-green-200",
+      "5mg-8": "bg-purple-200",
+      "5mg-4": "bg-orange-200",
+      "7.5mg-12": "bg-pink-200",
+      "7.5mg-8": "bg-cyan-200",
+      "7.5mg-4": "bg-lime-200",
+      "10mg-12": "bg-indigo-200",
+      "10mg-8": "bg-rose-200",
+      "10mg-4": "bg-amber-200",
+    };
+
+    const key = `${primaryDosage}-${maxCount}`;
+    return colorMap[key] || "";
   };
 
   if (!authenticated) {
@@ -224,26 +206,29 @@ function ShippingViewContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {item.payment_date
-                          ? new Date(item.payment_date).toLocaleDateString("ja-JP")
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.postal_code}</td>
-                      <td className="px-4 py-3 max-w-xs break-words">{item.address}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.phone}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{item.product_name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">¥{item.price.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-center">{item.dosage_2_5mg || "-"}</td>
-                      <td className="px-4 py-3 text-center">{item.dosage_5mg || "-"}</td>
-                      <td className="px-4 py-3 text-center">{item.dosage_7_5mg || "-"}</td>
-                      <td className="px-4 py-3 text-center">{item.dosage_10mg || "-"}</td>
-                    </tr>
-                  ))}
+                  {items.map((item) => {
+                    const bgColor = getRowColor(item);
+                    return (
+                      <tr key={item.id} className={`${bgColor}`}>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {item.payment_date
+                            ? new Date(item.payment_date).toLocaleDateString("ja-JP")
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">{item.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{item.postal_code}</td>
+                        <td className="px-4 py-3 max-w-xs break-words">{item.address}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{item.email}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{item.phone}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">{item.product_name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">¥{item.price.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center">{item.dosage_2_5mg || "-"}</td>
+                        <td className="px-4 py-3 text-center">{item.dosage_5mg || "-"}</td>
+                        <td className="px-4 py-3 text-center">{item.dosage_7_5mg || "-"}</td>
+                        <td className="px-4 py-3 text-center">{item.dosage_10mg || "-"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
