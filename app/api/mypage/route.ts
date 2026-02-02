@@ -273,6 +273,11 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
     // ★ ordersテーブルに存在する銀行振込注文のcreated_atを記録（重複除外用）
     const bankTransferOrdersInOrders = creditCardOrders.filter(o => o.paymentMethod === 'bank_transfer');
 
+    console.log(`[Supabase] Found ${bankTransferOrdersInOrders.length} bank_transfer orders in orders table`);
+    bankTransferOrdersInOrders.forEach(o => {
+      console.log(`[Supabase] BT order in orders table: id=${o.id}, paidAt=${o.paidAt}`);
+    });
+
     // ★ bt_で始まるIDの場合はIDで、それ以外はcreated_atで紐付ける
     const existingBankTransferOrderIds = new Set(
       bankTransferOrdersInOrders
@@ -284,18 +289,36 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         .filter((id): id is string => id !== null)
     );
 
+    console.log(`[Supabase] Existing BT order IDs (extracted): ${Array.from(existingBankTransferOrderIds).join(', ')}`);
+
     const bankTransferOrders = (bankTransferData || [])
       .filter((o: any) => {
+        console.log(`[Supabase] Checking BT order from bank_transfer_orders: id=${o.id}, created_at=${o.created_at}`);
+
         // IDで紐付け可能な場合はIDで除外
-        if (existingBankTransferOrderIds.has(String(o.id))) return false;
+        if (existingBankTransferOrderIds.has(String(o.id))) {
+          console.log(`[Supabase] ❌ Excluded by ID match: ${o.id}`);
+          return false;
+        }
 
         // IDで紐付けできない場合は、created_atで紐付け（同じ秒数のレコードは同一とみなす）
         const btCreatedAt = new Date(o.created_at).getTime();
-        return !bankTransferOrdersInOrders.some(orderRecord => {
+        const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
           const orderCreatedAt = new Date(orderRecord.paidAt || "").getTime();
           // 1秒以内の差なら同一レコードとみなす
-          return Math.abs(btCreatedAt - orderCreatedAt) < 1000;
+          const timeDiff = Math.abs(btCreatedAt - orderCreatedAt);
+          if (timeDiff < 1000) {
+            console.log(`[Supabase] ❌ Excluded by timestamp match: ${o.id} (diff=${timeDiff}ms, order_id=${orderRecord.id})`);
+            return true;
+          }
+          return false;
         });
+
+        if (!foundMatch) {
+          console.log(`[Supabase] ✅ Including BT order: ${o.id} (no match found)`);
+        }
+
+        return !foundMatch;
       })
       .map((o: any) => {
         const productCode = String(o.product_code ?? "");
@@ -329,7 +352,18 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       return dateB - dateA; // 新しい順
     });
 
-    console.log(`[Supabase] Found ${creditCardOrders.length} orders + ${bankTransferOrders.length} bank transfer orders (pending) for patient_id=${patientId}`);
+    console.log(`[Supabase] Final order count: ${creditCardOrders.length} from orders table + ${bankTransferOrders.length} from bank_transfer_orders table = ${allOrders.length} total`);
+
+    // ★ 重複チェック：同じproductCodeとpaidAtの組み合わせが複数ある場合は警告
+    const orderKeys = allOrders.map(o => `${o.productCode}_${o.paidAt}`);
+    const duplicateKeys = orderKeys.filter((key, index) => orderKeys.indexOf(key) !== index);
+    if (duplicateKeys.length > 0) {
+      console.warn(`[Supabase] ⚠️ Possible duplicates detected: ${duplicateKeys.join(', ')}`);
+      duplicateKeys.forEach(key => {
+        const dupes = allOrders.filter(o => `${o.productCode}_${o.paidAt}` === key);
+        console.warn(`[Supabase] Duplicate orders for key ${key}:`, dupes.map(d => `id=${d.id}, method=${d.paymentMethod}`).join(' | '));
+      });
+    }
 
     return allOrders;
   } catch (err) {
