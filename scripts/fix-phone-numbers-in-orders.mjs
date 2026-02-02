@@ -41,20 +41,37 @@ function normalizePhone(phone) {
 }
 
 try {
-  // Get all orders with phone numbers starting with 0080 or 0090
-  const { data: orders, error } = await supabase
-    .from('orders')
-    .select('id, phone')
-    .not('phone', 'is', null);
+  // Get all orders with pagination (1000件制限対応)
+  let allOrders = [];
+  let page = 0;
+  const pageSize = 1000;
 
-  if (error) {
-    console.error('❌ Error fetching orders:', error);
-    process.exit(1);
+  console.log('Fetching all orders...');
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select('id, phone', { count: 'exact' })
+      .not('phone', 'is', null)
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error) {
+      console.error('❌ Error fetching orders:', error);
+      process.exit(1);
+    }
+
+    if (!data || data.length === 0) break;
+
+    allOrders = allOrders.concat(data);
+    console.log(`  Fetched ${allOrders.length} orders...`);
+
+    if (data.length < pageSize) break;
+    page++;
   }
 
-  console.log(`Found ${orders.length} orders with phone numbers\n`);
+  console.log(`\nFound ${allOrders.length} orders with phone numbers\n`);
 
-  const toFix = orders.filter(o => {
+  const toFix = allOrders.filter(o => {
     const digits = o.phone.replace(/[^\d]/g, '');
     return digits.startsWith('0080') || digits.startsWith('0090');
   });
