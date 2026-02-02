@@ -8,15 +8,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface TrackingUpdate {
-  paymentId: string;
-  trackingNumber: string;
-  order: {
-    patient_id: string;
-    patient_name: string;
-    product_code: string;
-    lstep_id: string;
-  } | null;
+interface TrackingEntry {
+  payment_id: string;
+  patient_name: string;
+  tracking_number: string;
+  matched: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -30,23 +26,23 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { updates } = body as { updates: TrackingUpdate[] };
+    const { entries } = body as { entries: TrackingEntry[] };
 
-    if (!updates || !Array.isArray(updates)) {
-      return NextResponse.json({ error: "Updates data is required" }, { status: 400 });
+    if (!entries || !Array.isArray(entries)) {
+      return NextResponse.json({ error: "Entries data is required" }, { status: 400 });
     }
 
     const successUpdates: string[] = [];
     const errors: string[] = [];
-    const lstepIds: string[] = [];
+    const patientIds: string[] = [];
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
     // 各payment_idに対して追跡番号を付与
-    for (const update of updates) {
-      const { paymentId, trackingNumber, order } = update;
+    for (const entry of entries) {
+      const { payment_id, tracking_number } = entry;
 
-      if (!order) {
-        errors.push(`${paymentId}: 注文が見つかりません（スキップ）`);
+      if (!payment_id || !tracking_number) {
+        errors.push(`${payment_id || "unknown"}: Payment IDまたは追跡番号が空です`);
         continue;
       }
 
@@ -54,51 +50,83 @@ export async function POST(req: NextRequest) {
         const { data, error } = await supabase
           .from("orders")
           .update({
-            tracking_number: trackingNumber,
+            tracking_number: tracking_number,
             shipping_status: "shipped",
             shipping_date: today,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", paymentId)
-          .select("id");
+          .eq("id", payment_id)
+          .select("id, patient_id");
 
         if (error) {
-          console.error(`[UpdateTrackingConfirm] Error updating ${paymentId}:`, error);
-          errors.push(`${paymentId}: ${error.message}`);
+          console.error(`[UpdateTrackingConfirm] Error updating ${payment_id}:`, error);
+          errors.push(`${payment_id}: ${error.message}`);
           continue;
         }
 
         if (!data || data.length === 0) {
-          console.warn(`[UpdateTrackingConfirm] No order found for ${paymentId}`);
-          errors.push(`${paymentId}: 注文が見つかりません`);
+          console.warn(`[UpdateTrackingConfirm] No order found for ${payment_id}`);
+          errors.push(`${payment_id}: 注文が見つかりません`);
           continue;
         }
 
-        successUpdates.push(paymentId);
+        successUpdates.push(payment_id);
 
-        // LステップIDを収集（空でない場合のみ）
-        if (order.lstep_id && order.lstep_id.trim()) {
-          lstepIds.push(order.lstep_id.trim());
+        // patient_idを収集（キャッシュ無効化用）
+        if (data[0]?.patient_id) {
+          patientIds.push(data[0].patient_id);
         }
 
-        console.log(`[UpdateTrackingConfirm] ✅ Updated ${paymentId} with tracking ${trackingNumber}`);
+        console.log(`[UpdateTrackingConfirm] ✅ Updated ${payment_id} with tracking ${tracking_number}`);
       } catch (err) {
-        console.error(`[UpdateTrackingConfirm] Exception for ${paymentId}:`, err);
-        errors.push(`${paymentId}: ${err instanceof Error ? err.message : "Unknown error"}`);
+        console.error(`[UpdateTrackingConfirm] Exception for ${payment_id}:`, err);
+        errors.push(`${payment_id}: ${err instanceof Error ? err.message : "Unknown error"}`);
       }
     }
 
-    // LステップIDの重複を除去
-    const uniqueLstepIds = Array.from(new Set(lstepIds));
-
     console.log(`[UpdateTrackingConfirm] Complete: ${successUpdates.length} success, ${errors.length} failed`);
-    console.log(`[UpdateTrackingConfirm] LステップID: ${uniqueLstepIds.length}件`);
+
+    // ★ キャッシュ無効化
+    if (patientIds.length > 0) {
+      const uniquePatientIds = Array.from(new Set(patientIds));
+      console.log(`[UpdateTrackingConfirm] Invalidating cache for ${uniquePatientIds.length} patients`);
+
+      const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;
+      const invalidatePromises = uniquePatientIds.map((patientId) =>
+        fetch(invalidateUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ADMIN_TOKEN}`,
+          },
+          body: JSON.stringify({ patient_id: patientId }),
+        }).catch((err) => {
+          console.error(`[UpdateTrackingConfirm] Cache invalidation failed for ${patientId}:`, err);
+        })
+      );
+
+      await Promise.allSettled(invalidatePromises);
+    }
 
     return NextResponse.json({
-      success: successUpdates.length,
+      success: true,
+      updated: successUpdates.length,
       failed: errors.length,
-      errors: errors,
-      lstepIds: uniqueLstepIds,
+      message: `${successUpdates.length}件の追跡番号を更新しました`,
+      details: [
+        ...successUpdates.map((id) => ({
+          payment_id: id,
+          success: true,
+        })),
+        ...errors.map((err) => {
+          const [payment_id, ...errorMsgParts] = err.split(": ");
+          return {
+            payment_id: payment_id || "unknown",
+            success: false,
+            error: errorMsgParts.join(": "),
+          };
+        }),
+      ],
     });
   } catch (error) {
     console.error("[UpdateTrackingConfirm] API error:", error);
