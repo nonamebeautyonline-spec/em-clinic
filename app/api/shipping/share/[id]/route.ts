@@ -6,10 +6,10 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const shareId = params.id;
+    const { id: shareId } = await params;
 
     if (!shareId) {
       return NextResponse.json({ error: "IDが無効です" }, { status: 400 });
