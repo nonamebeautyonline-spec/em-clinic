@@ -28,6 +28,8 @@ interface ShippingItem {
   tracking_number: string;
   status: string;
   selected: boolean;
+  shipping_list_created_at: string | null;
+  isListCreated: boolean;
   editable: {
     name: string;
     postal_code: string;
@@ -108,6 +110,8 @@ export default function CreateShippingListPage() {
             tracking_number: "",
             status: order.status,
             selected: true, // デフォルトで全選択（フィルタリング済みリスト）
+            shipping_list_created_at: order.shipping_list_created_at || null,
+            isListCreated: !!order.shipping_list_created_at,
             editable: {
               name: order.patient_name || "",
               postal_code: order.postal_code || "",
@@ -730,7 +734,7 @@ export default function CreateShippingListPage() {
                 </tr>
               ) : (
                 items.map((item) => (
-                  <tr key={item.id} className={`${item.selected ? getRowColor(item) : "bg-slate-100 opacity-50"}`}>
+                  <tr key={item.id} className={`${item.selected ? (item.isListCreated ? "bg-slate-300 opacity-80" : getRowColor(item)) : "bg-slate-100 opacity-50"}`}>
                     <td className="px-2 py-2">
                       <input
                         type="checkbox"
@@ -761,9 +765,14 @@ export default function CreateShippingListPage() {
                       ) : (
                         <div
                           onClick={() => setEditingCell({ id: item.id, field: "name" })}
-                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded"
+                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded flex items-center gap-2"
                         >
-                          {item.editable.name || "-"}
+                          <span>{item.editable.name || "-"}</span>
+                          {item.isListCreated && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded whitespace-nowrap">
+                              作成済み
+                            </span>
+                          )}
                         </div>
                       )}
                     </td>
