@@ -37,22 +37,27 @@ export async function GET(request: NextRequest) {
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate);
 
-    // 診察完了: status = "OK" or "NG"
-    const { count: completedReservationsOK } = await supabase
+    // 診察完了: Drstatusが"OK"または"NG"のユニークな患者数
+    const { data: completedPatientsOK } = await supabase
       .from("reservations")
-      .select("*", { count: "exact", head: true })
+      .select("patient_id")
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
       .eq("status", "OK");
 
-    const { count: completedReservationsNG } = await supabase
+    const { data: completedPatientsNG } = await supabase
       .from("reservations")
-      .select("*", { count: "exact", head: true })
+      .select("patient_id")
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
       .eq("status", "NG");
 
-    const completedReservations = (completedReservationsOK ?? 0) + (completedReservationsNG ?? 0);
+    // ユニークな患者IDを集計
+    const allCompletedPatientIds = [
+      ...(completedPatientsOK?.map(r => r.patient_id) || []),
+      ...(completedPatientsNG?.map(r => r.patient_id) || [])
+    ];
+    const completedReservations = new Set(allCompletedPatientIds.filter(id => id)).size;
 
     const { count: cancelledReservations } = await supabase
       .from("reservations")
