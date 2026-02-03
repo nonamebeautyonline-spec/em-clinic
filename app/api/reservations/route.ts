@@ -1,13 +1,12 @@
 // app/api/reservations/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 
 // ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
 const BOOKING_OPEN_DAY = 5;
@@ -168,6 +167,58 @@ function dayOfWeek(ymdStr: string) {
   return dt.getUTCDay(); // 0..6
 }
 
+// ★ DBからスケジュール（週間ルール・日別例外）を取得
+async function getScheduleFromDB(
+  doctorId: string,
+  start: string,
+  end: string
+): Promise<{ weekly_rules: WeeklyRule[]; overrides: Override[] }> {
+  // 週間ルール取得
+  const { data: rulesData, error: rulesError } = await supabaseAdmin
+    .from("doctor_weekly_rules")
+    .select("*")
+    .eq("doctor_id", doctorId);
+
+  if (rulesError) {
+    console.error("[getScheduleFromDB] weekly_rules error:", rulesError);
+  }
+
+  // 日別例外取得
+  const { data: overridesData, error: overridesError } = await supabaseAdmin
+    .from("doctor_date_overrides")
+    .select("*")
+    .eq("doctor_id", doctorId)
+    .gte("date", start)
+    .lte("date", end);
+
+  if (overridesError) {
+    console.error("[getScheduleFromDB] overrides error:", overridesError);
+  }
+
+  const weekly_rules: WeeklyRule[] = (rulesData || []).map((r: any) => ({
+    doctor_id: r.doctor_id,
+    weekday: r.weekday,
+    enabled: r.enabled,
+    start_time: r.start_time || "",
+    end_time: r.end_time || "",
+    slot_minutes: r.slot_minutes || 15,
+    capacity: r.capacity || 2,
+  }));
+
+  const overrides: Override[] = (overridesData || []).map((o: any) => ({
+    doctor_id: o.doctor_id,
+    date: o.date,
+    type: o.type,
+    start_time: o.start_time || undefined,
+    end_time: o.end_time || undefined,
+    slot_minutes: o.slot_minutes ?? undefined,
+    capacity: o.capacity ?? undefined,
+    memo: o.memo || undefined,
+  }));
+
+  return { weekly_rules, overrides };
+}
+
 async function gasPost(payload: any) {
   if (!GAS_RESERVATIONS_URL) throw new Error("Missing GAS_RESERVATIONS_URL");
 
@@ -302,10 +353,7 @@ export async function GET(req: NextRequest) {
 
     // 単日（互換）
     if (date && !start && !end) {
-      if (!ADMIN_TOKEN) {
-        return NextResponse.json({ date, slots: [] }, { status: 200 });
-      }
-
+      // ★ 予約済み枠はGASから取得（予約データはまだGAS管理）
       const bookedRes = await gasPost({
         type: "listRange",
         startDate: date,
@@ -316,23 +364,14 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "GAS error" }, { status: 500 });
       }
 
-      const schedRes = await gasPost({
-        type: "getScheduleRange",
-        token: ADMIN_TOKEN,
-        doctor_id: doctorId,
-        start: date,
-        end: date,
-      });
-      if (!schedRes.okHttp || schedRes.json?.ok !== true) {
-        console.error("GAS getScheduleRange error:", schedRes.status, "ADMIN_TOKEN:", ADMIN_TOKEN ? "SET" : "MISSING", "response:", schedRes.json);
-        return NextResponse.json({ error: "GAS error" }, { status: 500 });
-      }
+      // ★ スケジュール（週間ルール・日別例外）はDBから取得
+      const { weekly_rules, overrides } = await getScheduleFromDB(doctorId, date, date);
 
       const out = buildAvailabilityRange(
         date,
         date,
-        (schedRes.json.weekly_rules || []) as WeeklyRule[],
-        (schedRes.json.overrides || []) as Override[],
+        weekly_rules,
+        overrides,
         (bookedRes.json.slots || []) as BookedSlot[],
         doctorId
       );
@@ -356,10 +395,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "start and end are required" }, { status: 400 });
     }
 
-    if (!ADMIN_TOKEN) {
-      return NextResponse.json({ error: "ADMIN_TOKEN is not set" }, { status: 500 });
-    }
-
+    // ★ 予約済み枠はGASから取得（予約データはまだGAS管理）
     const bookedRes = await gasPost({
       type: "listRange",
       startDate: start,
@@ -370,23 +406,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "GAS error" }, { status: 500 });
     }
 
-    const schedRes = await gasPost({
-      type: "getScheduleRange",
-      token: ADMIN_TOKEN,
-      doctor_id: doctorId,
-      start,
-      end,
-    });
-    if (!schedRes.okHttp || schedRes.json?.ok !== true) {
-      console.error("GAS getScheduleRange error:", schedRes.status);
-      return NextResponse.json({ error: "GAS error" }, { status: 500 });
-    }
+    // ★ スケジュール（週間ルール・日別例外）はDBから取得
+    const { weekly_rules, overrides } = await getScheduleFromDB(doctorId, start, end);
 
     const allSlots = buildAvailabilityRange(
       start,
       end,
-      (schedRes.json.weekly_rules || []) as WeeklyRule[],
-      (schedRes.json.overrides || []) as Override[],
+      weekly_rules,
+      overrides,
       (bookedRes.json.slots || []) as BookedSlot[],
       doctorId
     );
