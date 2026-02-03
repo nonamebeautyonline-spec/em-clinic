@@ -39,42 +39,75 @@ export async function GET(req: NextRequest) {
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
 
-    // カード決済（paid_atベース）
-    const { data: squareOrders, error: squareError } = await supabase
-      .from("orders")
-      .select("id, amount, paid_at")
-      .eq("payment_method", "credit_card")
-      .gte("paid_at", startISO)
-      .lt("paid_at", endISO)
-      .not("paid_at", "is", null);
+    // ページネーション対応（1000件制限回避）
+    const PAGE_SIZE = 1000;
 
-    if (squareError) {
-      console.error("[daily-revenue] Square query error:", squareError);
+    // カード決済（paid_atベース）- ページネーション対応
+    let allSquareOrders: { id: string; amount: number; paid_at: string }[] = [];
+    let page = 0;
+    while (true) {
+      const { data: squareOrders, error: squareError } = await supabase
+        .from("orders")
+        .select("id, amount, paid_at")
+        .eq("payment_method", "credit_card")
+        .gte("paid_at", startISO)
+        .lt("paid_at", endISO)
+        .not("paid_at", "is", null)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (squareError) {
+        console.error("[daily-revenue] Square query error:", squareError);
+        break;
+      }
+      if (!squareOrders || squareOrders.length === 0) break;
+      allSquareOrders = allSquareOrders.concat(squareOrders);
+      if (squareOrders.length < PAGE_SIZE) break;
+      page++;
     }
 
-    // 銀行振込（created_atベース、status確認済み）
-    const { data: bankOrders, error: bankError } = await supabase
-      .from("orders")
-      .select("id, amount, created_at")
-      .eq("payment_method", "bank_transfer")
-      .in("status", ["pending_confirmation", "confirmed"])
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    // 銀行振込（created_atベース）- ページネーション対応
+    let allBankOrders: { id: string; amount: number; created_at: string }[] = [];
+    page = 0;
+    while (true) {
+      const { data: bankOrders, error: bankError } = await supabase
+        .from("orders")
+        .select("id, amount, created_at")
+        .eq("payment_method", "bank_transfer")
+        .in("status", ["pending_confirmation", "confirmed"])
+        .gte("created_at", startISO)
+        .lt("created_at", endISO)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (bankError) {
-      console.error("[daily-revenue] Bank query error:", bankError);
+      if (bankError) {
+        console.error("[daily-revenue] Bank query error:", bankError);
+        break;
+      }
+      if (!bankOrders || bankOrders.length === 0) break;
+      allBankOrders = allBankOrders.concat(bankOrders);
+      if (bankOrders.length < PAGE_SIZE) break;
+      page++;
     }
 
-    // 返金（refunded_atベース）
-    const { data: refundedOrders, error: refundError } = await supabase
-      .from("orders")
-      .select("id, refunded_amount, amount, refunded_at")
-      .eq("refund_status", "COMPLETED")
-      .gte("refunded_at", startISO)
-      .lt("refunded_at", endISO);
+    // 返金（refunded_atベース）- ページネーション対応
+    let allRefundedOrders: { id: string; refunded_amount: number | null; amount: number; refunded_at: string }[] = [];
+    page = 0;
+    while (true) {
+      const { data: refundedOrders, error: refundError } = await supabase
+        .from("orders")
+        .select("id, refunded_amount, amount, refunded_at")
+        .eq("refund_status", "COMPLETED")
+        .gte("refunded_at", startISO)
+        .lt("refunded_at", endISO)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-    if (refundError) {
-      console.error("[daily-revenue] Refund query error:", refundError);
+      if (refundError) {
+        console.error("[daily-revenue] Refund query error:", refundError);
+        break;
+      }
+      if (!refundedOrders || refundedOrders.length === 0) break;
+      allRefundedOrders = allRefundedOrders.concat(refundedOrders);
+      if (refundedOrders.length < PAGE_SIZE) break;
+      page++;
     }
 
     // 日付ごとに集計
@@ -88,7 +121,7 @@ export async function GET(req: NextRequest) {
     }
 
     // カード決済を集計
-    (squareOrders || []).forEach((order) => {
+    allSquareOrders.forEach((order) => {
       if (order.paid_at) {
         const jstDate = new Date(new Date(order.paid_at).getTime() + jstOffset);
         const dateStr = jstDate.toISOString().split("T")[0];
@@ -99,7 +132,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 銀行振込を集計
-    (bankOrders || []).forEach((order) => {
+    allBankOrders.forEach((order) => {
       if (order.created_at) {
         const jstDate = new Date(new Date(order.created_at).getTime() + jstOffset);
         const dateStr = jstDate.toISOString().split("T")[0];
@@ -110,7 +143,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 返金を集計
-    (refundedOrders || []).forEach((order) => {
+    allRefundedOrders.forEach((order) => {
       if (order.refunded_at) {
         const jstDate = new Date(new Date(order.refunded_at).getTime() + jstOffset);
         const dateStr = jstDate.toISOString().split("T")[0];

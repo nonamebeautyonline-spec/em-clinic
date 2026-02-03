@@ -89,6 +89,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin"}
           />
+          <MenuItem
+            href="/admin/accounting"
+            icon="💹"
+            label="経理"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/accounting"}
+          />
 
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
           <MenuItem
@@ -203,13 +210,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="銀行振込管理"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/bank-transfer"}
-          />
-          <MenuItem
-            href="/admin/accounting"
-            icon="📊"
-            label="経理"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/accounting"}
           />
 
           <MenuSection label="システム" isOpen={isSidebarOpen} />
