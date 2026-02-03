@@ -149,6 +149,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/noname-master"}
           />
+          <MenuItem
+            href="/admin/refunds"
+            icon="💸"
+            label="返金一覧"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/refunds"}
+          />
 
           <MenuSection label="発送管理" isOpen={isSidebarOpen} />
           <MenuItem
