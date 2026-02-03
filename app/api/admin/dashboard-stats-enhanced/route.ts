@@ -178,9 +178,36 @@ export async function GET(request: NextRequest) {
     const bankTransferRevenue =
       allBankTransferOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
-    const totalRevenue = squareRevenue + bankTransferRevenue;
+    const grossRevenue = squareRevenue + bankTransferRevenue;
     const orderCount = allSquareOrders.length + allBankTransferOrders.length;
-    const avgOrderAmount = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
+
+    // ★ 返金データを取得（refund_status = COMPLETED）
+    let allRefundedOrders: any[] = [];
+    page = 0;
+
+    while (true) {
+      const { data: refundedOrders } = await supabase
+        .from("orders")
+        .select("id, amount, refunded_amount, refund_status, refunded_at, product_code")
+        .eq("refund_status", "COMPLETED")
+        .gte("refunded_at", startISO)
+        .lt("refunded_at", endISO)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!refundedOrders || refundedOrders.length === 0) break;
+      allRefundedOrders = allRefundedOrders.concat(refundedOrders);
+      if (refundedOrders.length < pageSize) break;
+      page++;
+    }
+
+    // 返金総額を計算（refunded_amountがあればそれを使用、なければamountを使用）
+    const totalRefunded = allRefundedOrders.reduce((sum, o) => {
+      const refundAmount = o.refunded_amount ?? o.amount ?? 0;
+      return sum + refundAmount;
+    }, 0);
+
+    const totalRevenue = grossRevenue - totalRefunded;
+    const avgOrderAmount = orderCount > 0 ? Math.round(grossRevenue / orderCount) : 0;
 
     // ★ 最適化: 再処方決済数を計算（すでに取得したデータを使用）
     let reorderOrderCount = 0;
@@ -425,6 +452,9 @@ export async function GET(request: NextRequest) {
       revenue: {
         square: squareRevenue,
         bankTransfer: bankTransferRevenue,
+        gross: grossRevenue,
+        refunded: totalRefunded,
+        refundCount: allRefundedOrders.length,
         total: totalRevenue,
         avgOrderAmount,
         totalOrders: orderCount,
