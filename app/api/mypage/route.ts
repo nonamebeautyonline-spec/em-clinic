@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 const USE_SUPABASE = process.env.USE_SUPABASE === "true";
@@ -162,7 +162,7 @@ async function getNextReservationFromSupabase(
   patientId: string
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("intake")
       .select("reserve_id, reserved_date, reserved_time, patient_name, status")
       .eq("patient_id", patientId)
@@ -201,7 +201,7 @@ async function getNextReservationFromSupabase(
 async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
   try {
     // ★ クレカ決済の注文
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("orders")
       .select("*")
       .eq("patient_id", patientId)
@@ -248,7 +248,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
     });
 
     // ★ 銀行振込の確認中データを取得（ordersテーブルにまだ入っていないもの）
-    const { data: bankTransferData, error: bankTransferError } = await supabase
+    const { data: bankTransferData, error: bankTransferError } = await supabaseAdmin
       .from("bank_transfer_orders")
       .select("*")
       .eq("patient_id", patientId)
