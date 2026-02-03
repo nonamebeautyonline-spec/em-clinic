@@ -34,6 +34,7 @@ interface Order {
   refundedAmount?: number;
   paidAt?: string;
   carrier?: Carrier;
+  paymentMethod?: "credit_card" | "bank_transfer";
 }
 
 interface PrescriptionHistoryItem {
@@ -299,6 +300,7 @@ export default function AdminMypageView({ data }: { data: any }) {
       refundedAmount: o.refunded_amount || o.refundedAmount,
       paidAt: o.paid_at_jst || o.paidAt,
       carrier: (o.carrier || "yamato") as Carrier,
+      paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
     };
   };
 
@@ -693,6 +695,15 @@ export default function AdminMypageView({ data }: { data: any }) {
                         <p>発送予定日：{formatDateSafe(order.shippingEta)} まで</p>
                       ) : null}
                     </div>
+                    {order.paymentMethod === "bank_transfer" && (
+                      <div className="mt-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                        <p className="text-[10px] text-blue-900 leading-relaxed">
+                          <strong>銀行振込について</strong>
+                          <br />
+                          金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
                     {order.trackingNumber && (
