@@ -18,9 +18,81 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // クエリパラメータ取得: date=YYYY-MM-DD
+    // クエリパラメータ取得: date=YYYY-MM-DD, month=YYYY-MM, or from=YYYY-MM-DD
     const searchParams = req.nextUrl.searchParams;
     const dateParam = searchParams.get("date");
+    const monthParam = searchParams.get("month"); // 月指定（YYYY-MM）
+    const fromParam = searchParams.get("from"); // 以降の予約を全て取得（YYYY-MM-DD）
+
+    // from指定がある場合は、その日以降の予約を全て取得
+    if (fromParam) {
+      const { data: futureReservations, error: futureError } = await supabase
+        .from("reservations")
+        .select("*")
+        .gte("reserved_date", fromParam)
+        .neq("status", "canceled")
+        .order("reserved_date", { ascending: true })
+        .order("reserved_time", { ascending: true });
+
+      if (futureError) {
+        console.error("Supabase reservations error:", futureError);
+        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        from: fromParam,
+        reservations: (futureReservations || []).map((r: any) => ({
+          id: r.id,
+          reserve_id: r.reserve_id,
+          patient_id: r.patient_id,
+          patient_name: r.patient_name,
+          reserved_date: r.reserved_date,
+          reserved_time: r.reserved_time,
+          status: r.status,
+        })),
+      });
+    }
+
+    // 月指定がある場合は、その月の予約を全て取得
+    if (monthParam) {
+      const [year, month] = monthParam.split("-").map(Number);
+      if (!year || !month || month < 1 || month > 12) {
+        return NextResponse.json({ ok: false, error: "Invalid month format. Use YYYY-MM" }, { status: 400 });
+      }
+
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      // reservationsテーブルから月の予約を取得
+      const { data: monthReservations, error: monthError } = await supabase
+        .from("reservations")
+        .select("*")
+        .gte("reserved_date", startDate)
+        .lte("reserved_date", endDate)
+        .order("reserved_date", { ascending: true })
+        .order("reserved_time", { ascending: true });
+
+      if (monthError) {
+        console.error("Supabase reservations error:", monthError);
+        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        month: monthParam,
+        reservations: (monthReservations || []).map((r: any) => ({
+          id: r.id,
+          reserve_id: r.reserve_id,
+          patient_id: r.patient_id,
+          patient_name: r.patient_name,
+          reserved_date: r.reserved_date,
+          reserved_time: r.reserved_time,
+          status: r.status,
+        })),
+      });
+    }
 
     // デフォルトは今日（JST）
     let targetDate: string;

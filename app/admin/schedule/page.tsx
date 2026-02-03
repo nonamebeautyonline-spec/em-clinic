@@ -19,6 +19,20 @@ type Override = {
   memo?: string;
 };
 
+type FutureReservation = {
+  reserved_date: string;
+  reserved_time: string;
+  patient_name: string | null;
+  status: string;
+};
+
+// 翌月以降の予約を取得するための日付範囲
+function getNextMonthStart() {
+  const now = new Date();
+  // 翌月の1日
+  return `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, "0")}-01`;
+}
+
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 function formatDate(dateStr: string) {
@@ -30,6 +44,8 @@ export default function ScheduleDashboard() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [loading, setLoading] = useState(true);
+  const [futureReservations, setFutureReservations] = useState<FutureReservation[]>([]);
+  const [alertDismissed, setAlertDismissed] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -46,6 +62,20 @@ export default function ScheduleDashboard() {
         if (json.ok) {
           setDoctors(json.doctors || []);
           setOverrides(json.overrides || []);
+        }
+
+        // 翌月以降の予約を取得（アラート用）
+        const adminToken = localStorage.getItem("adminToken");
+        if (adminToken) {
+          const nextMonth = getNextMonthStart();
+          const futureRes = await fetch(`/api/admin/reservations?from=${nextMonth}`, {
+            cache: "no-store",
+            headers: { "Authorization": `Bearer ${adminToken}` },
+          });
+          const futureJson = await futureRes.json();
+          if (futureJson.ok && futureJson.reservations) {
+            setFutureReservations(futureJson.reservations);
+          }
         }
       } catch (e) {
         console.error("Load error:", e);
@@ -71,6 +101,53 @@ export default function ScheduleDashboard() {
             ドクターの予約スケジュールを管理します
           </p>
         </div>
+
+        {/* 翌月以降の予約アラート */}
+        {!alertDismissed && futureReservations.length > 0 && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-amber-800">翌月以降に既存の予約があります（{futureReservations.length}件）</h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  翌月予約開放の設定を行う前に、以下の予約をご確認ください。
+                </p>
+                <div className="mt-3 bg-white rounded-lg border border-amber-200 divide-y divide-amber-100 max-h-48 overflow-y-auto">
+                  {futureReservations.map((r, i) => (
+                    <div key={i} className="px-4 py-2 flex items-center gap-4 text-sm">
+                      <span className="font-medium text-slate-800">{formatDate(r.reserved_date)}</span>
+                      <span className="text-slate-600">{r.reserved_time?.slice(0, 5)}</span>
+                      <span className="text-slate-800">{r.patient_name || "（名前なし）"}</span>
+                      <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${
+                        r.status === "pending" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {r.status === "pending" ? "予約中" : r.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <Link
+                    href="/admin/reservations"
+                    className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
+                  >
+                    予約リストを確認
+                  </Link>
+                  <button
+                    onClick={() => setAlertDismissed(true)}
+                    className="px-4 py-2 text-amber-700 text-sm font-medium hover:bg-amber-100 rounded-lg transition"
+                  >
+                    閉じる
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ナビゲーションカード */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
