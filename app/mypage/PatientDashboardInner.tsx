@@ -880,15 +880,17 @@ return (
       </div>
     )}
 
-    {/* 再処方キャンセル確認モーダル */}
-    {showReorderCancelConfirm && latestPendingReorder && (
+    {/* 再処方キャンセル確認モーダル（pending/confirmed両対応） */}
+    {showReorderCancelConfirm && displayReorder && (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
         <div className="bg-white rounded-2xl shadow-lg p-5 w-[90%] max-w-sm">
           <h3 className="text-sm font-semibold text-slate-900 mb-2">
-            この再処方申請をキャンセルしますか？
+            {displayReorderStatus === "confirmed"
+              ? "許可済みの再処方をキャンセルしますか？"
+              : "この再処方申請をキャンセルしますか？"}
           </h3>
           <p className="text-[13px] text-slate-600 mb-4">
-            {latestPendingReorder.productLabel}
+            {displayReorder.productLabel}
           </p>
 
           <div className="flex gap-2">
@@ -1299,19 +1301,19 @@ onClick={() => handleOpenTracking(order)}
             </div>
           )}
 
-{/* 再処方申請ボタン（初回分決済後） */}
+{/* 再処方申請ボタン（初回分決済後・申請中/許可済みがなければ有効） */}
 {ordersFlags?.hasAnyPaidOrder && (
   <div className="mt-4">
     <button
       type="button"
-      disabled={!ordersFlags?.canApplyReorder}
+      disabled={!ordersFlags?.canApplyReorder || !!displayReorder}
       onClick={() => {
-        if (!ordersFlags?.canApplyReorder) return;
+        if (!ordersFlags?.canApplyReorder || displayReorder) return;
         router.push("/mypage/purchase?flow=reorder");
       }}
       className={
         "w-full rounded-xl text-center py-3 text-base font-semibold border " +
-        (ordersFlags?.canApplyReorder
+        (ordersFlags?.canApplyReorder && !displayReorder
           ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
           : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
       }
@@ -1319,14 +1321,19 @@ onClick={() => handleOpenTracking(order)}
       再処方を申請する
     </button>
 
-    <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
-      ① 再処方内容を医師に申請します。<br />
-      ② 医師が内容を確認し、問題なければ処方となります。
-      <br />
-      （平日10〜19時は申請後1時間以内、祝休日は当日中に反映されます）<br />
-      ③ マイページを更新すると、再処方の情報が反映されます。
-      {/* ※「申請が許可されました」のお知らせは、Lステップメッセージで送る運用も可能です。 */}
-    </p>
+    {displayReorder ? (
+      <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+        ※ 申請中または許可済みの再処方があります。キャンセルまたは決済完了後に再度お申し込みください。
+      </p>
+    ) : (
+      <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+        ① 再処方内容を医師に申請します。<br />
+        ② 医師が内容を確認し、問題なければ処方となります。
+        <br />
+        （平日10〜19時は申請後1時間以内、祝休日は当日中に反映されます）<br />
+        ③ マイページを更新すると、再処方の情報が反映されます。
+      </p>
+    )}
   </div>
 )}
 
