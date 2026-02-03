@@ -19,6 +19,9 @@ interface DashboardStats {
   revenue: {
     square: number;
     bankTransfer: number;
+    gross: number;
+    refunded: number;
+    refundCount: number;
     total: number;
     avgOrderAmount: number;
     totalOrders: number;
@@ -202,17 +205,22 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              <div className="text-sm text-slate-600 mb-2">売上</div>
+              <div className="text-sm text-slate-600 mb-2">総売上（返金後）</div>
               <div className="text-3xl font-bold text-slate-900">
                 ¥{(stats?.revenue.total || 0).toLocaleString()}
               </div>
               <div className="text-xs text-slate-500 mt-2">
+                純売上: ¥{(stats?.revenue.gross || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
                 カード: ¥{(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥
                 {(stats?.revenue.bankTransfer || 0).toLocaleString()}
               </div>
-              <div className="text-xs text-blue-600 mt-1">
-                平均注文額: ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
-              </div>
+              {(stats?.revenue.refunded || 0) > 0 && (
+                <div className="text-xs text-red-600 mt-1">
+                  返金: -¥{(stats?.revenue.refunded || 0).toLocaleString()} ({stats?.revenue.refundCount || 0}件)
+                </div>
+              )}
             </>
           )}
         </div>
