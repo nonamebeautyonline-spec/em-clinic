@@ -72,6 +72,9 @@ interface PatientDashboardData {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
+  // 返金済みは非表示
+  if (order.refundStatus === "COMPLETED") return false;
+
   // 追跡番号がない場合は表示（発送前）
   if (!order.trackingNumber) return true;
 

@@ -90,6 +90,9 @@ interface QueryPatientParams {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
+  // 返金済みは非表示
+  if (order.refundStatus === "COMPLETED") return false;
+
   // 追跡番号がない＝未発送（常にアクティブ表示）
   if (!order.trackingNumber) return true;
 
