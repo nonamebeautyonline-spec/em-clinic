@@ -650,10 +650,12 @@ const handleReorderCancel = async () => {
       return;
     }
 
-    // pending をローカル状態から消す
+    // pending/confirmed をローカル状態で canceled に更新
     setReorders((prev) =>
       prev.map((r) =>
-        r.status === "pending" ? { ...r, status: "canceled" } : r
+        r.status === "pending" || r.status === "confirmed"
+          ? { ...r, status: "canceled" }
+          : r
       )
     );
 
