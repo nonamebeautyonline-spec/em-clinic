@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -226,32 +227,10 @@ export async function POST(req: NextRequest) {
       console.error("[BankTransfer] GAS_BANK_TRANSFER_URL is not set");
     }
 
-    // ★ マイページキャッシュを無効化（最新の注文状況を表示するため）
-    try {
-      const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;
-      const adminToken = process.env.ADMIN_TOKEN;
-
-      if (adminToken) {
-        const invalidateResponse = await fetch(invalidateUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({ patient_id: patientId }),
-        });
-
-        if (invalidateResponse.ok) {
-          console.log("[BankTransfer] Cache invalidated for patient:", patientId);
-        } else {
-          console.error("[BankTransfer] Cache invalidation failed:", await invalidateResponse.text());
-        }
-      } else {
-        console.warn("[BankTransfer] ADMIN_TOKEN not set, skipping cache invalidation");
-      }
-    } catch (e) {
-      console.error("[BankTransfer] Cache invalidation error:", e);
-      // エラーでも処理は続行
+    // ★ マイページキャッシュを無効化（直接Redis削除）
+    if (patientId) {
+      await invalidateDashboardCache(patientId);
+      console.log("[BankTransfer] Cache invalidated for patient:", patientId);
     }
 
     return NextResponse.json({ ok: true });
