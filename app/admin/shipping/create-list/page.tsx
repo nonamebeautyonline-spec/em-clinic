@@ -637,7 +637,7 @@ export default function CreateShippingListPage() {
                         </div>
                       )}
                     </td>
-                    {/* ★ 住所: クリックで編集可能、2行表示、沖縄は太字赤字 */}
+                    {/* ★ 住所: クリックで編集可能、2行表示、沖縄・郵便局は太字赤字 */}
                     <td className="px-2 py-2 min-w-[250px]">
                       {editingCell?.id === item.id && editingCell?.field === "address" ? (
                         <textarea
@@ -647,14 +647,14 @@ export default function CreateShippingListPage() {
                           autoFocus
                           rows={2}
                           className={`w-full px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            item.editable.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                            ((item.editable.address || "").includes("沖縄") || (item.editable.address || "").includes("郵便局")) ? "text-red-600 font-bold" : ""
                           }`}
                         />
                       ) : (
                         <div
                           onClick={() => setEditingCell({ id: item.id, field: "address" })}
                           className={`cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded whitespace-pre-wrap break-words ${
-                            item.editable.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                            ((item.editable.address || "").includes("沖縄") || (item.editable.address || "").includes("郵便局")) ? "text-red-600 font-bold" : ""
                           }`}
                           style={{ maxHeight: "3rem", overflow: "auto" }}
                         >
