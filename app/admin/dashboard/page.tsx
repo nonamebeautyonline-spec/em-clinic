@@ -266,12 +266,16 @@ export default function EnhancedDashboard() {
               <div>
                 <h3 className="text-md font-bold text-slate-900 mb-4">売上</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <span className="text-sm font-medium text-blue-900">総売上（返金後）</span>
-                    <span className="text-lg font-bold text-blue-900">
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div>
+                      <span className="text-sm font-medium text-blue-900">総売上</span>
+                      <div className="text-xs text-blue-600">返金後の金額</div>
+                    </div>
+                    <span className="text-2xl font-bold text-blue-900">
                       ¥{(stats?.revenue.total || 0).toLocaleString()}
                     </span>
                   </div>
+                  <StatRow label="純売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
                   <StatRow label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
                   <StatRow label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
                   <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
@@ -354,13 +358,15 @@ export default function EnhancedDashboard() {
 
           {activeTab === "revenue" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
-                  <div className="text-xs font-medium text-blue-600 mb-2">総売上（返金後）</div>
+                  <div className="text-xs font-medium text-blue-600 mb-1">総売上</div>
+                  <div className="text-xs text-blue-500 mb-2">返金後の金額</div>
                   <div className="text-2xl font-bold text-blue-700">
                     ¥{(stats?.revenue.total || 0).toLocaleString()}
                   </div>
                 </div>
+                <StatCard label="純売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
                 <StatCard label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
                 <StatCard label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
                 <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-6 border border-red-200">
