@@ -298,7 +298,7 @@ export default function AdminMypageView({ data }: { data: any }) {
       refundStatus: (o.refund_status || o.refundStatus) as RefundStatus,
       refundedAt: o.refunded_at_jst || o.refundedAt,
       refundedAmount: o.refunded_amount || o.refundedAmount,
-      paidAt: o.paid_at_jst || o.paidAt,
+      paidAt: o.paid_at_jst || o.paidAt || o.created_at || o.createdAt || "",
       carrier: (o.carrier || "yamato") as Carrier,
       paymentMethod: ((o.payment_method || o.paymentMethod) === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
     };
