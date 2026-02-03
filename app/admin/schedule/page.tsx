@@ -26,12 +26,43 @@ type FutureReservation = {
   status: string;
 };
 
+// 翌月の YYYY-MM 形式を取得
+function getNextMonth() {
+  const now = new Date();
+  const nextMonth = now.getMonth() + 2; // 0-indexed + 1 for next month
+  if (nextMonth > 12) {
+    return `${now.getFullYear() + 1}-01`;
+  }
+  return `${now.getFullYear()}-${String(nextMonth).padStart(2, "0")}`;
+}
+
+// 翌月の日本語表示
+function getNextMonthDisplay() {
+  const now = new Date();
+  const nextMonth = now.getMonth() + 2;
+  if (nextMonth > 12) {
+    return `${now.getFullYear() + 1}年1月`;
+  }
+  return `${now.getFullYear()}年${nextMonth}月`;
+}
+
 // 翌月以降の予約を取得するための日付範囲
 function getNextMonthStart() {
   const now = new Date();
   // 翌月の1日
   return `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, "0")}-01`;
 }
+
+// 今日が何日かを取得（JST）
+function getCurrentDay() {
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstNow = new Date(now.getTime() + jstOffset);
+  return jstNow.getUTCDate();
+}
+
+// 翌月予約開放日（定数）
+const BOOKING_OPEN_DAY = 5;
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -46,6 +77,15 @@ export default function ScheduleDashboard() {
   const [loading, setLoading] = useState(true);
   const [futureReservations, setFutureReservations] = useState<FutureReservation[]>([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
+
+  // 翌月予約開放状態
+  const [nextMonthOpen, setNextMonthOpen] = useState<boolean | null>(null);
+  const [openingNextMonth, setOpeningNextMonth] = useState(false);
+
+  const currentDay = getCurrentDay();
+  const nextMonthStr = getNextMonth();
+  const nextMonthDisplay = getNextMonthDisplay();
+  const isAutoOpen = currentDay >= BOOKING_OPEN_DAY; // 5日以降は自動開放
 
   useEffect(() => {
     (async () => {
@@ -76,6 +116,16 @@ export default function ScheduleDashboard() {
           if (futureJson.ok && futureJson.reservations) {
             setFutureReservations(futureJson.reservations);
           }
+
+          // 翌月の早期開放状態を確認
+          const openRes = await fetch(`/api/admin/booking-open?month=${nextMonthStr}`, {
+            cache: "no-store",
+            headers: { "Authorization": `Bearer ${adminToken}` },
+          });
+          const openJson = await openRes.json();
+          if (openJson.ok) {
+            setNextMonthOpen(openJson.is_open);
+          }
         }
       } catch (e) {
         console.error("Load error:", e);
@@ -83,7 +133,43 @@ export default function ScheduleDashboard() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [nextMonthStr]);
+
+  // 翌月予約を早期開放
+  async function openNextMonth() {
+    const adminToken = localStorage.getItem("adminToken");
+    if (!adminToken) {
+      alert("管理者トークンが見つかりません");
+      return;
+    }
+
+    if (!confirm(`${nextMonthDisplay}の予約を今すぐ開放しますか？`)) {
+      return;
+    }
+
+    setOpeningNextMonth(true);
+    try {
+      const res = await fetch("/api/admin/booking-open", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ month: nextMonthStr }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setNextMonthOpen(true);
+        alert(`${nextMonthDisplay}の予約を開放しました`);
+      } else {
+        alert(`エラー: ${json.error || "開放に失敗しました"}`);
+      }
+    } catch (e) {
+      alert("通信エラーが発生しました");
+    } finally {
+      setOpeningNextMonth(false);
+    }
+  }
 
   const activeDoctors = doctors.filter((d) => d.is_active);
   const thisMonthOverrides = overrides.length;
@@ -100,6 +186,72 @@ export default function ScheduleDashboard() {
           <p className="text-slate-600 mt-1">
             ドクターの予約スケジュールを管理します
           </p>
+        </div>
+
+        {/* 翌月予約開放ステータス */}
+        <div className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white ${
+                isAutoOpen || nextMonthOpen
+                  ? "bg-gradient-to-br from-emerald-500 to-emerald-600"
+                  : "bg-gradient-to-br from-slate-400 to-slate-500"
+              }`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {isAutoOpen || nextMonthOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  )}
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">{nextMonthDisplay}の予約</h3>
+                <p className="text-sm text-slate-500">
+                  {isAutoOpen ? (
+                    <>自動開放済み（{BOOKING_OPEN_DAY}日以降）</>
+                  ) : nextMonthOpen ? (
+                    <>早期開放済み</>
+                  ) : (
+                    <>通常は毎月{BOOKING_OPEN_DAY}日に開放されます</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* ステータスバッジ */}
+              <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                isAutoOpen || nextMonthOpen
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-slate-100 text-slate-600"
+              }`}>
+                {isAutoOpen || nextMonthOpen ? "開放中" : "未開放"}
+              </span>
+
+              {/* 早期開放ボタン（5日前のみ表示） */}
+              {!isAutoOpen && !nextMonthOpen && (
+                <button
+                  onClick={openNextMonth}
+                  disabled={openingNextMonth || loading}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition"
+                >
+                  {openingNextMonth ? "開放中..." : "今すぐ開放"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 補足説明 */}
+          {!isAutoOpen && !nextMonthOpen && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-sm text-slate-500">
+                今日は{currentDay}日です。あと{BOOKING_OPEN_DAY - currentDay}日で自動開放されます。
+                <br />
+                早めに開放したい場合は「今すぐ開放」ボタンを押してください。
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 翌月以降の予約アラート */}

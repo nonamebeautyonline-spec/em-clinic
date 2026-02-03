@@ -12,8 +12,41 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 // ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
 const BOOKING_OPEN_DAY = 5;
 
-// 指定された日付が予約可能かどうかをチェック
-function isDateBookable(targetDate: string): boolean {
+// 早期開放設定のキャッシュ（パフォーマンス向上のため）
+let earlyOpenCache: Map<string, { isOpen: boolean; cachedAt: number }> = new Map();
+const CACHE_TTL_MS = 60000; // 1分間キャッシュ
+
+// 指定された月が早期開放されているかチェック（DBから取得）
+async function isMonthEarlyOpen(targetMonth: string): Promise<boolean> {
+  // キャッシュチェック
+  const cached = earlyOpenCache.get(targetMonth);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return cached.isOpen;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("booking_open_settings")
+      .select("is_open")
+      .eq("target_month", targetMonth)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[isMonthEarlyOpen] DB error:", error);
+      return false;
+    }
+
+    const isOpen = data?.is_open ?? false;
+    earlyOpenCache.set(targetMonth, { isOpen, cachedAt: Date.now() });
+    return isOpen;
+  } catch (e) {
+    console.error("[isMonthEarlyOpen] Error:", e);
+    return false;
+  }
+}
+
+// 指定された日付が予約可能かどうかをチェック（非同期版）
+async function isDateBookable(targetDate: string): Promise<boolean> {
   // JSTで現在日時を取得
   const now = new Date();
   const jstOffset = 9 * 60 * 60 * 1000;
@@ -37,17 +70,25 @@ function isDateBookable(targetDate: string): boolean {
     return false;
   }
 
-  // 翌月の場合: 今日がBOOKING_OPEN_DAY以上ならOK
+  // ターゲット月をYYYY-MM形式で取得
+  const targetMonthStr2 = `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}`;
+
+  // 翌月の場合
   const isNextMonth =
     (targetYear === currentYear && targetMonth === currentMonth + 1) ||
     (targetYear === currentYear + 1 && currentMonth === 11 && targetMonth === 0);
 
   if (isNextMonth) {
-    return currentDay >= BOOKING_OPEN_DAY;
+    // 5日以上なら自動開放
+    if (currentDay >= BOOKING_OPEN_DAY) {
+      return true;
+    }
+    // 5日未満でも、管理者が早期開放していればOK
+    return await isMonthEarlyOpen(targetMonthStr2);
   }
 
-  // 翌々月以降: 現在は受け付けない
-  return false;
+  // 翌々月以降: 管理者が早期開放していればOK
+  return await isMonthEarlyOpen(targetMonthStr2);
 }
 
 // ★ Supabase書き込みリトライ機能
@@ -297,7 +338,7 @@ export async function GET(req: NextRequest) {
       );
 
       // 翌月予約開放日チェック: 予約不可の日付の場合は空の枠を返す
-      const bookable = isDateBookable(date);
+      const bookable = await isDateBookable(date);
       const filteredOut = bookable ? out : [];
 
       return NextResponse.json(
@@ -351,9 +392,19 @@ export async function GET(req: NextRequest) {
     );
 
     // 翌月予約開放日チェック: 予約不可の日付の枠は count=0 にする
+    // 日付ごとに予約可能かどうかをチェック（重複を避けるためキャッシュ）
+    const uniqueDates = [...new Set(allSlots.map(s => s.date))];
+    const dateBookableMap = new Map<string, boolean>();
+    await Promise.all(
+      uniqueDates.map(async (date) => {
+        const bookable = await isDateBookable(date);
+        dateBookableMap.set(date, bookable);
+      })
+    );
+
     const slots = allSlots.map((slot) => ({
       ...slot,
-      count: isDateBookable(slot.date) ? slot.count : 0,
+      count: dateBookableMap.get(slot.date) ? slot.count : 0,
     }));
 
     return NextResponse.json({ start, end, slots }, { status: 200 });
@@ -398,7 +449,7 @@ export async function POST(req: NextRequest) {
       const pid = body.patient_id || patientId;
 
       // ★★ 翌月予約開放日チェック ★★
-      if (date && !isDateBookable(date)) {
+      if (date && !(await isDateBookable(date))) {
         console.log(`[Reservation] booking_not_open: date=${date}`);
         return NextResponse.json({
           ok: false,
@@ -759,7 +810,7 @@ export async function POST(req: NextRequest) {
       }
 
       // ★★ 翌月予約開放日チェック ★★
-      if (!isDateBookable(newDate)) {
+      if (!(await isDateBookable(newDate))) {
         console.log(`[Reservation] booking_not_open for update: date=${newDate}`);
         return NextResponse.json({
           ok: false,
