@@ -122,12 +122,19 @@ export default function ShippingPendingPage() {
   };
 
   const toggleAllOrders = () => {
-    if (selectedOrderIds.size === orders.length) {
+    // ★ pending_confirmation以外の注文のみを対象にする
+    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation");
+    const selectableIds = selectableOrders.map((o) => o.id);
+
+    // 選択可能な注文が全て選択されているか確認
+    const allSelectableSelected = selectableIds.every((id) => selectedOrderIds.has(id));
+
+    if (allSelectableSelected && selectedOrderIds.size > 0) {
       // 全選択 → 全解除
       setSelectedOrderIds(new Set());
     } else {
-      // 一部選択または全解除 → 全選択
-      setSelectedOrderIds(new Set(orders.map((o) => o.id)));
+      // 一部選択または全解除 → 全選択（pending_confirmation以外）
+      setSelectedOrderIds(new Set(selectableIds));
     }
   };
 
@@ -224,7 +231,10 @@ export default function ShippingPendingPage() {
                 <th className="px-4 py-3 text-center">
                   <input
                     type="checkbox"
-                    checked={selectedOrderIds.size === orders.length && orders.length > 0}
+                    checked={
+                      orders.filter((o) => o.status !== "pending_confirmation").length > 0 &&
+                      orders.filter((o) => o.status !== "pending_confirmation").every((o) => selectedOrderIds.has(o.id))
+                    }
                     onChange={toggleAllOrders}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
                   />
