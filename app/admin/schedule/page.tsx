@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type Doctor = {
@@ -229,16 +230,13 @@ export default function ScheduleDashboard() {
                 {isAutoOpen || nextMonthOpen ? "開放中" : "未開放"}
               </span>
 
-              {/* 早期開放ボタン（5日前のみ表示） */}
-              {!isAutoOpen && !nextMonthOpen && (
-                <button
-                  onClick={openNextMonth}
-                  disabled={openingNextMonth || loading}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition"
-                >
-                  {openingNextMonth ? "開放中..." : "今すぐ開放"}
-                </button>
-              )}
+              {/* スケジュール設定ボタン */}
+              <Link
+                href="/admin/schedule/monthly"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-800 transition"
+              >
+                スケジュール設定
+              </Link>
             </div>
           </div>
 
