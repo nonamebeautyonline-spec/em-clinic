@@ -198,6 +198,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/bank-transfer"}
           />
 
+          <MenuSection label="予約枠設定" isOpen={isSidebarOpen} />
+          <MenuItem
+            href="/admin/schedule"
+            icon="🗓️"
+            label="予約枠管理"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/schedule")}
+          />
+
           <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
             href="/admin/accounts"

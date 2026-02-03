@@ -1,30 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL!;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN!;
-
-function fail(code: string, status: number = 500) {
-  return NextResponse.json({ ok: false, code }, { status });
-}
-
-async function gasPost(payload: any) {
-  const res = await fetch(GAS_ADMIN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, token: ADMIN_TOKEN }),
-    cache: "no-store",
-  });
-
-  const text = await res.text().catch(() => "");
-  let json: any = {};
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch {
-    json = {};
-  }
-
-  return { httpOk: res.ok, json };
-}
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -32,25 +7,103 @@ export async function GET(req: NextRequest) {
   const start = searchParams.get("start") || "";
   const end = searchParams.get("end") || "";
 
-  const { httpOk, json } = await gasPost({
-    type: "getScheduleRange",
-    doctor_id,
-    start,
-    end,
-  });
+  try {
+    // doctors取得
+    const { data: doctorsData, error: doctorsError } = await supabaseAdmin
+      .from("doctors")
+      .select("*")
+      .order("sort_order");
 
-  if (!httpOk || json?.ok !== true) return fail("GAS_ERROR", 500);
+    if (doctorsError) {
+      console.error("doctors fetch error:", doctorsError);
+      return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    }
 
-  // ★ 外部返却はホワイトリストのみ（例）
-  // 予約枠データに氏名/住所/電話が混ざっても落ちないようにここで遮断
-  const out = {
-    ok: true,
-    code: "SCHEDULE_RANGE_OK",
-    // 必要なキーだけに限定（実データに合わせて調整）
-    start: json.start,
-    end: json.end,
-    slots: Array.isArray(json.slots) ? json.slots : [],
-  };
+    // フォーマット変換
+    const doctors = (doctorsData || []).map((d) => ({
+      doctor_id: d.doctor_id,
+      doctor_name: d.doctor_name,
+      is_active: d.is_active,
+      sort_order: d.sort_order,
+      color: d.color,
+    }));
 
-  return NextResponse.json(out, { status: 200 });
+    // weekly_rules取得
+    let rulesQuery = supabaseAdmin.from("doctor_weekly_rules").select("*");
+    if (doctor_id) {
+      rulesQuery = rulesQuery.eq("doctor_id", doctor_id);
+    }
+    const { data: rulesData, error: rulesError } = await rulesQuery;
+
+    if (rulesError) {
+      console.error("weekly_rules fetch error:", rulesError);
+      return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    }
+
+    // フォーマット変換（TIME型 → "HH:MM"文字列）
+    const weekly_rules = (rulesData || []).map((r) => ({
+      doctor_id: r.doctor_id,
+      weekday: r.weekday,
+      enabled: r.enabled,
+      start_time: formatTime(r.start_time),
+      end_time: formatTime(r.end_time),
+      slot_minutes: r.slot_minutes,
+      capacity: r.capacity,
+      updated_at: r.updated_at,
+    }));
+
+    // date_overrides取得
+    let overridesQuery = supabaseAdmin.from("doctor_date_overrides").select("*");
+    if (doctor_id) {
+      overridesQuery = overridesQuery.eq("doctor_id", doctor_id);
+    }
+    if (start) {
+      overridesQuery = overridesQuery.gte("date", start);
+    }
+    if (end) {
+      overridesQuery = overridesQuery.lte("date", end);
+    }
+    overridesQuery = overridesQuery.order("date", { ascending: true });
+
+    const { data: overridesData, error: overridesError } = await overridesQuery;
+
+    if (overridesError) {
+      console.error("date_overrides fetch error:", overridesError);
+      return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    }
+
+    // フォーマット変換
+    const overrides = (overridesData || []).map((o) => ({
+      doctor_id: o.doctor_id,
+      date: o.date,
+      type: o.type,
+      start_time: formatTime(o.start_time),
+      end_time: formatTime(o.end_time),
+      slot_minutes: o.slot_minutes,
+      capacity: o.capacity,
+      memo: o.memo,
+      updated_at: o.updated_at,
+    }));
+
+    return NextResponse.json({
+      ok: true,
+      doctors,
+      weekly_rules,
+      overrides,
+    });
+  } catch (error) {
+    console.error("schedule API error:", error);
+    return NextResponse.json({ ok: false, error: "SERVER_ERROR" }, { status: 500 });
+  }
+}
+
+// TIME型（"HH:MM:SS"）を "HH:MM" に変換
+function formatTime(time: string | null): string {
+  if (!time) return "";
+  // "10:00:00" → "10:00"
+  const match = time.match(/^(\d{2}):(\d{2})/);
+  if (match) {
+    return `${match[1]}:${match[2]}`;
+  }
+  return time;
 }
