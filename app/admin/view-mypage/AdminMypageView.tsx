@@ -300,7 +300,7 @@ export default function AdminMypageView({ data }: { data: any }) {
       refundedAmount: o.refunded_amount || o.refundedAmount,
       paidAt: o.paid_at_jst || o.paidAt,
       carrier: (o.carrier || "yamato") as Carrier,
-      paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
+      paymentMethod: ((o.payment_method || o.paymentMethod) === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
     };
   };
 
