@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,11 +17,11 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    // 管理者認証チェック
-    const cookieStore = await cookies();
-    const adminAuth = cookieStore.get("__Host-admin_auth")?.value || cookieStore.get("admin_auth")?.value;
+    // 管理者トークン認証
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
 
-    if (!adminAuth || adminAuth !== "true") {
+    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
