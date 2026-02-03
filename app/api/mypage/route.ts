@@ -386,6 +386,50 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
   }
 }
 
+/**
+ * Supabaseからreorders情報を取得
+ */
+async function getReordersFromSupabase(patientId: string): Promise<{
+  id: string;
+  status: string;
+  createdAt: string;
+  productCode: string;
+  mg: string;
+  months: number | undefined;
+}[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("reorders")
+      .select("id, status, created_at, product_code")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[Supabase] getReorders error:", error);
+      return [];
+    }
+
+    return (data || []).map((r: any) => {
+      // product_code から mg と months を抽出（例: "MJL_2.5mg_3m" → mg="2.5mg", months=3）
+      const productCode = String(r.product_code || "");
+      const mgMatch = productCode.match(/(\d+\.?\d*mg)/);
+      const monthsMatch = productCode.match(/(\d+)m$/);
+
+      return {
+        id: String(r.id),
+        status: String(r.status || ""),
+        createdAt: r.created_at || "",
+        productCode,
+        mg: mgMatch ? mgMatch[1] : "",
+        months: monthsMatch ? Number(monthsMatch[1]) : undefined,
+      };
+    });
+  } catch (err) {
+    console.error("[Supabase] getReorders error:", err);
+    return [];
+  }
+}
+
 export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
@@ -468,12 +512,13 @@ export async function POST(_req: NextRequest) {
       shouldSaveLineUserId = !!lineUserId && !existingLineUserId && lineSavedFlag !== "1";
     }
 
-    // ★ USE_SUPABASE=true の場合は注文情報をSupabaseから取得
+    // ★ USE_SUPABASE=true の場合は注文情報・reordersをSupabaseから取得
     let ordersAll: OrderForMyPage[] = [];
     let nextReservation: { id: string; datetime: string; title: string; status: string } | null = null;
+    let reordersFromSupabase: { id: string; status: string; createdAt: string; productCode: string; mg: string; months: number | undefined }[] = [];
 
     if (USE_SUPABASE) {
-      console.log(`[Supabase] Fetching orders and reservation for patient_id=${patientId}`);
+      console.log(`[Supabase] Fetching orders, reservation, and reorders for patient_id=${patientId}`);
 
       // 注文情報をSupabaseから取得
       ordersAll = await getOrdersFromSupabase(patientId);
@@ -482,6 +527,10 @@ export async function POST(_req: NextRequest) {
       // 予約情報をSupabaseから取得
       nextReservation = await getNextReservationFromSupabase(patientId);
       console.log(`[Supabase] Retrieved reservation: ${nextReservation ? nextReservation.id : 'none'}`);
+
+      // ★ reordersをSupabaseから取得
+      reordersFromSupabase = await getReordersFromSupabase(patientId);
+      console.log(`[Supabase] Retrieved ${reordersFromSupabase.length} reorders from Supabase`);
     } else {
       console.log(`[Mypage] Using GAS for orders (USE_SUPABASE=false)`);
       // GASから取得（従来通り）
@@ -557,16 +606,19 @@ export async function POST(_req: NextRequest) {
       activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED"),
       orders: ordersAll,
       ordersFlags,
-      reorders: Array.isArray(gasJson.reorders)
-        ? gasJson.reorders.map((r: any) => ({
-            id: safeStr(r.id),
-            status: safeStr(r.status),
-            createdAt: safeStr(r.createdAt),
-            productCode: safeStr(r.productCode ?? r.product_code),
-            mg: safeStr(r.mg),
-            months: Number(r.months) || undefined,
-          }))
-        : [],
+      // ★ USE_SUPABASE=true の場合は Supabase から取得した reorders を使用
+      reorders: USE_SUPABASE
+        ? reordersFromSupabase
+        : Array.isArray(gasJson.reorders)
+          ? gasJson.reorders.map((r: any) => ({
+              id: safeStr(r.id),
+              status: safeStr(r.status),
+              createdAt: safeStr(r.createdAt),
+              productCode: safeStr(r.productCode ?? r.product_code),
+              mg: safeStr(r.mg),
+              months: Number(r.months) || undefined,
+            }))
+          : [],
       history: Array.isArray(gasJson.history)
         ? gasJson.history.map((h: any, idx: number) => ({
             id: safeStr(h.id || h.history_id || `${idx}`),
