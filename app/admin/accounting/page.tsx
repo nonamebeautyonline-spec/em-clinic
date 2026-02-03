@@ -75,6 +75,16 @@ export default function AccountingPage() {
   const [recentMonths, setRecentMonths] = useState<FinancialData[]>([]);
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [dailySummary, setDailySummary] = useState({ totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0 });
+  const [costData, setCostData] = useState<{
+    products: { code: string; count: number; revenue: number; cost: number }[];
+    totalRevenue: number;
+    totalCost: number;
+    cardRevenue: number;
+    processingFee: number;
+    grossProfit: number;
+    grossMargin: number;
+    orderCount: number;
+  } | null>(null);
 
   const loadData = useCallback(async (yearMonth: string) => {
     const token = localStorage.getItem("adminToken");
@@ -146,11 +156,32 @@ export default function AccountingPage() {
     }
   }, []);
 
+  const loadCostData = useCallback(async (yearMonth: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`/api/admin/cost-calculation?year_month=${yearMonth}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok) {
+          setCostData(json.data);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadData(selectedMonth);
     loadRecentMonths();
     loadDailyData(selectedMonth);
-  }, [selectedMonth, loadData, loadRecentMonths, loadDailyData]);
+    loadCostData(selectedMonth);
+  }, [selectedMonth, loadData, loadRecentMonths, loadDailyData, loadCostData]);
 
   const handleSave = async () => {
     const token = localStorage.getItem("adminToken");
@@ -285,6 +316,104 @@ export default function AccountingPage() {
             </div>
             <DailyBarChart data={dailyData} />
           </div>
+
+          {/* 売上原価計算 */}
+          {costData && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">売上原価計算（自動計算）</h2>
+
+              <div className="mb-6 p-4 bg-slate-50 rounded-lg text-xs text-slate-600">
+                <div className="font-bold mb-2">原価設定（2本あたり）:</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>2.5mg: ¥3,848</div>
+                  <div>5mg: ¥7,696</div>
+                  <div>7.5mg: ¥11,544</div>
+                </div>
+                <div className="mt-2 text-slate-500">※1ヶ月分=4本, 2ヶ月分=8本, 3ヶ月分=12本</div>
+              </div>
+
+              {/* 商品別内訳 */}
+              <div className="mb-6">
+                <h3 className="text-sm font-bold text-slate-700 mb-2">商品別内訳</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="px-3 py-2 text-left">商品</th>
+                        <th className="px-3 py-2 text-right">数量</th>
+                        <th className="px-3 py-2 text-right">売上</th>
+                        <th className="px-3 py-2 text-right">原価</th>
+                        <th className="px-3 py-2 text-right">粗利</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {costData.products.map((p) => (
+                        <tr key={p.code} className="border-b border-slate-100">
+                          <td className="px-3 py-2">{p.code}</td>
+                          <td className="px-3 py-2 text-right">{p.count}</td>
+                          <td className="px-3 py-2 text-right">¥{p.revenue.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right text-red-600">¥{p.cost.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-right text-green-600">¥{(p.revenue - p.cost).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* サマリー */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-xs text-blue-600">売上高</div>
+                  <div className="text-lg font-bold text-blue-700">¥{costData.totalRevenue.toLocaleString()}</div>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <div className="text-xs text-red-600">薬品仕入高</div>
+                  <div className="text-lg font-bold text-red-700">¥{costData.totalCost.toLocaleString()}</div>
+                </div>
+                <div className="p-3 bg-orange-50 rounded-lg">
+                  <div className="text-xs text-orange-600">決済手数料（3.6%）</div>
+                  <div className="text-lg font-bold text-orange-700">¥{costData.processingFee.toLocaleString()}</div>
+                  <div className="text-xs text-orange-500">カード売上: ¥{costData.cardRevenue.toLocaleString()}</div>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="text-xs text-green-600">売上総利益（薬品原価のみ）</div>
+                  <div className="text-lg font-bold text-green-700">¥{costData.grossProfit.toLocaleString()}</div>
+                  <div className="text-xs text-green-500">粗利率: {costData.grossMargin}%</div>
+                </div>
+              </div>
+
+              {/* 純利益計算 */}
+              <div className="mt-4 p-4 bg-slate-100 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-600">売上総利益 - 決済手数料</span>
+                  <span className="text-lg font-bold text-slate-900">
+                    ¥{(costData.grossProfit - costData.processingFee).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* 入力反映ボタン */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setData((prev) => ({
+                      ...prev,
+                      net_sales: costData.totalRevenue,
+                      drug_purchase: costData.totalCost,
+                      cost_of_goods_sold: costData.totalCost,
+                      processing_fee: costData.processingFee,
+                    }));
+                    setSuccess("計算結果を入力欄に反映しました");
+                    setTimeout(() => setSuccess(""), 3000);
+                  }}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm hover:bg-slate-700"
+                >
+                  入力欄に反映
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 売上 */}
           <div className="bg-white rounded-lg shadow p-6">
