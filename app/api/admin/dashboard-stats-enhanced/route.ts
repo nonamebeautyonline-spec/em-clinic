@@ -129,14 +129,14 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. 売上統計（paid_atベース）
-    // 全件取得のためにlimitを明示的に設定
+    // ★ 最適化: 必要なフィールドを一度にすべて取得（patient_id, created_at, amountを同時に取得）
     let allSquareOrders: any[] = [];
     page = 0;
 
     while (true) {
       const { data: squareOrders } = await supabase
         .from("orders")
-        .select("amount")
+        .select("amount, patient_id, created_at, product_code")
         .eq("payment_method", "credit_card")
         .gte("paid_at", startISO)
         .lt("paid_at", endISO)
@@ -150,14 +150,14 @@ export async function GET(request: NextRequest) {
 
     const squareRevenue = allSquareOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
-    // 銀行振込も全件取得
+    // ★ 最適化: 銀行振込も必要なフィールドを一度にすべて取得
     let allBankTransferOrders: any[] = [];
     page = 0;
 
     while (true) {
       const { data: bankTransferOrders } = await supabase
         .from("bank_transfer_orders")
-        .select("product_code")
+        .select("product_code, patient_id, created_at")
         .gte("submitted_at", startISO)
         .lt("submitted_at", endISO)
         .range(page * pageSize, (page + 1) * pageSize - 1);
@@ -187,28 +187,12 @@ export async function GET(request: NextRequest) {
     const orderCount = allSquareOrders.length + allBankTransferOrders.length;
     const avgOrderAmount = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
-    // 再処方決済数を計算
+    // ★ 最適化: 再処方決済数を計算（すでに取得したデータを使用）
     let reorderOrderCount = 0;
-    const allPaidOrders = [...allSquareOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null }))];
-
-    // 銀行振込注文のpatient_idを取得
-    let allBankTransferWithPatient: any[] = [];
-    page = 0;
-    while (true) {
-      const { data: btOrders } = await supabase
-        .from("bank_transfer_orders")
-        .select("patient_id, created_at")
-        .gte("submitted_at", startISO)
-        .lt("submitted_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (!btOrders || btOrders.length === 0) break;
-      allBankTransferWithPatient = allBankTransferWithPatient.concat(btOrders);
-      if (btOrders.length < pageSize) break;
-      page++;
-    }
-
-    allPaidOrders.push(...allBankTransferWithPatient);
+    const allPaidOrders = [
+      ...allSquareOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null })),
+      ...allBankTransferOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null }))
+    ];
 
     if (allPaidOrders.length > 0) {
       const allPaidPatientIds = allPaidOrders.map(o => o.patient_id).filter(id => id);
@@ -251,26 +235,8 @@ export async function GET(request: NextRequest) {
       "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
     };
 
-    // Square注文の集計（paid_atベース）
-    let allSquareProductOrders: any[] = [];
-    page = 0;
-
-    while (true) {
-      const { data: squareProductOrders } = await supabase
-        .from("orders")
-        .select("product_code, amount")
-        .eq("payment_method", "credit_card")
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (!squareProductOrders || squareProductOrders.length === 0) break;
-      allSquareProductOrders = allSquareProductOrders.concat(squareProductOrders);
-      if (squareProductOrders.length < pageSize) break;
-      page++;
-    }
-
-    allSquareProductOrders.forEach((order) => {
+    // ★ 最適化: すでに取得したallSquareOrdersを再利用
+    allSquareOrders.forEach((order) => {
       const code = order.product_code;
       if (!productSales[code]) {
         productSales[code] = {
@@ -306,25 +272,8 @@ export async function GET(request: NextRequest) {
       .from("intake")
       .select("*", { count: "exact", head: true });
 
-    // アクティブ患者の注文データを全件取得
-    let activeOrdersData: any[] = [];
-    page = 0;
-
-    while (true) {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (!orders || orders.length === 0) break;
-      activeOrdersData = activeOrdersData.concat(orders);
-      if (orders.length < pageSize) break;
-      page++;
-    }
-
-    const activePatients = new Set(activeOrdersData.map((o) => o.patient_id)).size;
+    // ★ 最適化: すでに取得したallPaidOrdersを再利用
+    const activePatients = new Set(allPaidOrders.map((o) => o.patient_id).filter(id => id)).size;
 
     const { count: newPatients } = await supabase
       .from("intake")
@@ -332,32 +281,9 @@ export async function GET(request: NextRequest) {
       .gte("created_at", startISO)
       .lt("created_at", endISO);
 
-    // リピート率計算（最適化：一括クエリ）
-    const orderPatientIds = activeOrdersData.map((o) => o.patient_id);
-    let reorderCount = 0;
-
-    if (orderPatientIds.length > 0) {
-      const uniquePatientIds = [...new Set(orderPatientIds)];
-
-      // 範囲開始前の注文を一括取得
-      const { data: previousOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .in("patient_id", uniquePatientIds)
-        .lt("created_at", startISO);
-
-      const previousPatientSet = new Set(previousOrders?.map((o) => o.patient_id) || []);
-
-      // 期間内の注文について、その患者が過去に注文したことがあるかチェック
-      for (const order of activeOrdersData) {
-        if (previousPatientSet.has(order.patient_id)) {
-          reorderCount++;
-        }
-      }
-    }
-
+    // ★ 最適化: リピート率計算は既に算出済みのreorderOrderCountを使用
     const repeatRate =
-      orderPatientIds.length > 0 ? Math.round((reorderCount / orderPatientIds.length) * 100) : 0;
+      allPaidOrders.length > 0 ? Math.round((reorderOrderCount / allPaidOrders.length) * 100) : 0;
 
     // 6. 銀行振込状況
     const { count: pendingBankTransfer } = await supabase
@@ -483,26 +409,8 @@ export async function GET(request: NextRequest) {
       .gte("created_at", startISO)
       .lt("created_at", endISO);
 
-    // 12. 今日決済した人数（重複なし）
-    let todayPaidPatients: any[] = [];
-    page = 0;
-
-    while (true) {
-      const { data: paidOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .not("paid_at", "is", null)
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (!paidOrders || paidOrders.length === 0) break;
-      todayPaidPatients = todayPaidPatients.concat(paidOrders);
-      if (paidOrders.length < pageSize) break;
-      page++;
-    }
-
-    const todayPaidCount = new Set(todayPaidPatients.map(o => o.patient_id)).size;
+    // ★ 最適化: 今日決済した人数（すでに取得したallPaidOrdersを使用）
+    const todayPaidCount = new Set(allPaidOrders.map(o => o.patient_id).filter(id => id)).size;
 
     return NextResponse.json({
       reservations: {
