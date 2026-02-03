@@ -124,6 +124,7 @@ export async function GET(_req: NextRequest) {
         o.paid_at ??
         o.order_datetime ??
         o.orderDateTime ??
+        o.created_at ??  // 銀行振込で未確認の場合のフォールバック
         "";
 
       const refundedRaw =

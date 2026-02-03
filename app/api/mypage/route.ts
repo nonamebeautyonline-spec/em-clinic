@@ -213,7 +213,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
     }
 
     const creditCardOrders = (data || []).map((o: any) => {
-      const paidAt = o.paid_at || "";
+      const paidAt = o.paid_at || o.created_at || "";  // 銀行振込で未確認の場合のフォールバック
       const refundStatus = normalizeRefundStatus(o.refund_status);
       const refundedAt = o.refunded_at || "";
 
