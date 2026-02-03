@@ -43,7 +43,8 @@ try {
     process.exit(1);
   }
 
-  const data = await response.json();
+  const result = await response.json();
+  const data = result.data || result;
 
   console.log("【患者情報】");
   console.log(`  患者ID: ${data.patient?.patient_id || "(なし)"}`);

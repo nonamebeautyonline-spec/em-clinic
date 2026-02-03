@@ -40,7 +40,8 @@ try {
     process.exit(1);
   }
 
-  const data = await response.json();
+  const result = await response.json();
+  const data = result.data || result;
 
   console.log("【注文データ】");
   if (data.orders && data.orders.length > 0) {
