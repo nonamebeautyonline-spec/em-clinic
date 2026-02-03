@@ -1565,6 +1565,73 @@ function doPost(e) {
       return jsonResponse({ ok: true, message: "backfill_all started, check logs" });
     }
 
+    // ========= update_reservation_info_by_pid（問診シートに予約情報を書き込み）=========
+    if (type === "update_reservation_info_by_pid") {
+      const props = PropertiesService.getScriptProperties();
+      const adminToken = String(props.getProperty("ADMIN_TOKEN") || "").trim();
+      const gotToken = String(body.token || "").trim();
+
+      // ADMIN_TOKEN を設定している場合は一致必須
+      if (adminToken && gotToken !== adminToken) {
+        return jsonResponse({ ok: false, error: "forbidden" });
+      }
+
+      const patientId = String(body.patient_id || "").trim();
+      const reserveId = String(body.reserve_id || "").trim();
+      const reservedDate = String(body.reserved_date || "").trim();
+      const reservedTime = String(body.reserved_time || "").trim();
+
+      if (!patientId || !reserveId) {
+        return jsonResponse({ ok: false, error: "patient_id and reserve_id required" });
+      }
+
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
+
+      if (!intakeSheet) {
+        return jsonResponse({ ok: false, error: "intake_sheet_not_found" });
+      }
+
+      // 患者IDで検索
+      const lastRow = intakeSheet.getLastRow();
+      if (lastRow < 2) {
+        return jsonResponse({ ok: false, error: "no_data" });
+      }
+
+      const values = intakeSheet.getRange(2, 1, lastRow - 1, COL_PATIENT_ID_INTAKE).getValues();
+      let found = false;
+      let rowNum = 0;
+
+      for (let i = 0; i < values.length; i++) {
+        const pid = normPid_(values[i][COL_PATIENT_ID_INTAKE - 1]);
+        if (pid === normPid_(patientId)) {
+          rowNum = i + 2;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        return jsonResponse({ ok: false, error: "patient_not_found" });
+      }
+
+      // 予約情報を書き込み
+      intakeSheet.getRange(rowNum, COL_RESERVE_ID_INTAKE).setValue(reserveId);
+      intakeSheet.getRange(rowNum, COL_RESERVED_DATE_INTAKE).setValue(reservedDate);
+      intakeSheet.getRange(rowNum, COL_RESERVED_TIME_INTAKE).setValue(reservedTime);
+
+      Logger.log("[update_reservation_info_by_pid] Updated row " + rowNum + " for patient " + patientId);
+
+      return jsonResponse({
+        ok: true,
+        patient_id: patientId,
+        reserve_id: reserveId,
+        reserved_date: reservedDate,
+        reserved_time: reservedTime,
+        row: rowNum
+      });
+    }
+
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const intakeSheet = ss.getSheetByName(SHEET_NAME_INTAKE);
     const masterSheet = ss.getSheetByName(SHEET_NAME_MASTER);

@@ -1,130 +1,71 @@
-// scripts/sync-canceled-reservations-from-gas.mjs
-// GASのreservationsシートからキャンセル済み予約を取得し、Supabaseに反映
-
-import { readFileSync } from "fs";
-import { resolve } from "path";
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const envPath = resolve(process.cwd(), ".env.local");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const envPath = join(__dirname, "../.env.local");
 const envContent = readFileSync(envPath, "utf-8");
-const envVars = {};
-
-envContent.split("\n").forEach((line) => {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("#")) return;
-  const [key, ...valueParts] = trimmed.split("=");
-  if (key && valueParts.length > 0) {
-    let value = valueParts.join("=").trim();
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    envVars[key.trim()] = value;
+envContent.split("\n").forEach(line => {
+  const match = line.match(/^([^=]+)=(.*)$/);
+  if (match) {
+    const key = match[1].trim();
+    const value = match[2].trim().replace(/^["']|["']$/g, "");
+    process.env[key] = value;
   }
 });
 
-const supabase = createClient(envVars.NEXT_PUBLIC_SUPABASE_URL, envVars.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-const gasReservationsUrl = envVars.GAS_RESERVATIONS_URL;
-const adminToken = envVars.ADMIN_TOKEN;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 async function syncCanceledReservations() {
-  console.log("=== GASのキャンセル済み予約をSupabaseに同期 ===\n");
+  const today = new Date().toISOString().split('T')[0];
 
-  // 1. GASから全予約データを取得
-  console.log("1. GASから予約データ取得中...");
-  const gasResponse = await fetch(gasReservationsUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type: "getAllReservations",
-      token: adminToken,
-    }),
-    redirect: "follow"
-  });
+  console.log("\nGASからキャンセル予約を同期: " + today);
 
-  if (!gasResponse.ok) {
-    console.error(`❌ GAS API Error: ${gasResponse.status}`);
-    const errorText = await gasResponse.text();
-    console.error(`Response: ${errorText}`);
-    return;
-  }
-
-  const gasData = await gasResponse.json();
-
-  if (!gasData.ok || !Array.isArray(gasData.reservations)) {
-    console.error("❌ GAS APIレスポンスが不正です:", gasData);
-    return;
-  }
-
-  const allReservations = gasData.reservations;
-  console.log(`   GAS総予約数: ${allReservations.length} 件\n`);
-
-  // 2. ステータスが「キャンセル」のものを抽出
-  const canceledInGas = allReservations.filter(r => r.status === "キャンセル");
-  console.log(`2. キャンセル済み予約: ${canceledInGas.length} 件\n`);
-
-  if (canceledInGas.length === 0) {
-    console.log("✅ キャンセル済み予約はありません");
-    return;
-  }
-
-  // 3. Supabaseで更新が必要なものをチェック
-  let updatedCount = 0;
-  let alreadyCanceledCount = 0;
-  let notFoundCount = 0;
-  let errorCount = 0;
-
-  for (const gasRes of canceledInGas) {
-    const reserveId = gasRes.reserve_id || gasRes.reserveId;
-    if (!reserveId) continue;
-
-    // Supabaseで該当予約を取得
-    const { data: dbRes, error: fetchError } = await supabase
+  try {
+    const { data: supabaseReservations } = await supabase
       .from("reservations")
-      .select("reserve_id, status")
-      .eq("reserve_id", reserveId)
-      .maybeSingle();
+      .select("id, reserve_id, patient_id, patient_name, reserved_time")
+      .eq("reserved_date", today)
+      .eq("status", "pending");
 
-    if (fetchError) {
-      console.error(`❌ [${reserveId}] 取得エラー:`, fetchError.message);
-      errorCount++;
-      continue;
+    const response = await fetch(GAS_RESERVATIONS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "getAllReservations",
+        date: today,
+        token: ADMIN_TOKEN,
+      }),
+    });
+
+    const data = await response.json();
+    const gasActiveIds = new Set(
+      data.reservations
+        .filter(r => r.status !== 'キャンセル' && r.status !== 'canceled')
+        .map(r => r.reserveId || r.reserve_id)
+    );
+
+    const shouldBeCanceled = supabaseReservations.filter(r => !gasActiveIds.has(r.reserve_id));
+
+    console.log("キャンセル対象: " + shouldBeCanceled.length + "件");
+
+    for (const resv of shouldBeCanceled) {
+      await supabase.from("reservations").update({ status: "canceled" }).eq("id", resv.id);
+      console.log("✅ " + resv.reserved_time + " " + resv.patient_name);
     }
 
-    if (!dbRes) {
-      console.log(`⚠️ [${reserveId}] DBに存在しません`);
-      notFoundCount++;
-      continue;
-    }
-
-    if (dbRes.status === "canceled") {
-      console.log(`✓ [${reserveId}] 既にcanceled`);
-      alreadyCanceledCount++;
-      continue;
-    }
-
-    // ステータスを"canceled"に更新
-    const { error: updateError } = await supabase
-      .from("reservations")
-      .update({ status: "canceled" })
-      .eq("reserve_id", reserveId);
-
-    if (updateError) {
-      console.error(`❌ [${reserveId}] 更新エラー:`, updateError.message);
-      errorCount++;
-      continue;
-    }
-
-    console.log(`✅ [${reserveId}] ${dbRes.status} → canceled`);
-    updatedCount++;
+  } catch (err) {
+    console.error("エラー:", err.message);
   }
-
-  console.log("\n=== 同期完了 ===");
-  console.log(`GASのキャンセル済み: ${canceledInGas.length} 件`);
-  console.log(`DB更新: ${updatedCount} 件`);
-  console.log(`既にcanceled: ${alreadyCanceledCount} 件`);
-  console.log(`DBに存在しない: ${notFoundCount} 件`);
-  console.log(`エラー: ${errorCount} 件`);
 }
 
-syncCanceledReservations();
+syncCanceledReservations().catch(console.error);
