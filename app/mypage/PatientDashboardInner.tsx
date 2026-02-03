@@ -635,12 +635,21 @@ const handleCopyTrackingIfYamato = async (order: Order) => {
   };
 
 const handleReorderCancel = async () => {
+  // displayReorder が無ければ何もしない
+  if (!displayReorder) {
+    alert("キャンセル対象の申請がありません。");
+    return;
+  }
+
+  const targetId = displayReorder.id;
+
   try {
     setCancelingReorder(true);
 
     const res = await fetch("/api/reorder/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reorder_id: targetId }),
     });
 
     const json = await res.json().catch(() => ({} as any));
@@ -650,12 +659,10 @@ const handleReorderCancel = async () => {
       return;
     }
 
-    // pending/confirmed をローカル状態で canceled に更新
+    // 特定IDのみをローカル状態で canceled に更新
     setReorders((prev) =>
       prev.map((r) =>
-        r.status === "pending" || r.status === "confirmed"
-          ? { ...r, status: "canceled" }
-          : r
+        r.id === targetId ? { ...r, status: "canceled" } : r
       )
     );
 

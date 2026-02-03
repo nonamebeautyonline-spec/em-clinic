@@ -36,7 +36,7 @@ async function pushToAdminGroup(text: string) {
   }
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     if (!GAS_REORDER_URL) {
       return NextResponse.json(
@@ -58,33 +58,51 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    // ★ まずDBで対象レコードを取得（pending または confirmed）
+    // ★ リクエストボディから reorder_id を取得
+    const body = await req.json().catch(() => ({} as any));
+    const reorderId = body.reorder_id as number | undefined;
+
+    if (!reorderId) {
+      return NextResponse.json(
+        { ok: false, error: "reorder_id_required", message: "キャンセル対象のIDが指定されていません" },
+        { status: 400 }
+      );
+    }
+
+    // ★ 指定されたIDでレコードを取得（patient_idも確認してセキュリティ担保）
     let targetReorder: { id: number; gas_row_number: number; status: string; product_code: string } | null = null;
 
     try {
       const { data, error } = await supabaseAdmin
         .from("reorders")
         .select("id, gas_row_number, status, product_code")
+        .eq("id", reorderId)
         .eq("patient_id", patientId)
         .in("status", ["pending", "confirmed"])
-        .order("created_at", { ascending: false })
-        .limit(1)
         .maybeSingle();
 
       if (error) {
         console.error("[reorder/cancel] DB select error:", error);
+        return NextResponse.json(
+          { ok: false, error: "db_error" },
+          { status: 500 }
+        );
       } else if (data) {
         targetReorder = data;
         console.log(`[reorder/cancel] Found reorder to cancel: id=${data.id}, status=${data.status}`);
       } else {
-        console.log("[reorder/cancel] No active reorder found for patient:", patientId);
+        console.log(`[reorder/cancel] Reorder not found or not cancellable: id=${reorderId}, patient=${patientId}`);
         return NextResponse.json(
-          { ok: false, error: "no_active_reorder", message: "キャンセル対象の申請が見つかりません" },
+          { ok: false, error: "not_found", message: "キャンセル対象の申請が見つかりません（既にキャンセル済みか、別の患者の申請です）" },
           { status: 400 }
         );
       }
     } catch (err) {
       console.error("[reorder/cancel] DB exception:", err);
+      return NextResponse.json(
+        { ok: false, error: "db_error" },
+        { status: 500 }
+      );
     }
 
     // ★ GASでキャンセル
