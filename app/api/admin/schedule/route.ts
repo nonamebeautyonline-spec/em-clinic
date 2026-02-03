@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
       doctor_id: o.doctor_id,
       date: o.date,
       type: o.type,
+      slot_name: o.slot_name || null,
       start_time: formatTime(o.start_time),
       end_time: formatTime(o.end_time),
       slot_minutes: o.slot_minutes,

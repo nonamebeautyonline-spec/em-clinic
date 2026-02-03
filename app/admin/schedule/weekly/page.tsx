@@ -21,14 +21,15 @@ type WeeklyRule = {
 };
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+const WEEKDAY_FULL = ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"];
 const WEEKDAY_COLORS = [
-  "text-red-600",    // 日
-  "text-slate-800",  // 月
-  "text-slate-800",  // 火
-  "text-slate-800",  // 水
-  "text-slate-800",  // 木
-  "text-slate-800",  // 金
-  "text-blue-600",   // 土
+  "from-red-500 to-red-600",     // 日
+  "from-slate-600 to-slate-700", // 月
+  "from-slate-600 to-slate-700", // 火
+  "from-slate-600 to-slate-700", // 水
+  "from-slate-600 to-slate-700", // 木
+  "from-slate-600 to-slate-700", // 金
+  "from-blue-500 to-blue-600",   // 土
 ];
 
 function defaultRules(doctor_id: string): WeeklyRule[] {
@@ -56,7 +57,6 @@ export default function WeeklyRulesPage() {
 
   const activeDoctors = useMemo(() => doctors.filter((d) => d.is_active), [doctors]);
 
-  // 初回ロード
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -77,7 +77,6 @@ export default function WeeklyRulesPage() {
     })();
   }, []);
 
-  // ドクター変更時にルール取得
   useEffect(() => {
     if (!doctorId) return;
     (async () => {
@@ -88,7 +87,6 @@ export default function WeeklyRulesPage() {
       const json = await res.json();
       if (!json?.ok) {
         setRules(defaultRules(doctorId));
-        setMsg({ type: "error", text: "既存ルールが無いため初期値を表示しました" });
         return;
       }
       const got: WeeklyRule[] = (json.weekly_rules || []).filter(
@@ -126,14 +124,10 @@ export default function WeeklyRulesPage() {
     setSaving(true);
     setMsg(null);
     try {
-      // バリデーション
       for (const r of rules) {
         if (r.enabled) {
           if (!r.start_time || !r.end_time) {
-            throw new Error(`${WEEKDAYS[r.weekday]}曜: 開始/終了が未入力です`);
-          }
-          if (r.capacity < 1 || r.capacity > 2) {
-            throw new Error(`${WEEKDAYS[r.weekday]}曜: 枠数は1〜2です`);
+            throw new Error(`${WEEKDAYS[r.weekday]}曜日の開始・終了時間を入力してください`);
           }
         }
       }
@@ -145,140 +139,206 @@ export default function WeeklyRulesPage() {
       });
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error || "save_failed");
-      setMsg({ type: "success", text: "保存しました" });
+      setMsg({ type: "success", text: "設定を保存しました" });
     } catch (e: any) {
-      setMsg({ type: "error", text: `保存エラー: ${e?.message || e}` });
+      setMsg({ type: "error", text: e?.message || "エラーが発生しました" });
     } finally {
       setSaving(false);
     }
   }
 
+  // 営業日数をカウント
+  const activeDays = rules.filter((r) => r.enabled).length;
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* パンくず */}
-      <div className="text-sm text-slate-500 mb-4">
-        <Link href="/admin/schedule" className="hover:text-slate-700">
-          予約枠管理
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-slate-800">週間テンプレート</span>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* ヘッダー */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+            <Link href="/admin/schedule" className="hover:text-slate-700 transition">
+              予約枠管理
+            </Link>
+            <span>/</span>
+            <span className="text-slate-800 font-medium">週間スケジュール</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">週間スケジュール</h1>
+              <p className="text-slate-600 mt-1">
+                曜日ごとの基本営業時間を設定します
+              </p>
+            </div>
+            <select
+              className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl shadow-sm text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              disabled={loading}
+            >
+              {activeDoctors.map((d) => (
+                <option key={d.doctor_id} value={d.doctor_id}>
+                  {d.doctor_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-      <h1 className="text-xl font-bold text-slate-800">週間テンプレート</h1>
-      <p className="text-sm text-slate-600 mt-1">
-        ドクター別に「普段の営業時間・枠数」を設定します。特定日の例外は日別例外で設定してください。
-      </p>
-
-      {/* ドクター選択 & 保存ボタン */}
-      <div className="mt-6 flex items-center gap-4">
-        <div>
-          <label className="text-sm text-slate-600 block mb-1">ドクター</label>
-          <select
-            className="border rounded-lg px-3 py-2 text-sm min-w-[200px]"
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            disabled={loading}
+        {/* メッセージ */}
+        {msg && (
+          <div
+            className={`mb-6 p-4 rounded-xl text-sm font-medium flex items-center gap-2 ${
+              msg.type === "success"
+                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                : "bg-red-50 text-red-800 border border-red-200"
+            }`}
           >
-            {activeDoctors.map((d) => (
-              <option key={d.doctor_id} value={d.doctor_id}>
-                {d.doctor_name}（{d.doctor_id}）
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={save}
-          disabled={saving || !doctorId}
-          className="ml-auto px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium disabled:opacity-50 hover:bg-slate-800 transition"
-        >
-          {saving ? "保存中..." : "保存"}
-        </button>
-      </div>
+            <span>{msg.type === "success" ? "✓" : "!"}</span>
+            {msg.text}
+          </div>
+        )}
 
-      {/* メッセージ */}
-      {msg && (
-        <div
-          className={`mt-4 p-3 rounded-lg text-sm ${
-            msg.type === "success"
-              ? "bg-green-50 text-green-800"
-              : "bg-red-50 text-red-800"
-          }`}
-        >
-          {msg.text}
+        {/* サマリー */}
+        <div className="mb-6 grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">営業日</div>
+            <div className="text-2xl font-bold text-slate-900 mt-1">{activeDays}日/週</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">定休日</div>
+            <div className="text-2xl font-bold text-slate-900 mt-1">{7 - activeDays}日/週</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+            <div className="text-xs text-slate-500 uppercase tracking-wider">予約間隔</div>
+            <div className="text-2xl font-bold text-slate-900 mt-1">15分</div>
+          </div>
         </div>
-      )}
 
-      {/* テーブル */}
-      <div className="mt-6 border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-slate-600 w-16">曜日</th>
-              <th className="px-4 py-3 text-center text-slate-600 w-20">有効</th>
-              <th className="px-4 py-3 text-left text-slate-600">開始</th>
-              <th className="px-4 py-3 text-left text-slate-600">終了</th>
-              <th className="px-4 py-3 text-left text-slate-600 w-24">枠数</th>
-              <th className="px-4 py-3 text-left text-slate-600 w-20">間隔</th>
-            </tr>
-          </thead>
-          <tbody>
+        {/* 週間グリッド */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-7">
             {rules.map((r) => (
-              <tr
+              <div
                 key={r.weekday}
-                className={`border-t ${!r.enabled ? "bg-slate-50" : ""}`}
+                className={`border-r last:border-r-0 border-slate-100 ${
+                  r.enabled ? "" : "bg-slate-50/50"
+                }`}
               >
-                <td className={`px-4 py-3 font-medium ${WEEKDAY_COLORS[r.weekday]}`}>
-                  {WEEKDAYS[r.weekday]}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={r.enabled}
-                    onChange={(e) => updateRule(r.weekday, { enabled: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="time"
-                    className="border rounded-lg px-3 py-1.5 text-sm w-full disabled:bg-slate-100 disabled:text-slate-400"
-                    value={r.start_time}
-                    onChange={(e) => updateRule(r.weekday, { start_time: e.target.value })}
-                    disabled={!r.enabled}
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="time"
-                    className="border rounded-lg px-3 py-1.5 text-sm w-full disabled:bg-slate-100 disabled:text-slate-400"
-                    value={r.end_time}
-                    onChange={(e) => updateRule(r.weekday, { end_time: e.target.value })}
-                    disabled={!r.enabled}
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <select
-                    className="border rounded-lg px-3 py-1.5 text-sm w-full disabled:bg-slate-100 disabled:text-slate-400"
-                    value={String(r.capacity)}
-                    onChange={(e) => updateRule(r.weekday, { capacity: Number(e.target.value) })}
-                    disabled={!r.enabled}
-                  >
-                    <option value="1">1枠</option>
-                    <option value="2">2枠</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3 text-slate-500">{r.slot_minutes}分</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                {/* 曜日ヘッダー */}
+                <div
+                  className={`p-4 text-center bg-gradient-to-b ${WEEKDAY_COLORS[r.weekday]} text-white`}
+                >
+                  <div className="text-lg font-bold">{WEEKDAYS[r.weekday]}</div>
+                  <div className="text-xs opacity-80">{WEEKDAY_FULL[r.weekday]}</div>
+                </div>
 
-      {/* 説明 */}
-      <div className="mt-4 text-xs text-slate-500">
-        <p>・「有効」をオフにすると、その曜日は予約不可になります</p>
-        <p>・「枠数」は1コマあたりの最大予約人数です</p>
-        <p>・特定日のみ変更したい場合は「日別例外」を使用してください</p>
+                {/* 設定エリア */}
+                <div className="p-4 space-y-4">
+                  {/* 有効/無効トグル */}
+                  <div className="flex items-center justify-center">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={r.enabled}
+                        onChange={(e) => updateRule(r.weekday, { enabled: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <span className="ml-2 text-xs font-medium text-slate-600">
+                        {r.enabled ? "営業" : "休業"}
+                      </span>
+                    </label>
+                  </div>
+
+                  {r.enabled ? (
+                    <>
+                      {/* 時間設定 */}
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-1">開始時間</label>
+                          <input
+                            type="time"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center"
+                            value={r.start_time}
+                            onChange={(e) => updateRule(r.weekday, { start_time: e.target.value })}
+                          />
+                        </div>
+                        <div className="flex justify-center">
+                          <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          </svg>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-1">終了時間</label>
+                          <input
+                            type="time"
+                            className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center"
+                            value={r.end_time}
+                            onChange={(e) => updateRule(r.weekday, { end_time: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 枠数 */}
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-1">同時予約数</label>
+                        <select
+                          className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center bg-white"
+                          value={String(r.capacity)}
+                          onChange={(e) => updateRule(r.weekday, { capacity: Number(e.target.value) })}
+                        >
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <option key={n} value={n}>{n}名</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* 時間表示 */}
+                      {r.start_time && r.end_time && (
+                        <div className="text-center pt-2 border-t border-slate-100">
+                          <div className="text-xs text-slate-500">営業時間</div>
+                          <div className="text-sm font-semibold text-slate-800">
+                            {r.start_time} - {r.end_time}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="py-8 text-center">
+                      <div className="text-slate-400">
+                        <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <div className="text-xs">定休日</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 保存ボタン */}
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={save}
+            disabled={saving || !doctorId}
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-semibold shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition"
+          >
+            {saving ? "保存中..." : "設定を保存する"}
+          </button>
+        </div>
+
+        {/* 説明 */}
+        <div className="mt-6 bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <h3 className="font-medium text-slate-700 mb-2">設定について</h3>
+          <ul className="text-xs text-slate-500 space-y-1">
+            <li>・ここで設定した内容が基本の営業スケジュールになります</li>
+            <li>・特定の日だけ変更したい場合は「日別スケジュール設定」をご利用ください</li>
+            <li>・変更は「設定を保存する」ボタンを押すまで反映されません</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

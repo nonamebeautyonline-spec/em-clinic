@@ -16,10 +16,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // slot_name: 複数時間帯対応（例：午前、午後、夜間など）
+    const slot_name = override.slot_name ? String(override.slot_name).trim() : null;
+
     const record = {
       doctor_id,
       date,
       type: override.type || "modify",
+      slot_name,
       start_time: override.start_time || null,
       end_time: override.end_time || null,
       slot_minutes: override.slot_minutes === "" || override.slot_minutes == null
@@ -32,9 +36,13 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
+    // slot_nameがある場合は (doctor_id, date, slot_name) でupsert
+    // slot_nameがない場合は既存の動作を維持
     const { error } = await supabaseAdmin
       .from("doctor_date_overrides")
-      .upsert(record, { onConflict: "doctor_id,date" });
+      .upsert(record, {
+        onConflict: slot_name ? "doctor_id,date,slot_name" : "doctor_id,date"
+      });
 
     if (error) {
       console.error("date_override upsert error:", error);
@@ -56,6 +64,8 @@ export async function DELETE(req: NextRequest) {
     const body = await req.json();
     const doctor_id = String(body.doctor_id || "").trim();
     const date = String(body.date || "").trim();
+    const slot_name = body.slot_name ? String(body.slot_name).trim() : null;
+    const delete_all = body.delete_all === true; // その日の全スロットを削除
 
     if (!doctor_id || !date) {
       return NextResponse.json(
@@ -64,11 +74,22 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const { error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("doctor_date_overrides")
       .delete()
       .eq("doctor_id", doctor_id)
       .eq("date", date);
+
+    // delete_all: trueの場合は、その日の全スロットを削除
+    // slot_nameが指定されている場合は、そのスロットのみ削除
+    // slot_nameがnullでdelete_allがfalseの場合は、slot_nameがnullのレコードを削除
+    if (!delete_all && slot_name) {
+      query = query.eq("slot_name", slot_name);
+    } else if (!delete_all) {
+      query = query.is("slot_name", null);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error("date_override delete error:", error);
@@ -78,7 +99,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true, deleted: { doctor_id, date } });
+    return NextResponse.json({ ok: true, deleted: { doctor_id, date, slot_name, delete_all } });
   } catch (error) {
     console.error("date_override DELETE error:", error);
     return NextResponse.json({ ok: false, error: "SERVER_ERROR" }, { status: 500 });
