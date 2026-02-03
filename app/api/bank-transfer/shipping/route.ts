@@ -1,6 +1,7 @@
 // app/api/bank-transfer/shipping/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -109,11 +110,33 @@ export async function POST(req: NextRequest) {
           if (!reorderResponse.ok) {
             console.error("[BankTransfer] Reorder status update failed:", await reorderResponse.text());
           } else {
-            console.log("[BankTransfer] Reorder status updated to paid");
+            console.log("[BankTransfer] Reorder status updated to paid (GAS)");
           }
         } catch (e) {
           console.error("[BankTransfer] Reorder status update error:", e);
         }
+      }
+
+      // ★ Supabase DB も更新（gas_row_numberでマッチング）
+      try {
+        const idNum = Number(reorderId);
+        if (Number.isFinite(idNum) && idNum >= 2) {
+          const { error: dbError } = await supabaseAdmin
+            .from("reorders")
+            .update({
+              status: "paid",
+              paid_at: new Date().toISOString(),
+            })
+            .eq("gas_row_number", idNum);
+
+          if (dbError) {
+            console.error("[BankTransfer] Supabase reorder paid error:", dbError);
+          } else {
+            console.log(`[BankTransfer] Supabase reorder paid success, row=${idNum}`);
+          }
+        }
+      } catch (dbErr) {
+        console.error("[BankTransfer] Supabase reorder paid exception:", dbErr);
       }
     }
 
