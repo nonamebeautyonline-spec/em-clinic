@@ -153,6 +153,12 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   // 住所分割
   const { addr1, addr2 } = splitAddressForYamato(addressFull);
 
+  // 沖縄判定：住所に「沖縄」が含まれている場合は品名を変更
+  const isOkinawa = addressFull.includes("沖縄");
+  const itemName = isOkinawa
+    ? "医薬品・注射器（未使用、引火性・高圧ガスなし）"
+    : YAMATO_B2_CONFIG.itemName;
+
   const cols: string[] = [];
   cols.push(order.payment_id || ""); // 1: お客様管理番号
   cols.push("0"); // 2: 送り状種類
@@ -181,7 +187,7 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   cols.push(YAMATO_B2_CONFIG.senderName); // 25: ご依頼主名
   cols.push(""); // 26: ご依頼主略称カナ
   cols.push(""); // 27: 品名コード1
-  cols.push(YAMATO_B2_CONFIG.itemName); // 28: 品名1
+  cols.push(itemName); // 28: 品名1（沖縄判定により変更）
   cols.push(""); // 29: 品名コード2
   cols.push(""); // 30: 品名2
   cols.push(""); // 31: 荷扱い1

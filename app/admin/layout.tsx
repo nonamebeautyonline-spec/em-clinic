@@ -154,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/shipping/pending"
             icon="📦"
-            label="本日の発送リスト"
+            label="本日発送予定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/pending"}
           />
@@ -168,16 +168,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
           <MenuItem
-            href="/admin/patients"
-            icon="👤"
-            label="患者検索"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/patients"}
-          />
-          <MenuItem
             href="/admin/view-mypage"
             icon="👁️"
-            label="マイページ確認"
+            label="顧客マイページ確認"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/view-mypage"}
           />
@@ -196,13 +189,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="銀行振込管理"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/bank-transfer"}
-          />
-          <MenuItem
-            href="/admin/shipping"
-            icon="📦"
-            label="配送管理"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/shipping"}
           />
 
           <MenuSection label="システム" isOpen={isSidebarOpen} />

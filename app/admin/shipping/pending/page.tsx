@@ -147,9 +147,9 @@ export default function ShippingPendingPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">{shippingDate} 発送リスト</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{shippingDate} 発送予定</h1>
         <p className="text-slate-600 text-sm mt-1">
-          未発送の注文一覧（追跡番号未付与）
+          本日発送予定の注文一覧（追跡番号未付与）
         </p>
         {cutoffTime && (
           <p className="text-slate-500 text-xs mt-1">
@@ -211,7 +211,7 @@ export default function ShippingPendingPage() {
             disabled={selectedOrderIds.size === 0}
             className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
-            📋 発送リストを作成 ({selectedOrderIds.size}件)
+            📋 発送リストを作る ({selectedOrderIds.size}件)
           </button>
         </div>
       </div>
@@ -287,7 +287,10 @@ export default function ShippingPendingPage() {
                         type="checkbox"
                         checked={selectedOrderIds.has(order.id)}
                         onChange={() => toggleOrderSelection(order.id)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                        disabled={isPending}
+                        className={`w-4 h-4 text-blue-600 rounded focus:ring-blue-500 ${
+                          isPending ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                        }`}
                       />
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>

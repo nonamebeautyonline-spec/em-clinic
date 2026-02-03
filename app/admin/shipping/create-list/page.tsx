@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
 import LZString from "lz-string";
 
 interface ShippingItem {
@@ -377,182 +374,6 @@ export default function CreateShippingListPage() {
     }
   };
 
-  const handleExportPDF = async () => {
-    const selectedItems = items.filter((item) => item.selected);
-
-    if (selectedItems.length === 0) {
-      alert("発送する注文を選択してください");
-      return;
-    }
-
-    try {
-      setExporting(true);
-
-      // ★ 一時的なテーブルを作成（選択された行のみ）
-      const tempTable = document.createElement("table");
-      tempTable.style.position = "absolute";
-      tempTable.style.left = "-9999px";
-      tempTable.style.top = "0";
-      tempTable.style.fontSize = "24px"; // さらに大きく（18px → 24px）
-      tempTable.style.fontFamily = "'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif";
-      tempTable.style.borderCollapse = "collapse";
-      tempTable.style.width = "auto";
-      tempTable.style.backgroundColor = "#ffffff";
-
-      // ヘッダー行
-      const thead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-      headerRow.style.backgroundColor = "#475569";
-      headerRow.style.color = "#ffffff";
-      headerRow.style.height = "60px";
-
-      const headers = ["決済日時", "Name", "Postal Code", "Address", "Email", "Phone", "Product Name", "Price", "2.5mg", "5mg", "7.5mg", "10mg"];
-      headers.forEach(h => {
-        const th = document.createElement("th");
-        th.textContent = h;
-        th.style.padding = "16px 14px";
-        th.style.textAlign = "left";
-        th.style.border = "1px solid #e2e8f0";
-        th.style.whiteSpace = "nowrap";
-        th.style.fontWeight = "bold";
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-      tempTable.appendChild(thead);
-
-      // データ行
-      const tbody = document.createElement("tbody");
-      const colorMapping: Record<string, string> = {
-        "bg-blue-200": "#bfdbfe",
-        "bg-red-200": "#fecaca",
-        "bg-yellow-200": "#fef08a",
-        "bg-green-200": "#bbf7d0",
-        "bg-purple-200": "#e9d5ff",
-        "bg-orange-200": "#fed7aa",
-        "bg-pink-200": "#fbcfe8",
-        "bg-cyan-200": "#a5f3fc",
-        "bg-lime-200": "#d9f99d",
-        "bg-indigo-200": "#c7d2fe",
-        "bg-rose-200": "#fecdd3",
-        "bg-amber-200": "#fde68a",
-        "bg-slate-200": "#e2e8f0",
-        "bg-slate-100": "#f1f5f9",
-        "bg-slate-50": "#f8fafc",
-      };
-
-      selectedItems.forEach((item) => {
-        const row = document.createElement("tr");
-        const bgColor = getRowColor(item);
-        row.style.height = "auto";
-        row.style.minHeight = "65px";
-        row.style.backgroundColor = colorMapping[bgColor] || "#ffffff";
-
-        const cells = [
-          new Date(item.payment_date).toLocaleDateString("ja-JP"),
-          item.editable.name,
-          item.editable.postal_code,
-          item.editable.address,
-          item.email,
-          item.phone,
-          item.product_name,
-          `¥${item.price.toLocaleString()}`,
-          item.dosage_2_5mg.toString(),
-          item.dosage_5mg.toString(),
-          item.dosage_7_5mg.toString(),
-          item.dosage_10mg.toString(),
-        ];
-
-        cells.forEach((text, idx) => {
-          const td = document.createElement("td");
-          td.textContent = text;
-          td.style.padding = "14px 14px";
-          td.style.border = "1px solid #e2e8f0";
-          td.style.verticalAlign = "top";
-          td.style.lineHeight = "1.8";
-
-          if (idx === 3) {
-            td.style.whiteSpace = "normal";
-            td.style.maxWidth = "450px";
-            td.style.wordBreak = "break-all";
-          } else {
-            td.style.whiteSpace = "nowrap";
-          }
-
-          row.appendChild(td);
-        });
-
-        tbody.appendChild(row);
-      });
-      tempTable.appendChild(tbody);
-      document.body.appendChild(tempTable);
-
-      // html2canvasでテーブルを画像化（scale: 1.5でバランス調整）
-      const canvas = await html2canvas(tempTable, {
-        scale: 1.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-      });
-
-      document.body.removeChild(tempTable);
-
-      // JPEG圧縮（品質: 0.9に向上）
-      const imgData = canvas.toDataURL("image/jpeg", 0.9);
-      const imgWidth = 277;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      const doc = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4",
-      });
-
-      // タイトルと日付
-      doc.setFontSize(16);
-      doc.text("Shipping List", 14, 15);
-      doc.setFontSize(10);
-      const today = new Date().toLocaleDateString("ja-JP");
-      doc.text(`Date: ${today}`, 14, 22);
-
-      // テーブル画像を追加（複数ページ対応）
-      let yPosition = 28;
-      let remainingHeight = imgHeight;
-      const pageHeight = 210;
-      let currentPage = 0;
-
-      while (remainingHeight > 0) {
-        if (currentPage > 0) {
-          doc.addPage();
-          yPosition = 10;
-        }
-
-        const availableHeight = pageHeight - yPosition - 10;
-        const heightToAdd = Math.min(remainingHeight, availableHeight);
-
-        doc.addImage(
-          imgData,
-          "JPEG",
-          10,
-          yPosition,
-          imgWidth,
-          heightToAdd,
-          undefined,
-          "FAST"
-        );
-
-        remainingHeight -= heightToAdd;
-        currentPage++;
-      }
-
-      doc.save(`shipping_list_${new Date().toISOString().split("T")[0]}.pdf`);
-    } catch (err) {
-      console.error("PDF export error:", err);
-      setError(err instanceof Error ? err.message : "PDF出力に失敗しました");
-    } finally {
-      setExporting(false);
-    }
-  };
-
   // ★ 行全体の背景色を取得（各用量×各本数の組み合わせごとに固有の色）
   const getRowColor = (item: ShippingItem): string => {
     // 主要な用量と本数を決定
@@ -609,9 +430,9 @@ export default function CreateShippingListPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">発送リスト作成</h1>
+        <h1 className="text-2xl font-bold text-slate-900">発送リスト</h1>
         <p className="text-slate-600 text-sm mt-1">
-          発送する注文を選択・編集して、ヤマトB2 CSVを出力します
+          発送する注文を選択・編集して、ヤマトB2 CSV（送り状）を出力します
         </p>
       </div>
 
@@ -638,17 +459,6 @@ export default function CreateShippingListPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportPDF}
-            disabled={exporting || selectedCount === 0}
-            className={`px-4 py-2 rounded-lg font-medium ${
-              exporting || selectedCount === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-red-600 text-white hover:bg-red-700"
-            }`}
-          >
-            {exporting ? "PDF出力中..." : `📄 PDF出力（${selectedCount}件）`}
-          </button>
           <button
             onClick={async () => {
               const selectedItems = items.filter((item) => item.selected);
@@ -827,7 +637,7 @@ export default function CreateShippingListPage() {
                         </div>
                       )}
                     </td>
-                    {/* ★ 住所: クリックで編集可能、2行表示 */}
+                    {/* ★ 住所: クリックで編集可能、2行表示、沖縄は太字赤字 */}
                     <td className="px-2 py-2 min-w-[250px]">
                       {editingCell?.id === item.id && editingCell?.field === "address" ? (
                         <textarea
@@ -836,12 +646,16 @@ export default function CreateShippingListPage() {
                           onBlur={() => setEditingCell(null)}
                           autoFocus
                           rows={2}
-                          className="w-full px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-1 py-1 text-xs border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            item.editable.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                          }`}
                         />
                       ) : (
                         <div
                           onClick={() => setEditingCell({ id: item.id, field: "address" })}
-                          className="cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded whitespace-pre-wrap break-words"
+                          className={`cursor-pointer hover:bg-slate-100 px-1 py-1 text-xs rounded whitespace-pre-wrap break-words ${
+                            item.editable.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                          }`}
                           style={{ maxHeight: "3rem", overflow: "auto" }}
                         >
                           {item.editable.address || "-"}

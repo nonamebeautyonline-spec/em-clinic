@@ -115,6 +115,13 @@ function ShippingViewContent() {
     }
   };
 
+  // ★ アイテムが統合されたものか判定
+  const isMergedItem = (item: ShippingItem): boolean => {
+    const counts = [item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg];
+    const nonZeroCount = counts.filter(c => c > 0).length;
+    return nonZeroCount > 1; // 2つ以上の用量に本数がある = 統合
+  };
+
   // 行の背景色を取得（管理画面と同じロジック）
   const getRowColor = (item: ShippingItem): string => {
     const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
@@ -125,6 +132,14 @@ function ShippingViewContent() {
     else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
 
     if (!primaryDosage) return "";
+
+    // 統合アイテムは特別な色（グレー系・薄い）
+    if (isMergedItem(item)) {
+      const totalCount = item.dosage_2_5mg + item.dosage_5mg + item.dosage_7_5mg + item.dosage_10mg;
+      if (totalCount >= 12) return "bg-slate-200";
+      if (totalCount >= 8) return "bg-slate-100";
+      return "bg-slate-50";
+    }
 
     const colorMap: Record<string, string> = {
       "2.5mg-12": "bg-blue-200",
@@ -143,6 +158,22 @@ function ShippingViewContent() {
 
     const key = `${primaryDosage}-${maxCount}`;
     return colorMap[key] || "";
+  };
+
+  // ★ 色グループのキーを取得
+  const getColorGroupKey = (item: ShippingItem): string => {
+    const maxCount = Math.max(item.dosage_2_5mg, item.dosage_5mg, item.dosage_7_5mg, item.dosage_10mg);
+    let primaryDosage = "";
+    if (item.dosage_2_5mg === maxCount && maxCount > 0) primaryDosage = "2.5mg";
+    else if (item.dosage_5mg === maxCount && maxCount > 0) primaryDosage = "5mg";
+    else if (item.dosage_7_5mg === maxCount && maxCount > 0) primaryDosage = "7.5mg";
+    else if (item.dosage_10mg === maxCount && maxCount > 0) primaryDosage = "10mg";
+
+    if (isMergedItem(item)) {
+      return "merged";
+    }
+
+    return `${primaryDosage}-${maxCount}`;
   };
 
   if (!authenticated) {
@@ -230,27 +261,53 @@ function ShippingViewContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {items.map((item) => {
+                  {items.map((item, index) => {
                     const bgColor = getRowColor(item);
+                    const currentGroupKey = getColorGroupKey(item);
+                    const nextGroupKey = index < items.length - 1 ? getColorGroupKey(items[index + 1]) : null;
+                    const isLastInGroup = currentGroupKey !== nextGroupKey;
+
+                    // 現在のグループの人数を計算（最後の行の場合のみ）
+                    let groupCount = 0;
+                    if (isLastInGroup) {
+                      groupCount = items.filter((i) => getColorGroupKey(i) === currentGroupKey).length;
+                    }
+
                     return (
-                      <tr key={item.id} className={`${bgColor}`}>
-                        <td className="px-2 py-2 whitespace-nowrap text-xs">
-                          {item.payment_date
-                            ? new Date(item.payment_date).toLocaleDateString("ja-JP")
-                            : "-"}
-                        </td>
-                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.name}</td>
-                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.postal_code}</td>
-                        <td className="px-2 py-2 max-w-xs break-words text-xs">{item.address}</td>
-                        <td className="px-2 py-2 text-xs max-w-[100px] truncate" title={item.email}>{item.email}</td>
-                        <td className="px-2 py-2 whitespace-nowrap text-xs">{item.phone}</td>
-                        <td className="px-2 py-2 text-xs max-w-[120px] truncate" title={item.product_name}>{item.product_name}</td>
-                        <td className="px-2 py-2 whitespace-nowrap text-xs">¥{item.price.toLocaleString()}</td>
-                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_2_5mg || "-"}</td>
-                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_5mg || "-"}</td>
-                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_7_5mg || "-"}</td>
-                        <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_10mg || "-"}</td>
-                      </tr>
+                      <>
+                        <tr key={item.id} className={`${bgColor}`}>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">
+                            {item.payment_date
+                              ? new Date(item.payment_date).toLocaleDateString("ja-JP")
+                              : "-"}
+                          </td>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">{item.name}</td>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">{item.postal_code}</td>
+                          <td className={`px-2 py-2 max-w-xs break-words text-xs ${
+                            item.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                          }`}>
+                            {item.address}
+                          </td>
+                          <td className="px-2 py-2 text-xs max-w-[100px] truncate" title={item.email}>{item.email}</td>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">{item.phone}</td>
+                          <td className="px-2 py-2 text-xs max-w-[120px] truncate" title={item.product_name}>{item.product_name}</td>
+                          <td className="px-2 py-2 whitespace-nowrap text-xs">¥{item.price.toLocaleString()}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_2_5mg || "-"}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_5mg || "-"}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_7_5mg || "-"}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold">{item.dosage_10mg || "-"}</td>
+                        </tr>
+                        {/* ★ グループの最後に区切り行を追加 */}
+                        {isLastInGroup && (
+                          <tr key={`separator-${item.id}`} className="bg-white border-t-2 border-slate-400">
+                            <td className="px-2 py-2" colSpan={8}></td>
+                            <td className="px-2 py-2 text-center text-sm font-bold text-red-600">
+                              {groupCount}人
+                            </td>
+                            <td className="px-2 py-2" colSpan={3}></td>
+                          </tr>
+                        )}
+                      </>
                     );
                   })}
                 </tbody>
