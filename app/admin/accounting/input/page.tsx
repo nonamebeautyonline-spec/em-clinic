@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface CostData {
@@ -65,6 +65,25 @@ const defaultFinancialData: FinancialData = {
 };
 
 export default function AccountingInputPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <AccountingInputContent />
+    </Suspense>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+        <p className="mt-4 text-slate-600">読み込み中...</p>
+      </div>
+    </div>
+  );
+}
+
+function AccountingInputContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const monthParam = searchParams.get("month");
