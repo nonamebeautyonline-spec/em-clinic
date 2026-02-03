@@ -181,9 +181,9 @@ export default function EnhancedDashboard() {
       {/* メインKPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPICard
-          title="純売上"
+          title="総売上"
           value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
-          subtitle={stats?.revenue.refunded ? `返金 -¥${stats.revenue.refunded.toLocaleString()}` : `平均 ¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+          subtitle="返金後の金額"
           icon="💰"
           color="blue"
         />
@@ -266,18 +266,18 @@ export default function EnhancedDashboard() {
               <div>
                 <h3 className="text-md font-bold text-slate-900 mb-4">売上</h3>
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <span className="text-sm font-medium text-blue-900">総売上（返金後）</span>
+                    <span className="text-lg font-bold text-blue-900">
+                      ¥{(stats?.revenue.total || 0).toLocaleString()}
+                    </span>
+                  </div>
                   <StatRow label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
                   <StatRow label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
                   <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                     <span className="text-sm text-red-600">返金</span>
                     <span className="text-sm font-bold text-red-600">
                       -¥{(stats?.revenue.refunded || 0).toLocaleString()} ({stats?.revenue.refundCount || 0}件)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm text-green-700">純売上</span>
-                    <span className="text-sm font-bold text-green-700">
-                      ¥{(stats?.revenue.total || 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -355,6 +355,12 @@ export default function EnhancedDashboard() {
           {activeTab === "revenue" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                  <div className="text-xs font-medium text-blue-600 mb-2">総売上（返金後）</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    ¥{(stats?.revenue.total || 0).toLocaleString()}
+                  </div>
+                </div>
                 <StatCard label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
                 <StatCard label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
                 <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-6 border border-red-200">
@@ -363,12 +369,6 @@ export default function EnhancedDashboard() {
                     -¥{(stats?.revenue.refunded || 0).toLocaleString()}
                   </div>
                   <div className="text-xs text-red-500 mt-1">{stats?.revenue.refundCount || 0}件</div>
-                </div>
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
-                  <div className="text-xs font-medium text-green-600 mb-2">純売上（返金後）</div>
-                  <div className="text-2xl font-bold text-green-700">
-                    ¥{(stats?.revenue.total || 0).toLocaleString()}
-                  </div>
                 </div>
               </div>
 
