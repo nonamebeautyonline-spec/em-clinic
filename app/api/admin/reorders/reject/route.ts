@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
@@ -57,6 +58,17 @@ export async function POST(req: NextRequest) {
 
     // ★ Supabaseも更新（gas_row_numberでマッチング + patient_idも条件に追加）
     try {
+      // まずpatient_idを取得（body.patient_idがない場合に備えて）
+      let patientIdForCache = patient_id;
+      if (!patientIdForCache) {
+        const { data: reorderData } = await supabaseAdmin
+          .from("reorders")
+          .select("patient_id")
+          .eq("gas_row_number", Number(id))
+          .single();
+        patientIdForCache = reorderData?.patient_id || "";
+      }
+
       let query = supabaseAdmin
         .from("reorders")
         .update({
@@ -76,6 +88,12 @@ export async function POST(req: NextRequest) {
         console.error("[admin/reorders/reject] Supabase update error:", dbError);
       } else {
         console.log(`[admin/reorders/reject] Supabase update success, row=${id}`);
+
+        // ★ キャッシュ削除
+        if (patientIdForCache) {
+          await invalidateDashboardCache(patientIdForCache);
+          console.log(`[admin/reorders/reject] Cache invalidated for patient ${patientIdForCache}`);
+        }
       }
     } catch (dbErr) {
       console.error("[admin/reorders/reject] Supabase exception:", dbErr);

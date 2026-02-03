@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -157,9 +158,21 @@ export async function POST(req: NextRequest) {
           );
         } else {
           // ★ Supabaseも更新（gas_row_numberでマッチング）
+          let patientIdForCache = "";
           try {
             const reorderIdNum = Number(reorderId);
             if (Number.isFinite(reorderIdNum)) {
+              // まずpatient_idを取得
+              const { data: reorderData } = await supabaseAdmin
+                .from("reorders")
+                .select("patient_id")
+                .eq("gas_row_number", reorderIdNum)
+                .single();
+
+              if (reorderData?.patient_id) {
+                patientIdForCache = reorderData.patient_id;
+              }
+
               const { error: dbError } = await supabaseAdmin
                 .from("reorders")
                 .update({
@@ -174,6 +187,12 @@ export async function POST(req: NextRequest) {
                 console.error("[LINE webhook] Supabase reorder update error:", dbError);
               } else {
                 console.log(`[LINE webhook] Supabase reorder ${action} success for row ${reorderId}`);
+
+                // ★ キャッシュ削除
+                if (patientIdForCache) {
+                  await invalidateDashboardCache(patientIdForCache);
+                  console.log(`[LINE webhook] Cache invalidated for patient ${patientIdForCache}`);
+                }
               }
             }
           } catch (dbErr) {

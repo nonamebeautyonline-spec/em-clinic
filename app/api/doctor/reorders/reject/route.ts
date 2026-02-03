@@ -1,5 +1,7 @@
 // app/api/doctor/reorders/reject/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
@@ -41,6 +43,38 @@ export async function POST(req: NextRequest) {
         { ok: false, error: json.error || "GAS error" },
         { status: 500 }
       );
+    }
+
+    // ★ Supabaseも更新（gas_row_numberでマッチング）
+    try {
+      // まずpatient_idを取得
+      const { data: reorderData } = await supabaseAdmin
+        .from("reorders")
+        .select("patient_id")
+        .eq("gas_row_number", Number(id))
+        .single();
+
+      const { error: dbError } = await supabaseAdmin
+        .from("reorders")
+        .update({
+          status: "rejected",
+          rejected_at: new Date().toISOString(),
+        })
+        .eq("gas_row_number", Number(id));
+
+      if (dbError) {
+        console.error("[doctor/reorders/reject] Supabase update error:", dbError);
+      } else {
+        console.log(`[doctor/reorders/reject] Supabase update success, row=${id}`);
+
+        // ★ キャッシュ削除
+        if (reorderData?.patient_id) {
+          await invalidateDashboardCache(reorderData.patient_id);
+          console.log(`[doctor/reorders/reject] Cache invalidated for patient ${reorderData.patient_id}`);
+        }
+      }
+    } catch (dbErr) {
+      console.error("[doctor/reorders/reject] Supabase exception:", dbErr);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
