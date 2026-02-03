@@ -21,6 +21,8 @@ interface DashboardStats {
     bankTransfer: number;
     total: number;
     avgOrderAmount: number;
+    totalOrders: number;
+    reorderOrders: number;
   };
   products: {
     code: string;
@@ -69,6 +71,7 @@ export default function AdminDashboard() {
 
   const loadStats = async (token: string) => {
     setLoading(true);
+    setStats(null);
     setError("");
 
     try {
@@ -94,17 +97,6 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-6">
@@ -159,50 +151,93 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* 予約件数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-          <div className="text-sm text-slate-600 mb-2">予約</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.reservations.total || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            完了: {stats?.reservations.completed || 0} / キャンセル: {stats?.reservations.cancelled || 0}
-          </div>
-          <div className="text-xs text-red-600 mt-1">
-            キャンセル率: {stats?.reservations.cancelRate || 0}%
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-16 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-20 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full mb-2"></div>
+              <div className="h-3 bg-slate-200 rounded w-24"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">予約</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.reservations.total || 0}</div>
+              <div className="text-xs text-slate-500 mt-2">
+                キャンセル: {stats?.reservations.cancelled || 0}
+              </div>
+              <div className="text-xs text-green-600 mt-1">
+                診察済み: {stats?.reservations.completed || 0}
+              </div>
+            </>
+          )}
         </div>
 
         {/* 配送件数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-          <div className="text-sm text-slate-600 mb-2">配送</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.shipping.total || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            新規: {stats?.shipping.first || 0} / 再処方: {stats?.shipping.reorder || 0}
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-16 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-20 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">配送</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.shipping.total || 0}</div>
+              <div className="text-xs text-slate-500 mt-2">
+                新規: {stats?.shipping.first || 0} / 再処方: {stats?.shipping.reorder || 0}
+              </div>
+            </>
+          )}
         </div>
 
         {/* 売上 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
-          <div className="text-sm text-slate-600 mb-2">売上</div>
-          <div className="text-3xl font-bold text-slate-900">
-            ¥{(stats?.revenue.total || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            カード: ¥{(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥
-            {(stats?.revenue.bankTransfer || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-blue-600 mt-1">
-            平均注文額: ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-16 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-24 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full mb-2"></div>
+              <div className="h-3 bg-slate-200 rounded w-32"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">売上</div>
+              <div className="text-3xl font-bold text-slate-900">
+                ¥{(stats?.revenue.total || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-2">
+                カード: ¥{(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥
+                {(stats?.revenue.bankTransfer || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-blue-600 mt-1">
+                平均注文額: ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
+              </div>
+            </>
+          )}
         </div>
 
         {/* リピート率 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-orange-500">
-          <div className="text-sm text-slate-600 mb-2">リピート率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.patients.repeatRate || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            総患者: {stats?.patients.total || 0} / アクティブ: {stats?.patients.active || 0}
-          </div>
-          <div className="text-xs text-green-600 mt-1">
-            新規患者: {stats?.patients.new || 0}
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-20 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full mb-2"></div>
+              <div className="h-3 bg-slate-200 rounded w-24"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">リピート率</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.patients.repeatRate || 0}%</div>
+              <div className="text-xs text-slate-500 mt-2">
+                全決済: {stats?.revenue.totalOrders || 0} / 再処方: {stats?.revenue.reorderOrders || 0}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                総患者: {stats?.patients.total || 0} / 新規: {stats?.patients.new || 0}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -210,29 +245,59 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* 診療後の決済率 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-cyan-500">
-          <div className="text-sm text-slate-600 mb-2">診療後の決済率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.paymentRateAfterConsultation || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            診察完了後に決済した患者の割合
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">診療後の決済率</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.paymentRateAfterConsultation || 0}%</div>
+              <div className="text-xs text-slate-500 mt-2">
+                診察完了後に決済した患者の割合
+              </div>
+            </>
+          )}
         </div>
 
         {/* 問診後の予約率 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-indigo-500">
-          <div className="text-sm text-slate-600 mb-2">問診後の予約率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.reservationRateAfterIntake || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            問診完了後に予約した患者の割合
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">問診後の予約率</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.reservationRateAfterIntake || 0}%</div>
+              <div className="text-xs text-slate-500 mt-2">
+                問診完了後に予約した患者の割合
+              </div>
+            </>
+          )}
         </div>
 
         {/* 予約後の受診率 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-teal-500">
-          <div className="text-sm text-slate-600 mb-2">予約後の受診率</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.consultationCompletionRate || 0}%</div>
-          <div className="text-xs text-slate-500 mt-2">
-            予約後に診察を完了した患者の割合
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">予約後の受診率</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.consultationCompletionRate || 0}%</div>
+              <div className="text-xs text-slate-500 mt-2">
+                予約後に診察を完了した患者の割合
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -240,40 +305,80 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* LINE登録者数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-emerald-500">
-          <div className="text-sm text-slate-600 mb-2">LINE登録者数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.lineRegisteredCount || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            LINE連携済みの患者数
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">LINE登録者数</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.lineRegisteredCount || 0}</div>
+              <div className="text-xs text-slate-500 mt-2">
+                LINE連携済みの患者数
+              </div>
+            </>
+          )}
         </div>
 
         {/* 本日の予約数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-sky-500">
-          <div className="text-sm text-slate-600 mb-2">本日の予約数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayNewReservations || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            今日作成された予約の数
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">本日の予約数</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayNewReservations || 0}</div>
+              <div className="text-xs text-slate-500 mt-2">
+                今日作成された予約の数
+              </div>
+            </>
+          )}
         </div>
 
         {/* 本日の決済人数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-violet-500">
-          <div className="text-sm text-slate-600 mb-2">本日の決済人数</div>
-          <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayPaidCount || 0}</div>
-          <div className="text-xs text-slate-500 mt-2">
-            今日決済した患者の数
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-24 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-16 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-full"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">本日の決済人数</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayPaidCount || 0}</div>
+              <div className="text-xs text-slate-500 mt-2">
+                今日決済した患者の数
+              </div>
+            </>
+          )}
         </div>
 
         {/* 顧客単価 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-rose-500">
-          <div className="text-sm text-slate-600 mb-2">顧客単価</div>
-          <div className="text-3xl font-bold text-slate-900">
-            ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
-          </div>
-          <div className="text-xs text-slate-500 mt-2">
-            平均注文額
-          </div>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-4 bg-slate-200 rounded w-20 mb-4"></div>
+              <div className="h-8 bg-slate-200 rounded w-24 mb-3"></div>
+              <div className="h-3 bg-slate-200 rounded w-20"></div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm text-slate-600 mb-2">顧客単価</div>
+              <div className="text-3xl font-bold text-slate-900">
+                ¥{(stats?.revenue.avgOrderAmount || 0).toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500 mt-2">
+                平均注文額
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -281,39 +386,73 @@ export default function AdminDashboard() {
         {/* 商品別売上 */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-bold text-slate-900 mb-4">商品別売上</h2>
-          <div className="space-y-3">
-            {stats?.products.map((product) => (
-              <div key={product.code} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">{product.name}</div>
-                  <div className="text-xs text-slate-600">{product.code}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-slate-900">
-                    ¥{product.revenue.toLocaleString()}
+          {loading ? (
+            <div className="space-y-3 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex justify-between">
+                    <div className="space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-32"></div>
+                      <div className="h-3 bg-slate-200 rounded w-24"></div>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-4 bg-slate-200 rounded w-20"></div>
+                      <div className="h-3 bg-slate-200 rounded w-12"></div>
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-600">{product.count}件</div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {stats?.products.map((product) => (
+                <div key={product.code} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">{product.name}</div>
+                    <div className="text-xs text-slate-600">{product.code}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-slate-900">
+                      ¥{product.revenue.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-600">{product.count}件</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 銀行振込状況 */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-bold text-slate-900 mb-4">銀行振込状況</h2>
-          <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-              <div className="text-sm text-yellow-800 mb-2">入金待ち</div>
-              <div className="text-3xl font-bold text-yellow-900">{stats?.bankTransfer.pending || 0}</div>
-              <div className="text-xs text-yellow-700 mt-1">件</div>
+          {loading ? (
+            <div className="space-y-4 animate-pulse">
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="h-4 bg-yellow-200 rounded w-16 mb-3"></div>
+                <div className="h-8 bg-yellow-200 rounded w-12 mb-2"></div>
+                <div className="h-3 bg-yellow-200 rounded w-8"></div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="h-4 bg-green-200 rounded w-16 mb-3"></div>
+                <div className="h-8 bg-green-200 rounded w-12 mb-2"></div>
+                <div className="h-3 bg-green-200 rounded w-8"></div>
+              </div>
             </div>
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-sm text-green-800 mb-2">確認済み</div>
-              <div className="text-3xl font-bold text-green-900">{stats?.bankTransfer.confirmed || 0}</div>
-              <div className="text-xs text-green-700 mt-1">件</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="text-sm text-yellow-800 mb-2">入金待ち</div>
+                <div className="text-3xl font-bold text-yellow-900">{stats?.bankTransfer.pending || 0}</div>
+                <div className="text-xs text-yellow-700 mt-1">件</div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-sm text-green-800 mb-2">確認済み</div>
+                <div className="text-3xl font-bold text-green-900">{stats?.bankTransfer.confirmed || 0}</div>
+                <div className="text-xs text-green-700 mt-1">件</div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

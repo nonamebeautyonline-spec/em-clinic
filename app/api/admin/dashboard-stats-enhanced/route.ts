@@ -187,6 +187,52 @@ export async function GET(request: NextRequest) {
     const orderCount = allSquareOrders.length + allBankTransferOrders.length;
     const avgOrderAmount = orderCount > 0 ? Math.round(totalRevenue / orderCount) : 0;
 
+    // 再処方決済数を計算
+    let reorderOrderCount = 0;
+    const allPaidOrders = [...allSquareOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null }))];
+
+    // 銀行振込注文のpatient_idを取得
+    let allBankTransferWithPatient: any[] = [];
+    page = 0;
+    while (true) {
+      const { data: btOrders } = await supabase
+        .from("bank_transfer_orders")
+        .select("patient_id, created_at")
+        .gte("submitted_at", startISO)
+        .lt("submitted_at", endISO)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (!btOrders || btOrders.length === 0) break;
+      allBankTransferWithPatient = allBankTransferWithPatient.concat(btOrders);
+      if (btOrders.length < pageSize) break;
+      page++;
+    }
+
+    allPaidOrders.push(...allBankTransferWithPatient);
+
+    if (allPaidOrders.length > 0) {
+      const allPaidPatientIds = allPaidOrders.map(o => o.patient_id).filter(id => id);
+      const uniquePaidPatientIds = [...new Set(allPaidPatientIds)];
+
+      if (uniquePaidPatientIds.length > 0) {
+        // 範囲開始前の注文を一括取得
+        const { data: previousOrders } = await supabase
+          .from("orders")
+          .select("patient_id")
+          .in("patient_id", uniquePaidPatientIds)
+          .lt("created_at", startISO);
+
+        const previousPatientSet = new Set(previousOrders?.map(o => o.patient_id) || []);
+
+        // 各注文について、その患者が過去に注文したことがあるかチェック
+        for (const order of allPaidOrders) {
+          if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+            reorderOrderCount++;
+          }
+        }
+      }
+    }
+
     // 4. 商品別売上
     const productSales: Record<
       string,
@@ -424,30 +470,11 @@ export async function GET(request: NextRequest) {
       ? Math.round(((completedReservations ?? 0) / nonCancelledReservations) * 100)
       : 0;
 
-    // 10. LINE登録者数（全期間）- LINE Messaging APIから取得
-    let lineRegisteredCount = 0;
-
-    try {
-      // 内部APIエンドポイントを呼び出してLINE友だち数を取得
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-      const lineFollowersRes = await fetch(`${baseUrl}/api/admin/line/followers`, {
-        headers: {
-          Authorization: `Bearer ${process.env.ADMIN_TOKEN}`,
-        },
-      });
-
-      if (lineFollowersRes.ok) {
-        const lineData = await lineFollowersRes.json();
-        lineRegisteredCount = lineData.followers || 0;
-        console.log(`[Dashboard] LINE followers: ${lineRegisteredCount}`);
-      } else {
-        console.error("[Dashboard] Failed to fetch LINE followers, using 0");
-        lineRegisteredCount = 0;
-      }
-    } catch (error) {
-      console.error("[Dashboard] Error fetching LINE followers:", error);
-      lineRegisteredCount = 0;
-    }
+    // 10. LINE登録者数（全期間）- Supabaseから直接取得
+    const { count: lineRegisteredCount } = await supabase
+      .from("patients")
+      .select("*", { count: "exact", head: true })
+      .not("line_user_id", "is", null);
 
     // 11. 本日の予約された数（今日作成された予約の数）
     const { count: todayNewReservations } = await supabase
@@ -495,6 +522,8 @@ export async function GET(request: NextRequest) {
         bankTransfer: bankTransferRevenue,
         total: totalRevenue,
         avgOrderAmount,
+        totalOrders: orderCount,
+        reorderOrders: reorderOrderCount,
       },
       products,
       patients: {
