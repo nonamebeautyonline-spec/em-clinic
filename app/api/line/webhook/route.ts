@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
               const { error: dbError } = await supabaseAdmin
                 .from("reorders")
                 .update({
-                  status: action === "approve" ? "approved" : "rejected",
+                  status: action === "approve" ? "confirmed" : "rejected",
                   ...(action === "approve"
                     ? { approved_at: new Date().toISOString() }
                     : { rejected_at: new Date().toISOString() }),

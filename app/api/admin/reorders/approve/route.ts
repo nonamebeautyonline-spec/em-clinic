@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       const { error: dbError } = await supabaseAdmin
         .from("reorders")
         .update({
-          status: "approved",
+          status: "confirmed",
           approved_at: new Date().toISOString(),
         })
         .eq("gas_row_number", Number(id));
