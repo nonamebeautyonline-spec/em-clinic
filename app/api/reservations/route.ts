@@ -9,6 +9,47 @@ export const revalidate = 0;
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string | undefined;
 
+// ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
+const BOOKING_OPEN_DAY = 5;
+
+// 指定された日付が予約可能かどうかをチェック
+function isDateBookable(targetDate: string): boolean {
+  // JSTで現在日時を取得
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstNow = new Date(now.getTime() + jstOffset);
+
+  const currentYear = jstNow.getUTCFullYear();
+  const currentMonth = jstNow.getUTCMonth(); // 0-indexed
+  const currentDay = jstNow.getUTCDate();
+
+  // ターゲット日付をパース
+  const [targetYear, targetMonthStr] = targetDate.split("-").map(Number);
+  const targetMonth = targetMonthStr - 1; // 0-indexed
+
+  // 今月の予約は常にOK
+  if (targetYear === currentYear && targetMonth === currentMonth) {
+    return true;
+  }
+
+  // 過去の月は予約不可（通常はありえないが念のため）
+  if (targetYear < currentYear || (targetYear === currentYear && targetMonth < currentMonth)) {
+    return false;
+  }
+
+  // 翌月の場合: 今日がBOOKING_OPEN_DAY以上ならOK
+  const isNextMonth =
+    (targetYear === currentYear && targetMonth === currentMonth + 1) ||
+    (targetYear === currentYear + 1 && currentMonth === 11 && targetMonth === 0);
+
+  if (isNextMonth) {
+    return currentDay >= BOOKING_OPEN_DAY;
+  }
+
+  // 翌々月以降: 現在は受け付けない
+  return false;
+}
+
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
   operation: () => Promise<T>,
@@ -255,8 +296,16 @@ export async function GET(req: NextRequest) {
         doctorId
       );
 
+      // 翌月予約開放日チェック: 予約不可の日付の場合は空の枠を返す
+      const bookable = isDateBookable(date);
+      const filteredOut = bookable ? out : [];
+
       return NextResponse.json(
-        { date, slots: out.map((s) => ({ time: s.time, count: s.count })) },
+        {
+          date,
+          slots: filteredOut.map((s) => ({ time: s.time, count: s.count })),
+          bookingOpen: bookable,
+        },
         { status: 200 }
       );
     }
@@ -292,7 +341,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "GAS error" }, { status: 500 });
     }
 
-    const slots = buildAvailabilityRange(
+    const allSlots = buildAvailabilityRange(
       start,
       end,
       (schedRes.json.weekly_rules || []) as WeeklyRule[],
@@ -300,6 +349,12 @@ export async function GET(req: NextRequest) {
       (bookedRes.json.slots || []) as BookedSlot[],
       doctorId
     );
+
+    // 翌月予約開放日チェック: 予約不可の日付の枠は count=0 にする
+    const slots = allSlots.map((slot) => ({
+      ...slot,
+      count: isDateBookable(slot.date) ? slot.count : 0,
+    }));
 
     return NextResponse.json({ start, end, slots }, { status: 200 });
   } catch (err) {
@@ -341,6 +396,16 @@ export async function POST(req: NextRequest) {
       const date = body.date || "";
       const time = body.time || "";
       const pid = body.patient_id || patientId;
+
+      // ★★ 翌月予約開放日チェック ★★
+      if (date && !isDateBookable(date)) {
+        console.log(`[Reservation] booking_not_open: date=${date}`);
+        return NextResponse.json({
+          ok: false,
+          error: "booking_not_open",
+          message: `この日付はまだ予約を受け付けていません。毎月${BOOKING_OPEN_DAY}日に翌月の予約が開放されます。`,
+        }, { status: 400 });
+      }
 
       // ★★ GASと同じ1人1件制限：既存のアクティブな予約をチェック ★★
       const { data: existingReservations } = await supabase
@@ -691,6 +756,16 @@ export async function POST(req: NextRequest) {
 
       if (!reserveId || !newDate || !newTime) {
         return NextResponse.json({ ok: false, error: "missing parameters" }, { status: 400 });
+      }
+
+      // ★★ 翌月予約開放日チェック ★★
+      if (!isDateBookable(newDate)) {
+        console.log(`[Reservation] booking_not_open for update: date=${newDate}`);
+        return NextResponse.json({
+          ok: false,
+          error: "booking_not_open",
+          message: `この日付はまだ予約を受け付けていません。毎月${BOOKING_OPEN_DAY}日に翌月の予約が開放されます。`,
+        }, { status: 400 });
       }
 
       const payload = {
