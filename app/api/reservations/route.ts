@@ -167,6 +167,42 @@ function dayOfWeek(ymdStr: string) {
   return dt.getUTCDay(); // 0..6
 }
 
+// ★ DBから予約済み枠を取得（日時ごとの予約数を集計）
+async function getBookedSlotsFromDB(
+  start: string,
+  end: string
+): Promise<BookedSlot[]> {
+  const { data, error } = await supabaseAdmin
+    .from("reservations")
+    .select("reserved_date, reserved_time")
+    .gte("reserved_date", start)
+    .lte("reserved_date", end)
+    .neq("status", "canceled");
+
+  if (error) {
+    console.error("[getBookedSlotsFromDB] error:", error);
+    return [];
+  }
+
+  // 日時ごとにカウント
+  const countMap = new Map<string, number>();
+  (data || []).forEach((r: any) => {
+    const key = `${r.reserved_date}|${r.reserved_time}`;
+    countMap.set(key, (countMap.get(key) || 0) + 1);
+  });
+
+  // BookedSlot形式に変換
+  const slots: BookedSlot[] = [];
+  countMap.forEach((count, key) => {
+    const [date, time] = key.split("|");
+    // time形式を HH:MM に正規化（DBは HH:MM:SS で返す場合がある）
+    const normalizedTime = time ? time.slice(0, 5) : time;
+    slots.push({ date, time: normalizedTime, count });
+  });
+
+  return slots;
+}
+
 // ★ DBからスケジュール（週間ルール・日別例外）を取得
 async function getScheduleFromDB(
   doctorId: string,
@@ -217,27 +253,6 @@ async function getScheduleFromDB(
   }));
 
   return { weekly_rules, overrides };
-}
-
-async function gasPost(payload: any) {
-  if (!GAS_RESERVATIONS_URL) throw new Error("Missing GAS_RESERVATIONS_URL");
-
-  const res = await fetch(GAS_RESERVATIONS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
-
-  const text = await res.text().catch(() => "");
-  let json: any = {};
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch {
-    json = {};
-  }
-  // ★ text は返すが、GET側ではログに出さない（診療/個人情報混入防止）
-  return { okHttp: res.ok, status: res.status, text, json };
 }
 
 function buildAvailabilityRange(
@@ -341,38 +356,22 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
 
   try {
-    if (!GAS_RESERVATIONS_URL) {
-      // GAS未設定時は空で返す（text等は返さない）
-      return NextResponse.json(
-        { start: start ?? date ?? null, end: end ?? date ?? null, slots: [] },
-        { status: 200 }
-      );
-    }
-
     const doctorId = "dr_default";
 
     // 単日（互換）
     if (date && !start && !end) {
-      // ★ 予約済み枠はGASから取得（予約データはまだGAS管理）
-      const bookedRes = await gasPost({
-        type: "listRange",
-        startDate: date,
-        endDate: date,
-      });
-      if (!bookedRes.okHttp || bookedRes.json?.ok !== true) {
-        console.error("GAS listRange error:", bookedRes.status);
-        return NextResponse.json({ error: "GAS error" }, { status: 500 });
-      }
-
-      // ★ スケジュール（週間ルール・日別例外）はDBから取得
-      const { weekly_rules, overrides } = await getScheduleFromDB(doctorId, date, date);
+      // ★ 予約済み枠とスケジュールを並列でDBから取得
+      const [bookedSlots, scheduleData] = await Promise.all([
+        getBookedSlotsFromDB(date, date),
+        getScheduleFromDB(doctorId, date, date),
+      ]);
 
       const out = buildAvailabilityRange(
         date,
         date,
-        weekly_rules,
-        overrides,
-        (bookedRes.json.slots || []) as BookedSlot[],
+        scheduleData.weekly_rules,
+        scheduleData.overrides,
+        bookedSlots,
         doctorId
       );
 
@@ -395,26 +394,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "start and end are required" }, { status: 400 });
     }
 
-    // ★ 予約済み枠はGASから取得（予約データはまだGAS管理）
-    const bookedRes = await gasPost({
-      type: "listRange",
-      startDate: start,
-      endDate: end,
-    });
-    if (!bookedRes.okHttp || bookedRes.json?.ok !== true) {
-      console.error("GAS listRange error:", bookedRes.status);
-      return NextResponse.json({ error: "GAS error" }, { status: 500 });
-    }
-
-    // ★ スケジュール（週間ルール・日別例外）はDBから取得
-    const { weekly_rules, overrides } = await getScheduleFromDB(doctorId, start, end);
+    // ★ 予約済み枠とスケジュールを並列でDBから取得
+    const [bookedSlots, scheduleData] = await Promise.all([
+      getBookedSlotsFromDB(start, end),
+      getScheduleFromDB(doctorId, start, end),
+    ]);
 
     const allSlots = buildAvailabilityRange(
       start,
       end,
-      weekly_rules,
-      overrides,
-      (bookedRes.json.slots || []) as BookedSlot[],
+      scheduleData.weekly_rules,
+      scheduleData.overrides,
+      bookedSlots,
       doctorId
     );
 
