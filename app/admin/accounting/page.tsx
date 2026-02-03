@@ -362,10 +362,16 @@ export default function AccountingPage() {
               </div>
 
               {/* サマリー */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="text-xs text-blue-600">売上高</div>
+                  <div className="text-xs text-blue-600">総売上</div>
                   <div className="text-lg font-bold text-blue-700">¥{costData.totalRevenue.toLocaleString()}</div>
+                  <div className="text-xs text-blue-500 mt-1">
+                    カード: ¥{costData.cardRevenue.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-blue-500">
+                    振込: ¥{(costData.totalRevenue - costData.cardRevenue).toLocaleString()}
+                  </div>
                 </div>
                 <div className="p-3 bg-red-50 rounded-lg">
                   <div className="text-xs text-red-600">薬品仕入高</div>
@@ -374,12 +380,15 @@ export default function AccountingPage() {
                 <div className="p-3 bg-orange-50 rounded-lg">
                   <div className="text-xs text-orange-600">決済手数料（3.6%）</div>
                   <div className="text-lg font-bold text-orange-700">¥{costData.processingFee.toLocaleString()}</div>
-                  <div className="text-xs text-orange-500">カード売上: ¥{costData.cardRevenue.toLocaleString()}</div>
                 </div>
                 <div className="p-3 bg-green-50 rounded-lg">
-                  <div className="text-xs text-green-600">売上総利益（薬品原価のみ）</div>
+                  <div className="text-xs text-green-600">売上総利益</div>
                   <div className="text-lg font-bold text-green-700">¥{costData.grossProfit.toLocaleString()}</div>
                   <div className="text-xs text-green-500">粗利率: {costData.grossMargin}%</div>
+                </div>
+                <div className="p-3 bg-slate-100 rounded-lg">
+                  <div className="text-xs text-slate-600">手数料差引後</div>
+                  <div className="text-lg font-bold text-slate-900">¥{(costData.grossProfit - costData.processingFee).toLocaleString()}</div>
                 </div>
               </div>
 
