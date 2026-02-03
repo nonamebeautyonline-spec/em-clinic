@@ -36,18 +36,35 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    // slot_nameがある場合は (doctor_id, date, slot_name) でupsert
-    // slot_nameがない場合は既存の動作を維持
-    const { error } = await supabaseAdmin
+    // まず既存レコードを削除してから挿入（upsertの代わり）
+    // slot_nameがある場合は特定スロットのみ、ない場合は基本設定を対象
+    let deleteQuery = supabaseAdmin
       .from("doctor_date_overrides")
-      .upsert(record, {
-        onConflict: slot_name ? "doctor_id,date,slot_name" : "doctor_id,date"
-      });
+      .delete()
+      .eq("doctor_id", doctor_id)
+      .eq("date", date);
 
-    if (error) {
-      console.error("date_override upsert error:", error);
+    if (slot_name) {
+      deleteQuery = deleteQuery.eq("slot_name", slot_name);
+    } else {
+      deleteQuery = deleteQuery.is("slot_name", null);
+    }
+
+    const { error: deleteError } = await deleteQuery;
+    if (deleteError) {
+      console.error("date_override delete error:", deleteError);
+      // 削除エラーは無視（レコードがない場合もある）
+    }
+
+    // 新規挿入
+    const { error: insertError } = await supabaseAdmin
+      .from("doctor_date_overrides")
+      .insert(record);
+
+    if (insertError) {
+      console.error("date_override insert error:", insertError);
       return NextResponse.json(
-        { ok: false, error: "DB_ERROR", detail: error.message },
+        { ok: false, error: "DB_ERROR", detail: insertError.message },
         { status: 500 }
       );
     }
