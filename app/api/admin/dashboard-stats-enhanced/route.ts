@@ -155,16 +155,18 @@ export async function GET(request: NextRequest) {
 
     const squareRevenue = allSquareOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
-    // ★ 最適化: 銀行振込も必要なフィールドを一度にすべて取得
+    // ★ 最適化: 銀行振込も必要なフィールドを一度にすべて取得（ordersテーブルから直接取得）
     let allBankTransferOrders: any[] = [];
     page = 0;
 
     while (true) {
       const { data: bankTransferOrders } = await supabase
-        .from("bank_transfer_orders")
-        .select("product_code, patient_id, created_at")
-        .gte("submitted_at", startISO)
-        .lt("submitted_at", endISO)
+        .from("orders")
+        .select("amount, product_code, patient_id, created_at")
+        .eq("payment_method", "bank_transfer")
+        .in("status", ["pending_confirmation", "confirmed"])
+        .gte("created_at", startISO)
+        .lt("created_at", endISO)
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (!bankTransferOrders || bankTransferOrders.length === 0) break;
@@ -173,20 +175,8 @@ export async function GET(request: NextRequest) {
       page++;
     }
 
-    const productPrices: Record<string, number> = {
-      "MJL_2.5mg_1m": 13000,
-      "MJL_2.5mg_2m": 25500,
-      "MJL_2.5mg_3m": 35000,
-      "MJL_5mg_1m": 22850,
-      "MJL_5mg_2m": 45500,
-      "MJL_5mg_3m": 63000,
-      "MJL_7.5mg_1m": 34000,
-      "MJL_7.5mg_2m": 65000,
-      "MJL_7.5mg_3m": 96000,
-    };
-
     const bankTransferRevenue =
-      allBankTransferOrders.reduce((sum, o) => sum + (productPrices[o.product_code] || 0), 0);
+      allBankTransferOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
     const totalRevenue = squareRevenue + bankTransferRevenue;
     const orderCount = allSquareOrders.length + allBankTransferOrders.length;
@@ -267,7 +257,7 @@ export async function GET(request: NextRequest) {
         };
       }
       productSales[code].count++;
-      productSales[code].revenue += productPrices[code] || 0;
+      productSales[code].revenue += order.amount || 0;
     });
 
     const products = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
@@ -290,20 +280,22 @@ export async function GET(request: NextRequest) {
     const repeatRate =
       allPaidOrders.length > 0 ? Math.round((reorderOrderCount / allPaidOrders.length) * 100) : 0;
 
-    // 6. 銀行振込状況
+    // 6. 銀行振込状況（ordersテーブルから取得）
     const { count: pendingBankTransfer } = await supabase
-      .from("bank_transfer_orders")
+      .from("orders")
       .select("*", { count: "exact", head: true })
+      .eq("payment_method", "bank_transfer")
       .eq("status", "pending_confirmation")
-      .gte("submitted_at", startISO)
-      .lt("submitted_at", endISO);
+      .gte("created_at", startISO)
+      .lt("created_at", endISO);
 
     const { count: confirmedBankTransfer } = await supabase
-      .from("bank_transfer_orders")
+      .from("orders")
       .select("*", { count: "exact", head: true })
+      .eq("payment_method", "bank_transfer")
       .eq("status", "confirmed")
-      .gte("submitted_at", startISO)
-      .lt("submitted_at", endISO);
+      .gte("created_at", startISO)
+      .lt("created_at", endISO);
 
     // 7. 新しいKPI: 診療後の決済率
     // 診察完了した患者数（status = "OK" or "NG"）
