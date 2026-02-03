@@ -5,6 +5,36 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
+const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
+
+// LINE通知送信
+async function pushToAdminGroup(text: string) {
+  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
+    console.log("[reorder/cancel] LINE notification skipped (missing config)");
+    return;
+  }
+
+  try {
+    const res = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: LINE_ADMIN_GROUP_ID,
+        messages: [{ type: "text", text }],
+      }),
+      cache: "no-store",
+    });
+
+    const body = await res.text();
+    console.log("[reorder/cancel] LINE push status=", res.status, "body=", body);
+  } catch (err) {
+    console.error("[reorder/cancel] LINE push error:", err);
+  }
+}
 
 export async function POST(_req: NextRequest) {
   try {
@@ -28,7 +58,36 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    // ★ GASでキャンセル（既存処理）
+    // ★ まずDBで対象レコードを取得（pending または confirmed）
+    let targetReorder: { id: number; gas_row_number: number; status: string; product_code: string } | null = null;
+
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("reorders")
+        .select("id, gas_row_number, status, product_code")
+        .eq("patient_id", patientId)
+        .in("status", ["pending", "confirmed"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[reorder/cancel] DB select error:", error);
+      } else if (data) {
+        targetReorder = data;
+        console.log(`[reorder/cancel] Found reorder to cancel: id=${data.id}, status=${data.status}`);
+      } else {
+        console.log("[reorder/cancel] No active reorder found for patient:", patientId);
+        return NextResponse.json(
+          { ok: false, error: "no_active_reorder", message: "キャンセル対象の申請が見つかりません" },
+          { status: 400 }
+        );
+      }
+    } catch (err) {
+      console.error("[reorder/cancel] DB exception:", err);
+    }
+
+    // ★ GASでキャンセル
     const gasRes = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -48,48 +107,46 @@ export async function POST(_req: NextRequest) {
     }
 
     if (!gasRes.ok || gasJson.ok === false) {
-      console.error("GAS reorder cancel error:", gasRes.status);
+      console.error("GAS reorder cancel error:", gasRes.status, gasText);
       return NextResponse.json(
         { ok: false, error: gasJson.error || "GAS error" },
         { status: 500 }
       );
     }
 
-    // ★ Supabaseも更新（並列管理）
-    // 注: updateでは.order()/.limit()が効かないので、最新のpendingを先に取得
-    try {
-      // まず最新のpendingレコードを取得
-      const { data: latestPending, error: selectError } = await supabaseAdmin
-        .from("reorders")
-        .select("id, gas_row_number")
-        .eq("patient_id", patientId)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (selectError || !latestPending) {
-        console.log("[reorder/cancel] No pending reorder found in DB:", selectError?.message);
-      } else {
-        // gas_row_numberでupdateを実行
+    // ★ DBも更新
+    if (targetReorder) {
+      try {
         const { error: dbError } = await supabaseAdmin
           .from("reorders")
-          .update({
-            status: "cancelled",
-          })
-          .eq("gas_row_number", latestPending.gas_row_number);
+          .update({ status: "canceled" })
+          .eq("id", targetReorder.id);
 
         if (dbError) {
-          console.error("[reorder/cancel] Supabase update error:", dbError);
+          console.error("[reorder/cancel] DB update error:", dbError);
         } else {
-          console.log(`[reorder/cancel] Supabase update success, row=${latestPending.gas_row_number}`);
+          console.log(`[reorder/cancel] DB update success, id=${targetReorder.id}`);
         }
+      } catch (dbErr) {
+        console.error("[reorder/cancel] DB update exception:", dbErr);
       }
-    } catch (dbErr) {
-      console.error("[reorder/cancel] Supabase exception:", dbErr);
+
+      // ★ LINE通知（管理者に即通知して誤操作防止）
+      const statusLabel = targetReorder.status === "pending" ? "申請中" : "承認済み";
+      const notifyText = `【再処方キャンセル】患者が自らキャンセルしました
+
+患者ID: ${patientId}
+申請ID: ${targetReorder.gas_row_number || targetReorder.id}
+状態: ${statusLabel} → キャンセル
+商品: ${targetReorder.product_code}
+
+※ このLINE botでの操作は不要です`;
+
+      // 非同期で送信（レスポンスは待たない）
+      pushToAdminGroup(notifyText).catch(() => {});
     }
 
-    // ★ キャッシュ削除（再処方キャンセル時）
+    // ★ キャッシュ削除
     await invalidateDashboardCache(patientId);
 
     return NextResponse.json({ ok: true }, { status: 200 });
