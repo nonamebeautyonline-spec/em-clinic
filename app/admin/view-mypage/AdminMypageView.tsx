@@ -642,6 +642,11 @@ export default function AdminMypageView({ data }: { data: any }) {
                   className="rounded-2xl bg-white shadow-[0_4px_18px_rgba(15,23,42,0.06)] px-4 py-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div className="flex-1">
+                    {order.paidAt && (
+                      <div className="text-[11px] text-slate-500 mb-0.5">
+                        {formatDateSafe(order.paidAt)}
+                      </div>
+                    )}
                     <div className="text-[15px] font-medium text-slate-900">
                       {order.productName}
                     </div>
@@ -682,8 +687,9 @@ export default function AdminMypageView({ data }: { data: any }) {
                               {order.trackingNumber}
                             </a>
                           ) : (
-                            <span className="text-pink-600">
-                              {order.trackingNumber}
+                            <span className="inline-flex items-center gap-1 text-pink-600">
+                              <span>{order.trackingNumber}</span>
+                              <span className="text-[11px] text-slate-400">⧉</span>
                             </span>
                           )}
 
