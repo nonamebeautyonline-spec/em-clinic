@@ -284,7 +284,7 @@ function ShippingViewContent() {
                           <td className="px-2 py-2 whitespace-nowrap text-xs">{item.name}</td>
                           <td className="px-2 py-2 whitespace-nowrap text-xs">{item.postal_code}</td>
                           <td className={`px-2 py-2 max-w-xs break-words text-xs ${
-                            item.address.includes("沖縄") ? "text-red-600 font-bold" : ""
+                            (item.address.includes("沖縄") || item.address.includes("郵便局")) ? "text-red-600 font-bold" : ""
                           }`}>
                             {item.address}
                           </td>
