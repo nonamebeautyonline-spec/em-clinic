@@ -8,6 +8,30 @@ export const revalidate = 0;
 
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
 
+// ★ GASへのバックグラウンド同期（fire-and-forget）
+function syncToGASBackground(payload: any) {
+  if (!GAS_RESERVATIONS_URL) return;
+
+  // バックグラウンドで実行（awaitしない）
+  fetch(GAS_RESERVATIONS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  })
+    .then(async (res) => {
+      const text = await res.text().catch(() => "");
+      if (!res.ok) {
+        console.error("[GAS Background Sync] Failed:", res.status, text?.slice(0, 200));
+      } else {
+        console.log("[GAS Background Sync] OK:", payload.type || "createReservation");
+      }
+    })
+    .catch((err) => {
+      console.error("[GAS Background Sync] Error:", err.message);
+    });
+}
+
 // ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
 const BOOKING_OPEN_DAY = 5;
 
@@ -553,8 +577,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Supabase と GAS に並列書き込み
-      const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
+      // ★ DB先行書き込み（高速レスポンスのため）
+      const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルに予約を作成（リトライあり）
         retrySupabaseWrite(async () => {
           const result = await supabase
@@ -577,7 +601,6 @@ export async function POST(req: NextRequest) {
         }),
 
         // 2. intakeテーブルの予約情報を更新（リトライあり）
-        // ★ まずupdateを試し、失敗したらレコードがないので警告ログを出す
         pid ? retrySupabaseWrite(async () => {
           const updateResult = await supabase
             .from("intake")
@@ -587,64 +610,30 @@ export async function POST(req: NextRequest) {
               reserved_time: time || null,
             })
             .eq("patient_id", pid)
-            .select();  // ★ 更新されたレコードを返す
+            .select();
 
           if (updateResult.error) {
             throw updateResult.error;
           }
 
-          // ★ 更新されたレコードがない場合（intakeレコードが存在しない）
           if (!updateResult.data || updateResult.data.length === 0) {
-            console.error("❌❌❌ [CRITICAL] Patient intake record NOT FOUND ❌❌❌");
-            console.error("[Missing Intake]", {
-              patient_id: pid,
-              reserve_id: reserveId,
-              reserved_date: date,
-              reserved_time: time,
-              timestamp: new Date().toISOString(),
-            });
-            console.error("⚠️ MANUAL FIX REQUIRED: Run scripts/sync-missing-intake.mjs");
-            // ★ エラーではなく警告として扱う（予約は作成される）
+            console.error("❌ [CRITICAL] Patient intake record NOT FOUND:", { patient_id: pid, reserve_id: reserveId });
           } else {
-            // ★ 更新成功時の確認ログ（更新されたデータも表示）
-            const updated = updateResult.data[0];
-            console.log(`✓ Intake updated: patient_id=${pid}, reserve_id=${reserveId}, date=${date}, time=${time}`);
-            console.log(`  Updated data: reserve_id=${updated?.reserve_id}, date=${updated?.reserved_date}, time=${updated?.reserved_time}`);
-
-            // ★ 検証: 更新したデータが正しく保存されているか確認
-            if (updated?.reserve_id !== reserveId ||
-                updated?.reserved_date !== date ||
-                updated?.reserved_time !== time) {
-              console.error(`❌❌❌ [CRITICAL] Intake update verification FAILED ❌❌❌`);
-              console.error(`  Expected: reserve_id=${reserveId}, date=${date}, time=${time}`);
-              console.error(`  Got:      reserve_id=${updated?.reserve_id}, date=${updated?.reserved_date}, time=${updated?.reserved_time}`);
-            }
+            console.log(`✓ Intake updated: patient_id=${pid}, reserve_id=${reserveId}`);
           }
 
           return updateResult;
         }) : Promise.resolve({ error: null }),
-
-        // 3. GASにPOST
-        fetch(GAS_RESERVATIONS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          cache: "no-store",
-        }).then(async (res) => {
-          const text = await res.text().catch(() => "");
-          let json: any = {};
-          try { json = text ? JSON.parse(text) : {}; } catch {}
-          return { ok: res.ok && json?.ok === true, json, text, status: res.status };
-        }),
       ]);
 
-      // Supabase結果チェック
+      // DB結果チェック - 予約作成失敗はエラー
       if (supabaseReservationResult.status === "rejected" ||
           (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
         const error = supabaseReservationResult.status === "rejected"
           ? supabaseReservationResult.reason
           : supabaseReservationResult.value.error;
         console.error("[Supabase] Reservation write failed:", error);
+        return NextResponse.json({ ok: false, error: "db_error", detail: String(error) }, { status: 500 });
       }
 
       if (supabaseIntakeResult.status === "rejected" ||
@@ -655,48 +644,18 @@ export async function POST(req: NextRequest) {
         console.error("[Supabase] Intake update failed:", error);
       }
 
-      // GAS結果チェック
-      let json: any = {};
-      if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
-        const error = gasResult.status === "rejected"
-          ? gasResult.reason
-          : gasResult.value.text;
-        console.error("GAS reservations POST error:", error);
-
-        const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
-        const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};
-
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "gas_error",
-            gas_status: status,
-            gas: gasJson && Object.keys(gasJson).length ? gasJson : undefined,
-            detail: error,
-          },
-          { status: 500 }
-        );
-      }
-
-      if (gasResult.status === "fulfilled") {
-        json = gasResult.value.json;
-      }
-
-      // GASから返されたreserveIdを使う（GASが生成したID）
-      const finalReserveId = json.reserveId || reserveId;
-
       // キャッシュ削除
-      const pidFromGas = json.patientId || json.patient_id;
-      const finalPid = pidFromGas || pid;
-
-      if (finalPid) {
-        await invalidateDashboardCache(finalPid);
-        console.log(`[reservations] Cache invalidated for patient_id=${finalPid}`);
+      if (pid) {
+        await invalidateDashboardCache(pid);
+        console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
+
+      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
+      syncToGASBackground(payload);
 
       return NextResponse.json({
         ok: true,
-        reserveId: finalReserveId,
+        reserveId: reserveId,
         supabaseSync: true,
       }, { status: 200 });
     }
@@ -717,8 +676,8 @@ export async function POST(req: NextRequest) {
         intake_id: body.intake_id || intakeId,
       };
 
-      // Supabase と GAS に並列書き込み
-      const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
+      // ★ DB先行書き込み（高速レスポンスのため）
+      const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
         retrySupabaseWrite(async () => {
           const result = await supabase
@@ -742,35 +701,23 @@ export async function POST(req: NextRequest) {
               reserved_time: null,
             })
             .eq("patient_id", pid)
-            .eq("reserve_id", reserveId);  // ★ reserve_idも条件に追加
+            .eq("reserve_id", reserveId);
 
           if (result.error) {
             throw result.error;
           }
           return result;
         }) : Promise.resolve({ error: null }),
-
-        // 3. GASにPOST
-        fetch(GAS_RESERVATIONS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          cache: "no-store",
-        }).then(async (res) => {
-          const text = await res.text().catch(() => "");
-          let json: any = {};
-          try { json = text ? JSON.parse(text) : {}; } catch {}
-          return { ok: res.ok && json?.ok === true, json, text, status: res.status };
-        }),
       ]);
 
-      // Supabase結果チェック
+      // DB結果チェック - キャンセル失敗はエラー
       if (supabaseReservationResult.status === "rejected" ||
           (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
         const error = supabaseReservationResult.status === "rejected"
           ? supabaseReservationResult.reason
           : supabaseReservationResult.value.error;
         console.error("[Supabase] Reservation cancel failed:", error);
+        return NextResponse.json({ ok: false, error: "db_error", detail: String(error) }, { status: 500 });
       }
 
       if (supabaseIntakeResult.status === "rejected" ||
@@ -781,33 +728,14 @@ export async function POST(req: NextRequest) {
         console.error("[Supabase] Intake clear failed:", error);
       }
 
-      // GAS結果チェック
-      if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
-        const error = gasResult.status === "rejected"
-          ? gasResult.reason
-          : gasResult.value.text;
-        console.error("GAS cancelReservation error:", error);
-
-        const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
-        const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};
-
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "gas_error",
-            gas_status: status,
-            gas: gasJson && Object.keys(gasJson).length ? gasJson : undefined,
-            detail: error,
-          },
-          { status: 500 }
-        );
-      }
-
       // キャッシュ削除
       if (pid) {
         await invalidateDashboardCache(pid);
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
+
+      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
+      syncToGASBackground(payload);
 
       return NextResponse.json({
         ok: true,
@@ -844,8 +772,8 @@ export async function POST(req: NextRequest) {
         intake_id: body.intake_id || intakeId,
       };
 
-      // Supabase と GAS に並列書き込み
-      const [supabaseReservationResult, supabaseIntakeResult, gasResult] = await Promise.allSettled([
+      // ★ DB先行書き込み（高速レスポンスのため）
+      const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルの日時を更新（リトライあり）
         retrySupabaseWrite(async () => {
           const result = await supabase
@@ -878,38 +806,24 @@ export async function POST(req: NextRequest) {
             throw result.error;
           }
 
-          // 更新成功確認
           if (!result.data || result.data.length === 0) {
-            console.error("❌❌❌ [CRITICAL] Intake update failed for updateReservation ❌❌❌");
-            console.error(`  patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
+            console.error("❌ [CRITICAL] Intake update failed for updateReservation:", { patient_id: pid, reserve_id: reserveId });
           } else {
-            console.log(`✓ Intake updated (reservation change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
+            console.log(`✓ Intake updated (change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
           }
 
           return result;
         }) : Promise.resolve({ error: null }),
-
-        // 3. GASにPOST
-        fetch(GAS_RESERVATIONS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          cache: "no-store",
-        }).then(async (res) => {
-          const text = await res.text().catch(() => "");
-          let json: any = {};
-          try { json = text ? JSON.parse(text) : {}; } catch {}
-          return { ok: res.ok && json?.ok === true, json, text, status: res.status };
-        }),
       ]);
 
-      // Supabase結果チェック
+      // DB結果チェック - 更新失敗はエラー
       if (supabaseReservationResult.status === "rejected" ||
           (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
         const error = supabaseReservationResult.status === "rejected"
           ? supabaseReservationResult.reason
           : supabaseReservationResult.value.error;
         console.error("[Supabase] Reservation update failed:", error);
+        return NextResponse.json({ ok: false, error: "db_error", detail: String(error) }, { status: 500 });
       }
 
       if (supabaseIntakeResult.status === "rejected" ||
@@ -920,33 +834,14 @@ export async function POST(req: NextRequest) {
         console.error("[Supabase] Intake update failed:", error);
       }
 
-      // GAS結果チェック
-      if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
-        const error = gasResult.status === "rejected"
-          ? gasResult.reason
-          : gasResult.value.text;
-        console.error("GAS updateReservation error:", error);
-
-        const status = gasResult.status === "fulfilled" ? gasResult.value.status : 500;
-        const gasJson = gasResult.status === "fulfilled" ? gasResult.value.json : {};
-
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "gas_error",
-            gas_status: status,
-            gas: gasJson && Object.keys(gasJson).length ? gasJson : undefined,
-            detail: error,
-          },
-          { status: 500 }
-        );
-      }
-
       // キャッシュ削除
       if (pid) {
         await invalidateDashboardCache(pid);
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
+
+      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
+      syncToGASBackground(payload);
 
       return NextResponse.json({
         ok: true,
