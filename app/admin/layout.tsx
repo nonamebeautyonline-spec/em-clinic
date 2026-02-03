@@ -106,11 +106,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/reorders"}
           />
           <MenuItem
-            href="/doctor"
+            href="/admin/doctor"
             icon="🩺"
             label="Drカルテ"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/doctor"}
+            isActive={pathname === "/admin/doctor"}
           />
           <MenuItem
             href="/admin/kartesearch"
