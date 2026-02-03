@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function markReorderPaidInGas(reorderId: string) {
+async function markReorderPaidInGas(reorderId: string, patientId?: string) {
   const url = process.env.GAS_REORDER_URL; // 既存の /api/reorder/* が使ってるやつと同じ
   if (!url) {
     console.error("GAS_REORDER_URL not set; cannot mark reorder paid");
@@ -25,6 +26,7 @@ if (!Number.isFinite(idNum) || idNum < 2) {
 
 
   try {
+    // ★ GASで paid に更新
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,6 +40,32 @@ if (!Number.isFinite(idNum) || idNum < 2) {
     }
   } catch (e) {
     console.error("GAS reorder paid exception:", e);
+  }
+
+  // ★ Supabaseも更新（gas_row_numberでマッチング）
+  try {
+    let query = supabaseAdmin
+      .from("reorders")
+      .update({
+        status: "paid",
+        paid_at: new Date().toISOString(),
+      })
+      .eq("gas_row_number", idNum);
+
+    // patient_idがあれば追加条件として使用（安全性向上）
+    if (patientId) {
+      query = query.eq("patient_id", patientId);
+    }
+
+    const { error: dbError } = await query;
+
+    if (dbError) {
+      console.error("[square/webhook] Supabase reorder paid error:", dbError);
+    } else {
+      console.log(`[square/webhook] Supabase reorder paid success, row=${idNum}`);
+    }
+  } catch (dbErr) {
+    console.error("[square/webhook] Supabase reorder paid exception:", dbErr);
   }
 }
 
@@ -302,7 +330,7 @@ if (signatureKey && !signatureHeader) {
       const { patientId, productCode, reorderId } = extractFromNote(note);
 
 if (reorderId) {
-  await markReorderPaidInGas(reorderId);
+  await markReorderPaidInGas(reorderId, patientId);
 }
 
       const createdAtIso = String(P?.created_at || "");

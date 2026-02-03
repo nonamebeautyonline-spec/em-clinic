@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,6 +156,30 @@ export async function POST(req: NextRequest) {
             `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: ${String(gasJson?.error || gasText || "").slice(0, 200)}`
           );
         } else {
+          // ★ Supabaseも更新（gas_row_numberでマッチング）
+          try {
+            const reorderIdNum = Number(reorderId);
+            if (Number.isFinite(reorderIdNum)) {
+              const { error: dbError } = await supabaseAdmin
+                .from("reorders")
+                .update({
+                  status: action === "approve" ? "approved" : "rejected",
+                  ...(action === "approve"
+                    ? { approved_at: new Date().toISOString() }
+                    : { rejected_at: new Date().toISOString() }),
+                })
+                .eq("gas_row_number", reorderIdNum);
+
+              if (dbError) {
+                console.error("[LINE webhook] Supabase reorder update error:", dbError);
+              } else {
+                console.log(`[LINE webhook] Supabase reorder ${action} success for row ${reorderId}`);
+              }
+            }
+          } catch (dbErr) {
+            console.error("[LINE webhook] Supabase exception:", dbErr);
+          }
+
           // 成功時通知（押したグループへ返す）
           await pushToGroup_(
             groupId,

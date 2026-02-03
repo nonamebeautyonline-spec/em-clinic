@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
@@ -21,12 +22,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id } = body;
+    const { id } = body; // id = GAS行番号 = gas_row_number
 
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
+    // ★ GASで承認（既存処理）
     const gasRes = await fetch(GAS_REORDER_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -51,6 +53,25 @@ export async function POST(req: NextRequest) {
         { error: gasJson.error || "GAS error" },
         { status: 500 }
       );
+    }
+
+    // ★ Supabaseも更新（gas_row_numberでマッチング）
+    try {
+      const { error: dbError } = await supabaseAdmin
+        .from("reorders")
+        .update({
+          status: "approved",
+          approved_at: new Date().toISOString(),
+        })
+        .eq("gas_row_number", Number(id));
+
+      if (dbError) {
+        console.error("[admin/reorders/approve] Supabase update error:", dbError);
+      } else {
+        console.log(`[admin/reorders/approve] Supabase update success, row=${id}`);
+      }
+    } catch (dbErr) {
+      console.error("[admin/reorders/approve] Supabase exception:", dbErr);
     }
 
     return NextResponse.json({ ok: true });
