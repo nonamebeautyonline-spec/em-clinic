@@ -234,6 +234,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         productName: o.product_name || "",
         amount: o.amount || 0,
         paidAt,
+        createdAt: o.created_at || "",
         shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
         shippingEta,
         trackingNumber: o.tracking_number || undefined,
@@ -275,7 +276,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
 
     console.log(`[Supabase] Found ${bankTransferOrdersInOrders.length} bank_transfer orders in orders table`);
     bankTransferOrdersInOrders.forEach(o => {
-      console.log(`[Supabase] BT order in orders table: id=${o.id}, paidAt=${o.paidAt}`);
+      console.log(`[Supabase] BT order in orders table: id=${o.id}, createdAt=${o.createdAt}, paidAt=${o.paidAt}`);
     });
 
     // ★ bt_で始まるIDの場合はIDで、それ以外はcreated_atで紐付ける
@@ -307,18 +308,19 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
 
         const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
           // 条件1: タイムスタンプマッチング（手動移行を考慮して60秒以内）
-          const orderCreatedAt = new Date(orderRecord.paidAt || "").getTime();
+          // ★ bank_transferの場合はcreatedAtで比較（paid_atは後で更新されるため）
+          const orderCreatedAt = new Date(orderRecord.createdAt || "").getTime();
           const timeDiff = Math.abs(btCreatedAt - orderCreatedAt);
 
           if (timeDiff < 60000) {
             // さらに商品コードも一致する場合は同一レコードと確定
             if (btProductCode === orderRecord.productCode) {
-              console.log(`[Supabase] ❌ Excluded by timestamp+product match: ${o.id} (diff=${timeDiff}ms, product=${btProductCode}, order_id=${orderRecord.id})`);
+              console.log(`[Supabase] ❌ Excluded by timestamp+product match: bt_order=${o.id}, order=${orderRecord.id}, diff=${timeDiff}ms, product=${btProductCode}`);
               return true;
             }
             // 商品コードが異なる場合は1秒以内のみ同一とみなす（誤検出防止）
             if (timeDiff < 1000) {
-              console.log(`[Supabase] ❌ Excluded by strict timestamp match: ${o.id} (diff=${timeDiff}ms, order_id=${orderRecord.id})`);
+              console.log(`[Supabase] ❌ Excluded by strict timestamp match: bt_order=${o.id}, order=${orderRecord.id}, diff=${timeDiff}ms`);
               return true;
             }
           }
