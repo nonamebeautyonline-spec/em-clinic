@@ -40,7 +40,6 @@ function parseQueryString(data: string) {
 }
 
 // ===== グループへ結果通知（push）=====
-// ※送信先は「押したグループ（groupId）」を使う：これが最も確実
 async function pushToGroup_(toGroupId: string, text: string) {
   if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN) {
     console.error("[pushToGroup] missing LINE_NOTIFY_CHANNEL_ACCESS_TOKEN");
@@ -72,6 +71,22 @@ async function pushToGroup_(toGroupId: string, text: string) {
   }
 }
 
+// ===== バックグラウンドでGAS同期 =====
+async function syncToGas(action: string, id: number) {
+  if (!GAS_REORDER_URL) return;
+  try {
+    await fetch(GAS_REORDER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, id }),
+      cache: "no-store",
+    });
+    console.log(`[LINE webhook] GAS sync done: ${action} id=${id}`);
+  } catch (err) {
+    console.error(`[LINE webhook] GAS sync error:`, err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // ===== 必須 env チェック =====
@@ -84,12 +99,6 @@ export async function POST(req: NextRequest) {
     if (!LINE_ADMIN_GROUP_ID) {
       return NextResponse.json(
         { ok: false, error: "LINE_ADMIN_GROUP_ID missing" },
-        { status: 500 }
-      );
-    }
-    if (!GAS_REORDER_URL) {
-      return NextResponse.json(
-        { ok: false, error: "GAS_REORDER_URL missing" },
         { status: 500 }
       );
     }
@@ -123,88 +132,76 @@ export async function POST(req: NextRequest) {
 
         const q = parseQueryString(dataStr);
         const action = q["reorder_action"]; // approve | reject
-        const reorderId = q["reorder_id"]; // GAS行番号
+        const reorderId = q["reorder_id"]; // gas_row_number
 
         console.log("[postback] parsed=", { action, reorderId });
 
         if (!action || !reorderId) continue;
         if (action !== "approve" && action !== "reject") continue;
 
-        // ===== GASへ反映 =====
-        const gasRes = await fetch(GAS_REORDER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action, id: reorderId }),
-          cache: "no-store",
-        });
+        const gasRowNumber = Number(reorderId);
+        if (!Number.isFinite(gasRowNumber)) continue;
 
-        const gasText = await gasRes.text();
-        let gasJson: any = {};
-        try {
-          gasJson = JSON.parse(gasText);
-        } catch {}
+        // ★ DB-first: まずDBを更新
+        const { data: reorderData, error: selectError } = await supabaseAdmin
+          .from("reorders")
+          .select("id, patient_id, status")
+          .eq("gas_row_number", gasRowNumber)
+          .single();
 
-        if (!gasRes.ok || gasJson?.ok === false) {
-          console.error("[GAS] reorder action failed", {
-            action,
-            reorderId,
-            gasText,
-          });
-
-          // 失敗時通知（押したグループへ返す）
+        if (selectError || !reorderData) {
+          console.error("[LINE webhook] Reorder not found:", gasRowNumber);
           await pushToGroup_(
             groupId,
-            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: ${String(gasJson?.error || gasText || "").slice(0, 200)}`
+            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DBにレコードが見つかりません`
           );
-        } else {
-          // ★ Supabaseも更新（gas_row_numberでマッチング）
-          let patientIdForCache = "";
-          try {
-            const reorderIdNum = Number(reorderId);
-            if (Number.isFinite(reorderIdNum)) {
-              // まずpatient_idを取得
-              const { data: reorderData } = await supabaseAdmin
-                .from("reorders")
-                .select("patient_id")
-                .eq("gas_row_number", reorderIdNum)
-                .single();
-
-              if (reorderData?.patient_id) {
-                patientIdForCache = reorderData.patient_id;
-              }
-
-              const { error: dbError } = await supabaseAdmin
-                .from("reorders")
-                .update({
-                  status: action === "approve" ? "confirmed" : "rejected",
-                  ...(action === "approve"
-                    ? { approved_at: new Date().toISOString() }
-                    : { rejected_at: new Date().toISOString() }),
-                })
-                .eq("gas_row_number", reorderIdNum);
-
-              if (dbError) {
-                console.error("[LINE webhook] Supabase reorder update error:", dbError);
-              } else {
-                console.log(`[LINE webhook] Supabase reorder ${action} success for row ${reorderId}`);
-
-                // ★ キャッシュ削除
-                if (patientIdForCache) {
-                  await invalidateDashboardCache(patientIdForCache);
-                  console.log(`[LINE webhook] Cache invalidated for patient ${patientIdForCache}`);
-                }
-              }
-            }
-          } catch (dbErr) {
-            console.error("[LINE webhook] Supabase exception:", dbErr);
-          }
-
-          // 成功時通知（押したグループへ返す）
-          await pushToGroup_(
-            groupId,
-            `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`
-          );
+          continue;
         }
+
+        if (reorderData.status !== "pending") {
+          console.log(`[LINE webhook] Reorder already processed: ${reorderData.status}`);
+          await pushToGroup_(
+            groupId,
+            `【再処方】この申請は既に処理済みです (${reorderData.status})\n申請ID: ${reorderId}`
+          );
+          continue;
+        }
+
+        const { error: updateError } = await supabaseAdmin
+          .from("reorders")
+          .update({
+            status: action === "approve" ? "confirmed" : "rejected",
+            ...(action === "approve"
+              ? { approved_at: new Date().toISOString() }
+              : { rejected_at: new Date().toISOString() }),
+          })
+          .eq("gas_row_number", gasRowNumber);
+
+        if (updateError) {
+          console.error("[LINE webhook] DB update error:", updateError);
+          await pushToGroup_(
+            groupId,
+            `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DB更新エラー`
+          );
+          continue;
+        }
+
+        console.log(`[LINE webhook] DB update success: ${action} gas_row=${gasRowNumber}`);
+
+        // ★ キャッシュ削除
+        if (reorderData.patient_id) {
+          await invalidateDashboardCache(reorderData.patient_id);
+          console.log(`[LINE webhook] Cache invalidated for patient ${reorderData.patient_id}`);
+        }
+
+        // ★ バックグラウンドでGAS同期（レスポンスを待たない）
+        syncToGas(action, gasRowNumber).catch(() => {});
+
+        // 成功時通知
+        await pushToGroup_(
+          groupId,
+          `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`
+        );
       }
     }
 
