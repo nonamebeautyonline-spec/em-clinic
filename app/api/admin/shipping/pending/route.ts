@@ -30,18 +30,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // カットオフ時刻: 昨日の15時（JST）
+    // カットオフ時刻: 昨日の14時（JST）
     const now = new Date();
     const jstOffset = 9 * 60 * 60 * 1000; // UTC+9
     const jstNow = new Date(now.getTime() + jstOffset);
     const yesterday = new Date(jstNow);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    // 昨日の15時（JST）= 昨日の06:00（UTC）
+    // 昨日の14時（JST）= 昨日の05:00（UTC）
     const cutoffTime = new Date(Date.UTC(
       yesterday.getUTCFullYear(),
       yesterday.getUTCMonth(),
       yesterday.getUTCDate(),
-      6, 0, 0
+      5, 0, 0
     ));
     const cutoffISO = cutoffTime.toISOString();
 
