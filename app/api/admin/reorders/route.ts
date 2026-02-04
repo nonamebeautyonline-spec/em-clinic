@@ -85,16 +85,18 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// タイムスタンプを見やすい形式に変換
+// タイムスタンプをJST形式に変換
 function formatTimestamp(ts: string | null): string {
   if (!ts) return "-";
   try {
     const d = new Date(ts);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hours = String(d.getHours()).padStart(2, "0");
-    const minutes = String(d.getMinutes()).padStart(2, "0");
+    // JSTに変換 (UTC + 9時間)
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const year = jst.getUTCFullYear();
+    const month = String(jst.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(jst.getUTCDate()).padStart(2, "0");
+    const hours = String(jst.getUTCHours()).padStart(2, "0");
+    const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
     return `${year}/${month}/${day} ${hours}:${minutes}`;
   } catch {
     return ts;
