@@ -135,6 +135,52 @@ async function getNextReservationFromSupabase(
   }
 }
 
+type ConsultationHistory = {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+};
+
+/**
+ * Supabaseから診察履歴を取得（status=OK/NGの診察完了分）
+ */
+async function getConsultationHistoryFromSupabase(
+  patientId: string
+): Promise<ConsultationHistory[]> {
+  try {
+    const { data, error } = await supabase
+      .from("intake")
+      .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu, updated_at")
+      .eq("patient_id", patientId)
+      .in("status", ["OK", "NG"])
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("[admin/view-mypage] getConsultationHistory error:", error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => {
+      const date = row.reserved_date || row.updated_at?.split("T")[0] || "";
+      const prescriptionMenu = row.prescription_menu || "";
+      const title = row.status === "OK"
+        ? `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`
+        : "診察完了（処方なし）";
+
+      return {
+        id: row.reserve_id || `history-${row.updated_at}`,
+        date,
+        title,
+        detail: row.note || "",
+      };
+    });
+  } catch (err) {
+    console.error("[admin/view-mypage] getConsultationHistory error:", err);
+    return [];
+  }
+}
+
 /**
  * 管理者用：患者のマイページデータを確認
  * GET /api/admin/view-mypage?patient_id=20251200128
@@ -291,12 +337,15 @@ export async function GET(req: NextRequest) {
     // ★ Supabaseから次回予約を取得（GASではなく）
     const nextReservation = await getNextReservationFromSupabase(patientId);
 
+    // ★ Supabaseから診察履歴を取得（GASではなく）
+    const historyFromDB = await getConsultationHistoryFromSupabase(patientId);
+
     // ★ GASデータとSupabaseデータをマージ
     const responseData = {
       patient: gasData.patient || null,
       nextReservation, // ★ Supabaseから取得
       activeOrders: gasData.activeOrders || [],
-      history: gasData.history || [],
+      history: historyFromDB, // ★ Supabaseから取得
       hasMoreHistory: gasData.hasMoreHistory || false,
       orders, // ★ Supabaseから取得した注文データ
       flags, // ★ Supabaseから計算したフラグ
