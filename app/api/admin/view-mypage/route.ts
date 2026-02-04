@@ -182,6 +182,50 @@ async function getConsultationHistoryFromSupabase(
 }
 
 /**
+ * Supabaseから再処方申請を取得（顧客マイページと同じロジック）
+ */
+async function getReordersFromSupabase(patientId: string): Promise<{
+  id: string;
+  status: string;
+  createdAt: string;
+  productCode: string;
+  mg: string;
+  months: number | undefined;
+}[]> {
+  try {
+    const { data, error } = await supabase
+      .from("reorders")
+      .select("id, status, created_at, product_code")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[admin/view-mypage] getReorders error:", error);
+      return [];
+    }
+
+    return (data || []).map((r: any) => {
+      // product_code から mg と months を抽出（例: "MJL_2.5mg_3m" → mg="2.5mg", months=3）
+      const productCode = String(r.product_code || "");
+      const mgMatch = productCode.match(/(\d+\.?\d*mg)/);
+      const monthsMatch = productCode.match(/(\d+)m$/);
+
+      return {
+        id: String(r.id),
+        status: String(r.status || ""),
+        createdAt: r.created_at || "",
+        productCode,
+        mg: mgMatch ? mgMatch[1] : "",
+        months: monthsMatch ? Number(monthsMatch[1]) : undefined,
+      };
+    });
+  } catch (err) {
+    console.error("[admin/view-mypage] getReorders error:", err);
+    return [];
+  }
+}
+
+/**
  * 管理者用：患者のマイページデータを確認
  * GET /api/admin/view-mypage?patient_id=20251200128
  * Authorization: Bearer <ADMIN_TOKEN>
@@ -297,10 +341,41 @@ export async function GET(req: NextRequest) {
         .map(o => o.id.replace("bt_", ""))
     );
 
-    // ★ 銀行振込の注文を統合（ordersに存在しないもののみ）
+    // ★ 銀行振込注文のcreated_atを記録（タイムスタンプ重複排除用）
+    const bankTransferOrdersInOrders = orders.filter(o => o.paymentMethod === "bank_transfer");
+
+    // ★ 銀行振込の注文を統合（顧客マイページと同じ重複排除ロジック）
     if (rawBankTransferOrders && rawBankTransferOrders.length > 0) {
       const bankTransferOrders: OrderForMyPage[] = rawBankTransferOrders
-        .filter((o: any) => !existingBtIds.has(String(o.id))) // ordersに存在するものは除外
+        .filter((o: any) => {
+          // IDで紐付け可能な場合はIDで除外
+          if (existingBtIds.has(String(o.id))) {
+            return false;
+          }
+
+          // IDで紐付けできない場合は、タイムスタンプ＋商品コードでマッチング
+          const btCreatedAt = new Date(o.created_at).getTime();
+          const btProductCode = String(o.product_code ?? "");
+
+          const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
+            const orderPaidAt = new Date(orderRecord.paidAt || "").getTime();
+            const timeDiff = Math.abs(btCreatedAt - orderPaidAt);
+
+            if (timeDiff < 60000) {
+              // 商品コードも一致する場合は同一レコード
+              if (btProductCode === orderRecord.productCode) {
+                return true;
+              }
+              // 商品コードが異なる場合は1秒以内のみ同一とみなす
+              if (timeDiff < 1000) {
+                return true;
+              }
+            }
+            return false;
+          });
+
+          return !foundMatch;
+        })
         .map((o: any) => {
           const productCode = String(o.product_code ?? "");
           const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
@@ -327,12 +402,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ★ Flags computed from Supabase orders data
+    // ★ Flags computed from Supabase orders data（顧客マイページと同じロジック）
+    const hasAnyPaidOrder = orders.length > 0;
     const flags = {
-      canPurchaseCurrentCourse: true,
-      canApplyReorder: orders.length > 0,
-      hasAnyPaidOrder: orders.length > 0,
+      canPurchaseCurrentCourse: !hasAnyPaidOrder,  // 注文がない場合のみ購入可
+      canApplyReorder: hasAnyPaidOrder,            // 注文がある場合のみ再処方可
+      hasAnyPaidOrder,
     };
+
+    // ★ activeOrders を Supabase orders から計算（顧客マイページと同じロジック）
+    const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");
 
     // ★ Supabaseから次回予約を取得（GASではなく）
     const nextReservation = await getNextReservationFromSupabase(patientId);
@@ -340,17 +419,20 @@ export async function GET(req: NextRequest) {
     // ★ Supabaseから診察履歴を取得（GASではなく）
     const historyFromDB = await getConsultationHistoryFromSupabase(patientId);
 
+    // ★ Supabaseから再処方申請を取得（GASではなく、顧客マイページと同じ）
+    const reordersFromDB = await getReordersFromSupabase(patientId);
+
     // ★ GASデータとSupabaseデータをマージ
     const responseData = {
       patient: gasData.patient || null,
       nextReservation, // ★ Supabaseから取得
-      activeOrders: gasData.activeOrders || [],
+      activeOrders, // ★ Supabaseから計算（顧客マイページと同じ）
       history: historyFromDB, // ★ Supabaseから取得
       hasMoreHistory: gasData.hasMoreHistory || false,
       orders, // ★ Supabaseから取得した注文データ
       flags, // ★ Supabaseから計算したフラグ
       ordersFlags: flags, // ★ 互換性のため
-      reorders: gasData.reorders || [],
+      reorders: reordersFromDB, // ★ Supabaseから取得（顧客マイページと同じ）
       hasIntake: gasData.hasIntake || false,
       perf: gasData.perf || [],
     };

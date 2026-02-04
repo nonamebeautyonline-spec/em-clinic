@@ -318,6 +318,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 // ------------------------- Component -------------------------
 export default function PatientDashboardInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [data, setData] = useState<PatientDashboardData | null>(null);
   const [reorders, setReorders] = useState<ReorderItem[]>([]);
@@ -402,11 +403,13 @@ useEffect(() => {
       };
 
       // ⑤ /api/mypage を1本だけ叩く
+      // ★ refresh=1の場合はキャッシュをスキップ（決済完了後の強制リフレッシュ）
+      const forceRefresh = searchParams.get("refresh") === "1";
       const mpRes = await fetch("/api/mypage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refresh: forceRefresh }),
       });
 
       // ★ 未連携なら init へ

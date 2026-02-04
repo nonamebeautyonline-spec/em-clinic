@@ -114,7 +114,7 @@ function PurchaseCompleteContent() {
   );
 
   const handleGoMypageTop = () => {
-    router.push("/mypage");
+    router.push("/mypage?refresh=1");
   };
 
   const handleGoPurchaseList = () => {

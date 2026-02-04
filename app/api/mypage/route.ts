@@ -484,6 +484,15 @@ export async function POST(_req: NextRequest) {
   try {
     if (!GAS_MYPAGE_URL) return fail("server_config_error", 500);
 
+    // ★ refreshパラメータを取得（決済完了後の強制リフレッシュ用）
+    let forceRefresh = false;
+    try {
+      const body = await _req.json().catch(() => ({}));
+      forceRefresh = body.refresh === true || body.refresh === "1";
+    } catch {
+      // bodyが空の場合は無視
+    }
+
     const cookieStore = await cookies();
     const getCookieValue = (name: string): string => cookieStore.get(name)?.value ?? "";
 
@@ -494,17 +503,21 @@ export async function POST(_req: NextRequest) {
     const lineSavedFlag =
       getCookieValue("__Host-line_user_id_saved") || getCookieValue("line_user_id_saved");
 
-    // ★ キャッシュチェック
+    // ★ キャッシュチェック（forceRefreshの場合はスキップ）
     const cacheKey = getDashboardCacheKey(patientId);
 
-    try {
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        console.log(`[Cache] Hit: ${cacheKey}`);
-        return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
+    if (!forceRefresh) {
+      try {
+        const cachedData = await redis.get(cacheKey);
+        if (cachedData) {
+          console.log(`[Cache] Hit: ${cacheKey}`);
+          return NextResponse.json(cachedData, { status: 200, headers: noCacheHeaders });
+        }
+      } catch (error) {
+        console.error("[Cache] Failed to get cache:", error);
       }
-    } catch (error) {
-      console.error("[Cache] Failed to get cache:", error);
+    } else {
+      console.log(`[Cache] Force refresh requested, skipping cache: ${cacheKey}`);
     }
     console.log(`[Cache] Miss: ${cacheKey}`);
 
