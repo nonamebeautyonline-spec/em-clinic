@@ -1,23 +1,138 @@
 // app/api/reorder/apply/route.ts
-// DB-first + バックグラウンドGAS同期
+// DB + LINE完結（GAS同期なし）
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 
-// LINE通知送信
-async function pushToAdminGroup(text: string) {
+// LINE Flex Message（承認・却下ボタン付き）を送信
+async function sendReorderNotification(
+  patientId: string,
+  productCode: string,
+  gasRowNumber: number
+) {
   if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
     console.log("[reorder/apply] LINE notification skipped (missing config)");
     return;
   }
 
   try {
+    // 商品名を見やすく
+    const productLabel = productCode
+      .replace("MJL_", "マンジャロ ")
+      .replace("_", " ")
+      .replace("1m", "1ヶ月")
+      .replace("2m", "2ヶ月")
+      .replace("3m", "3ヶ月");
+
+    const flexMessage = {
+      type: "flex",
+      altText: `【再処方申請】${patientId}`,
+      contents: {
+        type: "bubble",
+        header: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: "再処方申請",
+              weight: "bold",
+              size: "lg",
+              color: "#1DB446"
+            }
+          ],
+          backgroundColor: "#F0FFF0"
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: `患者ID: ${patientId}`,
+              size: "md",
+              wrap: true
+            },
+            {
+              type: "text",
+              text: `商品: ${productLabel}`,
+              size: "md",
+              wrap: true,
+              margin: "md"
+            },
+            {
+              type: "text",
+              text: `申請ID: ${gasRowNumber}`,
+              size: "sm",
+              color: "#888888",
+              margin: "md"
+            }
+          ]
+        },
+        footer: {
+          type: "box",
+          layout: "horizontal",
+          spacing: "sm",
+          contents: [
+            {
+              type: "button",
+              style: "primary",
+              color: "#1DB446",
+              action: {
+                type: "postback",
+                label: "承認",
+                data: `reorder_action=approve&reorder_id=${gasRowNumber}`
+              }
+            },
+            {
+              type: "button",
+              style: "secondary",
+              action: {
+                type: "postback",
+                label: "却下",
+                data: `reorder_action=reject&reorder_id=${gasRowNumber}`
+              }
+            }
+          ]
+        }
+      }
+    };
+
     const res = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: LINE_ADMIN_GROUP_ID,
+        messages: [flexMessage],
+      }),
+      cache: "no-store",
+    });
+
+    const body = await res.text();
+    console.log(`[reorder/apply] LINE flex push status=${res.status} gasRow=${gasRowNumber}`);
+    if (!res.ok) {
+      console.error("[reorder/apply] LINE push failed:", body);
+    }
+  } catch (err) {
+    console.error("[reorder/apply] LINE push error:", err);
+  }
+}
+
+// テキスト通知（7.5mg警告用）
+async function pushTextToAdminGroup(text: string) {
+  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
+    return;
+  }
+
+  try {
+    await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -29,52 +144,8 @@ async function pushToAdminGroup(text: string) {
       }),
       cache: "no-store",
     });
-
-    const body = await res.text();
-    console.log("[reorder/apply] LINE push status=", res.status, "body=", body);
   } catch (err) {
-    console.error("[reorder/apply] LINE push error:", err);
-  }
-}
-
-// バックグラウンドGAS同期
-async function syncToGasInBackground(patientId: string, productCode: string, dbId: number) {
-  if (!GAS_REORDER_URL) {
-    console.log("[reorder/apply] GAS sync skipped (no URL)");
-    return;
-  }
-
-  try {
-    console.log(`[reorder/apply] Starting GAS sync for patient=${patientId}, dbId=${dbId}`);
-
-    const gasRes = await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "apply",
-        patient_id: patientId,
-        product_code: productCode,
-      }),
-      cache: "no-store",
-    });
-
-    const text = await gasRes.text().catch(() => "");
-    let gasJson: any = {};
-    try {
-      gasJson = text ? JSON.parse(text) : {};
-    } catch {
-      gasJson = {};
-    }
-
-    if (!gasRes.ok || gasJson.ok === false) {
-      console.error(`[reorder/apply] GAS sync failed for dbId=${dbId}:`, gasRes.status, text);
-      return;
-    }
-
-    // ★ GASからの行番号上書きは廃止（DBの連番を使用）
-    console.log(`[reorder/apply] GAS sync complete: dbId=${dbId} (gas_row_number is DB-managed)`);
-  } catch (err) {
-    console.error(`[reorder/apply] GAS sync exception for dbId=${dbId}:`, err);
+    console.error("[reorder/apply] LINE text push error:", err);
   }
 }
 
@@ -127,8 +198,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ DB-first: まずDBに書き込み（gas_row_numberは後で更新）
-    // 仮のgas_row_numberを生成（DBの最大値+1）
+    // ★ DB: gas_row_numberを生成（DBの最大値+1）
     const { data: maxRow } = await supabaseAdmin
       .from("reorders")
       .select("gas_row_number")
@@ -136,7 +206,7 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    const tempRowNumber = (maxRow?.gas_row_number || 1) + 1;
+    const gasRowNumber = (maxRow?.gas_row_number || 1) + 1;
 
     const { data: insertedData, error: dbError } = await supabaseAdmin
       .from("reorders")
@@ -145,7 +215,7 @@ export async function POST(req: NextRequest) {
         product_code: productCode,
         status: "pending",
         line_uid: lineUid || null,
-        gas_row_number: tempRowNumber,
+        gas_row_number: gasRowNumber,
       })
       .select("id")
       .single();
@@ -156,17 +226,17 @@ export async function POST(req: NextRequest) {
     }
 
     const dbId = insertedData.id;
-    console.log(`[reorder/apply] DB insert success: id=${dbId}, patient=${patientId}`);
+    console.log(`[reorder/apply] DB insert success: id=${dbId}, gas_row=${gasRowNumber}, patient=${patientId}`);
 
     // ★ キャッシュ削除（即時）
     await invalidateDashboardCache(patientId);
 
-    // ★ バックグラウンドでGAS同期（レスポンスを待たない）
-    syncToGasInBackground(patientId, productCode, dbId).catch((err) => {
-      console.error("[reorder/apply] Background GAS sync error:", err);
+    // ★ LINE通知（承認ボタン付き）を送信（非同期）
+    sendReorderNotification(patientId, productCode, gasRowNumber).catch((err) => {
+      console.error("[reorder/apply] LINE notification error:", err);
     });
 
-    // ★ 7.5mg初回申請チェック → LINE通知（非同期）
+    // ★ 7.5mg初回申請チェック → 追加警告（非同期）
     if (productCode.includes("7.5mg")) {
       (async () => {
         try {
@@ -181,15 +251,8 @@ export async function POST(req: NextRequest) {
             console.error("[reorder/apply] 7.5mg history check error:", prev75Error);
           } else if (!prev75Orders || prev75Orders.length === 0) {
             console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
-            const alertText = `⚠️【7.5mg 初回申請】⚠️
-
-患者ID: ${patientId}
-商品: ${productCode}
-
-この患者は7.5mgの処方歴がありません。
-承認前にご確認ください。`;
-
-            await pushToAdminGroup(alertText);
+            const alertText = `⚠️【7.5mg 初回申請】⚠️\n患者ID: ${patientId}\n\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。`;
+            await pushTextToAdminGroup(alertText);
           }
         } catch (err) {
           console.error("[reorder/apply] 7.5mg check exception:", err);
