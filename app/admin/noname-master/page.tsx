@@ -31,6 +31,10 @@ export default function NonameMasterPage() {
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<"all" | "unshipped" | "shipped" | "overdue">("all");
   const [addingToShipping, setAddingToShipping] = useState<Record<string, boolean>>({});
+  const [showEditMenu, setShowEditMenu] = useState<string | null>(null);
+  const [editingTrackingFor, setEditingTrackingFor] = useState<string | null>(null);
+  const [newTrackingNumber, setNewTrackingNumber] = useState("");
+  const [processingEdit, setProcessingEdit] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -156,6 +160,99 @@ export default function NonameMasterPage() {
       alert(err instanceof Error ? err.message : "更新に失敗しました");
     } finally {
       setSavingTracking((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  // 追跡番号変更
+  const handleChangeTracking = async (orderId: string) => {
+    if (!newTrackingNumber.trim()) {
+      alert("追跡番号を入力してください");
+      return;
+    }
+    if (!confirm(`追跡番号を「${newTrackingNumber.trim()}」に変更しますか？`)) return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setProcessingEdit((prev) => ({ ...prev, [orderId]: true }));
+
+    try {
+      const res = await fetch("/api/admin/noname-master/update-tracking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          tracking_number: newTrackingNumber.trim(),
+          update_only: true, // 追跡番号のみ更新
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "更新失敗");
+      }
+
+      const data = await res.json();
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, tracking_number: data.order.tracking_number }
+            : o
+        )
+      );
+      setEditingTrackingFor(null);
+      setNewTrackingNumber("");
+      setShowEditMenu(null);
+      alert("追跡番号を変更しました");
+    } catch (err) {
+      console.error("Change tracking error:", err);
+      alert(err instanceof Error ? err.message : "変更に失敗しました");
+    } finally {
+      setProcessingEdit((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  // ラベル作り直し（shipping info, tracking numberをnullにして発送リストに追加）
+  const handleRecreateLabel = async (orderId: string) => {
+    if (!confirm("ラベルを作り直しますか？\n\n・追跡番号がクリアされます\n・発送情報がリセットされます\n・本日の発送リストに追加されます")) return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setProcessingEdit((prev) => ({ ...prev, [orderId]: true }));
+
+    try {
+      const res = await fetch("/api/admin/noname-master/recreate-label", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "更新失敗");
+      }
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, tracking_number: "", shipping_date: "" }
+            : o
+        )
+      );
+      setShowEditMenu(null);
+      alert("ラベル作り直しの準備が完了しました。発送リストに追加されました。");
+    } catch (err) {
+      console.error("Recreate label error:", err);
+      alert(err instanceof Error ? err.message : "処理に失敗しました");
+    } finally {
+      setProcessingEdit((prev) => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -307,6 +404,9 @@ export default function NonameMasterPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   追跡番号
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  変更
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   購入回数
                 </th>
@@ -315,7 +415,7 @@ export default function NonameMasterPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
                     注文データがありません
                   </td>
                 </tr>
@@ -410,6 +510,79 @@ export default function NonameMasterPage() {
                             {savingTracking[order.id] ? "..." : "保存"}
                           </button>
                         </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center relative">
+                      {order.tracking_number ? (
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => setShowEditMenu(showEditMenu === order.id ? null : order.id)}
+                            disabled={processingEdit[order.id]}
+                            className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {processingEdit[order.id] ? "..." : "変更"}
+                          </button>
+                          {showEditMenu === order.id && (
+                            <div className="absolute z-10 mt-1 right-0 w-40 bg-white border border-slate-200 rounded-lg shadow-lg">
+                              {editingTrackingFor === order.id ? (
+                                <div className="p-2">
+                                  <input
+                                    type="text"
+                                    placeholder="新しい追跡番号"
+                                    value={newTrackingNumber}
+                                    onChange={(e) => setNewTrackingNumber(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleChangeTracking(order.id);
+                                      if (e.key === "Escape") {
+                                        setEditingTrackingFor(null);
+                                        setNewTrackingNumber("");
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded mb-2"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => handleChangeTracking(order.id)}
+                                      className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                    >
+                                      変更
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingTrackingFor(null);
+                                        setNewTrackingNumber("");
+                                      }}
+                                      className="flex-1 px-2 py-1 text-xs bg-slate-300 text-slate-700 rounded hover:bg-slate-400"
+                                    >
+                                      戻る
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingTrackingFor(order.id);
+                                      setNewTrackingNumber(order.tracking_number || "");
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 border-b border-slate-200"
+                                  >
+                                    追跡番号変更
+                                  </button>
+                                  <button
+                                    onClick={() => handleRecreateLabel(order.id)}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                                  >
+                                    ラベル作り直し
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">

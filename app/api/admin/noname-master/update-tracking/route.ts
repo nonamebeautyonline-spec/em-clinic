@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { order_id, tracking_number } = body;
+    const { order_id, tracking_number, update_only } = body;
 
     if (!order_id) {
       return NextResponse.json({ error: "order_id is required" }, { status: 400 });
@@ -31,15 +31,23 @@ export async function POST(req: NextRequest) {
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
+    // update_only: trueの場合は追跡番号のみ更新（shipping_dateは変更しない）
+    const updateData = update_only
+      ? {
+          tracking_number: tracking_number.trim(),
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          tracking_number: tracking_number.trim(),
+          shipping_status: "shipped",
+          shipping_date: today,
+          updated_at: new Date().toISOString(),
+        };
+
     // 注文を更新
     const { data, error } = await supabase
       .from("orders")
-      .update({
-        tracking_number: tracking_number.trim(),
-        shipping_status: "shipped",
-        shipping_date: today,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", order_id)
       .select("id, patient_id, tracking_number, shipping_date");
 
