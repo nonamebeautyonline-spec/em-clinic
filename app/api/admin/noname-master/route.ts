@@ -30,23 +30,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // クエリパラメータ: limit, include_pending
+    // クエリパラメータ: limit
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "100");
-    const includePending = searchParams.get("include_pending") === "true";
 
     // ordersテーブルから全決済を取得（★ shipping_name, statusを追加）
-    // ★ デフォルトでpending_confirmationを除外（銀行振込申請中を除外）
-    let query = supabase
+    // ★ created_atで並び替え（paid_atがnullの未照合も含むため）
+    const { data: orders, error } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at");
-
-    // pending_confirmation除外（デフォルト）
-    if (!includePending) {
-      query = query.not("status", "eq", "pending_confirmation");
-    }
-
-    const { data: orders, error } = await query
+      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
 
