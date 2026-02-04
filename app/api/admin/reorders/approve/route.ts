@@ -1,9 +1,9 @@
+// DB-only: 再処方承認（GAS不要）
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,77 +15,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!GAS_REORDER_URL) {
-      return NextResponse.json(
-        { error: "GAS_REORDER_URL is not configured" },
-        { status: 500 }
-      );
-    }
-
     const body = await req.json();
-    const { id } = body; // id = GAS行番号 = gas_row_number
+    const { id } = body; // id = gas_row_number
 
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
-    // ★ GASで承認（既存処理）
-    const gasRes = await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "approve",
-        id: id,
-      }),
-      cache: "no-store",
-    });
+    // まずpatient_idを取得
+    const { data: reorderData, error: fetchError } = await supabaseAdmin
+      .from("reorders")
+      .select("id, patient_id, status")
+      .eq("gas_row_number", Number(id))
+      .single();
 
-    const gasText = await gasRes.text().catch(() => "");
-    let gasJson: any = {};
-    try {
-      gasJson = gasText ? JSON.parse(gasText) : {};
-    } catch {
-      gasJson = {};
+    if (fetchError || !reorderData) {
+      console.error("[admin/reorders/approve] Reorder not found:", id);
+      return NextResponse.json({ error: "Reorder not found" }, { status: 404 });
     }
 
-    if (!gasRes.ok || gasJson.ok === false) {
-      console.error("GAS reorder approve error:", gasJson.error || gasRes.status);
-      return NextResponse.json(
-        { error: gasJson.error || "GAS error" },
-        { status: 500 }
-      );
+    // ステータス更新
+    const { error: dbError } = await supabaseAdmin
+      .from("reorders")
+      .update({
+        status: "confirmed",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("gas_row_number", Number(id));
+
+    if (dbError) {
+      console.error("[admin/reorders/approve] DB update error:", dbError);
+      return NextResponse.json({ error: "DB error" }, { status: 500 });
     }
 
-    // ★ Supabaseも更新（gas_row_numberでマッチング）
-    try {
-      // まずpatient_idを取得
-      const { data: reorderData } = await supabaseAdmin
-        .from("reorders")
-        .select("patient_id")
-        .eq("gas_row_number", Number(id))
-        .single();
+    console.log(`[admin/reorders/approve] Approved: gas_row=${id}, patient=${reorderData.patient_id}`);
 
-      const { error: dbError } = await supabaseAdmin
-        .from("reorders")
-        .update({
-          status: "confirmed",
-          approved_at: new Date().toISOString(),
-        })
-        .eq("gas_row_number", Number(id));
-
-      if (dbError) {
-        console.error("[admin/reorders/approve] Supabase update error:", dbError);
-      } else {
-        console.log(`[admin/reorders/approve] Supabase update success, row=${id}`);
-
-        // ★ キャッシュ削除
-        if (reorderData?.patient_id) {
-          await invalidateDashboardCache(reorderData.patient_id);
-          console.log(`[admin/reorders/approve] Cache invalidated for patient ${reorderData.patient_id}`);
-        }
-      }
-    } catch (dbErr) {
-      console.error("[admin/reorders/approve] Supabase exception:", dbErr);
+    // キャッシュ削除
+    if (reorderData.patient_id) {
+      await invalidateDashboardCache(reorderData.patient_id);
     }
 
     return NextResponse.json({ ok: true });
