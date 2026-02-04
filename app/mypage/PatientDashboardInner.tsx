@@ -57,6 +57,7 @@ interface OrdersFlags {
 
 interface ReorderItem {
   id: string;
+  gas_row_number?: number | null; // ★ GAS行番号（決済時に使用）
   timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
 
   // 互換（GASはsnake_case、フロントはcamelCaseが混在し得る）
@@ -803,9 +804,9 @@ const orderHistoryToRender = showAllHistory ? orderHistoryAll : orderHistoryPrev
     : null;
 
   // 表示に使う1件：
-  // 1. pending があれば pending を優先
-  // 2. なければ confirmed を表示
-  const displayReorder = latestPendingReorder ?? latestConfirmedReorder;
+  // 1. confirmed があれば confirmed を優先（決済が必要なため）
+  // 2. なければ pending を表示
+  const displayReorder = latestConfirmedReorder ?? latestPendingReorder;
   const displayReorderStatus = displayReorder?.status; // "pending" | "confirmed" | undefined
 
 
@@ -1178,8 +1179,14 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           alert("再処方の決済情報（product_code）が見つかりません。管理者にお問い合わせください。");
           return;
         }
+        // ★ gas_row_number を使用（webhookがgas_row_numberで更新するため）
+        const gasRowNum = displayReorder.gas_row_number;
+        if (!gasRowNum) {
+          alert("再処方の識別子（gas_row_number）が見つかりません。管理者にお問い合わせください。");
+          return;
+        }
         const code = encodeURIComponent(raw);
-        const reorderId = encodeURIComponent(String(displayReorder.id || ""));
+        const reorderId = encodeURIComponent(String(gasRowNum));
         router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
       }}
       className="px-3 py-1 rounded-full bg-pink-500 text-white"

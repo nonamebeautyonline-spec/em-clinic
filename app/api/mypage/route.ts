@@ -450,7 +450,7 @@ async function getReordersFromSupabase(patientId: string): Promise<{
   try {
     const { data, error } = await supabaseAdmin
       .from("reorders")
-      .select("id, status, created_at, product_code")
+      .select("id, status, created_at, product_code, gas_row_number")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
 
@@ -467,6 +467,7 @@ async function getReordersFromSupabase(patientId: string): Promise<{
 
       return {
         id: String(r.id),
+        gas_row_number: r.gas_row_number ? Number(r.gas_row_number) : null,
         status: String(r.status || ""),
         createdAt: r.created_at || "",
         productCode,
