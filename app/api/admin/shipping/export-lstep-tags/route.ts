@@ -96,16 +96,16 @@ export async function GET(req: NextRequest) {
 
     const csvContent = csvRows.join("\n");
 
-    // Shift_JISにエンコード（Lステップが要求する形式）
-    const shiftJisBuffer = iconv.encode(csvContent, "Shift_JIS");
-    const shiftJisBytes = new Uint8Array(shiftJisBuffer);
+    // UTF-8 with BOM（Lステップ・Excel両対応）
+    const BOM = "\uFEFF";
+    const utf8Content = BOM + csvContent;
 
-    console.log(`[ExportLstepTags] Generated CSV with ${validPatients.length} entries`);
+    console.log(`[ExportLstepTags] Generated CSV with ${validPatients.length} entries (UTF-8 with BOM)`);
 
-    return new NextResponse(shiftJisBytes, {
+    return new NextResponse(utf8Content, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=Shift_JIS",
+        "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="lstep_tags_${today}.csv"`,
       },
     });
