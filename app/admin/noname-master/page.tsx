@@ -24,7 +24,7 @@ export default function NonameMasterPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
-  const [limit] = useState(500);
+  const [limit, setLimit] = useState(50);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
@@ -39,7 +39,7 @@ export default function NonameMasterPage() {
       return;
     }
     loadOrders(token);
-  }, [router, page, filter]);
+  }, [router, page, filter, limit]);
 
   const loadOrders = async (token: string) => {
     setLoading(true);
@@ -243,7 +243,22 @@ export default function NonameMasterPage() {
             {filter === "overdue" && "（発送漏れ）"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-slate-600">表示件数:</span>
+            <select
+              value={limit}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              className="px-2 py-1 text-sm border border-slate-300 rounded bg-white"
+            >
+              <option value={20}>20件</option>
+              <option value={50}>50件</option>
+              <option value={100}>100件</option>
+              <option value={200}>200件</option>
+              <option value={500}>500件</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
@@ -261,6 +276,7 @@ export default function NonameMasterPage() {
           >
             次へ →
           </button>
+          </div>
         </div>
       </div>
 
