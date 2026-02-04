@@ -16,6 +16,7 @@ interface Order {
   tracking_number: string;
   purchase_count: number;
   status?: string;
+  is_overdue?: boolean; // 発送漏れフラグ
 }
 
 export default function NonameMasterPage() {
@@ -28,6 +29,8 @@ export default function NonameMasterPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
+  const [filter, setFilter] = useState<"all" | "unshipped" | "shipped" | "overdue">("all");
+  const [addingToShipping, setAddingToShipping] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -36,7 +39,7 @@ export default function NonameMasterPage() {
       return;
     }
     loadOrders(token);
-  }, [router, page]);
+  }, [router, page, filter]);
 
   const loadOrders = async (token: string) => {
     setLoading(true);
@@ -44,7 +47,7 @@ export default function NonameMasterPage() {
 
     try {
       const offset = (page - 1) * limit;
-      const res = await fetch(`/api/admin/noname-master?limit=${limit}&offset=${offset}`, {
+      const res = await fetch(`/api/admin/noname-master?limit=${limit}&offset=${offset}&filter=${filter}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -65,6 +68,44 @@ export default function NonameMasterPage() {
 
   const handleTrackingChange = (orderId: string, value: string) => {
     setEditingTracking((prev) => ({ ...prev, [orderId]: value }));
+  };
+
+  const handleAddToShipping = async (orderId: string) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setAddingToShipping((prev) => ({ ...prev, [orderId]: true }));
+
+    try {
+      const res = await fetch("/api/admin/noname-master/add-to-shipping", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "追加失敗");
+      }
+
+      const data = await res.json();
+      // 成功したらordersを更新
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, shipping_date: data.order.shipping_date, is_overdue: false }
+            : o
+        )
+      );
+    } catch (err) {
+      console.error("Add to shipping error:", err);
+      alert(err instanceof Error ? err.message : "追加に失敗しました");
+    } finally {
+      setAddingToShipping((prev) => ({ ...prev, [orderId]: false }));
+    }
   };
 
   const handleTrackingSave = async (orderId: string) => {
@@ -167,10 +208,39 @@ export default function NonameMasterPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => { setFilter("all"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${filter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              全て
+            </button>
+            <button
+              onClick={() => { setFilter("unshipped"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${filter === "unshipped" ? "bg-orange-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              未発送
+            </button>
+            <button
+              onClick={() => { setFilter("overdue"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${filter === "overdue" ? "bg-red-600 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              発送漏れ
+            </button>
+            <button
+              onClick={() => { setFilter("shipped"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${filter === "shipped" ? "bg-green-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              発送済
+            </button>
+          </div>
           <span className="text-sm text-slate-600">
-            全 {totalCount} 件中 {(page - 1) * limit + 1}〜{Math.min(page * limit, totalCount)} 件表示
+            {totalCount} 件
+            {filter === "unshipped" && "（未発送）"}
+            {filter === "shipped" && "（発送済）"}
+            {filter === "overdue" && "（発送漏れ）"}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -234,10 +304,17 @@ export default function NonameMasterPage() {
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50">
+                  <tr key={order.id} className={`hover:bg-slate-50 ${order.is_overdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {formatDateTime(order.payment_date)}
-                      {order.payment_date_label && <span className="text-slate-500 ml-1">{order.payment_date_label}</span>}
+                      <div className="flex items-center gap-2">
+                        {order.is_overdue && (
+                          <span className="px-2 py-0.5 text-xs font-bold rounded bg-red-600 text-white">
+                            漏れ
+                          </span>
+                        )}
+                        <span>{formatDateTime(order.payment_date)}</span>
+                        {order.payment_date_label && <span className="text-slate-500">{order.payment_date_label}</span>}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-2">
@@ -272,7 +349,19 @@ export default function NonameMasterPage() {
                       {order.product_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                      {formatDateOnly(order.shipping_date)}
+                      {order.shipping_date ? (
+                        formatDateOnly(order.shipping_date)
+                      ) : order.is_overdue ? (
+                        <button
+                          onClick={() => handleAddToShipping(order.id)}
+                          disabled={addingToShipping[order.id]}
+                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {addingToShipping[order.id] ? "..." : "本日発送に追加"}
+                        </button>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                       {order.tracking_number ? (

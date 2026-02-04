@@ -30,20 +30,52 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // クエリパラメータ: limit, offset
+    // クエリパラメータ: limit, offset, filter
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "500");
     const offset = parseInt(searchParams.get("offset") || "0");
+    const filter = searchParams.get("filter") || "all"; // all, unshipped, shipped, overdue
+
+    // ★ 発送漏れ判定用: 前日12時（JST）のカットオフタイム（フィルター用に先に計算）
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000; // JST = UTC+9
+    const nowJST = new Date(now.getTime() + jstOffset);
+    const yesterdayNoonJST = new Date(nowJST);
+    yesterdayNoonJST.setDate(yesterdayNoonJST.getDate() - 1);
+    yesterdayNoonJST.setHours(12, 0, 0, 0);
+    const cutoffTime = new Date(yesterdayNoonJST.getTime() - jstOffset); // UTC に戻す
+    const cutoffTimeISO = cutoffTime.toISOString();
+
+    // ベースクエリを構築
+    let countQuery = supabase.from("orders").select("*", { count: "exact", head: true });
+    let dataQuery = supabase
+      .from("orders")
+      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at");
+
+    // フィルター適用
+    if (filter === "unshipped") {
+      // 未発送: tracking_numberがnullまたは空
+      countQuery = countQuery.or("tracking_number.is.null,tracking_number.eq.");
+      dataQuery = dataQuery.or("tracking_number.is.null,tracking_number.eq.");
+    } else if (filter === "shipped") {
+      // 発送済み: tracking_numberがある
+      countQuery = countQuery.not("tracking_number", "is", null).neq("tracking_number", "");
+      dataQuery = dataQuery.not("tracking_number", "is", null).neq("tracking_number", "");
+    } else if (filter === "overdue") {
+      // 発送漏れ: 未発送 かつ 前日12時以前の決済
+      countQuery = countQuery
+        .or("tracking_number.is.null,tracking_number.eq.")
+        .lt("paid_at", cutoffTimeISO);
+      dataQuery = dataQuery
+        .or("tracking_number.is.null,tracking_number.eq.")
+        .lt("paid_at", cutoffTimeISO);
+    }
 
     // 総件数を取得
-    const { count: totalCount } = await supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true });
+    const { count: totalCount } = await countQuery;
 
     // ordersテーブルから決済を取得（ページネーション対応）
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at")
+    const { data: orders, error } = await dataQuery
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -101,6 +133,11 @@ export async function GET(req: NextRequest) {
         paymentDateLabel = "（申請中）";
       }
 
+      // ★ 発送漏れ判定: 前日12時以前の決済 かつ 未発送
+      const paymentTime = new Date(paymentDate).getTime();
+      const hasTracking = order.tracking_number && order.tracking_number !== "";
+      const isOverdue = !hasTracking && paymentTime < cutoffTime.getTime();
+
       return {
         id: order.id,
         patient_id: order.patient_id,
@@ -114,6 +151,7 @@ export async function GET(req: NextRequest) {
         shipping_date: order.shipping_date || "",
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 1,
+        is_overdue: isOverdue, // ★ 発送漏れフラグ
       };
     });
 
