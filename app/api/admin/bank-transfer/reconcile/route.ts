@@ -323,20 +323,69 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * カタカナを正規化（全角→半角、濁点分離など）
+ * カタカナを正規化（小文字→大文字、半角→全角、スペース削除など）
  */
 function normalizeKana(str: string): string {
   if (!str) return "";
 
-  // 全角カタカナを半角に変換
-  let normalized = str
-    .replace(/[\u30a1-\u30f6]/g, (s) =>
-      String.fromCharCode(s.charCodeAt(0) - 0x60)
-    )
-    .toUpperCase();
+  let normalized = str;
+
+  // 半角カタカナを全角に変換
+  const halfToFull: Record<string, string> = {
+    "ｱ": "ア", "ｲ": "イ", "ｳ": "ウ", "ｴ": "エ", "ｵ": "オ",
+    "ｶ": "カ", "ｷ": "キ", "ｸ": "ク", "ｹ": "ケ", "ｺ": "コ",
+    "ｻ": "サ", "ｼ": "シ", "ｽ": "ス", "ｾ": "セ", "ｿ": "ソ",
+    "ﾀ": "タ", "ﾁ": "チ", "ﾂ": "ツ", "ﾃ": "テ", "ﾄ": "ト",
+    "ﾅ": "ナ", "ﾆ": "ニ", "ﾇ": "ヌ", "ﾈ": "ネ", "ﾉ": "ノ",
+    "ﾊ": "ハ", "ﾋ": "ヒ", "ﾌ": "フ", "ﾍ": "ヘ", "ﾎ": "ホ",
+    "ﾏ": "マ", "ﾐ": "ミ", "ﾑ": "ム", "ﾒ": "メ", "ﾓ": "モ",
+    "ﾔ": "ヤ", "ﾕ": "ユ", "ﾖ": "ヨ",
+    "ﾗ": "ラ", "ﾘ": "リ", "ﾙ": "ル", "ﾚ": "レ", "ﾛ": "ロ",
+    "ﾜ": "ワ", "ｦ": "ヲ", "ﾝ": "ン",
+    "ｧ": "ア", "ｨ": "イ", "ｩ": "ウ", "ｪ": "エ", "ｫ": "オ", // 半角小文字→全角大文字
+    "ｬ": "ヤ", "ｭ": "ユ", "ｮ": "ヨ", "ｯ": "ツ",
+    "ﾞ": "", "ﾟ": "", // 濁点・半濁点は削除（前の文字と合成されている場合が多い）
+    "ｰ": "ー", // 長音
+  };
+
+  // 濁音・半濁音の合成（半角）
+  const dakutenMap: Record<string, string> = {
+    "ｶﾞ": "ガ", "ｷﾞ": "ギ", "ｸﾞ": "グ", "ｹﾞ": "ゲ", "ｺﾞ": "ゴ",
+    "ｻﾞ": "ザ", "ｼﾞ": "ジ", "ｽﾞ": "ズ", "ｾﾞ": "ゼ", "ｿﾞ": "ゾ",
+    "ﾀﾞ": "ダ", "ﾁﾞ": "ヂ", "ﾂﾞ": "ヅ", "ﾃﾞ": "デ", "ﾄﾞ": "ド",
+    "ﾊﾞ": "バ", "ﾋﾞ": "ビ", "ﾌﾞ": "ブ", "ﾍﾞ": "ベ", "ﾎﾞ": "ボ",
+    "ﾊﾟ": "パ", "ﾋﾟ": "ピ", "ﾌﾟ": "プ", "ﾍﾟ": "ペ", "ﾎﾟ": "ポ",
+    "ｳﾞ": "ヴ",
+  };
+
+  // 濁音・半濁音を先に変換
+  for (const [half, full] of Object.entries(dakutenMap)) {
+    normalized = normalized.replace(new RegExp(half, "g"), full);
+  }
+
+  // 半角→全角変換
+  for (const [half, full] of Object.entries(halfToFull)) {
+    normalized = normalized.replace(new RegExp(half, "g"), full);
+  }
+
+  // 全角小文字カタカナを大文字に変換
+  const smallToLarge: Record<string, string> = {
+    "ァ": "ア", "ィ": "イ", "ゥ": "ウ", "ェ": "エ", "ォ": "オ",
+    "ャ": "ヤ", "ュ": "ユ", "ョ": "ヨ",
+    "ッ": "ツ",
+    "ヮ": "ワ",
+    "ヵ": "カ", "ヶ": "ケ",
+  };
+
+  for (const [small, large] of Object.entries(smallToLarge)) {
+    normalized = normalized.replace(new RegExp(small, "g"), large);
+  }
 
   // スペース、記号を削除
-  normalized = normalized.replace(/[\s\-\(\)（）]/g, "");
+  normalized = normalized.replace(/[\s\-\(\)（）・．.、，,]/g, "");
+
+  // 英字は大文字に
+  normalized = normalized.toUpperCase();
 
   return normalized;
 }
