@@ -30,52 +30,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 前回締め切り時刻を計算（デフォルト: 昨日の15時）
-    const searchParams = req.nextUrl.searchParams;
-    const cutoffParam = searchParams.get("cutoff");
-
-    let cutoffTime: Date;
-    if (cutoffParam) {
-      cutoffTime = new Date(cutoffParam);
-    } else {
-      // 昨日の15時（JST）
-      const now = new Date();
-      const jstOffset = 9 * 60 * 60 * 1000; // UTC+9
-      const jstNow = new Date(now.getTime() + jstOffset);
-
-      // 昨日の日付を取得
-      const yesterday = new Date(jstNow);
-      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-
-      // 昨日の15時（JST）= 昨日の06:00（UTC）
-      cutoffTime = new Date(Date.UTC(
-        yesterday.getUTCFullYear(),
-        yesterday.getUTCMonth(),
-        yesterday.getUTCDate(),
-        6, // 15時 - 9時間 = 6時（UTC）
-        0,
-        0
-      ));
-    }
-
-    const cutoffISO = cutoffTime.toISOString();
-
-    // ★ ordersテーブルから未発送の注文を取得（confirmed + pending_confirmation、住所情報も含む）
+    // ★ ordersテーブルから未発送の注文を取得
+    // 条件: shipping_list_created_at IS NULL（まだB2 CSVに入っていない）
     const { data: ordersConfirmed, error: ordersConfirmedError } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at")
-      .is("shipping_date", null)
+      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
+      .is("shipping_list_created_at", null)
       .eq("status", "confirmed")
-      .gte("paid_at", cutoffISO)
       .order("paid_at", { ascending: false });
 
     const { data: ordersPending, error: ordersPendingError } = await supabase
       .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at")
-      .is("shipping_date", null)
+      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
+      .is("shipping_list_created_at", null)
       .eq("status", "pending_confirmation")
       .eq("payment_method", "bank_transfer")
-      .gte("created_at", cutoffISO)
       .order("created_at", { ascending: false });
 
     const ordersError = ordersConfirmedError || ordersPendingError;
