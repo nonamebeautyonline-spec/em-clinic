@@ -11,8 +11,10 @@ const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 // LINE Flex Message（承認・却下ボタン付き）を送信
 async function sendReorderNotification(
   patientId: string,
+  patientName: string,
   productCode: string,
-  gasRowNumber: number
+  gasRowNumber: number,
+  history: string
 ) {
   if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
     console.log("[reorder/apply] LINE notification skipped (missing config)");
@@ -30,7 +32,7 @@ async function sendReorderNotification(
 
     const flexMessage = {
       type: "flex",
-      altText: `【再処方申請】${patientId}`,
+      altText: `【再処方申請】${patientName}`,
       contents: {
         type: "bubble",
         header: {
@@ -53,22 +55,48 @@ async function sendReorderNotification(
           contents: [
             {
               type: "text",
-              text: `患者ID: ${patientId}`,
+              text: `氏名: ${patientName}`,
               size: "md",
+              weight: "bold",
               wrap: true
             },
             {
               type: "text",
-              text: `商品: ${productLabel}`,
+              text: `患者ID: ${patientId}`,
+              size: "sm",
+              color: "#666666",
+              margin: "sm"
+            },
+            {
+              type: "text",
+              text: `申請: ${productLabel}`,
               size: "md",
               wrap: true,
               margin: "md"
             },
             {
+              type: "separator",
+              margin: "md"
+            },
+            {
+              type: "text",
+              text: "過去の処方歴:",
+              size: "sm",
+              color: "#666666",
+              margin: "md"
+            },
+            {
+              type: "text",
+              text: history || "なし",
+              size: "sm",
+              wrap: true,
+              margin: "sm"
+            },
+            {
               type: "text",
               text: `申請ID: ${gasRowNumber}`,
-              size: "sm",
-              color: "#888888",
+              size: "xs",
+              color: "#999999",
               margin: "md"
             }
           ]
@@ -231,10 +259,41 @@ export async function POST(req: NextRequest) {
     // ★ キャッシュ削除（即時）
     await invalidateDashboardCache(patientId);
 
-    // ★ LINE通知（承認ボタン付き）を送信（非同期）
-    sendReorderNotification(patientId, productCode, gasRowNumber).catch((err) => {
-      console.error("[reorder/apply] LINE notification error:", err);
-    });
+    // ★ 患者名と処方歴を取得してLINE通知を送信（非同期）
+    (async () => {
+      try {
+        // 患者名を取得
+        const { data: intakeData } = await supabaseAdmin
+          .from("intake")
+          .select("patient_name")
+          .eq("patient_id", patientId)
+          .single();
+        const patientName = intakeData?.patient_name || patientId;
+
+        // 過去の処方歴を取得（最新5件）
+        const { data: historyData } = await supabaseAdmin
+          .from("orders")
+          .select("product_code, shipping_date")
+          .eq("patient_id", patientId)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        let history = "";
+        if (historyData && historyData.length > 0) {
+          history = historyData.map(o => {
+            const product = (o.product_code || "")
+              .replace("MJL_", "")
+              .replace("_", " ");
+            const date = o.shipping_date || "";
+            return `${date} ${product}`;
+          }).join("\n");
+        }
+
+        await sendReorderNotification(patientId, patientName, productCode, gasRowNumber, history);
+      } catch (err) {
+        console.error("[reorder/apply] LINE notification error:", err);
+      }
+    })();
 
     // ★ 7.5mg初回申請チェック → 追加警告（非同期）
     if (productCode.includes("7.5mg")) {
