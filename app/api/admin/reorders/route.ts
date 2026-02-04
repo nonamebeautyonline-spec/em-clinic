@@ -37,20 +37,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 患者名を取得するために、patient_idのリストを作成
+    // 患者名とLステップIDを取得するために、patient_idのリストを作成
     const patientIds = [...new Set((reordersData || []).map((r) => r.patient_id))];
 
-    // patientsテーブルから患者名を取得
-    let patientNameMap: Record<string, string> = {};
+    // intakeテーブルから患者名とanswerer_id（Lステップ用）を取得
+    let patientInfoMap: Record<string, { name: string; lstep_uid: string }> = {};
     if (patientIds.length > 0) {
-      const { data: patientsData, error: patientsError } = await supabaseAdmin
-        .from("patients")
-        .select("patient_id, name")
+      const { data: intakeData, error: intakeError } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name, answerer_id")
         .in("patient_id", patientIds);
 
-      if (!patientsError && patientsData) {
-        patientNameMap = Object.fromEntries(
-          patientsData.map((p) => [p.patient_id, p.name])
+      if (!intakeError && intakeData) {
+        patientInfoMap = Object.fromEntries(
+          intakeData.map((p) => [p.patient_id, {
+            name: p.patient_name || "-",
+            lstep_uid: p.answerer_id || ""
+          }])
         );
       }
     }
@@ -62,16 +65,17 @@ export async function GET(req: NextRequest) {
       if (displayStatus === "approved") displayStatus = "confirmed";
       if (displayStatus === "cancelled") displayStatus = "canceled";
 
+      const patientInfo = patientInfoMap[r.patient_id] || { name: "-", lstep_uid: "" };
       return {
         id: String(r.gas_row_number), // フロントエンドはidをgas_row_numberとして使用
         timestamp: formatTimestamp(r.timestamp),
         patient_id: r.patient_id,
-        patient_name: patientNameMap[r.patient_id] || "-",
+        patient_name: patientInfo.name,
         product_code: r.product_code,
         status: displayStatus,
         note: r.note || "",
         line_uid: r.line_uid || "",
-        lstep_uid: r.lstep_uid || "",
+        lstep_uid: patientInfo.lstep_uid,
       };
     });
 
