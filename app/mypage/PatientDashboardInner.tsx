@@ -1180,9 +1180,10 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           return;
         }
         // ★ gas_row_number を使用（webhookがgas_row_numberで更新するため）
-        const gasRowNum = displayReorder.gas_row_number;
+        // フォールバック: gas_row_number がない場合は id を使用（キャッシュ対応）
+        const gasRowNum = displayReorder.gas_row_number ?? displayReorder.id;
         if (!gasRowNum) {
-          alert("再処方の識別子（gas_row_number）が見つかりません。管理者にお問い合わせください。");
+          alert("再処方の識別子が見つかりません。管理者にお問い合わせください。");
           return;
         }
         const code = encodeURIComponent(raw);
