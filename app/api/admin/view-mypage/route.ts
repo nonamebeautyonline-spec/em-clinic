@@ -96,6 +96,46 @@ function toNumberOrUndefined(v: any): number | undefined {
 }
 
 /**
+ * Supabaseから次回予約情報を取得
+ */
+async function getNextReservationFromSupabase(
+  patientId: string
+): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from("intake")
+      .select("reserve_id, reserved_date, reserved_time, patient_name, status")
+      .eq("patient_id", patientId)
+      .not("reserve_id", "is", null)
+      .not("reserved_date", "is", null)
+      .not("reserved_time", "is", null)
+      // ★ 診察完了(OK/NG)とキャンセルを除外 - 未診察の予約のみ取得
+      .or("status.is.null,status.eq.")
+      .order("reserved_date", { ascending: true })
+      .order("reserved_time", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      console.log(`[admin/view-mypage] No reservation found for patient_id=${patientId}`);
+      return null;
+    }
+
+    // GASと同じ形式に変換
+    const datetime = `${data.reserved_date} ${data.reserved_time}`;
+    return {
+      id: data.reserve_id,
+      datetime,
+      title: "診察予約",
+      status: "confirmed",
+    };
+  } catch (err) {
+    console.error("[admin/view-mypage] getNextReservation error:", err);
+    return null;
+  }
+}
+
+/**
  * 管理者用：患者のマイページデータを確認
  * GET /api/admin/view-mypage?patient_id=20251200128
  * Authorization: Bearer <ADMIN_TOKEN>
@@ -248,10 +288,13 @@ export async function GET(req: NextRequest) {
       hasAnyPaidOrder: orders.length > 0,
     };
 
+    // ★ Supabaseから次回予約を取得（GASではなく）
+    const nextReservation = await getNextReservationFromSupabase(patientId);
+
     // ★ GASデータとSupabaseデータをマージ
     const responseData = {
       patient: gasData.patient || null,
-      nextReservation: gasData.nextReservation || null,
+      nextReservation, // ★ Supabaseから取得
       activeOrders: gasData.activeOrders || [],
       history: gasData.history || [],
       hasMoreHistory: gasData.hasMoreHistory || false,
