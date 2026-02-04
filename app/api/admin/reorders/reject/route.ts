@@ -1,9 +1,31 @@
-// DB-only: 再処方却下（GAS不要）
+// DB-only: 再処方却下（GAS不要）+ LINE通知
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
+
+async function pushToGroup(text: string) {
+  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) return;
+  try {
+    await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to: LINE_ADMIN_GROUP_ID,
+        messages: [{ type: "text", text }],
+      }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("[admin/reject] LINE push error:", err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
-    // まずpatient_idを取得
+    // まずpatient_idとstatusを取得
     const { data: reorderData, error: fetchError } = await supabaseAdmin
       .from("reorders")
       .select("id, patient_id, status")
@@ -32,6 +54,15 @@ export async function POST(req: NextRequest) {
     if (fetchError || !reorderData) {
       console.error("[admin/reorders/reject] Reorder not found:", id);
       return NextResponse.json({ error: "Reorder not found" }, { status: 404 });
+    }
+
+    // 重複チェック: 既に処理済みならスキップ
+    if (reorderData.status !== "pending") {
+      console.log(`[admin/reorders/reject] Already processed: ${reorderData.status}`);
+      return NextResponse.json({
+        ok: true,
+        message: `既に処理済みです (${reorderData.status})`
+      });
     }
 
     // ステータス更新
@@ -54,6 +85,9 @@ export async function POST(req: NextRequest) {
     if (reorderData.patient_id) {
       await invalidateDashboardCache(reorderData.patient_id);
     }
+
+    // LINE通知（管理画面から却下）
+    pushToGroup(`【再処方】却下しました（管理画面）\n申請ID: ${id}`).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (error) {
