@@ -16,9 +16,12 @@ const supabase = createClient(
 /**
  * GASのSquare WebhookシートからordersテーブルにバックフィルするAPI
  * GAS APIを呼び出して全データを取得し、ordersテーブルに住所情報含めて保存
+ *
+ * ★ 重要: DBの既存 shipping 情報（tracking_number, shipping_date, shipping_status）は上書きしない
  */
 async function backfillSquareOrders() {
   console.log('=== Square決済データのバックフィル（GAS→Supabase） ===\n');
+  console.log('★ DBの既存shipping情報（tracking_number等）は保持されます\n');
 
   const gasUrl = process.env.GAS_SQUARE_WEBHOOK_URL;
   if (!gasUrl) {
@@ -31,7 +34,6 @@ async function backfillSquareOrders() {
 
   try {
     // GAS APIを呼び出して全データ取得
-    // kind=list_all で全レコード取得
     const res = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,16 +57,28 @@ async function backfillSquareOrders() {
 
     console.log(`✅ ${rows.length}件のデータを取得しました\n`);
 
-    // ヘッダーマッピング（GASのヘッダー順序）
-    // order_datetime, name（配送先）, postal, address, email, phone, items, amount,
-    // name（請求先）, payment_id, productCode, patientId, order_id, payment_status,
-    // refund_status, refunded_amount, refunded_at, refund_id
+    // ★ DBの既存注文でtracking_numberがあるものを取得（これらはスキップ）
+    console.log('2. DBの既存shipping情報を確認中...\n');
+    const existingWithTracking = new Set();
+    let offset = 0;
+    while (true) {
+      const { data: existing } = await supabase
+        .from('orders')
+        .select('id')
+        .not('tracking_number', 'is', null)
+        .neq('tracking_number', '')
+        .range(offset, offset + 999);
+      if (!existing || existing.length === 0) break;
+      existing.forEach(o => existingWithTracking.add(o.id));
+      offset += 1000;
+    }
+    console.log(`   tracking_numberあり: ${existingWithTracking.size}件（これらはスキップ）\n`);
 
-    console.log('2. ordersテーブルに保存中...\n');
+    console.log('3. ordersテーブルに保存中...\n');
 
     let inserted = 0;
-    let updated = 0;
-    let skipped = 0;
+    let skippedNoId = 0;
+    let skippedHasTracking = 0;
     let errors = 0;
 
     // バッチ処理（100件ずつ）
@@ -97,7 +111,13 @@ async function backfillSquareOrders() {
 
           // payment_idとpatient_idが必須
           if (!payment_id || !patient_id) {
-            skipped++;
+            skippedNoId++;
+            return null;
+          }
+
+          // ★ DBに既存のtracking_numberがある注文はスキップ
+          if (existingWithTracking.has(String(payment_id))) {
+            skippedHasTracking++;
             return null;
           }
 
@@ -127,15 +147,13 @@ async function backfillSquareOrders() {
             paid_at: paidAt,
             payment_status: payment_status || 'COMPLETED',
             payment_method: 'credit_card',
-            status: 'confirmed', // クレカは常に確認済み
-            shipping_status: 'pending', // デフォルトは発送待ち
-            // ★ 住所情報
+            status: 'confirmed',
+            shipping_status: 'pending',
             shipping_name: shipping_name || null,
             postal_code: postal_code || null,
             address: address || null,
             phone: phone || null,
             email: email || null,
-            // 返金情報
             refund_status: refund_status || null,
             refunded_amount: refunded_amount ? parseFloat(String(refunded_amount)) : null,
             refunded_at: refunded_at || null,
@@ -148,7 +166,7 @@ async function backfillSquareOrders() {
       if (ordersToInsert.length === 0) continue;
 
       // Supabaseにupsert
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('orders')
         .upsert(ordersToInsert, { onConflict: 'id' });
 
@@ -156,7 +174,6 @@ async function backfillSquareOrders() {
         console.error(`❌ バッチ ${Math.floor(i / BATCH_SIZE) + 1} エラー:`, error.message);
         errors += ordersToInsert.length;
       } else {
-        // upsertは更新/挿入を区別できないので、とりあえず成功数としてカウント
         inserted += ordersToInsert.length;
         console.log(`   バッチ ${Math.floor(i / BATCH_SIZE) + 1}: ${ordersToInsert.length}件処理完了`);
       }
@@ -164,11 +181,12 @@ async function backfillSquareOrders() {
 
     console.log('\n=== バックフィル完了 ===');
     console.log(`処理済み: ${inserted}件`);
-    console.log(`スキップ: ${skipped}件 (payment_id または patient_id なし)`);
+    console.log(`スキップ（ID不足）: ${skippedNoId}件`);
+    console.log(`スキップ（tracking保持）: ${skippedHasTracking}件`);
     console.log(`エラー: ${errors}件\n`);
 
     // 確認クエリ
-    console.log('3. 確認: ordersテーブルのレコード数を確認中...\n');
+    console.log('4. 確認: ordersテーブルのレコード数を確認中...\n');
     const { count } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true });

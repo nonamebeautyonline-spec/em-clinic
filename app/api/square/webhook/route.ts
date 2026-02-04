@@ -430,36 +430,72 @@ if (reorderId) {
       });
 
       // ★ Supabase ordersテーブルにINSERT（マイページ用 + 発送管理用）
+      // 重要: 既存の注文がある場合、shipping情報（tracking_number, shipping_date, shipping_status）を上書きしない
       if (patientId) {
         try {
-          const { error } = await supabase.from("orders").upsert({
-            id: paymentId,
-            patient_id: patientId,
-            product_code: productCode || null,
-            product_name: itemsText || null,
-            amount: amountText ? parseFloat(amountText) : 0,
-            paid_at: createdAtIso || new Date().toISOString(),
-            shipping_status: "pending",
-            payment_status: "COMPLETED",
-            payment_method: "credit_card",
-            status: "confirmed", // クレカ決済は常に確認済み
-            // ★ 住所情報追加（発送管理用）
-            shipping_name: shipName || null,
-            postal_code: postal || null,
-            address: address || null,
-            phone: finalPhone || null,
-            email: finalEmail || null,
-          }, {
-            onConflict: "id"
-          });
+          // 既存の注文を確認
+          const { data: existingOrder } = await supabase
+            .from("orders")
+            .select("id, tracking_number, shipping_date, shipping_status")
+            .eq("id", paymentId)
+            .maybeSingle();
 
-          if (error) {
-            console.error("[square/webhook] Supabase upsert failed:", error);
+          if (existingOrder) {
+            // 既存の注文がある場合は、shipping情報を保持してその他の情報のみ更新
+            const { error } = await supabase
+              .from("orders")
+              .update({
+                patient_id: patientId,
+                product_code: productCode || null,
+                product_name: itemsText || null,
+                amount: amountText ? parseFloat(amountText) : 0,
+                paid_at: createdAtIso || new Date().toISOString(),
+                payment_status: "COMPLETED",
+                payment_method: "credit_card",
+                status: "confirmed",
+                // shipping_status, tracking_number, shipping_date は保持（上書きしない）
+                // 住所情報は既存のtracking_numberがなければ更新
+                ...(!existingOrder.tracking_number && shipName ? { shipping_name: shipName } : {}),
+                ...(!existingOrder.tracking_number && postal ? { postal_code: postal } : {}),
+                ...(!existingOrder.tracking_number && address ? { address: address } : {}),
+                ...(!existingOrder.tracking_number && finalPhone ? { phone: finalPhone } : {}),
+                ...(!existingOrder.tracking_number && finalEmail ? { email: finalEmail } : {}),
+              })
+              .eq("id", paymentId);
+
+            if (error) {
+              console.error("[square/webhook] Supabase update failed:", error);
+            } else {
+              console.log("[square/webhook] Supabase order updated (shipping preserved):", paymentId);
+            }
           } else {
-            console.log("[square/webhook] Supabase order inserted with address:", paymentId);
+            // 新規注文の場合はINSERT
+            const { error } = await supabase.from("orders").insert({
+              id: paymentId,
+              patient_id: patientId,
+              product_code: productCode || null,
+              product_name: itemsText || null,
+              amount: amountText ? parseFloat(amountText) : 0,
+              paid_at: createdAtIso || new Date().toISOString(),
+              shipping_status: "pending",
+              payment_status: "COMPLETED",
+              payment_method: "credit_card",
+              status: "confirmed",
+              shipping_name: shipName || null,
+              postal_code: postal || null,
+              address: address || null,
+              phone: finalPhone || null,
+              email: finalEmail || null,
+            });
+
+            if (error) {
+              console.error("[square/webhook] Supabase insert failed:", error);
+            } else {
+              console.log("[square/webhook] Supabase order inserted:", paymentId);
+            }
           }
         } catch (err) {
-          console.error("[square/webhook] Supabase insert error:", err);
+          console.error("[square/webhook] Supabase error:", err);
         }
       }
 

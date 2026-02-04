@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export async function POST(req: NextRequest) {
+  try {
+    // 認証チェック
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { order_id, tracking_number } = body;
+
+    if (!order_id) {
+      return NextResponse.json({ error: "order_id is required" }, { status: 400 });
+    }
+
+    if (!tracking_number || tracking_number.trim() === "") {
+      return NextResponse.json({ error: "tracking_number is required" }, { status: 400 });
+    }
+
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // 注文を更新
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        tracking_number: tracking_number.trim(),
+        shipping_status: "shipped",
+        shipping_date: today,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order_id)
+      .select("id, patient_id, tracking_number, shipping_date");
+
+    if (error) {
+      console.error("[UpdateTracking] Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    console.log(`[UpdateTracking] ✅ Updated order ${order_id} with tracking ${tracking_number}`);
+
+    // キャッシュ無効化
+    if (data[0]?.patient_id) {
+      const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;
+      fetch(invalidateUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${ADMIN_TOKEN}`,
+        },
+        body: JSON.stringify({ patient_id: data[0].patient_id }),
+      }).catch((err) => {
+        console.error("[UpdateTracking] Cache invalidation failed:", err);
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      order: data[0],
+    });
+  } catch (error) {
+    console.error("[UpdateTracking] API error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Server error" },
+      { status: 500 }
+    );
+  }
+}

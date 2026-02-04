@@ -23,7 +23,11 @@ export default function NonameMasterPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
-  const [limit, setLimit] = useState(100);
+  const [limit] = useState(500);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
+  const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -32,14 +36,15 @@ export default function NonameMasterPage() {
       return;
     }
     loadOrders(token);
-  }, [router, limit]);
+  }, [router, page]);
 
   const loadOrders = async (token: string) => {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch(`/api/admin/noname-master?limit=${limit}`, {
+      const offset = (page - 1) * limit;
+      const res = await fetch(`/api/admin/noname-master?limit=${limit}&offset=${offset}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -49,6 +54,7 @@ export default function NonameMasterPage() {
 
       const data = await res.json();
       setOrders(data.orders || []);
+      setTotalCount(data.total || 0);
     } catch (err) {
       console.error("Orders fetch error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -56,6 +62,62 @@ export default function NonameMasterPage() {
       setLoading(false);
     }
   };
+
+  const handleTrackingChange = (orderId: string, value: string) => {
+    setEditingTracking((prev) => ({ ...prev, [orderId]: value }));
+  };
+
+  const handleTrackingSave = async (orderId: string) => {
+    const trackingNumber = editingTracking[orderId];
+    if (!trackingNumber || trackingNumber.trim() === "") return;
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setSavingTracking((prev) => ({ ...prev, [orderId]: true }));
+
+    try {
+      const res = await fetch("/api/admin/noname-master/update-tracking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          tracking_number: trackingNumber.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "更新失敗");
+      }
+
+      const data = await res.json();
+      // 成功したらordersを更新
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, tracking_number: data.order.tracking_number, shipping_date: data.order.shipping_date }
+            : o
+        )
+      );
+      // 入力状態をクリア
+      setEditingTracking((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+    } catch (err) {
+      console.error("Tracking update error:", err);
+      alert(err instanceof Error ? err.message : "更新に失敗しました");
+    } finally {
+      setSavingTracking((prev) => ({ ...prev, [orderId]: false }));
+    }
+  };
+
+  const totalPages = Math.ceil(totalCount / limit);
 
   const formatDateTime = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -105,19 +167,31 @@ export default function NonameMasterPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      <div className="mb-4 flex items-center gap-4">
-        <label className="text-sm font-medium text-slate-700">表示件数:</label>
-        <select
-          value={limit}
-          onChange={(e) => setLimit(Number(e.target.value))}
-          className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-        >
-          <option value={50}>50件</option>
-          <option value={100}>100件</option>
-          <option value={200}>200件</option>
-          <option value={500}>500件</option>
-        </select>
-        <span className="text-sm text-slate-600">合計 {orders.length} 件</span>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-600">
+            全 {totalCount} 件中 {(page - 1) * limit + 1}〜{Math.min(page * limit, totalCount)} 件表示
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
+          >
+            ← 前へ
+          </button>
+          <span className="text-sm text-slate-600">
+            {page} / {totalPages || 1} ページ
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="px-3 py-1 text-sm border border-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100"
+          >
+            次へ →
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -211,7 +285,25 @@ export default function NonameMasterPage() {
                           {order.tracking_number}
                         </a>
                       ) : (
-                        <span className="text-slate-400">-</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            placeholder="追跡番号"
+                            value={editingTracking[order.id] || ""}
+                            onChange={(e) => handleTrackingChange(order.id, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleTrackingSave(order.id);
+                            }}
+                            className="w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                          <button
+                            onClick={() => handleTrackingSave(order.id)}
+                            disabled={!editingTracking[order.id] || savingTracking[order.id]}
+                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {savingTracking[order.id] ? "..." : "保存"}
+                          </button>
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">

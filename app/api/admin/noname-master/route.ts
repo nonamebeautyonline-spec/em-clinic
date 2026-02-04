@@ -30,17 +30,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // クエリパラメータ: limit
+    // クエリパラメータ: limit, offset
     const searchParams = req.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get("limit") || "100");
+    const limit = parseInt(searchParams.get("limit") || "500");
+    const offset = parseInt(searchParams.get("offset") || "0");
 
-    // ordersテーブルから全決済を取得（★ shipping_name, statusを追加）
-    // ★ created_atで並び替え（paid_atがnullの未照合も含むため）
+    // 総件数を取得
+    const { count: totalCount } = await supabase
+      .from("orders")
+      .select("*", { count: "exact", head: true });
+
+    // ordersテーブルから決済を取得（ページネーション対応）
     const { data: orders, error } = await supabase
       .from("orders")
       .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at")
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Supabase orders error:", error);
@@ -119,7 +124,7 @@ export async function GET(req: NextRequest) {
       return dateB - dateA; // 新しい順
     });
 
-    return NextResponse.json({ orders: formattedOrders });
+    return NextResponse.json({ orders: formattedOrders, total: totalCount || 0 });
   } catch (error) {
     console.error("API error:", error);
     return NextResponse.json(
