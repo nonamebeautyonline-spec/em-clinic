@@ -195,6 +195,56 @@ async function getNextReservationFromSupabase(
   }
 }
 
+type ConsultationHistory = {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+  status: string;
+  prescriptionMenu?: string;
+};
+
+/**
+ * Supabaseから診察履歴を取得（status=OK/NGの診察完了分）
+ */
+async function getConsultationHistoryFromSupabase(
+  patientId: string
+): Promise<ConsultationHistory[]> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("intake")
+      .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu, updated_at")
+      .eq("patient_id", patientId)
+      .in("status", ["OK", "NG"])
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("[Supabase] getConsultationHistory error:", error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => {
+      const date = row.reserved_date || row.updated_at?.split("T")[0] || "";
+      const prescriptionMenu = row.prescription_menu || "";
+      const title = row.status === "OK"
+        ? `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`
+        : "診察完了（処方なし）";
+
+      return {
+        id: row.reserve_id || `history-${row.updated_at}`,
+        date,
+        title,
+        detail: row.note || "",
+        status: row.status,
+        prescriptionMenu,
+      };
+    });
+  } catch (err) {
+    console.error("[Supabase] getConsultationHistory error:", err);
+    return [];
+  }
+}
+
 /**
  * Supabaseから注文情報を取得（クレカ + 銀行振込）
  */
@@ -516,9 +566,10 @@ export async function POST(_req: NextRequest) {
     let ordersAll: OrderForMyPage[] = [];
     let nextReservation: { id: string; datetime: string; title: string; status: string } | null = null;
     let reordersFromSupabase: { id: string; status: string; createdAt: string; productCode: string; mg: string; months: number | undefined }[] = [];
+    let historyFromSupabase: ConsultationHistory[] = [];
 
     if (USE_SUPABASE) {
-      console.log(`[Supabase] Fetching orders, reservation, and reorders for patient_id=${patientId}`);
+      console.log(`[Supabase] Fetching orders, reservation, reorders, and history for patient_id=${patientId}`);
 
       // 注文情報をSupabaseから取得
       ordersAll = await getOrdersFromSupabase(patientId);
@@ -531,6 +582,10 @@ export async function POST(_req: NextRequest) {
       // ★ reordersをSupabaseから取得
       reordersFromSupabase = await getReordersFromSupabase(patientId);
       console.log(`[Supabase] Retrieved ${reordersFromSupabase.length} reorders from Supabase`);
+
+      // ★ 診察履歴をSupabaseから取得
+      historyFromSupabase = await getConsultationHistoryFromSupabase(patientId);
+      console.log(`[Supabase] Retrieved ${historyFromSupabase.length} history from Supabase`);
     } else {
       console.log(`[Mypage] Using GAS for orders (USE_SUPABASE=false)`);
       // GASから取得（従来通り）
@@ -619,14 +674,22 @@ export async function POST(_req: NextRequest) {
               months: Number(r.months) || undefined,
             }))
           : [],
-      history: Array.isArray(gasJson.history)
-        ? gasJson.history.map((h: any, idx: number) => ({
-            id: safeStr(h.id || h.history_id || `${idx}`),
-            date: safeStr(h.date || h.createdAt || h.paid_at_jst || ""),
-            title: safeStr(h.title || h.product_name || h.menu || ""),
-            detail: safeStr(h.detail || h.note || h.description || ""),
+      // ★ USE_SUPABASE=true の場合はDBから取得した診察履歴を使用
+      history: USE_SUPABASE
+        ? historyFromSupabase.map((h) => ({
+            id: h.id,
+            date: h.date,
+            title: h.title,
+            detail: h.detail,
           }))
-        : [],
+        : Array.isArray(gasJson.history)
+          ? gasJson.history.map((h: any, idx: number) => ({
+              id: safeStr(h.id || h.history_id || `${idx}`),
+              date: safeStr(h.date || h.createdAt || h.paid_at_jst || ""),
+              title: safeStr(h.title || h.product_name || h.menu || ""),
+              detail: safeStr(h.detail || h.note || h.description || ""),
+            }))
+          : [],
       hasIntake,
       intakeId,
 
