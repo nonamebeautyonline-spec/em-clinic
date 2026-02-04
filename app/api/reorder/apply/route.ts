@@ -71,21 +71,8 @@ async function syncToGasInBackground(patientId: string, productCode: string, dbI
       return;
     }
 
-    // GASから行番号が返された場合、DBを更新
-    if (gasJson.rowNumber) {
-      const { error: updateError } = await supabaseAdmin
-        .from("reorders")
-        .update({ gas_row_number: gasJson.rowNumber })
-        .eq("id", dbId);
-
-      if (updateError) {
-        console.error(`[reorder/apply] Failed to update gas_row_number for dbId=${dbId}:`, updateError);
-      } else {
-        console.log(`[reorder/apply] GAS sync complete: dbId=${dbId}, gasRow=${gasJson.rowNumber}`);
-      }
-    } else {
-      console.log(`[reorder/apply] GAS sync complete (no rowNumber returned): dbId=${dbId}`);
-    }
+    // ★ GASからの行番号上書きは廃止（DBの連番を使用）
+    console.log(`[reorder/apply] GAS sync complete: dbId=${dbId} (gas_row_number is DB-managed)`);
   } catch (err) {
     console.error(`[reorder/apply] GAS sync exception for dbId=${dbId}:`, err);
   }
