@@ -91,15 +91,16 @@ export default function NonameMasterPage() {
         throw new Error(data.error || "追加失敗");
       }
 
-      const data = await res.json();
-      // 成功したらordersを更新
+      // 成功したらordersを更新（発送漏れフラグを解除）
+      // shipping_dateはNULLのまま、発送リストには追加された
       setOrders((prev) =>
         prev.map((o) =>
           o.id === orderId
-            ? { ...o, shipping_date: data.order.shipping_date, is_overdue: false }
+            ? { ...o, is_overdue: false }
             : o
         )
       );
+      alert("発送リストに追加しました");
     } catch (err) {
       console.error("Add to shipping error:", err);
       alert(err instanceof Error ? err.message : "追加に失敗しました");

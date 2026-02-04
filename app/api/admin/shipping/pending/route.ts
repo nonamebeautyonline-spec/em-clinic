@@ -45,6 +45,14 @@ export async function GET(req: NextRequest) {
     ));
     const cutoffISO = cutoffTime.toISOString();
 
+    // 本日の範囲（shipping_list_created_atが今日のものを含める用）
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartISO = todayStart.toISOString();
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+    const tomorrowStartISO = tomorrowStart.toISOString();
+
     // ★ ordersテーブルから未発送の注文を取得
     const { data: ordersConfirmed, error: ordersConfirmedError } = await supabase
       .from("orders")
@@ -63,10 +71,28 @@ export async function GET(req: NextRequest) {
       .gte("created_at", cutoffISO)
       .order("created_at", { ascending: false });
 
-    const ordersError = ordersConfirmedError || ordersPendingError;
+    // ★ 本日手動で発送リストに追加された注文（発送漏れ対応）
+    const { data: ordersManuallyAdded, error: ordersManuallyAddedError } = await supabase
+      .from("orders")
+      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
+      .is("shipping_date", null)
+      .gte("shipping_list_created_at", todayStartISO)
+      .lt("shipping_list_created_at", tomorrowStartISO)
+      .order("shipping_list_created_at", { ascending: false });
 
-    // ★ confirmed と pending を時間順にマージ（新しい順）
-    const allOrders = [...(ordersConfirmed || []), ...(ordersPending || [])];
+    const ordersError = ordersConfirmedError || ordersPendingError || ordersManuallyAddedError;
+
+    // ★ confirmed と pending と手動追加を時間順にマージ（新しい順）
+    // 重複を除去するためにSetを使用
+    const orderIds = new Set<string>();
+    const allOrders: any[] = [];
+
+    for (const order of [...(ordersConfirmed || []), ...(ordersPending || []), ...(ordersManuallyAdded || [])]) {
+      if (!orderIds.has(order.id)) {
+        orderIds.add(order.id);
+        allOrders.push(order);
+      }
+    }
     const orders = allOrders.sort((a, b) => {
       const timeA = a.paid_at || a.created_at;
       const timeB = b.paid_at || b.created_at;

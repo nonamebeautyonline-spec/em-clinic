@@ -25,21 +25,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "order_id is required" }, { status: 400 });
     }
 
-    // 本日の日付（JST）
-    const now = new Date();
-    const jstOffset = 9 * 60 * 60 * 1000;
-    const nowJST = new Date(now.getTime() + jstOffset);
-    const today = nowJST.toISOString().split("T")[0]; // YYYY-MM-DD
+    // 現在時刻
+    const now = new Date().toISOString();
 
-    // 注文を更新（shipping_dateを本日に設定）
+    // 注文を更新（shipping_list_created_atを設定、shipping_dateはNULLのまま）
     const { data, error } = await supabase
       .from("orders")
       .update({
-        shipping_date: today,
-        updated_at: new Date().toISOString(),
+        shipping_list_created_at: now,
+        updated_at: now,
       })
       .eq("id", order_id)
-      .select("id, shipping_date");
+      .select("id, shipping_date, shipping_list_created_at");
 
     if (error) {
       console.error("[AddToShipping] Error:", error);
@@ -50,7 +47,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    console.log(`[AddToShipping] ✅ Added order ${order_id} to today's shipping (${today})`);
+    console.log(`[AddToShipping] ✅ Added order ${order_id} to today's shipping list`);
 
     return NextResponse.json({
       success: true,
