@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     // pending_confirmation除外（デフォルト）
     if (!includePending) {
-      query = query.or("status.is.null,status.neq.pending_confirmation");
+      query = query.not("status", "eq", "pending_confirmation");
     }
 
     const { data: orders, error } = await query
