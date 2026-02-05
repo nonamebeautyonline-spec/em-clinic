@@ -492,22 +492,15 @@ export default function NonameMasterPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span
-                          className={`px-3 py-1 text-xs font-medium rounded-full ${
-                            order.payment_method === "クレジットカード"
-                              ? "bg-yellow-300 text-black"
-                              : "bg-cyan-300 text-black"
-                          }`}
-                        >
-                          {order.payment_method}
-                        </span>
-                        {order.refund_status && (
-                          <span className="px-2 py-1 text-xs font-bold rounded-full bg-purple-600 text-white">
-                            返金済
-                          </span>
-                        )}
-                      </div>
+                      <span
+                        className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          order.payment_method === "クレジットカード"
+                            ? "bg-yellow-300 text-black"
+                            : "bg-cyan-300 text-black"
+                        }`}
+                      >
+                        {order.payment_method}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {order.patient_name || "-"}
