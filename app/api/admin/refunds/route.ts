@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,11 +16,9 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    // 管理者トークン認証
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

@@ -1,6 +1,7 @@
 // app/api/admin/bank-transfer/reconcile/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -12,11 +13,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
  */
 export async function POST(req: NextRequest) {
   try {
-    // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (token !== process.env.ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

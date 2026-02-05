@@ -48,22 +48,17 @@ export default function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState(today);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
+    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
+    loadReservations();
+  }, [selectedDate]);
 
-    loadReservations(token);
-  }, [router, selectedDate]);
-
-  const loadReservations = async (token: string) => {
+  const loadReservations = async () => {
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch(`/api/admin/reservations?date=${selectedDate}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -111,18 +106,10 @@ export default function ReservationsPage() {
     setReminderPreview(null);
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/reservations/reminder-preview", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ date: selectedDate }),
       });
 
@@ -145,18 +132,10 @@ export default function ReservationsPage() {
     if (!reminderPreview) return;
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/reservations/reminder-csv", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           reminders: reminderPreview.reminders,
           date: selectedDate,

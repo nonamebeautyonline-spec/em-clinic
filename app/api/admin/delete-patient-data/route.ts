@@ -2,17 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL;
 
 export async function POST(req: NextRequest) {
   try {
-    // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -116,11 +114,9 @@ export async function POST(req: NextRequest) {
 // GET: 患者の予約・問診情報を取得
 export async function GET(req: NextRequest) {
   try {
-    // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

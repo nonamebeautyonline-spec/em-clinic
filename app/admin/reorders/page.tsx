@@ -29,23 +29,18 @@ export default function ReordersPage() {
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
+    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
+    loadReorders();
+  }, [filter]);
 
-    loadReorders(token);
-  }, [router, filter]);
-
-  const loadReorders = async (token: string) => {
+  const loadReorders = async () => {
     setLoading(true);
     setError("");
 
     try {
       const includeAll = filter === "all" ? "true" : "false";
       const res = await fetch(`/api/admin/reorders?include_all=${includeAll}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -62,17 +57,12 @@ export default function ReordersPage() {
   };
 
   const handleApprove = async (id: string) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setProcessing(id);
     try {
       const res = await fetch("/api/admin/reorders/approve", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ id }),
       });
 
@@ -81,7 +71,7 @@ export default function ReordersPage() {
       }
 
       // リロード
-      await loadReorders(token);
+      await loadReorders();
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -92,17 +82,12 @@ export default function ReordersPage() {
   const handleReject = async (id: string) => {
     if (!confirm("本当に却下しますか？")) return;
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setProcessing(id);
     try {
       const res = await fetch("/api/admin/reorders/reject", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ id }),
       });
 
@@ -111,7 +96,7 @@ export default function ReordersPage() {
       }
 
       // リロード
-      await loadReorders(token);
+      await loadReorders();
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {

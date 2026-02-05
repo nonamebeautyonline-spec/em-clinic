@@ -1,6 +1,7 @@
 // app/api/admin/view-mypage/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,6 @@ const supabase = createClient(
 );
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -220,11 +220,9 @@ async function getReordersFromSupabase(patientId: string): Promise<{
  */
 export async function GET(req: NextRequest) {
   try {
-    // ★ ADMIN_TOKEN チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
