@@ -31,19 +31,10 @@ export default function RefundsPage() {
     setLoading(true);
     setError("");
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      setError("認証トークンがありません");
-      setLoading(false);
-      return;
-    }
-
     try {
       const response = await fetch("/api/admin/refunds", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (!response.ok) {

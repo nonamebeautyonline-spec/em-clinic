@@ -46,22 +46,17 @@ export default function NonameMasterPage() {
   const [savingShippedInfo, setSavingShippedInfo] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    loadOrders(token);
-  }, [router, page, filter, limit]);
+    loadOrders();
+  }, [page, filter, limit]);
 
-  const loadOrders = async (token: string) => {
+  const loadOrders = async () => {
     setLoading(true);
     setError("");
 
     try {
       const offset = (page - 1) * limit;
       const res = await fetch(`/api/admin/noname-master?limit=${limit}&offset=${offset}&filter=${filter}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -84,17 +79,14 @@ export default function NonameMasterPage() {
   };
 
   const handleAddToShipping = async (orderId: string) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setAddingToShipping((prev) => ({ ...prev, [orderId]: true }));
 
     try {
       const res = await fetch("/api/admin/noname-master/add-to-shipping", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ order_id: orderId }),
       });
@@ -126,17 +118,14 @@ export default function NonameMasterPage() {
     const trackingNumber = editingTracking[orderId];
     if (!trackingNumber || trackingNumber.trim() === "") return;
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setSavingTracking((prev) => ({ ...prev, [orderId]: true }));
 
     try {
       const res = await fetch("/api/admin/noname-master/update-tracking", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           order_id: orderId,
@@ -180,17 +169,14 @@ export default function NonameMasterPage() {
     }
     if (!confirm(`追跡番号を「${newTrackingNumber.trim()}」に変更しますか？`)) return;
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setProcessingEdit((prev) => ({ ...prev, [orderId]: true }));
 
     try {
       const res = await fetch("/api/admin/noname-master/update-tracking", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           order_id: orderId,
@@ -231,17 +217,14 @@ export default function NonameMasterPage() {
       return;
     }
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setSavingShippedInfo(true);
 
     try {
       const res = await fetch("/api/admin/noname-master/update-tracking", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           order_id: orderId,
@@ -279,17 +262,14 @@ export default function NonameMasterPage() {
   const handleRecreateLabel = async (orderId: string) => {
     if (!confirm("ラベルを作り直しますか？\n\n・追跡番号がクリアされます\n・発送情報がリセットされます\n・本日の発送リストに追加されます")) return;
 
-    const token = localStorage.getItem("adminToken");
-    if (!token) return;
-
     setProcessingEdit((prev) => ({ ...prev, [orderId]: true }));
 
     try {
       const res = await fetch("/api/admin/noname-master/recreate-label", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ order_id: orderId }),
       });

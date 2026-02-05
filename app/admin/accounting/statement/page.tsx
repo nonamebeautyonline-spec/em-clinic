@@ -75,21 +75,15 @@ function AccountingStatementContent() {
   const [costData, setCostData] = useState<CostData | null>(null);
 
   const loadData = useCallback(async (yearMonth: string) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
     setLoading(true);
 
     try {
       const [financialRes, costRes] = await Promise.all([
         fetch(`/api/admin/financials?year_month=${yearMonth}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         }),
         fetch(`/api/admin/cost-calculation?year_month=${yearMonth}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         }),
       ]);
 
@@ -111,7 +105,7 @@ function AccountingStatementContent() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     loadData(selectedMonth);

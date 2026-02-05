@@ -52,14 +52,8 @@ export default function CreateShippingListPage() {
   const loadPendingOrders = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/shipping/pending", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -297,12 +291,6 @@ export default function CreateShippingListPage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       // 編集されたデータを送信
       const exportData = selectedItems.map((item) => ({
         payment_id: item.id,
@@ -343,8 +331,8 @@ export default function CreateShippingListPage() {
 
       const res = await fetch("/api/admin/shipping/export-yamato-b2-custom", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -488,11 +476,10 @@ export default function CreateShippingListPage() {
                 }));
 
                 // データを一時保存して短いIDを取得
-                const token = localStorage.getItem("adminToken");
                 const res = await fetch("/api/admin/shipping/share", {
                   method: "POST",
+                  credentials: "include",
                   headers: {
-                    Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({ data: shareData }),

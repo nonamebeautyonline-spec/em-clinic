@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface DashboardStats {
   reservations: {
@@ -56,7 +55,6 @@ interface DashboardStats {
 type TabType = "overview" | "reservations" | "revenue" | "patients";
 
 export default function EnhancedDashboard() {
-  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,16 +64,10 @@ export default function EnhancedDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
+    loadStats();
+  }, [dateRange, startDate, endDate]);
 
-    loadStats(token);
-  }, [router, dateRange, startDate, endDate]);
-
-  const loadStats = async (token: string) => {
+  const loadStats = async () => {
     setLoading(true);
     setError("");
 
@@ -87,7 +79,7 @@ export default function EnhancedDashboard() {
       }
 
       const res = await fetch(`/api/admin/dashboard-stats-enhanced?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {

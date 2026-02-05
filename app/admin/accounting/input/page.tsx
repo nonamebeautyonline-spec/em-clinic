@@ -103,12 +103,6 @@ function AccountingInputContent() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const loadData = useCallback(async (yearMonth: string) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
     setLoading(true);
     setMessage(null);
 
@@ -116,10 +110,10 @@ function AccountingInputContent() {
       // コスト計算データと保存済みデータを並行取得
       const [costRes, financialRes] = await Promise.all([
         fetch(`/api/admin/cost-calculation?year_month=${yearMonth}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         }),
         fetch(`/api/admin/financials?year_month=${yearMonth}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
         }),
       ]);
 
@@ -142,27 +136,21 @@ function AccountingInputContent() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     loadData(selectedMonth);
   }, [selectedMonth, loadData]);
 
   const handleSave = async () => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
     setSaving(true);
     setMessage(null);
 
     try {
       const res = await fetch("/api/admin/financials", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ ...formData, year_month: selectedMonth }),

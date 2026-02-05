@@ -106,27 +106,24 @@ export default function ScheduleDashboard() {
         }
 
         // 翌月以降の予約を取得（アラート用）
-        const adminToken = localStorage.getItem("adminToken");
-        if (adminToken) {
-          const nextMonth = getNextMonthStart();
-          const futureRes = await fetch(`/api/admin/reservations?from=${nextMonth}`, {
-            cache: "no-store",
-            headers: { "Authorization": `Bearer ${adminToken}` },
-          });
-          const futureJson = await futureRes.json();
-          if (futureJson.ok && futureJson.reservations) {
-            setFutureReservations(futureJson.reservations);
-          }
+        const nextMonth = getNextMonthStart();
+        const futureRes = await fetch(`/api/admin/reservations?from=${nextMonth}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const futureJson = await futureRes.json();
+        if (futureJson.ok && futureJson.reservations) {
+          setFutureReservations(futureJson.reservations);
+        }
 
-          // 翌月の早期開放状態を確認
-          const openRes = await fetch(`/api/admin/booking-open?month=${nextMonthStr}`, {
-            cache: "no-store",
-            headers: { "Authorization": `Bearer ${adminToken}` },
-          });
-          const openJson = await openRes.json();
-          if (openJson.ok) {
-            setNextMonthOpen(openJson.is_open);
-          }
+        // 翌月の早期開放状態を確認
+        const openRes = await fetch(`/api/admin/booking-open?month=${nextMonthStr}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const openJson = await openRes.json();
+        if (openJson.ok) {
+          setNextMonthOpen(openJson.is_open);
         }
       } catch (e) {
         console.error("Load error:", e);
@@ -138,12 +135,6 @@ export default function ScheduleDashboard() {
 
   // 翌月予約を早期開放
   async function openNextMonth() {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      alert("管理者トークンが見つかりません");
-      return;
-    }
-
     if (!confirm(`${nextMonthDisplay}の予約を今すぐ開放しますか？`)) {
       return;
     }
@@ -152,9 +143,9 @@ export default function ScheduleDashboard() {
     try {
       const res = await fetch("/api/admin/booking-open", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ month: nextMonthStr }),
       });

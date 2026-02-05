@@ -33,17 +33,11 @@ export default function AccountingPage() {
   });
 
   const loadDailyData = useCallback(async (yearMonth: string) => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-
     setLoading(true);
 
     try {
       const res = await fetch(`/api/admin/daily-revenue?year_month=${yearMonth}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (res.ok) {
@@ -58,7 +52,7 @@ export default function AccountingPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     loadDailyData(selectedMonth);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface ShippingItem {
   id: string;
@@ -21,22 +20,16 @@ interface ShippingItem {
 }
 
 export default function TodayShippingListPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ShippingItem[]>([]);
   const [error, setError] = useState("");
   const [cutoffTime, setCutoffTime] = useState<string>("");
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    loadTodayShippingList(token);
-  }, [router]);
+    loadTodayShippingList();
+  }, []);
 
-  const loadTodayShippingList = async (token: string) => {
+  const loadTodayShippingList = async () => {
     setLoading(true);
     setError("");
 
@@ -57,7 +50,7 @@ export default function TodayShippingListPage() {
       );
 
       const res = await fetch("/api/admin/shipping/pending", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {

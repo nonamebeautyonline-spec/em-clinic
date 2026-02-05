@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface MatchedItem {
   transfer: {
@@ -58,7 +57,6 @@ interface PendingOrder {
 }
 
 export default function BankTransferReconcilePage() {
-  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReconcileResult | null>(null);
@@ -79,14 +77,8 @@ export default function BankTransferReconcilePage() {
   const loadPendingOrders = async () => {
     setLoadingPending(true);
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/bank-transfer/pending", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -123,20 +115,12 @@ export default function BankTransferReconcilePage() {
     setResult(null);
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const formData = new FormData();
       formData.append("file", file);
 
       const res = await fetch("/api/admin/bank-transfer/reconcile/preview", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
         body: formData,
       });
 
@@ -162,16 +146,10 @@ export default function BankTransferReconcilePage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/bank-transfer/reconcile/confirm", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ matches: previewResult.matched }),
@@ -203,16 +181,10 @@ export default function BankTransferReconcilePage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/bank-transfer/manual-confirm", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

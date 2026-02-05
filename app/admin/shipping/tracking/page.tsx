@@ -61,17 +61,9 @@ export default function TrackingNumberPage() {
     setResult(null);
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/shipping/today-shipped", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -120,20 +112,12 @@ export default function TrackingNumberPage() {
     setResult(null);
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const formData = new FormData();
       formData.append("file", file);
 
       const res = await fetch("/api/admin/shipping/update-tracking/preview", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
         body: formData,
       });
 
@@ -268,20 +252,14 @@ export default function TrackingNumberPage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const entries = getDisplayEntries().filter(
         (e) => e.tracking_number.trim() !== ""
       );
 
       const res = await fetch("/api/admin/shipping/update-tracking/confirm", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ entries }),
@@ -310,17 +288,9 @@ export default function TrackingNumberPage() {
 
   const handleDownloadLstepTags = async () => {
     try {
-      const token = localStorage.getItem("adminToken");
-      if (!token) {
-        router.push("/admin/login");
-        return;
-      }
-
       const res = await fetch("/api/admin/shipping/export-lstep-tags", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (!res.ok) {

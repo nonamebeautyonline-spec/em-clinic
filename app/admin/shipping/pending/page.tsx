@@ -47,15 +47,10 @@ export default function ShippingPendingPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    loadOrders(token);
-  }, [router]);
+    loadOrders();
+  }, []);
 
-  const loadOrders = async (token: string) => {
+  const loadOrders = async () => {
     setLoading(true);
     setError("");
 
@@ -78,7 +73,7 @@ export default function ShippingPendingPage() {
       setCutoffTime(cutoffStr);
 
       const res = await fetch("/api/admin/shipping/pending", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {

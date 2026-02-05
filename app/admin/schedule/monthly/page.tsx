@@ -174,16 +174,13 @@ export default function MonthlySchedulePage() {
         }
 
         // 月の開放状態を確認
-        const adminToken = localStorage.getItem("adminToken");
-        if (adminToken) {
-          const openRes = await fetch(`/api/admin/booking-open?month=${monthStr}`, {
-            cache: "no-store",
-            headers: { "Authorization": `Bearer ${adminToken}` },
-          });
-          const openJson = await openRes.json();
-          if (openJson.ok) {
-            setIsMonthOpen(openJson.is_open);
-          }
+        const openRes = await fetch(`/api/admin/booking-open?month=${monthStr}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const openJson = await openRes.json();
+        if (openJson.ok) {
+          setIsMonthOpen(openJson.is_open);
         }
       } catch (e) {
         console.error("Load error:", e);
@@ -260,12 +257,6 @@ export default function MonthlySchedulePage() {
   async function saveDay() {
     if (!selectedDate) return;
 
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      setMsg({ type: "error", text: "管理者トークンが見つかりません" });
-      return;
-    }
-
     setSaving(true);
     setMsg(null);
 
@@ -273,9 +264,9 @@ export default function MonthlySchedulePage() {
       // まず既存の設定を削除
       await fetch("/api/admin/date_override", {
         method: "DELETE",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${adminToken}`,
         },
         body: JSON.stringify({
           doctor_id: doctorId,
@@ -288,9 +279,9 @@ export default function MonthlySchedulePage() {
       for (const slot of editSlots) {
         const res = await fetch("/api/admin/date_override", {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ override: slot }),
         });
@@ -350,21 +341,15 @@ export default function MonthlySchedulePage() {
 
   // 週間ルールを保存
   async function saveWeeklyRules() {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      setMsg({ type: "error", text: "管理者トークンが見つかりません" });
-      return;
-    }
-
     setSaving(true);
     setMsg(null);
 
     try {
       const res = await fetch("/api/admin/weekly_rules", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ doctor_id: doctorId, rules: editingWeeklyRules }),
       });
@@ -386,21 +371,15 @@ export default function MonthlySchedulePage() {
 
   // 月を開放
   async function openMonth() {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) {
-      setMsg({ type: "error", text: "管理者トークンが見つかりません" });
-      return;
-    }
-
     if (!confirm(`${monthDisplay}の予約を開放しますか？`)) return;
 
     setSaving(true);
     try {
       const res = await fetch("/api/admin/booking-open", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ month: monthStr }),
       });
@@ -420,16 +399,13 @@ export default function MonthlySchedulePage() {
 
   // 月を閉鎖
   async function closeMonth() {
-    const adminToken = localStorage.getItem("adminToken");
-    if (!adminToken) return;
-
     if (!confirm(`${monthDisplay}の予約を閉鎖しますか？（早期開放を取り消します）`)) return;
 
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/booking-open?month=${monthStr}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${adminToken}` },
+        credentials: "include",
       });
       const json = await res.json();
       if (json.ok) {

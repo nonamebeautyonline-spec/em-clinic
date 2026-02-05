@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface BankTransferOrder {
   id: number;
@@ -20,32 +19,22 @@ interface BankTransferOrder {
 }
 
 export default function BankTransferManagementPage() {
-  const router = useRouter();
-  const [adminToken, setAdminToken] = useState("");
   const [orders, setOrders] = useState<BankTransferOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, confirmed
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    setAdminToken(token);
-    loadOrders(token);
-  }, [router]);
+    loadOrders();
+  }, []);
 
-  const loadOrders = async (token: string) => {
+  const loadOrders = async () => {
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/admin/bank-transfer-orders", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -70,9 +59,7 @@ export default function BankTransferManagementPage() {
     try {
       const res = await fetch("/api/admin/bank-transfer/delete-test-data", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -81,7 +68,7 @@ export default function BankTransferManagementPage() {
 
       const data = await res.json();
       alert(`${data.deletedCount}件のテストデータを削除しました`);
-      loadOrders(adminToken);
+      loadOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -98,9 +85,7 @@ export default function BankTransferManagementPage() {
     try {
       const res = await fetch("/api/admin/bank-transfer/backfill-to-gas", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
+        credentials: "include",
       });
 
       if (!res.ok) {

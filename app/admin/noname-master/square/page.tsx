@@ -23,21 +23,16 @@ export default function NonameMasterSquarePage() {
   const [limit, setLimit] = useState(100);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
-    loadOrders(token);
-  }, [router, limit]);
+    loadOrders();
+  }, [limit]);
 
-  const loadOrders = async (token: string) => {
+  const loadOrders = async () => {
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch(`/api/admin/noname-master/square?limit=${limit}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {

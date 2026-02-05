@@ -42,11 +42,10 @@ export default function PatientDataPage() {
     setActionResult("");
 
     try {
-      const adminToken = localStorage.getItem("adminToken") || "";
       const res = await fetch(
         `/api/admin/delete-patient-data?patient_id=${encodeURIComponent(patientId.trim())}`,
         {
-          headers: { Authorization: `Bearer ${adminToken}` },
+          credentials: "include",
         }
       );
 
@@ -85,11 +84,10 @@ export default function PatientDataPage() {
     setActionResult("");
 
     try {
-      const adminToken = localStorage.getItem("adminToken") || "";
       const res = await fetch("/api/admin/delete-patient-data", {
         method: "POST",
+        credentials: "include",
         headers: {
-          Authorization: `Bearer ${adminToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
