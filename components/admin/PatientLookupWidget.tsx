@@ -52,6 +52,7 @@ export default function PatientLookupWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
+  const [answererId, setAnswererId] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PatientResult | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -64,8 +65,12 @@ export default function PatientLookupWidget() {
     }
   }, [isOpen]);
 
-  const handleSearch = async (searchType: "id" | "name", directId?: string) => {
-    const query = directId || (searchType === "id" ? patientId.trim() : patientName.trim());
+  const handleSearch = async (searchType: "id" | "name" | "answerer_id", directId?: string) => {
+    const query = directId || (
+      searchType === "id" ? patientId.trim() :
+      searchType === "name" ? patientName.trim() :
+      answererId.trim()
+    );
     if (!query || loading) return;
 
     setLoading(true);
@@ -74,12 +79,11 @@ export default function PatientLookupWidget() {
     setCandidates([]);
 
     try {
-      const adminToken = localStorage.getItem("adminToken") || "";
       const typeParam = directId ? "id" : searchType;
       const res = await fetch(
         `/api/admin/patient-lookup?q=${encodeURIComponent(query)}&type=${typeParam}`,
         {
-          headers: { Authorization: `Bearer ${adminToken}` },
+          credentials: "include",
         }
       );
 
@@ -122,7 +126,7 @@ export default function PatientLookupWidget() {
     handleSearch("id", id);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, searchType: "id" | "name") => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, searchType: "id" | "name" | "answerer_id") => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSearch(searchType);
@@ -133,6 +137,7 @@ export default function PatientLookupWidget() {
     setIsOpen(false);
     setPatientId("");
     setPatientName("");
+    setAnswererId("");
     setResult(null);
     setCandidates([]);
     setError("");
@@ -202,6 +207,24 @@ export default function PatientLookupWidget() {
               <button
                 onClick={() => handleSearch("name")}
                 disabled={loading || !patientName.trim()}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                検索
+              </button>
+            </div>
+            {/* LステップID検索 */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={answererId}
+                onChange={(e) => setAnswererId(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, "answerer_id")}
+                placeholder="LステップID"
+                className="flex-1 px-3 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => handleSearch("answerer_id")}
+                disabled={loading || !answererId.trim()}
                 className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
               >
                 検索

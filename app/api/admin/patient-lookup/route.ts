@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
-    const searchType = searchParams.get("type") || "id"; // "id" or "name"
+    const searchType = searchParams.get("type") || "id"; // "id", "name", or "answerer_id"
 
     if (!query) {
       return NextResponse.json({ error: "検索キーワードを入力してください" }, { status: 400 });
@@ -81,6 +81,21 @@ export async function GET(req: NextRequest) {
         intakeData = matchedCandidates[0];
         patientId = intakeData.patient_id;
         patientName = intakeData.patient_name || "-";
+      }
+    } else if (searchType === "answerer_id") {
+      // answerer_id検索: LステップIDで検索
+      const { data: foundIntake } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name, line_id, answerer_id")
+        .eq("answerer_id", query)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (foundIntake) {
+        intakeData = foundIntake;
+        patientId = foundIntake.patient_id;
+        patientName = foundIntake.patient_name || "-";
       }
     } else {
       // ID検索: 従来通り
