@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface DashboardStats {
   reservations: {
@@ -54,7 +53,6 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,16 +61,11 @@ export default function AdminDashboard() {
   const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      router.push("/admin/login");
-      return;
-    }
+    // 認証チェックはlayout.tsxで行うため、ここでは統計データのみ取得
+    loadStats();
+  }, [dateRange, startDate, endDate]);
 
-    loadStats(token);
-  }, [router, dateRange, startDate, endDate]);
-
-  const loadStats = async (token: string) => {
+  const loadStats = async () => {
     setLoading(true);
     setStats(null);
     setError("");
@@ -85,7 +78,7 @@ export default function AdminDashboard() {
       }
 
       const res = await fetch(`/api/admin/dashboard-stats-enhanced?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
 
       if (!res.ok) {

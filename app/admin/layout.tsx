@@ -4,43 +4,69 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 
+// 認証不要のパス
+const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup"];
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [adminToken, setAdminToken] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (token) {
-      setAdminToken(token);
-      setIsAuthenticated(true);
-    } else if (pathname !== "/admin/login") {
-      router.push("/admin/login");
+    // 認証不要のパスはスキップ
+    if (PUBLIC_PATHS.includes(pathname)) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    const checkSession = async () => {
+      try {
+        const res = await fetch("/api/admin/session", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok) {
+            setIsAuthenticated(true);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // セッションチェック失敗
+      }
+
+      // 認証失敗 → ログインへ
+      router.push("/admin/login");
+    };
+
+    checkSession();
   }, [pathname, router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ログアウトエラーは無視
+    }
     setIsAuthenticated(false);
-    setAdminToken("");
     router.push("/admin/login");
   };
 
-  // ログイン画面は特別扱い
-  if (pathname === "/admin/login") {
+  // 認証不要のページ（ログイン、パスワードリセット等）
+  if (PUBLIC_PATHS.includes(pathname)) {
     return <>{children}</>;
   }
 
-  // 認証されていない場合はローディングまたはリダイレクト
-  if (!isAuthenticated) {
-    return <>{children}</>; // リダイレクト処理はuseEffectで行う
-  }
-
-  if (loading) {
+  // 認証チェック中またはリダイレクト中
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
