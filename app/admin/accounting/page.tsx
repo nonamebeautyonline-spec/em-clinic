@@ -13,6 +13,15 @@ interface DailyData {
   bankCount: number;
 }
 
+interface TodaySummary {
+  totalSquare: number;
+  totalBank: number;
+  totalRefund: number;
+  totalNet: number;
+  squareCount: number;
+  bankCount: number;
+}
+
 export default function AccountingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -30,6 +39,14 @@ export default function AccountingPage() {
     totalBankCount: 0,
     totalCount: 0,
     avgOrderValue: 0,
+  });
+  const [todaySummary, setTodaySummary] = useState<TodaySummary>({
+    totalSquare: 0,
+    totalBank: 0,
+    totalRefund: 0,
+    totalNet: 0,
+    squareCount: 0,
+    bankCount: 0,
   });
 
   const loadDailyData = useCallback(async (yearMonth: string) => {
@@ -54,9 +71,42 @@ export default function AccountingPage() {
     }
   }, []);
 
+  const loadTodayData = useCallback(async () => {
+    try {
+      // 今日の日付をYYYY-MM-DD形式で取得
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+      const res = await fetch(`/api/admin/daily-revenue?year_month=${todayStr.slice(0, 7)}`, {
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok && json.data) {
+          // 今日のデータを検索
+          const todayData = json.data.find((d: DailyData) => d.date === todayStr);
+          if (todayData) {
+            setTodaySummary({
+              totalSquare: todayData.square,
+              totalBank: todayData.bank,
+              totalRefund: todayData.refund,
+              totalNet: todayData.total,
+              squareCount: todayData.squareCount,
+              bankCount: todayData.bankCount,
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     loadDailyData(selectedMonth);
-  }, [selectedMonth, loadDailyData]);
+    loadTodayData();
+  }, [selectedMonth, loadDailyData, loadTodayData]);
 
   // 月選択オプション生成（過去12ヶ月）
   const monthOptions = [];
@@ -70,11 +120,7 @@ export default function AccountingPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">経理</h1>
-          <p className="text-slate-600 text-sm mt-1">月次売上・収支管理</p>
-        </div>
+      <div className="mb-6 flex items-center justify-end">
         <select
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
@@ -95,6 +141,31 @@ export default function AccountingPage() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* 日次サマリー（本日） */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">本日の売上</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <div className="text-blue-600 text-xs mb-1">カード決済</div>
+                <div className="text-xl font-bold text-blue-700">¥{todaySummary.totalSquare.toLocaleString()}</div>
+                <div className="text-xs text-blue-500 mt-1">{todaySummary.squareCount}件</div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-green-600 text-xs mb-1">銀行振込</div>
+                <div className="text-xl font-bold text-green-700">¥{todaySummary.totalBank.toLocaleString()}</div>
+                <div className="text-xs text-green-500 mt-1">{todaySummary.bankCount}件</div>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg">
+                <div className="text-red-600 text-xs mb-1">返金</div>
+                <div className="text-xl font-bold text-red-700">-¥{todaySummary.totalRefund.toLocaleString()}</div>
+              </div>
+              <div className="p-4 bg-slate-100 rounded-lg">
+                <div className="text-slate-600 text-xs mb-1">純売上</div>
+                <div className="text-xl font-bold text-slate-900">¥{todaySummary.totalNet.toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+
           {/* 月次サマリー */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">月次サマリー</h2>
