@@ -125,18 +125,12 @@ export default function AccountingPage() {
     monthOptions.push({ value: val, label });
   }
 
-  // 選択日の表示用フォーマット
-  const formatSelectedDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-  };
-
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* 日次サマリー */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4 border-b pb-2">
-          <h2 className="text-lg font-bold text-slate-900">{formatSelectedDate(selectedDate)}の売上</h2>
+          <h2 className="text-lg font-bold text-slate-900">日別サマリー</h2>
           <input
             type="date"
             value={selectedDate}
