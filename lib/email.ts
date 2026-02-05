@@ -1,16 +1,29 @@
 // lib/email.ts
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@noname-beauty.jp";
 const APP_NAME = "のなめビューティー 管理画面";
+
+// 遅延初期化（ビルド時エラー回避）
+function getResend(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[Email] RESEND_API_KEY not configured");
+    return null;
+  }
+  return new Resend(apiKey);
+}
 
 export async function sendPasswordResetEmail(
   to: string,
   resetUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const resend = getResend();
+    if (!resend) {
+      return { success: false, error: "メール設定が完了していません" };
+    }
+
     const { error } = await resend.emails.send({
       from: `${APP_NAME} <${FROM_EMAIL}>`,
       to: [to],
@@ -55,6 +68,11 @@ export async function sendWelcomeEmail(
   setupUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const resend = getResend();
+    if (!resend) {
+      return { success: false, error: "メール設定が完了していません" };
+    }
+
     const { error } = await resend.emails.send({
       from: `${APP_NAME} <${FROM_EMAIL}>`,
       to: [to],
