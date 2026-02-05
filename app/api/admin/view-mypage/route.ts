@@ -141,7 +141,7 @@ async function getConsultationHistoryFromSupabase(
       .from("intake")
       .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu, updated_at")
       .eq("patient_id", patientId)
-      .in("status", ["OK", "NG"])
+      .eq("status", "OK")  // ★ NGは決済不可のため除外
       .order("updated_at", { ascending: false });
 
     if (error) {
