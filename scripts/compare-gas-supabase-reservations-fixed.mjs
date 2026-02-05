@@ -50,7 +50,7 @@ function normalizeDate(dateValue) {
 }
 
 async function compareReservations() {
-  const today = "2026-02-03";
+  const today = "2026-02-04";
 
   console.log("\n" + "=".repeat(70));
   console.log("GASスプレッドシート vs Supabase 予約データ照合");
@@ -93,9 +93,9 @@ async function compareReservations() {
     .from("reservations")
     .select("reserve_id, patient_id, patient_name, reserved_time, status")
     .eq("reserved_date", today)
-    .eq("status", "pending");
+    .neq("status", "canceled");
 
-  console.log(`  Supabase pending予約: ${supabaseReservations?.length || 0}件`);
+  console.log(`  Supabase有効予約: ${supabaseReservations?.length || 0}件`);
 
   // 3. reserve_idのセットを作成
   const gasReserveIds = new Set(

@@ -1,4 +1,4 @@
--- 翌月予約の早期開放設定テーブル
+え、何が起きてるの-- 翌月予約の早期開放設定テーブル
 -- 管理者が毎月5日より前に翌月予約を開放する場合に使用
 
 CREATE TABLE IF NOT EXISTS booking_open_settings (

@@ -20,51 +20,40 @@ envContent.split("\n").forEach((line) => {
   }
 });
 
-const patientId = "20260101640";
+const patientIds = ["20260100306", "20260200168"];
 
-console.log("=== 管理画面マイページAPIテスト ===");
-console.log(`患者ID: ${patientId}\n`);
+console.log("=== 管理画面マイページAPIテスト（予約確認） ===\n");
 
-try {
-  const response = await fetch(`http://localhost:3000/api/admin/view-mypage?patient_id=${patientId}`, {
-    method: "GET",
-    headers: {
-      "Authorization": `Bearer ${envVars.ADMIN_TOKEN}`,
-    },
-  });
-
-  if (!response.ok) {
-    console.error(`エラー: ${response.status} ${response.statusText}`);
-    const errorText = await response.text();
-    console.error(errorText);
-    process.exit(1);
-  }
-
-  const result = await response.json();
-  const data = result.data || result;
-
-  console.log("【注文データ】");
-  if (data.orders && data.orders.length > 0) {
-    data.orders.forEach((order, idx) => {
-      console.log(`\n[${idx + 1}] ${order.id}`);
-      console.log(`  productName: ${order.productName}`);
-      console.log(`  paymentStatus: ${order.paymentStatus}`);
-      console.log(`  refundStatus: ${order.refundStatus || "(null)"}`);
-      console.log(`  refundedAt: ${order.refundedAt || "(null)"}`);
-      console.log(`  refundedAmount: ${order.refundedAmount || "(null)"}`);
-      console.log(`  paidAt: ${order.paidAt || "(null)"}`);
+for (const patientId of patientIds) {
+  console.log(`=== 患者ID: ${patientId} ===`);
+  try {
+    const response = await fetch(`http://localhost:3000/api/admin/view-mypage?patient_id=${patientId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${envVars.ADMIN_TOKEN}`,
+      },
     });
-  } else {
-    console.log("注文なし");
+
+    if (!response.ok) {
+      console.error(`エラー: ${response.status} ${response.statusText}`);
+      continue;
+    }
+
+    const result = await response.json();
+    const data = result.data || result;
+
+    console.log("【次回予約】");
+    if (data.nextReservation) {
+      console.log(`  id: ${data.nextReservation.id}`);
+      console.log(`  datetime: ${data.nextReservation.datetime}`);
+      console.log(`  title: ${data.nextReservation.title}`);
+      console.log(`  status: ${data.nextReservation.status}`);
+    } else {
+      console.log("  なし");
+    }
+    console.log("");
+
+  } catch (err) {
+    console.error("エラー:", err.message);
   }
-
-  // 返金済みの注文を確認
-  const refundedOrders = data.orders?.filter(o => o.refundStatus === "COMPLETED") || [];
-  console.log(`\n\n【返金済み注文】: ${refundedOrders.length}件`);
-  refundedOrders.forEach(o => {
-    console.log(`  - ${o.id}: ${o.refundedAmount ? '¥' + o.refundedAmount.toLocaleString() : '(金額不明)'}`);
-  });
-
-} catch (err) {
-  console.error("エラー:", err.message);
 }
