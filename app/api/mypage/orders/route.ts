@@ -117,14 +117,15 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
-    const creditCardOrders: OrderForMyPage[] = rawOrders.map((o: any) => {
+    // ordersテーブルから注文データを取得（bank_transfer_ordersは廃止済み）
+    const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
       const paidRaw =
         o.paid_at_jst ??
         o.paidAt ??
         o.paid_at ??
         o.order_datetime ??
         o.orderDateTime ??
-        o.created_at ??  // 銀行振込で未確認の場合のフォールバック
+        o.created_at ??
         "";
 
       const refundedRaw =
@@ -132,6 +133,12 @@ export async function GET(_req: NextRequest) {
         o.refundedAt ??
         o.refunded_at ??
         "";
+
+      // status='pending_confirmation'の場合はpaymentStatusを'pending'にする
+      let paymentStatus = normalizePaymentStatus(o.payment_status ?? o.paymentStatus);
+      if (o.status === "pending_confirmation") {
+        paymentStatus = "pending" as PaymentStatus;
+      }
 
       return {
         id: String(o.id ?? ""),
@@ -142,76 +149,12 @@ export async function GET(_req: NextRequest) {
         shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
         shippingEta: (o.shipping_date ?? o.shipping_eta ?? o.shippingEta) || undefined,
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
-        paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
+        paymentStatus,
         paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
         refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
       };
-    });
-
-    // ★ 銀行振込の確認中データを取得（ordersテーブルにまだ入っていないもの）
-    const { data: bankTransferData, error: bankTransferError } = await supabase
-      .from("bank_transfer_orders")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false });
-
-    if (bankTransferError) {
-      console.error("[mypage/orders] Bank transfer query error:", bankTransferError);
-    }
-
-    // ★ 商品マスターデータ
-    const PRODUCTS: Record<string, { name: string; price: number }> = {
-      "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
-      "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
-      "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
-      "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
-      "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
-      "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
-      "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
-      "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
-      "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
-    };
-
-    // ★ ordersテーブルに存在するbt_*のIDを取得（追跡番号の有無に関わらず）
-    const existingBtIds = new Set(
-      creditCardOrders
-        .filter(o => o.id.startsWith("bt_"))
-        .map(o => o.id.replace("bt_", ""))
-    );
-
-    const bankTransferOrders: OrderForMyPage[] = (bankTransferData || [])
-      .filter((o: any) => !existingBtIds.has(String(o.id))) // ordersに存在するものは除外
-      .map((o: any) => {
-        const productCode = String(o.product_code ?? "");
-        const productInfo = PRODUCTS[productCode] || { name: "マンジャロ", price: 0 };
-
-        const paidAt = toIsoFlexible(o.confirmed_at ?? o.created_at ?? "");
-
-        return {
-          id: `bank_${o.id}`, // 一時的なID（ordersテーブルに保存されたらbt_に変わる）
-          productCode,
-          productName: productInfo.name,
-          amount: productInfo.price,
-          paidAt,
-          shippingStatus: "pending",
-          shippingEta: undefined,
-          trackingNumber: undefined,
-          paymentStatus: "pending", // ★ 確認中
-          paymentMethod: "bank_transfer",
-          refundStatus: undefined,
-          refundedAt: undefined,
-          refundedAmount: undefined,
-        };
-      });
-
-    // ★ 統合して日付順にソート（ordersテーブルの全データ + bank_transfer_ordersの未移行データ）
-    const orders = [...creditCardOrders, ...bankTransferOrders];
-    orders.sort((a, b) => {
-      const dateA = new Date(a.paidAt).getTime();
-      const dateB = new Date(b.paidAt).getTime();
-      return dateB - dateA; // 新しい順
     });
 
     // ★ Flags computed from Supabase orders data

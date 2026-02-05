@@ -246,11 +246,10 @@ async function getConsultationHistoryFromSupabase(
 }
 
 /**
- * Supabaseから注文情報を取得（クレカ + 銀行振込）
+ * Supabaseから注文情報を取得（ordersテーブルのみ - bank_transfer_ordersは廃止済み）
  */
 async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
   try {
-    // ★ クレカ決済の注文
     const { data, error } = await supabaseAdmin
       .from("orders")
       .select("*")
@@ -262,8 +261,8 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       return [];
     }
 
-    const creditCardOrders = (data || []).map((o: any) => {
-      const paidAt = o.paid_at || o.created_at || "";  // 銀行振込で未確認の場合のフォールバック
+    const orders = (data || []).map((o: any) => {
+      const paidAt = o.paid_at || o.created_at || "";
       const refundStatus = normalizeRefundStatus(o.refund_status);
       const refundedAt = o.refunded_at || "";
 
@@ -272,7 +271,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         normalizeCarrier(o.carrier) ??
         inferCarrierFromDates({ shippingEta: shippingEta || "", paidAt });
 
-      // ★ Plan A: status='pending_confirmation'の場合はpaymentStatusを'pending'にする
+      // status='pending_confirmation'の場合はpaymentStatusを'pending'にする
       let paymentStatus = normalizePaymentStatus(o.payment_status);
       if (o.status === "pending_confirmation") {
         paymentStatus = "pending" as PaymentStatus;
@@ -284,7 +283,6 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         productName: o.product_name || "",
         amount: o.amount || 0,
         paidAt,
-        createdAt: o.created_at || "",
         shippingStatus: (o.shipping_status || "pending") as ShippingStatus,
         shippingEta,
         trackingNumber: o.tracking_number || undefined,
@@ -297,139 +295,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
       };
     });
 
-    // ★ 銀行振込の確認中データを取得（ordersテーブルにまだ入っていないもの）
-    const { data: bankTransferData, error: bankTransferError } = await supabaseAdmin
-      .from("bank_transfer_orders")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false });
-
-    if (bankTransferError) {
-      console.error("[Supabase] getBankTransferOrders error:", bankTransferError);
-    }
-
-    // ★ 商品マスターデータ
-    const PRODUCTS: Record<string, { name: string; price: number }> = {
-      "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
-      "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
-      "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
-      "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
-      "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
-      "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
-      "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
-      "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
-      "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
-    };
-
-    // ★ ordersテーブルに存在する銀行振込注文のcreated_atを記録（重複除外用）
-    const bankTransferOrdersInOrders = creditCardOrders.filter(o => o.paymentMethod === 'bank_transfer');
-
-    console.log(`[Supabase] Found ${bankTransferOrdersInOrders.length} bank_transfer orders in orders table`);
-    bankTransferOrdersInOrders.forEach(o => {
-      console.log(`[Supabase] BT order in orders table: id=${o.id}, createdAt=${o.createdAt}, paidAt=${o.paidAt}`);
-    });
-
-    // ★ bt_で始まるIDの場合はIDで、それ以外はcreated_atで紐付ける
-    const existingBankTransferOrderIds = new Set(
-      bankTransferOrdersInOrders
-        .map(o => {
-          // IDが"bt_"で始まる場合は"bt_"を除去（例: bt_53 → 53）
-          if (o.id.startsWith("bt_")) return o.id.replace("bt_", "");
-          return null;
-        })
-        .filter((id): id is string => id !== null)
-    );
-
-    console.log(`[Supabase] Existing BT order IDs (extracted): ${Array.from(existingBankTransferOrderIds).join(', ')}`);
-
-    const bankTransferOrders = (bankTransferData || [])
-      .filter((o: any) => {
-        console.log(`[Supabase] Checking BT order from bank_transfer_orders: id=${o.id}, created_at=${o.created_at}`);
-
-        // IDで紐付け可能な場合はIDで除外
-        if (existingBankTransferOrderIds.has(String(o.id))) {
-          console.log(`[Supabase] ❌ Excluded by ID match: ${o.id}`);
-          return false;
-        }
-
-        // IDで紐付けできない場合は、複数の条件でマッチング
-        const btCreatedAt = new Date(o.created_at).getTime();
-        const btProductCode = String(o.product_code ?? "");
-
-        const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
-          // 条件1: タイムスタンプマッチング（手動移行を考慮して60秒以内）
-          // ★ bank_transferの場合はcreatedAtで比較（paid_atは後で更新されるため）
-          const orderCreatedAt = new Date(orderRecord.createdAt || "").getTime();
-          const timeDiff = Math.abs(btCreatedAt - orderCreatedAt);
-
-          if (timeDiff < 60000) {
-            // さらに商品コードも一致する場合は同一レコードと確定
-            if (btProductCode === orderRecord.productCode) {
-              console.log(`[Supabase] ❌ Excluded by timestamp+product match: bt_order=${o.id}, order=${orderRecord.id}, diff=${timeDiff}ms, product=${btProductCode}`);
-              return true;
-            }
-            // 商品コードが異なる場合は1秒以内のみ同一とみなす（誤検出防止）
-            if (timeDiff < 1000) {
-              console.log(`[Supabase] ❌ Excluded by strict timestamp match: bt_order=${o.id}, order=${orderRecord.id}, diff=${timeDiff}ms`);
-              return true;
-            }
-          }
-
-          return false;
-        });
-
-        if (!foundMatch) {
-          console.log(`[Supabase] ✅ Including BT order: ${o.id} (no match found)`);
-        }
-
-        return !foundMatch;
-      })
-      .map((o: any) => {
-        const productCode = String(o.product_code ?? "");
-        const productInfo = PRODUCTS[productCode] || { name: "マンジャロ", price: 0 };
-
-        const paidAt = o.confirmed_at || o.created_at || "";
-
-        return {
-          id: `bank_${o.id}`, // 一時的なID（ordersテーブルに保存されたらbt_に変わる）
-          productCode,
-          productName: productInfo.name,
-          amount: productInfo.price,
-          paidAt,
-          shippingStatus: "pending" as ShippingStatus,
-          shippingEta: undefined,
-          trackingNumber: undefined,
-          paymentStatus: "pending" as PaymentStatus, // ★ 確認中
-          paymentMethod: "bank_transfer" as const,
-          carrier: undefined,
-          refundStatus: undefined,
-          refundedAt: undefined,
-          refundedAmount: undefined,
-        };
-      });
-
-    // ★ 統合して日付順にソート（ordersテーブルの全データ + bank_transfer_ordersの未移行データ）
-    const allOrders = [...creditCardOrders, ...bankTransferOrders];
-    allOrders.sort((a, b) => {
-      const dateA = new Date(a.paidAt).getTime();
-      const dateB = new Date(b.paidAt).getTime();
-      return dateB - dateA; // 新しい順
-    });
-
-    console.log(`[Supabase] Final order count: ${creditCardOrders.length} from orders table + ${bankTransferOrders.length} from bank_transfer_orders table = ${allOrders.length} total`);
-
-    // ★ 重複チェック：同じproductCodeとpaidAtの組み合わせが複数ある場合は警告
-    const orderKeys = allOrders.map(o => `${o.productCode}_${o.paidAt}`);
-    const duplicateKeys = orderKeys.filter((key, index) => orderKeys.indexOf(key) !== index);
-    if (duplicateKeys.length > 0) {
-      console.warn(`[Supabase] ⚠️ Possible duplicates detected: ${duplicateKeys.join(', ')}`);
-      duplicateKeys.forEach(key => {
-        const dupes = allOrders.filter(o => `${o.productCode}_${o.paidAt}` === key);
-        console.warn(`[Supabase] Duplicate orders for key ${key}:`, dupes.map(d => `id=${d.id}, method=${d.paymentMethod}`).join(' | '));
-      });
-    }
-
-    return allOrders;
+    return orders;
   } catch (err) {
     console.error("[Supabase] getOrders error:", err);
     return [];

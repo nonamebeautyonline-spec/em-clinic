@@ -24,7 +24,7 @@ export default function NonameMasterPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
-  const [limit, setLimit] = useState(50);
+  const [limit, setLimit] = useState(100);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
@@ -35,6 +35,12 @@ export default function NonameMasterPage() {
   const [editingTrackingFor, setEditingTrackingFor] = useState<string | null>(null);
   const [newTrackingNumber, setNewTrackingNumber] = useState("");
   const [processingEdit, setProcessingEdit] = useState<Record<string, boolean>>({});
+
+  // 発送済みで情報入力用の状態
+  const [shippedInfoFor, setShippedInfoFor] = useState<string | null>(null);
+  const [shippedDate, setShippedDate] = useState("");
+  const [shippedTracking, setShippedTracking] = useState("");
+  const [savingShippedInfo, setSavingShippedInfo] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
@@ -215,6 +221,57 @@ export default function NonameMasterPage() {
     }
   };
 
+  // 発送済みで情報入力を保存
+  const handleSaveShippedInfo = async (orderId: string) => {
+    if (!shippedDate || !shippedTracking.trim()) {
+      alert("発送日と追跡番号を入力してください");
+      return;
+    }
+
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    setSavingShippedInfo(true);
+
+    try {
+      const res = await fetch("/api/admin/noname-master/update-tracking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          tracking_number: shippedTracking.trim(),
+          shipping_date: shippedDate,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "更新失敗");
+      }
+
+      const data = await res.json();
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, tracking_number: data.order.tracking_number, shipping_date: data.order.shipping_date, is_overdue: false }
+            : o
+        )
+      );
+      setShippedInfoFor(null);
+      setShippedDate("");
+      setShippedTracking("");
+      alert("発送情報を保存しました");
+    } catch (err) {
+      console.error("Save shipped info error:", err);
+      alert(err instanceof Error ? err.message : "保存に失敗しました");
+    } finally {
+      setSavingShippedInfo(false);
+    }
+  };
+
   // ラベル作り直し（shipping info, tracking numberをnullにして発送リストに追加）
   const handleRecreateLabel = async (orderId: string) => {
     if (!confirm("ラベルを作り直しますか？\n\n・追跡番号がクリアされます\n・発送情報がリセットされます\n・本日の発送リストに追加されます")) return;
@@ -349,8 +406,6 @@ export default function NonameMasterPage() {
               onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
               className="px-2 py-1 text-sm border border-slate-300 rounded bg-white"
             >
-              <option value={20}>20件</option>
-              <option value={50}>50件</option>
               <option value={100}>100件</option>
               <option value={200}>200件</option>
               <option value={500}>500件</option>
@@ -468,13 +523,73 @@ export default function NonameMasterPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {order.shipping_date ? (
                         formatDateOnly(order.shipping_date)
+                      ) : shippedInfoFor === order.id ? (
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="date"
+                            value={shippedDate}
+                            onChange={(e) => setShippedDate(e.target.value)}
+                            className="w-32 px-2 py-1 text-xs border border-slate-300 rounded"
+                          />
+                          <input
+                            type="text"
+                            placeholder="追跡番号"
+                            value={shippedTracking}
+                            onChange={(e) => setShippedTracking(e.target.value)}
+                            className="w-32 px-2 py-1 text-xs border border-slate-300 rounded"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleSaveShippedInfo(order.id)}
+                              disabled={savingShippedInfo}
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {savingShippedInfo ? "..." : "保存"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShippedInfoFor(null);
+                                setShippedDate("");
+                                setShippedTracking("");
+                              }}
+                              className="px-2 py-1 text-xs bg-slate-300 text-slate-700 rounded hover:bg-slate-400"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
                       ) : order.is_overdue ? (
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleAddToShipping(order.id)}
+                            disabled={addingToShipping[order.id]}
+                            className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {addingToShipping[order.id] ? "..." : "本日発送に追加"}
+                          </button>
+                          {filter === "unshipped" && (
+                            <button
+                              onClick={() => {
+                                setShippedInfoFor(order.id);
+                                setShippedDate("");
+                                setShippedTracking("");
+                              }}
+                              className="px-2 py-1 text-xs bg-slate-600 text-white rounded hover:bg-slate-700"
+                            >
+                              発送済み入力
+                            </button>
+                          )}
+                        </div>
+                      ) : filter === "unshipped" ? (
                         <button
-                          onClick={() => handleAddToShipping(order.id)}
-                          disabled={addingToShipping[order.id]}
-                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                          onClick={() => {
+                            setShippedInfoFor(order.id);
+                            setShippedDate("");
+                            setShippedTracking("");
+                          }}
+                          className="px-2 py-1 text-xs bg-slate-600 text-white rounded hover:bg-slate-700"
                         >
-                          {addingToShipping[order.id] ? "..." : "本日発送に追加"}
+                          発送済み入力
                         </button>
                       ) : (
                         "-"

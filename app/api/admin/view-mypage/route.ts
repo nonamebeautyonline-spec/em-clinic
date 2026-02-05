@@ -33,18 +33,6 @@ type OrderForMyPage = {
   refundedAmount?: number;
 };
 
-const PRODUCTS: Record<string, { name: string; price: number }> = {
-  "MJL_2.5mg_1m": { name: "マンジャロ 2.5mg 1ヶ月", price: 13000 },
-  "MJL_2.5mg_2m": { name: "マンジャロ 2.5mg 2ヶ月", price: 25500 },
-  "MJL_2.5mg_3m": { name: "マンジャロ 2.5mg 3ヶ月", price: 35000 },
-  "MJL_5mg_1m": { name: "マンジャロ 5mg 1ヶ月", price: 22850 },
-  "MJL_5mg_2m": { name: "マンジャロ 5mg 2ヶ月", price: 45500 },
-  "MJL_5mg_3m": { name: "マンジャロ 5mg 3ヶ月", price: 63000 },
-  "MJL_7.5mg_1m": { name: "マンジャロ 7.5mg 1ヶ月", price: 34000 },
-  "MJL_7.5mg_2m": { name: "マンジャロ 7.5mg 2ヶ月", price: 65000 },
-  "MJL_7.5mg_3m": { name: "マンジャロ 7.5mg 3ヶ月", price: 96000 },
-};
-
 function toIsoFlexible(v: any): string {
   const s = (typeof v === "string" ? v : String(v ?? "")).trim();
   if (!s) return "";
@@ -278,7 +266,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ★ Supabaseから注文データを取得（患者マイページと同じロジック）
+    // ★ Supabaseから注文データを取得（bank_transfer_ordersは廃止済み）
     const { data: rawOrders, error } = await supabase
       .from("orders")
       .select("*")
@@ -290,17 +278,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
-    // ★ 銀行振込の注文も取得
-    const { data: rawBankTransferOrders, error: bankTransferError } = await supabase
-      .from("bank_transfer_orders")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false });
-
-    if (bankTransferError) {
-      console.error("[admin/view-mypage] Bank transfer query error:", bankTransferError);
-    }
-
     const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
       const paidRaw =
         o.paid_at_jst ??
@@ -308,7 +285,7 @@ export async function GET(req: NextRequest) {
         o.paid_at ??
         o.order_datetime ??
         o.orderDateTime ??
-        o.created_at ??  // 銀行振込で未確認の場合のフォールバック
+        o.created_at ??
         "";
 
       const refundedRaw =
@@ -316,6 +293,12 @@ export async function GET(req: NextRequest) {
         o.refundedAt ??
         o.refunded_at ??
         "";
+
+      // status='pending_confirmation'の場合はpaymentStatusを'pending'にする
+      let paymentStatus = normalizePaymentStatus(o.payment_status ?? o.paymentStatus);
+      if (o.status === "pending_confirmation") {
+        paymentStatus = "pending" as PaymentStatus;
+      }
 
       return {
         id: String(o.id ?? ""),
@@ -326,81 +309,13 @@ export async function GET(req: NextRequest) {
         shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
         shippingEta: (o.shipping_date ?? o.shipping_eta ?? o.shippingEta) || undefined,
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
-        paymentStatus: normalizePaymentStatus(o.payment_status ?? o.paymentStatus),
+        paymentStatus,
         paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
         refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
       };
     });
-
-    // ★ ordersテーブルに存在するbt_*のIDを取得（追跡番号の有無に関わらず）
-    const existingBtIds = new Set(
-      orders
-        .filter(o => o.id.startsWith("bt_"))
-        .map(o => o.id.replace("bt_", ""))
-    );
-
-    // ★ 銀行振込注文のcreated_atを記録（タイムスタンプ重複排除用）
-    const bankTransferOrdersInOrders = orders.filter(o => o.paymentMethod === "bank_transfer");
-
-    // ★ 銀行振込の注文を統合（顧客マイページと同じ重複排除ロジック）
-    if (rawBankTransferOrders && rawBankTransferOrders.length > 0) {
-      const bankTransferOrders: OrderForMyPage[] = rawBankTransferOrders
-        .filter((o: any) => {
-          // IDで紐付け可能な場合はIDで除外
-          if (existingBtIds.has(String(o.id))) {
-            return false;
-          }
-
-          // IDで紐付けできない場合は、タイムスタンプ＋商品コードでマッチング
-          const btCreatedAt = new Date(o.created_at).getTime();
-          const btProductCode = String(o.product_code ?? "");
-
-          const foundMatch = bankTransferOrdersInOrders.some(orderRecord => {
-            const orderPaidAt = new Date(orderRecord.paidAt || "").getTime();
-            const timeDiff = Math.abs(btCreatedAt - orderPaidAt);
-
-            if (timeDiff < 60000) {
-              // 商品コードも一致する場合は同一レコード
-              if (btProductCode === orderRecord.productCode) {
-                return true;
-              }
-              // 商品コードが異なる場合は1秒以内のみ同一とみなす
-              if (timeDiff < 1000) {
-                return true;
-              }
-            }
-            return false;
-          });
-
-          return !foundMatch;
-        })
-        .map((o: any) => {
-          const productCode = String(o.product_code ?? "");
-          const productInfo = PRODUCTS[productCode] || { name: "商品名不明", price: 0 };
-
-          return {
-            id: `bank_${o.id}`,
-            productCode,
-            productName: productInfo.name,
-            amount: productInfo.price,
-            paidAt: toIsoFlexible(o.confirmed_at ?? o.created_at ?? ""),
-            shippingStatus: "pending",
-            paymentStatus: "pending",
-            paymentMethod: "bank_transfer",
-          };
-        });
-
-      orders.push(...bankTransferOrders);
-
-      // ★ 日付でソート（新しい順）
-      orders.sort((a, b) => {
-        const dateA = new Date(a.paidAt).getTime();
-        const dateB = new Date(b.paidAt).getTime();
-        return dateB - dateA;
-      });
-    }
 
     // ★ Flags computed from Supabase orders data（顧客マイページと同じロジック）
     const hasAnyPaidOrder = orders.length > 0;

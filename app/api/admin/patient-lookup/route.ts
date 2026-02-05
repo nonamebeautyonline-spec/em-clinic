@@ -29,24 +29,44 @@ export async function GET(req: NextRequest) {
     // 氏名検索の場合: スペース無視で部分一致、候補リストを返す
     if (searchType === "name") {
       // スペースを除去した検索クエリ
-      const normalizedQuery = query.replace(/[\s　]/g, "");
+      const normalizedQuery = query.replace(/[\s　]/g, "").toLowerCase();
 
-      // intakeテーブルから候補を取得（最大10件）
+      // まずilike検索で絞り込み（効率化）
+      const searchPattern = `%${query.replace(/[\s　]/g, "%")}%`;
       const { data: candidates } = await supabaseAdmin
         .from("intake")
         .select("patient_id, patient_name, line_id, answerer_id")
         .not("patient_name", "is", null)
+        .ilike("patient_name", searchPattern)
         .order("id", { ascending: false })
-        .limit(100); // 多めに取得してフィルタリング
+        .limit(50);
 
-      // スペース無視で部分一致フィルタリング
-      const matchedCandidates = (candidates || [])
+      // スペース無視で部分一致フィルタリング（DB検索で漏れがあった場合のため）
+      let matchedCandidates = (candidates || [])
         .filter(c => {
           if (!c.patient_name) return false;
-          const normalizedName = c.patient_name.replace(/[\s　]/g, "");
+          const normalizedName = c.patient_name.replace(/[\s　]/g, "").toLowerCase();
           return normalizedName.includes(normalizedQuery);
         })
         .slice(0, 10);
+
+      // 候補が見つからない場合、より広範囲に検索
+      if (matchedCandidates.length === 0) {
+        const { data: allCandidates } = await supabaseAdmin
+          .from("intake")
+          .select("patient_id, patient_name, line_id, answerer_id")
+          .not("patient_name", "is", null)
+          .order("id", { ascending: false })
+          .limit(1000);
+
+        matchedCandidates = (allCandidates || [])
+          .filter(c => {
+            if (!c.patient_name) return false;
+            const normalizedName = c.patient_name.replace(/[\s　]/g, "").toLowerCase();
+            return normalizedName.includes(normalizedQuery);
+          })
+          .slice(0, 10);
+      }
 
       // 候補が複数ある場合は候補リストを返す
       if (matchedCandidates.length > 1) {

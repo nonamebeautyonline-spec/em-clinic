@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { order_id, tracking_number, update_only } = body;
+    const { order_id, tracking_number, update_only, shipping_date: customShippingDate } = body;
 
     if (!order_id) {
       return NextResponse.json({ error: "order_id is required" }, { status: 400 });
@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
     }
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    // カスタム発送日が指定されていればそれを使用、なければ本日
+    const effectiveShippingDate = customShippingDate || today;
 
     // update_only: trueの場合は追跡番号のみ更新（shipping_dateは変更しない）
     const updateData = update_only
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
       : {
           tracking_number: tracking_number.trim(),
           shipping_status: "shipped",
-          shipping_date: today,
+          shipping_date: effectiveShippingDate,
           updated_at: new Date().toISOString(),
         };
 

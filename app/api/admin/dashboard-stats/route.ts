@@ -82,28 +82,16 @@ export async function GET(request: NextRequest) {
 
     const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
 
-    // 銀行振込（bank_transfer_ordersテーブル、created_atが今日）
+    // 銀行振込（ordersテーブル、payment_method='bank_transfer'、paid_atが今日）
     const { data: bankTransferOrders } = await supabase
-      .from("bank_transfer_orders")
-      .select("product_code")
-      .gte("created_at", todayStartISO)
-      .lt("created_at", todayEndISO);
-
-    // 商品コードから金額を計算（簡易版）
-    const productPrices: Record<string, number> = {
-      "MJL_2.5mg_1m": 13000,
-      "MJL_2.5mg_2m": 25500,
-      "MJL_2.5mg_3m": 35000,
-      "MJL_5mg_1m": 22850,
-      "MJL_5mg_2m": 45500,
-      "MJL_5mg_3m": 63000,
-      "MJL_7.5mg_1m": 34000,
-      "MJL_7.5mg_2m": 65000,
-      "MJL_7.5mg_3m": 96000,
-    };
+      .from("orders")
+      .select("amount")
+      .eq("payment_method", "bank_transfer")
+      .gte("paid_at", todayStartISO)
+      .lt("paid_at", todayEndISO);
 
     const todayBankTransferRevenue =
-      bankTransferOrders?.reduce((sum, o) => sum + (productPrices[o.product_code] || 0), 0) || 0;
+      bankTransferOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
 
     const todayTotalRevenue = todaySquareRevenue + todayBankTransferRevenue;
 
