@@ -16,44 +16,88 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
+    const searchType = searchParams.get("type") || "id"; // "id" or "name"
 
     if (!query) {
       return NextResponse.json({ error: "検索キーワードを入力してください" }, { status: 400 });
     }
 
-    // PIDで検索（完全一致または前方一致）
     let patientId = "";
     let patientName = "";
+    let intakeData: { patient_id: string; patient_name: string | null; line_id: string | null; answerer_id: string | null } | null = null;
 
-    // まずintakeテーブルで検索
-    const { data: intakeData } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name, line_id, answerer_id")
-      .or(`patient_id.ilike.%${query}%,patient_name.ilike.%${query}%`)
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 氏名検索の場合: スペース無視で部分一致、候補リストを返す
+    if (searchType === "name") {
+      // スペースを除去した検索クエリ
+      const normalizedQuery = query.replace(/[\s　]/g, "");
 
-    if (intakeData) {
-      patientId = intakeData.patient_id;
-      patientName = intakeData.patient_name || "-";
+      // intakeテーブルから候補を取得（最大10件）
+      const { data: candidates } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name, line_id, answerer_id")
+        .not("patient_name", "is", null)
+        .order("id", { ascending: false })
+        .limit(100); // 多めに取得してフィルタリング
+
+      // スペース無視で部分一致フィルタリング
+      const matchedCandidates = (candidates || [])
+        .filter(c => {
+          if (!c.patient_name) return false;
+          const normalizedName = c.patient_name.replace(/[\s　]/g, "");
+          return normalizedName.includes(normalizedQuery);
+        })
+        .slice(0, 10);
+
+      // 候補が複数ある場合は候補リストを返す
+      if (matchedCandidates.length > 1) {
+        return NextResponse.json({
+          found: false,
+          candidates: matchedCandidates.map(c => ({
+            id: c.patient_id,
+            name: c.patient_name,
+          })),
+        });
+      }
+
+      // 候補が1件の場合はその患者を選択
+      if (matchedCandidates.length === 1) {
+        intakeData = matchedCandidates[0];
+        patientId = intakeData.patient_id;
+        patientName = intakeData.patient_name || "-";
+      }
     } else {
-      // ordersテーブルでも検索
-      const { data: orderData } = await supabaseAdmin
-        .from("orders")
-        .select("patient_id")
+      // ID検索: 従来通り
+      const { data: foundIntake } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name, line_id, answerer_id")
         .ilike("patient_id", `%${query}%`)
+        .order("id", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (orderData) {
-        patientId = orderData.patient_id;
+      if (foundIntake) {
+        intakeData = foundIntake;
+        patientId = foundIntake.patient_id;
+        patientName = foundIntake.patient_name || "-";
+      } else {
+        // ordersテーブルでも検索
+        const { data: orderData } = await supabaseAdmin
+          .from("orders")
+          .select("patient_id")
+          .ilike("patient_id", `%${query}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (orderData) {
+          patientId = orderData.patient_id;
+        }
       }
     }
 
     if (!patientId) {
       return NextResponse.json({
         found: false,
+        candidates: [],
         message: "患者が見つかりませんでした"
       });
     }

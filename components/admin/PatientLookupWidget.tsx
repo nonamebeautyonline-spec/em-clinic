@@ -41,12 +41,18 @@ interface PatientResult {
   pendingBankTransfer: PendingBankInfo | null;
 }
 
+interface Candidate {
+  id: string;
+  name: string;
+}
+
 export default function PatientLookupWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PatientResult | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [error, setError] = useState("");
   const idInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,18 +62,20 @@ export default function PatientLookupWidget() {
     }
   }, [isOpen]);
 
-  const handleSearch = async (searchType: "id" | "name") => {
-    const query = searchType === "id" ? patientId.trim() : patientName.trim();
+  const handleSearch = async (searchType: "id" | "name", directId?: string) => {
+    const query = directId || (searchType === "id" ? patientId.trim() : patientName.trim());
     if (!query || loading) return;
 
     setLoading(true);
     setError("");
     setResult(null);
+    setCandidates([]);
 
     try {
       const adminToken = localStorage.getItem("adminToken") || "";
+      const typeParam = directId ? "id" : searchType;
       const res = await fetch(
-        `/api/admin/patient-lookup?q=${encodeURIComponent(query)}`,
+        `/api/admin/patient-lookup?q=${encodeURIComponent(query)}&type=${typeParam}`,
         {
           headers: { Authorization: `Bearer ${adminToken}` },
         }
@@ -77,6 +85,12 @@ export default function PatientLookupWidget() {
 
       if (!res.ok) {
         setError(data.error || "検索失敗");
+        return;
+      }
+
+      // 候補リストがある場合
+      if (!data.found && data.candidates && data.candidates.length > 0) {
+        setCandidates(data.candidates);
         return;
       }
 
@@ -101,6 +115,11 @@ export default function PatientLookupWidget() {
     }
   };
 
+  const handleSelectCandidate = (id: string) => {
+    setCandidates([]);
+    handleSearch("id", id);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, searchType: "id" | "name") => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
@@ -113,6 +132,7 @@ export default function PatientLookupWidget() {
     setPatientId("");
     setPatientName("");
     setResult(null);
+    setCandidates([]);
     setError("");
   };
 
@@ -195,6 +215,25 @@ export default function PatientLookupWidget() {
 
             {error && (
               <div className="p-3 text-red-600 text-sm">{error}</div>
+            )}
+
+            {/* 候補リスト */}
+            {candidates.length > 0 && (
+              <div className="p-3">
+                <div className="text-xs font-semibold text-gray-500 mb-2">候補を選択してください</div>
+                <div className="space-y-1">
+                  {candidates.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSelectCandidate(c.id)}
+                      className="w-full text-left px-3 py-2 bg-gray-50 hover:bg-blue-50 rounded text-sm flex justify-between items-center"
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-xs text-gray-400">{c.id}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {result && (
