@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     // 全注文履歴を取得（処方履歴）
     const { data: allOrders } = await supabaseAdmin
       .from("orders")
-      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email")
+      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -163,6 +163,7 @@ export async function GET(req: NextRequest) {
       address: latestOrder.address || "",
       phone: latestOrder.phone || "",
       email: latestOrder.email || "",
+      refund_status: latestOrder.refund_status || null,
     } : null;
 
     const formattedReorders = (reorders || []).map(r => ({
@@ -182,6 +183,7 @@ export async function GET(req: NextRequest) {
     const orderHistory = (allOrders || []).map(o => ({
       date: o.shipping_date || o.created_at?.slice(0, 10) || "-",
       product: formatProductCode(o.product_code),
+      refund_status: o.refund_status || null,
     }));
 
     return NextResponse.json({

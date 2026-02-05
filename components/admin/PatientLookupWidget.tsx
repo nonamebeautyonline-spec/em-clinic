@@ -12,6 +12,7 @@ interface LatestOrderInfo {
   address: string;
   phone: string;
   email: string;
+  refund_status?: string | null;
 }
 
 interface ReorderInfo {
@@ -29,6 +30,7 @@ interface PendingBankInfo {
 interface OrderHistoryItem {
   date: string;
   product: string;
+  refund_status?: string | null;
 }
 
 interface PatientResult {
@@ -269,7 +271,15 @@ export default function PatientLookupWidget() {
                 {/* 最新決済情報 */}
                 {result.latestOrder && (
                   <div className="bg-gray-50 rounded p-2">
-                    <div className="text-xs font-semibold text-gray-500 mb-2">最新決済</div>
+                    <div className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-2">
+                      最新決済
+                      {(result.latestOrder.refund_status === "refunded" || result.latestOrder.refund_status === "COMPLETED") && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-purple-600 text-white">返金済</span>
+                      )}
+                      {(result.latestOrder.refund_status === "partial" || result.latestOrder.refund_status === "PARTIAL") && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-orange-500 text-white">一部返金</span>
+                      )}
+                    </div>
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-gray-600">{result.latestOrder.product}</span>
@@ -322,9 +332,17 @@ export default function PatientLookupWidget() {
                     <div className="text-xs font-semibold text-gray-500 mb-1">処方履歴</div>
                     <div className="space-y-1 max-h-28 overflow-y-auto">
                       {result.orderHistory.map((o, i) => (
-                        <div key={i} className="text-xs bg-gray-50 p-1.5 rounded flex justify-between">
+                        <div key={i} className="text-xs bg-gray-50 p-1.5 rounded flex justify-between items-center">
                           <span className="text-gray-500">{o.date}</span>
-                          <span className="text-gray-700">{o.product}</span>
+                          <div className="flex items-center gap-1">
+                            {(o.refund_status === "refunded" || o.refund_status === "COMPLETED") && (
+                              <span className="px-1 py-0.5 text-[9px] font-bold rounded bg-purple-600 text-white">返金</span>
+                            )}
+                            {(o.refund_status === "partial" || o.refund_status === "PARTIAL") && (
+                              <span className="px-1 py-0.5 text-[9px] font-bold rounded bg-orange-500 text-white">一部</span>
+                            )}
+                            <span className="text-gray-700">{o.product}</span>
+                          </div>
                         </div>
                       ))}
                     </div>

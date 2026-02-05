@@ -507,12 +507,12 @@ export default function NonameMasterPage() {
                             {order.payment_date_label}
                           </span>
                         )}
-                        {order.refund_status === "refunded" && (
+                        {(order.refund_status === "refunded" || order.refund_status === "COMPLETED") && (
                           <span className="px-2 py-1 text-xs font-bold rounded-full bg-purple-600 text-white">
                             返金済
                           </span>
                         )}
-                        {order.refund_status === "partial" && (
+                        {(order.refund_status === "partial" || order.refund_status === "PARTIAL") && (
                           <span className="px-2 py-1 text-xs font-bold rounded-full bg-orange-500 text-white">
                             一部返金
                           </span>
