@@ -24,10 +24,13 @@ interface TodaySummary {
 
 export default function AccountingPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [dailySummary, setDailySummary] = useState({
@@ -50,8 +53,6 @@ export default function AccountingPage() {
   });
 
   const loadDailyData = useCallback(async (yearMonth: string) => {
-    setLoading(true);
-
     try {
       const res = await fetch(`/api/admin/daily-revenue?year_month=${yearMonth}`, {
         credentials: "include",
@@ -66,34 +67,37 @@ export default function AccountingPage() {
       }
     } catch {
       // ignore
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  const loadTodayData = useCallback(async () => {
+  const loadSelectedDateData = useCallback(async (dateStr: string) => {
     try {
-      // 今日の日付をYYYY-MM-DD形式で取得
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-      const res = await fetch(`/api/admin/daily-revenue?year_month=${todayStr.slice(0, 7)}`, {
+      const res = await fetch(`/api/admin/daily-revenue?year_month=${dateStr.slice(0, 7)}`, {
         credentials: "include",
       });
 
       if (res.ok) {
         const json = await res.json();
         if (json.ok && json.data) {
-          // 今日のデータを検索
-          const todayData = json.data.find((d: DailyData) => d.date === todayStr);
-          if (todayData) {
+          const dateData = json.data.find((d: DailyData) => d.date === dateStr);
+          if (dateData) {
             setTodaySummary({
-              totalSquare: todayData.square,
-              totalBank: todayData.bank,
-              totalRefund: todayData.refund,
-              totalNet: todayData.total,
-              squareCount: todayData.squareCount,
-              bankCount: todayData.bankCount,
+              totalSquare: dateData.square,
+              totalBank: dateData.bank,
+              totalRefund: dateData.refund,
+              totalNet: dateData.total,
+              squareCount: dateData.squareCount,
+              bankCount: dateData.bankCount,
+            });
+          } else {
+            // データがない日
+            setTodaySummary({
+              totalSquare: 0,
+              totalBank: 0,
+              totalRefund: 0,
+              totalNet: 0,
+              squareCount: 0,
+              bankCount: 0,
             });
           }
         }
@@ -105,8 +109,11 @@ export default function AccountingPage() {
 
   useEffect(() => {
     loadDailyData(selectedMonth);
-    loadTodayData();
-  }, [selectedMonth, loadDailyData, loadTodayData]);
+  }, [selectedMonth, loadDailyData]);
+
+  useEffect(() => {
+    loadSelectedDateData(selectedDate);
+  }, [selectedDate, loadSelectedDateData]);
 
   // 月選択オプション生成（過去12ヶ月）
   const monthOptions = [];
@@ -118,128 +125,132 @@ export default function AccountingPage() {
     monthOptions.push({ value: val, label });
   }
 
+  // 選択日の表示用フォーマット
+  const formatSelectedDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  };
+
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6 flex items-center justify-end">
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {monthOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      {/* 日次サマリー */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4 border-b pb-2">
+          <h2 className="text-lg font-bold text-slate-900">{formatSelectedDate(selectedDate)}の売上</h2>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="text-blue-600 text-xs mb-1">カード決済</div>
+            <div className="text-xl font-bold text-blue-700">¥{todaySummary.totalSquare.toLocaleString()}</div>
+            <div className="text-xs text-blue-500 mt-1">{todaySummary.squareCount}件</div>
+          </div>
+          <div className="p-4 bg-green-50 rounded-lg">
+            <div className="text-green-600 text-xs mb-1">銀行振込</div>
+            <div className="text-xl font-bold text-green-700">¥{todaySummary.totalBank.toLocaleString()}</div>
+            <div className="text-xs text-green-500 mt-1">{todaySummary.bankCount}件</div>
+          </div>
+          <div className="p-4 bg-red-50 rounded-lg">
+            <div className="text-red-600 text-xs mb-1">返金</div>
+            <div className="text-xl font-bold text-red-700">-¥{todaySummary.totalRefund.toLocaleString()}</div>
+          </div>
+          <div className="p-4 bg-slate-100 rounded-lg">
+            <div className="text-slate-600 text-xs mb-1">純売上</div>
+            <div className="text-xl font-bold text-slate-900">¥{todaySummary.totalNet.toLocaleString()}</div>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
+      {/* 月次サマリー */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4 border-b pb-2">
+          <h2 className="text-lg font-bold text-slate-900">月次サマリー</h2>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {monthOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* 日次サマリー（本日） */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">本日の売上</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-blue-600 text-xs mb-1">カード決済</div>
-                <div className="text-xl font-bold text-blue-700">¥{todaySummary.totalSquare.toLocaleString()}</div>
-                <div className="text-xs text-blue-500 mt-1">{todaySummary.squareCount}件</div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-green-600 text-xs mb-1">銀行振込</div>
-                <div className="text-xl font-bold text-green-700">¥{todaySummary.totalBank.toLocaleString()}</div>
-                <div className="text-xs text-green-500 mt-1">{todaySummary.bankCount}件</div>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <div className="text-red-600 text-xs mb-1">返金</div>
-                <div className="text-xl font-bold text-red-700">-¥{todaySummary.totalRefund.toLocaleString()}</div>
-              </div>
-              <div className="p-4 bg-slate-100 rounded-lg">
-                <div className="text-slate-600 text-xs mb-1">純売上</div>
-                <div className="text-xl font-bold text-slate-900">¥{todaySummary.totalNet.toLocaleString()}</div>
-              </div>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <div className="text-blue-600 text-xs mb-1">カード決済</div>
+            <div className="text-xl font-bold text-blue-700">¥{dailySummary.totalSquare.toLocaleString()}</div>
           </div>
-
-          {/* 月次サマリー */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">月次サマリー</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-blue-600 text-xs mb-1">カード決済</div>
-                <div className="text-xl font-bold text-blue-700">¥{dailySummary.totalSquare.toLocaleString()}</div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-green-600 text-xs mb-1">銀行振込</div>
-                <div className="text-xl font-bold text-green-700">¥{dailySummary.totalBank.toLocaleString()}</div>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <div className="text-red-600 text-xs mb-1">返金</div>
-                <div className="text-xl font-bold text-red-700">-¥{dailySummary.totalRefund.toLocaleString()}</div>
-              </div>
-              <div className="p-4 bg-slate-100 rounded-lg">
-                <div className="text-slate-600 text-xs mb-1">純売上</div>
-                <div className="text-xl font-bold text-slate-900">¥{dailySummary.totalNet.toLocaleString()}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <div className="text-purple-600 text-xs mb-1">決済数</div>
-                <div className="text-xl font-bold text-purple-700">
-                  {dailySummary.totalCount.toLocaleString()}件
-                  <span className="text-xs font-normal ml-2 text-purple-500">
-                    (カード{dailySummary.totalSquareCount} / 振込{dailySummary.totalBankCount})
-                  </span>
-                </div>
-              </div>
-              <div className="p-4 bg-orange-50 rounded-lg">
-                <div className="text-orange-600 text-xs mb-1">顧客単価</div>
-                <div className="text-xl font-bold text-orange-700">¥{dailySummary.avgOrderValue.toLocaleString()}</div>
-              </div>
-            </div>
+          <div className="p-4 bg-green-50 rounded-lg">
+            <div className="text-green-600 text-xs mb-1">銀行振込</div>
+            <div className="text-xl font-bold text-green-700">¥{dailySummary.totalBank.toLocaleString()}</div>
           </div>
-
-          {/* 日別売上グラフ */}
-          <div className="bg-white rounded-lg shadow p-6 overflow-visible">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">日別売上</h2>
-            <DailyBarChart data={dailyData} />
+          <div className="p-4 bg-red-50 rounded-lg">
+            <div className="text-red-600 text-xs mb-1">返金</div>
+            <div className="text-xl font-bold text-red-700">-¥{dailySummary.totalRefund.toLocaleString()}</div>
           </div>
-
-          {/* アクションボタン */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => router.push(`/admin/accounting/input?month=${selectedMonth}`)}
-              className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-blue-500 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">📝</span>
-                <div>
-                  <div className="text-lg font-bold text-slate-900">月次詳細入力</div>
-                  <div className="text-sm text-slate-600">売上原価・経費の入力</div>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => router.push(`/admin/accounting/statement?month=${selectedMonth}`)}
-              className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-green-500 text-left"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">📊</span>
-                <div>
-                  <div className="text-lg font-bold text-slate-900">収支表</div>
-                  <div className="text-sm text-slate-600">月次損益計算書</div>
-                </div>
-              </div>
-            </button>
+          <div className="p-4 bg-slate-100 rounded-lg">
+            <div className="text-slate-600 text-xs mb-1">純売上</div>
+            <div className="text-xl font-bold text-slate-900">¥{dailySummary.totalNet.toLocaleString()}</div>
           </div>
         </div>
-      )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          <div className="p-4 bg-purple-50 rounded-lg">
+            <div className="text-purple-600 text-xs mb-1">決済数</div>
+            <div className="text-xl font-bold text-purple-700">
+              {dailySummary.totalCount.toLocaleString()}件
+              <span className="text-xs font-normal ml-2 text-purple-500">
+                (カード{dailySummary.totalSquareCount} / 振込{dailySummary.totalBankCount})
+              </span>
+            </div>
+          </div>
+          <div className="p-4 bg-orange-50 rounded-lg">
+            <div className="text-orange-600 text-xs mb-1">顧客単価</div>
+            <div className="text-xl font-bold text-orange-700">¥{dailySummary.avgOrderValue.toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 日別売上グラフ */}
+      <div className="bg-white rounded-lg shadow p-6 overflow-visible">
+        <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">日別売上</h2>
+        <DailyBarChart data={dailyData} />
+      </div>
+
+      {/* アクションボタン */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button
+          onClick={() => router.push(`/admin/accounting/input?month=${selectedMonth}`)}
+          className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-blue-500 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📝</span>
+            <div>
+              <div className="text-lg font-bold text-slate-900">月次詳細入力</div>
+              <div className="text-sm text-slate-600">売上原価・経費の入力</div>
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => router.push(`/admin/accounting/statement?month=${selectedMonth}`)}
+          className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-green-500 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📊</span>
+            <div>
+              <div className="text-lg font-bold text-slate-900">収支表</div>
+              <div className="text-sm text-slate-600">月次損益計算書</div>
+            </div>
+          </div>
+        </button>
+      </div>
     </div>
   );
 }
