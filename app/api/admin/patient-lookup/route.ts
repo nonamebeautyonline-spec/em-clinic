@@ -121,12 +121,13 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(5);
 
-    // 銀行振込申請中（未確認）を確認
+    // 銀行振込申請中（未照合）を確認 - ordersテーブルでstatus=pending_confirmationのもの
     const { data: pendingBankTransfer } = await supabaseAdmin
-      .from("bank_transfer_orders")
-      .select("id, product_code, created_at, confirmed_at")
+      .from("orders")
+      .select("id, product_code, created_at")
       .eq("patient_id", patientId)
-      .is("confirmed_at", null)
+      .eq("payment_method", "bank_transfer")
+      .eq("status", "pending_confirmation")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
