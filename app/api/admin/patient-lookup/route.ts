@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
-    const searchType = searchParams.get("type") || "id"; // "id", "name", or "answerer_id"
+    const searchType = searchParams.get("type") || "id"; // "id", "name", "answerer_id", or "tracking"
 
     if (!query) {
       return NextResponse.json({ error: "検索キーワードを入力してください" }, { status: 400 });
@@ -96,6 +96,32 @@ export async function GET(req: NextRequest) {
         intakeData = foundIntake;
         patientId = foundIntake.patient_id;
         patientName = foundIntake.patient_name || "-";
+      }
+    } else if (searchType === "tracking") {
+      // 追跡番号検索: ordersテーブルからpatient_idを取得
+      const normalizedTracking = query.replace(/-/g, "");
+      const { data: orderData } = await supabaseAdmin
+        .from("orders")
+        .select("patient_id")
+        .or(`tracking_number.eq.${query},tracking_number.eq.${normalizedTracking}`)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (orderData) {
+        patientId = orderData.patient_id;
+        // intakeから患者情報を取得
+        const { data: foundIntake } = await supabaseAdmin
+          .from("intake")
+          .select("patient_id, patient_name, line_id, answerer_id")
+          .eq("patient_id", patientId)
+          .limit(1)
+          .maybeSingle();
+
+        if (foundIntake) {
+          intakeData = foundIntake;
+          patientName = foundIntake.patient_name || "-";
+        }
       }
     } else {
       // ID検索: 従来通り

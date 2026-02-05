@@ -53,6 +53,7 @@ export default function PatientLookupWidget() {
   const [patientId, setPatientId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [answererId, setAnswererId] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PatientResult | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -65,11 +66,12 @@ export default function PatientLookupWidget() {
     }
   }, [isOpen]);
 
-  const handleSearch = async (searchType: "id" | "name" | "answerer_id", directId?: string) => {
+  const handleSearch = async (searchType: "id" | "name" | "answerer_id" | "tracking", directId?: string) => {
     const query = directId || (
       searchType === "id" ? patientId.trim() :
       searchType === "name" ? patientName.trim() :
-      answererId.trim()
+      searchType === "answerer_id" ? answererId.trim() :
+      trackingNumber.trim()
     );
     if (!query || loading) return;
 
@@ -126,7 +128,7 @@ export default function PatientLookupWidget() {
     handleSearch("id", id);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, searchType: "id" | "name" | "answerer_id") => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, searchType: "id" | "name" | "answerer_id" | "tracking") => {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSearch(searchType);
@@ -138,6 +140,7 @@ export default function PatientLookupWidget() {
     setPatientId("");
     setPatientName("");
     setAnswererId("");
+    setTrackingNumber("");
     setResult(null);
     setCandidates([]);
     setError("");
@@ -225,6 +228,24 @@ export default function PatientLookupWidget() {
               <button
                 onClick={() => handleSearch("answerer_id")}
                 disabled={loading || !answererId.trim()}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                検索
+              </button>
+            </div>
+            {/* 追跡番号検索 */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, "tracking")}
+                placeholder="追跡番号"
+                className="flex-1 px-3 py-1.5 border rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => handleSearch("tracking")}
+                disabled={loading || !trackingNumber.trim()}
                 className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
               >
                 検索
