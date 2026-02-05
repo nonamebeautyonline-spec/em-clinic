@@ -190,6 +190,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
           <MenuItem
+            href="/admin/patient-data"
+            icon="🗑️"
+            label="予約・問診削除"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/patient-data"}
+          />
+          <MenuItem
             href="/admin/view-mypage"
             icon="👁️"
             label="顧客マイページ確認"
