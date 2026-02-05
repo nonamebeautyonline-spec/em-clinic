@@ -2,19 +2,43 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // 既にログイン済みならダッシュボードへ
-    const token = localStorage.getItem("adminToken");
-    if (token) {
-      router.push("/admin");
-    }
+    // セッションチェック
+    const checkSession = async () => {
+      try {
+        const res = await fetch("/api/admin/session", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ok) {
+            router.push("/admin");
+            return;
+          }
+        }
+      } catch {
+        // セッションなし
+      }
+
+      // 古いlocalStorageトークンがあれば削除
+      localStorage.removeItem("adminToken");
+      setChecking(false);
+    };
+
+    checkSession();
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -23,20 +47,25 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/admin/dashboard-stats", {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          password,
+          token: adminToken,
+        }),
       });
 
-      if (!res.ok) {
-        setError("認証失敗：トークンが無効です");
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setError(data.error || "認証に失敗しました");
         setLoading(false);
         return;
       }
 
-      // 認証成功
-      localStorage.setItem("adminToken", adminToken);
       router.push("/admin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -45,17 +74,55 @@ export default function AdminLoginPage() {
     }
   };
 
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <p className="text-slate-400">認証状態を確認中...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-md border border-slate-700">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">管理画面</h1>
-          <p className="text-slate-600 text-sm">認証が必要です</p>
+          <h1 className="text-2xl font-bold text-white mb-2">管理画面</h1>
+          <p className="text-slate-400 text-sm">認証が必要です</p>
         </div>
 
-        <form onSubmit={handleLogin}>
-          <div className="mb-6">
-            <label htmlFor="adminToken" className="block text-sm font-semibold text-slate-700 mb-2">
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+              メールアドレス
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@example.com"
+              required
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+              パスワード
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="パスワード"
+              required
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="adminToken" className="block text-sm font-medium text-slate-300 mb-2">
               管理者トークン
             </label>
             <input
@@ -63,22 +130,22 @@ export default function AdminLoginPage() {
               type="password"
               value={adminToken}
               onChange={(e) => setAdminToken(e.target.value)}
-              placeholder="ADMIN_TOKEN を入力"
+              placeholder="ADMIN_TOKEN"
               required
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
+            <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -92,8 +159,17 @@ export default function AdminLoginPage() {
         </form>
 
         <div className="mt-6 text-center">
+          <Link
+            href="/admin/forgot-password"
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            パスワードを忘れた場合
+          </Link>
+        </div>
+
+        <div className="mt-4 text-center">
           <p className="text-xs text-slate-500">
-            ADMIN_TOKEN は環境変数で設定されています
+            セッションは24時間有効です
           </p>
         </div>
       </div>
