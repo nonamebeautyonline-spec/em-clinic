@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     let countQuery = supabase.from("orders").select("*", { count: "exact", head: true });
     let dataQuery = supabase
       .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at");
+      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at, refund_status, refunded_at, refunded_amount");
 
     // フィルター適用
     if (filter === "unshipped") {
@@ -152,6 +152,9 @@ export async function GET(req: NextRequest) {
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 1,
         is_overdue: isOverdue, // ★ 発送漏れフラグ
+        refund_status: order.refund_status || null,
+        refunded_at: order.refunded_at || null,
+        refunded_amount: order.refunded_amount || null,
       };
     });
 

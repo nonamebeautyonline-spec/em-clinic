@@ -17,6 +17,9 @@ interface Order {
   purchase_count: number;
   status?: string;
   is_overdue?: boolean; // 発送漏れフラグ
+  refund_status?: string | null;
+  refunded_at?: string | null;
+  refunded_amount?: number | null;
 }
 
 export default function NonameMasterPage() {
@@ -489,7 +492,7 @@ export default function NonameMasterPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span
                           className={`px-3 py-1 text-xs font-medium rounded-full ${
                             order.payment_method === "クレジットカード"
@@ -502,6 +505,16 @@ export default function NonameMasterPage() {
                         {order.payment_date_label && (
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-200 text-slate-700">
                             {order.payment_date_label}
+                          </span>
+                        )}
+                        {order.refund_status === "refunded" && (
+                          <span className="px-2 py-1 text-xs font-bold rounded-full bg-purple-600 text-white">
+                            返金済
+                          </span>
+                        )}
+                        {order.refund_status === "partial" && (
+                          <span className="px-2 py-1 text-xs font-bold rounded-full bg-orange-500 text-white">
+                            一部返金
                           </span>
                         )}
                       </div>
