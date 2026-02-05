@@ -99,7 +99,7 @@ export default function PatientLookupWidget() {
   };
 
   const lstepUrl = result?.lstep_uid
-    ? `https://page.line.me/614ycaga/timeline?openExternalBrowser=1&uid=${result.lstep_uid}`
+    ? `https://manager.linestep.net/line/visual?member=${result.lstep_uid}`
     : null;
 
   return (

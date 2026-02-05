@@ -133,8 +133,8 @@ function formatProductCode(code: string | null): string {
 
 function formatPaymentMethod(method: string | null): string {
   if (!method) return "-";
-  if (method === "card" || method === "CARD") return "カード";
-  if (method === "bank" || method === "BANK_TRANSFER") return "銀行振込";
+  if (method === "card" || method === "CARD" || method === "credit_card") return "カード";
+  if (method === "bank" || method === "BANK_TRANSFER" || method === "bank_transfer") return "銀行振込";
   return method;
 }
 
