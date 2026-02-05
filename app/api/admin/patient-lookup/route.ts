@@ -58,13 +58,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 注文履歴を取得（最新10件）
-    const { data: orders } = await supabaseAdmin
+    // 全注文履歴を取得（処方履歴）
+    const { data: allOrders } = await supabaseAdmin
       .from("orders")
-      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at")
+      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(10);
+
+    // 最新注文（配送情報表示用）
+    const latestOrder = allOrders?.[0] || null;
 
     // 再処方履歴を取得（最新5件）
     const { data: reorders } = await supabaseAdmin
@@ -74,27 +77,46 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(5);
 
-    // 処方サマリーを計算
-    const prescriptionSummary: Record<string, number> = {};
-    for (const order of orders || []) {
-      const code = order.product_code || "unknown";
-      prescriptionSummary[code] = (prescriptionSummary[code] || 0) + 1;
-    }
+    // 銀行振込申請中（未確認）を確認
+    const { data: pendingBankTransfer } = await supabaseAdmin
+      .from("bank_transfer_orders")
+      .select("id, product_code, created_at, confirmed_at")
+      .eq("patient_id", patientId)
+      .is("confirmed_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // フォーマット
-    const formattedOrders = (orders || []).map(o => ({
-      date: o.shipping_date || o.created_at?.slice(0, 10) || "-",
-      product: formatProductCode(o.product_code),
-      amount: o.amount ? `¥${o.amount.toLocaleString()}` : "-",
-      payment: formatPaymentMethod(o.payment_method),
-      tracking: o.tracking_number || "-",
-    }));
+    const formattedLatestOrder = latestOrder ? {
+      date: latestOrder.shipping_date || latestOrder.created_at?.slice(0, 10) || "-",
+      product: formatProductCode(latestOrder.product_code),
+      amount: latestOrder.amount ? `¥${latestOrder.amount.toLocaleString()}` : "-",
+      payment: formatPaymentMethod(latestOrder.payment_method),
+      tracking: latestOrder.tracking_number || "-",
+      postal_code: latestOrder.postal_code || "",
+      address: latestOrder.address || "",
+      phone: latestOrder.phone || "",
+      email: latestOrder.email || "",
+    } : null;
 
     const formattedReorders = (reorders || []).map(r => ({
       id: r.gas_row_number,
       date: formatDateJST(r.created_at),
       product: formatProductCode(r.product_code),
       status: formatStatus(r.status),
+    }));
+
+    // 銀行振込申請中情報
+    const pendingBankInfo = pendingBankTransfer ? {
+      product: formatProductCode(pendingBankTransfer.product_code),
+      date: formatDateJST(pendingBankTransfer.created_at),
+    } : null;
+
+    // 処方履歴（日付とメニューのみ）
+    const orderHistory = (allOrders || []).map(o => ({
+      date: o.shipping_date || o.created_at?.slice(0, 10) || "-",
+      product: formatProductCode(o.product_code),
     }));
 
     return NextResponse.json({
@@ -104,13 +126,10 @@ export async function GET(req: NextRequest) {
         name: patientName,
         lstep_uid: intakeData?.answerer_id || "",
       },
-      orders: formattedOrders,
+      latestOrder: formattedLatestOrder,
+      orderHistory,
       reorders: formattedReorders,
-      summary: Object.entries(prescriptionSummary).map(([code, count]) => ({
-        product: formatProductCode(code),
-        count,
-      })),
-      totalOrders: orders?.length || 0,
+      pendingBankTransfer: pendingBankInfo,
     });
   } catch (error) {
     console.error("Patient lookup error:", error);

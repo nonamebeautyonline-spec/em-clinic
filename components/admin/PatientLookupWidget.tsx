@@ -2,12 +2,16 @@
 
 import { useState, useRef, useEffect } from "react";
 
-interface OrderInfo {
+interface LatestOrderInfo {
   date: string;
   product: string;
   amount: string;
   payment: string;
   tracking: string;
+  postal_code: string;
+  address: string;
+  phone: string;
+  email: string;
 }
 
 interface ReorderInfo {
@@ -17,12 +21,24 @@ interface ReorderInfo {
   status: string;
 }
 
+interface PendingBankInfo {
+  product: string;
+  date: string;
+}
+
+interface OrderHistoryItem {
+  date: string;
+  product: string;
+}
+
 interface PatientResult {
   id: string;
   name: string;
   lstep_uid: string;
-  orders: OrderInfo[];
+  latestOrder: LatestOrderInfo | null;
+  orderHistory: OrderHistoryItem[];
   reorders: ReorderInfo[];
+  pendingBankTransfer: PendingBankInfo | null;
 }
 
 export default function PatientLookupWidget() {
@@ -73,8 +89,10 @@ export default function PatientLookupWidget() {
         id: data.patient.id,
         name: data.patient.name,
         lstep_uid: data.patient.lstep_uid,
-        orders: data.orders || [],
+        latestOrder: data.latestOrder || null,
+        orderHistory: data.orderHistory || [],
         reorders: data.reorders || [],
+        pendingBankTransfer: data.pendingBankTransfer || null,
       });
     } catch {
       setError("通信エラー");
@@ -199,31 +217,75 @@ export default function PatientLookupWidget() {
                   )}
                 </div>
 
-                {/* 注文履歴 */}
-                {result.orders.length > 0 && (
+                {/* 銀行振込申請中 */}
+                {result.pendingBankTransfer && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                    <div className="text-xs font-semibold text-yellow-700 mb-1">銀行振込申請中</div>
+                    <div className="text-xs text-yellow-800">
+                      {result.pendingBankTransfer.product} ({result.pendingBankTransfer.date})
+                    </div>
+                  </div>
+                )}
+
+                {/* 最新決済情報 */}
+                {result.latestOrder && (
+                  <div className="bg-gray-50 rounded p-2">
+                    <div className="text-xs font-semibold text-gray-500 mb-2">最新決済</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">{result.latestOrder.product}</span>
+                        <span className="text-blue-600 font-semibold">{result.latestOrder.amount}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-500">
+                        <span>{result.latestOrder.payment}</span>
+                        <span>{result.latestOrder.date}</span>
+                      </div>
+                      {result.latestOrder.tracking !== "-" && (
+                        <div className="pt-1">
+                          <a
+                            href={`https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${result.latestOrder.tracking}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:underline"
+                          >
+                            追跡: {result.latestOrder.tracking}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 配送先情報 */}
+                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 text-xs">
+                      {result.latestOrder.postal_code && (
+                        <div className="text-gray-600">〒{result.latestOrder.postal_code}</div>
+                      )}
+                      {result.latestOrder.address && (
+                        <div className="text-gray-700">{result.latestOrder.address}</div>
+                      )}
+                      {result.latestOrder.email && (
+                        <div className="text-gray-500">{result.latestOrder.email}</div>
+                      )}
+                      {result.latestOrder.phone && (
+                        <div className="text-gray-500">{result.latestOrder.phone}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 決済なし */}
+                {!result.latestOrder && !result.pendingBankTransfer && (
+                  <div className="text-xs text-gray-400">決済履歴なし</div>
+                )}
+
+                {/* 処方履歴 */}
+                {result.orderHistory.length > 0 && (
                   <div>
-                    <div className="text-xs font-semibold text-gray-500 mb-1">注文履歴</div>
-                    <div className="space-y-1 max-h-40 overflow-y-auto">
-                      {result.orders.map((order, i) => (
-                        <div key={i} className="text-xs bg-gray-50 p-2 rounded">
-                          <div className="flex justify-between">
-                            <span>{order.date}</span>
-                            <span className="text-blue-600">{order.amount}</span>
-                          </div>
-                          <div className="text-gray-600">{order.product}</div>
-                          <div className="flex justify-between text-gray-400">
-                            <span>{order.payment}</span>
-                            {order.tracking !== "-" && (
-                              <a
-                                href={`https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${order.tracking}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-500 hover:underline"
-                              >
-                                {order.tracking}
-                              </a>
-                            )}
-                          </div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">処方履歴</div>
+                    <div className="space-y-1 max-h-28 overflow-y-auto">
+                      {result.orderHistory.map((o, i) => (
+                        <div key={i} className="text-xs bg-gray-50 p-1.5 rounded flex justify-between">
+                          <span className="text-gray-500">{o.date}</span>
+                          <span className="text-gray-700">{o.product}</span>
                         </div>
                       ))}
                     </div>
