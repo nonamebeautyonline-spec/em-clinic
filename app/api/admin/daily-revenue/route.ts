@@ -111,13 +111,13 @@ export async function GET(req: NextRequest) {
     }
 
     // 日付ごとに集計
-    const dailyData: Record<string, { date: string; square: number; bank: number; refund: number; total: number }> = {};
+    const dailyData: Record<string, { date: string; square: number; bank: number; refund: number; total: number; squareCount: number; bankCount: number }> = {};
 
     // 月の全日付を初期化
     const daysInMonth = new Date(year, month, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${yearMonth}-${String(d).padStart(2, "0")}`;
-      dailyData[dateStr] = { date: dateStr, square: 0, bank: 0, refund: 0, total: 0 };
+      dailyData[dateStr] = { date: dateStr, square: 0, bank: 0, refund: 0, total: 0, squareCount: 0, bankCount: 0 };
     }
 
     // カード決済を集計
@@ -127,6 +127,7 @@ export async function GET(req: NextRequest) {
         const dateStr = jstDate.toISOString().split("T")[0];
         if (dailyData[dateStr]) {
           dailyData[dateStr].square += order.amount || 0;
+          dailyData[dateStr].squareCount += 1;
         }
       }
     });
@@ -138,6 +139,7 @@ export async function GET(req: NextRequest) {
         const dateStr = jstDate.toISOString().split("T")[0];
         if (dailyData[dateStr]) {
           dailyData[dateStr].bank += order.amount || 0;
+          dailyData[dateStr].bankCount += 1;
         }
       }
     });
@@ -160,14 +162,27 @@ export async function GET(req: NextRequest) {
 
     const result = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
 
+    const totalSquare = result.reduce((sum, d) => sum + d.square, 0);
+    const totalBank = result.reduce((sum, d) => sum + d.bank, 0);
+    const totalRefund = result.reduce((sum, d) => sum + d.refund, 0);
+    const totalNet = result.reduce((sum, d) => sum + d.total, 0);
+    const totalSquareCount = result.reduce((sum, d) => sum + d.squareCount, 0);
+    const totalBankCount = result.reduce((sum, d) => sum + d.bankCount, 0);
+    const totalCount = totalSquareCount + totalBankCount;
+    const avgOrderValue = totalCount > 0 ? Math.round((totalSquare + totalBank) / totalCount) : 0;
+
     return NextResponse.json({
       ok: true,
       data: result,
       summary: {
-        totalSquare: result.reduce((sum, d) => sum + d.square, 0),
-        totalBank: result.reduce((sum, d) => sum + d.bank, 0),
-        totalRefund: result.reduce((sum, d) => sum + d.refund, 0),
-        totalNet: result.reduce((sum, d) => sum + d.total, 0),
+        totalSquare,
+        totalBank,
+        totalRefund,
+        totalNet,
+        totalSquareCount,
+        totalBankCount,
+        totalCount,
+        avgOrderValue,
       },
     });
   } catch (err) {

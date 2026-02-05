@@ -9,6 +9,8 @@ interface DailyData {
   bank: number;
   refund: number;
   total: number;
+  squareCount: number;
+  bankCount: number;
 }
 
 export default function AccountingPage() {
@@ -19,7 +21,16 @@ export default function AccountingPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
-  const [dailySummary, setDailySummary] = useState({ totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0 });
+  const [dailySummary, setDailySummary] = useState({
+    totalSquare: 0,
+    totalBank: 0,
+    totalRefund: 0,
+    totalNet: 0,
+    totalSquareCount: 0,
+    totalBankCount: 0,
+    totalCount: 0,
+    avgOrderValue: 0,
+  });
 
   const loadDailyData = useCallback(async (yearMonth: string) => {
     const token = localStorage.getItem("adminToken");
@@ -111,10 +122,25 @@ export default function AccountingPage() {
                 <div className="text-xl font-bold text-slate-900">¥{dailySummary.totalNet.toLocaleString()}</div>
               </div>
             </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <div className="text-purple-600 text-xs mb-1">決済数</div>
+                <div className="text-xl font-bold text-purple-700">
+                  {dailySummary.totalCount.toLocaleString()}件
+                  <span className="text-xs font-normal ml-2 text-purple-500">
+                    (カード{dailySummary.totalSquareCount} / 振込{dailySummary.totalBankCount})
+                  </span>
+                </div>
+              </div>
+              <div className="p-4 bg-orange-50 rounded-lg">
+                <div className="text-orange-600 text-xs mb-1">顧客単価</div>
+                <div className="text-xl font-bold text-orange-700">¥{dailySummary.avgOrderValue.toLocaleString()}</div>
+              </div>
+            </div>
           </div>
 
           {/* 日別売上グラフ */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-6 overflow-visible">
             <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">日別売上</h2>
             <DailyBarChart data={dailyData} />
           </div>
@@ -165,22 +191,24 @@ function DailyBarChart({ data }: DailyBarChartProps) {
   const maxValue = Math.max(...data.map((d) => d.square + d.bank), 1);
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[800px]">
-        <div className="flex items-end gap-1 h-48 border-b border-slate-200 pb-2">
+    <div className="overflow-x-auto overflow-y-visible">
+      <div className="min-w-[800px] pt-24">
+        <div className="flex items-end gap-1 h-48 border-b border-slate-200 pb-2 relative">
           {data.map((day) => {
             const squareHeight = (day.square / maxValue) * 100;
             const bankHeight = (day.bank / maxValue) * 100;
             const dayNum = parseInt(day.date.split("-")[2]);
+            const totalCount = day.squareCount + day.bankCount;
 
             return (
               <div key={day.date} className="flex-1 flex flex-col items-center group relative">
-                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-20 shadow-lg">
                   <div className="font-bold">{dayNum}日</div>
-                  <div>カード: ¥{day.square.toLocaleString()}</div>
-                  <div>振込: ¥{day.bank.toLocaleString()}</div>
+                  <div>カード: ¥{day.square.toLocaleString()} ({day.squareCount}件)</div>
+                  <div>振込: ¥{day.bank.toLocaleString()} ({day.bankCount}件)</div>
                   {day.refund > 0 && <div className="text-red-300">返金: -¥{day.refund.toLocaleString()}</div>}
                   <div className="border-t border-slate-600 mt-1 pt-1">純売上: ¥{day.total.toLocaleString()}</div>
+                  <div className="text-slate-300">計{totalCount}件</div>
                 </div>
                 <div className="w-full flex flex-col justify-end" style={{ height: "160px" }}>
                   {bankHeight > 0 && (
