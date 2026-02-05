@@ -312,7 +312,7 @@ export default function PatientLookupWidget() {
                       {result.latestOrder.tracking !== "-" && (
                         <div className="pt-1">
                           <a
-                            href={`https://trackings.post.japanpost.jp/services/srv/search/?requestNo1=${result.latestOrder.tracking}`}
+                            href={`https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${result.latestOrder.tracking.replace(/-/g, "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-500 hover:underline"
