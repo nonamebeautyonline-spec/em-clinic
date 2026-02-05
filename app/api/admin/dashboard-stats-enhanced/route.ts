@@ -1,22 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { jwtVerify } from "jose";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+
+// 管理者認証チェック（クッキーまたはBearerトークン）
+async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
+  // 1. クッキーベースのセッション認証（新方式）
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      await jwtVerify(sessionCookie, secret);
+      return true;
+    } catch {
+      // クッキー無効、次の方式を試す
+    }
+  }
+
+  // 2. Bearerトークン認証（後方互換性）
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    if (token === process.env.ADMIN_TOKEN) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // 管理者トークン認証
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 管理者認証
+    const isAuthorized = await verifyAdminAuth(request);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    if (token !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 403 });
     }
 
     const searchParams = request.nextUrl.searchParams;
