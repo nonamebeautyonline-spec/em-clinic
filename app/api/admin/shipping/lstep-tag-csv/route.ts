@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as iconv from "iconv-lite";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const TAG_ATTR_ID = "9217653"; // タグID（GASと同じ）
 
 export async function POST(req: NextRequest) {
   try {
-    // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

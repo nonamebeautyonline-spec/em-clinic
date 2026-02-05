@@ -1,13 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { createClient } from "@supabase/supabase-js";
+import { jwtVerify } from "jose";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// 管理者認証チェック（クッキーまたはBearerトークン）
+async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
+  // 1. クッキーベースのセッション認証
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      await jwtVerify(sessionCookie, secret);
+      return true;
+    } catch {
+      // クッキー無効、次の方式を試す
+    }
+  }
+
+  // 2. Bearerトークン認証（後方互換性）
+  const authHeader = request.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    if (token === ADMIN_TOKEN) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 interface CustomShippingItem {
   payment_id: string;
@@ -21,10 +49,8 @@ interface CustomShippingItem {
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
