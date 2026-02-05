@@ -45,6 +45,7 @@ interface ReconcileResult {
 interface PendingOrder {
   id: string;
   patient_id: string;
+  patient_name: string;
   product_code: string;
   product_name: string;
   amount: number;
@@ -66,6 +67,10 @@ export default function BankTransferReconcilePage() {
   const [loadingPending, setLoadingPending] = useState(true);
   const [previewResult, setPreviewResult] = useState<ReconcileResult | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // 手動確認モーダル用
+  const [manualConfirmOrder, setManualConfirmOrder] = useState<PendingOrder | null>(null);
+  const [manualConfirmMemo, setManualConfirmMemo] = useState("");
+  const [manualConfirming, setManualConfirming] = useState(false);
 
   useEffect(() => {
     loadPendingOrders();
@@ -190,6 +195,49 @@ export default function BankTransferReconcilePage() {
     }
   };
 
+  // 手動確認処理
+  const handleManualConfirm = async () => {
+    if (!manualConfirmOrder) return;
+
+    setManualConfirming(true);
+    setError("");
+
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const res = await fetch("/api/admin/bank-transfer/manual-confirm", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          order_id: manualConfirmOrder.id,
+          memo: manualConfirmMemo,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `エラー (${res.status})`);
+      }
+
+      // 成功したらモーダルを閉じて一覧を更新
+      setManualConfirmOrder(null);
+      setManualConfirmMemo("");
+      loadPendingOrders();
+    } catch (err) {
+      console.error("Manual confirm error:", err);
+      setError(err instanceof Error ? err.message : "手動確認に失敗しました");
+    } finally {
+      setManualConfirming(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -229,7 +277,7 @@ export default function BankTransferReconcilePage() {
                     患者ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    振込名義人
+                    氏名（振込名義）
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     商品名
@@ -239,6 +287,9 @@ export default function BankTransferReconcilePage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     送付先
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    操作
                   </th>
                 </tr>
               </thead>
@@ -258,7 +309,10 @@ export default function BankTransferReconcilePage() {
                       {order.patient_id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {order.account_name || "-"}
+                      {order.patient_name || "-"}
+                      {order.account_name && (
+                        <span className="text-slate-500">（{order.account_name}）</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {order.product_name}
@@ -268,6 +322,17 @@ export default function BankTransferReconcilePage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       〒{order.postal_code} {order.address}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <button
+                        onClick={() => {
+                          setManualConfirmOrder(order);
+                          setManualConfirmMemo("");
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                      >
+                        手動確認
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -641,6 +706,93 @@ export default function BankTransferReconcilePage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 手動確認モーダル */}
+      {manualConfirmOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">銀行振込を手動確認</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                この注文を振込確認済みとして処理します
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="bg-slate-50 rounded p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">患者ID:</span>
+                  <span className="font-mono text-blue-600">{manualConfirmOrder.patient_id}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">氏名:</span>
+                  <span className="text-slate-900">
+                    {manualConfirmOrder.patient_name || "-"}
+                    {manualConfirmOrder.account_name && (
+                      <span className="text-slate-500">（{manualConfirmOrder.account_name}）</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">商品:</span>
+                  <span className="text-slate-900">{manualConfirmOrder.product_name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">金額:</span>
+                  <span className="font-medium text-slate-900">¥{manualConfirmOrder.amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">申請日時:</span>
+                  <span className="text-slate-900">
+                    {new Date(manualConfirmOrder.created_at).toLocaleString("ja-JP")}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  メモ（任意）
+                </label>
+                <input
+                  type="text"
+                  value={manualConfirmMemo}
+                  onChange={(e) => setManualConfirmMemo(e.target.value)}
+                  placeholder="例: 振込名義違いのため手動確認"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>注意:</strong> この操作を実行すると、注文のステータスが「confirmed」に変更され、発送可能な状態になります。
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setManualConfirmOrder(null);
+                  setManualConfirmMemo("");
+                }}
+                className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
+                disabled={manualConfirming}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleManualConfirm}
+                disabled={manualConfirming}
+                className={`px-4 py-2 text-sm rounded-lg font-medium ${
+                  manualConfirming
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
+              >
+                {manualConfirming ? "処理中..." : "確認済みにする"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

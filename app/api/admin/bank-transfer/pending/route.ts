@@ -46,10 +46,27 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // 患者IDのリストを取得
+    const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
+
+    // 患者名を取得（intakeテーブルから）
+    const patientNameMap: Record<string, string> = {};
+    if (patientIds.length > 0) {
+      const { data: patients } = await supabase
+        .from("intake")
+        .select("patient_id, patient_name")
+        .in("patient_id", patientIds);
+
+      (patients || []).forEach((p: any) => {
+        patientNameMap[p.patient_id] = p.patient_name || "";
+      });
+    }
+
     // データを整形
     const formattedOrders = (orders || []).map((order: any) => ({
       id: order.id,
       patient_id: order.patient_id,
+      patient_name: patientNameMap[order.patient_id] || "",
       product_code: order.product_code,
       product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
       amount: order.amount,
