@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -236,6 +237,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* メインコンテンツ */}
       <main className="flex-1 overflow-y-auto">{children}</main>
+
+      {/* 患者クイック検索ウィジェット */}
+      <PatientLookupWidget />
     </div>
   );
 }
