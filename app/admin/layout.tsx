@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -190,6 +189,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
           <MenuItem
+            href="/admin/patient-search"
+            icon="🔎"
+            label="患者検索"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/patient-search"}
+          />
+          <MenuItem
             href="/admin/view-mypage"
             icon="👁️"
             label="顧客マイページ確認"
@@ -237,9 +243,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* メインコンテンツ */}
       <main className="flex-1 overflow-y-auto">{children}</main>
-
-      {/* 患者クイック検索ウィジェット */}
-      <PatientLookupWidget />
     </div>
   );
 }
