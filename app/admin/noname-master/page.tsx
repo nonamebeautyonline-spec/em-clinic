@@ -567,18 +567,16 @@ export default function NonameMasterPage() {
                           >
                             {addingToShipping[order.id] ? "..." : "本日発送に追加"}
                           </button>
-                          {filter === "unshipped" && (
-                            <button
-                              onClick={() => {
-                                setShippedInfoFor(order.id);
-                                setShippedDate("");
-                                setShippedTracking("");
-                              }}
-                              className="px-2 py-1 text-xs bg-slate-600 text-white rounded hover:bg-slate-700"
-                            >
-                              発送済み入力
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setShippedInfoFor(order.id);
+                              setShippedDate("");
+                              setShippedTracking("");
+                            }}
+                            className="px-2 py-1 text-xs bg-slate-600 text-white rounded hover:bg-slate-700"
+                          >
+                            発送済み入力
+                          </button>
                         </div>
                       ) : filter === "unshipped" ? (
                         <button
