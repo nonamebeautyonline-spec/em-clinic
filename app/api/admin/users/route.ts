@@ -4,27 +4,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const APP_BASE_URL = process.env.APP_BASE_URL || "https://app.noname-beauty.jp";
-
-// ADMIN_TOKENチェック
-function verifyAdminToken(req: NextRequest): boolean {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
-  return token === ADMIN_TOKEN;
-}
 
 /**
  * GET: 管理者一覧
  */
 export async function GET(req: NextRequest) {
-  if (!verifyAdminToken(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
@@ -45,7 +39,8 @@ export async function GET(req: NextRequest) {
  * POST: 管理者作成（招待メール送信）
  */
 export async function POST(req: NextRequest) {
-  if (!verifyAdminToken(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
@@ -141,7 +136,8 @@ export async function POST(req: NextRequest) {
  * DELETE: 管理者削除
  */
 export async function DELETE(req: NextRequest) {
-  if (!verifyAdminToken(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 

@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// 認証チェック
-function checkAuth(req: NextRequest): boolean {
-  const authHeader = req.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
-  return !!(ADMIN_TOKEN && token === ADMIN_TOKEN);
-}
-
 // GET: 指定月の開放状態を確認
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -55,7 +48,8 @@ export async function GET(req: NextRequest) {
 
 // POST: 指定月の予約を早期開放
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -102,7 +96,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE: 早期開放を取り消し（通常の5日開放に戻す）
 export async function DELETE(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

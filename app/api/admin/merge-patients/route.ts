@@ -1,18 +1,16 @@
 // app/api/admin/merge-patients/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const GAS_INTAKE_URL = process.env.GAS_MYPAGE_URL; // intake GAS (問診マスター)
 const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL; // Square Webhook GAS (のなめマスター)
 
 export async function POST(req: NextRequest) {
   try {
-    // ★ ADMIN_TOKEN チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

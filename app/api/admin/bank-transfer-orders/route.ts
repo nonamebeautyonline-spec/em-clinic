@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,15 +9,10 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    // 管理者トークン認証
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(request);
+    if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    if (token !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 403 });
     }
 
     // 銀行振込注文一覧を取得（ordersテーブルからpayment_method='bank_transfer'を抽出）

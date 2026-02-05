@@ -1,18 +1,16 @@
 // app/api/admin/sync-check/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_LIST_URL as string;
 const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string;
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN as string;
 
 export async function GET(req: NextRequest) {
   try {
-    // 認証チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 

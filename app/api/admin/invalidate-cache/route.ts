@@ -1,18 +1,16 @@
 // app/api/admin/invalidate-cache/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 const MYPAGE_INVALIDATE_SECRET = process.env.MYPAGE_INVALIDATE_SECRET || "";
 
 export async function POST(req: NextRequest) {
   try {
-    // ★ ADMIN_TOKEN チェック
-    const authHeader = req.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
+    // 認証チェック（クッキーまたはBearerトークン）
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
