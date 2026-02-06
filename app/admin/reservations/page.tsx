@@ -61,7 +61,9 @@ export default function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState(today);
 
   useEffect(() => {
-    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
+    // 日付変更時は付帯情報・送信結果をリセット
+    setReminderPreview(null);
+    setReminderSendResult(null);
     loadReservations();
   }, [selectedDate]);
 
