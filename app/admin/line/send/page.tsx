@@ -32,6 +32,19 @@ interface FilterCondition {
   value?: string;
 }
 
+interface Broadcast {
+  id: number;
+  name: string;
+  message_content: string;
+  status: string;
+  total_targets: number;
+  sent_count: number;
+  failed_count: number;
+  no_uid_count: number;
+  created_at: string;
+  sent_at: string | null;
+}
+
 const MARK_OPTIONS = [
   { value: "red", label: "要対応", color: "#EF4444" },
   { value: "yellow", label: "対応中", color: "#EAB308" },
@@ -40,14 +53,17 @@ const MARK_OPTIONS = [
   { value: "gray", label: "保留", color: "#6B7280" },
 ];
 
-export default function SendPage() {
-  const [mode, setMode] = useState<"individual" | "broadcast">("individual");
+const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
+  draft: { text: "下書き", bg: "bg-gray-50", textColor: "text-gray-600", dot: "bg-gray-400" },
+  scheduled: { text: "予約済み", bg: "bg-blue-50", textColor: "text-blue-700", dot: "bg-blue-500" },
+  sending: { text: "送信中", bg: "bg-amber-50", textColor: "text-amber-700", dot: "bg-amber-500 animate-pulse" },
+  sent: { text: "送信完了", bg: "bg-emerald-50", textColor: "text-emerald-700", dot: "bg-emerald-500" },
+  failed: { text: "失敗", bg: "bg-red-50", textColor: "text-red-700", dot: "bg-red-500" },
+};
+
+export default function BroadcastSendPage() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-
-  // 個別送信
-  const [patientId, setPatientId] = useState("");
-  const [patientName, setPatientName] = useState("");
 
   // 一斉配信フィルタ
   const [includeConditions, setIncludeConditions] = useState<FilterCondition[]>([]);
@@ -69,13 +85,20 @@ export default function SendPage() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // 配信履歴
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, templatesData]) => {
+      fetch("/api/admin/line/broadcast", { credentials: "include" }).then(r => r.json()),
+    ]).then(([tagsData, templatesData, broadcastData]) => {
       if (tagsData.tags) setTags(tagsData.tags);
       if (templatesData.templates) setTemplates(templatesData.templates);
+      if (broadcastData.broadcasts) setBroadcasts(broadcastData.broadcasts);
+      setLoadingHistory(false);
     });
   }, []);
 
@@ -118,33 +141,29 @@ export default function SendPage() {
     setResult(null);
     setShowConfirm(false);
 
-    if (mode === "individual") {
-      const res = await fetch("/api/admin/line/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ patient_id: patientId, message }),
-      });
-      const data = await res.json();
-      setResult(data.ok ? `${patientName || patientId} に送信しました` : `送信失敗: ${data.error}`);
-    } else {
-      const res = await fetch("/api/admin/line/broadcast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: broadcastName || undefined,
-          filter_rules: {
-            include: { operator: "AND", conditions: includeConditions },
-            exclude: { conditions: excludeConditions },
-          },
-          message,
-        }),
-      });
-      const data = await res.json();
-      setResult(data.ok
-        ? `配信完了: 送信${data.sent}件 / 失敗${data.failed}件 / UID無${data.no_uid}件`
-        : `配信失敗: ${data.error}`);
+    const res = await fetch("/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        name: broadcastName || undefined,
+        filter_rules: {
+          include: { operator: "AND", conditions: includeConditions },
+          exclude: { conditions: excludeConditions },
+        },
+        message,
+      }),
+    });
+    const data = await res.json();
+    setResult(data.ok
+      ? `配信完了: 送信${data.sent}件 / 失敗${data.failed}件 / UID無${data.no_uid}件`
+      : `配信失敗: ${data.error}`);
+
+    // 配信履歴を再取得
+    if (data.ok) {
+      const histRes = await fetch("/api/admin/line/broadcast", { credentials: "include" });
+      const histData = await histRes.json();
+      if (histData.broadcasts) setBroadcasts(histData.broadcasts);
     }
     setSending(false);
   };
@@ -171,6 +190,11 @@ export default function SendPage() {
     setTemplates(prev => prev.filter(t => t.id !== id));
   };
 
+  const formatDate = (s: string) => {
+    const d = new Date(s);
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
   return (
     <div className="min-h-full bg-gray-50/50">
       {/* ヘッダー */}
@@ -179,236 +203,176 @@ export default function SendPage() {
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </div>
-            メッセージ送信
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">個別送信・一斉配信を管理</p>
-
-          {/* モード切替 */}
-          <div className="flex gap-1.5 bg-gray-100 rounded-xl p-1 mt-5">
-            <button
-              onClick={() => setMode("individual")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                mode === "individual"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              個別送信
-            </button>
-            <button
-              onClick={() => setMode("broadcast")}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                mode === "broadcast"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
               </svg>
-              一斉配信
-            </button>
-          </div>
+            </div>
+            一斉送信
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">タグ・マークで絞り込んでLINEメッセージを一斉配信</p>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 md:px-8 py-6 space-y-4">
-        {/* 個別送信: 患者選択 */}
-        {mode === "individual" && (
-          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        {/* 配信名 */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            配信名（任意）
+          </label>
+          <input
+            type="text"
+            value={broadcastName}
+            onChange={(e) => setBroadcastName(e.target.value)}
+            placeholder="例: 2月キャンペーン"
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 transition-all"
+          />
+        </div>
+
+        {/* 絞り込み条件 */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              送信先
+              絞り込み条件
             </label>
-            <input
-              type="text"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-              placeholder="患者IDを入力（例: P123456789）"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 transition-all"
-            />
-            {patientName && (
-              <p className="mt-2 text-sm text-gray-500 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                {patientName}
-              </p>
+            <button
+              onClick={() => addCondition("include")}
+              className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              条件追加
+            </button>
+          </div>
+          {includeConditions.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              条件なし（全員が対象）
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {includeConditions.map((c, i) => (
+                <ConditionRow
+                  key={i}
+                  condition={c}
+                  tags={tags}
+                  onUpdate={(updates) => updateCondition("include", i, updates)}
+                  onRemove={() => removeCondition("include", i)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 除外条件 */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-red-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              除外条件
+            </label>
+            <button
+              onClick={() => addCondition("exclude")}
+              className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              除外条件追加
+            </button>
+          </div>
+          {excludeConditions.length === 0 ? (
+            <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              除外なし
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {excludeConditions.map((c, i) => (
+                <ConditionRow
+                  key={i}
+                  condition={c}
+                  tags={tags}
+                  onUpdate={(updates) => updateCondition("exclude", i, updates)}
+                  onRemove={() => removeCondition("exclude", i)}
+                  isExclude
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* プレビュー */}
+        <button
+          onClick={handlePreview}
+          disabled={loadingPreview}
+          className="w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl text-sm font-medium text-gray-700 transition-all flex items-center justify-center gap-2 shadow-sm"
+        >
+          {loadingPreview ? (
+            <>
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+              確認中...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              対象者をプレビュー
+            </>
+          )}
+        </button>
+
+        {preview && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100/50">
+            <div className="grid grid-cols-3 gap-4 mb-3">
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-800">{preview.total}</div>
+                <div className="text-[10px] text-gray-500">対象</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-emerald-600">{preview.sendable}</div>
+                <div className="text-[10px] text-emerald-500">送信可能</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-400">{preview.no_uid}</div>
+                <div className="text-[10px] text-gray-400">UID無し</div>
+              </div>
+            </div>
+            {preview.patients.length > 0 && (
+              <div className="max-h-28 overflow-y-auto mt-3 pt-3 border-t border-blue-100">
+                <div className="flex flex-wrap gap-1.5">
+                  {preview.patients.slice(0, 20).map(p => (
+                    <span
+                      key={p.patient_id}
+                      className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
+                        p.has_line
+                          ? "bg-white/80 text-emerald-700 border border-emerald-200/50"
+                          : "bg-white/50 text-gray-500 border border-gray-200/50"
+                      }`}
+                    >
+                      {p.patient_name || p.patient_id}
+                    </span>
+                  ))}
+                  {preview.patients.length > 20 && (
+                    <span className="text-[11px] text-gray-400 px-2 py-1">... 他{preview.patients.length - 20}名</span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
-        )}
-
-        {/* 一斉配信: フィルタ */}
-        {mode === "broadcast" && (
-          <>
-            {/* 配信名 */}
-            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                配信名（任意）
-              </label>
-              <input
-                type="text"
-                value={broadcastName}
-                onChange={(e) => setBroadcastName(e.target.value)}
-                placeholder="例: 2月キャンペーン"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 transition-all"
-              />
-            </div>
-
-            {/* 絞り込み条件 */}
-            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  絞り込み条件
-                </label>
-                <button
-                  onClick={() => addCondition("include")}
-                  className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  条件追加
-                </button>
-              </div>
-              {includeConditions.length === 0 ? (
-                <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  条件なし（全員が対象）
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {includeConditions.map((c, i) => (
-                    <ConditionRow
-                      key={i}
-                      condition={c}
-                      tags={tags}
-                      onUpdate={(updates) => updateCondition("include", i, updates)}
-                      onRemove={() => removeCondition("include", i)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 除外条件 */}
-            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <label className="flex items-center gap-2 text-sm font-semibold text-red-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  除外条件
-                </label>
-                <button
-                  onClick={() => addCondition("exclude")}
-                  className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  除外条件追加
-                </button>
-              </div>
-              {excludeConditions.length === 0 ? (
-                <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  除外なし
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {excludeConditions.map((c, i) => (
-                    <ConditionRow
-                      key={i}
-                      condition={c}
-                      tags={tags}
-                      onUpdate={(updates) => updateCondition("exclude", i, updates)}
-                      onRemove={() => removeCondition("exclude", i)}
-                      isExclude
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* プレビュー */}
-            <button
-              onClick={handlePreview}
-              disabled={loadingPreview}
-              className="w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl text-sm font-medium text-gray-700 transition-all flex items-center justify-center gap-2 shadow-sm"
-            >
-              {loadingPreview ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-                  確認中...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  対象者をプレビュー
-                </>
-              )}
-            </button>
-
-            {preview && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100/50">
-                <div className="grid grid-cols-3 gap-4 mb-3">
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gray-800">{preview.total}</div>
-                    <div className="text-[10px] text-gray-500">対象</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-emerald-600">{preview.sendable}</div>
-                    <div className="text-[10px] text-emerald-500">送信可能</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-bold text-gray-400">{preview.no_uid}</div>
-                    <div className="text-[10px] text-gray-400">UID無し</div>
-                  </div>
-                </div>
-                {preview.patients.length > 0 && (
-                  <div className="max-h-28 overflow-y-auto mt-3 pt-3 border-t border-blue-100">
-                    <div className="flex flex-wrap gap-1.5">
-                      {preview.patients.slice(0, 20).map(p => (
-                        <span
-                          key={p.patient_id}
-                          className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
-                            p.has_line
-                              ? "bg-white/80 text-emerald-700 border border-emerald-200/50"
-                              : "bg-white/50 text-gray-500 border border-gray-200/50"
-                          }`}
-                        >
-                          {p.patient_name || p.patient_id}
-                        </span>
-                      ))}
-                      {preview.patients.length > 20 && (
-                        <span className="text-[11px] text-gray-400 px-2 py-1">... 他{preview.patients.length - 20}名</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
         )}
 
         {/* メッセージ入力 */}
@@ -499,13 +463,13 @@ export default function SendPage() {
         {/* 送信ボタン */}
         <button
           onClick={() => setShowConfirm(true)}
-          disabled={sending || !message.trim() || (mode === "individual" && !patientId.trim())}
+          disabled={sending || !message.trim()}
           className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 font-medium shadow-lg shadow-green-500/25 transition-all text-sm flex items-center justify-center gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
           </svg>
-          {mode === "individual" ? "送信する" : "一斉配信する"}
+          一斉配信する
         </button>
 
         {/* 送信結果 */}
@@ -527,54 +491,98 @@ export default function SendPage() {
             {result}
           </div>
         )}
+
+        {/* ── 配信履歴 ── */}
+        <div className="pt-6 border-t border-gray-200 mt-8">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            配信履歴
+          </h2>
+
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+            </div>
+          ) : broadcasts.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-sm text-gray-400">配信履歴がまだありません</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {broadcasts.map(b => {
+                const st = BROADCAST_STATUS[b.status] || { text: b.status, bg: "bg-gray-50", textColor: "text-gray-600", dot: "bg-gray-400" };
+                const rate = b.total_targets > 0 ? Math.round((b.sent_count / b.total_targets) * 100) : 0;
+                return (
+                  <div key={b.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate">{b.name || "無題の配信"}</h3>
+                        <span className="text-xs text-gray-400">{formatDate(b.created_at)}</span>
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium ${st.bg} ${st.textColor}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                        {st.text}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 line-clamp-1 mb-2">{b.message_content}</p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="text-gray-500">送信 {b.sent_count}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        <span className="text-gray-500">失敗 {b.failed_count}</span>
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                        <span className="text-gray-500">UID無 {b.no_uid_count}</span>
+                      </span>
+                      <span className="ml-auto text-gray-400">
+                        対象 {b.total_targets}人 ({rate}%)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 確認モーダル */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            {/* モーダルヘッダー */}
             <div className="px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  mode === "individual"
-                    ? "bg-gradient-to-br from-green-400 to-emerald-500"
-                    : "bg-gradient-to-br from-orange-400 to-rose-500"
-                }`}>
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">送信確認</h3>
-                  <p className="text-xs text-gray-400">
-                    {mode === "individual" ? "個別メッセージ送信" : "一斉配信"}
-                  </p>
+                  <p className="text-xs text-gray-400">一斉配信</p>
                 </div>
               </div>
             </div>
 
             <div className="px-6 py-5">
-              {mode === "individual" ? (
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-sm text-gray-500">送信先:</span>
-                  <span className="text-sm font-semibold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">{patientId}</span>
-                </div>
-              ) : (
-                <div className="mb-4">
-                  <span className="text-sm text-gray-500">一斉配信</span>
-                  {preview ? (
-                    <div className="mt-2 bg-blue-50 rounded-lg px-3 py-2 flex items-center gap-3">
-                      <span className="text-sm font-bold text-blue-700">{preview.sendable}人</span>
-                      <span className="text-xs text-blue-500">に送信されます</span>
-                    </div>
-                  ) : (
-                    <div className="mt-2 bg-amber-50 rounded-lg px-3 py-2">
-                      <span className="text-xs text-amber-600">プレビュー未実行です。対象者数を確認してください。</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="mb-4">
+                {preview ? (
+                  <div className="bg-blue-50 rounded-lg px-3 py-2 flex items-center gap-3">
+                    <span className="text-sm font-bold text-blue-700">{preview.sendable}人</span>
+                    <span className="text-xs text-blue-500">に送信されます</span>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 rounded-lg px-3 py-2">
+                    <span className="text-xs text-amber-600">プレビュー未実行です。対象者数を確認してください。</span>
+                  </div>
+                )}
+              </div>
 
               <div className="bg-gray-50 rounded-xl p-4 max-h-32 overflow-y-auto">
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{message}</p>
@@ -622,7 +630,6 @@ function ConditionRow({
   onRemove: () => void;
   isExclude?: boolean;
 }) {
-  const accentColor = isExclude ? "red" : "emerald";
   return (
     <div className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${
       isExclude ? "bg-red-50/30 border-red-100" : "bg-emerald-50/30 border-emerald-100"
@@ -630,7 +637,7 @@ function ConditionRow({
       <select
         value={condition.type}
         onChange={(e) => onUpdate({ type: e.target.value })}
-        className={`px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-${accentColor}-500/30 focus:border-${accentColor}-400 transition-all`}
+        className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
       >
         <option value="tag">タグ</option>
         <option value="mark">対応マーク</option>

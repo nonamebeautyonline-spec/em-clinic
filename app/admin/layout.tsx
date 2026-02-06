@@ -18,11 +18,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
-  { href: "/admin/line/friends", icon: "👥", label: "友達一覧" },
-  { href: "/admin/line/send", icon: "✉️", label: "メッセージ送信" },
-  { href: "/admin/line/talk", icon: "💬", label: "個別トーク" },
-  { href: "/admin/line/tags", icon: "🏷️", label: "タグ管理" },
-  { href: "/admin/line/broadcasts", icon: "📣", label: "配信履歴" },
+  { href: "/admin/line/friends", icon: "💬", label: "LINE機能" },
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者統合" },
@@ -212,6 +208,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/accounting"}
           />
 
+          <MenuItem
+            href="/admin/line/friends"
+            icon="💬"
+            label="LINE機能"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/line")}
+          />
+
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
           <MenuItem
             href="/admin/reservations"
@@ -300,57 +304,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="追跡番号付与"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/tracking"}
-          />
-
-          <MenuSection label="LINE機能" isOpen={isSidebarOpen} />
-          <MenuItem
-            href="/admin/line/friends"
-            icon="👥"
-            label="友達一覧"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/friends"}
-          />
-          <MenuItem
-            href="/admin/line/send"
-            icon="✉️"
-            label="メッセージ送信"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/send"}
-          />
-          <MenuItem
-            href="/admin/line/talk"
-            icon="💬"
-            label="個別トーク"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/talk"}
-          />
-          <MenuItem
-            href="/admin/line/tags"
-            icon="🏷️"
-            label="タグ管理"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/tags"}
-          />
-          <MenuItem
-            href="/admin/line/friends/fields"
-            icon="📝"
-            label="友達情報欄設定"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/friends/fields"}
-          />
-          <MenuItem
-            href="/admin/line/broadcasts"
-            icon="📣"
-            label="配信履歴"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/broadcasts"}
-          />
-          <MenuItem
-            href="/admin/line/messages"
-            icon="📨"
-            label="送信履歴"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/messages"}
           />
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />
