@@ -393,7 +393,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* メインコンテンツ */}
-      <main className={`flex-1 min-h-0 relative ${pathname?.startsWith("/admin/line") ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main className={`flex-1 min-h-0 relative ${pathname === "/admin/line/talk" ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* ページ遷移時のローディングオーバーレイ */}
         {isPageTransitioning && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
