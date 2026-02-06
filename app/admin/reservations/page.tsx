@@ -54,6 +54,7 @@ export default function ReservationsPage() {
   const [loadingReminder, setLoadingReminder] = useState(false);
   const [sendingReminder, setSendingReminder] = useState(false);
   const [reminderSendResult, setReminderSendResult] = useState<ReminderSendResult | null>(null);
+  const [showReminderConfirm, setShowReminderConfirm] = useState(false);
 
   // デフォルトは今日の日付
   const today = new Date().toISOString().slice(0, 10);
@@ -141,8 +142,7 @@ export default function ReservationsPage() {
   };
 
   const handleSendReminder = async () => {
-    if (!confirm(`${formatDate(selectedDate)}の予約者${reservations.length}名にLINEリマインドを送信しますか？`)) return;
-
+    setShowReminderConfirm(false);
     setSendingReminder(true);
     setReminderSendResult(null);
 
@@ -462,7 +462,7 @@ export default function ReservationsPage() {
                 戻る
               </button>
               <button
-                onClick={handleSendReminder}
+                onClick={() => setShowReminderConfirm(true)}
                 disabled={sendingReminder || reminderPreview.total === 0}
                 className={`px-4 py-2 text-sm rounded-lg font-medium ${
                   sendingReminder || reminderPreview.total === 0
@@ -573,6 +573,39 @@ export default function ReservationsPage() {
           ))
         )}
       </div>}
+
+      {/* LINE リマインド送信確認モーダル */}
+      {showReminderConfirm && reminderPreview && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6">
+            <h3 className="text-base font-semibold text-slate-900 mb-3">
+              LINE リマインド一括送信
+            </h3>
+            <p className="text-sm text-slate-600 mb-2">
+              <span className="font-semibold text-slate-900">{formatDate(selectedDate)}</span>の予約者
+              <span className="font-semibold text-green-700"> {reminderPreview.total}名</span>に
+              LINEリマインドメッセージを一括送信します。
+            </p>
+            <p className="text-xs text-slate-500 mb-4">
+              ※ LINE UIDが未取得の患者にはスキップされます。送信後に結果が表示されます。
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowReminderConfirm(false)}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSendReminder}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                送信する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* カルテモーダル */}
       {selectedReservation && (
