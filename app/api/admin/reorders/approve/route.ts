@@ -1,8 +1,9 @@
-// DB-only: 再処方承認（GAS不要）+ LINE通知
+// DB-only: 再処方承認（GAS不要）+ LINE通知（管理者グループ＆患者個別）
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { pushMessage } from "@/lib/line-push";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -84,8 +85,30 @@ export async function POST(req: NextRequest) {
       await invalidateDashboardCache(reorderData.patient_id);
     }
 
-    // LINE通知（管理画面から承認）
+    // LINE通知（管理者グループ）
     pushToGroup(`【再処方】承認しました（管理画面）\n申請ID: ${id}`).catch(() => {});
+
+    // LINE通知（患者へ承認通知）
+    if (reorderData.patient_id) {
+      const { data: intake } = await supabaseAdmin
+        .from("intake")
+        .select("line_id")
+        .eq("patient_id", reorderData.patient_id)
+        .not("line_id", "is", null)
+        .limit(1)
+        .single();
+
+      if (intake?.line_id) {
+        pushMessage(intake.line_id, [{
+          type: "text",
+          text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+        }]).catch((err) => {
+          console.error("[admin/approve] Patient LINE push error:", err);
+        });
+      } else {
+        console.log(`[admin/approve] No LINE UID for patient ${reorderData.patient_id}, skipping push`);
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
