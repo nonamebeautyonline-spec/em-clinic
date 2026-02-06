@@ -39,6 +39,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
+    // 認証済みなら再チェック不要（ページ遷移時のスピナー防止）
+    if (isAuthenticated) return;
+
     const checkSession = async () => {
       try {
         const res = await fetch("/api/admin/session", {
@@ -63,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     checkSession();
-  }, [pathname, router]);
+  }, [pathname, router, isAuthenticated]);
 
   // ページ遷移時にモバイルメニューを閉じる
   useEffect(() => {

@@ -399,7 +399,7 @@ export default function TalkPage() {
   );
 
   return (
-    <div className="h-full flex bg-[#f8f9fb]">
+    <div className="h-full flex overflow-hidden bg-[#f8f9fb]">
       {/* ========== 左カラム ========== */}
       <div className="w-[280px] flex-shrink-0 border-r border-gray-200/80 flex flex-col bg-white">
         {/* 検索 */}
@@ -535,7 +535,7 @@ export default function TalkPage() {
             </div>
 
             {/* メッセージ */}
-            <div ref={msgContainerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-gray-100">
+            <div ref={msgContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 bg-gray-100">
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">読み込み中...</div>
@@ -619,7 +619,7 @@ export default function TalkPage() {
       {/* ========== 右カラム ========== */}
       {selectedPatient && (
         <div className="w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col">
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex-1 overflow-y-auto overscroll-none">
             {/* プロフィール */}
             <div className="px-4 pt-5 pb-4 text-center border-b border-gray-100">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-sm">
