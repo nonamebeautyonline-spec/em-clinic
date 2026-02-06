@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { pushMessage } from "@/lib/line-push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -196,6 +197,36 @@ export async function POST(req: NextRequest) {
 
         // ★ バックグラウンドでGAS同期（レスポンスを待たない）
         syncToGas(action, gasRowNumber).catch(() => {});
+
+        // 患者へLINE通知（承認時のみ）
+        if (action === "approve" && reorderData.patient_id) {
+          const { data: intake } = await supabaseAdmin
+            .from("intake")
+            .select("line_id")
+            .eq("patient_id", reorderData.patient_id)
+            .not("line_id", "is", null)
+            .limit(1)
+            .single();
+
+          let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
+          if (intake?.line_id) {
+            try {
+              const pushRes = await pushMessage(intake.line_id, [{
+                type: "text",
+                text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+              }]);
+              lineNotify = pushRes?.ok ? "sent" : "failed";
+            } catch (err) {
+              lineNotify = "failed";
+              console.error("[LINE webhook] Patient push error:", err);
+            }
+          }
+
+          await supabaseAdmin
+            .from("reorders")
+            .update({ line_notify_result: lineNotify })
+            .eq("gas_row_number", gasRowNumber);
+        }
 
         // 成功時通知
         await pushToGroup_(

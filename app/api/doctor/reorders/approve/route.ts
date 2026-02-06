@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { pushMessage } from "@/lib/line-push";
 
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 
@@ -81,10 +82,40 @@ export async function POST(req: NextRequest) {
       console.log(`[doctor/reorders/approve] Cache invalidated for patient ${reorderData.patient_id}`);
     }
 
+    // 患者へLINE通知
+    let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
+    if (reorderData.patient_id) {
+      const { data: intake } = await supabaseAdmin
+        .from("intake")
+        .select("line_id")
+        .eq("patient_id", reorderData.patient_id)
+        .not("line_id", "is", null)
+        .limit(1)
+        .single();
+
+      if (intake?.line_id) {
+        try {
+          const pushRes = await pushMessage(intake.line_id, [{
+            type: "text",
+            text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+          }]);
+          lineNotify = pushRes?.ok ? "sent" : "failed";
+        } catch (err) {
+          lineNotify = "failed";
+          console.error("[doctor/approve] Patient push error:", err);
+        }
+      }
+
+      await supabaseAdmin
+        .from("reorders")
+        .update({ line_notify_result: lineNotify })
+        .eq("gas_row_number", gasRowNumber);
+    }
+
     // ★ バックグラウンドでGAS同期（レスポンスを待たない）
     syncToGas("approve", gasRowNumber).catch(() => {});
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true, lineNotify }, { status: 200 });
   } catch (e) {
     console.error("POST /api/doctor/reorders/approve error", e);
     return NextResponse.json(
