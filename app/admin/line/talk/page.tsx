@@ -45,6 +45,36 @@ interface FieldDef {
   options: string[] | null;
 }
 
+interface PatientDetail {
+  patient: { id: string; name: string; lstep_uid: string };
+  latestOrder: {
+    date: string;
+    product: string;
+    amount: string;
+    payment: string;
+    tracking: string;
+    postal_code: string;
+    address: string;
+    phone: string;
+    email: string;
+    refund_status: string | null;
+  } | null;
+  orderHistory: { date: string; product: string; refund_status: string | null }[];
+  reorders: { id: number; date: string; product: string; status: string }[];
+  pendingBankTransfer: { product: string; date: string } | null;
+  nextReservation: string | null;
+  medicalInfo: {
+    kana: string;
+    gender: string;
+    birthday: string;
+    medicalHistory: string;
+    glp1History: string;
+    medicationHistory: string;
+    allergies: string;
+    prescriptionMenu: string;
+  } | null;
+}
+
 const MARK_OPTIONS = [
   { value: "none", label: "なし", color: "transparent" },
   { value: "red", label: "要対応", color: "#EF4444" },
@@ -54,12 +84,16 @@ const MARK_OPTIONS = [
   { value: "gray", label: "保留", color: "#6B7280" },
 ];
 
+const PIN_STORAGE_KEY = "talk_pinned_patients";
+const MAX_PINS = 15;
+
 export default function TalkPage() {
   // 左カラム
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterHasReply, setFilterHasReply] = useState(false);
+  const [searchId, setSearchId] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   // 中央カラム - 選択中の患者
   const [selectedPatient, setSelectedPatient] = useState<Friend | null>(null);
@@ -74,11 +108,35 @@ export default function TalkPage() {
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
   const [patientMark, setPatientMark] = useState("none");
   const [patientFields, setPatientFields] = useState<FieldValue[]>([]);
+  const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null);
   const [allTags, setAllTags] = useState<TagDef[]>([]);
   const [allFieldDefs, setAllFieldDefs] = useState<FieldDef[]>([]);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [markNote, setMarkNote] = useState("");
   const [savingMark, setSavingMark] = useState(false);
+
+  // ピン留めをlocalStorageから読み込み
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(PIN_STORAGE_KEY);
+      if (stored) setPinnedIds(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
+
+  // ピン留め保存
+  const savePins = (ids: string[]) => {
+    setPinnedIds(ids);
+    localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(ids));
+  };
+
+  const togglePin = (patientId: string) => {
+    if (pinnedIds.includes(patientId)) {
+      savePins(pinnedIds.filter(id => id !== patientId));
+    } else {
+      if (pinnedIds.length >= MAX_PINS) return; // 上限15件
+      savePins([...pinnedIds, patientId]);
+    }
+  };
 
   // 友達一覧を取得
   useEffect(() => {
@@ -105,16 +163,18 @@ export default function TalkPage() {
     setSelectedPatient(friend);
     setMessagesLoading(true);
     setShowTagPicker(false);
+    setPatientDetail(null);
 
-    const [logRes, tagsRes, markRes, fieldsRes] = await Promise.all([
+    const [logRes, tagsRes, markRes, fieldsRes, detailRes] = await Promise.all([
       fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=100`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/tags`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/mark`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/fields`, { credentials: "include" }),
+      fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(friend.patient_id)}&type=id`, { credentials: "include" }),
     ]);
 
-    const [logData, tagsData, markData, fieldsData] = await Promise.all([
-      logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(),
+    const [logData, tagsData, markData, fieldsData, detailData] = await Promise.all([
+      logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(), detailRes.json(),
     ]);
 
     if (logData.messages) setMessages(logData.messages.reverse());
@@ -127,6 +187,7 @@ export default function TalkPage() {
       setMarkNote("");
     }
     if (fieldsData.fields) setPatientFields(fieldsData.fields);
+    if (detailData.found) setPatientDetail(detailData);
 
     setMessagesLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -239,14 +300,22 @@ export default function TalkPage() {
     }
   };
 
-  // 検索フィルタ
+  // 検索フィルタ（IDと氏名の別々検索）
   const filteredFriends = friends.filter(f => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!f.patient_name.toLowerCase().includes(q) && !f.patient_id.toLowerCase().includes(q)) return false;
+    if (searchId) {
+      if (!f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
+    }
+    if (searchName) {
+      const q = searchName.replace(/[\s　]/g, "").toLowerCase();
+      const name = f.patient_name.replace(/[\s　]/g, "").toLowerCase();
+      if (!name.includes(q)) return false;
     }
     return true;
   });
+
+  // ピン留め分離: ピン留め済み → 通常
+  const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id));
+  const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id));
 
   const getMarkColor = (mark: string) => MARK_OPTIONS.find(m => m.value === mark)?.color || "transparent";
   const getMarkLabel = (mark: string) => MARK_OPTIONS.find(m => m.value === mark)?.label || "なし";
@@ -254,43 +323,121 @@ export default function TalkPage() {
   const assignedTagIds = patientTags.map(t => t.tag_id);
   const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
 
+  // 友達リスト行コンポーネント
+  const FriendRow = ({ f, isPinned }: { f: Friend; isPinned: boolean }) => {
+    const isSelected = selectedPatient?.patient_id === f.patient_id;
+    const markColor = getMarkColor(f.mark);
+    return (
+      <div
+        onClick={() => selectPatient(f)}
+        className={`px-3 py-2.5 cursor-pointer transition-colors hover:bg-gray-50 border-b border-gray-50 relative group ${
+          isSelected ? "bg-[#00B900]/5 border-l-2 border-l-[#00B900]" : ""
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          {/* アバター */}
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+            {f.patient_name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[13px] font-medium text-gray-900 truncate">{f.patient_name}</span>
+              {f.mark && f.mark !== "none" && (
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: markColor }} />
+              )}
+              {f.line_id ? (
+                <span className="w-2 h-2 rounded-full bg-[#00B900] flex-shrink-0" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-gray-200 flex-shrink-0" />
+              )}
+            </div>
+            {/* 最終メッセージ */}
+            {f.last_message ? (
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-[11px] text-gray-400 truncate flex-1">{f.last_message}</p>
+                {f.last_sent_at && (
+                  <span className="text-[10px] text-gray-300 flex-shrink-0">{formatDateShort(f.last_sent_at)}</span>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-300 mt-0.5">メッセージなし</p>
+            )}
+          </div>
+          {/* ピン留めボタン */}
+          <button
+            onClick={(e) => { e.stopPropagation(); togglePin(f.patient_id); }}
+            className={`flex-shrink-0 p-1 rounded transition-all ${
+              isPinned
+                ? "text-amber-500 opacity-100"
+                : "text-gray-300 opacity-0 group-hover:opacity-100 hover:text-amber-400"
+            }`}
+            title={isPinned ? "ピン解除" : (pinnedIds.length >= MAX_PINS ? "ピン留め上限(15件)" : "ピン留め")}
+          >
+            <svg className="w-3.5 h-3.5" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="h-full flex bg-white">
       {/* ========== 左カラム: 友達リスト ========== */}
-      <div className="w-[300px] flex-shrink-0 border-r border-gray-200 flex flex-col bg-white">
-        {/* 検索バー */}
-        <div className="p-3 border-b border-gray-100">
+      <div className="w-[280px] flex-shrink-0 border-r border-gray-200 flex flex-col bg-white">
+        {/* 検索バー - ID・氏名を別々に */}
+        <div className="p-3 border-b border-gray-100 space-y-2">
           <div className="relative">
-            <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-medium">ID</span>
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="名前・IDで検索"
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#00B900] focus:border-[#00B900] bg-gray-50"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              placeholder="患者IDで検索"
+              className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] focus:border-[#00B900] bg-gray-50"
             />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {searchId && (
+              <button onClick={() => setSearchId("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-2 text-[11px] text-gray-400">
-            <span>{filteredFriends.length}件表示中</span>
-            <button className="flex items-center gap-1 text-gray-400 hover:text-[#00B900] transition-colors">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              絞り込み
-            </button>
+          <div className="relative">
+            <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              placeholder="氏名で検索"
+              className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] focus:border-[#00B900] bg-gray-50"
+            />
+            {searchName && (
+              <button onClick={() => setSearchName("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-[10px] text-gray-400">
+            <span>{filteredFriends.length}件</span>
+            {pinnedIds.length > 0 && (
+              <span className="flex items-center gap-0.5 text-amber-500">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                {pinnedIds.length}件ピン留め
+              </span>
+            )}
           </div>
         </div>
 
-        {/* 友達一覧 - テーブル形式 */}
+        {/* 友達一覧 */}
         <div className="flex-1 overflow-y-auto">
           {friendsLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -299,59 +446,28 @@ export default function TalkPage() {
           ) : filteredFriends.length === 0 ? (
             <div className="text-center py-12 text-gray-400 text-sm">該当する友達がいません</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 z-10">
-                <tr className="border-b border-gray-200">
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">PID</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">氏名</th>
-                  <th className="px-1 py-2 w-6"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFriends.map((f) => {
-                  const isSelected = selectedPatient?.patient_id === f.patient_id;
-                  const markColor = getMarkColor(f.mark);
-                  return (
-                    <tr
-                      key={f.patient_id}
-                      onClick={() => selectPatient(f)}
-                      className={`border-b border-gray-50 cursor-pointer transition-colors hover:bg-gray-50 ${
-                        isSelected ? "bg-[#00B900]/5 border-l-2 border-l-[#00B900]" : ""
-                      }`}
-                    >
-                      <td className="px-3 py-2.5">
-                        <span className="text-[11px] font-mono text-gray-500">{f.patient_id}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-medium text-gray-900 truncate">{f.patient_name}</span>
-                          {f.mark && f.mark !== "none" && (
-                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: markColor }} />
-                          )}
-                        </div>
-                        {f.tags.length > 0 && (
-                          <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                            {f.tags.slice(0, 2).map(t => (
-                              <span key={t.id} className="text-[8px] px-1 py-0 rounded text-white leading-relaxed" style={{ backgroundColor: t.color }}>
-                                {t.name}
-                              </span>
-                            ))}
-                            {f.tags.length > 2 && <span className="text-[8px] text-gray-400">+{f.tags.length - 2}</span>}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-1 py-2.5">
-                        {f.line_id ? (
-                          <span className="w-2 h-2 rounded-full bg-[#00B900] block" />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-gray-200 block" />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <>
+              {/* ピン留め済み */}
+              {pinnedFriends.length > 0 && (
+                <div>
+                  <div className="px-3 py-1.5 bg-amber-50/80 border-b border-amber-100">
+                    <span className="text-[10px] font-semibold text-amber-600 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      ピン留め
+                    </span>
+                  </div>
+                  {pinnedFriends.map(f => (
+                    <FriendRow key={f.patient_id} f={f} isPinned={true} />
+                  ))}
+                </div>
+              )}
+              {/* 通常リスト */}
+              {unpinnedFriends.map(f => (
+                <FriendRow key={f.patient_id} f={f} isPinned={false} />
+              ))}
+            </>
           )}
         </div>
       </div>
@@ -382,13 +498,32 @@ export default function TalkPage() {
                 <h2 className="font-bold text-[15px] leading-tight truncate">{selectedPatient.patient_name}</h2>
                 <span className="text-green-200 text-[11px]">{selectedPatient.patient_id}</span>
               </div>
+              {/* ピン留めトグル */}
+              <button
+                onClick={() => togglePin(selectedPatient.patient_id)}
+                className={`p-1.5 rounded-lg transition-all ${
+                  pinnedIds.includes(selectedPatient.patient_id)
+                    ? "bg-white/20 text-amber-300"
+                    : "hover:bg-white/10 text-white/60"
+                }`}
+                title={pinnedIds.includes(selectedPatient.patient_id) ? "ピン解除" : "ピン留め"}
+              >
+                <svg className="w-4 h-4" fill={pinnedIds.includes(selectedPatient.patient_id) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+              </button>
               {!selectedPatient.line_id && (
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">LINE未連携</span>
               )}
             </div>
 
-            {/* メッセージ一覧 */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 bg-[#7494C0]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B8AB5' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
+            {/* メッセージ一覧 - 斜めピンク背景 */}
+            <div
+              className="flex-1 overflow-y-auto px-4 py-4"
+              style={{
+                background: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 30%, #f48fb1 60%, #fce4ec 100%)",
+              }}
+            >
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-6 py-3 text-gray-500 text-sm shadow">読み込み中...</div>
@@ -411,13 +546,13 @@ export default function TalkPage() {
                       <div className="flex justify-end items-end gap-1.5">
                         <div className="flex flex-col items-end gap-0.5">
                           {m.status === "failed" && (
-                            <span className="text-[10px] text-red-300 font-medium">送信失敗</span>
+                            <span className="text-[10px] text-red-400 font-medium">送信失敗</span>
                           )}
                           <div className="flex items-center gap-1">
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/80 text-white font-medium">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-600/60 text-white font-medium">
                               {m.message_type === "individual" ? "個別" : m.message_type === "broadcast" ? "一斉" : m.message_type}
                             </span>
-                            <span className="text-[10px] text-white/70">{formatTime(m.sent_at)}</span>
+                            <span className="text-[10px] text-pink-900/50">{formatTime(m.sent_at)}</span>
                           </div>
                         </div>
                         <div className="max-w-[70%]">
@@ -476,14 +611,14 @@ export default function TalkPage() {
 
       {/* ========== 右カラム: 顧客情報 ========== */}
       {selectedPatient && (
-        <div className="w-[300px] flex-shrink-0 border-l border-gray-200 bg-white overflow-y-auto">
+        <div className="w-[320px] flex-shrink-0 border-l border-gray-200 bg-white overflow-y-auto">
           {/* プロフィールヘッダー */}
           <div className="p-4 text-center border-b border-gray-100">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-2xl font-bold mx-auto">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center text-white text-xl font-bold mx-auto">
               {selectedPatient.patient_name.charAt(0)}
             </div>
             <h3 className="font-bold text-gray-900 mt-2 text-[15px]">{selectedPatient.patient_name}</h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">ID: {selectedPatient.patient_id}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5 font-mono">ID: {selectedPatient.patient_id}</p>
             {selectedPatient.line_id ? (
               <div className="flex items-center justify-center gap-1 mt-1">
                 <span className="w-2 h-2 rounded-full bg-[#00B900]" />
@@ -496,6 +631,60 @@ export default function TalkPage() {
               </div>
             )}
           </div>
+
+          {/* 個人情報 */}
+          {patientDetail?.medicalInfo && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">個人情報</span>
+              <div className="space-y-1">
+                {patientDetail.medicalInfo.kana && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">カナ</span>
+                    <span className="text-[11px] text-gray-900">{patientDetail.medicalInfo.kana}</span>
+                  </div>
+                )}
+                {patientDetail.medicalInfo.gender && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">性別</span>
+                    <span className="text-[11px] text-gray-900">{patientDetail.medicalInfo.gender}</span>
+                  </div>
+                )}
+                {patientDetail.medicalInfo.birthday && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">生年月日</span>
+                    <span className="text-[11px] text-gray-900">
+                      {patientDetail.medicalInfo.birthday}
+                      {(() => {
+                        try {
+                          const bd = new Date(patientDetail.medicalInfo.birthday);
+                          const today = new Date();
+                          let age = today.getFullYear() - bd.getFullYear();
+                          if (today.getMonth() < bd.getMonth() || (today.getMonth() === bd.getMonth() && today.getDate() < bd.getDate())) age--;
+                          return `（${age}歳）`;
+                        } catch { return ""; }
+                      })()}
+                    </span>
+                  </div>
+                )}
+                {patientDetail.medicalInfo.prescriptionMenu && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">処方メニュー</span>
+                    <span className="text-[11px] text-gray-900 font-medium">{patientDetail.medicalInfo.prescriptionMenu}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 次回予約 */}
+          {patientDetail?.nextReservation && (
+            <div className="px-4 py-2.5 border-b border-gray-100 bg-blue-50/50">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-blue-600 font-semibold">次回予約</span>
+                <span className="text-[12px] text-blue-800 font-medium">{patientDetail.nextReservation}</span>
+              </div>
+            </div>
+          )}
 
           {/* 対応マーク */}
           <div className="px-4 py-3 border-b border-gray-100">
@@ -599,11 +788,11 @@ export default function TalkPage() {
             {allFieldDefs.length === 0 ? (
               <p className="text-[11px] text-gray-400">フィールド未設定</p>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 {allFieldDefs.map(fd => {
                   const val = patientFields.find(pf => pf.field_id === fd.id);
                   return (
-                    <div key={fd.id} className="flex items-center justify-between py-1">
+                    <div key={fd.id} className="flex items-center justify-between py-0.5">
                       <span className="text-[11px] text-gray-500">{fd.name}</span>
                       <span className="text-[11px] text-gray-900 font-medium">
                         {val?.value || <span className="text-gray-300">—</span>}
@@ -615,22 +804,154 @@ export default function TalkPage() {
             )}
           </div>
 
-          {/* 患者基本情報 */}
-          <div className="px-4 py-3">
-            <span className="text-xs font-semibold text-gray-500 mb-2 block">患者情報</span>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[11px] text-gray-500">患者ID</span>
-                <span className="text-[11px] text-gray-900 font-mono">{selectedPatient.patient_id}</span>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[11px] text-gray-500">LINE UID</span>
-                <span className="text-[11px] text-gray-900 font-mono truncate max-w-[150px]">
-                  {selectedPatient.line_id || <span className="text-gray-300">—</span>}
-                </span>
+          {/* 問診事項 */}
+          {patientDetail?.medicalInfo && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">問診事項</span>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-[10px] text-gray-400 font-semibold">既往歴</span>
+                  <p className="text-[11px] text-gray-900 mt-0.5 bg-gray-50 rounded px-2 py-1.5 leading-relaxed">{patientDetail.medicalInfo.medicalHistory || "特記事項なし"}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 font-semibold">GLP-1 使用歴</span>
+                  <p className="text-[11px] text-gray-900 mt-0.5 bg-gray-50 rounded px-2 py-1.5 leading-relaxed">{patientDetail.medicalInfo.glp1History || "使用歴なし"}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 font-semibold">内服歴</span>
+                  <p className="text-[11px] text-gray-900 mt-0.5 bg-gray-50 rounded px-2 py-1.5 leading-relaxed">{patientDetail.medicalInfo.medicationHistory || "なし"}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 font-semibold">アレルギー</span>
+                  <p className="text-[11px] text-gray-900 mt-0.5 bg-gray-50 rounded px-2 py-1.5 leading-relaxed">{patientDetail.medicalInfo.allergies || "アレルギーなし"}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* 最新決済 */}
+          {patientDetail?.latestOrder && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">最新決済</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-[11px] text-gray-500">メニュー</span>
+                  <span className="text-[11px] text-gray-900 font-medium">{patientDetail.latestOrder.product}</span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-[11px] text-gray-500">金額</span>
+                  <span className="text-[11px] text-gray-900 font-medium">{patientDetail.latestOrder.amount}</span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-[11px] text-gray-500">決済方法</span>
+                  <span className="text-[11px] text-gray-900 font-medium">{patientDetail.latestOrder.payment}</span>
+                </div>
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-[11px] text-gray-500">日時</span>
+                  <span className="text-[11px] text-gray-900 font-medium">{patientDetail.latestOrder.date}</span>
+                </div>
+                {patientDetail.latestOrder.refund_status && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">返金</span>
+                    <span className="text-[11px] text-red-600 font-medium">{patientDetail.latestOrder.refund_status}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-0.5">
+                  <span className="text-[11px] text-gray-500">追跡番号</span>
+                  <span className="text-[11px] text-gray-900 font-mono text-[10px]">{patientDetail.latestOrder.tracking}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 連絡先・住所 */}
+          {patientDetail?.latestOrder && (patientDetail.latestOrder.phone || patientDetail.latestOrder.email || patientDetail.latestOrder.address) && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">連絡先</span>
+              <div className="space-y-1">
+                {patientDetail.latestOrder.phone && (
+                  <div className="flex items-center justify-between py-0.5">
+                    <span className="text-[11px] text-gray-500">電話</span>
+                    <span className="text-[11px] text-gray-900 font-mono">{patientDetail.latestOrder.phone}</span>
+                  </div>
+                )}
+                {patientDetail.latestOrder.email && (
+                  <div className="flex items-start justify-between py-0.5 gap-2">
+                    <span className="text-[11px] text-gray-500 flex-shrink-0">メール</span>
+                    <span className="text-[11px] text-gray-900 break-all text-right">{patientDetail.latestOrder.email}</span>
+                  </div>
+                )}
+                {patientDetail.latestOrder.address && (
+                  <div className="flex items-start justify-between py-0.5 gap-2">
+                    <span className="text-[11px] text-gray-500 flex-shrink-0">住所</span>
+                    <span className="text-[11px] text-gray-900 text-right leading-relaxed">
+                      {patientDetail.latestOrder.postal_code && <span className="text-gray-400">{patientDetail.latestOrder.postal_code}<br/></span>}
+                      {patientDetail.latestOrder.address}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 処方履歴 */}
+          {patientDetail && patientDetail.orderHistory.length > 0 && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">処方履歴</span>
+              <div className="space-y-1">
+                {patientDetail.orderHistory.map((o, i) => (
+                  <div key={i} className="flex items-center justify-between py-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-gray-400">{o.date}</span>
+                      <span className="text-[11px] text-gray-900">{o.product}</span>
+                    </div>
+                    {o.refund_status && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium">
+                        {o.refund_status === "refunded" ? "返金済" : o.refund_status === "pending" ? "返金申請中" : o.refund_status}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 銀行振込申請中 */}
+          {patientDetail?.pendingBankTransfer && (
+            <div className="px-4 py-2.5 border-b border-gray-100 bg-amber-50/50">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-800 font-medium">振込待ち</span>
+                <span className="text-[11px] text-amber-800">{patientDetail.pendingBankTransfer.product}</span>
+                <span className="text-[10px] text-amber-600 ml-auto">{patientDetail.pendingBankTransfer.date}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 再処方 */}
+          {patientDetail && patientDetail.reorders.length > 0 && (
+            <div className="px-4 py-3">
+              <span className="text-xs font-semibold text-gray-500 mb-2 block">再処方</span>
+              <div className="space-y-1">
+                {patientDetail.reorders.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between py-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-gray-400">{r.date}</span>
+                      <span className="text-[11px] text-gray-900">{r.product}</span>
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                      r.status === "承認済み" || r.status === "決済済み"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : r.status === "却下" || r.status === "キャンセル"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

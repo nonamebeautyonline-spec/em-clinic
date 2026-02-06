@@ -242,6 +242,28 @@ export async function GET(req: NextRequest) {
       ? `${nextReservation.reserved_date} ${nextReservation.reserved_time}`
       : null;
 
+    // 問診情報を取得（answers JSONBから）
+    const { data: intakeRecord } = await supabaseAdmin
+      .from("intake")
+      .select("patient_kana, phone, email, answers, prescription_menu")
+      .eq("patient_id", patientId)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const answers = (intakeRecord?.answers as Record<string, any>) || {};
+    const medicalInfo = {
+      kana: intakeRecord?.patient_kana || answers?.カナ || answers?.name_kana || "",
+      gender: answers?.性別 || answers?.sex || "",
+      birthday: answers?.生年月日 || answers?.birth || "",
+      medicalHistory: answers?.current_disease_yesno === "yes" ? (answers?.current_disease_detail || "") : "特記事項なし",
+      glp1History: answers?.glp_history || "使用歴なし",
+      medicationHistory: answers?.med_yesno === "yes" ? (answers?.med_detail || "") : "なし",
+      allergies: answers?.allergy_yesno === "yes" ? (answers?.allergy_detail || "") : "アレルギーなし",
+      prescriptionMenu: intakeRecord?.prescription_menu || "",
+    };
+
     return NextResponse.json({
       found: true,
       patient: {
@@ -254,6 +276,7 @@ export async function GET(req: NextRequest) {
       reorders: formattedReorders,
       pendingBankTransfer: pendingBankInfo,
       nextReservation: formattedReservation,
+      medicalInfo,
     });
   } catch (error) {
     console.error("Patient lookup error:", error);
