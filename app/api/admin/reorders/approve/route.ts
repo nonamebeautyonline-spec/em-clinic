@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
     pushToGroup(`【再処方】承認しました（管理画面）\n申請ID: ${id}`).catch(() => {});
 
     // LINE通知（患者へ承認通知）
+    let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
+
     if (reorderData.patient_id) {
       const { data: intake } = await supabaseAdmin
         .from("intake")
@@ -99,18 +101,25 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (intake?.line_id) {
-        pushMessage(intake.line_id, [{
-          type: "text",
-          text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
-        }]).catch((err) => {
+        try {
+          const pushRes = await pushMessage(intake.line_id, [{
+            type: "text",
+            text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+          }]);
+          lineNotify = pushRes?.ok ? "sent" : "failed";
+          if (!pushRes?.ok) {
+            console.error(`[admin/approve] LINE push failed: ${pushRes?.status}`);
+          }
+        } catch (err) {
+          lineNotify = "failed";
           console.error("[admin/approve] Patient LINE push error:", err);
-        });
+        }
       } else {
         console.log(`[admin/approve] No LINE UID for patient ${reorderData.patient_id}, skipping push`);
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {
     console.error("API error:", error);
     return NextResponse.json(
