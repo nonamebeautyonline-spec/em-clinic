@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 
 // 認証不要のパス
@@ -148,10 +149,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   icon={item.icon}
                   label={item.label}
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
-                  onClick={() => {
-                    router.push(item.href);
-                    setIsMobileMenuOpen(false);
-                  }}
+                  onClick={() => setIsMobileMenuOpen(false)}
                 />
               ))}
             </nav>
@@ -427,18 +425,17 @@ interface MenuItemProps {
 }
 
 function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
-  const router = useRouter();
-
   return (
-    <button
-      onClick={() => router.push(href)}
+    <Link
+      href={href}
+      scroll={false}
       className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
         isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
       }`}
     >
       <span className="text-base">{icon}</span>
       {isOpen && <span className="text-sm font-medium">{label}</span>}
-    </button>
+    </Link>
   );
 }
 
@@ -450,9 +447,11 @@ interface MobileMenuItemProps {
   onClick: () => void;
 }
 
-function MobileMenuItem({ icon, label, isActive, onClick }: MobileMenuItemProps) {
+function MobileMenuItem({ href, icon, label, isActive, onClick }: MobileMenuItemProps) {
   return (
-    <button
+    <Link
+      href={href}
+      scroll={false}
       onClick={onClick}
       className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
         isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
@@ -460,7 +459,7 @@ function MobileMenuItem({ icon, label, isActive, onClick }: MobileMenuItemProps)
     >
       <span className="text-lg">{icon}</span>
       <span className="text-sm font-medium">{label}</span>
-    </button>
+    </Link>
   );
 }
 

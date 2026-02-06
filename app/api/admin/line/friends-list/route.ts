@@ -65,15 +65,33 @@ export async function GET(req: NextRequest) {
     fieldValMap.get(row.patient_id)![fd.name] = row.value || "";
   }
 
+  // 最新メッセージを取得（各患者の直近1件）
+  const { data: lastMessages } = await supabaseAdmin
+    .from("message_log")
+    .select("patient_id, content, sent_at")
+    .order("sent_at", { ascending: false });
+
+  const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
+  for (const row of lastMessages || []) {
+    if (row.patient_id && !lastMsgMap.has(row.patient_id)) {
+      lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
+    }
+  }
+
   // 統合
-  const patients = Array.from(patientMap.values()).map(p => ({
-    patient_id: p.patient_id,
-    patient_name: p.patient_name || "",
-    line_id: p.line_id,
-    mark: markMap.get(p.patient_id) || "none",
-    tags: tagMap.get(p.patient_id) || [],
-    fields: fieldValMap.get(p.patient_id) || {},
-  }));
+  const patients = Array.from(patientMap.values()).map(p => {
+    const lastMsg = lastMsgMap.get(p.patient_id);
+    return {
+      patient_id: p.patient_id,
+      patient_name: p.patient_name || "",
+      line_id: p.line_id,
+      mark: markMap.get(p.patient_id) || "none",
+      tags: tagMap.get(p.patient_id) || [],
+      fields: fieldValMap.get(p.patient_id) || {},
+      last_message: lastMsg?.content || null,
+      last_sent_at: lastMsg?.sent_at || null,
+    };
+  });
 
   return NextResponse.json({ patients });
 }
