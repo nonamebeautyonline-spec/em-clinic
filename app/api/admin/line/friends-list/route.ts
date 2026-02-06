@@ -2,21 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
+// Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: all, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 // 友達一覧（タグ・マーク・友達情報を統合して返す）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // 並列でデータ取得
+  // 並列でデータ取得（1000行超に対応）
   const [intakeRes, tagsRes, marksRes, fieldDefsRes, fieldValsRes] = await Promise.all([
-    supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name, line_id")
-      .not("patient_id", "is", null)
-      .order("created_at", { ascending: false }),
-    supabaseAdmin
-      .from("patient_tags")
-      .select("patient_id, tag_id, tag_definitions(id, name, color)"),
+    fetchAll(
+      () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
+    ),
+    fetchAll(
+      () => supabaseAdmin.from("patient_tags").select("patient_id, tag_id, tag_definitions(id, name, color)"),
+    ),
     supabaseAdmin
       .from("patient_marks")
       .select("*"),
@@ -24,9 +38,9 @@ export async function GET(req: NextRequest) {
       .from("friend_field_definitions")
       .select("*")
       .order("sort_order", { ascending: true }),
-    supabaseAdmin
-      .from("friend_field_values")
-      .select("patient_id, field_id, value, friend_field_definitions(name)"),
+    fetchAll(
+      () => supabaseAdmin.from("friend_field_values").select("patient_id, field_id, value, friend_field_definitions(name)"),
+    ),
   ]);
 
   if (intakeRes.error) {
@@ -66,10 +80,9 @@ export async function GET(req: NextRequest) {
   }
 
   // 最新メッセージを取得（各患者の直近1件）
-  const { data: lastMessages } = await supabaseAdmin
-    .from("message_log")
-    .select("patient_id, content, sent_at")
-    .order("sent_at", { ascending: false });
+  const { data: lastMessages } = await fetchAll(
+    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at").order("sent_at", { ascending: false }),
+  );
 
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
   for (const row of lastMessages || []) {

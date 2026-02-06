@@ -87,6 +87,7 @@ const MARK_OPTIONS = [
 const PIN_STORAGE_KEY = "talk_pinned_patients";
 const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
+const MSG_BATCH = 25;
 
 export default function TalkPage() {
   // 左カラム
@@ -102,9 +103,13 @@ export default function TalkPage() {
   const [selectedPatient, setSelectedPatient] = useState<Friend | null>(null);
   const [messages, setMessages] = useState<MessageLog[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const msgContainerRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottom = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 右カラム
@@ -182,8 +187,10 @@ export default function TalkPage() {
     setShowMarkDropdown(false);
     setPatientDetail(null);
 
+    shouldScrollToBottom.current = true;
+
     const [logRes, tagsRes, markRes, fieldsRes, detailRes] = await Promise.all([
-      fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=100`, { credentials: "include" }),
+      fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=${MSG_BATCH}`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/tags`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/mark`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/fields`, { credentials: "include" }),
@@ -194,7 +201,11 @@ export default function TalkPage() {
       logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(), detailRes.json(),
     ]);
 
-    if (logData.messages) setMessages(logData.messages.reverse());
+    if (logData.messages) {
+      const reversed = logData.messages.reverse();
+      setMessages(reversed);
+      setHasMoreMessages(logData.messages.length === MSG_BATCH);
+    }
     if (tagsData.tags) setPatientTags(tagsData.tags);
     if (markData.mark) {
       setPatientMark(markData.mark.mark || "none");
@@ -210,8 +221,41 @@ export default function TalkPage() {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  // 過去メッセージ読み込み
+  const loadMoreMessages = useCallback(async () => {
+    if (!selectedPatient || loadingMoreMessages || !hasMoreMessages) return;
+    setLoadingMoreMessages(true);
+    shouldScrollToBottom.current = false;
+
+    const container = msgContainerRef.current;
+    const prevScrollHeight = container?.scrollHeight || 0;
+
+    const res = await fetch(
+      `/api/admin/messages/log?patient_id=${encodeURIComponent(selectedPatient.patient_id)}&limit=${MSG_BATCH}&offset=${messages.length}`,
+      { credentials: "include" }
+    );
+    const data = await res.json();
+    if (data.messages && data.messages.length > 0) {
+      const older = data.messages.reverse();
+      setMessages(prev => [...older, ...prev]);
+      setHasMoreMessages(data.messages.length === MSG_BATCH);
+
+      // スクロール位置を維持（新しく読み込んだ分だけ下にずらす）
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight - prevScrollHeight;
+        }
+      });
+    } else {
+      setHasMoreMessages(false);
+    }
+    setLoadingMoreMessages(false);
+  }, [selectedPatient, loadingMoreMessages, hasMoreMessages, messages.length]);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldScrollToBottom.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // メッセージ送信
@@ -226,6 +270,7 @@ export default function TalkPage() {
     });
     const data = await res.json();
     if (data.ok) {
+      shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
         id: Date.now(), content: newMessage, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
@@ -490,28 +535,44 @@ export default function TalkPage() {
             </div>
 
             {/* メッセージ */}
-            <div className="flex-1 overflow-y-auto px-4 py-4" style={{ background: "linear-gradient(135deg, #fce4ec 0%, #f8bbd0 25%, #f48fb1 50%, #f8bbd0 75%, #fce4ec 100%)" }}>
+            <div ref={msgContainerRef} className="flex-1 overflow-y-auto px-4 py-4 bg-gray-100">
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="bg-white/90 backdrop-blur rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-lg">読み込み中...</div>
+                  <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">読み込み中...</div>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="bg-white/90 backdrop-blur rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-lg">メッセージなし</div>
+                  <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">メッセージなし</div>
                 </div>
               ) : (
                 <div className="space-y-2">
+                  {hasMoreMessages && (
+                    <div className="flex justify-center py-2">
+                      <button
+                        onClick={loadMoreMessages}
+                        disabled={loadingMoreMessages}
+                        className="bg-white text-gray-500 text-[11px] px-4 py-1.5 rounded-full shadow-sm hover:shadow hover:text-gray-700 transition-all disabled:opacity-50"
+                      >
+                        {loadingMoreMessages ? (
+                          <span className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+                            読み込み中...
+                          </span>
+                        ) : "過去のメッセージを読み込む"}
+                      </button>
+                    </div>
+                  )}
                   {messages.map((m, i) => (
                     <div key={m.id}>
                       {shouldShowDate(i) && (
                         <div className="flex justify-center my-3">
-                          <span className="bg-black/15 text-white text-[10px] px-3 py-0.5 rounded-full backdrop-blur-sm font-medium">{formatDate(m.sent_at)}</span>
+                          <span className="bg-gray-400/60 text-white text-[10px] px-3 py-0.5 rounded-full font-medium">{formatDate(m.sent_at)}</span>
                         </div>
                       )}
                       <div className="flex justify-end items-end gap-1.5">
                         <div className="flex flex-col items-end gap-0.5">
                           {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">失敗</span>}
-                          <span className="text-[9px] text-pink-800/40">{formatTime(m.sent_at)}</span>
+                          <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                         </div>
                         <div className="max-w-[70%]">
                           <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-br-sm px-3.5 py-2 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm">{m.content}</div>
