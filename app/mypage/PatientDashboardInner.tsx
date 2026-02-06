@@ -1190,9 +1190,9 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
         const reorderId = encodeURIComponent(String(gasRowNum));
         router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
       }}
-      className="px-3 py-1 rounded-full bg-pink-500 text-white"
+      className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-semibold shadow-sm"
     >
-      再処方を決済する
+      決済へ進む
     </button>
     <button
       type="button"

@@ -13,6 +13,7 @@ interface Reorder {
   note: string;
   line_uid?: string;
   lstep_uid?: string;
+  line_notify_result?: "sent" | "no_uid" | "failed" | null;
   history?: Array<{
     date: string;
     mg: string;
@@ -192,6 +193,9 @@ export default function ReordersPage() {
                   ステータス
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  LINE通知
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Lステップ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -202,7 +206,7 @@ export default function ReordersPage() {
             <tbody className="divide-y divide-slate-200">
               {reorders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     {filter === "pending"
                       ? "承認待ちの再処方申請はありません"
                       : "再処方申請はありません"}
@@ -250,6 +254,19 @@ export default function ReordersPage() {
                           ? "決済済み"
                           : "承認待ち"}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {reorder.line_notify_result === "sent" ? (
+                        <span className="text-green-600 font-medium">送信済</span>
+                      ) : reorder.line_notify_result === "no_uid" ? (
+                        <span className="text-yellow-600 font-medium">UID無</span>
+                      ) : reorder.line_notify_result === "failed" ? (
+                        <span className="text-red-600 font-medium">失敗</span>
+                      ) : reorder.status === "pending" ? (
+                        <span className="text-slate-400">-</span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {getLStepUrl(reorder.lstep_uid) ? (

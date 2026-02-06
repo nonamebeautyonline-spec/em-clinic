@@ -179,6 +179,19 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(5);
 
+    // 次回予約を取得
+    const { data: nextReservation } = await supabaseAdmin
+      .from("intake")
+      .select("reserved_date, reserved_time")
+      .eq("patient_id", patientId)
+      .not("reserved_date", "is", null)
+      .not("reserved_time", "is", null)
+      .or("status.is.null,status.eq.")
+      .order("reserved_date", { ascending: true })
+      .order("reserved_time", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
     // 銀行振込申請中（未照合）を確認 - ordersテーブルでstatus=pending_confirmationのもの
     const { data: pendingBankTransfer } = await supabaseAdmin
       .from("orders")
@@ -224,6 +237,11 @@ export async function GET(req: NextRequest) {
       refund_status: o.refund_status || null,
     }));
 
+    // 次回予約フォーマット
+    const formattedReservation = nextReservation
+      ? `${nextReservation.reserved_date} ${nextReservation.reserved_time}`
+      : null;
+
     return NextResponse.json({
       found: true,
       patient: {
@@ -235,6 +253,7 @@ export async function GET(req: NextRequest) {
       orderHistory,
       reorders: formattedReorders,
       pendingBankTransfer: pendingBankInfo,
+      nextReservation: formattedReservation,
     });
   } catch (error) {
     console.error("Patient lookup error:", error);

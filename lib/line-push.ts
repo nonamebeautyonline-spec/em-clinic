@@ -2,7 +2,11 @@
 // LINE Messaging API Push/Multicast 共通関数
 
 const LINE_API = "https://api.line.me/v2/bot/message";
-const TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+
+// ランタイムで都度読み込み（ビルド時固定を防ぐ）
+function getToken() {
+  return process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+}
 
 type LineMessage = {
   type: "text";
@@ -17,7 +21,8 @@ type LineMessage = {
  * 1人にPush送信
  */
 export async function pushMessage(lineUserId: string, messages: LineMessage[]) {
-  if (!TOKEN || !lineUserId) {
+  const token = getToken();
+  if (!token || !lineUserId) {
     console.warn("[LINE Push] Missing token or lineUserId");
     return null;
   }
@@ -26,7 +31,7 @@ export async function pushMessage(lineUserId: string, messages: LineMessage[]) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ to: lineUserId, messages }),
   });
@@ -43,7 +48,8 @@ export async function pushMessage(lineUserId: string, messages: LineMessage[]) {
  * 複数人にMulticast送信（最大500人/回）
  */
 export async function multicastMessage(lineUserIds: string[], messages: LineMessage[]) {
-  if (!TOKEN || lineUserIds.length === 0) {
+  const token = getToken();
+  if (!token || lineUserIds.length === 0) {
     console.warn("[LINE Multicast] Missing token or empty recipients");
     return null;
   }
@@ -56,7 +62,7 @@ export async function multicastMessage(lineUserIds: string[], messages: LineMess
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ to: batch, messages }),
     });

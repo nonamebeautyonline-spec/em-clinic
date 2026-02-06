@@ -41,6 +41,7 @@ interface PatientResult {
   orderHistory: OrderHistoryItem[];
   reorders: ReorderInfo[];
   pendingBankTransfer: PendingBankInfo | null;
+  nextReservation: string | null;
 }
 
 interface Candidate {
@@ -115,6 +116,7 @@ export default function PatientLookupWidget() {
         orderHistory: data.orderHistory || [],
         reorders: data.reorders || [],
         pendingBankTransfer: data.pendingBankTransfer || null,
+        nextReservation: data.nextReservation || null,
       });
     } catch {
       setError("通信エラー");
@@ -288,7 +290,12 @@ export default function PatientLookupWidget() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-bold">{result.name}</div>
-                    <div className="text-xs text-gray-500">ID: {result.id}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <span>ID: {result.id}</span>
+                      {result.nextReservation && (
+                        <span className="text-blue-600 font-medium">予約: {result.nextReservation}</span>
+                      )}
+                    </div>
                   </div>
                   {lstepUrl && (
                     <a

@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
         note: r.note || "",
         line_uid: r.line_uid || "",
         lstep_uid: patientInfo.lstep_uid,
+        line_notify_result: r.line_notify_result || null,
       };
     });
 

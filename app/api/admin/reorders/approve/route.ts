@@ -119,6 +119,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // LINE通知結果をDBに保存
+    await supabaseAdmin
+      .from("reorders")
+      .update({ line_notify_result: lineNotify })
+      .eq("gas_row_number", Number(id));
+
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {
     console.error("API error:", error);

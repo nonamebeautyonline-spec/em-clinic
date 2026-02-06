@@ -620,9 +620,9 @@ export default function AdminMypageView({ data }: { data: any }) {
                   <button
                     type="button"
                     disabled
-                    className="px-3 py-1 rounded-full bg-pink-500 text-white opacity-50 cursor-not-allowed"
+                    className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-semibold opacity-50 cursor-not-allowed"
                   >
-                    再処方を決済する（管理者ビュー）
+                    決済へ進む（管理者ビュー）
                   </button>
                 </div>
               )}
