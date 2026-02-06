@@ -8,6 +8,13 @@ import { AnimatePresence, motion } from "framer-motion";
 export default function LayoutTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
+  // /admin 配下はAdminLayout側で遷移制御するためアニメーション無効
+  const isAdmin = pathname?.startsWith("/admin");
+
+  if (isAdmin) {
+    return <div className="h-full">{children}</div>;
+  }
+
   return (
     <AnimatePresence mode="wait">
       <motion.div

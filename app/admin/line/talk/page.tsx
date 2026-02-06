@@ -202,7 +202,7 @@ export default function TalkPage() {
     ]);
 
     if (logData.messages) {
-      const reversed = logData.messages.reverse();
+      const reversed = [...logData.messages].reverse();
       setMessages(reversed);
       setHasMoreMessages(logData.messages.length === MSG_BATCH);
     }
@@ -236,7 +236,7 @@ export default function TalkPage() {
     );
     const data = await res.json();
     if (data.messages && data.messages.length > 0) {
-      const older = data.messages.reverse();
+      const older = [...data.messages].reverse();
       setMessages(prev => [...older, ...prev]);
       setHasMoreMessages(data.messages.length === MSG_BATCH);
 
@@ -401,7 +401,7 @@ export default function TalkPage() {
   return (
     <div className="h-full flex overflow-hidden bg-[#f8f9fb]">
       {/* ========== 左カラム ========== */}
-      <div className="w-[280px] flex-shrink-0 border-r border-gray-200/80 flex flex-col bg-white">
+      <div className="w-[280px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
         {/* 検索 */}
         <div className="p-3 border-b border-gray-100 space-y-1.5">
           <div className="relative">
@@ -618,7 +618,7 @@ export default function TalkPage() {
 
       {/* ========== 右カラム ========== */}
       {selectedPatient && (
-        <div className="w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col">
+        <div className="w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {/* プロフィール */}
             <div className="px-4 pt-5 pb-4 text-center border-b border-gray-100">

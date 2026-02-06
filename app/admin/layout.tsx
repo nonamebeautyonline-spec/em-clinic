@@ -33,7 +33,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const sidebarNavRef = useRef<HTMLDivElement>(null);
-  const mobileNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
@@ -103,12 +102,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   };
 
-  const handleMobileSidebarScroll = () => {
-    if (mobileNavRef.current) {
-      sessionStorage.setItem("admin-mobile-sidebar-scroll", mobileNavRef.current.scrollTop.toString());
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await fetch("/api/admin/logout", {
@@ -140,7 +133,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="h-screen bg-slate-50 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
@@ -176,7 +169,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
             </div>
             {/* メニュー項目 */}
-            <nav ref={mobileNavRef} onScroll={handleMobileSidebarScroll} className="flex-1 overflow-y-auto py-4">
+            <nav className="flex-1 overflow-y-auto py-4">
               {MOBILE_MENU_ITEMS.map((item) => (
                 <MobileMenuItem
                   key={item.href}
@@ -400,7 +393,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 overflow-y-auto relative">
+      <main className={`flex-1 min-h-0 relative ${pathname?.startsWith("/admin/line") ? "overflow-hidden" : "overflow-y-auto"}`}>
         {/* ページ遷移時のローディングオーバーレイ */}
         {isPageTransitioning && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
