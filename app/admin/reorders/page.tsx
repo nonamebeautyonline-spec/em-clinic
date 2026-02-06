@@ -78,7 +78,6 @@ export default function ReordersPage() {
       // LINE通知結果を表示
       if (data.lineNotify) {
         setLineNotifyResult({ id, status: data.lineNotify });
-        setTimeout(() => setLineNotifyResult(null), 5000);
       }
 
       // リロード
