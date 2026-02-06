@@ -217,8 +217,8 @@ export default function AccountingPage() {
         <DailyBarChart data={dailyData} />
       </div>
 
-      {/* アクションボタン */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* アクションボタン（スマホでは非表示） */}
+      <div className="hidden md:grid grid-cols-1 md:grid-cols-2 gap-4">
         <button
           onClick={() => router.push(`/admin/accounting/input?month=${selectedMonth}`)}
           className="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow border-2 border-blue-500 text-left"

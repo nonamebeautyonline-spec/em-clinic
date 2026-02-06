@@ -165,7 +165,7 @@ export default function PatientLookupWidget() {
 
       {/* ポップアップ */}
       {isOpen && (
-        <div className="fixed bottom-20 right-6 w-96 bg-white rounded-lg shadow-2xl border z-50 max-h-[80vh] flex flex-col">
+        <div className="fixed bottom-20 right-2 md:right-6 w-[90vw] max-w-96 bg-white rounded-lg shadow-2xl border z-50 max-h-[80vh] flex flex-col">
           {/* ヘッダー */}
           <div className="px-4 py-2 border-b flex items-center justify-between bg-gray-50 rounded-t-lg">
             <span className="font-semibold text-sm">患者検索</span>

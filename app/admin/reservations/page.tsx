@@ -196,7 +196,7 @@ export default function ReservationsPage() {
         <button
           onClick={handleReminderPreview}
           disabled={loadingReminder || reservations.length === 0}
-          className={`ml-auto px-4 py-2 text-sm rounded-lg font-medium ${
+          className={`hidden md:inline-flex ml-auto px-4 py-2 text-sm rounded-lg font-medium ${
             loadingReminder || reservations.length === 0
               ? "bg-slate-300 text-slate-500 cursor-not-allowed"
               : "bg-purple-600 text-white hover:bg-purple-700"
@@ -248,9 +248,9 @@ export default function ReservationsPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      {/* 診療リマインドプレビュー */}
+      {/* 診療リマインドプレビュー（スマホでは非表示） */}
       {reminderPreview && (
-        <div className="mb-6 bg-white rounded-lg shadow">
+        <div className="hidden md:block mb-6 bg-white rounded-lg shadow">
           <div className="px-6 py-4 bg-purple-50 border-b border-purple-200">
             <h2 className="text-lg font-semibold text-purple-900">診療リマインド付帯情報</h2>
             <p className="text-sm text-purple-700 mt-1">

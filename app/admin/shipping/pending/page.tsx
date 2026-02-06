@@ -184,22 +184,22 @@ export default function ShippingPendingPage() {
         </div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
           <span className="text-sm text-slate-600">
             合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件）
           </span>
-          <span className="text-sm font-semibold text-blue-600">
+          <span className="hidden md:inline text-sm font-semibold text-blue-600">
             選択中: {selectedOrderIds.size} 件
           </span>
           <button
             onClick={toggleAllOrders}
-            className="text-sm text-blue-600 hover:text-blue-800 underline"
+            className="hidden md:inline text-sm text-blue-600 hover:text-blue-800 underline"
           >
             {selectedOrderIds.size === orders.length ? "全解除" : "全選択"}
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <button
             onClick={() => {
               if (selectedOrderIds.size === 0) {
@@ -223,7 +223,7 @@ export default function ShippingPendingPage() {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-4 py-3 text-center">
+                <th className="hidden md:table-cell px-4 py-3 text-center">
                   <input
                     type="checkbox"
                     checked={
@@ -287,7 +287,7 @@ export default function ShippingPendingPage() {
                           : "hover:bg-slate-50"
                       }`}
                     >
-                    <td className="px-4 py-4 text-center">
+                    <td className="hidden md:table-cell px-4 py-4 text-center">
                       <input
                         type="checkbox"
                         checked={selectedOrderIds.has(order.id)}

@@ -7,11 +7,27 @@ import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 // 認証不要のパス
 const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup"];
 
+// スマホ用メニュー項目（必要な機能のみ）
+const MOBILE_MENU_ITEMS = [
+  { href: "/admin/accounting", icon: "💹", label: "売上管理" },
+  { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
+  { href: "/admin/reorders", icon: "🔄", label: "再処方リスト" },
+  { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
+  { href: "/admin/doctor", icon: "🩺", label: "Drカルテ" },
+  { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
+  { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
+  { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
+  { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
+  { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
+  { href: "/admin/merge-patients", icon: "🔗", label: "患者統合" },
+];
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,6 +63,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkSession();
   }, [pathname, router]);
 
+  // ページ遷移時にモバイルメニューを閉じる
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     try {
       await fetch("/api/admin/logout", {
@@ -79,11 +100,75 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* サイドバー */}
+      {/* モバイル用ハンバーガーボタン */}
+      <button
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
+        aria-label="メニューを開く"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* モバイル用オーバーレイメニュー */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* オーバーレイ背景 */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          {/* メニューパネル */}
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-white flex flex-col">
+            {/* ヘッダー */}
+            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+              <h1 className="text-xl font-bold">管理画面</h1>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 hover:bg-slate-800 rounded"
+                aria-label="メニューを閉じる"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {/* メニュー項目 */}
+            <nav className="flex-1 overflow-y-auto py-4">
+              {MOBILE_MENU_ITEMS.map((item) => (
+                <MobileMenuItem
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
+                  onClick={() => {
+                    router.push(item.href);
+                    setIsMobileMenuOpen(false);
+                  }}
+                />
+              ))}
+            </nav>
+            {/* ログアウト */}
+            <div className="p-4 border-t border-slate-700">
+              <button
+                onClick={handleLogout}
+                className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm"
+              >
+                <span>ログアウト</span>
+                <span>🚪</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* PC用サイドバー */}
       <aside
-        className={`${
+        className={`hidden md:flex ${
           isSidebarOpen ? "w-64" : "w-20"
-        } bg-slate-900 text-white transition-all duration-300 flex flex-col h-screen sticky top-0`}
+        } bg-slate-900 text-white transition-all duration-300 flex-col h-screen sticky top-0`}
       >
         {/* ロゴ・トグル */}
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
@@ -297,6 +382,28 @@ function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
     >
       <span className="text-base">{icon}</span>
       {isOpen && <span className="text-sm font-medium">{label}</span>}
+    </button>
+  );
+}
+
+interface MobileMenuItemProps {
+  href: string;
+  icon: string;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+function MobileMenuItem({ icon, label, isActive, onClick }: MobileMenuItemProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
+        isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
+      }`}
+    >
+      <span className="text-lg">{icon}</span>
+      <span className="text-sm font-medium">{label}</span>
     </button>
   );
 }
