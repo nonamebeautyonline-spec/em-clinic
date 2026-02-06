@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface RichMenu {
   id: number;
@@ -18,37 +18,111 @@ interface RichMenu {
 
 interface RichMenuArea {
   bounds: { x: number; y: number; width: number; height: number };
-  action: { type: string; uri?: string; text?: string; label?: string };
+  action: {
+    type: string;
+    uri?: string;
+    text?: string;
+    label?: string;
+    displayMethod?: string;
+    tel?: string;
+    actions?: ActionItem[];
+    userMessage?: string;
+  };
 }
 
-const TEMPLATE_LAYOUTS = [
-  { id: "2x3", label: "2×3", cols: 3, rows: 2, description: "6ボタン" },
-  { id: "2x2", label: "2×2", cols: 2, rows: 2, description: "4ボタン" },
-  { id: "1x3", label: "1×3", cols: 3, rows: 1, description: "3ボタン" },
-  { id: "1x2", label: "1×2", cols: 2, rows: 1, description: "2ボタン" },
-  { id: "1x1", label: "1×1", cols: 1, rows: 1, description: "1ボタン" },
+interface ActionItem {
+  type: string;
+  value: string;
+}
+
+interface ButtonConfig {
+  actionType: "uri" | "tel" | "message" | "action" | "form" | "other";
+  uri: string;
+  tel: string;
+  text: string;
+  label: string;
+  displayMethod: string;
+  actions: ActionItem[];
+  userMessage: string;
+  bounds: { x: number; y: number; width: number; height: number };
+}
+
+const DISPLAY_METHODS = [
+  { value: "browser_tall", label: "トーク内ブラウザ（大）" },
+  { value: "browser_compact", label: "トーク内ブラウザ（小）" },
+  { value: "browser_full", label: "トーク内ブラウザ（全画面）" },
+  { value: "external", label: "外部ブラウザ" },
 ];
 
-const ACTION_TYPES = [
-  { value: "uri", label: "URL" },
-  { value: "message", label: "ユーザーメッセージ" },
-  { value: "postback", label: "アクション" },
+const ACTION_CATALOG = [
+  { type: "text_send", label: "テキスト送信" },
+  { type: "template_send", label: "テンプレート送信" },
+  { type: "tag_op", label: "タグ操作" },
+  { type: "friend_info", label: "友だち情報操作" },
+  { type: "scenario", label: "シナリオ操作" },
+  { type: "menu_op", label: "メニュー操作" },
+  { type: "reminder", label: "リマインダ操作" },
+  { type: "mark_display", label: "対応マーク・表示操作" },
+  { type: "event_reservation", label: "イベント予約操作" },
+  { type: "shared_info", label: "共通情報操作" },
+  { type: "phase", label: "フェーズ操作" },
 ];
+
+const TEMPLATE_PRESETS = [
+  { label: "6分割", cols: 3, rows: 2 },
+  { label: "4分割", cols: 2, rows: 2 },
+  { label: "3分割", cols: 3, rows: 1 },
+  { label: "2分割", cols: 2, rows: 1 },
+];
+
+const DEFAULT_BOUNDS = { x: 0, y: 0, width: 2500, height: 1686 };
+
+function createDefaultButton(index: number, total: number): ButtonConfig {
+  // 自動的にグリッド分割
+  const cols = total <= 2 ? total : total <= 4 ? 2 : 3;
+  const rows = Math.ceil(total / cols);
+  const col = index % cols;
+  const row = Math.floor(index / cols);
+  const w = Math.round(2500 / cols);
+  const h = Math.round(1686 / rows);
+  return {
+    actionType: "uri",
+    uri: "",
+    tel: "",
+    text: "",
+    label: "",
+    displayMethod: "browser_tall",
+    actions: [],
+    userMessage: "",
+    bounds: { x: col * w, y: row * h, width: w, height: h },
+  };
+}
 
 export default function RichMenuManagementPage() {
   const [menus, setMenus] = useState<RichMenu[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
   const [editingMenu, setEditingMenu] = useState<RichMenu | null>(null);
 
-  // 作成フォーム
+  // エディターステート
   const [name, setName] = useState("");
   const [chatBarText, setChatBarText] = useState("メニュー");
-  const [selectedLayout, setSelectedLayout] = useState("2x3");
-  const [areas, setAreas] = useState<{ actionType: string; actionValue: string; label: string }[]>([]);
+  const [menuInitialState, setMenuInitialState] = useState<"show" | "hide">("show");
+  const [buttons, setButtons] = useState<ButtonConfig[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-  const [editingAreaIndex, setEditingAreaIndex] = useState<number | null>(null);
+
+  // アクション設定モーダル
+  const [actionModalIndex, setActionModalIndex] = useState<number | null>(null);
+  const [tempActions, setTempActions] = useState<ActionItem[]>([]);
+  const [repeatActions, setRepeatActions] = useState(true);
+
+  // 領域設定モーダル
+  const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
+  const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
 
   const fetchMenus = async () => {
     const res = await fetch("/api/admin/line/rich-menus", { credentials: "include" });
@@ -59,83 +133,146 @@ export default function RichMenuManagementPage() {
 
   useEffect(() => { fetchMenus(); }, []);
 
-  const getLayout = () => TEMPLATE_LAYOUTS.find(t => t.id === selectedLayout) || TEMPLATE_LAYOUTS[0];
-
-  const initAreas = (layoutId: string) => {
-    const layout = TEMPLATE_LAYOUTS.find(t => t.id === layoutId) || TEMPLATE_LAYOUTS[0];
-    const count = layout.cols * layout.rows;
-    setAreas(Array.from({ length: count }, () => ({ actionType: "uri", actionValue: "", label: "" })));
-  };
-
-  const handleLayoutChange = (layoutId: string) => {
-    setSelectedLayout(layoutId);
-    initAreas(layoutId);
-    setEditingAreaIndex(null);
-  };
-
+  // --- Editor helpers ---
   const handleCreateNew = () => {
     setEditingMenu(null);
     setName("");
     setChatBarText("メニュー");
-    setSelectedLayout("2x3");
-    initAreas("2x3");
-    setEditingAreaIndex(null);
-    setShowModal(true);
+    setMenuInitialState("show");
+    // デフォルト6ボタン
+    const initial: ButtonConfig[] = [];
+    for (let i = 0; i < 6; i++) initial.push(createDefaultButton(i, 6));
+    setButtons(initial);
+    setShowEditor(true);
   };
 
   const handleEdit = (menu: RichMenu) => {
     setEditingMenu(menu);
     setName(menu.name);
     setChatBarText(menu.chat_bar_text);
+    setMenuInitialState(menu.selected ? "show" : "hide");
 
-    // areasからlayoutを復元
-    const areaCount = menu.areas.length || 6;
-    const layout = TEMPLATE_LAYOUTS.find(t => t.cols * t.rows === areaCount) || TEMPLATE_LAYOUTS[0];
-    setSelectedLayout(layout.id);
-
-    setAreas(
-      menu.areas.length > 0
-        ? menu.areas.map(a => ({
-            actionType: a.action.type || "uri",
-            actionValue: a.action.uri || a.action.text || "",
-            label: a.action.label || "",
-          }))
-        : Array.from({ length: areaCount }, () => ({ actionType: "uri", actionValue: "", label: "" }))
-    );
-    setEditingAreaIndex(null);
-    setShowModal(true);
+    if (menu.areas.length > 0) {
+      setButtons(menu.areas.map(a => ({
+        actionType: (a.action.type as ButtonConfig["actionType"]) || "uri",
+        uri: a.action.uri || "",
+        tel: a.action.tel || "",
+        text: a.action.text || "",
+        label: a.action.label || "",
+        displayMethod: a.action.displayMethod || "browser_tall",
+        actions: a.action.actions || [],
+        userMessage: a.action.userMessage || "",
+        bounds: a.bounds || DEFAULT_BOUNDS,
+      })));
+    } else {
+      const initial: ButtonConfig[] = [];
+      for (let i = 0; i < 6; i++) initial.push(createDefaultButton(i, 6));
+      setButtons(initial);
+    }
+    setShowEditor(true);
   };
 
+  const addButton = () => {
+    setButtons(prev => [...prev, createDefaultButton(prev.length, prev.length + 1)]);
+  };
+
+  const removeButton = (index: number) => {
+    setButtons(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const copyButton = (index: number) => {
+    setButtons(prev => {
+      const copy = { ...prev[index], bounds: { ...prev[index].bounds } };
+      const next = [...prev];
+      next.splice(index + 1, 0, copy);
+      return next;
+    });
+  };
+
+  const moveButton = (index: number, dir: -1 | 1) => {
+    setButtons(prev => {
+      const next = [...prev];
+      const target = index + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const updateButton = (index: number, patch: Partial<ButtonConfig>) => {
+    setButtons(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...patch };
+      return next;
+    });
+  };
+
+  const applyPreset = (cols: number, rows: number) => {
+    const total = cols * rows;
+    const newButtons: ButtonConfig[] = [];
+    for (let i = 0; i < total; i++) {
+      newButtons.push(createDefaultButton(i, total));
+    }
+    setButtons(newButtons);
+  };
+
+  // --- 領域設定ドラッグ ---
+  const CANVAS_W = 600;
+  const CANVAS_H = 405; // 2500:1686 aspect ratio
+  const scaleX = CANVAS_W / 2500;
+  const scaleY = CANVAS_H / 1686;
+
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }, []);
+
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const cx = Math.max(0, Math.min(CANVAS_W, e.clientX - rect.left));
+    const cy = Math.max(0, Math.min(CANVAS_H, e.clientY - rect.top));
+    const sx = dragStart.current.x;
+    const sy = dragStart.current.y;
+
+    setTempBounds({
+      x: Math.round(Math.min(sx, cx) / scaleX),
+      y: Math.round(Math.min(sy, cy) / scaleY),
+      width: Math.round(Math.abs(cx - sx) / scaleX),
+      height: Math.round(Math.abs(cy - sy) / scaleY),
+    });
+  }, [scaleX, scaleY]);
+
+  const handleCanvasMouseUp = useCallback(() => {
+    isDragging.current = false;
+  }, []);
+
+  // --- Save ---
   const handleSave = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
 
-    const layout = getLayout();
-    const richMenuAreas: RichMenuArea[] = areas.map((area, i) => {
-      const col = i % layout.cols;
-      const row = Math.floor(i / layout.cols);
-      const cellWidth = 2500 / layout.cols;
-      const cellHeight = (layout.rows === 1 ? 843 : 1686) / layout.rows;
-
-      return {
-        bounds: {
-          x: Math.round(col * cellWidth),
-          y: Math.round(row * cellHeight),
-          width: Math.round(cellWidth),
-          height: Math.round(cellHeight),
-        },
-        action: {
-          type: area.actionType,
-          ...(area.actionType === "uri" ? { uri: area.actionValue } : { text: area.actionValue }),
-          label: area.label,
-        },
-      };
-    });
+    const richMenuAreas: RichMenuArea[] = buttons.map(btn => ({
+      bounds: btn.bounds,
+      action: {
+        type: btn.actionType,
+        uri: btn.actionType === "uri" ? btn.uri : undefined,
+        tel: btn.actionType === "tel" ? btn.tel : undefined,
+        text: btn.actionType === "message" ? btn.text : undefined,
+        label: btn.label,
+        displayMethod: btn.actionType === "uri" ? btn.displayMethod : undefined,
+        actions: btn.actionType === "action" ? btn.actions : undefined,
+        userMessage: btn.userMessage || undefined,
+      },
+    }));
 
     const body = {
       name: name.trim(),
       chat_bar_text: chatBarText || "メニュー",
-      size_type: layout.rows === 1 ? "half" : "full",
+      selected: menuInitialState === "show",
+      size_type: "full",
       areas: richMenuAreas,
     };
 
@@ -151,7 +288,7 @@ export default function RichMenuManagementPage() {
 
     if (res.ok) {
       await fetchMenus();
-      setShowModal(false);
+      setShowEditor(false);
     } else {
       const data = await res.json();
       alert(data.error || "保存失敗");
@@ -160,14 +297,8 @@ export default function RichMenuManagementPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/admin/line/rich-menus/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.ok) {
-      await fetchMenus();
-      setDeleteConfirm(null);
-    }
+    const res = await fetch(`/api/admin/line/rich-menus/${id}`, { method: "DELETE", credentials: "include" });
+    if (res.ok) { await fetchMenus(); setDeleteConfirm(null); }
   };
 
   const formatDate = (d: string) => {
@@ -175,357 +306,488 @@ export default function RichMenuManagementPage() {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
   };
 
+  // --- 一覧表示 ---
+  if (!showEditor) {
+    return (
+      <div className="min-h-full bg-gray-50/50">
+        <div className="bg-white border-b border-gray-100">
+          <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-600 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                  </div>
+                  リッチメニュー
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">トーク画面下に表示されるメニューを管理</p>
+              </div>
+              <button onClick={handleCreateNew} className="px-5 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                新規作成
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-teal-200 border-t-teal-500 rounded-full animate-spin" />
+            </div>
+          ) : menus.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
+              <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+              </div>
+              <p className="text-gray-400 text-sm">リッチメニューがまだありません</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {menus.map(menu => (
+                <div key={menu.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="px-5 py-4 border-b border-gray-50">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-bold text-gray-800 text-sm">{menu.name}</h3>
+                      {menu.is_active && <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium border border-green-100">有効</span>}
+                    </div>
+                    <div className="text-xs text-gray-400">ボタン数: {menu.areas.length} / 作成日: {formatDate(menu.created_at)}</div>
+                  </div>
+                  <div className="px-5 py-4">
+                    <div className="relative bg-gray-100 rounded-xl overflow-hidden" style={{ aspectRatio: "2500/1686" }}>
+                      {menu.areas.map((area, i) => (
+                        <div
+                          key={i}
+                          className="absolute border border-white/60 bg-white/20 flex items-center justify-center text-sm font-bold text-gray-500"
+                          style={{
+                            left: `${(area.bounds.x / 2500) * 100}%`,
+                            top: `${(area.bounds.y / 1686) * 100}%`,
+                            width: `${(area.bounds.width / 2500) * 100}%`,
+                            height: `${(area.bounds.height / 1686) * 100}%`,
+                          }}
+                        >
+                          {i + 1}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex items-center justify-center gap-2 bg-gray-100 rounded-lg py-2">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                      <span className="text-xs text-gray-500 font-medium">{menu.chat_bar_text}</span>
+                    </div>
+                  </div>
+                  <div className="px-5 py-3 border-t border-gray-50 flex gap-2">
+                    <button onClick={() => handleEdit(menu)} className="flex-1 px-3 py-2 text-xs font-medium bg-[#06C755] text-white rounded-lg hover:bg-[#05b34d]">編集</button>
+                    <button onClick={() => setDeleteConfirm(menu.id)} className="px-3 py-2 text-xs font-medium border border-gray-200 text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-500">削除</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 削除確認 */}
+        {deleteConfirm !== null && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                  <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </div>
+                <h3 className="font-bold text-gray-900 mb-1">リッチメニューを削除</h3>
+                <p className="text-sm text-gray-500 mb-5">このリッチメニューを削除しますか？</p>
+                <div className="flex gap-3 w-full">
+                  <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">キャンセル</button>
+                  <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25">削除する</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- エディター画面 (Lステップ風) ---
   return (
     <div className="min-h-full bg-gray-50/50">
       {/* ヘッダー */}
       <div className="bg-white border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-400 to-cyan-600 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                  </svg>
-                </div>
-                リッチメニュー
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">トーク画面下に表示されるメニューを管理</p>
-            </div>
-            <button
-              onClick={handleCreateNew}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all duration-200 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              新規作成
-            </button>
-          </div>
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-5">
+          <h1 className="text-lg font-bold text-gray-900">リッチメニュー編集</h1>
         </div>
       </div>
 
-      {/* メニュー一覧 */}
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-8 h-8 border-2 border-teal-200 border-t-teal-500 rounded-full animate-spin" />
-              <span className="text-sm text-gray-400">読み込み中...</span>
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-6">
+        {/* 画像 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right">画像</label>
+            <button className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit">
+              メニュー画像選択
+            </button>
+          </div>
+
+          {/* タイトル */}
+          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right">
+              タイトル <span className="text-red-500 text-xs bg-red-50 px-1.5 py-0.5 rounded ml-1">必須</span>
+            </label>
+            <div>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="管理画面に表示するメニューの名前を入力します"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400" />
+              <p className="text-xs text-gray-400 mt-1">管理画面に表示するメニューの名前を入力します</p>
             </div>
           </div>
-        ) : menus.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
-            <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-              </svg>
-            </div>
-            <p className="text-gray-400 text-sm">リッチメニューがまだありません</p>
-            <p className="text-gray-300 text-xs mt-1">「新規作成」ボタンからメニューを作成しましょう</p>
+
+          {/* フォルダ */}
+          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right">フォルダ</label>
+            <select className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-white">
+              <option>未分類</option>
+            </select>
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {menus.map((menu) => (
-              <div
-                key={menu.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow group"
-              >
-                {/* メニューカードヘッダー */}
-                <div className="px-5 py-4 border-b border-gray-50">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-gray-800 text-sm">{menu.name}</h3>
-                    <div className="flex items-center gap-1">
-                      {menu.is_active && (
-                        <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium border border-green-100">有効</span>
-                      )}
-                    </div>
+
+          {/* トークルームメニュー */}
+          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right">
+              トークルームメニュー <span className="text-red-500 text-xs bg-red-50 px-1.5 py-0.5 rounded ml-1">必須</span>
+            </label>
+            <div>
+              <input type="text" value={chatBarText} onChange={e => setChatBarText(e.target.value)} maxLength={14}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400" />
+              <p className="text-xs text-gray-400 mt-1">トークルームに表示されるメニューのテキストを設定します(14文字以内)</p>
+            </div>
+          </div>
+
+          {/* メニューの初期状態 */}
+          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right">メニューの初期状態</label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-1.5 text-sm">
+                <input type="radio" name="menuState" checked={menuInitialState === "hide"} onChange={() => setMenuInitialState("hide")} className="accent-[#06C755]" />
+                表示しない
+              </label>
+              <label className="flex items-center gap-1.5 text-sm">
+                <input type="radio" name="menuState" checked={menuInitialState === "show"} onChange={() => setMenuInitialState("show")} className="accent-[#06C755]" />
+                表示する
+              </label>
+            </div>
+          </div>
+
+          {/* テンプレートプリセット */}
+          <div className="grid grid-cols-[120px_1fr] items-start gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right pt-2">テンプレート</label>
+            <div className="flex gap-2 flex-wrap">
+              {TEMPLATE_PRESETS.map(preset => (
+                <button key={preset.label} onClick={() => applyPreset(preset.cols, preset.rows)}
+                  className="flex flex-col items-center p-2.5 rounded-lg border border-gray-200 hover:border-[#06C755] hover:bg-green-50 transition-all min-w-[70px]">
+                  <div className="grid gap-px mb-1" style={{ gridTemplateColumns: `repeat(${preset.cols}, 1fr)` }}>
+                    {Array.from({ length: preset.cols * preset.rows }).map((_, i) => (
+                      <div key={i} className="w-4 h-3 bg-gray-200 rounded-[2px]" />
+                    ))}
                   </div>
-                  <div className="text-xs text-gray-400">作成日: {formatDate(menu.created_at)}</div>
+                  <span className="text-[10px] text-gray-500">{preset.label}</span>
+                </button>
+              ))}
+              <button onClick={() => applyPreset(1, 1)}
+                className="flex items-center justify-center p-2.5 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 text-xs text-gray-500 hover:text-red-500 min-w-[70px]">
+                リセット
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* コンテンツ設定 - ボタン一覧 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-sm font-bold text-gray-700 mb-4">コンテンツ設定</h2>
+
+          <div className="space-y-4">
+            {buttons.map((btn, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-xl overflow-hidden">
+                {/* ボタンヘッダー */}
+                <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-700">ボタン{idx + 1}</span>
+                    <button onClick={() => { setBoundsModalIndex(idx); setTempBounds(btn.bounds); }}
+                      className="text-[10px] bg-green-500 text-white px-2.5 py-0.5 rounded-full font-medium hover:bg-green-600">
+                      領域編集
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs">
+                    <button onClick={() => moveButton(idx, -1)} disabled={idx === 0}
+                      className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-30 flex items-center gap-0.5">
+                      <span>↑</span> 上へ
+                    </button>
+                    <button onClick={() => moveButton(idx, 1)} disabled={idx === buttons.length - 1}
+                      className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-30 flex items-center gap-0.5">
+                      <span>↓</span> 下へ
+                    </button>
+                    <button onClick={() => copyButton(idx)}
+                      className="px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 flex items-center gap-0.5">
+                      コピー
+                    </button>
+                    <button onClick={() => removeButton(idx)}
+                      className="px-2 py-1 border border-gray-300 rounded hover:bg-red-50 hover:text-red-500 hover:border-red-300 flex items-center gap-0.5">
+                      ✕ 削除
+                    </button>
+                  </div>
                 </div>
 
-                {/* メニューグリッドプレビュー */}
-                <div className="px-5 py-4">
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    {(() => {
-                      const areaCount = menu.areas.length || 6;
-                      const layout = TEMPLATE_LAYOUTS.find(t => t.cols * t.rows === areaCount) || TEMPLATE_LAYOUTS[0];
-                      return (
-                        <div
-                          className="grid gap-1"
-                          style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}
-                        >
-                          {menu.areas.map((area, i) => (
-                            <div
-                              key={i}
-                              className="bg-white rounded-lg border border-gray-200 px-2 py-3 text-center"
-                            >
-                              <span className="text-lg font-bold text-gray-300">{i + 1}</span>
-                              {area.action.label && (
-                                <p className="text-[10px] text-gray-500 mt-1 truncate">{area.action.label}</p>
-                              )}
+                {/* ボタン設定本体 */}
+                <div className="p-4 space-y-4">
+                  {/* アクションタイプ選択 */}
+                  <div className="flex flex-wrap gap-3">
+                    {([
+                      { value: "uri", label: "URL" },
+                      { value: "tel", label: "TEL" },
+                      { value: "message", label: "ユーザーメッセージ" },
+                      { value: "action", label: "アクション" },
+                      { value: "form", label: "回答フォーム" },
+                      { value: "other", label: "その他" },
+                    ] as const).map(at => (
+                      <label key={at.value} className="flex items-center gap-1.5">
+                        <input type="radio" name={`actionType_${idx}`} checked={btn.actionType === at.value}
+                          onChange={() => updateButton(idx, { actionType: at.value })} className="accent-[#06C755]" />
+                        <span className="text-sm text-gray-700">{at.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* URL設定 */}
+                  {btn.actionType === "uri" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-600 flex-shrink-0 w-16">表示方法</label>
+                        <select value={btn.displayMethod} onChange={e => updateButton(idx, { displayMethod: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white">
+                          {DISPLAY_METHODS.map(dm => <option key={dm.value} value={dm.value}>{dm.label}</option>)}
+                        </select>
+                        <input type="text" value={btn.uri} onChange={e => updateButton(idx, { uri: e.target.value })}
+                          placeholder="https://..." className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TEL設定 */}
+                  {btn.actionType === "tel" && (
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-600 flex-shrink-0 w-16">電話番号</label>
+                      <input type="text" value={btn.tel} onChange={e => updateButton(idx, { tel: e.target.value })}
+                        placeholder="tel:+8190XXXXXXXX" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                    </div>
+                  )}
+
+                  {/* ユーザーメッセージ設定 */}
+                  {btn.actionType === "message" && (
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-600 flex-shrink-0 w-16">テキスト</label>
+                      <input type="text" value={btn.text} onChange={e => updateButton(idx, { text: e.target.value })}
+                        placeholder="ユーザーが送信するテキスト" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                    </div>
+                  )}
+
+                  {/* アクション設定 */}
+                  {btn.actionType === "action" && (
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <button onClick={() => { setActionModalIndex(idx); setTempActions(btn.actions || []); setRepeatActions(true); }}
+                          className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 text-white rounded-lg text-sm font-medium hover:from-amber-500 hover:to-yellow-600 flex items-center justify-center gap-1.5">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                          アクション設定
+                        </button>
+                        <button onClick={() => updateButton(idx, { actions: [] })}
+                          className="px-4 py-2.5 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+                          設定解除
+                        </button>
+                      </div>
+                      {/* 設定済みアクション表示 */}
+                      {btn.actions.length > 0 && (
+                        <div className="space-y-1">
+                          {btn.actions.map((a, ai) => (
+                            <div key={ai} className="text-xs text-gray-500 flex items-center gap-1">
+                              <span className="text-gray-400">{ACTION_CATALOG.find(ac => ac.type === a.type)?.label || a.type}</span>
+                              {a.value && <span className="text-gray-400">: {a.value}</span>}
                             </div>
                           ))}
                         </div>
-                      );
-                    })()}
-                  </div>
+                      )}
 
-                  {/* トークルームメニューテキスト */}
-                  <div className="mt-3 flex items-center justify-center gap-2 bg-gray-100 rounded-lg py-2">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                    <span className="text-xs text-gray-500 font-medium">{menu.chat_bar_text}</span>
-                  </div>
-                </div>
+                      {/* ユーザーメッセージ(任意) */}
+                      <div>
+                        <label className="text-sm text-gray-600">ユーザーメッセージ(任意)</label>
+                        <input type="text" value={btn.userMessage} onChange={e => updateButton(idx, { userMessage: e.target.value })}
+                          maxLength={60} className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                        <p className="text-[11px] text-gray-400 mt-0.5">60文字以内</p>
+                      </div>
+                    </div>
+                  )}
 
-                {/* アクションバー */}
-                <div className="px-5 py-3 border-t border-gray-50 flex gap-2">
-                  <button
-                    onClick={() => handleEdit(menu)}
-                    className="flex-1 px-3 py-2 text-xs font-medium bg-[#06C755] text-white rounded-lg hover:bg-[#05b34d] transition-colors"
-                  >
-                    編集
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(menu.id)}
-                    className="px-3 py-2 text-xs font-medium border border-gray-200 text-gray-500 rounded-lg hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
-                  >
-                    削除
-                  </button>
+                  {/* 回答フォーム / その他 */}
+                  {(btn.actionType === "form" || btn.actionType === "other") && (
+                    <div className="text-sm text-gray-400 py-2">
+                      {btn.actionType === "form" ? "回答フォーム機能は今後追加予定です" : "その他の設定は今後追加予定です"}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
+
+            {/* ボタン追加 */}
+            <button onClick={addButton}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50 transition-all flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              ボタンを追加
+            </button>
           </div>
-        )}
+        </div>
+
+        {/* フッター */}
+        <div className="flex items-center justify-between">
+          <button onClick={() => setShowEditor(false)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+            一覧へ戻る
+          </button>
+          <button onClick={handleSave} disabled={saving || !name.trim()}
+            className="px-16 py-3 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-bold hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all disabled:opacity-40">
+            {saving ? "保存中..." : "保存"}
+          </button>
+        </div>
       </div>
 
-      {/* リッチメニュー作成/編集モーダル - Lステップ風 */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[95vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-              <h2 className="font-bold text-gray-900 text-lg">
-                {editingMenu ? "リッチメニュー編集" : "リッチメニュー編集"}
-              </h2>
-              <button onClick={() => setShowModal(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+      {/* アクション設定モーダル */}
+      {actionModalIndex !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setActionModalIndex(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 text-lg">アクション設定</h2>
+              <button onClick={() => setActionModalIndex(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="overflow-y-auto flex-1">
-              <div className="px-6 py-5 space-y-6">
-                {/* タイトル */}
-                <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                  <label className="text-sm font-medium text-gray-700 text-right">
-                    タイトル <span className="text-red-500 text-xs px-1 py-0.5 bg-red-50 rounded">必須</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="管理画面に表示するメニューの名前"
-                    className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50"
-                  />
-                </div>
+            <div className="px-6 py-6">
+              <p className="text-sm text-gray-500 text-center mb-5">行う動作を選択してください</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {ACTION_CATALOG.map(ac => {
+                  const isSelected = tempActions.some(a => a.type === ac.type);
+                  return (
+                    <button key={ac.type}
+                      onClick={() => {
+                        setTempActions(prev =>
+                          isSelected
+                            ? prev.filter(a => a.type !== ac.type)
+                            : [...prev, { type: ac.type, value: "" }]
+                        );
+                      }}
+                      className={`px-4 py-2 border rounded-lg text-sm transition-all ${
+                        isSelected
+                          ? "border-[#06C755] bg-green-50 text-[#06C755] font-medium"
+                          : "border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                      }`}>
+                      {ac.label}
+                    </button>
+                  );
+                })}
+              </div>
 
-                {/* トークルームメニュー */}
-                <div className="grid grid-cols-[120px_1fr] items-center gap-4">
-                  <label className="text-sm font-medium text-gray-700 text-right">
-                    メニューテキスト <span className="text-red-500 text-xs px-1 py-0.5 bg-red-50 rounded">必須</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={chatBarText}
-                    onChange={(e) => setChatBarText(e.target.value)}
-                    placeholder="トークルームに表示されるテキスト(14文字以内)"
-                    maxLength={14}
-                    className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50"
-                  />
-                </div>
-
-                {/* テンプレート選択 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">テンプレート</label>
-                  <div className="flex gap-3 flex-wrap">
-                    {TEMPLATE_LAYOUTS.map(layout => (
-                      <button
-                        key={layout.id}
-                        onClick={() => handleLayoutChange(layout.id)}
-                        className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all min-w-[90px] ${
-                          selectedLayout === layout.id
-                            ? "border-[#06C755] bg-green-50 shadow-sm"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
-                        }`}
-                      >
-                        {/* ミニグリッド */}
-                        <div
-                          className="grid gap-0.5 mb-1.5 w-16"
-                          style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)` }}
-                        >
-                          {Array.from({ length: layout.cols * layout.rows }).map((_, i) => (
-                            <div
-                              key={i}
-                              className={`h-5 rounded-sm ${
-                                selectedLayout === layout.id ? "bg-[#06C755]/20 border border-[#06C755]/30" : "bg-gray-100 border border-gray-200"
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-[10px] text-gray-500">{layout.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* コンテンツ設定 - Lステップ風 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">コンテンツ設定</label>
-                  <div className="flex gap-4">
-                    {/* グリッドビジュアル */}
-                    <div className="flex-shrink-0">
-                      <div
-                        className="grid gap-1 w-48"
-                        style={{ gridTemplateColumns: `repeat(${getLayout().cols}, 1fr)` }}
-                      >
-                        {areas.map((area, i) => (
-                          <button
-                            key={i}
-                            onClick={() => setEditingAreaIndex(i)}
-                            className={`aspect-[4/3] rounded-lg border-2 flex flex-col items-center justify-center transition-all ${
-                              editingAreaIndex === i
-                                ? "border-[#06C755] bg-green-50 shadow-sm"
-                                : area.actionValue
-                                  ? "border-blue-200 bg-blue-50"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
-                            }`}
-                          >
-                            <span className="text-lg font-bold text-gray-300">{i + 1}</span>
-                            {area.label && (
-                              <span className="text-[9px] text-gray-500 mt-0.5 truncate max-w-full px-1">{area.label}</span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* ボタン設定 */}
-                    <div className="flex-1 min-w-0">
-                      {editingAreaIndex !== null ? (
-                        <div className="bg-gray-50 rounded-xl p-4 space-y-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-bold text-gray-700">
-                              ボタン{editingAreaIndex + 1}
-                              <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">領域編集</span>
-                            </h3>
-                          </div>
-
-                          {/* アクションタイプ */}
-                          <div className="flex gap-2">
-                            {ACTION_TYPES.map(at => (
-                              <label key={at.value} className="flex items-center gap-1.5">
-                                <input
-                                  type="radio"
-                                  name="actionType"
-                                  checked={areas[editingAreaIndex].actionType === at.value}
-                                  onChange={() => {
-                                    const next = [...areas];
-                                    next[editingAreaIndex] = { ...next[editingAreaIndex], actionType: at.value };
-                                    setAreas(next);
-                                  }}
-                                  className="accent-[#06C755]"
-                                />
-                                <span className="text-xs text-gray-600">{at.label}</span>
-                              </label>
-                            ))}
-                          </div>
-
-                          {/* ラベル */}
-                          <div>
-                            <label className="text-xs text-gray-500 mb-1 block">ラベル</label>
-                            <input
-                              type="text"
-                              value={areas[editingAreaIndex].label}
-                              onChange={(e) => {
-                                const next = [...areas];
-                                next[editingAreaIndex] = { ...next[editingAreaIndex], label: e.target.value };
-                                setAreas(next);
-                              }}
-                              placeholder="ボタンの表示名"
-                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                            />
-                          </div>
-
-                          {/* アクション値 */}
-                          <div>
-                            <label className="text-xs text-gray-500 mb-1 block">
-                              {areas[editingAreaIndex].actionType === "uri" ? "URL" : "テキスト"}
-                            </label>
-                            <input
-                              type="text"
-                              value={areas[editingAreaIndex].actionValue}
-                              onChange={(e) => {
-                                const next = [...areas];
-                                next[editingAreaIndex] = { ...next[editingAreaIndex], actionValue: e.target.value };
-                                setAreas(next);
-                              }}
-                              placeholder={areas[editingAreaIndex].actionType === "uri" ? "https://..." : "送信するテキスト"}
-                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-gray-300 text-sm">
-                          左のボタンを選択して設定してください
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-6 flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <input type="checkbox" checked={repeatActions} onChange={e => setRepeatActions(e.target.checked)}
+                    className="accent-[#06C755] w-4 h-4" />
+                  発動2回目以降も各動作を実行する
+                </label>
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
-              <button onClick={() => setShowModal(false)} className="px-6 py-2.5 text-gray-500 hover:text-gray-700 text-sm font-medium">
-                一覧へ戻る
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={handleSave}
-                disabled={saving || !name.trim()}
-                className="px-10 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-bold hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all disabled:opacity-40"
-              >
-                {saving ? "保存中..." : "保存"}
+            <div className="px-6 py-4 border-t border-gray-100">
+              <button onClick={() => {
+                updateButton(actionModalIndex, { actions: tempActions });
+                setActionModalIndex(null);
+              }}
+                className="w-full py-3 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-bold hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25">
+                この条件で決定する
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 削除確認モーダル */}
-      {deleteConfirm !== null && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+      {/* 領域設定モーダル */}
+      {boundsModalIndex !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setBoundsModalIndex(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 text-lg">領域設定</h2>
+              <button onClick={() => setBoundsModalIndex(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-6">
+              {/* 画像エリア（ドラッグ選択可能） */}
+              <div
+                ref={canvasRef}
+                className="relative bg-gray-200 rounded-xl overflow-hidden cursor-crosshair select-none mx-auto"
+                style={{ width: CANVAS_W, height: CANVAS_H }}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
+              >
+                {/* 全ボタン領域表示 */}
+                {buttons.map((b, i) => (
+                  <div key={i}
+                    className={`absolute border ${i === boundsModalIndex ? "border-transparent" : "border-white/40 bg-white/10"}`}
+                    style={{
+                      left: b.bounds.x * scaleX,
+                      top: b.bounds.y * scaleY,
+                      width: b.bounds.width * scaleX,
+                      height: b.bounds.height * scaleY,
+                    }}>
+                    <span className="absolute inset-0 flex items-center justify-center text-white/60 text-sm font-bold">{i + 1}</span>
+                  </div>
+                ))}
+                {/* 選択中の領域 */}
+                <div className="absolute bg-red-400/30 border-2 border-red-400"
+                  style={{
+                    left: tempBounds.x * scaleX,
+                    top: tempBounds.y * scaleY,
+                    width: Math.max(tempBounds.width * scaleX, 2),
+                    height: Math.max(tempBounds.height * scaleY, 2),
+                  }} />
               </div>
-              <h3 className="font-bold text-gray-900 mb-1">リッチメニューを削除</h3>
-              <p className="text-sm text-gray-500 mb-5">このリッチメニューを削除しますか？</p>
-              <div className="flex gap-3 w-full">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
-                  キャンセル
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirm)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25"
-                >
-                  削除する
+
+              {/* 座標入力 */}
+              <div className="flex items-center gap-3 mt-4 justify-center">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded-l-lg border border-gray-200">X座標</label>
+                  <input type="number" value={tempBounds.x} onChange={e => setTempBounds(prev => ({ ...prev, x: Number(e.target.value) }))}
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-r-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <label className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded-l-lg border border-gray-200">Y座標</label>
+                  <input type="number" value={tempBounds.y} onChange={e => setTempBounds(prev => ({ ...prev, y: Number(e.target.value) }))}
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-r-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <label className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded-l-lg border border-gray-200">幅</label>
+                  <input type="number" value={tempBounds.width} onChange={e => setTempBounds(prev => ({ ...prev, width: Number(e.target.value) }))}
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-r-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <label className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded-l-lg border border-gray-200">高さ</label>
+                  <input type="number" value={tempBounds.height} onChange={e => setTempBounds(prev => ({ ...prev, height: Number(e.target.value) }))}
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-r-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500" />
+                </div>
+                <button onClick={() => {
+                  updateButton(boundsModalIndex, { bounds: { ...tempBounds } });
+                  setBoundsModalIndex(null);
+                }}
+                  className="px-6 py-2 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-lg text-sm font-bold hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25">
+                  確定
                 </button>
               </div>
             </div>
