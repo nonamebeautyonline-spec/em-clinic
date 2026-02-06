@@ -5,7 +5,7 @@ const LINE_API = "https://api.line.me/v2/bot/message";
 
 // ランタイムで都度読み込み（ビルド時固定を防ぐ）
 function getToken() {
-  return process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+  return process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 }
 
 type LineMessage = {
