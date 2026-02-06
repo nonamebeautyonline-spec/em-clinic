@@ -1,5 +1,6 @@
 // app/api/line/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
@@ -39,19 +40,59 @@ export async function GET(req: NextRequest) {
   );
   const lineUserId = payload.sub as string;
 
-// ★ init に line_id をクエリで渡さない
-const redirectUrl = `${process.env.APP_BASE_URL}/mypage/init`;
+  // ★ LINE UIDでDB照合 → 既知の患者ならSMS認証スキップ
+  let patientId: string | null = null;
 
-const res = NextResponse.redirect(redirectUrl);
+  try {
+    const { data } = await supabase
+      .from("intake")
+      .select("patient_id")
+      .eq("line_id", lineUserId)
+      .limit(1)
+      .single();
 
-res.cookies.set("line_user_id", lineUserId, {
-  httpOnly: true,
-  secure: true,
-  sameSite: "lax",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 30,
-});
+    if (data?.patient_id) {
+      patientId = data.patient_id;
+      console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match)`);
+    }
+  } catch {
+    // DB照合失敗は無視（初回ユーザーの場合もここに来る）
+  }
 
-return res;
+  // 既知の患者 → /mypage へ直接（SMS不要）
+  // 未知 → /mypage/init へ（SMS認証で初回紐付け）
+  const redirectUrl = patientId
+    ? `${process.env.APP_BASE_URL}/mypage`
+    : `${process.env.APP_BASE_URL}/mypage/init`;
 
+  const res = NextResponse.redirect(redirectUrl);
+
+  // line_user_id cookie セット（30日）
+  res.cookies.set("line_user_id", lineUserId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  // 既知の患者なら patient_id cookie もセット
+  if (patientId) {
+    res.cookies.set("__Host-patient_id", patientId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    res.cookies.set("patient_id", patientId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
+
+  return res;
 }
