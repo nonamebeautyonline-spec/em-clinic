@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
@@ -31,6 +31,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const sidebarNavRef = useRef<HTMLDivElement>(null);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+  const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
     // 認証不要のパスはスキップ
@@ -68,10 +72,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkSession();
   }, [pathname, router, isAuthenticated]);
 
-  // ページ遷移時にモバイルメニューを閉じる
+  // ページ遷移時の処理
   useEffect(() => {
-    setIsMobileMenuOpen(false);
+    // パスが変わったらローディング表示
+    if (prevPathnameRef.current !== pathname) {
+      setIsPageTransitioning(true);
+      setIsMobileMenuOpen(false);
+
+      // 短時間でローディングを解除（コンテンツ更新の視覚的フィードバック）
+      const timer = setTimeout(() => {
+        setIsPageTransitioning(false);
+      }, 150);
+
+      prevPathnameRef.current = pathname;
+      return () => clearTimeout(timer);
+    }
   }, [pathname]);
+
+  // サイドバーのスクロール位置を保存・復元
+  useEffect(() => {
+    const savedScrollPos = sessionStorage.getItem("admin-sidebar-scroll");
+    if (savedScrollPos && sidebarNavRef.current) {
+      sidebarNavRef.current.scrollTop = parseInt(savedScrollPos, 10);
+    }
+  }, []);
+
+  const handleSidebarScroll = () => {
+    if (sidebarNavRef.current) {
+      sessionStorage.setItem("admin-sidebar-scroll", sidebarNavRef.current.scrollTop.toString());
+    }
+  };
+
+  const handleMobileSidebarScroll = () => {
+    if (mobileNavRef.current) {
+      sessionStorage.setItem("admin-mobile-sidebar-scroll", mobileNavRef.current.scrollTop.toString());
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -140,7 +176,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
             </div>
             {/* メニュー項目 */}
-            <nav className="flex-1 overflow-y-auto py-4">
+            <nav ref={mobileNavRef} onScroll={handleMobileSidebarScroll} className="flex-1 overflow-y-auto py-4">
               {MOBILE_MENU_ITEMS.map((item) => (
                 <MobileMenuItem
                   key={item.href}
@@ -195,7 +231,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* ナビゲーションメニュー */}
-        <nav className="flex-1 overflow-y-auto py-4">
+        <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
           <MenuItem
             href="/admin"
             icon="📊"
@@ -364,7 +400,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* メインコンテンツ */}
-      <main className="flex-1 overflow-y-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto relative">
+        {/* ページ遷移時のローディングオーバーレイ */}
+        {isPageTransitioning && (
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
+              <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+              <span className="text-sm text-slate-600">読み込み中...</span>
+            </div>
+          </div>
+        )}
+        {children}
+      </main>
 
       {/* 患者検索ウィジェット */}
       <PatientLookupWidget />
