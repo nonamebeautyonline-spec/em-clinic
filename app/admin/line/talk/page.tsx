@@ -21,6 +21,19 @@ interface MessageLog {
   sent_at: string;
 }
 
+interface Template {
+  id: number;
+  name: string;
+  content: string;
+  message_type: string;
+  category: number | null;
+}
+
+interface TemplateCategory {
+  id: number;
+  name: string;
+}
+
 interface TagDef {
   id: number;
   name: string;
@@ -111,6 +124,17 @@ export default function TalkPage() {
   const msgContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollToBottom = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // 添付パネル
+  const [showAttachPanel, setShowAttachPanel] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([]);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<number | null>(null);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [sendingImage, setSendingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // 右カラム
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
@@ -279,6 +303,86 @@ export default function TalkPage() {
     }
     setSending(false);
   };
+
+  // テンプレート送信
+  const openTemplatePicker = async () => {
+    setShowAttachPanel(false);
+    setShowTemplatePicker(true);
+    setTemplateSearch("");
+    setTemplateCategoryFilter(null);
+    if (templates.length === 0) {
+      setTemplatesLoading(true);
+      const [tplRes, catRes] = await Promise.all([
+        fetch("/api/admin/line/templates", { credentials: "include" }),
+        fetch("/api/admin/line/template-categories", { credentials: "include" }),
+      ]);
+      const [tplData, catData] = await Promise.all([tplRes.json(), catRes.json()]);
+      if (tplData.templates) setTemplates(tplData.templates);
+      if (catData.categories) setTemplateCategories(catData.categories);
+      setTemplatesLoading(false);
+    }
+  };
+
+  const sendTemplate = async (template: Template) => {
+    if (sending || !selectedPatient) return;
+    setShowTemplatePicker(false);
+    setSending(true);
+    const res = await fetch("/api/admin/line/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: template.content }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      shouldScrollToBottom.current = true;
+      setMessages(prev => [...prev, {
+        id: Date.now(), content: template.content, status: "sent",
+        message_type: "individual", sent_at: new Date().toISOString(),
+      }]);
+    }
+    setSending(false);
+  };
+
+  // 画像送信
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPatient || sendingImage) return;
+    setShowAttachPanel(false);
+    setSendingImage(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("patient_id", selectedPatient.patient_id);
+
+    const res = await fetch("/api/admin/line/send-image", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const data = await res.json();
+    if (data.ok) {
+      shouldScrollToBottom.current = true;
+      setMessages(prev => [...prev, {
+        id: Date.now(), content: `[画像] ${file.name}`, status: "sent",
+        message_type: "individual", sent_at: new Date().toISOString(),
+      }]);
+    } else {
+      alert(data.error || "画像送信に失敗しました");
+    }
+    setSendingImage(false);
+    // inputをリセット
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const filteredTemplates = templates.filter(t => {
+    if (templateCategoryFilter !== null && t.category !== templateCategoryFilter) return false;
+    if (templateSearch) {
+      const q = templateSearch.toLowerCase();
+      return t.name.toLowerCase().includes(q) || t.content.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   // 対応マーク更新
   const handleMarkChange = async (newMark: string) => {
@@ -585,9 +689,52 @@ export default function TalkPage() {
               )}
             </div>
 
+            {/* 添付パネル */}
+            {showAttachPanel && (
+              <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 pt-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openTemplatePicker}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#00B900]/10 flex items-center justify-center group-hover:bg-[#00B900]/20 transition-colors">
+                      <svg className="w-4 h-4 text-[#00B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">テンプレート送信</span>
+                  </button>
+                  <button
+                    onClick={() => { setShowAttachPanel(false); imageInputRef.current?.click(); }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">画像送信</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* 入力 */}
             <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 py-2">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
               <div className="flex items-end gap-2">
+                <button
+                  onClick={() => setShowAttachPanel(!showAttachPanel)}
+                  className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                    showAttachPanel
+                      ? "bg-[#00B900] text-white rotate-45"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                </button>
                 <textarea
                   ref={inputRef}
                   value={newMessage}
@@ -601,20 +748,106 @@ export default function TalkPage() {
                 />
                 <button
                   onClick={handleSend}
-                  disabled={sending || !newMessage.trim()}
+                  disabled={sending || sendingImage || !newMessage.trim()}
                   className="px-4 py-2 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex-shrink-0 flex items-center gap-1.5"
                 >
-                  {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                  {sending || sendingImage ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                   )}
                   送信
                 </button>
               </div>
-              <div className="text-[9px] text-gray-300 mt-1 text-right">Shift+Enter で改行</div>
+              <div className="text-[9px] text-gray-300 mt-1 text-right">
+                {sendingImage ? "画像送信中..." : "Shift+Enter で改行"}
+              </div>
             </div>
           </>
         )}
       </div>
+
+      {/* テンプレート選択モーダル */}
+      {showTemplatePicker && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTemplatePicker(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }} onClick={(e) => e.stopPropagation()}>
+            {/* ヘッダー */}
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h2 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#00B900]/10 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-[#00B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </div>
+                テンプレート送信
+              </h2>
+              <button onClick={() => setShowTemplatePicker(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {/* 検索 & カテゴリフィルタ */}
+            <div className="px-5 py-3 border-b border-gray-100 space-y-2 flex-shrink-0">
+              <div className="relative">
+                <svg className="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <input
+                  type="text"
+                  value={templateSearch}
+                  onChange={(e) => setTemplateSearch(e.target.value)}
+                  placeholder="テンプレート名・内容で検索"
+                  className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50"
+                  autoFocus
+                />
+              </div>
+              {templateCategories.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setTemplateCategoryFilter(null)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                      templateCategoryFilter === null ? "bg-[#00B900] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                  >すべて</button>
+                  {templateCategories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setTemplateCategoryFilter(cat.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                        templateCategoryFilter === cat.id ? "bg-[#00B900] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                    >{cat.name}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* テンプレートリスト */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {templatesLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
+                </div>
+              ) : filteredTemplates.length === 0 ? (
+                <div className="text-center py-16 text-gray-400 text-sm">
+                  {templates.length === 0 ? "テンプレートがありません" : "該当するテンプレートがありません"}
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {filteredTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => sendTemplate(t)}
+                      disabled={sending}
+                      className="w-full text-left px-5 py-3 hover:bg-[#00B900]/[0.03] transition-colors group disabled:opacity-50"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 group-hover:text-[#00B900] transition-colors">{t.name}</span>
+                        <svg className="w-4 h-4 text-gray-300 group-hover:text-[#00B900] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                      </div>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">{t.content}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========== 右カラム ========== */}
       {selectedPatient && (

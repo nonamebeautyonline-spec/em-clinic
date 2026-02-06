@@ -12,6 +12,10 @@ type LineMessage = {
   type: "text";
   text: string;
 } | {
+  type: "image";
+  originalContentUrl: string;
+  previewImageUrl: string;
+} | {
   type: "flex";
   altText: string;
   contents: any;
