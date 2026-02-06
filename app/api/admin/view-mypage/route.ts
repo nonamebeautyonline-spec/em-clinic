@@ -8,8 +8,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -83,9 +81,35 @@ function toNumberOrUndefined(v: any): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/**
- * Supabaseから次回予約情報を取得
- */
+// ─── Supabase クエリ ───
+
+async function getPatientInfoFromSupabase(
+  patientId: string
+): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean }> {
+  try {
+    const { data, error } = await supabase
+      .from("intake")
+      .select("patient_id, patient_name, line_id")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+    }
+
+    return {
+      id: data.patient_id,
+      displayName: data.patient_name || "",
+      lineId: data.line_id || "",
+      hasIntake: true,
+    };
+  } catch {
+    return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+  }
+}
+
 async function getNextReservationFromSupabase(
   patientId: string
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
@@ -97,28 +121,17 @@ async function getNextReservationFromSupabase(
       .not("reserve_id", "is", null)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
-      // ★ 診察完了(OK/NG)とキャンセルを除外 - 未診察の予約のみ取得
       .or("status.is.null,status.eq.")
       .order("reserved_date", { ascending: true })
       .order("reserved_time", { ascending: true })
       .limit(1)
       .single();
 
-    if (error || !data) {
-      console.log(`[admin/view-mypage] No reservation found for patient_id=${patientId}`);
-      return null;
-    }
+    if (error || !data) return null;
 
-    // GASと同じ形式に変換
     const datetime = `${data.reserved_date} ${data.reserved_time}`;
-    return {
-      id: data.reserve_id,
-      datetime,
-      title: "診察予約",
-      status: "confirmed",
-    };
-  } catch (err) {
-    console.error("[admin/view-mypage] getNextReservation error:", err);
+    return { id: data.reserve_id, datetime, title: "診察予約", status: "confirmed" };
+  } catch {
     return null;
   }
 }
@@ -130,9 +143,6 @@ type ConsultationHistory = {
   detail: string;
 };
 
-/**
- * Supabaseから診察履歴を取得（status=OK/NGの診察完了分）
- */
 async function getConsultationHistoryFromSupabase(
   patientId: string
 ): Promise<ConsultationHistory[]> {
@@ -141,20 +151,15 @@ async function getConsultationHistoryFromSupabase(
       .from("intake")
       .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu, updated_at")
       .eq("patient_id", patientId)
-      .eq("status", "OK")  // ★ NGは決済不可のため除外
+      .eq("status", "OK")
       .order("updated_at", { ascending: false });
 
-    if (error) {
-      console.error("[admin/view-mypage] getConsultationHistory error:", error);
-      return [];
-    }
+    if (error) return [];
 
     return (data || []).map((row: any) => {
       const date = row.reserved_date || row.updated_at?.split("T")[0] || "";
       const prescriptionMenu = row.prescription_menu || "";
-      const title = row.status === "OK"
-        ? `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`
-        : "診察完了（処方なし）";
+      const title = `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`;
 
       return {
         id: row.reserve_id || `history-${row.updated_at}`,
@@ -163,15 +168,51 @@ async function getConsultationHistoryFromSupabase(
         detail: row.note || "",
       };
     });
-  } catch (err) {
-    console.error("[admin/view-mypage] getConsultationHistory error:", err);
+  } catch {
     return [];
   }
 }
 
-/**
- * Supabaseから再処方申請を取得（顧客マイページと同じロジック）
- */
+async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("paid_at", { ascending: false });
+
+    if (error) return [];
+
+    return (data || []).map((o: any) => {
+      const paidRaw = o.paid_at ?? o.created_at ?? "";
+      const refundedRaw = o.refunded_at ?? "";
+
+      let paymentStatus = normalizePaymentStatus(o.payment_status);
+      if (o.status === "pending_confirmation") {
+        paymentStatus = "pending" as PaymentStatus;
+      }
+
+      return {
+        id: String(o.id ?? ""),
+        productCode: String(o.product_code ?? ""),
+        productName: String(o.product_name ?? ""),
+        amount: Number(o.amount) || 0,
+        paidAt: toIsoFlexible(paidRaw),
+        shippingStatus: ((o.shipping_status || "pending") as ShippingStatus),
+        shippingEta: o.shipping_date ?? undefined,
+        trackingNumber: o.tracking_number ?? undefined,
+        paymentStatus,
+        paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
+        refundStatus: normalizeRefundStatus(o.refund_status),
+        refundedAt: toIsoFlexible(refundedRaw) || undefined,
+        refundedAmount: toNumberOrUndefined(o.refunded_amount),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 async function getReordersFromSupabase(patientId: string): Promise<{
   id: string;
   status: string;
@@ -187,13 +228,9 @@ async function getReordersFromSupabase(patientId: string): Promise<{
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("[admin/view-mypage] getReorders error:", error);
-      return [];
-    }
+    if (error) return [];
 
     return (data || []).map((r: any) => {
-      // product_code から mg と months を抽出（例: "MJL_2.5mg_3m" → mg="2.5mg", months=3）
       const productCode = String(r.product_code || "");
       const mgMatch = productCode.match(/(\d+\.?\d*mg)/);
       const monthsMatch = productCode.match(/(\d+)m$/);
@@ -207,26 +244,24 @@ async function getReordersFromSupabase(patientId: string): Promise<{
         months: monthsMatch ? Number(monthsMatch[1]) : undefined,
       };
     });
-  } catch (err) {
-    console.error("[admin/view-mypage] getReorders error:", err);
+  } catch {
     return [];
   }
 }
 
+// ─── メインAPI ───
+
 /**
  * 管理者用：患者のマイページデータを確認
  * GET /api/admin/view-mypage?patient_id=20251200128
- * Authorization: Bearer <ADMIN_TOKEN>
  */
 export async function GET(req: NextRequest) {
   try {
-    // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    // ★ patient_id を取得
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
 
@@ -237,126 +272,41 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ★ GASから基本情報を取得（患者情報、予約、診察履歴など）
-    let gasData: any = {};
+    // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）
+    const [patientInfo, nextReservation, orders, history, reorders] = await Promise.all([
+      getPatientInfoFromSupabase(patientId),
+      getNextReservationFromSupabase(patientId),
+      getOrdersFromSupabase(patientId),
+      getConsultationHistoryFromSupabase(patientId),
+      getReordersFromSupabase(patientId),
+    ]);
 
-    if (GAS_MYPAGE_URL) {
-      try {
-        const dashboardUrl = `${GAS_MYPAGE_URL}?type=getDashboard&patient_id=${encodeURIComponent(patientId)}`;
-        const gasRes = await fetch(dashboardUrl, {
-          method: "GET",
-          cache: "no-store",
-          signal: AbortSignal.timeout(30000),
-        });
-
-        if (gasRes.ok) {
-          const gasText = await gasRes.text().catch(() => "");
-          try {
-            gasData = JSON.parse(gasText);
-          } catch {
-            console.error(`[Admin] GAS JSON parse error for patient ${patientId}`);
-          }
-        } else {
-          console.error(`[Admin] GAS error for patient ${patientId}:`, gasRes.status);
-        }
-      } catch (err) {
-        console.error(`[Admin] GAS fetch error:`, err);
-      }
-    }
-
-    // ★ Supabaseから注文データを取得（bank_transfer_ordersは廃止済み）
-    const { data: rawOrders, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("paid_at", { ascending: false });
-
-    if (error) {
-      console.error("[admin/view-mypage] Supabase query error:", error);
-      return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
-    }
-
-    const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
-      const paidRaw =
-        o.paid_at_jst ??
-        o.paidAt ??
-        o.paid_at ??
-        o.order_datetime ??
-        o.orderDateTime ??
-        o.created_at ??
-        "";
-
-      const refundedRaw =
-        o.refunded_at_jst ??
-        o.refundedAt ??
-        o.refunded_at ??
-        "";
-
-      // status='pending_confirmation'の場合はpaymentStatusを'pending'にする
-      let paymentStatus = normalizePaymentStatus(o.payment_status ?? o.paymentStatus);
-      if (o.status === "pending_confirmation") {
-        paymentStatus = "pending" as PaymentStatus;
-      }
-
-      return {
-        id: String(o.id ?? ""),
-        productCode: String(o.product_code ?? o.productCode ?? ""),
-        productName: String(o.product_name ?? o.productName ?? ""),
-        amount: Number(o.amount) || 0,
-        paidAt: toIsoFlexible(paidRaw),
-        shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
-        shippingEta: (o.shipping_date ?? o.shipping_eta ?? o.shippingEta) || undefined,
-        trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
-        paymentStatus,
-        paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
-        refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
-        refundedAt: toIsoFlexible(refundedRaw) || undefined,
-        refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
-      };
-    });
-
-    // ★ Flags computed from Supabase orders data（顧客マイページと同じロジック）
+    const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");
     const hasAnyPaidOrder = orders.length > 0;
     const flags = {
-      canPurchaseCurrentCourse: !hasAnyPaidOrder,  // 注文がない場合のみ購入可
-      canApplyReorder: hasAnyPaidOrder,            // 注文がある場合のみ再処方可
+      canPurchaseCurrentCourse: !hasAnyPaidOrder,
+      canApplyReorder: hasAnyPaidOrder,
       hasAnyPaidOrder,
     };
 
-    // ★ activeOrders を Supabase orders から計算（顧客マイページと同じロジック）
-    const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");
-
-    // ★ Supabaseから次回予約を取得（GASではなく）
-    const nextReservation = await getNextReservationFromSupabase(patientId);
-
-    // ★ Supabaseから診察履歴を取得（GASではなく）
-    const historyFromDB = await getConsultationHistoryFromSupabase(patientId);
-
-    // ★ Supabaseから再処方申請を取得（GASではなく、顧客マイページと同じ）
-    const reordersFromDB = await getReordersFromSupabase(patientId);
-
-    // ★ GASデータとSupabaseデータをマージ
     const responseData = {
-      patient: gasData.patient || null,
-      nextReservation, // ★ Supabaseから取得
-      activeOrders, // ★ Supabaseから計算（顧客マイページと同じ）
-      history: historyFromDB, // ★ Supabaseから取得
-      hasMoreHistory: gasData.hasMoreHistory || false,
-      orders, // ★ Supabaseから取得した注文データ
-      flags, // ★ Supabaseから計算したフラグ
-      ordersFlags: flags, // ★ 互換性のため
-      reorders: reordersFromDB, // ★ Supabaseから取得（顧客マイページと同じ）
-      hasIntake: gasData.hasIntake || false,
-      perf: gasData.perf || [],
+      patient: {
+        id: patientInfo.id,
+        displayName: patientInfo.displayName,
+      },
+      nextReservation,
+      activeOrders,
+      history,
+      hasMoreHistory: false,
+      orders,
+      flags,
+      ordersFlags: flags,
+      reorders,
+      hasIntake: patientInfo.hasIntake,
     };
 
     return NextResponse.json(
-      {
-        ok: true,
-        source: "supabase",
-        patientId,
-        data: responseData,
-      },
+      { ok: true, source: "supabase", patientId, data: responseData },
       { status: 200 }
     );
   } catch (err) {
