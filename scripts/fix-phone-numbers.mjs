@@ -1,140 +1,107 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
-const envPath = resolve(process.cwd(), ".env.local");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const envPath = join(__dirname, "../.env.local");
 const envContent = readFileSync(envPath, "utf-8");
-const envVars = {};
-
-envContent.split("\n").forEach((line) => {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith("#")) return;
-  const [key, ...valueParts] = trimmed.split("=");
-  if (key && valueParts.length > 0) {
-    let value = valueParts.join("=").trim();
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    envVars[key.trim()] = value;
+envContent.split("\n").forEach(line => {
+  const match = line.match(/^([^=]+)=(.*)$/);
+  if (match) {
+    const key = match[1].trim();
+    const value = match[2].trim().replace(/^["']|["']$/g, "");
+    process.env[key] = value;
   }
 });
 
 const supabase = createClient(
-  envVars.NEXT_PUBLIC_SUPABASE_URL,
-  envVars.SUPABASE_SERVICE_ROLE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-function normalizePhone(phone) {
-  if (!phone) return phone;
-  let digits = phone.trim();
-  
-  // 00プレフィックスを削除
-  if (digits.startsWith('00')) {
-    digits = digits.slice(2);
+async function fixAllPhones() {
+  console.log("=== 電話番号全件修正 ===\n");
+
+  let totalFixed = { double0: 0, no0: 0 };
+  let page = 0;
+  const limit = 1000;
+
+  while (true) {
+    const { data: orders, error } = await supabase
+      .from("orders")
+      .select("id, phone")
+      .not("phone", "is", null)
+      .range(page * limit, (page + 1) * limit - 1);
+
+    if (error) {
+      console.log("Error:", error.message);
+      break;
+    }
+
+    if (!orders || orders.length === 0) break;
+
+    console.log("ページ " + (page + 1) + ": " + orders.length + "件処理中...");
+
+    for (const o of orders) {
+      const phone = o.phone;
+      let newPhone = null;
+
+      if (phone.startsWith("0080") || phone.startsWith("0090") || phone.startsWith("0070")) {
+        newPhone = phone.slice(1);
+        totalFixed.double0++;
+      } else if (phone.startsWith("80") || phone.startsWith("90") || phone.startsWith("70")) {
+        newPhone = "0" + phone;
+        totalFixed.no0++;
+      }
+
+      if (newPhone) {
+        await supabase.from("orders").update({ phone: newPhone }).eq("id", o.id);
+      }
+    }
+
+    page++;
+    if (orders.length < limit) break;
   }
-  
-  // 81（国際番号）を削除して0を追加
-  if (digits.startsWith('81')) {
-    digits = '0' + digits.slice(2);
+
+  console.log("\n二重0修正: " + totalFixed.double0 + " 件");
+  console.log("0なし修正: " + totalFixed.no0 + " 件");
+
+  // 最終確認
+  let stats = { correct: 0, double0: 0, no0: 0, total: 0 };
+  page = 0;
+  while (true) {
+    const { data: check } = await supabase
+      .from("orders")
+      .select("phone")
+      .not("phone", "is", null)
+      .range(page * limit, (page + 1) * limit - 1);
+
+    if (!check || check.length === 0) break;
+
+    for (const o of check) {
+      stats.total++;
+      const p = o.phone;
+      if (p.startsWith("0080") || p.startsWith("0090") || p.startsWith("0070")) {
+        stats.double0++;
+      } else if (p.startsWith("80") || p.startsWith("90") || p.startsWith("70")) {
+        stats.no0++;
+      } else if (p.startsWith("080") || p.startsWith("090") || p.startsWith("070")) {
+        stats.correct++;
+      }
+    }
+
+    page++;
+    if (check.length < limit) break;
   }
-  
-  // 先頭に0がなく、9/8/7で始まる場合は0を追加
-  if (!digits.startsWith('0') && digits.match(/^[789]/)) {
-    digits = '0' + digits;
-  }
-  
-  return digits;
+
+  console.log("\n=== 修正後 ===");
+  console.log("総件数: " + stats.total);
+  console.log("正常: " + stats.correct);
+  console.log("二重0: " + stats.double0);
+  console.log("0なし: " + stats.no0);
 }
 
-console.log('=== 電話番号の修正（ページネーション対応） ===\n');
-
-// 全レコードをページネーションで取得
-let allOrders = [];
-let hasMore = true;
-let offset = 0;
-const limit = 1000;
-
-console.log('全レコードを取得中...\n');
-
-while (hasMore) {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, patient_id, phone, payment_method')
-    .not('phone', 'is', null)
-    .range(offset, offset + limit - 1);
-
-  if (error) {
-    console.error('Error:', error);
-    process.exit(1);
-  }
-
-  if (data && data.length > 0) {
-    allOrders = allOrders.concat(data);
-    console.log(`取得済み: ${allOrders.length}件`);
-    offset += limit;
-    hasMore = data.length === limit;
-  } else {
-    hasMore = false;
-  }
-}
-
-console.log(`\n全件取得完了: ${allOrders.length}件\n`);
-
-// ordersという変数名を維持するため
-const orders = allOrders;
-
-const toFix = orders.filter(o => {
-  const phone = o.phone || '';
-  return phone.startsWith('00') || phone.match(/^[789]/);
-});
-
-console.log(`修正対象: ${toFix.length}件\n`);
-
-if (toFix.length === 0) {
-  console.log('修正が必要なレコードはありません');
-  process.exit(0);
-}
-
-let successCount = 0;
-let errorCount = 0;
-let skippedCount = 0;
-
-for (const order of toFix) {
-  const originalPhone = order.phone;
-  const normalizedPhone = normalizePhone(originalPhone);
-
-  if (originalPhone === normalizedPhone) {
-    skippedCount++;
-    continue;
-  }
-
-  console.log(`ID: ${order.id}`);
-  console.log(`  患者ID: ${order.patient_id}`);
-  console.log(`  決済方法: ${order.payment_method}`);
-  console.log(`  ${originalPhone} (${originalPhone.length}桁) -> ${normalizedPhone} (${normalizedPhone.length}桁)`);
-
-  const { error: updateError } = await supabase
-    .from('orders')
-    .update({ phone: normalizedPhone })
-    .eq('id', order.id);
-
-  if (updateError) {
-    console.log(`  ❌ エラー: ${updateError.message}`);
-    errorCount++;
-  } else {
-    console.log(`  ✅ 更新完了`);
-    successCount++;
-  }
-
-  // 進捗表示
-  const processed = successCount + errorCount + skippedCount;
-  if (processed % 100 === 0) {
-    console.log(`\n--- 進捗: ${processed}/${toFix.length}件処理済み ---\n`);
-  }
-}
-
-console.log(`\n=== 修正完了 ===`);
-console.log(`成功: ${successCount}件`);
-console.log(`失敗: ${errorCount}件`);
-console.log(`スキップ: ${skippedCount}件`);
+fixAllPhones();

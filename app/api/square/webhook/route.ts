@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
+import { normalizeJPPhone } from "@/lib/phone";
 
 export const runtime = "nodejs";
 
@@ -143,35 +144,7 @@ async function squarePost(path: string, body: any) {
   return { ok: res.ok, status: res.status, json, text };
 }
 
-function normalizeJPPhone(raw: string) {
-  const s = (raw || "").trim();
-  if (!s) return "";
-  let digits = s.replace(/[^\d]/g, "");
-  if (!digits) return "";
-
-  // ★ 0080/0090 を 080/090 に変換（国際電話プレフィックス00の誤入力）
-  if (digits.startsWith("0080")) {
-    digits = "080" + digits.slice(4);
-  } else if (digits.startsWith("0090")) {
-    digits = "090" + digits.slice(4);
-  }
-  // 00プレフィックスを削除（国際電話の発信コード）
-  else if (digits.startsWith("00")) {
-    digits = digits.slice(2);
-  }
-
-  // 81（国際番号）を削除して0を追加
-  if (digits.startsWith("81")) {
-    digits = "0" + digits.slice(2);
-  }
-
-  // 先頭に0がなく、7/8/9で始まる場合は0を追加
-  if (!digits.startsWith("0") && /^[789]/.test(digits)) {
-    digits = "0" + digits;
-  }
-
-  return digits;
-}
+// normalizeJPPhone は @/lib/phone からimport
 
 function extractFromNote(note: string) {
   const out = { patientId: "", productCode: "", reorderId: "" };

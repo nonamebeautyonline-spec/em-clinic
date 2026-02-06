@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { normalizeJPPhone } from "@/lib/phone";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       shipping_name: shippingName,
       postal_code: postalCode,
       address: address,
-      phone: phoneNumber,
+      phone: normalizeJPPhone(phoneNumber),
       email: email,
       account_name: accountName, // 振込名義人
       created_at: now,
