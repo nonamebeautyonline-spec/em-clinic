@@ -33,6 +33,12 @@ interface OrderHistoryItem {
   refund_status?: string | null;
 }
 
+interface TagInfo {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface PatientResult {
   id: string;
   name: string;
@@ -42,6 +48,8 @@ interface PatientResult {
   reorders: ReorderInfo[];
   pendingBankTransfer: PendingBankInfo | null;
   nextReservation: string | null;
+  mark?: string;
+  tags?: TagInfo[];
 }
 
 interface Candidate {
@@ -108,7 +116,7 @@ export default function PatientLookupWidget() {
         return;
       }
 
-      setResult({
+      const patientResult: PatientResult = {
         id: data.patient.id,
         name: data.patient.name,
         lstep_uid: data.patient.lstep_uid,
@@ -117,7 +125,27 @@ export default function PatientLookupWidget() {
         reorders: data.reorders || [],
         pendingBankTransfer: data.pendingBankTransfer || null,
         nextReservation: data.nextReservation || null,
-      });
+      };
+
+      // タグ・マーク情報を非同期で取得
+      try {
+        const [tagsRes, markRes] = await Promise.all([
+          fetch(`/api/admin/patients/${data.patient.id}/tags`, { credentials: "include" }),
+          fetch(`/api/admin/patients/${data.patient.id}/mark`, { credentials: "include" }),
+        ]);
+        const tagsData = await tagsRes.json();
+        const markData = await markRes.json();
+        patientResult.tags = (tagsData.tags || []).map((t: any) => ({
+          id: t.tag_definitions?.id || t.tag_id,
+          name: t.tag_definitions?.name || "",
+          color: t.tag_definitions?.color || "#6B7280",
+        }));
+        patientResult.mark = markData.mark?.mark || "none";
+      } catch {
+        // タグ・マーク取得失敗は無視
+      }
+
+      setResult(patientResult);
     } catch {
       setError("通信エラー");
     } finally {
@@ -288,13 +316,31 @@ export default function PatientLookupWidget() {
               <div className="p-3 space-y-3">
                 {/* 基本情報 */}
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold">{result.name}</div>
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                      <span>ID: {result.id}</span>
-                      {result.nextReservation && (
-                        <span className="text-blue-600 font-medium">予約: {result.nextReservation}</span>
-                      )}
+                  <div className="flex items-center gap-2">
+                    {/* 対応マーク */}
+                    {result.mark && result.mark !== "none" && (
+                      <span className="text-lg" title={
+                        result.mark === "red" ? "要対応" :
+                        result.mark === "yellow" ? "対応中" :
+                        result.mark === "green" ? "対応済み" :
+                        result.mark === "blue" ? "重要" :
+                        result.mark === "gray" ? "保留" : ""
+                      }>
+                        {result.mark === "red" ? "\uD83D\uDD34" :
+                         result.mark === "yellow" ? "\uD83D\uDFE1" :
+                         result.mark === "green" ? "\uD83D\uDFE2" :
+                         result.mark === "blue" ? "\uD83D\uDD35" :
+                         result.mark === "gray" ? "\u26AB" : ""}
+                      </span>
+                    )}
+                    <div>
+                      <div className="font-bold">{result.name}</div>
+                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                        <span>ID: {result.id}</span>
+                        {result.nextReservation && (
+                          <span className="text-blue-600 font-medium">予約: {result.nextReservation}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {lstepUrl && (
@@ -308,6 +354,17 @@ export default function PatientLookupWidget() {
                     </a>
                   )}
                 </div>
+
+                {/* タグ表示 */}
+                {result.tags && result.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {result.tags.map(t => (
+                      <span key={t.id} className="px-2 py-0.5 rounded-full text-white text-[10px]" style={{ backgroundColor: t.color }}>
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* 銀行振込申請中 */}
                 {result.pendingBankTransfer && (
