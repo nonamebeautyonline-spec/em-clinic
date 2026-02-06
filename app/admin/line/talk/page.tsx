@@ -513,7 +513,7 @@ export default function TalkPage() {
         ) : (
           <>
             {/* ヘッダー */}
-            <div className="bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-2.5 flex items-center gap-3 shadow-sm">
+            <div className="flex-shrink-0 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-2.5 flex items-center gap-3 shadow-sm">
               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-sm font-bold flex-shrink-0">
                 {selectedPatient.patient_name.charAt(0)}
               </div>
@@ -586,7 +586,7 @@ export default function TalkPage() {
             </div>
 
             {/* 入力 */}
-            <div className="bg-white border-t border-gray-100 px-3 py-2">
+            <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 py-2">
               <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
