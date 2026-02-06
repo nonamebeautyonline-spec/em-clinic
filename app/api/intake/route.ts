@@ -100,22 +100,28 @@ export async function POST(req: NextRequest) {
     const [supabaseIntakeResult, supabaseAnswererResult, gasResult] = await Promise.allSettled([
       // 1. Supabase intakeテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
+        // ★ 既存レコードがある場合はreserve_id等を保持
+        const { data: existingRecord } = await supabase
+          .from("intake")
+          .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
+          .eq("patient_id", patientId)
+          .maybeSingle();
+
         const result = await supabase
           .from("intake")
           .upsert({
             patient_id: patientId,
             patient_name: name || null,
-            patient_kana: nameKana || null,
-            phone: tel || null,
-            email: email || null,
+            // ★ patient_kana, phone, emailはintakeテーブルに列がない
+            //   これらはanswersフィールド内に格納済み（カナ, 電話番号等）
             answerer_id: answererId,
             line_id: lineId || null,
-            reserve_id: null,
-            reserved_date: null,
-            reserved_time: null,
-            status: null,
-            note: null,
-            prescription_menu: null,
+            reserve_id: existingRecord?.reserve_id ?? null,
+            reserved_date: existingRecord?.reserved_date ?? null,
+            reserved_time: existingRecord?.reserved_time ?? null,
+            status: existingRecord?.status ?? null,
+            note: existingRecord?.note ?? null,
+            prescription_menu: existingRecord?.prescription_menu ?? null,
             answers: fullAnswers,
           }, {
             onConflict: "patient_id",
