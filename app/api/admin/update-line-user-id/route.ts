@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     try {
       const updateValue = lineUserId === "" ? null : lineUserId;
       const { error: dbError } = await supabase
-        .from("intakes")
+        .from("intake")
         .update({ line_id: updateValue })
         .eq("patient_id", patientId);
 

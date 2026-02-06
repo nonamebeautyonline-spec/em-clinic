@@ -1,5 +1,6 @@
 // app/api/register/complete/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const GAS_REGISTER_URL = process.env.GAS_REGISTER_URL;
 
@@ -51,6 +52,21 @@ export async function POST(req: NextRequest) {
       // data をログしない
       console.error("GAS register missing pid");
       return NextResponse.json({ ok: false, error: "register_failed" }, { status: 500 });
+    }
+
+    // ★ line_user_id が取得できていれば Supabase intake テーブルにも保存
+    if (lineUserId) {
+      supabase
+        .from("intake")
+        .update({ line_id: lineUserId })
+        .eq("patient_id", String(pid))
+        .then(({ error }) => {
+          if (error) {
+            console.error("[register/complete] DB line_id update error:", error.message);
+          } else {
+            console.log("[register/complete] DB line_id updated for", pid);
+          }
+        });
     }
 
     // ★ pidは返さなくてOK（cookieで完結）
