@@ -153,6 +153,7 @@ export async function GET(req: NextRequest) {
       status: row.status || "pending",
       phone: row.phone || "",
       lstep_uid: row.answerer_id || "",
+      line_uid: row.line_id || "",
       call_status: row.call_status || "",
       note: row.note || "",
       prescription_menu: row.prescription_menu || "",

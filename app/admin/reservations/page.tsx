@@ -11,12 +11,22 @@ interface Reservation {
   status: string;
   phone: string;
   lstep_uid?: string;
+  line_uid?: string;
   call_status?: string;
   [key: string]: any; // その他のフィールド
 }
 
+interface ReminderSendResult {
+  total: number;
+  sent: number;
+  noUid: number;
+  failed: number;
+  results: { patient_id: string; patient_name: string; status: "sent" | "no_uid" | "failed" }[];
+}
+
 interface ReminderData {
   lstep_id: string;
+  line_uid: string;
   patient_id: string;
   patient_name: string;
   reserved_time: string;
@@ -42,6 +52,8 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [reminderPreview, setReminderPreview] = useState<ReminderPreviewResult | null>(null);
   const [loadingReminder, setLoadingReminder] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState(false);
+  const [reminderSendResult, setReminderSendResult] = useState<ReminderSendResult | null>(null);
 
   // デフォルトは今日の日付
   const today = new Date().toISOString().slice(0, 10);
@@ -128,6 +140,33 @@ export default function ReservationsPage() {
     }
   };
 
+  const handleSendReminder = async () => {
+    if (!confirm(`${formatDate(selectedDate)}の予約者${reservations.length}名にLINEリマインドを送信しますか？`)) return;
+
+    setSendingReminder(true);
+    setReminderSendResult(null);
+
+    try {
+      const res = await fetch("/api/admin/reservations/send-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ date: selectedDate }),
+      });
+
+      if (!res.ok) {
+        throw new Error("リマインド送信に失敗しました");
+      }
+
+      const data = await res.json();
+      setReminderSendResult(data);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
   const handleDownloadReminderCSV = async () => {
     if (!reminderPreview) return;
 
@@ -204,6 +243,17 @@ export default function ReservationsPage() {
         >
           {loadingReminder ? "作成中..." : "📋 付帯情報を作成"}
         </button>
+        <button
+          onClick={handleSendReminder}
+          disabled={sendingReminder || reservations.length === 0}
+          className={`px-4 py-2 text-sm rounded-lg font-medium ${
+            sendingReminder || reservations.length === 0
+              ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+              : "bg-green-600 text-white hover:bg-green-700"
+          }`}
+        >
+          {sendingReminder ? "送信中..." : "LINE リマインド送信"}
+        </button>
       </div>
 
       {/* 予約人数表示 */}
@@ -248,6 +298,35 @@ export default function ReservationsPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
+      {/* LINE リマインド送信結果 */}
+      {reminderSendResult && (
+        <div className="mb-4 p-4 bg-white rounded-lg shadow border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-800">LINE リマインド送信結果</h3>
+            <button onClick={() => setReminderSendResult(null)} className="text-slate-400 hover:text-slate-600">×</button>
+          </div>
+          <div className="flex gap-4 text-sm mb-3">
+            <span className="text-green-600 font-medium">送信済: {reminderSendResult.sent}件</span>
+            <span className="text-yellow-600 font-medium">UID無: {reminderSendResult.noUid}件</span>
+            {reminderSendResult.failed > 0 && (
+              <span className="text-red-600 font-medium">失敗: {reminderSendResult.failed}件</span>
+            )}
+            <span className="text-slate-500">合計: {reminderSendResult.total}件</span>
+          </div>
+          {(reminderSendResult.noUid > 0 || reminderSendResult.failed > 0) && (
+            <div className="max-h-32 overflow-y-auto text-xs space-y-1">
+              {reminderSendResult.results
+                .filter(r => r.status !== "sent")
+                .map((r, i) => (
+                  <div key={i} className={`px-2 py-1 rounded ${r.status === "no_uid" ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"}`}>
+                    {r.patient_name} ({r.patient_id}) - {r.status === "no_uid" ? "LINE UID未取得" : "送信失敗"}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 診療リマインドプレビュー（スマホでは非表示） */}
       {reminderPreview && (
         <div className="hidden md:block mb-6 bg-white rounded-lg shadow">
@@ -270,6 +349,9 @@ export default function ReservationsPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     LステップID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                    LINE UID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     前回診察
@@ -306,6 +388,15 @@ export default function ReservationsPage() {
                           >
                             ✅ {reminder.lstep_id}
                           </a>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                        {reminder.line_uid ? (
+                          <span className="text-blue-600" title={reminder.line_uid}>
+                            {reminder.line_uid.slice(0, 10)}...
+                          </span>
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}

@@ -9,6 +9,7 @@ const supabase = createClient(
 
 interface ReminderData {
   lstep_id: string;
+  line_uid: string;
   patient_id: string;
   patient_name: string;
   reserved_time: string;
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
 
     for (const row of filteredData) {
       const lstepId = row.answerer_id || "";
+      const lineUid = row.line_id || "";
       const patientName = row.patient_name || "";
       const reservedTime = row.reserved_time || "";
       const phone = row.phone || "";
@@ -87,7 +89,6 @@ export async function POST(req: NextRequest) {
 
       if (!lstepId) {
         errors.push(`患者ID ${row.patient_id}: LステップIDがありません`);
-        continue;
       }
 
       // リマインドメッセージを生成
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
 
       reminderList.push({
         lstep_id: lstepId,
+        line_uid: lineUid,
         patient_id: row.patient_id,
         patient_name: patientName,
         reserved_time: reservedTime,
