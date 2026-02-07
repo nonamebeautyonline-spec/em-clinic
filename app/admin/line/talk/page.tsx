@@ -911,7 +911,7 @@ export default function TalkPage() {
                     >
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[11px] font-medium text-gray-800 truncate">{displayName}</span>
-                        <span className="text-[9px] text-gray-300 flex-shrink-0 ml-2">{sentDate}</span>
+                        <span className="text-[11px] text-gray-700 flex-shrink-0 ml-2">{sentDate}</span>
                       </div>
                       <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{snippet}</p>
                     </button>
@@ -1755,7 +1755,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
               {f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (
-              <span className="text-[9px] text-gray-300 flex-shrink-0">{formatDateShort(f.last_sent_at)}</span>
+              <span className="text-[11px] text-gray-700 flex-shrink-0">{formatDateShort(f.last_sent_at)}</span>
             )}
           </div>
         </div>

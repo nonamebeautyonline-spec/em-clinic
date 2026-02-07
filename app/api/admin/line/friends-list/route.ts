@@ -80,19 +80,20 @@ export async function GET(req: NextRequest) {
   }
 
   // 最新メッセージを取得（各患者の直近1件）
-  // last_sent_atはシステムイベント含む全ログの最新時刻（ソート用）
+  // last_sent_atは顧客からのメッセージ・アクションの最新時刻（ソート用）
   // last_messageは表示用テキスト（eventタイプを除く）
   const { data: lastMessages } = await fetchAll(
-    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type").order("sent_at", { ascending: false }),
+    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type, direction").order("sent_at", { ascending: false }),
   );
 
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
-  const lastActivityMap = new Map<string, string>();
+  const lastIncomingMap = new Map<string, string>();
   for (const row of lastMessages || []) {
     if (!row.patient_id) continue;
-    // ソート用: 全ログの最新時刻
-    if (!lastActivityMap.has(row.patient_id)) {
-      lastActivityMap.set(row.patient_id, row.sent_at);
+    // ソート用: 顧客からのメッセージ・アクション（incoming）の最新時刻のみ
+    // 管理側からの送信（outgoing）は表示順に影響させない
+    if (!lastIncomingMap.has(row.patient_id) && row.direction !== "outgoing") {
+      lastIncomingMap.set(row.patient_id, row.sent_at);
     }
     // 表示用: イベント以外の最新メッセージ
     if (!lastMsgMap.has(row.patient_id) && row.message_type !== "event" && row.event_type !== "system") {
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
   // 統合
   const patients = Array.from(patientMap.values()).map(p => {
     const lastMsg = lastMsgMap.get(p.patient_id);
-    const lastActivity = lastActivityMap.get(p.patient_id);
+    const lastIncoming = lastIncomingMap.get(p.patient_id);
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
       tags: tagMap.get(p.patient_id) || [],
       fields: fieldValMap.get(p.patient_id) || {},
       last_message: lastMsg?.content || null,
-      last_sent_at: lastActivity || lastMsg?.sent_at || null,
+      last_sent_at: lastIncoming || null,
     };
   });
 
