@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Template {
   id: number;
@@ -18,6 +18,8 @@ interface Category {
   sort_order: number;
 }
 
+type TemplateTab = "text" | "image";
+
 export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -28,11 +30,15 @@ export default function TemplateManagementPage() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+  const [activeTab, setActiveTab] = useState<TemplateTab>("text");
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [category, setCategory] = useState<string>("未分類");
   const [folderName, setFolderName] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
     const [tRes, cRes] = await Promise.all([
@@ -55,8 +61,45 @@ export default function TemplateManagementPage() {
   const getCategoryCount = (catName: string) =>
     templates.filter(t => (t.category || "未分類") === catName).length;
 
+  const handleImageUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/line/upload-template-image", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "画像アップロード失敗");
+        return;
+      }
+
+      const data = await res.json();
+      setImageUrl(data.url);
+    } catch {
+      alert("画像アップロード中にエラーが発生しました");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSave = async () => {
-    if (!name.trim() || !content.trim() || saving) return;
+    if (!name.trim() || saving) return;
+
+    const isImage = activeTab === "image";
+    const saveContent = isImage ? imageUrl : content.trim();
+    const saveType = isImage ? "image" : "text";
+
+    if (!saveContent) {
+      alert(isImage ? "画像をアップロードしてください" : "本文を入力してください");
+      return;
+    }
+
     setSaving(true);
 
     const url = editingTemplate ? `/api/admin/line/templates/${editingTemplate.id}` : "/api/admin/line/templates";
@@ -66,7 +109,7 @@ export default function TemplateManagementPage() {
       method,
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ name: name.trim(), content: content.trim(), message_type: "text", category }),
+      body: JSON.stringify({ name: name.trim(), content: saveContent, message_type: saveType, category }),
     });
 
     if (res.ok) {
@@ -115,8 +158,16 @@ export default function TemplateManagementPage() {
   const handleEdit = (t: Template) => {
     setEditingTemplate(t);
     setName(t.name);
-    setContent(t.content);
     setCategory(t.category || "未分類");
+    if (t.message_type === "image") {
+      setActiveTab("image");
+      setImageUrl(t.content);
+      setContent("");
+    } else {
+      setActiveTab("text");
+      setContent(t.content);
+      setImageUrl("");
+    }
     setShowModal(true);
   };
 
@@ -125,6 +176,8 @@ export default function TemplateManagementPage() {
     setEditingTemplate(null);
     setName("");
     setContent("");
+    setActiveTab("text");
+    setImageUrl("");
     setCategory("未分類");
   };
 
@@ -132,6 +185,8 @@ export default function TemplateManagementPage() {
     const date = new Date(d);
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
   };
+
+  const canSave = name.trim() && (activeTab === "text" ? content.trim() : imageUrl);
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -161,7 +216,7 @@ export default function TemplateManagementPage() {
                 新しいフォルダ
               </button>
               <button
-                onClick={() => { resetForm(); setShowModal(true); }}
+                onClick={() => { resetForm(); setCategory(selectedCategory || "未分類"); setShowModal(true); }}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +229,7 @@ export default function TemplateManagementPage() {
         </div>
       </div>
 
-      {/* メインコンテンツ - Lステップ風 サイドバー+リスト */}
+      {/* メインコンテンツ */}
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-6">
         <div className="flex gap-6">
           {/* 左サイドバー - フォルダ */}
@@ -257,12 +312,18 @@ export default function TemplateManagementPage() {
                         {t.name}
                       </button>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
-                          テキスト
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                          t.message_type === "image" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {t.message_type === "image" ? "画像" : "テキスト"}
                         </span>
-                        <span className="text-xs text-gray-400 truncate max-w-[300px]">
-                          {t.content.substring(0, 50)}{t.content.length > 50 ? "..." : ""}
-                        </span>
+                        {t.message_type === "image" ? (
+                          <img src={t.content} alt="" className="h-6 w-6 rounded object-cover" />
+                        ) : (
+                          <span className="text-xs text-gray-400 truncate max-w-[300px]">
+                            {t.content.substring(0, 50)}{t.content.length > 50 ? "..." : ""}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -306,7 +367,7 @@ export default function TemplateManagementPage() {
         </div>
       </div>
 
-      {/* テンプレート作成/編集モーダル - Lステップ風 */}
+      {/* テンプレート作成/編集モーダル */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => resetForm()}>
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -355,46 +416,129 @@ export default function TemplateManagementPage() {
                 </select>
               </div>
 
-              {/* タブ - Lステップ風 */}
+              {/* タブ切替 */}
               <div>
                 <div className="flex border-b border-gray-200">
-                  <button className="px-4 py-2 text-sm font-medium text-[#06C755] border-b-2 border-[#06C755]">
+                  <button
+                    onClick={() => setActiveTab("text")}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === "text"
+                        ? "text-[#06C755] border-b-2 border-[#06C755]"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
                     テキスト
                   </button>
-                  <button className="px-4 py-2 text-sm text-gray-400 cursor-not-allowed">スタンプ</button>
-                  <button className="px-4 py-2 text-sm text-gray-400 cursor-not-allowed">画像</button>
-                  <button className="px-4 py-2 text-sm text-gray-400 cursor-not-allowed">質問</button>
+                  <button
+                    onClick={() => setActiveTab("image")}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === "image"
+                        ? "text-[#06C755] border-b-2 border-[#06C755]"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    画像
+                  </button>
                 </div>
               </div>
 
-              {/* 本文 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  本文 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                </label>
-                {/* ツールバー */}
-                <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-t-xl border-b-0">
-                  <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="元に戻す">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                  </button>
-                  <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="やり直し">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg>
-                  </button>
-                  <div className="w-px h-4 bg-gray-300 mx-1" />
-                  <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">名前</button>
-                  <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">友だち情報</button>
+              {/* テキスト入力 */}
+              {activeTab === "text" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    本文 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
+                  </label>
+                  {/* ツールバー */}
+                  <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-t-xl border-b-0">
+                    <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="元に戻す">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                    </button>
+                    <button className="p-1 text-gray-400 hover:text-gray-600 rounded" title="やり直し">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg>
+                    </button>
+                    <div className="w-px h-4 bg-gray-300 mx-1" />
+                    <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">名前</button>
+                    <button className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded hover:bg-gray-300">友だち情報</button>
+                  </div>
+                  <textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="メッセージ本文を入力してください..."
+                    rows={8}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-b-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-none transition-all"
+                  />
+                  <div className="flex justify-end mt-1">
+                    <span className="text-xs text-gray-400">{content.length}/22500</span>
+                  </div>
                 </div>
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="メッセージ本文を入力してください..."
-                  rows={8}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-b-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-none transition-all"
-                />
-                <div className="flex justify-end mt-1">
-                  <span className="text-xs text-gray-400">{content.length}/22500</span>
+              )}
+
+              {/* 画像アップロード */}
+              {activeTab === "image" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    画像 <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
+                  </label>
+
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+
+                  {imageUrl ? (
+                    <div className="space-y-3">
+                      <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                        <img src={imageUrl} alt="プレビュー" className="w-full max-h-[300px] object-contain" />
+                        <button
+                          onClick={() => setImageUrl("")}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploading}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        画像を変更
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full py-12 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-400 hover:bg-green-50/30 transition-all flex flex-col items-center gap-3"
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="w-8 h-8 border-2 border-green-200 border-t-green-500 rounded-full animate-spin" />
+                          <span className="text-sm text-gray-500">アップロード中...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <div className="text-center">
+                            <span className="text-sm font-medium text-gray-600">クリックして画像を選択</span>
+                            <p className="text-xs text-gray-400 mt-1">JPEG, PNG, WebP (10MBまで)</p>
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
@@ -403,7 +547,7 @@ export default function TemplateManagementPage() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !name.trim() || !content.trim()}
+                disabled={saving || !canSave}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl hover:from-[#05b34d] hover:to-[#049a42] disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25 transition-all"
               >
                 {saving ? (
@@ -465,9 +609,13 @@ export default function TemplateManagementPage() {
             </div>
             {/* LINE風プレビュー */}
             <div className="p-6 bg-[#7494C0] min-h-[300px]">
-              <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
-                <p className="text-sm whitespace-pre-wrap text-gray-800">{previewTemplate.content}</p>
-              </div>
+              {previewTemplate.message_type === "image" ? (
+                <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
+              ) : (
+                <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
+                  <p className="text-sm whitespace-pre-wrap text-gray-800">{previewTemplate.content}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

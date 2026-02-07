@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { patient_id, message } = await req.json();
-  if (!patient_id || !message?.trim()) {
+  const { patient_id, message, message_type, flex } = await req.json();
+  if (!patient_id || (!message?.trim() && !flex)) {
     return NextResponse.json({ error: "patient_id と message は必須です" }, { status: 400 });
   }
 
@@ -31,6 +31,22 @@ export async function POST(req: NextRequest) {
       status: "no_uid",
     });
     return NextResponse.json({ error: "LINE UIDが見つかりません", status: "no_uid" }, { status: 400 });
+  }
+
+  // Flex Message送信
+  if (message_type === "flex" && flex) {
+    const res = await pushMessage(intake.line_id, [flex]);
+    const status = res?.ok ? "sent" : "failed";
+
+    await supabaseAdmin.from("message_log").insert({
+      patient_id,
+      line_uid: intake.line_id,
+      message_type: "individual",
+      content: `[${flex.altText || "Flex Message"}]`,
+      status,
+    });
+
+    return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });
   }
 
   // テンプレート変数を置換

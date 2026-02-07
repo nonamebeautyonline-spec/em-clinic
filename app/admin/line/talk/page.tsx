@@ -134,6 +134,8 @@ export default function TalkPage() {
   const [templateSearch, setTemplateSearch] = useState("");
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [sendingImage, setSendingImage] = useState(false);
+  const [showCallConfirm, setShowCallConfirm] = useState(false);
+  const [sendingCall, setSendingCall] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // 右カラム
@@ -373,6 +375,115 @@ export default function TalkPage() {
     setSendingImage(false);
     // inputをリセット
     if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  // 通話フォーム送信
+  const handleSendCallForm = async () => {
+    if (!selectedPatient || sendingCall) return;
+    setSendingCall(true);
+    setShowCallConfirm(false);
+
+    const res = await fetch("/api/admin/line/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        patient_id: selectedPatient.patient_id,
+        message_type: "flex",
+        flex: {
+          type: "flex",
+          altText: "通話リクエスト",
+          contents: {
+            type: "bubble",
+            size: "kilo",
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    {
+                      type: "box",
+                      layout: "vertical",
+                      contents: [
+                        {
+                          type: "image",
+                          url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png",
+                          size: "24px",
+                          aspectMode: "fit",
+                        },
+                      ],
+                      width: "32px",
+                      height: "32px",
+                      backgroundColor: "#EBF5FF",
+                      cornerRadius: "16px",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    },
+                    {
+                      type: "box",
+                      layout: "vertical",
+                      contents: [
+                        {
+                          type: "text",
+                          text: "通話リクエスト",
+                          weight: "bold",
+                          size: "md",
+                          color: "#1a1a1a",
+                        },
+                        {
+                          type: "text",
+                          text: "タップして通話を開始できます",
+                          size: "xs",
+                          color: "#888888",
+                          margin: "xs",
+                        },
+                      ],
+                      flex: 1,
+                      paddingStart: "12px",
+                    },
+                  ],
+                  alignItems: "center",
+                },
+              ],
+              paddingAll: "16px",
+            },
+            footer: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "button",
+                  action: {
+                    type: "uri",
+                    label: "通話する",
+                    uri: `https://line.me/R/oaMessage/${process.env.NEXT_PUBLIC_LINE_OA_ID || "%40noname-beauty"}?text=%E9%80%9A%E8%A9%B1%E5%B8%8C%E6%9C%9B`,
+                  },
+                  style: "primary",
+                  color: "#06C755",
+                  height: "sm",
+                },
+              ],
+              paddingAll: "12px",
+              paddingTop: "0px",
+            },
+          },
+        },
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      shouldScrollToBottom.current = true;
+      setMessages(prev => [...prev, {
+        id: Date.now(), content: "[通話フォーム]", status: "sent",
+        message_type: "individual", sent_at: new Date().toISOString(),
+      }]);
+    } else {
+      alert(data.error || "通話フォームの送信に失敗しました");
+    }
+    setSendingCall(false);
   };
 
   const filteredTemplates = templates.filter(t => {
@@ -711,6 +822,15 @@ export default function TalkPage() {
                     </div>
                     <span className="text-xs font-medium text-gray-700">画像送信</span>
                   </button>
+                  <button
+                    onClick={() => { setShowAttachPanel(false); setShowCallConfirm(true); }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">通話フォーム</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -764,6 +884,50 @@ export default function TalkPage() {
           </>
         )}
       </div>
+
+      {/* 通話フォーム確認モーダル */}
+      {showCallConfirm && selectedPatient && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCallConfirm(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-5">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+                <h3 className="font-bold text-gray-900 text-base mb-1">通話フォームを送信</h3>
+                <p className="text-sm text-gray-500 mb-1">
+                  <span className="font-semibold text-gray-800">{selectedPatient.patient_name}</span> さんに
+                </p>
+                <p className="text-sm text-gray-500 mb-5">
+                  通話リクエストのメッセージを送信しますか？
+                </p>
+                <div className="flex gap-3 w-full">
+                  <button
+                    onClick={() => setShowCallConfirm(false)}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleSendCallForm}
+                    disabled={sendingCall}
+                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2"
+                  >
+                    {sendingCall ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                    )}
+                    送信する
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* テンプレート選択モーダル */}
       {showTemplatePicker && (
