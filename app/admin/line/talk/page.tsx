@@ -261,11 +261,17 @@ export default function TalkPage() {
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
+    // 前の患者データを即座にクリア（誤操作防止）
     setSelectedPatient(friend);
+    setMessages([]);
     setMessagesLoading(true);
     setShowTagPicker(false);
     setShowMarkDropdown(false);
     setPatientDetail(null);
+    setPatientTags([]);
+    setPatientMark("none");
+    setMarkNote("");
+    setPatientFields([]);
     setUserRichMenu(null);
     setShowMenuPicker(false);
 
