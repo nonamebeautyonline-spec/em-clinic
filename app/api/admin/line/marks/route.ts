@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-// 対応マーク一覧
+// 対応マーク一覧（各マークの患者数付き）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -13,7 +13,24 @@ export async function GET(req: NextRequest) {
     .order("sort_order", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ marks: data });
+
+  // マークごとの患者数を一括取得
+  const { data: allPM } = await supabaseAdmin
+    .from("patient_marks")
+    .select("mark")
+    .limit(100000);
+
+  const countMap = new Map<string, number>();
+  for (const pm of allPM || []) {
+    countMap.set(pm.mark, (countMap.get(pm.mark) || 0) + 1);
+  }
+
+  const marks = (data || []).map(m => ({
+    ...m,
+    patient_count: countMap.get(m.value) || 0,
+  }));
+
+  return NextResponse.json({ marks });
 }
 
 // 対応マーク作成

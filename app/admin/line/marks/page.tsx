@@ -9,14 +9,19 @@ interface MarkDef {
   color: string;
   icon: string;
   sort_order: number;
+  patient_count: number;
+}
+
+interface MarkPatient {
+  patient_id: string;
+  patient_name: string;
+  has_line: boolean;
 }
 
 const PRESET_COLORS = [
   "#EF4444", "#F97316", "#EAB308", "#84CC16", "#22C55E",
   "#14B8A6", "#06B6D4", "#3B82F6", "#8B5CF6", "#EC4899",
-  "#F43F5E", "#D97706", "#65A30D", "#0D9488", "#7C3AED",
-  "#BE185D", "#B45309", "#15803D", "#1E40AF", "#6B7280",
-  "#991B1B", "#92400E", "#1E3A5F", "#4C1D95", "#1F2937",
+  "#D97706", "#65A30D", "#0D9488", "#7C3AED", "#6B7280",
 ];
 
 export default function MarkManagementPage() {
@@ -28,6 +33,10 @@ export default function MarkManagementPage() {
   const [color, setColor] = useState("#6B7280");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [showPatients, setShowPatients] = useState(false);
+  const [patientList, setPatientList] = useState<MarkPatient[]>([]);
+  const [patientListMark, setPatientListMark] = useState<MarkDef | null>(null);
+  const [loadingPatients, setLoadingPatients] = useState(false);
 
   const fetchMarks = async () => {
     const res = await fetch("/api/admin/line/marks", { credentials: "include" });
@@ -74,6 +83,16 @@ export default function MarkManagementPage() {
       const data = await res.json();
       alert(data.error || "削除失敗");
     }
+  };
+
+  const handleShowPatients = async (mark: MarkDef) => {
+    setPatientListMark(mark);
+    setShowPatients(true);
+    setLoadingPatients(true);
+    const res = await fetch(`/api/admin/line/marks/${mark.id}`, { credentials: "include" });
+    const data = await res.json();
+    if (data.patients) setPatientList(data.patients);
+    setLoadingPatients(false);
   };
 
   const handleEdit = (mark: MarkDef) => {
@@ -132,10 +151,11 @@ export default function MarkManagementPage() {
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* テーブルヘッダー */}
-            <div className="grid grid-cols-[60px_1fr_100px_120px] gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <div className="grid grid-cols-[60px_1fr_80px_80px_120px] gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <div className="text-center">#</div>
               <div>選択肢</div>
               <div className="text-center">カラー</div>
+              <div className="text-center">人数</div>
               <div className="text-center">操作</div>
             </div>
 
@@ -146,7 +166,7 @@ export default function MarkManagementPage() {
             {marks.map((mark, index) => (
               <div
                 key={mark.id}
-                className="grid grid-cols-[60px_1fr_100px_120px] gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
+                className="grid grid-cols-[60px_1fr_80px_80px_120px] gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
               >
                 {/* 番号 */}
                 <div className="flex items-center justify-center">
@@ -168,9 +188,19 @@ export default function MarkManagementPage() {
                 {/* カラー表示 */}
                 <div className="flex justify-center">
                   <div
-                    className="w-8 h-8 rounded-lg border border-gray-200 shadow-inner"
+                    className="w-6 h-6 rounded-lg border border-gray-200 shadow-inner"
                     style={{ backgroundColor: mark.color === "#FFFFFF" ? "#F3F4F6" : mark.color }}
                   />
+                </div>
+
+                {/* 人数 */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => handleShowPatients(mark)}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                  >
+                    {mark.patient_count}人
+                  </button>
                 </div>
 
                 {/* 操作 */}
@@ -237,14 +267,14 @@ export default function MarkManagementPage() {
               {/* カラー */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">カラー</label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {PRESET_COLORS.map((c) => (
                     <button
                       key={c}
                       onClick={() => setColor(c)}
-                      className={`w-full aspect-square rounded-lg transition-all duration-150 ${
+                      className={`w-7 h-7 rounded-full transition-all duration-150 ${
                         color === c
-                          ? "ring-2 ring-offset-2 ring-gray-400 scale-110"
+                          ? "ring-2 ring-offset-1 ring-gray-400 scale-110"
                           : "hover:scale-105"
                       }`}
                       style={{ backgroundColor: c }}
@@ -307,6 +337,51 @@ export default function MarkManagementPage() {
                   削除する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 患者リストモーダル */}
+      {showPatients && patientListMark && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowPatients(false); setPatientList([]); }}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style={{ maxHeight: "70vh" }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 rounded-full" style={{ backgroundColor: patientListMark.color }} />
+                <h3 className="font-bold text-gray-900">{patientListMark.label}</h3>
+                <span className="text-sm text-gray-400">({patientList.length}人)</span>
+              </div>
+              <button onClick={() => { setShowPatients(false); setPatientList([]); }} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {loadingPatients ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-gray-200 border-t-green-500 rounded-full animate-spin" />
+                </div>
+              ) : patientList.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">該当する患者がいません</div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {patientList.map(p => (
+                    <div key={p.patient_id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50/50">
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-800 block truncate">{p.patient_name}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">{p.patient_id}</span>
+                      </div>
+                      {p.has_line ? (
+                        <span className="text-[9px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">LINE連携</span>
+                      ) : (
+                        <span className="text-[9px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full">未連携</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

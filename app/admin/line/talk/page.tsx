@@ -89,13 +89,15 @@ interface PatientDetail {
   } | null;
 }
 
-const MARK_OPTIONS = [
+interface MarkOption {
+  value: string;
+  label: string;
+  color: string;
+  icon: string;
+}
+
+const DEFAULT_MARK_OPTIONS: MarkOption[] = [
   { value: "none", label: "なし", color: "transparent", icon: "○" },
-  { value: "red", label: "要対応", color: "#EF4444", icon: "●" },
-  { value: "yellow", label: "対応中", color: "#EAB308", icon: "●" },
-  { value: "green", label: "対応済み", color: "#22C55E", icon: "●" },
-  { value: "blue", label: "重要", color: "#3B82F6", icon: "●" },
-  { value: "gray", label: "保留", color: "#6B7280", icon: "●" },
 ];
 
 const PIN_STORAGE_KEY = "talk_pinned_patients";
@@ -160,6 +162,7 @@ export default function TalkPage() {
   const [showMarkDropdown, setShowMarkDropdown] = useState(false);
   const [markNote, setMarkNote] = useState("");
   const [savingMark, setSavingMark] = useState(false);
+  const [markOptions, setMarkOptions] = useState<MarkOption[]>(DEFAULT_MARK_OPTIONS);
 
   // ピン留め
   useEffect(() => {
@@ -196,9 +199,18 @@ export default function TalkPage() {
     Promise.all([
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, fieldsData]) => {
+      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
+    ]).then(([tagsData, fieldsData, marksData]) => {
       if (tagsData.tags) setAllTags(tagsData.tags);
       if (fieldsData.fields) setAllFieldDefs(fieldsData.fields);
+      if (marksData.marks) {
+        setMarkOptions(marksData.marks.map((m: { value: string; label: string; color: string; icon: string }) => ({
+          value: m.value,
+          label: m.label,
+          color: m.value === "none" ? "transparent" : m.color,
+          icon: m.icon || "●",
+        })));
+      }
     });
   }, []);
 
@@ -665,9 +677,9 @@ export default function TalkPage() {
   const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
   const hasMore = unpinnedFriends.length > displayCount;
 
-  const getMarkColor = (mark: string) => MARK_OPTIONS.find(m => m.value === mark)?.color || "transparent";
-  const getMarkLabel = (mark: string) => MARK_OPTIONS.find(m => m.value === mark)?.label || "なし";
-  const currentMark = MARK_OPTIONS.find(m => m.value === patientMark) || MARK_OPTIONS[0];
+  const getMarkColor = (mark: string) => markOptions.find(m => m.value === mark)?.color || "transparent";
+  const getMarkLabel = (mark: string) => markOptions.find(m => m.value === mark)?.label || "なし";
+  const currentMark = markOptions.find(m => m.value === patientMark) || markOptions[0];
 
   const assignedTagIds = patientTags.map(t => t.tag_id);
   const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
@@ -1277,7 +1289,7 @@ export default function TalkPage() {
                 </button>
                 {showMarkDropdown && (
                   <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                    {MARK_OPTIONS.map(m => (
+                    {markOptions.map(m => (
                       <button
                         key={m.value}
                         onClick={() => handleMarkChange(m.value)}

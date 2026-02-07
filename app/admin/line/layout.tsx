@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINE_TABS = [
+  { href: "/admin/line", label: "トップ" },
   { href: "/admin/line/friends", label: "友達一覧" },
   { href: "/admin/line/talk", label: "個別トーク" },
   { href: "/admin/line/send", label: "一斉送信" },
@@ -23,8 +24,8 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
 
   const isActive = (href: string) => {
-    // /admin/line/friends は exact match（/friends/fields と区別するため）
-    if (href === "/admin/line/friends") return pathname === href;
+    // /admin/line と /admin/line/friends は exact match（サブパスと区別するため）
+    if (href === "/admin/line" || href === "/admin/line/friends") return pathname === href;
     return pathname === href || pathname?.startsWith(href + "/");
   };
 

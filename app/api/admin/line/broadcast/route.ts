@@ -168,11 +168,13 @@ export async function POST(req: NextRequest) {
 // フィルタルールに基づいて対象患者を解決
 export async function resolveTargets(rules: FilterRules) {
   // intakeから全患者を取得（line_id付き、最新レコード優先）
+  // Supabaseのデフォルトは1000行制限のため、明示的にlimitを指定
   const { data: allPatients } = await supabaseAdmin
     .from("intake")
     .select("patient_id, patient_name, line_id")
     .not("patient_id", "is", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100000);
 
   if (!allPatients) return [];
 
