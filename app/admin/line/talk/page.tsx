@@ -27,7 +27,7 @@ interface Template {
   name: string;
   content: string;
   message_type: string;
-  category: number | null;
+  category: string | null;
 }
 
 interface TemplateCategory {
@@ -137,7 +137,7 @@ export default function TalkPage() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateCategories, setTemplateCategories] = useState<TemplateCategory[]>([]);
-  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<number | null>(null);
+  const [templateCategoryFilter, setTemplateCategoryFilter] = useState<string | null>(null);
   const [templateSearch, setTemplateSearch] = useState("");
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [sendingImage, setSendingImage] = useState(false);
@@ -369,7 +369,7 @@ export default function TalkPage() {
       if (catData.categories) {
         setTemplateCategories(catData.categories);
         if (catData.categories.length > 0 && templateCategoryFilter === null) {
-          setTemplateCategoryFilter(catData.categories[0].id);
+          setTemplateCategoryFilter(null);
         }
       }
       setTemplatesLoading(false);
@@ -574,7 +574,7 @@ export default function TalkPage() {
   };
 
   const filteredTemplates = templates.filter(t => {
-    if (templateCategoryFilter !== null && t.category !== templateCategoryFilter) return false;
+    if (templateCategoryFilter !== null && (t.category || "未分類") !== templateCategoryFilter) return false;
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
       return t.name.toLowerCase().includes(q) || t.content.toLowerCase().includes(q);
@@ -1167,9 +1167,9 @@ export default function TalkPage() {
                   {templateCategories.map(cat => (
                     <button
                       key={cat.id}
-                      onClick={() => setTemplateCategoryFilter(cat.id)}
+                      onClick={() => setTemplateCategoryFilter(templateCategoryFilter === cat.name ? null : cat.name)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                        templateCategoryFilter === cat.id ? "bg-[#00B900] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                        templateCategoryFilter === cat.name ? "bg-[#00B900] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       }`}
                     >{cat.name}</button>
                   ))}
