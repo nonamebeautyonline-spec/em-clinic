@@ -47,6 +47,14 @@ interface TemplateOption {
   name: string;
 }
 
+interface MarkDefinition {
+  id: number;
+  value: string;
+  label: string;
+  color: string;
+  icon: string;
+}
+
 interface ButtonConfig {
   actionType: "uri" | "tel" | "message" | "action" | "form" | "other";
   uri: string;
@@ -150,6 +158,9 @@ export default function RichMenuManagementPage() {
   // テンプレート一覧
   const [allTemplates, setAllTemplates] = useState<TemplateOption[]>([]);
 
+  // 対応マーク定義
+  const [allMarks, setAllMarks] = useState<MarkDefinition[]>([]);
+
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
   const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
@@ -172,6 +183,9 @@ export default function RichMenuManagementPage() {
     fetch("/api/admin/line/templates", { credentials: "include" })
       .then(r => r.json())
       .then(data => { if (data.templates) setAllTemplates(data.templates.map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))); });
+    fetch("/api/admin/line/marks", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); });
   }, []);
 
   // --- Editor helpers ---
@@ -953,11 +967,9 @@ export default function RichMenuManagementPage() {
                                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
                                 >
                                   <option value="">変更しない</option>
-                                  <option value="blue">🔵 未対応</option>
-                                  <option value="purple">🟣 処方ずみ</option>
-                                  <option value="green">🟢 電話番号確認中</option>
-                                  <option value="red">🔴 予約変更依頼中</option>
-                                  <option value="gray">不通</option>
+                                  {allMarks.map(m => (
+                                    <option key={m.id} value={m.value}>{m.icon} {m.label}</option>
+                                  ))}
                                 </select>
                               </div>
                               <div className="grid grid-cols-[100px_1fr] items-center gap-3">
