@@ -73,7 +73,7 @@ ALTER TABLE friend_add_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rich_menus ENABLE ROW LEVEL SECURITY;
 ALTER TABLE template_categories ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "service_role_only" ON mark_definitions FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON friend_add_settings FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON rich_menus FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON template_categories FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN CREATE POLICY "service_role_only" ON mark_definitions FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON friend_add_settings FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON rich_menus FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON template_categories FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
