@@ -3,6 +3,22 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 
+// Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: all, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 interface FilterCondition {
   type: string;
   tag_id?: number;
@@ -167,16 +183,16 @@ export async function POST(req: NextRequest) {
 
 // フィルタルールに基づいて対象患者を解決
 export async function resolveTargets(rules: FilterRules) {
-  // intakeから全患者を取得（line_id付き、最新レコード優先）
-  // Supabaseのデフォルトは1000行制限のため、明示的にlimitを指定
-  const { data: allPatients } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id, patient_name, line_id")
-    .not("patient_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(100000);
+  // intakeから全患者を取得（fetchAllで1000行制限を回避）
+  const intakeRes = await fetchAll(
+    () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
+  );
 
-  if (!allPatients) return [];
+  const allPatients = intakeRes.data;
+  if (!allPatients || allPatients.length === 0) {
+    console.log("[resolveTargets] intake returned 0 rows");
+    return [];
+  }
 
   // patient_idでユニーク化（最新レコード優先）
   const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
@@ -187,18 +203,23 @@ export async function resolveTargets(rules: FilterRules) {
   }
 
   let targets = Array.from(patientMap.values());
+  console.log(`[resolveTargets] intake: ${allPatients.length} rows → ${targets.length} unique patients`);
 
   // 絞り込み条件
   if (rules.include?.conditions?.length) {
     for (const cond of rules.include.conditions) {
+      const before = targets.length;
       targets = await applyCondition(targets, cond, true);
+      console.log(`[resolveTargets] include ${cond.type}(${cond.tag_id || cond.values || ""}): ${before} → ${targets.length}`);
     }
   }
 
   // 除外条件
   if (rules.exclude?.conditions?.length) {
     for (const cond of rules.exclude.conditions) {
+      const before = targets.length;
       targets = await applyCondition(targets, cond, false);
+      console.log(`[resolveTargets] exclude ${cond.type}: ${before} → ${targets.length}`);
     }
   }
 
@@ -218,6 +239,7 @@ async function applyCondition(
         .eq("tag_id", condition.tag_id!)
         .limit(100000);
       const taggedSet = new Set((tagged || []).map(t => t.patient_id));
+      console.log(`[applyCondition] tag_id=${condition.tag_id}, tagged patients:`, Array.from(taggedSet));
 
       if (isInclude) {
         // has: タグを持つ患者のみ残す
