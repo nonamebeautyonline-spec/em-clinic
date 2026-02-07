@@ -179,10 +179,10 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(5);
 
-    // 次回予約を取得
-    const { data: nextReservation } = await supabaseAdmin
+    // 予約を取得（未診察の予約を優先、なければ最新の予約を表示）
+    const { data: pendingReservation } = await supabaseAdmin
       .from("intake")
-      .select("reserved_date, reserved_time")
+      .select("reserved_date, reserved_time, status")
       .eq("patient_id", patientId)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
@@ -191,6 +191,19 @@ export async function GET(req: NextRequest) {
       .order("reserved_time", { ascending: true })
       .limit(1)
       .maybeSingle();
+
+    // 未診察の予約がなければ、最新の予約を取得（診察済み含む）
+    const nextReservation = pendingReservation ?? (await supabaseAdmin
+      .from("intake")
+      .select("reserved_date, reserved_time, status")
+      .eq("patient_id", patientId)
+      .not("reserved_date", "is", null)
+      .not("reserved_time", "is", null)
+      .order("reserved_date", { ascending: false })
+      .order("reserved_time", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    ).data;
 
     // 銀行振込申請中（未照合）を確認 - ordersテーブルでstatus=pending_confirmationのもの
     const { data: pendingBankTransfer } = await supabaseAdmin
@@ -237,10 +250,19 @@ export async function GET(req: NextRequest) {
       refund_status: o.refund_status || null,
     }));
 
-    // 次回予約フォーマット
-    const formattedReservation = nextReservation
-      ? `${nextReservation.reserved_date} ${nextReservation.reserved_time}`
-      : null;
+    // 次回予約フォーマット（診察済みの場合はステータス付き）
+    let formattedReservation: string | null = null;
+    if (nextReservation) {
+      const base = `${nextReservation.reserved_date} ${nextReservation.reserved_time}`;
+      const st = (nextReservation as { status?: string | null }).status;
+      if (st === "OK") {
+        formattedReservation = `${base}（診察済み）`;
+      } else if (st === "NG") {
+        formattedReservation = `${base}（NG）`;
+      } else {
+        formattedReservation = base;
+      }
+    }
 
     // 問診情報を取得（answers JSONBから）
     const { data: intakeRecord } = await supabaseAdmin
