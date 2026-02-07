@@ -3,12 +3,14 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
 interface ActionStep {
-  type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change";
+  type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
   content?: string;
   template_id?: number;
   tag_id?: number;
   mark?: string;
   note?: string;
+  menu_id?: string;
+  menu_name?: string;
 }
 
 // アクション実行
@@ -187,6 +189,38 @@ export async function POST(req: NextRequest) {
           break;
         }
 
+        case "menu_change": {
+          if (!step.menu_id) {
+            results.push({ step: i, type: step.type, success: false, detail: "メニュー未指定" });
+            break;
+          }
+          if (!lineUid) {
+            results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
+            break;
+          }
+          const { data: menuData } = await supabaseAdmin
+            .from("rich_menus")
+            .select("line_rich_menu_id, name")
+            .eq("id", Number(step.menu_id))
+            .maybeSingle();
+
+          if (!menuData?.line_rich_menu_id) {
+            results.push({ step: i, type: step.type, success: false, detail: "メニューが見つからないかLINE未登録です" });
+            break;
+          }
+
+          const menuRes = await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menuData.line_rich_menu_id}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+            },
+          });
+
+          results.push({ step: i, type: step.type, success: menuRes.ok, detail: menuRes.ok ? "success" : `LINE API ${menuRes.status}` });
+          break;
+        }
+
         default:
           results.push({ step: i, type: step.type, success: false, detail: "未対応の動作タイプ" });
       }
@@ -222,6 +256,9 @@ export async function POST(req: NextRequest) {
         break;
       case "mark_change":
         if (step.mark) actionDetails.push(`対応マークを[${step.mark}]に更新`);
+        break;
+      case "menu_change":
+        actionDetails.push(`メニュー[${step.menu_name || step.menu_id}]に切替`);
         break;
     }
   }
