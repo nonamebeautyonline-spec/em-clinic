@@ -52,6 +52,19 @@ export default function FriendsListPage() {
   const [bulkSelectedMenu, setBulkSelectedMenu] = useState<number | null>(null);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
 
+  // 詳細検索
+  const [showAdvSearch, setShowAdvSearch] = useState(false);
+  const [advSearch, setAdvSearch] = useState({
+    tagInclude: [] as number[],
+    tagIncludeMode: "any" as "any" | "all",
+    tagExclude: [] as number[],
+    markInclude: [] as string[],
+    markExclude: [] as string[],
+    fieldConditions: [] as { fieldId: number; operator: string; value: string }[],
+    lineStatus: "" as string,
+  });
+  const [advActive, setAdvActive] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [patientsRes, tagsRes, fieldsRes, marksRes, templatesRes, actionsRes, menusRes] = await Promise.all([
@@ -242,18 +255,97 @@ export default function FriendsListPage() {
     setBulkProcessing(false);
   };
 
+  // 詳細検索ヘルパー
+  const toggleAdvTag = (tagId: number, list: "tagInclude" | "tagExclude") => {
+    const other = list === "tagInclude" ? "tagExclude" : "tagInclude";
+    setAdvSearch(prev => ({
+      ...prev,
+      [list]: prev[list].includes(tagId) ? prev[list].filter((id: number) => id !== tagId) : [...prev[list], tagId],
+      [other]: prev[other].filter((id: number) => id !== tagId),
+    }));
+  };
+  const toggleAdvMark = (value: string, list: "markInclude" | "markExclude") => {
+    const other = list === "markInclude" ? "markExclude" : "markInclude";
+    setAdvSearch(prev => ({
+      ...prev,
+      [list]: prev[list].includes(value) ? prev[list].filter((v: string) => v !== value) : [...prev[list], value],
+      [other]: prev[other].filter((v: string) => v !== value),
+    }));
+  };
+  const addFieldCondition = () => {
+    if (fieldDefs.length === 0) return;
+    setAdvSearch(prev => ({
+      ...prev,
+      fieldConditions: [...prev.fieldConditions, { fieldId: fieldDefs[0].id, operator: "eq", value: "" }],
+    }));
+  };
+  const updateFieldCondition = (idx: number, updates: Partial<{ fieldId: number; operator: string; value: string }>) => {
+    setAdvSearch(prev => ({
+      ...prev,
+      fieldConditions: prev.fieldConditions.map((c, i) => i === idx ? { ...c, ...updates } : c),
+    }));
+  };
+  const removeFieldCondition = (idx: number) => {
+    setAdvSearch(prev => ({ ...prev, fieldConditions: prev.fieldConditions.filter((_, i) => i !== idx) }));
+  };
+  const applyAdvSearch = () => {
+    const hasAny = advSearch.tagInclude.length > 0 || advSearch.tagExclude.length > 0
+      || advSearch.markInclude.length > 0 || advSearch.markExclude.length > 0
+      || advSearch.fieldConditions.length > 0 || advSearch.lineStatus !== "";
+    setAdvActive(hasAny);
+    setShowAdvSearch(false);
+    setPage(0);
+    if (hasAny) { setFilterTag(null); setFilterMark(""); setFilterLine(""); }
+  };
+  const clearAdvSearch = () => {
+    setAdvSearch({ tagInclude: [], tagIncludeMode: "any", tagExclude: [], markInclude: [], markExclude: [], fieldConditions: [], lineStatus: "" });
+    setAdvActive(false);
+  };
+  const advConditionCount =
+    (advSearch.tagInclude.length > 0 ? 1 : 0) + (advSearch.tagExclude.length > 0 ? 1 : 0) +
+    (advSearch.markInclude.length > 0 ? 1 : 0) + (advSearch.markExclude.length > 0 ? 1 : 0) +
+    advSearch.fieldConditions.length + (advSearch.lineStatus ? 1 : 0);
+
   // フィルタリング
   const filtered = patients.filter(p => {
     if (searchName && !p.patient_name?.includes(searchName) && !p.patient_id.includes(searchName)) return false;
-    if (filterTag && !p.tags.some(t => t.id === filterTag)) return false;
-    if (filterMark && p.mark !== filterMark) return false;
-    if (filterLine === "yes" && !p.line_id) return false;
-    if (filterLine === "no" && p.line_id) return false;
+
+    if (advActive) {
+      const pTagIds = p.tags.map(t => t.id);
+      if (advSearch.tagInclude.length > 0) {
+        if (advSearch.tagIncludeMode === "any") {
+          if (!advSearch.tagInclude.some(id => pTagIds.includes(id))) return false;
+        } else {
+          if (!advSearch.tagInclude.every(id => pTagIds.includes(id))) return false;
+        }
+      }
+      if (advSearch.tagExclude.length > 0 && advSearch.tagExclude.some(id => pTagIds.includes(id))) return false;
+      if (advSearch.markInclude.length > 0 && !advSearch.markInclude.includes(p.mark)) return false;
+      if (advSearch.markExclude.length > 0 && advSearch.markExclude.includes(p.mark)) return false;
+      for (const cond of advSearch.fieldConditions) {
+        const fd = fieldDefs.find(f => f.id === cond.fieldId);
+        const val = fd ? (p.fields[fd.name] || "") : "";
+        switch (cond.operator) {
+          case "eq": if (val !== cond.value) return false; break;
+          case "neq": if (val === cond.value) return false; break;
+          case "contains": if (!val.includes(cond.value)) return false; break;
+          case "empty": if (val !== "") return false; break;
+          case "not_empty": if (val === "") return false; break;
+        }
+      }
+      if (advSearch.lineStatus === "yes" && !p.line_id) return false;
+      if (advSearch.lineStatus === "no" && p.line_id) return false;
+    } else {
+      if (filterTag && !p.tags.some(t => t.id === filterTag)) return false;
+      if (filterMark && p.mark !== filterMark) return false;
+      if (filterLine === "yes" && !p.line_id) return false;
+      if (filterLine === "no" && p.line_id) return false;
+    }
     return true;
   });
 
   // フィルタ変更時にページリセット
-  useEffect(() => { setPage(0); }, [searchName, filterTag, filterMark, filterLine]);
+  useEffect(() => { setPage(0); }, [searchName, filterTag, filterMark, filterLine, advActive]);
 
   // ページネーション
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -328,6 +420,25 @@ export default function FriendsListPage() {
             <option value="yes">連携済み</option>
             <option value="no">未連携</option>
           </select>
+          <button
+            onClick={() => setShowAdvSearch(true)}
+            className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors flex items-center gap-1.5 ${
+              advActive
+                ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-400 hover:text-indigo-600"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            詳細検索
+            {advActive && advConditionCount > 0 && (
+              <span className="bg-white text-indigo-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">{advConditionCount}</span>
+            )}
+          </button>
+          {advActive && (
+            <button onClick={clearAdvSearch} className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+              条件クリア
+            </button>
+          )}
           <div className="ml-auto bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
             {filtered.length} 人
           </div>
@@ -740,6 +851,201 @@ export default function FriendsListPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 詳細検索モーダル */}
+      {showAdvSearch && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAdvSearch(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                <h2 className="text-lg font-bold text-gray-900">詳細検索</h2>
+              </div>
+              <button onClick={() => setShowAdvSearch(false)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="overflow-y-auto max-h-[calc(85vh-130px)] p-6 space-y-6">
+              {/* タグ条件（含む） */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-sm font-semibold text-gray-700">タグを含む</label>
+                  <select
+                    value={advSearch.tagIncludeMode}
+                    onChange={(e) => setAdvSearch(prev => ({ ...prev, tagIncludeMode: e.target.value as "any" | "all" }))}
+                    className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  >
+                    <option value="any">いずれかを含む</option>
+                    <option value="all">すべてを含む</option>
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map(tag => {
+                    const active = advSearch.tagInclude.includes(tag.id);
+                    return (
+                      <button key={tag.id} onClick={() => toggleAdvTag(tag.id, "tagInclude")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
+                          active ? "text-white shadow-sm scale-105" : "text-gray-500 bg-white border-gray-200 hover:border-gray-300"
+                        }`}
+                        style={active ? { backgroundColor: tag.color, borderColor: tag.color } : {}}
+                      >
+                        {active && <span className="mr-1">&#x2713;</span>}{tag.name}
+                      </button>
+                    );
+                  })}
+                  {allTags.length === 0 && <p className="text-xs text-gray-400">タグがありません</p>}
+                </div>
+              </div>
+
+              {/* タグ条件（除外） */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">タグを除外</label>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map(tag => {
+                    const active = advSearch.tagExclude.includes(tag.id);
+                    return (
+                      <button key={tag.id} onClick={() => toggleAdvTag(tag.id, "tagExclude")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
+                          active ? "text-white bg-red-500 border-red-500 shadow-sm scale-105" : "text-gray-500 bg-white border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        {active && <span className="mr-1">&#x2717;</span>}{tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <hr className="border-gray-100" />
+
+              {/* 対応マーク条件（含む） */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">対応マーク（含む）</label>
+                <div className="flex flex-wrap gap-2">
+                  {markDefs.map(m => {
+                    const active = advSearch.markInclude.includes(m.value);
+                    return (
+                      <button key={m.value} onClick={() => toggleAdvMark(m.value, "markInclude")}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${
+                          active ? "border-gray-400 bg-gray-50 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 対応マーク条件（除外） */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">対応マーク（除外）</label>
+                <div className="flex flex-wrap gap-2">
+                  {markDefs.map(m => {
+                    const active = advSearch.markExclude.includes(m.value);
+                    return (
+                      <button key={m.value} onClick={() => toggleAdvMark(m.value, "markExclude")}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${
+                          active ? "border-red-400 bg-red-50 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <hr className="border-gray-100" />
+
+              {/* 友だち情報条件 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-gray-700">友だち情報</label>
+                  <button onClick={addFieldCondition} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    条件を追加
+                  </button>
+                </div>
+                {advSearch.fieldConditions.length === 0 && (
+                  <p className="text-xs text-gray-400">友だち情報の条件はありません</p>
+                )}
+                <div className="space-y-2">
+                  {advSearch.fieldConditions.map((cond, idx) => {
+                    const fd = fieldDefs.find(f => f.id === cond.fieldId);
+                    const showValue = !["empty", "not_empty"].includes(cond.operator);
+                    return (
+                      <div key={idx} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                        <select value={cond.fieldId} onChange={(e) => updateFieldCondition(idx, { fieldId: Number(e.target.value) })}
+                          className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 min-w-[100px]">
+                          {fieldDefs.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                        <select value={cond.operator} onChange={(e) => updateFieldCondition(idx, { operator: e.target.value })}
+                          className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                          <option value="eq">と一致</option>
+                          <option value="neq">と一致しない</option>
+                          <option value="contains">を含む</option>
+                          <option value="empty">が空</option>
+                          <option value="not_empty">が空でない</option>
+                        </select>
+                        {showValue && (
+                          fd?.field_type === "select" ? (
+                            <select value={cond.value} onChange={(e) => updateFieldCondition(idx, { value: e.target.value })}
+                              className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                              <option value="">選択...</option>
+                              {fd.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                          ) : (
+                            <input type="text" value={cond.value} onChange={(e) => updateFieldCondition(idx, { value: e.target.value })}
+                              placeholder="値" className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30" />
+                          )
+                        )}
+                        <button onClick={() => removeFieldCondition(idx)} className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                          <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <hr className="border-gray-100" />
+
+              {/* LINE連携 */}
+              <div>
+                <label className="text-sm font-semibold text-gray-700 mb-2 block">LINE連携</label>
+                <div className="flex gap-2">
+                  {[{ v: "", l: "全て" }, { v: "yes", l: "連携済み" }, { v: "no", l: "未連携" }].map(opt => (
+                    <button key={opt.v} onClick={() => setAdvSearch(prev => ({ ...prev, lineStatus: opt.v }))}
+                      className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
+                        advSearch.lineStatus === opt.v ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      {opt.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* フッター */}
+            <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100">
+              <button onClick={() => { clearAdvSearch(); setShowAdvSearch(false); }}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                条件をクリア
+              </button>
+              <button onClick={applyAdvSearch}
+                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                この条件で検索
+              </button>
+            </div>
           </div>
         </div>
       )}
