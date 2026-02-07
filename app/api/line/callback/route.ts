@@ -7,7 +7,16 @@ const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const code = searchParams.get("code");
-  const state = searchParams.get("state");
+  const stateRaw = searchParams.get("state") || "";
+
+  // stateからreturnUrlを復元
+  let returnUrl = "";
+  try {
+    const stateJson = JSON.parse(Buffer.from(stateRaw, "base64url").toString());
+    returnUrl = stateJson.returnUrl || "";
+  } catch {
+    // 旧形式のstate（UUID文字列）の場合は無視
+  }
 
   if (!code) {
     return NextResponse.redirect(`${process.env.APP_BASE_URL}/login-error`);
@@ -56,11 +65,17 @@ export async function GET(req: NextRequest) {
     console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match)`);
   }
 
+  // returnUrlが指定されている場合はそちらへリダイレクト
   // 既知の患者 → /mypage へ直接（SMS不要）
   // 未知 → /mypage/init へ（SMS認証で初回紐付け）
-  const redirectUrl = patientId
-    ? `${process.env.APP_BASE_URL}/mypage`
-    : `${process.env.APP_BASE_URL}/mypage/init`;
+  let redirectUrl: string;
+  if (returnUrl && returnUrl.startsWith("/")) {
+    redirectUrl = `${process.env.APP_BASE_URL}${returnUrl}`;
+  } else {
+    redirectUrl = patientId
+      ? `${process.env.APP_BASE_URL}/mypage`
+      : `${process.env.APP_BASE_URL}/mypage/init`;
+  }
 
   const res = NextResponse.redirect(redirectUrl);
 

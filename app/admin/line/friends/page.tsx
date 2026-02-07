@@ -50,7 +50,12 @@ export default function FriendsListPage() {
   const [bulkFieldValue, setBulkFieldValue] = useState("");
   const [bulkSelectedAction, setBulkSelectedAction] = useState<number | null>(null);
   const [bulkSelectedMenu, setBulkSelectedMenu] = useState<number | null>(null);
-  const [bulkResult, setBulkResult] = useState<string | null>(null);
+  const [bulkResult, setBulkResult] = useState<{
+    type: "success" | "error";
+    summary: string;
+    details: { label: string; value: string | number }[];
+  } | null>(null);
+  const [showBulkDetail, setShowBulkDetail] = useState(false);
 
   // 詳細検索
   const [showAdvSearch, setShowAdvSearch] = useState(false);
@@ -159,8 +164,10 @@ export default function FriendsListPage() {
       body: JSON.stringify({ patient_ids: [...selectedIds], mark: bulkSelectedMark }),
     });
     const markLabel = markDefs.find(m => m.value === bulkSelectedMark)?.label || bulkSelectedMark;
+    const cnt = selectedIds.size;
     setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark: bulkSelectedMark } : p));
-    setBulkResult(`${selectedIds.size}人の対応マークを「${markLabel}」に変更しました`);
+    setBulkResult({ type: "success", summary: `${cnt}人の対応マークを「${markLabel}」に変更しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "マーク", value: markLabel }] });
+    setShowBulkDetail(false);
     setSelectedIds(new Set());
     setBulkSelectedMark("");
     setBulkProcessing(false);
@@ -174,8 +181,11 @@ export default function FriendsListPage() {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ patient_ids: [...selectedIds], tag_id: bulkSelectedTag, action: bulkTagAction }),
     });
+    const cnt = selectedIds.size;
+    const tagName = allTags.find(t => t.id === bulkSelectedTag)?.name || "";
     await fetchData();
-    setBulkResult(`${selectedIds.size}人のタグを${bulkTagAction === "add" ? "追加" : "削除"}しました`);
+    setBulkResult({ type: "success", summary: `${cnt}人のタグを${bulkTagAction === "add" ? "追加" : "削除"}しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "タグ", value: tagName }, { label: "操作", value: bulkTagAction === "add" ? "追加" : "削除" }] });
+    setShowBulkDetail(false);
     setSelectedIds(new Set());
     setBulkSelectedTag(null);
     setBulkProcessing(false);
@@ -191,7 +201,9 @@ export default function FriendsListPage() {
       body: JSON.stringify({ patient_ids: [...selectedIds], template_id: bulkSelectedTemplate }),
     });
     const data = await res.json();
-    setBulkResult(`送信完了: 成功${data.sent}件 / 失敗${data.failed}件 / UID無し${data.no_uid}件`);
+    const tmplName = templates.find(t => t.id === bulkSelectedTemplate)?.name || "";
+    setBulkResult({ type: data.failed > 0 ? "error" : "success", summary: `テンプレート送信完了`, details: [{ label: "テンプレート", value: tmplName }, { label: "成功", value: `${data.sent}件` }, { label: "失敗", value: `${data.failed}件` }, { label: "UID無し", value: `${data.no_uid}件` }] });
+    setShowBulkDetail(false);
     setSelectedIds(new Set());
     setBulkSelectedTemplate(null);
     setBulkProcessing(false);
@@ -205,8 +217,11 @@ export default function FriendsListPage() {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ patient_ids: [...selectedIds], field_id: bulkSelectedField, value: bulkFieldValue }),
     });
+    const cnt = selectedIds.size;
+    const fieldName = fieldDefs.find(f => f.id === bulkSelectedField)?.name || "";
     await fetchData();
-    setBulkResult(`${selectedIds.size}人の友だち情報を更新しました`);
+    setBulkResult({ type: "success", summary: `${cnt}人の友だち情報を更新しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "フィールド", value: fieldName }, { label: "値", value: bulkFieldValue || "(空)" }] });
+    setShowBulkDetail(false);
     setSelectedIds(new Set());
     setBulkSelectedField(null);
     setBulkFieldValue("");
@@ -224,7 +239,8 @@ export default function FriendsListPage() {
       body: JSON.stringify({ patient_ids: [...selectedIds], action_id: bulkSelectedAction }),
     });
     const data = await res.json();
-    setBulkResult(`アクション実行完了: 成功${data.success}件 / 失敗${data.failed}件`);
+    setBulkResult({ type: data.failed > 0 ? "error" : "success", summary: `アクション「${actionName}」実行完了`, details: [{ label: "成功", value: `${data.success}件` }, { label: "失敗", value: `${data.failed}件` }] });
+    setShowBulkDetail(false);
     await fetchData();
     setSelectedIds(new Set());
     setBulkSelectedAction(null);
@@ -243,10 +259,11 @@ export default function FriendsListPage() {
     });
     const data = await res.json();
     if (data.error && !data.ok) {
-      setBulkResult(`エラー: ${data.error}`);
+      setBulkResult({ type: "error", summary: `エラー: ${data.error}`, details: [] });
     } else {
-      setBulkResult(`メニュー割り当て完了: 成功${data.linked}件 / 失敗${data.failed}件 / UID無し${data.no_uid}件`);
+      setBulkResult({ type: data.failed > 0 ? "error" : "success", summary: `メニュー「${menuName}」割り当て完了`, details: [{ label: "成功", value: `${data.linked}件` }, { label: "失敗", value: `${data.failed}件` }, { label: "UID無し", value: `${data.no_uid}件` }, { label: "対象合計", value: `${data.total}件` }] });
     }
+    setShowBulkDetail(false);
     setSelectedIds(new Set());
     setBulkSelectedMenu(null);
     setBulkProcessing(false);
@@ -410,8 +427,46 @@ export default function FriendsListPage() {
         </div>
       )}
 
+      {/* 一括処理結果バナー（ページ遷移まで表示） */}
+      {bulkResult && !bulkProcessing && (
+        <div className={`fixed top-0 left-0 right-0 z-50 shadow-lg ${bulkResult.type === "error" ? "bg-rose-600" : "bg-emerald-600"} text-white`}>
+          <div className="px-4 py-2.5 flex items-center gap-3">
+            {bulkResult.type === "error" ? (
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.27 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+            ) : (
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            )}
+            <span className="text-sm font-semibold">{bulkResult.summary}</span>
+            {bulkResult.details.length > 0 && (
+              <button
+                onClick={() => setShowBulkDetail(!showBulkDetail)}
+                className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/20 hover:bg-white/30 transition-colors"
+              >
+                {showBulkDetail ? "閉じる" : "詳細"}
+              </button>
+            )}
+            <button
+              onClick={() => { setBulkResult(null); setShowBulkDetail(false); }}
+              className="ml-auto w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          {showBulkDetail && bulkResult.details.length > 0 && (
+            <div className="px-4 pb-3 flex flex-wrap gap-4 border-t border-white/20 pt-2">
+              {bulkResult.details.map((d, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <span className="text-xs text-white/70">{d.label}:</span>
+                  <span className="text-xs font-bold">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ヘッダー */}
-      <div className={`flex items-center justify-between mb-6 ${bulkProcessing ? "mt-10" : ""}`}>
+      <div className={`flex items-center justify-between mb-6 ${bulkProcessing || (bulkResult && !bulkProcessing) ? "mt-10" : ""}`}>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">友達一覧</h1>
           <p className="text-sm text-gray-500 mt-0.5">LINE連携済みの患者を管理</p>
@@ -624,14 +679,11 @@ export default function FriendsListPage() {
           <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-700">
             <span className="text-white text-sm font-bold">友だち一括操作</span>
             <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedIds.size}人選択中</span>
-            <button onClick={() => { setSelectedIds(new Set()); setBulkResult(null); }} className="text-slate-400 hover:text-white text-xs ml-1">
+            <button onClick={() => { setSelectedIds(new Set()); }} className="text-slate-400 hover:text-white text-xs ml-1">
               選択解除
             </button>
             {bulkProcessing && (
               <div className="ml-auto w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            )}
-            {bulkResult && !bulkProcessing && (
-              <span className="ml-auto text-emerald-400 text-xs font-medium">{bulkResult}</span>
             )}
           </div>
 
@@ -647,7 +699,7 @@ export default function FriendsListPage() {
             ]).map(tab => (
               <button
                 key={tab.key}
-                onClick={() => { setBulkTab(tab.key); setBulkResult(null); }}
+                onClick={() => { setBulkTab(tab.key); }}
                 className={`px-4 py-2.5 text-xs font-medium transition-colors relative whitespace-nowrap ${
                   bulkTab === tab.key ? "text-white" : "text-slate-400 hover:text-slate-200"
                 }`}

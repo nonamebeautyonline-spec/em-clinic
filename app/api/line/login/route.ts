@@ -4,9 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 const LINE_AUTH_URL = "https://access.line.me/oauth2/v2.1/authorize";
 
 export async function GET(req: NextRequest) {
-  console.log("DEBUG LINE_CHANNEL_ID:", process.env.LINE_CHANNEL_ID);
-  console.log("DEBUG LINE_REDIRECT_URI:", process.env.LINE_REDIRECT_URI);
-
   if (!process.env.LINE_CHANNEL_ID || !process.env.LINE_REDIRECT_URI) {
     return NextResponse.json(
       {
@@ -19,7 +16,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const state = crypto.randomUUID();
+  // returnUrl対応: ログイン後に戻るURLをstateに含める
+  const returnUrl = req.nextUrl.searchParams.get("returnUrl") || "";
+  const statePayload = JSON.stringify({ csrf: crypto.randomUUID(), returnUrl });
+  const state = Buffer.from(statePayload).toString("base64url");
   const nonce = crypto.randomUUID();
 
   const params = new URLSearchParams({

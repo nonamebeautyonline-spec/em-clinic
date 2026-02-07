@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const lineUserId = req.cookies.get("line_user_id")?.value || "";
 
   if (!lineUserId) {
-    return NextResponse.json({ registered: false });
+    return NextResponse.json({ registered: false, needsLineLogin: true });
   }
 
   // line_idで intake を検索 → 正式IDの患者が存在するか

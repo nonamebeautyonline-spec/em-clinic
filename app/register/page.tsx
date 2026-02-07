@@ -13,11 +13,16 @@ function Inner() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 初回登録済みチェック
+  // 初回登録済みチェック + LINE認証確認
   React.useEffect(() => {
     fetch("/api/register/check")
       .then((r) => r.json())
       .then((data) => {
+        if (data.needsLineLogin) {
+          // line_user_idクッキーがない → LINE Loginでクッキー取得後にここへ戻る
+          window.location.href = "/api/line/login?returnUrl=/register";
+          return;
+        }
         if (data.registered) setAlreadyRegistered(true);
       })
       .catch(() => {})
