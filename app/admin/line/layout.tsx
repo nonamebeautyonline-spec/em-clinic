@@ -10,6 +10,7 @@ const LINE_TABS = [
   { href: "/admin/line/tags", label: "タグ管理" },
   { href: "/admin/line/marks", label: "対応マーク" },
   { href: "/admin/line/templates", label: "テンプレート" },
+  { href: "/admin/line/media", label: "メディア" },
   { href: "/admin/line/rich-menus", label: "リッチメニュー" },
   { href: "/admin/line/friend-settings", label: "友達追加時設定" },
   { href: "/admin/line/friends/fields", label: "情報欄設定" },

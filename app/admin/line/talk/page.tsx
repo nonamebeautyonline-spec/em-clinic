@@ -320,7 +320,12 @@ export default function TalkPage() {
       ]);
       const [tplData, catData] = await Promise.all([tplRes.json(), catRes.json()]);
       if (tplData.templates) setTemplates(tplData.templates);
-      if (catData.categories) setTemplateCategories(catData.categories);
+      if (catData.categories) {
+        setTemplateCategories(catData.categories);
+        if (catData.categories.length > 0 && templateCategoryFilter === null) {
+          setTemplateCategoryFilter(catData.categories[0].id);
+        }
+      }
       setTemplatesLoading(false);
     }
   };
@@ -459,7 +464,7 @@ export default function TalkPage() {
                   action: {
                     type: "uri",
                     label: "通話する",
-                    uri: `https://line.me/R/oaMessage/${process.env.NEXT_PUBLIC_LINE_OA_ID || "%40noname-beauty"}?text=%E9%80%9A%E8%A9%B1%E5%B8%8C%E6%9C%9B`,
+                    uri: `https://line.me/R/oa/call/${process.env.NEXT_PUBLIC_LINE_OA_ID || "@noname-beauty"}?confirmation=true&from=call_url`,
                   },
                   style: "primary",
                   color: "#06C755",
@@ -961,12 +966,6 @@ export default function TalkPage() {
               </div>
               {templateCategories.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    onClick={() => setTemplateCategoryFilter(null)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
-                      templateCategoryFilter === null ? "bg-[#00B900] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                    }`}
-                  >すべて</button>
                   {templateCategories.map(cat => (
                     <button
                       key={cat.id}
