@@ -143,6 +143,12 @@ export default function TalkPage() {
   const [sendingCall, setSendingCall] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // アクション実行
+  const [showActionPicker, setShowActionPicker] = useState(false);
+  const [actionList, setActionList] = useState<{ id: number; name: string; steps: { type: string; content?: string; tag_name?: string; mark?: string }[] }[]>([]);
+  const [actionSearch, setActionSearch] = useState("");
+  const [executingAction, setExecutingAction] = useState(false);
+
   // 右カラム
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
   const [patientMark, setPatientMark] = useState("none");
@@ -408,6 +414,42 @@ export default function TalkPage() {
     setSendingImage(false);
     // inputをリセット
     if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  // アクション実行
+  const openActionPicker = async () => {
+    setShowAttachPanel(false);
+    setShowActionPicker(true);
+    setActionSearch("");
+    const res = await fetch("/api/admin/line/actions", { credentials: "include" });
+    const data = await res.json();
+    if (data.actions) setActionList(data.actions);
+  };
+
+  const executeAction = async (actionId: number) => {
+    if (!selectedPatient || executingAction) return;
+    setExecutingAction(true);
+    try {
+      const res = await fetch("/api/admin/line/actions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action_id: actionId, patient_id: selectedPatient.patient_id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert("アクションを実行しました");
+        setShowActionPicker(false);
+        // メッセージログを再読み込み
+        selectPatient(selectedPatient);
+      } else {
+        const failed = data.results?.filter((r: { success: boolean }) => !r.success).length || 0;
+        alert(`アクション実行完了（${failed}件のエラーあり）`);
+      }
+    } catch {
+      alert("アクション実行に失敗しました");
+    }
+    setExecutingAction(false);
   };
 
   // 通話フォーム送信
@@ -919,6 +961,15 @@ export default function TalkPage() {
                     </div>
                     <span className="text-xs font-medium text-gray-700">通話フォーム</span>
                   </button>
+                  <button
+                    onClick={openActionPicker}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                      <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    </div>
+                    <span className="text-xs font-medium text-gray-700">アクション実行</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -1012,6 +1063,58 @@ export default function TalkPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* アクション選択モーダル */}
+      {showActionPicker && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowActionPicker(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: "80vh" }} onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h3 className="font-bold text-gray-800">アクション実行</h3>
+              <button onClick={() => setShowActionPicker(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-3 border-b border-gray-100">
+              <input
+                type="text"
+                value={actionSearch}
+                onChange={e => setActionSearch(e.target.value)}
+                placeholder="アクション名で検索"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {actionList.filter(a => !actionSearch || a.name.toLowerCase().includes(actionSearch.toLowerCase())).length === 0 ? (
+                <div className="text-center py-12 text-gray-300 text-sm">アクションがありません</div>
+              ) : (
+                actionList
+                  .filter(a => !actionSearch || a.name.toLowerCase().includes(actionSearch.toLowerCase()))
+                  .map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => executeAction(a.id)}
+                      disabled={executingAction}
+                      className="w-full text-left px-5 py-3 hover:bg-gray-50 border-b border-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      <div className="text-sm font-medium text-gray-800">{a.name}</div>
+                      <div className="mt-0.5 space-y-0.5">
+                        {a.steps.map((step: { type: string; content?: string; tag_name?: string; mark?: string }, si: number) => (
+                          <p key={si} className="text-[10px] text-gray-400">
+                            {step.type === "send_text" && `テキスト送信: ${step.content?.slice(0, 30) || ""}`}
+                            {step.type === "send_template" && "テンプレート送信"}
+                            {step.type === "tag_add" && `タグ追加: ${step.tag_name || ""}`}
+                            {step.type === "tag_remove" && `タグ削除: ${step.tag_name || ""}`}
+                            {step.type === "mark_change" && `マーク変更: ${step.mark || ""}`}
+                          </p>
+                        ))}
+                      </div>
+                    </button>
+                  ))
+              )}
             </div>
           </div>
         </div>
