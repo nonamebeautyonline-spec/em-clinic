@@ -148,12 +148,12 @@ ALTER TABLE broadcasts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_messages ENABLE ROW LEVEL SECURITY;
 
 -- service_roleでのみアクセス可能（管理APIはsupabaseAdminを使用）
-CREATE POLICY "service_role_only" ON tag_definitions FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON patient_tags FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON friend_field_definitions FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON friend_field_values FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON patient_marks FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON message_log FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON message_templates FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON broadcasts FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON scheduled_messages FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN CREATE POLICY "service_role_only" ON tag_definitions FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON patient_tags FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON friend_field_definitions FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON friend_field_values FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON patient_marks FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON message_log FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON message_templates FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON broadcasts FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON scheduled_messages FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;

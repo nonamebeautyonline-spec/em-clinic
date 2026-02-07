@@ -33,5 +33,5 @@ CREATE INDEX IF NOT EXISTS idx_media_folders_sort ON media_folders(sort_order);
 ALTER TABLE media_folders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE media_files ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "service_role_only" ON media_folders FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_only" ON media_files FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN CREATE POLICY "service_role_only" ON media_folders FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "service_role_only" ON media_files FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;

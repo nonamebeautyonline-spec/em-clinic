@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS action_folders (
 );
 
 ALTER TABLE action_folders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only" ON action_folders FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN CREATE POLICY "service_role_only" ON action_folders FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- デフォルトフォルダ
 INSERT INTO action_folders (name, sort_order) VALUES ('未分類', 0) ON CONFLICT DO NOTHING;
@@ -23,6 +23,6 @@ CREATE TABLE IF NOT EXISTS actions (
 );
 
 ALTER TABLE actions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only" ON actions FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN CREATE POLICY "service_role_only" ON actions FOR ALL USING (auth.role() = 'service_role'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_actions_folder ON actions(folder_id);
