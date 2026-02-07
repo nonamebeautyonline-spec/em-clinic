@@ -190,6 +190,49 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // システムイベントとしてアクション実行内容をログに記録
+  const actionDetails: string[] = [];
+  for (const step of steps) {
+    switch (step.type) {
+      case "send_text":
+        if (step.content) actionDetails.push(`テキスト[${step.content.slice(0, 30)}${step.content.length > 30 ? "..." : ""}]を送信`);
+        break;
+      case "send_template":
+        if (step.template_id) {
+          const { data: t } = await supabaseAdmin.from("message_templates").select("name").eq("id", step.template_id).maybeSingle();
+          actionDetails.push(`テンプレート[${t?.name || step.template_id}]を送信`);
+        }
+        break;
+      case "tag_add":
+        if (step.tag_id) {
+          const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+          actionDetails.push(`タグ[${t?.name || step.tag_id}]を追加`);
+        }
+        break;
+      case "tag_remove":
+        if (step.tag_id) {
+          const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+          actionDetails.push(`タグ[${t?.name || step.tag_id}]を解除`);
+        }
+        break;
+      case "mark_change":
+        if (step.mark) actionDetails.push(`対応マークを[${step.mark}]に更新`);
+        break;
+    }
+  }
+
+  if (actionDetails.length > 0) {
+    await supabaseAdmin.from("message_log").insert({
+      patient_id,
+      line_uid: lineUid || null,
+      event_type: "system",
+      message_type: "event",
+      content: `手動実行によりアクション[${action.name}]が実行され、\n${actionDetails.join("\n")}\nが起こりました`,
+      status: "received",
+      direction: "incoming",
+    });
+  }
+
   const allSuccess = results.every(r => r.success);
   return NextResponse.json({ ok: allSuccess, results });
 }

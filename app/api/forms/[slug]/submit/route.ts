@@ -134,6 +134,41 @@ export async function POST(
     }
   }
 
+  // フォーム名を取得してシステムイベントログを記録
+  if (line_user_id) {
+    const { data: formInfo } = await supabaseAdmin
+      .from("forms")
+      .select("name")
+      .eq("id", form.id)
+      .maybeSingle();
+
+    const { data: patientData } = await supabaseAdmin
+      .from("intake")
+      .select("patient_id")
+      .eq("line_id", line_user_id)
+      .limit(1)
+      .maybeSingle();
+
+    // 回答された項目名を収集
+    const answeredFields = fields
+      .filter((f: Record<string, unknown>) => f.type !== "heading_sm" && f.type !== "heading_md" && !f.hidden && answers?.[f.id as string])
+      .map((f: Record<string, unknown>) => f.label as string);
+
+    const detail = answeredFields.length > 0
+      ? `${answeredFields.join("・")}が変更されました`
+      : "";
+
+    await supabaseAdmin.from("message_log").insert({
+      patient_id: patientData?.patient_id || null,
+      line_uid: line_user_id,
+      event_type: "system",
+      message_type: "event",
+      content: `フォーム${formInfo?.name || slug}に回答しました${detail ? "\n" + detail : ""}`,
+      status: "received",
+      direction: "incoming",
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     response_id: response?.id,

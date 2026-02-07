@@ -164,6 +164,9 @@ async function handleFollow(lineUid: string) {
     actions?: any[];
   };
 
+  // アクション詳細を記録する配列
+  const actionDetails: string[] = [];
+
   // グリーティングメッセージ送信
   if (val.greeting_message) {
     const text = val.greeting_message
@@ -180,10 +183,12 @@ async function handleFollow(lineUid: string) {
       content: text,
       status: "sent",
     });
+    actionDetails.push(`テキスト[${text.slice(0, 30)}${text.length > 30 ? "..." : ""}]を送信`);
   }
 
   // タグ付与
   if (patient?.patient_id && val.assign_tags && val.assign_tags.length > 0) {
+    const tagNames: string[] = [];
     for (const tagId of val.assign_tags) {
       await supabaseAdmin
         .from("patient_tags")
@@ -191,7 +196,10 @@ async function handleFollow(lineUid: string) {
           { patient_id: patient.patient_id, tag_id: tagId, assigned_by: "follow" },
           { onConflict: "patient_id,tag_id" }
         );
+      const { data: tagDef } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", tagId).maybeSingle();
+      if (tagDef?.name) tagNames.push(tagDef.name);
     }
+    if (tagNames.length > 0) actionDetails.push(`タグ[${tagNames.join(", ")}]を追加`);
   }
 
   // 対応マーク設定
@@ -207,13 +215,14 @@ async function handleFollow(lineUid: string) {
         },
         { onConflict: "patient_id" }
       );
+    actionDetails.push(`対応マークを[${val.assign_mark}]に設定`);
   }
 
   // リッチメニュー変更
   if (val.menu_change) {
     const { data: menu } = await supabaseAdmin
       .from("rich_menus")
-      .select("line_rich_menu_id")
+      .select("line_rich_menu_id, name")
       .eq("id", Number(val.menu_change))
       .maybeSingle();
 
@@ -223,7 +232,22 @@ async function handleFollow(lineUid: string) {
         headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       });
       console.log(`[webhook] follow: assigned rich menu ${val.menu_change} to ${lineUid}`);
+      actionDetails.push(`メニュー[${menu.name || val.menu_change}]にする`);
     }
+  }
+
+  // アクション詳細をシステムイベントとして記録
+  if (actionDetails.length > 0) {
+    const trigger = isReturning ? "友だち再追加" : "友だち登録";
+    await logEvent({
+      patient_id: patient?.patient_id,
+      line_uid: lineUid,
+      direction: "incoming",
+      event_type: "system",
+      message_type: "event",
+      content: `${trigger}により\n${actionDetails.join("\n")}\nが起こりました`,
+      status: "received",
+    });
   }
 }
 
@@ -336,6 +360,8 @@ async function executeRichMenuActions(
   patient: { patient_id: string; patient_name: string } | null,
   actions: any[]
 ) {
+  const actionDetails: string[] = [];
+
   for (const action of actions) {
     try {
       switch (action.type) {
@@ -343,7 +369,7 @@ async function executeRichMenuActions(
           if (!action.value) break;
           const { data: tmpl } = await supabaseAdmin
             .from("message_templates")
-            .select("content")
+            .select("content, name")
             .eq("id", Number(action.value))
             .maybeSingle();
           if (!tmpl) break;
@@ -363,6 +389,7 @@ async function executeRichMenuActions(
             content: text,
             status: "sent",
           });
+          actionDetails.push(`テキスト[${text.slice(0, 30)}${text.length > 30 ? "..." : ""}]を送信`);
           break;
         }
 
@@ -382,6 +409,7 @@ async function executeRichMenuActions(
             content: text,
             status: "sent",
           });
+          actionDetails.push(`テキスト[${text.slice(0, 30)}${text.length > 30 ? "..." : ""}]を送信`);
           break;
         }
 
@@ -415,12 +443,14 @@ async function executeRichMenuActions(
                 { patient_id: patient.patient_id, tag_id: tagId, assigned_by: "richmenu" },
                 { onConflict: "patient_id,tag_id" }
               );
+            actionDetails.push(`タグ[${action.value}]を追加`);
           } else {
             await supabaseAdmin
               .from("patient_tags")
               .delete()
               .eq("patient_id", patient.patient_id)
               .eq("tag_id", tagId);
+            actionDetails.push(`タグ[${action.value}]を解除`);
           }
           break;
         }
@@ -439,6 +469,7 @@ async function executeRichMenuActions(
                 },
                 { onConflict: "patient_id" }
               );
+            actionDetails.push(`対応マークを[${action.value}]に更新`);
           }
           break;
         }
@@ -448,7 +479,7 @@ async function executeRichMenuActions(
           // リッチメニューIDからLINE側IDを取得して個別割り当て
           const { data: menu } = await supabaseAdmin
             .from("rich_menus")
-            .select("line_rich_menu_id")
+            .select("line_rich_menu_id, name")
             .eq("id", Number(action.value))
             .maybeSingle();
 
@@ -457,6 +488,7 @@ async function executeRichMenuActions(
               method: "POST",
               headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
             });
+            actionDetails.push(`メニュー[${menu.name || action.value}]にする`);
           }
           break;
         }
@@ -479,6 +511,7 @@ async function executeRichMenuActions(
               .delete()
               .eq("patient_id", patient.patient_id)
               .eq("field_id", fieldDef.id);
+            actionDetails.push(`友だち情報[${action.fieldName}]を削除`);
           } else {
             // 代入 or 追加
             const { data: current } = await supabaseAdmin
@@ -504,6 +537,7 @@ async function executeRichMenuActions(
                 },
                 { onConflict: "patient_id,field_id" }
               );
+            actionDetails.push(`友だち情報[${action.fieldName}]を変更`);
           }
           break;
         }
@@ -514,6 +548,19 @@ async function executeRichMenuActions(
     } catch (err) {
       console.error("[webhook] Action execution error:", action.type, err);
     }
+  }
+
+  // アクション詳細をシステムイベントとして記録
+  if (actionDetails.length > 0) {
+    await logEvent({
+      patient_id: patient?.patient_id,
+      line_uid: lineUid,
+      direction: "incoming",
+      event_type: "system",
+      message_type: "event",
+      content: `メニューボタン選択により\n${actionDetails.join("\n")}\nが起こりました`,
+      status: "received",
+    });
   }
 }
 

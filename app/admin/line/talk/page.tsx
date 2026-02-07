@@ -19,6 +19,7 @@ interface MessageLog {
   content: string;
   status: string;
   message_type: string;
+  event_type?: string;
   sent_at: string;
   direction?: "incoming" | "outgoing";
 }
@@ -925,8 +926,9 @@ export default function TalkPage() {
                     </div>
                   )}
                   {messages.map((m, i) => {
+                    const isSystem = m.message_type === "event" || m.event_type === "system";
                     const isIncoming = m.direction === "incoming";
-                    const showAvatar = isIncoming && (i === 0 || messages[i - 1]?.direction !== "incoming");
+                    const showAvatar = isIncoming && !isSystem && (i === 0 || messages[i - 1]?.direction !== "incoming" || messages[i - 1]?.message_type === "event" || messages[i - 1]?.event_type === "system");
                     return (
                     <div key={m.id}>
                       {shouldShowDate(i) && (
@@ -934,7 +936,15 @@ export default function TalkPage() {
                           <span className="bg-gray-400/60 text-white text-[10px] px-3 py-0.5 rounded-full font-medium">{formatDate(m.sent_at)}</span>
                         </div>
                       )}
-                      {isIncoming ? (
+                      {isSystem ? (
+                        /* システムイベント: 中央寄せ・グレーボックス */
+                        <div className="flex justify-center my-1">
+                          <div className="max-w-[80%] bg-white/80 border border-gray-200 rounded-lg px-4 py-2 text-center">
+                            <div className="text-[10px] text-gray-400 mb-0.5">{formatTime(m.sent_at)}</div>
+                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{m.content}</div>
+                          </div>
+                        </div>
+                      ) : isIncoming ? (
                         /* 受信メッセージ: 左寄せ・白バブル + アバター */
                         <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
                           {showAvatar ? (

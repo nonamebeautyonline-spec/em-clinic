@@ -164,6 +164,45 @@ export async function POST(req: NextRequest) {
 
     if (allStepsOk) successCount++;
     else failCount++;
+
+    // システムイベントログを記録
+    const actionDetails: string[] = [];
+    for (const step of steps) {
+      switch (step.type) {
+        case "send_text":
+          if (step.content) actionDetails.push(`テキスト送信`);
+          break;
+        case "send_template":
+          actionDetails.push(`テンプレート送信`);
+          break;
+        case "tag_add":
+          if (step.tag_id) {
+            const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+            actionDetails.push(`タグ[${t?.name || step.tag_id}]を追加`);
+          }
+          break;
+        case "tag_remove":
+          if (step.tag_id) {
+            const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+            actionDetails.push(`タグ[${t?.name || step.tag_id}]を解除`);
+          }
+          break;
+        case "mark_change":
+          if (step.mark) actionDetails.push(`対応マークを[${step.mark}]に更新`);
+          break;
+      }
+    }
+    if (actionDetails.length > 0) {
+      await supabaseAdmin.from("message_log").insert({
+        patient_id: pid,
+        line_uid: lineUid || null,
+        event_type: "system",
+        message_type: "event",
+        content: `手動一括実行によりアクション[${action.name}]が実行され、\n${actionDetails.join("\n")}\nが起こりました`,
+        status: "received",
+        direction: "incoming",
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, success: successCount, failed: failCount, total: patient_ids.length });
