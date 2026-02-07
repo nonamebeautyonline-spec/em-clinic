@@ -261,6 +261,7 @@ export default function FriendsListPage() {
 
   // 全選択（現在のページ）
   const allPageSelected = paged.length > 0 && paged.every(p => selectedIds.has(p.patient_id));
+  const allFilteredSelected = filtered.length > 0 && filtered.every(p => selectedIds.has(p.patient_id));
   const toggleSelectAll = () => {
     const next = new Set(selectedIds);
     if (allPageSelected) {
@@ -269,6 +270,15 @@ export default function FriendsListPage() {
       for (const p of paged) next.add(p.patient_id);
     }
     setSelectedIds(next);
+  };
+  const selectAllFiltered = () => {
+    const next = new Set(selectedIds);
+    for (const p of filtered) next.add(p.patient_id);
+    setSelectedIds(next);
+  };
+  const deselectAllFiltered = () => {
+    const filteredIds = new Set(filtered.map(p => p.patient_id));
+    setSelectedIds(new Set([...selectedIds].filter(id => !filteredIds.has(id))));
   };
   const toggleSelect = (pid: string) => {
     const next = new Set(selectedIds);
@@ -344,6 +354,30 @@ export default function FriendsListPage() {
                   <th className="px-4 py-3.5 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-16">LINE</th>
                 </tr>
               </thead>
+              {/* 全件選択バナー */}
+              {allPageSelected && filtered.length > paged.length && (
+                <tbody>
+                  <tr>
+                    <td colSpan={100} className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 text-center text-sm text-blue-800">
+                      {allFilteredSelected ? (
+                        <>
+                          表示中条件に当てはまる <strong>{filtered.length}人</strong> すべてが選択されています。
+                          <button onClick={deselectAllFiltered} className="ml-2 text-blue-600 hover:text-blue-800 underline font-medium">
+                            選択解除
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          このページの{paged.length}人すべてが選択されています。
+                          <button onClick={selectAllFiltered} className="ml-2 text-blue-600 hover:text-blue-800 underline font-medium">
+                            表示中条件に当てはまる {filtered.length}人 をすべて選択
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              )}
               <tbody className="divide-y divide-gray-50">
                 {paged.map((p) => {
                   const ms = getMarkStyle(p.mark);
