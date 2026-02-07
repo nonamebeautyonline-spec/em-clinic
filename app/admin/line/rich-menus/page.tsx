@@ -112,6 +112,12 @@ export default function RichMenuManagementPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
+  // 画像選択
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [mediaImages, setMediaImages] = useState<{ id: number; name: string; file_url: string }[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+
   // アクション設定モーダル
   const [actionModalIndex, setActionModalIndex] = useState<number | null>(null);
   const [tempActions, setTempActions] = useState<ActionItem[]>([]);
@@ -139,6 +145,7 @@ export default function RichMenuManagementPage() {
     setName("");
     setChatBarText("メニュー");
     setMenuInitialState("show");
+    setImageUrl(null);
     // デフォルト6ボタン
     const initial: ButtonConfig[] = [];
     for (let i = 0; i < 6; i++) initial.push(createDefaultButton(i, 6));
@@ -151,6 +158,7 @@ export default function RichMenuManagementPage() {
     setName(menu.name);
     setChatBarText(menu.chat_bar_text);
     setMenuInitialState(menu.selected ? "show" : "hide");
+    setImageUrl(menu.image_url);
 
     if (menu.areas.length > 0) {
       setButtons(menu.areas.map(a => ({
@@ -205,6 +213,22 @@ export default function RichMenuManagementPage() {
       next[index] = { ...next[index], ...patch };
       return next;
     });
+  };
+
+  const openImagePicker = async () => {
+    setShowImagePicker(true);
+    setLoadingMedia(true);
+    const res = await fetch("/api/admin/line/media?file_type=menu_image", { credentials: "include" });
+    const data = await res.json();
+    // menu_image以外も画像なら表示
+    if (!data.files || data.files.length === 0) {
+      const resAll = await fetch("/api/admin/line/media", { credentials: "include" });
+      const dataAll = await resAll.json();
+      setMediaImages((dataAll.files || []).filter((f: { file_type: string }) => f.file_type === "image" || f.file_type === "menu_image"));
+    } else {
+      setMediaImages(data.files);
+    }
+    setLoadingMedia(false);
   };
 
   const applyPreset = (cols: number, rows: number) => {
@@ -274,6 +298,7 @@ export default function RichMenuManagementPage() {
       selected: menuInitialState === "show",
       size_type: "full",
       areas: richMenuAreas,
+      image_url: imageUrl || null,
     };
 
     const url = editingMenu ? `/api/admin/line/rich-menus/${editingMenu.id}` : "/api/admin/line/rich-menus";
@@ -359,6 +384,9 @@ export default function RichMenuManagementPage() {
                   </div>
                   <div className="px-5 py-4">
                     <div className="relative bg-gray-100 rounded-xl overflow-hidden" style={{ aspectRatio: "2500/1686" }}>
+                      {menu.image_url && (
+                        <img src={menu.image_url} alt={menu.name} className="absolute inset-0 w-full h-full object-cover" />
+                      )}
                       {menu.areas.map((area, i) => (
                         <div
                           key={i}
@@ -424,11 +452,19 @@ export default function RichMenuManagementPage() {
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-6">
         {/* 画像 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="grid grid-cols-[120px_1fr] items-center gap-4 mb-4">
-            <label className="text-sm font-medium text-gray-700 text-right">画像</label>
-            <button className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit">
-              メニュー画像選択
-            </button>
+          <div className="grid grid-cols-[120px_1fr] items-start gap-4 mb-4">
+            <label className="text-sm font-medium text-gray-700 text-right pt-2">画像</label>
+            <div className="flex items-center gap-4">
+              <button onClick={openImagePicker} className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit flex-shrink-0">
+                メニュー画像選択
+              </button>
+              {imageUrl && (
+                <div className="flex items-center gap-3">
+                  <img src={imageUrl} alt="メニュー画像" className="h-16 rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
+                  <button onClick={() => setImageUrl(null)} className="text-xs text-red-500 hover:text-red-700">解除</button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* タイトル */}
@@ -737,6 +773,7 @@ export default function RichMenuManagementPage() {
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
               >
+                {imageUrl && <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
                 {/* 全ボタン領域表示 */}
                 {buttons.map((b, i) => (
                   <div key={i}
@@ -790,6 +827,64 @@ export default function RichMenuManagementPage() {
                   確定
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 画像ピッカーモーダル */}
+      {showImagePicker && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowImagePicker(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h2 className="font-bold text-gray-900">メニュー画像を選択</h2>
+                <p className="text-xs text-gray-400 mt-0.5">メディアに登録済みの画像から選択（推奨: 2500x1686px または 2500x843px）</p>
+              </div>
+              <button onClick={() => setShowImagePicker(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingMedia ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-8 h-8 border-2 border-green-200 border-t-green-500 rounded-full animate-spin" />
+                </div>
+              ) : mediaImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-3">
+                    <svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-500">画像がありません</p>
+                  <p className="text-xs text-gray-400 mt-1">メディア管理から先に画像をアップロードしてください</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {mediaImages.map(img => (
+                    <button
+                      key={img.id}
+                      onClick={() => { setImageUrl(img.file_url); setShowImagePicker(false); }}
+                      className={`relative rounded-xl overflow-hidden border-2 transition-all hover:shadow-md ${
+                        imageUrl === img.file_url ? "border-[#06C755] ring-2 ring-[#06C755]/30" : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="aspect-video bg-gray-50">
+                        <img src={img.file_url} alt={img.name} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                      <div className="px-2 py-1.5 bg-white">
+                        <p className="text-[11px] text-gray-600 truncate">{img.name}</p>
+                      </div>
+                      {imageUrl === img.file_url && (
+                        <div className="absolute top-2 right-2 w-6 h-6 bg-[#06C755] rounded-full flex items-center justify-center">
+                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
