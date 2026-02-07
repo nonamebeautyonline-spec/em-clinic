@@ -215,7 +215,8 @@ async function applyCondition(
       const { data: tagged } = await supabaseAdmin
         .from("patient_tags")
         .select("patient_id")
-        .eq("tag_id", condition.tag_id!);
+        .eq("tag_id", condition.tag_id!)
+        .limit(100000);
       const taggedSet = new Set((tagged || []).map(t => t.patient_id));
 
       if (isInclude) {
@@ -234,7 +235,8 @@ async function applyCondition(
       const { data: marks } = await supabaseAdmin
         .from("patient_marks")
         .select("patient_id, mark")
-        .in("mark", condition.values || []);
+        .in("mark", condition.values || [])
+        .limit(100000);
       const markedSet = new Set((marks || []).map(m => m.patient_id));
 
       if (isInclude) return targets.filter(t => markedSet.has(t.patient_id));
@@ -245,7 +247,8 @@ async function applyCondition(
       const { data: fieldVals } = await supabaseAdmin
         .from("friend_field_values")
         .select("patient_id, value")
-        .eq("field_id", condition.field_id!);
+        .eq("field_id", condition.field_id!)
+        .limit(100000);
 
       const matchSet = new Set<string>();
       for (const fv of fieldVals || []) {

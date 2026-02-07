@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
     fetchAll(
       () => supabaseAdmin.from("patient_tags").select("patient_id, tag_id, tag_definitions(id, name, color)"),
     ),
-    supabaseAdmin
-      .from("patient_marks")
-      .select("*"),
+    fetchAll(
+      () => supabaseAdmin.from("patient_marks").select("*"),
+    ),
     supabaseAdmin
       .from("friend_field_definitions")
       .select("*")
