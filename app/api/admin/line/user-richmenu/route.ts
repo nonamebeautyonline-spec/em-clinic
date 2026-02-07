@@ -54,56 +54,61 @@ async function resolveRichMenu(richMenuId: string, isDefault: boolean) {
 
 // ユーザーに紐づくリッチメニューを取得
 export async function GET(req: NextRequest) {
-  const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-  const patientId = searchParams.get("patient_id");
-  if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
+    const { searchParams } = new URL(req.url);
+    const patientId = searchParams.get("patient_id");
+    if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 
-  // patient_idからline_idを取得
-  const { data: patient } = await supabaseAdmin
-    .from("intake")
-    .select("line_id")
-    .eq("patient_id", patientId)
-    .maybeSingle();
+    // patient_idからline_idを取得
+    const { data: patient } = await supabaseAdmin
+      .from("intake")
+      .select("line_id")
+      .eq("patient_id", patientId)
+      .maybeSingle();
 
-  if (!patient?.line_id) {
-    return NextResponse.json({ menu: null });
-  }
+    if (!patient?.line_id) {
+      return NextResponse.json({ menu: null });
+    }
 
-  if (!LINE_ACCESS_TOKEN) {
-    return NextResponse.json({ menu: null });
-  }
+    if (!LINE_ACCESS_TOKEN) {
+      return NextResponse.json({ menu: null });
+    }
 
-  // LINE APIでユーザーに紐づくリッチメニューIDを取得
-  const lineRes = await fetch(`https://api.line.me/v2/bot/user/${patient.line_id}/richmenu`, {
-    headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
-    cache: "no-store",
-  });
-
-  if (!lineRes.ok) {
-    // 404 = リッチメニュー未設定、デフォルトメニューを確認
-    const defaultRes = await fetch("https://api.line.me/v2/bot/user/all/richmenu", {
+    // LINE APIでユーザーに紐づくリッチメニューIDを取得
+    const lineRes = await fetch(`https://api.line.me/v2/bot/user/${patient.line_id}/richmenu`, {
       headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       cache: "no-store",
     });
-    if (!defaultRes.ok) {
-      return NextResponse.json({ menu: null });
+
+    if (!lineRes.ok) {
+      // 404 = リッチメニュー未設定、デフォルトメニューを確認
+      const defaultRes = await fetch("https://api.line.me/v2/bot/user/all/richmenu", {
+        headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+        cache: "no-store",
+      });
+      if (!defaultRes.ok) {
+        return NextResponse.json({ menu: null });
+      }
+      const defaultData = await defaultRes.json();
+      const defaultMenuId = defaultData.richMenuId;
+      if (!defaultMenuId) return NextResponse.json({ menu: null });
+
+      const menu = await resolveRichMenu(defaultMenuId, true);
+      return NextResponse.json({ menu });
     }
-    const defaultData = await defaultRes.json();
-    const defaultMenuId = defaultData.richMenuId;
-    if (!defaultMenuId) return NextResponse.json({ menu: null });
 
-    const menu = await resolveRichMenu(defaultMenuId, true);
+    const lineData = await lineRes.json();
+    const richMenuId = lineData.richMenuId;
+
+    const menu = await resolveRichMenu(richMenuId, false);
     return NextResponse.json({ menu });
+  } catch (e: any) {
+    console.error("[User RichMenu GET] Unhandled error:", e?.message || e);
+    return NextResponse.json({ menu: null });
   }
-
-  const lineData = await lineRes.json();
-  const richMenuId = lineData.richMenuId;
-
-  const menu = await resolveRichMenu(richMenuId, false);
-  return NextResponse.json({ menu });
 }
 
 // ユーザーにリッチメニューを割り当て

@@ -355,21 +355,27 @@ export default function RichMenuManagementPage() {
     const url = editingMenu ? `/api/admin/line/rich-menus/${editingMenu.id}` : "/api/admin/line/rich-menus";
     const method = editingMenu ? "PUT" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
-      await fetchMenus();
-      setShowEditor(false);
-    } else {
-      const data = await res.json();
-      alert(data.error || "保存失敗");
+      if (res.ok) {
+        await fetchMenus();
+        setShowEditor(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "保存に失敗しました");
+      }
+    } catch (e: any) {
+      console.error("handleSave error:", e);
+      alert("保存中にエラーが発生しました。再度お試しください。");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleDelete = async (id: number) => {
