@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
         content: message,
         status: "no_uid",
         campaign_id: broadcast.id,
+        direction: "outgoing",
       });
       continue;
     }
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
         content: resolvedMsg,
         status,
         campaign_id: broadcast.id,
+        direction: "outgoing",
       });
     } catch {
       failedCount++;
@@ -158,6 +160,7 @@ export async function POST(req: NextRequest) {
         content: resolvedMsg,
         status: "failed",
         campaign_id: broadcast.id,
+        direction: "outgoing",
       });
     }
   }

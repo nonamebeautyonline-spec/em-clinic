@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       noUid++;
       await supabaseAdmin.from("message_log").insert({
         patient_id: pid, line_uid: null, message_type: "individual",
-        content: tmpl.content, status: "no_uid",
+        content: tmpl.content, status: "no_uid", direction: "outgoing",
       });
       continue;
     }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from("message_log").insert({
       patient_id: pid, line_uid: intake.line_id, message_type: "individual",
-      content: text, status,
+      content: text, status, direction: "outgoing",
     });
 
     if (status === "sent") sent++;

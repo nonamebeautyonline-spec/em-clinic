@@ -73,6 +73,7 @@ export async function GET(req: NextRequest) {
           message_type: "scheduled",
           content: resolvedMsg,
           status: "sent",
+          direction: "outgoing",
         });
         sent++;
       } else {

@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     message_type: "individual",
     content: `[画像] ${file.name}`,
     status,
+    direction: "outgoing",
   });
 
   return NextResponse.json({ ok: status === "sent", status, imageUrl });

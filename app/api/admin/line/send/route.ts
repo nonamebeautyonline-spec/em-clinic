@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
       message_type: "individual",
       content: message,
       status: "no_uid",
+      direction: "outgoing",
     });
     return NextResponse.json({ error: "LINE UIDが見つかりません", status: "no_uid" }, { status: 400 });
   }
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       message_type: "individual",
       content: `[${flex.altText || "Flex Message"}]`,
       status,
+      direction: "outgoing",
     });
 
     return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });
@@ -80,6 +82,7 @@ export async function POST(req: NextRequest) {
     message_type: "individual",
     content: resolvedMessage,
     status,
+    direction: "outgoing",
   });
 
   return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });

@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
             if (!lineUid) {
               await supabaseAdmin.from("message_log").insert({
                 patient_id: pid, line_uid: null, message_type: "individual",
-                content: text, status: "no_uid",
+                content: text, status: "no_uid", direction: "outgoing",
               });
               allStepsOk = false;
               break;
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
             const status = res?.ok ? "sent" : "failed";
             await supabaseAdmin.from("message_log").insert({
               patient_id: pid, line_uid: lineUid, message_type: "individual",
-              content: text, status,
+              content: text, status, direction: "outgoing",
             });
             if (!res?.ok) allStepsOk = false;
             break;
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
             if (!lineUid) {
               await supabaseAdmin.from("message_log").insert({
                 patient_id: pid, line_uid: null, message_type: "individual",
-                content: text, status: "no_uid",
+                content: text, status: "no_uid", direction: "outgoing",
               });
               allStepsOk = false;
               break;
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
             const status = res?.ok ? "sent" : "failed";
             await supabaseAdmin.from("message_log").insert({
               patient_id: pid, line_uid: lineUid, message_type: "individual",
-              content: text, status,
+              content: text, status, direction: "outgoing",
             });
             if (!res?.ok) allStepsOk = false;
             break;

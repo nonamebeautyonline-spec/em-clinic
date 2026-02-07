@@ -20,6 +20,7 @@ interface MessageLog {
   status: string;
   message_type: string;
   sent_at: string;
+  direction?: "incoming" | "outgoing";
 }
 
 interface Template {
@@ -346,6 +347,7 @@ export default function TalkPage() {
       setMessages(prev => [...prev, {
         id: Date.now(), content: newMessage, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
+        direction: "outgoing",
       }]);
       setNewMessage("");
     }
@@ -392,6 +394,7 @@ export default function TalkPage() {
       setMessages(prev => [...prev, {
         id: Date.now(), content: template.content, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
+        direction: "outgoing",
       }]);
     }
     setSending(false);
@@ -419,6 +422,7 @@ export default function TalkPage() {
       setMessages(prev => [...prev, {
         id: Date.now(), content: `[画像] ${file.name}`, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
+        direction: "outgoing",
       }]);
     } else {
       alert(data.error || "画像送信に失敗しました");
@@ -566,6 +570,7 @@ export default function TalkPage() {
       setMessages(prev => [...prev, {
         id: Date.now(), content: "[通話フォーム]", status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
+        direction: "outgoing",
       }]);
     } else {
       alert(data.error || "通話フォームの送信に失敗しました");
@@ -892,7 +897,7 @@ export default function TalkPage() {
             </div>
 
             {/* メッセージ */}
-            <div ref={msgContainerRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 bg-gray-100">
+            <div ref={msgContainerRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 bg-[#7494C0]/15">
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">読み込み中...</div>
@@ -902,7 +907,7 @@ export default function TalkPage() {
                   <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">メッセージなし</div>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {hasMoreMessages && (
                     <div className="flex justify-center py-2">
                       <button
@@ -919,24 +924,53 @@ export default function TalkPage() {
                       </button>
                     </div>
                   )}
-                  {messages.map((m, i) => (
+                  {messages.map((m, i) => {
+                    const isIncoming = m.direction === "incoming";
+                    const showAvatar = isIncoming && (i === 0 || messages[i - 1]?.direction !== "incoming");
+                    return (
                     <div key={m.id}>
                       {shouldShowDate(i) && (
                         <div className="flex justify-center my-3">
                           <span className="bg-gray-400/60 text-white text-[10px] px-3 py-0.5 rounded-full font-medium">{formatDate(m.sent_at)}</span>
                         </div>
                       )}
-                      <div className="flex justify-end items-end gap-1.5">
-                        <div className="flex flex-col items-end gap-0.5">
-                          {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">失敗</span>}
-                          <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
+                      {isIncoming ? (
+                        /* 受信メッセージ: 左寄せ・白バブル + アバター */
+                        <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
+                          {showAvatar ? (
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+                              {selectedPatient?.patient_name?.charAt(0) || "?"}
+                            </div>
+                          ) : (
+                            <div className="w-9 flex-shrink-0" />
+                          )}
+                          <div className="max-w-[65%]">
+                            {showAvatar && (
+                              <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.patient_name || ""}</div>
+                            )}
+                            <div className="flex items-end gap-1.5">
+                              <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm border border-gray-100">
+                                {m.content}
+                              </div>
+                              <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTime(m.sent_at)}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="max-w-[70%]">
-                          <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-br-sm px-3.5 py-2 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm">{m.content}</div>
+                      ) : (
+                        /* 送信メッセージ: 右寄せ・緑バブル */
+                        <div className="flex justify-end items-end gap-1.5">
+                          <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
+                            {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">送信失敗</span>}
+                            <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
+                          </div>
+                          <div className="max-w-[65%]">
+                            <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm">{m.content}</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
               )}

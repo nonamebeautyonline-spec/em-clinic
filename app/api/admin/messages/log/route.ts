@@ -27,5 +27,12 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ messages: data, total: count });
+
+  // directionがNULLの古いレコードはstatusから推定
+  const messages = (data || []).map((m: Record<string, unknown>) => ({
+    ...m,
+    direction: m.direction || (["sent", "failed", "no_uid"].includes(m.status as string) ? "outgoing" : "incoming"),
+  }));
+
+  return NextResponse.json({ messages, total: count });
 }

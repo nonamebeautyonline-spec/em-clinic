@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
             // UID無しでもログは残す
             await supabaseAdmin.from("message_log").insert({
               patient_id, line_uid: null, message_type: "individual",
-              content: text, status: "no_uid",
+              content: text, status: "no_uid", direction: "outgoing",
             });
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
             break;
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
           const status = pushRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
             patient_id, line_uid: lineUid, message_type: "individual",
-            content: text, status,
+            content: text, status, direction: "outgoing",
           });
           results.push({ step: i, type: step.type, success: pushRes.ok, detail: status });
           break;
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
           if (!lineUid) {
             await supabaseAdmin.from("message_log").insert({
               patient_id, line_uid: null, message_type: "individual",
-              content: tmplText, status: "no_uid",
+              content: tmplText, status: "no_uid", direction: "outgoing",
             });
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
             break;
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
           const tmplStatus = tmplRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
             patient_id, line_uid: lineUid, message_type: "individual",
-            content: tmplText, status: tmplStatus,
+            content: tmplText, status: tmplStatus, direction: "outgoing",
           });
           results.push({ step: i, type: step.type, success: tmplRes.ok, detail: tmplStatus });
           break;
