@@ -1,0 +1,700 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
+import Link from "next/link";
+
+// ============================================================
+// 型定義
+// ============================================================
+
+type FieldType =
+  | "heading_sm"
+  | "heading_md"
+  | "text"
+  | "textarea"
+  | "checkbox"
+  | "radio"
+  | "dropdown"
+  | "file"
+  | "prefecture"
+  | "date";
+
+interface FormField {
+  id: string;
+  type: FieldType;
+  label: string;
+  description: string;
+  placeholder: string;
+  required: boolean;
+  hidden: boolean;
+  options: string[];
+  validation_rule: string;
+  min_length: number | null;
+  max_length: number | null;
+  save_target: string;
+  save_target_field_id: string;
+  sort_order: number;
+}
+
+interface FormSettings {
+  confirm_dialog: boolean;
+  confirm_text: string;
+  confirm_button_text: string;
+  deadline: string;
+  max_responses: number | null;
+  responses_per_person: number | null;
+  thanks_url: string;
+  thanks_message: string;
+  allow_restore: boolean;
+  post_actions: number[];
+}
+
+interface FormData {
+  id: number;
+  name: string;
+  folder_id: number | null;
+  slug: string;
+  title: string;
+  description: string;
+  fields: FormField[];
+  settings: FormSettings;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Folder {
+  id: number;
+  name: string;
+}
+
+// ============================================================
+// 定数
+// ============================================================
+
+const FIELD_TYPES: { type: FieldType; label: string; icon: string }[] = [
+  { type: "heading_sm", label: "小見出し", icon: "H" },
+  { type: "heading_md", label: "中見出し", icon: "H" },
+  { type: "text", label: "テキスト", icon: "T" },
+  { type: "textarea", label: "テキストエリア", icon: "¶" },
+  { type: "checkbox", label: "チェックボックス", icon: "☑" },
+  { type: "radio", label: "ラジオボタン", icon: "◉" },
+  { type: "dropdown", label: "プルダウン", icon: "▼" },
+  { type: "file", label: "ファイル添付", icon: "📎" },
+  { type: "prefecture", label: "都道府県", icon: "🗾" },
+  { type: "date", label: "日付", icon: "📅" },
+];
+
+const SAVE_TARGETS = [
+  { value: "", label: "なし" },
+  { value: "patient", label: "患者情報" },
+  { value: "friend_field", label: "友だち情報欄" },
+];
+
+const DEFAULT_SETTINGS: FormSettings = {
+  confirm_dialog: true,
+  confirm_text: "この内容で送信しますか？",
+  confirm_button_text: "送信する",
+  deadline: "",
+  max_responses: null,
+  responses_per_person: null,
+  thanks_url: "",
+  thanks_message: "回答を受け付けました。ありがとうございます。",
+  allow_restore: false,
+  post_actions: [],
+};
+
+function createField(type: FieldType): FormField {
+  return {
+    id: nanoid(8),
+    type,
+    label: "",
+    description: "",
+    placeholder: "",
+    required: false,
+    hidden: false,
+    options: type === "checkbox" || type === "radio" || type === "dropdown" ? [""] : [],
+    validation_rule: "",
+    min_length: null,
+    max_length: null,
+    save_target: "",
+    save_target_field_id: "",
+    sort_order: 0,
+  };
+}
+
+// ============================================================
+// メインコンポーネント
+// ============================================================
+
+export default function FormEditorPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+
+  const [form, setForm] = useState<FormData | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<"fields" | "settings">("fields");
+
+  // 編集中
+  const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [folderId, setFolderId] = useState<number | null>(null);
+  const [fields, setFields] = useState<FormField[]>([]);
+  const [settings, setSettings] = useState<FormSettings>(DEFAULT_SETTINGS);
+  const [expandedField, setExpandedField] = useState<string | null>(null);
+
+  const fetchForm = useCallback(async () => {
+    const res = await fetch(`/api/admin/line/forms/${id}`, { credentials: "include" });
+    const data = await res.json();
+    if (data.form) {
+      const f = data.form as FormData;
+      setForm(f);
+      setName(f.name);
+      setTitle(f.title || "");
+      setDescription(f.description || "");
+      setFolderId(f.folder_id);
+      setFields(f.fields || []);
+      setSettings({ ...DEFAULT_SETTINGS, ...(f.settings || {}) });
+    }
+  }, [id]);
+
+  useEffect(() => {
+    Promise.all([
+      fetchForm(),
+      fetch("/api/admin/line/form-folders", { credentials: "include" }).then(r => r.json()),
+    ]).then(([, folderData]) => {
+      if (folderData.folders) setFolders(folderData.folders);
+      setLoading(false);
+    });
+  }, [fetchForm]);
+
+  // 保存
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    const body = { name, title, description, folder_id: folderId, fields, settings };
+    await fetch(`/api/admin/line/forms/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  // 公開切替
+  const togglePublish = async () => {
+    const next = !form?.is_published;
+    await fetch(`/api/admin/line/forms/${id}/publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ is_published: next }),
+    });
+    setForm(prev => prev ? { ...prev, is_published: next } : prev);
+  };
+
+  // フィールド操作
+  const addField = (type: FieldType) => {
+    const f = createField(type);
+    f.sort_order = fields.length;
+    setFields(prev => [...prev, f]);
+    setExpandedField(f.id);
+  };
+
+  const updateField = (fieldId: string, updates: Partial<FormField>) => {
+    setFields(prev => prev.map(f => f.id === fieldId ? { ...f, ...updates } : f));
+  };
+
+  const removeField = (fieldId: string) => {
+    setFields(prev => prev.filter(f => f.id !== fieldId));
+    if (expandedField === fieldId) setExpandedField(null);
+  };
+
+  const duplicateField = (fieldId: string) => {
+    const src = fields.find(f => f.id === fieldId);
+    if (!src) return;
+    const dup = { ...src, id: nanoid(8), label: src.label + "（コピー）" };
+    const idx = fields.findIndex(f => f.id === fieldId);
+    const next = [...fields];
+    next.splice(idx + 1, 0, dup);
+    setFields(next);
+    setExpandedField(dup.id);
+  };
+
+  const moveField = (fieldId: string, dir: -1 | 1) => {
+    const idx = fields.findIndex(f => f.id === fieldId);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= fields.length) return;
+    const next = [...fields];
+    [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+    setFields(next);
+  };
+
+  // 選択肢操作
+  const addOption = (fieldId: string) => {
+    const f = fields.find(x => x.id === fieldId);
+    if (!f) return;
+    updateField(fieldId, { options: [...f.options, ""] });
+  };
+
+  const updateOption = (fieldId: string, optIdx: number, val: string) => {
+    const f = fields.find(x => x.id === fieldId);
+    if (!f) return;
+    const opts = [...f.options];
+    opts[optIdx] = val;
+    updateField(fieldId, { options: opts });
+  };
+
+  const removeOption = (fieldId: string, optIdx: number) => {
+    const f = fields.find(x => x.id === fieldId);
+    if (!f) return;
+    updateField(fieldId, { options: f.options.filter((_, i) => i !== optIdx) });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!form) {
+    return <div className="text-center py-32 text-gray-400">フォームが見つかりません</div>;
+  }
+
+  const hasChoices = (t: FieldType) => ["checkbox", "radio", "dropdown"].includes(t);
+  const isHeading = (t: FieldType) => ["heading_sm", "heading_md"].includes(t);
+
+  return (
+    <div className="max-w-5xl mx-auto p-6">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link href="/admin/line/forms" className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">フォーム編集</h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {form.is_published ? (
+                <span className="text-green-600">公開中</span>
+              ) : (
+                <span>非公開</span>
+              )}
+              {form.slug && <span className="ml-2">URL: /forms/{form.slug}</span>}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/line/forms/${id}/responses`}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            回答一覧
+          </Link>
+          <button
+            onClick={togglePublish}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${form.is_published ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+          >
+            {form.is_published ? "非公開にする" : "公開する"}
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="px-6 py-2 bg-[#00B900] text-white rounded-lg text-sm font-medium hover:bg-[#009900] transition-colors disabled:opacity-40 shadow-sm"
+          >
+            {saving ? "保存中..." : saved ? "保存しました" : "保存"}
+          </button>
+        </div>
+      </div>
+
+      {/* 基本情報 */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-5">
+        <div className="grid grid-cols-[1fr_200px] gap-4 mb-4">
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">フォーム名（管理用）</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">フォルダ</label>
+            <select
+              value={folderId || ""}
+              onChange={e => setFolderId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+            >
+              <option value="">未分類</option>
+              {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="mb-4">
+          <label className="text-xs font-medium text-gray-600 mb-1 block">表示タイトル</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="ユーザーに表示されるタイトル"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600 mb-1 block">説明文</label>
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="フォーム上部に表示される説明文"
+            rows={2}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
+          />
+        </div>
+      </div>
+
+      {/* タブ */}
+      <div className="flex items-center gap-1 mb-5 border-b border-gray-200">
+        <button
+          onClick={() => setTab("fields")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${tab === "fields" ? "text-[#00B900]" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          フィールド ({fields.length})
+          {tab === "fields" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-[#00B900] rounded-full" />}
+        </button>
+        <button
+          onClick={() => setTab("settings")}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${tab === "settings" ? "text-[#00B900]" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          設定
+          {tab === "settings" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-[#00B900] rounded-full" />}
+        </button>
+      </div>
+
+      {/* フィールドタブ */}
+      {tab === "fields" && (
+        <div>
+          {/* フィールド追加ボタン */}
+          <div className="flex flex-wrap gap-2 mb-5">
+            {FIELD_TYPES.map(ft => (
+              <button
+                key={ft.type}
+                onClick={() => addField(ft.type)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center gap-1.5"
+              >
+                <span className="text-[10px] w-4 text-center">{ft.icon}</span>
+                {ft.label}
+              </button>
+            ))}
+          </div>
+
+          {/* フィールド一覧 */}
+          {fields.length === 0 ? (
+            <div className="text-center py-16 text-gray-300 text-sm border-2 border-dashed border-gray-200 rounded-xl">
+              上のボタンからフィールドを追加してください
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {fields.map((field, idx) => {
+                const expanded = expandedField === field.id;
+                const ftInfo = FIELD_TYPES.find(ft => ft.type === field.type);
+                return (
+                  <div key={field.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    {/* ヘッダー */}
+                    <div
+                      className="flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                      onClick={() => setExpandedField(expanded ? null : field.id)}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-xs text-gray-400 w-6 text-center flex-shrink-0">{idx + 1}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 flex-shrink-0">{ftInfo?.label}</span>
+                        <span className="text-sm text-gray-800 truncate">{field.label || "（未設定）"}</span>
+                        {field.required && <span className="text-[9px] bg-red-50 text-red-500 px-1 py-0.5 rounded flex-shrink-0">必須</span>}
+                        {field.hidden && <span className="text-[9px] bg-gray-100 text-gray-400 px-1 py-0.5 rounded flex-shrink-0">非表示</span>}
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button onClick={e => { e.stopPropagation(); moveField(field.id, -1); }} disabled={idx === 0} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors" title="上へ">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); moveField(field.id, 1); }} disabled={idx === fields.length - 1} className="p-1 text-gray-300 hover:text-gray-500 disabled:opacity-30 transition-colors" title="下へ">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); duplicateField(field.id); }} className="p-1 text-gray-300 hover:text-gray-500 transition-colors" title="コピー">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); removeField(field.id); }} className="p-1 text-gray-300 hover:text-red-500 transition-colors" title="削除">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform ml-1 ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                    </div>
+
+                    {/* 展開エリア */}
+                    {expanded && (
+                      <div className="px-4 pb-4 pt-2 border-t border-gray-100 space-y-4">
+                        {/* ラベル */}
+                        <div>
+                          <label className="text-xs font-medium text-gray-600 mb-1 block">
+                            {isHeading(field.type) ? "見出しテキスト" : "項目名"}
+                          </label>
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={e => updateField(field.id, { label: e.target.value })}
+                            placeholder={isHeading(field.type) ? "見出しテキストを入力" : "項目名を入力"}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                          />
+                        </div>
+
+                        {/* 説明文 */}
+                        {!isHeading(field.type) && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">説明文</label>
+                            <input
+                              type="text"
+                              value={field.description}
+                              onChange={e => updateField(field.id, { description: e.target.value })}
+                              placeholder="項目の補足説明"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                            />
+                          </div>
+                        )}
+
+                        {/* プレースホルダ (text/textarea) */}
+                        {(field.type === "text" || field.type === "textarea") && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">プレースホルダ</label>
+                            <input
+                              type="text"
+                              value={field.placeholder}
+                              onChange={e => updateField(field.id, { placeholder: e.target.value })}
+                              placeholder="入力欄に表示される薄いテキスト"
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                            />
+                          </div>
+                        )}
+
+                        {/* 選択肢 (checkbox/radio/dropdown) */}
+                        {hasChoices(field.type) && (
+                          <div>
+                            <label className="text-xs font-medium text-gray-600 mb-1 block">選択肢</label>
+                            <div className="space-y-2">
+                              {field.options.map((opt, oi) => (
+                                <div key={oi} className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400 w-5 text-center">{oi + 1}</span>
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={e => updateOption(field.id, oi, e.target.value)}
+                                    placeholder={`選択肢${oi + 1}`}
+                                    className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                                  />
+                                  <button onClick={() => removeOption(field.id, oi)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => addOption(field.id)}
+                              className="mt-2 text-xs text-[#00B900] hover:underline"
+                            >
+                              + 選択肢を追加
+                            </button>
+                          </div>
+                        )}
+
+                        {/* テキスト文字数制限 */}
+                        {(field.type === "text" || field.type === "textarea") && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-medium text-gray-600 mb-1 block">最小文字数</label>
+                              <input
+                                type="number"
+                                value={field.min_length ?? ""}
+                                onChange={e => updateField(field.id, { min_length: e.target.value ? parseInt(e.target.value) : null })}
+                                placeholder="なし"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-gray-600 mb-1 block">最大文字数</label>
+                              <input
+                                type="number"
+                                value={field.max_length ?? ""}
+                                onChange={e => updateField(field.id, { max_length: e.target.value ? parseInt(e.target.value) : null })}
+                                placeholder="なし"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 必須・非表示 + 登録先 */}
+                        {!isHeading(field.type) && (
+                          <div className="flex items-center gap-6 pt-2 border-t border-gray-100">
+                            <label className="flex items-center gap-2 text-sm text-gray-600">
+                              <input
+                                type="checkbox"
+                                checked={field.required}
+                                onChange={e => updateField(field.id, { required: e.target.checked })}
+                                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                              />
+                              必須
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-600">
+                              <input
+                                type="checkbox"
+                                checked={field.hidden}
+                                onChange={e => updateField(field.id, { hidden: e.target.checked })}
+                                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                              />
+                              非表示
+                            </label>
+                            <div className="ml-auto flex items-center gap-2">
+                              <label className="text-xs text-gray-500">登録先:</label>
+                              <select
+                                value={field.save_target}
+                                onChange={e => updateField(field.id, { save_target: e.target.value })}
+                                className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900]"
+                              >
+                                {SAVE_TARGETS.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 設定タブ */}
+      {tab === "settings" && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+          {/* 確認ダイアログ */}
+          <div>
+            <label className="flex items-center gap-2 text-sm text-gray-700 font-medium mb-3">
+              <input
+                type="checkbox"
+                checked={settings.confirm_dialog}
+                onChange={e => setSettings(s => ({ ...s, confirm_dialog: e.target.checked }))}
+                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+              />
+              送信前に確認ダイアログを表示
+            </label>
+            {settings.confirm_dialog && (
+              <div className="ml-6 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">確認テキスト</label>
+                  <input
+                    type="text"
+                    value={settings.confirm_text}
+                    onChange={e => setSettings(s => ({ ...s, confirm_text: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">確認ボタンテキスト</label>
+                  <input
+                    type="text"
+                    value={settings.confirm_button_text}
+                    onChange={e => setSettings(s => ({ ...s, confirm_button_text: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 回答期限 */}
+          <div className="border-t border-gray-100 pt-5">
+            <label className="text-xs font-medium text-gray-600 mb-1 block">回答期限</label>
+            <input
+              type="datetime-local"
+              value={settings.deadline}
+              onChange={e => setSettings(s => ({ ...s, deadline: e.target.value }))}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+            />
+            <p className="text-xs text-gray-400 mt-1">空欄の場合は期限なし</p>
+          </div>
+
+          {/* 回答数制限 */}
+          <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-5">
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">全体の回答数上限</label>
+              <input
+                type="number"
+                value={settings.max_responses ?? ""}
+                onChange={e => setSettings(s => ({ ...s, max_responses: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="制限なし"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-600 mb-1 block">1人あたりの回答回数上限</label>
+              <input
+                type="number"
+                value={settings.responses_per_person ?? ""}
+                onChange={e => setSettings(s => ({ ...s, responses_per_person: e.target.value ? parseInt(e.target.value) : null }))}
+                placeholder="制限なし"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+              />
+            </div>
+          </div>
+
+          {/* サンクス */}
+          <div className="border-t border-gray-100 pt-5">
+            <label className="text-xs font-medium text-gray-600 mb-1 block">完了メッセージ</label>
+            <textarea
+              value={settings.thanks_message}
+              onChange={e => setSettings(s => ({ ...s, thanks_message: e.target.value }))}
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-600 mb-1 block">完了後リダイレクトURL</label>
+            <input
+              type="url"
+              value={settings.thanks_url}
+              onChange={e => setSettings(s => ({ ...s, thanks_url: e.target.value }))}
+              placeholder="https://..."
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+            />
+            <p className="text-xs text-gray-400 mt-1">空欄の場合は完了メッセージを表示</p>
+          </div>
+
+          {/* 復元許可 */}
+          <div className="border-t border-gray-100 pt-5">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={settings.allow_restore}
+                onChange={e => setSettings(s => ({ ...s, allow_restore: e.target.checked }))}
+                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+              />
+              前回の回答を復元できるようにする
+            </label>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

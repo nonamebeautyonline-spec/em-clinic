@@ -27,6 +27,7 @@ interface RichMenuArea {
     tel?: string;
     actions?: ActionItem[];
     userMessage?: string;
+    formSlug?: string;
   };
 }
 
@@ -44,7 +45,15 @@ interface ButtonConfig {
   displayMethod: string;
   actions: ActionItem[];
   userMessage: string;
+  formSlug: string;
   bounds: { x: number; y: number; width: number; height: number };
+}
+
+interface FormOption {
+  id: number;
+  name: string;
+  slug: string;
+  is_published: boolean;
 }
 
 const DISPLAY_METHODS = [
@@ -94,6 +103,7 @@ function createDefaultButton(index: number, total: number): ButtonConfig {
     displayMethod: "browser_tall",
     actions: [],
     userMessage: "",
+    formSlug: "",
     bounds: { x: col * w, y: row * h, width: w, height: h },
   };
 }
@@ -123,6 +133,9 @@ export default function RichMenuManagementPage() {
   const [tempActions, setTempActions] = useState<ActionItem[]>([]);
   const [repeatActions, setRepeatActions] = useState(true);
 
+  // 回答フォーム一覧
+  const [allForms, setAllForms] = useState<FormOption[]>([]);
+
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
   const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
@@ -137,7 +150,12 @@ export default function RichMenuManagementPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchMenus(); }, []);
+  useEffect(() => {
+    fetchMenus();
+    fetch("/api/admin/line/forms", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => { if (data.forms) setAllForms(data.forms); });
+  }, []);
 
   // --- Editor helpers ---
   const handleCreateNew = () => {
@@ -170,6 +188,7 @@ export default function RichMenuManagementPage() {
         displayMethod: a.action.displayMethod || "browser_tall",
         actions: a.action.actions || [],
         userMessage: a.action.userMessage || "",
+        formSlug: a.action.formSlug || "",
         bounds: a.bounds || DEFAULT_BOUNDS,
       })));
     } else {
@@ -289,6 +308,7 @@ export default function RichMenuManagementPage() {
         displayMethod: btn.actionType === "uri" ? btn.displayMethod : undefined,
         actions: btn.actionType === "action" ? btn.actions : undefined,
         userMessage: btn.userMessage || undefined,
+        formSlug: btn.actionType === "form" ? btn.formSlug : undefined,
       },
     }));
 
@@ -662,10 +682,32 @@ export default function RichMenuManagementPage() {
                     </div>
                   )}
 
-                  {/* 回答フォーム / その他 */}
-                  {(btn.actionType === "form" || btn.actionType === "other") && (
+                  {/* 回答フォーム */}
+                  {btn.actionType === "form" && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-600 flex-shrink-0 w-16">フォーム</label>
+                        <select
+                          value={btn.formSlug}
+                          onChange={e => updateButton(idx, { formSlug: e.target.value })}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                        >
+                          <option value="">フォームを選択</option>
+                          {allForms.filter(f => f.is_published).map(f => (
+                            <option key={f.id} value={f.slug}>{f.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {btn.formSlug && (
+                        <p className="text-xs text-gray-400">URL: {typeof window !== "undefined" ? window.location.origin : ""}/forms/{btn.formSlug}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* その他 */}
+                  {btn.actionType === "other" && (
                     <div className="text-sm text-gray-400 py-2">
-                      {btn.actionType === "form" ? "回答フォーム機能は今後追加予定です" : "その他の設定は今後追加予定です"}
+                      その他の設定は今後追加予定です
                     </div>
                   )}
                 </div>
@@ -696,15 +738,15 @@ export default function RichMenuManagementPage() {
       {/* アクション設定モーダル */}
       {actionModalIndex !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setActionModalIndex(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h2 className="font-bold text-gray-900 text-lg">アクション設定</h2>
               <button onClick={() => setActionModalIndex(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="px-6 py-6">
+            <div className="px-6 py-6 overflow-y-auto">
               <p className="text-sm text-gray-500 text-center mb-5">行う動作を選択してください</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {ACTION_CATALOG.map(ac => {
@@ -749,21 +791,24 @@ export default function RichMenuManagementPage() {
                       phase: "フェーズ名を入力",
                     };
                     return (
-                      <div key={ai} className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500 font-medium w-32 flex-shrink-0 text-right">{catalog?.label || a.type}</span>
-                        <input
-                          type="text"
+                      <div key={ai} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700 font-medium">{`${ai + 1}. ${catalog?.label || a.type}`}</span>
+                          <button onClick={() => setTempActions(prev => prev.filter((_, idx) => idx !== ai))}
+                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 flex items-center gap-1 text-xs">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            削除
+                          </button>
+                        </div>
+                        <textarea
                           value={a.value}
                           onChange={e => {
                             setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item));
                           }}
                           placeholder={placeholder[a.type] || "値を入力"}
-                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                          rows={6}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-y"
                         />
-                        <button onClick={() => setTempActions(prev => prev.filter((_, idx) => idx !== ai))}
-                          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
                       </div>
                     );
                   })}

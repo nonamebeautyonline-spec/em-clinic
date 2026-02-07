@@ -13,6 +13,7 @@ const LINE_TABS = [
   { href: "/admin/line/media", label: "メディア" },
   { href: "/admin/line/rich-menus", label: "リッチメニュー" },
   { href: "/admin/line/actions", label: "アクション管理" },
+  { href: "/admin/line/forms", label: "回答フォーム" },
   { href: "/admin/line/friend-settings", label: "友達追加時設定" },
   { href: "/admin/line/friends/fields", label: "情報欄設定" },
   { href: "/admin/line/messages", label: "送信履歴" },
