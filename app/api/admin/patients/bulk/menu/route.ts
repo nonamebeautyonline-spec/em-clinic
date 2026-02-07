@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     let linked = 0;
     let failed = 0;
 
-    // LINE API: 500人ずつ分割してbulk link
+    // LINE API: 500人ずつ分割してbulk link → 失敗時は個別APIにフォールバック
     for (let i = 0; i < lineUserIds.length; i += 500) {
       const batch = lineUserIds.slice(i, i + 500);
       const res = await fetch(LINE_API, {
@@ -80,13 +80,26 @@ export async function POST(req: NextRequest) {
         linked += batch.length;
       } else {
         const text = await res.text().catch(() => "");
-        console.error(`[Rich Menu Bulk Link] Error ${res.status}:`, text);
-        failed += batch.length;
+        console.error(`[Rich Menu Bulk Link] Batch error ${res.status}:`, text, "-> falling back to individual calls");
+
+        // 個別APIで1件ずつ割り当て
+        for (const uid of batch) {
+          try {
+            const r = await fetch(
+              `https://api.line.me/v2/bot/user/${uid}/richmenu/${menu.line_rich_menu_id}`,
+              { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (r.ok) linked++;
+            else failed++;
+          } catch {
+            failed++;
+          }
+        }
       }
     }
 
     const noUid = patient_ids.length - lineUserIds.length;
-    return NextResponse.json({ ok: true, linked, failed, no_uid: noUid, total: patient_ids.length });
+    return NextResponse.json({ ok: linked > 0, linked, failed, no_uid: noUid, total: patient_ids.length });
   } catch (e: any) {
     console.error("[Rich Menu Bulk Link] Unhandled error:", e?.message || e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });

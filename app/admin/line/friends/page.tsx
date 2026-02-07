@@ -830,8 +830,10 @@ export default function FriendsListPage() {
                     className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                   >
                     <option value="">リッチメニューを選択...</option>
-                    {richMenus.filter(m => m.line_rich_menu_id).map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
+                    {richMenus.map(m => (
+                      <option key={m.id} value={m.id} disabled={!m.line_rich_menu_id}>
+                        {m.name}{!m.line_rich_menu_id ? "（LINE未登録）" : ""}
+                      </option>
                     ))}
                   </select>
                   <button
@@ -842,7 +844,7 @@ export default function FriendsListPage() {
                     割り当て
                   </button>
                 </div>
-                {richMenus.filter(m => m.line_rich_menu_id).length === 0 && (
+                {richMenus.every(m => !m.line_rich_menu_id) && (
                   <p className="text-slate-400 text-xs mt-2">LINE登録済みのリッチメニューがありません。リッチメニュー設定から先にLINEに登録してください。</p>
                 )}
               </div>
