@@ -71,8 +71,11 @@ export async function POST(req: NextRequest) {
     .replace(/\{next_reservation_date\}/g, nextReservation?.reserved_date || "")
     .replace(/\{next_reservation_time\}/g, nextReservation?.reserved_time?.substring(0, 5) || "");
 
-  // LINE Push送信
-  const res = await pushMessage(intake.line_id, [{ type: "text", text: resolvedMessage }]);
+  // LINE Push送信（画像テンプレートの場合は image メッセージ）
+  const lineMessage = message_type === "image"
+    ? { type: "image" as const, originalContentUrl: resolvedMessage, previewImageUrl: resolvedMessage }
+    : { type: "text" as const, text: resolvedMessage };
+  const res = await pushMessage(intake.line_id, [lineMessage]);
   const status = res?.ok ? "sent" : "failed";
 
   // メッセージログに記録

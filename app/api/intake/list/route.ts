@@ -5,6 +5,20 @@ import { supabase } from "@/lib/supabase";
 const LIST_URL = process.env.GAS_INTAKE_LIST_URL as string;
 const USE_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: all, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 export async function GET(req: Request) {
   try {
     // クエリパラメータを取得
@@ -20,13 +34,14 @@ export async function GET(req: Request) {
       let validReserveIds: Set<string> | null = null;
 
       if (fromDate && toDate) {
-        const { data: reservationsData } = await supabase
-          .from("reservations")
-          .select("reserve_id")
-          .gte("reserved_date", fromDate)
-          .lte("reserved_date", toDate)
-          .neq("status", "canceled")
-          .limit(100000);
+        const { data: reservationsData } = await fetchAll(() =>
+          supabase
+            .from("reservations")
+            .select("reserve_id")
+            .gte("reserved_date", fromDate)
+            .lte("reserved_date", toDate)
+            .neq("status", "canceled")
+        );
 
         if (reservationsData) {
           validReserveIds = new Set(reservationsData.map((r: any) => r.reserve_id));
@@ -34,21 +49,22 @@ export async function GET(req: Request) {
         }
       }
 
-      let query = supabase
-        .from("intake")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100000);
+      const { data, error } = await fetchAll(() => {
+        let q = supabase
+          .from("intake")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      // 日付フィルタ（reserved_dateで絞り込み）
-      if (fromDate && toDate) {
-        query = query
-          .gte("reserved_date", fromDate)
-          .lte("reserved_date", toDate)
-          .not("reserved_date", "is", null);  // reserved_dateがnullでないもののみ
-      }
+        // 日付フィルタ（reserved_dateで絞り込み）
+        if (fromDate && toDate) {
+          q = q
+            .gte("reserved_date", fromDate)
+            .lte("reserved_date", toDate)
+            .not("reserved_date", "is", null);  // reserved_dateがnullでないもののみ
+        }
 
-      const { data, error } = await query;
+        return q;
+      });
 
       if (error) {
         console.error("[Supabase] query error:", error);

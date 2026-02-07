@@ -4,6 +4,20 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const LINE_TOKEN = process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN;
 
+async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: all, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 // 特定日のフォロワー統計を取得
 async function fetchFollowerStats(dateStr: string) {
   if (!LINE_TOKEN) return null;
@@ -68,12 +82,13 @@ export async function GET(req: NextRequest) {
   const patientIds = [...new Set((recentMsgs || []).map(m => m.patient_id).filter(Boolean))];
   let nameMap = new Map<string, string>();
   if (patientIds.length > 0) {
-    const { data: intakeRows } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name")
-      .in("patient_id", patientIds)
-      .order("created_at", { ascending: false })
-      .limit(100000);
+    const { data: intakeRows } = await fetchAll(() =>
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name")
+        .in("patient_id", patientIds)
+        .order("created_at", { ascending: false })
+    );
     for (const row of intakeRows || []) {
       if (!nameMap.has(row.patient_id)) {
         nameMap.set(row.patient_id, row.patient_name || "");

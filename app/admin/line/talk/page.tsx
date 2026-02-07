@@ -448,11 +448,18 @@ export default function TalkPage() {
     if (sending || !selectedPatient) return;
     setShowTemplatePicker(false);
     setSending(true);
+    const payload: Record<string, string> = {
+      patient_id: selectedPatient.patient_id,
+      message: template.content,
+    };
+    if (template.message_type === "image") {
+      payload.message_type = "image";
+    }
     const res = await fetch("/api/admin/line/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: template.content }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.ok) {

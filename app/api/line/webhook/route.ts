@@ -439,7 +439,7 @@ async function executeRichMenuActions(
           if (!action.value) break;
           const { data: tmpl } = await supabaseAdmin
             .from("message_templates")
-            .select("content, name")
+            .select("content, name, message_type")
             .eq("id", Number(action.value))
             .maybeSingle();
           if (!tmpl) break;
@@ -449,17 +449,36 @@ async function executeRichMenuActions(
             .replace(/\{patient_id\}/g, patient?.patient_id || "");
 
           // タイミング制御（即時以外は後で実装、今は即時送信）
-          await pushMessage(lineUid, [{ type: "text", text }]);
-          await logEvent({
-            patient_id: patient?.patient_id,
-            line_uid: lineUid,
-            direction: "outgoing",
-            event_type: "postback",
-            message_type: "individual",
-            content: text,
-            status: "sent",
-          });
-          actionDetails.push(`テキスト[${text.slice(0, 30)}${text.length > 30 ? "..." : ""}]を送信`);
+          if (tmpl.message_type === "image") {
+            // 画像テンプレート → LINE image メッセージで送信
+            await pushMessage(lineUid, [{
+              type: "image",
+              originalContentUrl: text,
+              previewImageUrl: text,
+            }]);
+            await logEvent({
+              patient_id: patient?.patient_id,
+              line_uid: lineUid,
+              direction: "outgoing",
+              event_type: "postback",
+              message_type: "individual",
+              content: text,
+              status: "sent",
+            });
+            actionDetails.push(`画像[${tmpl.name}]を送信`);
+          } else {
+            await pushMessage(lineUid, [{ type: "text", text }]);
+            await logEvent({
+              patient_id: patient?.patient_id,
+              line_uid: lineUid,
+              direction: "outgoing",
+              event_type: "postback",
+              message_type: "individual",
+              content: text,
+              status: "sent",
+            });
+            actionDetails.push(`テキスト[${text.slice(0, 30)}${text.length > 30 ? "..." : ""}]を送信`);
+          }
           break;
         }
 

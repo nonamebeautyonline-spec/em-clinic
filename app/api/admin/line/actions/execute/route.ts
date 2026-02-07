@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
           }
           const { data: tmpl } = await supabaseAdmin
             .from("message_templates")
-            .select("content")
+            .select("content, message_type")
             .eq("id", step.template_id)
             .single();
 
@@ -117,13 +117,18 @@ export async function POST(req: NextRequest) {
             break;
           }
 
+          // 画像テンプレートの場合は image メッセージ、それ以外は text
+          const tmplMessage = tmpl.message_type === "image"
+            ? { type: "image", originalContentUrl: tmplText, previewImageUrl: tmplText }
+            : { type: "text", text: tmplText };
+
           const tmplRes = await fetch("https://api.line.me/v2/bot/message/push", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
             },
-            body: JSON.stringify({ to: lineUid, messages: [{ type: "text", text: tmplText }] }),
+            body: JSON.stringify({ to: lineUid, messages: [tmplMessage] }),
           });
 
           const tmplStatus = tmplRes.ok ? "sent" : "failed";

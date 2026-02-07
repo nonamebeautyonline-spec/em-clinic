@@ -7,6 +7,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+  const all: any[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+    if (error) return { data: all, error };
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return { data: all, error: null };
+}
+
 export async function GET(request: NextRequest) {
   try {
     // 認証チェック（クッキーまたはBearerトークン）
@@ -38,12 +52,13 @@ export async function GET(request: NextRequest) {
       .neq("status", "cancelled");
 
     // 2. 本日の配送件数（ordersテーブル、shipping_dateが今日）
-    const { data: todayShippingData } = await supabase
-      .from("orders")
-      .select("product_code, patient_id")
-      .gte("shipping_date", todayStartISO.split("T")[0])
-      .lt("shipping_date", todayEndISO.split("T")[0])
-      .limit(100000);
+    const { data: todayShippingData } = await fetchAll(() =>
+      supabase
+        .from("orders")
+        .select("product_code, patient_id")
+        .gte("shipping_date", todayStartISO.split("T")[0])
+        .lt("shipping_date", todayEndISO.split("T")[0])
+    );
 
     const todayShippingTotal = todayShippingData?.length || 0;
 
@@ -70,24 +85,26 @@ export async function GET(request: NextRequest) {
 
     // 3. 本日の売上
     // Square（ordersテーブル、payment_method = 'card'、paid_atが今日）
-    const { data: squareOrders } = await supabase
-      .from("orders")
-      .select("amount")
-      .eq("payment_method", "card")
-      .gte("paid_at", todayStartISO)
-      .lt("paid_at", todayEndISO)
-      .limit(100000);
+    const { data: squareOrders } = await fetchAll(() =>
+      supabase
+        .from("orders")
+        .select("amount")
+        .eq("payment_method", "card")
+        .gte("paid_at", todayStartISO)
+        .lt("paid_at", todayEndISO)
+    );
 
     const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
 
     // 銀行振込（ordersテーブル、payment_method='bank_transfer'、paid_atが今日）
-    const { data: bankTransferOrders } = await supabase
-      .from("orders")
-      .select("amount")
-      .eq("payment_method", "bank_transfer")
-      .gte("paid_at", todayStartISO)
-      .lt("paid_at", todayEndISO)
-      .limit(100000);
+    const { data: bankTransferOrders } = await fetchAll(() =>
+      supabase
+        .from("orders")
+        .select("amount")
+        .eq("payment_method", "bank_transfer")
+        .gte("paid_at", todayStartISO)
+        .lt("paid_at", todayEndISO)
+    );
 
     const todayBankTransferRevenue =
       bankTransferOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
@@ -95,11 +112,12 @@ export async function GET(request: NextRequest) {
     const todayTotalRevenue = todaySquareRevenue + todayBankTransferRevenue;
 
     // 4. リピート率（今月の再注文 / 今月の全注文）
-    const { data: monthOrders } = await supabase
-      .from("orders")
-      .select("patient_id")
-      .gte("paid_at", monthStartISO)
-      .limit(100000);
+    const { data: monthOrders } = await fetchAll(() =>
+      supabase
+        .from("orders")
+        .select("patient_id")
+        .gte("paid_at", monthStartISO)
+    );
 
     const monthPatientIds = monthOrders?.map((o) => o.patient_id) || [];
     let monthReorderCount = 0;
