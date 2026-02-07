@@ -168,6 +168,9 @@ export default function TalkPage() {
   const [savingMark, setSavingMark] = useState(false);
   const [markOptions, setMarkOptions] = useState<MarkOption[]>(DEFAULT_MARK_OPTIONS);
   const [userRichMenu, setUserRichMenu] = useState<{ id?: number; name: string; image_url: string | null; line_rich_menu_id: string; is_default: boolean } | null>(null);
+  const [showMenuPicker, setShowMenuPicker] = useState(false);
+  const [allRichMenus, setAllRichMenus] = useState<{ id: number; name: string; image_url: string | null; line_rich_menu_id: string }[]>([]);
+  const [changingMenu, setChangingMenu] = useState(false);
 
   // ピン留め
   useEffect(() => {
@@ -264,6 +267,7 @@ export default function TalkPage() {
     setShowMarkDropdown(false);
     setPatientDetail(null);
     setUserRichMenu(null);
+    setShowMenuPicker(false);
 
     shouldScrollToBottom.current = true;
 
@@ -685,6 +689,38 @@ export default function TalkPage() {
     setPatientTags(prev => prev.filter(t => t.tag_id !== tagId));
   };
 
+  // リッチメニュー変更
+  const openMenuPicker = async () => {
+    if (!selectedPatient?.line_id) return;
+    setShowMenuPicker(true);
+    if (allRichMenus.length === 0) {
+      const res = await fetch("/api/admin/line/rich-menus", { credentials: "include" });
+      const data = await res.json();
+      if (data.menus) {
+        setAllRichMenus(data.menus.filter((m: { line_rich_menu_id: string | null; is_active: boolean }) => m.line_rich_menu_id && m.is_active));
+      }
+    }
+  };
+
+  const changeRichMenu = async (menuId: number) => {
+    if (!selectedPatient || changingMenu) return;
+    setChangingMenu(true);
+    try {
+      const res = await fetch("/api/admin/line/user-richmenu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patient_id: selectedPatient.patient_id, rich_menu_id: menuId }),
+      });
+      const data = await res.json();
+      if (data.menu) {
+        setUserRichMenu(data.menu);
+      }
+    } catch { /* ignore */ }
+    setChangingMenu(false);
+    setShowMenuPicker(false);
+  };
+
   // ユーティリティ
   const formatTime = (s: string) => {
     const d = new Date(s);
@@ -992,7 +1028,7 @@ export default function TalkPage() {
                     </div>
                   )}
                   {messages.map((m, i) => {
-                    const isSystem = m.message_type === "event" || m.event_type === "system";
+                    const isSystem = m.message_type === "event" || m.event_type === "system" || m.message_type === "postback";
                     const isIncoming = m.direction === "incoming";
                     const showAvatar = isIncoming && !isSystem && (i === 0 || messages[i - 1]?.direction !== "incoming" || messages[i - 1]?.message_type === "event" || messages[i - 1]?.event_type === "system");
                     return (
@@ -1007,7 +1043,9 @@ export default function TalkPage() {
                         <div className="flex justify-center my-1">
                           <div className="max-w-[80%] bg-white/80 border border-gray-200 rounded-lg px-4 py-2 text-center">
                             <div className="text-[10px] text-gray-400 mb-0.5">{formatTime(m.sent_at)}</div>
-                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
+                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: "anywhere" }}>{
+                              m.content?.startsWith("{") ? "メニュー操作" : m.content
+                            }</div>
                           </div>
                         </div>
                       ) : isIncoming ? (
@@ -1591,7 +1629,53 @@ export default function TalkPage() {
 
             {/* リッチメニュー */}
             <div className="px-4 py-3">
-              <SectionLabel>リッチメニュー</SectionLabel>
+              <div className="flex items-center justify-between mb-1">
+                <SectionLabel>リッチメニュー</SectionLabel>
+                {selectedPatient?.line_id && (
+                  <button
+                    onClick={openMenuPicker}
+                    className="text-[10px] text-[#00B900] hover:text-[#009900] font-medium cursor-pointer"
+                  >
+                    変更
+                  </button>
+                )}
+              </div>
+              {showMenuPicker && (
+                <div className="mb-2 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="px-3 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-[10px] text-gray-500 font-medium">メニューを選択</span>
+                    <button onClick={() => setShowMenuPicker(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  {allRichMenus.length === 0 ? (
+                    <div className="px-3 py-3 text-center text-[10px] text-gray-400">読み込み中...</div>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto">
+                      {allRichMenus.map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => changeRichMenu(m.id)}
+                          disabled={changingMenu}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 flex items-center gap-2 cursor-pointer ${
+                            userRichMenu?.id === m.id ? "bg-[#00B900]/5" : ""
+                          } ${changingMenu ? "opacity-50" : ""}`}
+                        >
+                          {m.image_url ? (
+                            <img src={m.image_url} alt="" className="w-10 h-5 rounded object-cover flex-shrink-0 border border-gray-200" />
+                          ) : (
+                            <div className="w-10 h-5 rounded bg-gray-100 flex-shrink-0" />
+                          )}
+                          <span className="text-[11px] text-gray-700 truncate">{m.name}</span>
+                          {userRichMenu?.id === m.id && (
+                            <svg className="w-3.5 h-3.5 text-[#00B900] flex-shrink-0 ml-auto" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {userRichMenu ? (
                 <div>
                   <div className="text-[12px] text-gray-800 font-medium mb-1.5">{userRichMenu.name}</div>

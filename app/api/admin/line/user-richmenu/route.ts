@@ -105,3 +105,65 @@ export async function GET(req: NextRequest) {
   const menu = await resolveRichMenu(richMenuId, false);
   return NextResponse.json({ menu });
 }
+
+// ユーザーにリッチメニューを割り当て
+export async function POST(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { patient_id, rich_menu_id } = await req.json();
+  if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
+  if (!rich_menu_id) return NextResponse.json({ error: "rich_menu_id required" }, { status: 400 });
+
+  // DBからline_rich_menu_idを取得
+  const { data: menu } = await supabaseAdmin
+    .from("rich_menus")
+    .select("id, name, line_rich_menu_id, image_url")
+    .eq("id", rich_menu_id)
+    .maybeSingle();
+
+  if (!menu?.line_rich_menu_id) {
+    return NextResponse.json({ error: "メニューが見つからないかLINE未登録です" }, { status: 400 });
+  }
+
+  // patient_idからline_idを取得
+  const { data: patient } = await supabaseAdmin
+    .from("intake")
+    .select("line_id")
+    .eq("patient_id", patient_id)
+    .maybeSingle();
+
+  if (!patient?.line_id) {
+    return NextResponse.json({ error: "LINE未連携のユーザーです" }, { status: 400 });
+  }
+
+  if (!LINE_ACCESS_TOKEN) {
+    return NextResponse.json({ error: "LINEアクセストークン未設定" }, { status: 500 });
+  }
+
+  // LINE APIでユーザーにリッチメニューを割り当て
+  const lineRes = await fetch(`https://api.line.me/v2/bot/user/${patient.line_id}/richmenu/${menu.line_rich_menu_id}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LINE_ACCESS_TOKEN}`,
+    },
+  });
+
+  if (!lineRes.ok) {
+    const text = await lineRes.text().catch(() => "");
+    console.error("[LINE Assign Menu]", lineRes.status, text);
+    return NextResponse.json({ error: `LINE API エラー: ${lineRes.status}` }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    menu: {
+      id: menu.id,
+      name: menu.name,
+      image_url: menu.image_url,
+      line_rich_menu_id: menu.line_rich_menu_id,
+      is_default: false,
+    },
+  });
+}

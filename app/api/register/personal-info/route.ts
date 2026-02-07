@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
 
     // 1) line_user_id で既存患者を検索（LINE再ログイン時のデータ更新用）
     let patientId: string | null = null;
+    let oldLinePatientId: string | null = null; // LINE_プレフィックスの仮IDを保持
 
     if (lineUserId) {
       const { data: existingByLine } = await supabaseAdmin
@@ -45,8 +46,14 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (existingByLine?.patient_id) {
-        patientId = existingByLine.patient_id;
-        console.log("[register/personal-info] Existing patient by line_id:", patientId);
+        if (existingByLine.patient_id.startsWith("LINE_")) {
+          // LINE_仮IDの場合は正式IDを新規発番する（後でデータ移行）
+          oldLinePatientId = existingByLine.patient_id;
+          console.log("[register/personal-info] Found LINE_ temp ID:", oldLinePatientId, "-> will assign new numeric ID");
+        } else {
+          patientId = existingByLine.patient_id;
+          console.log("[register/personal-info] Existing patient by line_id:", patientId);
+        }
       }
     }
 
@@ -54,7 +61,7 @@ export async function POST(req: NextRequest) {
     if (!patientId) {
       const cookiePid = req.cookies.get("__Host-patient_id")?.value
         || req.cookies.get("patient_id")?.value;
-      if (cookiePid) {
+      if (cookiePid && !cookiePid.startsWith("LINE_")) {
         patientId = cookiePid;
         console.log("[register/personal-info] Existing patient from cookie:", patientId);
       }
@@ -82,7 +89,29 @@ export async function POST(req: NextRequest) {
       console.log("[register/personal-info] New patient_id:", patientId);
     }
 
-    // 4) Supabase answerers テーブルに保存
+    // 4) LINE_仮IDがある場合、関連テーブルのpatient_idを正式IDに移行
+    if (oldLinePatientId && patientId) {
+      console.log("[register/personal-info] Migrating", oldLinePatientId, "->", patientId);
+      const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+      await Promise.all(
+        migrateTables.map(async (table) => {
+          const { error } = await supabaseAdmin
+            .from(table)
+            .update({ patient_id: patientId })
+            .eq("patient_id", oldLinePatientId);
+          if (error) {
+            console.error(`[register/personal-info] Migration ${table} failed:`, error.message);
+          }
+        })
+      );
+      // 旧LINE_仮intakeレコードを削除（新しいIDで再作成される）
+      await supabaseAdmin.from("intake").delete().eq("patient_id", oldLinePatientId);
+      // 旧LINE_仮answerersレコードも削除
+      await supabaseAdmin.from("answerers").delete().eq("patient_id", oldLinePatientId);
+      console.log("[register/personal-info] Migration complete:", oldLinePatientId, "->", patientId);
+    }
+
+    // 5) Supabase answerers テーブルに保存
     const { error: answererError } = await supabaseAdmin
       .from("answerers")
       .upsert({
@@ -98,7 +127,7 @@ export async function POST(req: NextRequest) {
       console.error("[register/personal-info] Answerers upsert failed:", answererError.message);
     }
 
-    // 5) Supabase intake テーブルに保存
+    // 6) Supabase intake テーブルに保存
     const answers = {
       氏名: name.trim(),
       name: name.trim(),
@@ -123,7 +152,7 @@ export async function POST(req: NextRequest) {
       console.error("[register/personal-info] Intake upsert failed:", intakeError.message);
     }
 
-    // 6) Cookie設定 + レスポンス
+    // 7) Cookie設定 + レスポンス
     const res = NextResponse.json({ ok: true, patient_id: patientId });
 
     res.cookies.set("__Host-patient_id", patientId, {

@@ -390,14 +390,28 @@ async function handleUserPostback(lineUid: string, postbackData: string) {
 
   console.log("[webhook] postback from", lineUid, ":", postbackData.slice(0, 200));
 
+  // postbackの表示用ラベルを生成
+  let contentLabel = parsed?.userMessage || "";
+  if (!contentLabel) {
+    if (parsed?.type === "rich_menu_action") {
+      contentLabel = "リッチメニュー操作";
+    } else if (parsed?.provider === "lml") {
+      contentLabel = "メニュー操作";
+    } else if (parsed) {
+      contentLabel = "メニュー操作";
+    } else {
+      contentLabel = postbackData.slice(0, 100);
+    }
+  }
+
   // ログ記録
   await logEvent({
     patient_id: patient?.patient_id,
     line_uid: lineUid,
     direction: "incoming",
     event_type: "postback",
-    message_type: "postback",
-    content: parsed?.userMessage || postbackData.slice(0, 500),
+    message_type: "event",
+    content: contentLabel,
     status: "received",
     postback_data: parsed || { raw: postbackData },
   });
