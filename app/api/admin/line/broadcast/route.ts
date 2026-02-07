@@ -233,11 +233,9 @@ async function applyCondition(
 ) {
   switch (condition.type) {
     case "tag": {
-      const { data: tagged } = await supabaseAdmin
-        .from("patient_tags")
-        .select("patient_id")
-        .eq("tag_id", condition.tag_id!)
-        .limit(100000);
+      const { data: tagged } = await fetchAll(
+        () => supabaseAdmin.from("patient_tags").select("patient_id").eq("tag_id", condition.tag_id!)
+      );
       const taggedSet = new Set((tagged || []).map(t => t.patient_id));
       console.log(`[applyCondition] tag_id=${condition.tag_id}, tagged patients:`, Array.from(taggedSet));
 
@@ -254,11 +252,9 @@ async function applyCondition(
     }
 
     case "mark": {
-      const { data: marks } = await supabaseAdmin
-        .from("patient_marks")
-        .select("patient_id, mark")
-        .in("mark", condition.values || [])
-        .limit(100000);
+      const { data: marks } = await fetchAll(
+        () => supabaseAdmin.from("patient_marks").select("patient_id, mark").in("mark", condition.values || [])
+      );
       const markedSet = new Set((marks || []).map(m => m.patient_id));
 
       if (isInclude) return targets.filter(t => markedSet.has(t.patient_id));
@@ -266,11 +262,9 @@ async function applyCondition(
     }
 
     case "field": {
-      const { data: fieldVals } = await supabaseAdmin
-        .from("friend_field_values")
-        .select("patient_id, value")
-        .eq("field_id", condition.field_id!)
-        .limit(100000);
+      const { data: fieldVals } = await fetchAll(
+        () => supabaseAdmin.from("friend_field_values").select("patient_id, value").eq("field_id", condition.field_id!)
+      );
 
       const matchSet = new Set<string>();
       for (const fv of fieldVals || []) {

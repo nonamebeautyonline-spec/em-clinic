@@ -23,14 +23,24 @@ export async function GET(
 
   if (!form) return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
 
-  // 回答一覧
-  const { data: responses, error } = await supabaseAdmin
-    .from("form_responses")
-    .select("*")
-    .eq("form_id", parseInt(id))
-    .order("submitted_at", { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // 回答一覧（1000行制限回避のためページネーション）
+  const allResponses: any[] = [];
+  let offset = 0;
+  const pageSize = 1000;
+  for (;;) {
+    const { data: page, error: pageError } = await supabaseAdmin
+      .from("form_responses")
+      .select("*")
+      .eq("form_id", parseInt(id))
+      .order("submitted_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (pageError) return NextResponse.json({ error: pageError.message }, { status: 500 });
+    if (!page || page.length === 0) break;
+    allResponses.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+  const responses = allResponses;
 
   // CSV出力
   if (format === "csv") {

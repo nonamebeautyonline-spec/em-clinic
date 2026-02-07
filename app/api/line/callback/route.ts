@@ -43,20 +43,17 @@ export async function GET(req: NextRequest) {
   // ★ LINE UIDでDB照合 → 既知の患者ならSMS認証スキップ
   let patientId: string | null = null;
 
-  try {
-    const { data } = await supabase
-      .from("intake")
-      .select("patient_id")
-      .eq("line_id", lineUserId)
-      .limit(1)
-      .single();
+  const { data } = await supabase
+    .from("intake")
+    .select("patient_id")
+    .eq("line_id", lineUserId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-    if (data?.patient_id) {
-      patientId = data.patient_id;
-      console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match)`);
-    }
-  } catch {
-    // DB照合失敗は無視（初回ユーザーの場合もここに来る）
+  if (data?.patient_id) {
+    patientId = data.patient_id;
+    console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match)`);
   }
 
   // 既知の患者 → /mypage へ直接（SMS不要）

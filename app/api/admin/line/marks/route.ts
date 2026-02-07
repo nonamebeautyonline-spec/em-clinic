@@ -14,15 +14,15 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // マークごとの患者数を一括取得
-  const { data: allPM } = await supabaseAdmin
-    .from("patient_marks")
-    .select("mark")
-    .limit(100000);
-
+  // マークごとの患者数をDB集計で取得（1000行制限を回避）
   const countMap = new Map<string, number>();
-  for (const pm of allPM || []) {
-    countMap.set(pm.mark, (countMap.get(pm.mark) || 0) + 1);
+  for (const m of data || []) {
+    if (m.value === "none") continue;
+    const { count } = await supabaseAdmin
+      .from("patient_marks")
+      .select("*", { count: "exact", head: true })
+      .eq("mark", m.value);
+    countMap.set(m.value, count || 0);
   }
 
   const marks = (data || []).map(m => ({

@@ -120,7 +120,7 @@ async function handleFollow(lineUid: string) {
     .from("friend_add_settings")
     .select("setting_value, enabled")
     .eq("setting_key", settingKey)
-    .single();
+    .maybeSingle();
 
   // ログ記録
   await logEvent({
@@ -306,7 +306,7 @@ async function executeRichMenuActions(
             .from("message_templates")
             .select("content")
             .eq("id", Number(action.value))
-            .single();
+            .maybeSingle();
           if (!tmpl) break;
 
           const text = tmpl.content
@@ -354,7 +354,7 @@ async function executeRichMenuActions(
             .from("tag_definitions")
             .select("id")
             .eq("name", action.value)
-            .single();
+            .maybeSingle();
 
           if (existing) {
             tagId = existing.id;
@@ -411,7 +411,7 @@ async function executeRichMenuActions(
             .from("rich_menus")
             .select("line_rich_menu_id")
             .eq("id", Number(action.value))
-            .single();
+            .maybeSingle();
 
           if (menu?.line_rich_menu_id) {
             await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
@@ -429,7 +429,7 @@ async function executeRichMenuActions(
             .from("friend_field_definitions")
             .select("id")
             .eq("name", action.fieldName)
-            .single();
+            .maybeSingle();
 
           if (!fieldDef) break;
 

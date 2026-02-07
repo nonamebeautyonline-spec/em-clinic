@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+              Authorization: `Bearer ${process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
             },
             body: JSON.stringify({ to: lineUid, messages: [{ type: "text", text }] }),
           });
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+              Authorization: `Bearer ${process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
             },
             body: JSON.stringify({ to: lineUid, messages: [{ type: "text", text: tmplText }] }),
           });
