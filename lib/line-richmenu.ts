@@ -89,10 +89,16 @@ export async function createLineRichMenu(menu: {
 
   const sizeHeight = menu.size_type === "half" ? 843 : 1686;
 
-  const areas = (menu.areas || []).map((area) => ({
-    bounds: area.bounds,
-    action: mapActionToLine(area.action, origin),
-  }));
+  const areas = (menu.areas || []).map((area) => {
+    // LINE APIはbounds値が0以上必須。負の値をクランプ
+    const b = area.bounds;
+    const x = Math.max(0, b.x);
+    const y = Math.max(0, b.y);
+    return {
+      bounds: { x, y, width: b.width - (x - b.x), height: b.height - (y - b.y) },
+      action: mapActionToLine(area.action, origin),
+    };
+  });
 
   // LINE APIは最低1つのareaが必要
   if (areas.length === 0) {
@@ -180,6 +186,29 @@ export async function deleteLineRichMenu(richMenuId: string): Promise<boolean> {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     console.error("[LINE Rich Menu Delete]", res.status, text);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 特定ユーザーにリッチメニューを割り当て
+ */
+export async function linkRichMenuToUser(lineUserId: string, richMenuId: string): Promise<boolean> {
+  const token = getToken();
+  if (!token || !lineUserId || !richMenuId) return false;
+
+  const res = await fetch(`${LINE_API}/user/${lineUserId}/richmenu/${richMenuId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("[LINE Link Menu to User]", res.status, text);
     return false;
   }
   return true;

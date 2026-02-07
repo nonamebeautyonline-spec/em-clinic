@@ -59,8 +59,10 @@ export async function POST(req: NextRequest) {
           .update({ line_rich_menu_id: lineRichMenuId, is_active: true })
           .eq("id", data.id);
 
-        // 5. デフォルトメニューに設定
-        await setDefaultRichMenu(lineRichMenuId);
+        // 5. selected=true の場合のみデフォルトメニューに設定
+        if (selected) {
+          await setDefaultRichMenu(lineRichMenuId);
+        }
 
         data.line_rich_menu_id = lineRichMenuId;
         data.is_active = true;

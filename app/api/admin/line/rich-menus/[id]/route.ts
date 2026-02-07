@@ -18,22 +18,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     .eq("id", Number(id))
     .single();
 
-  // 2. 旧LINE側リッチメニューを削除
-  if (existing?.line_rich_menu_id) {
-    await deleteLineRichMenu(existing.line_rich_menu_id);
-  }
+  const oldLineMenuId = existing?.line_rich_menu_id || null;
 
-  // 3. DB更新
+  // 2. DB更新（まずDBだけ更新してレスポンスを速く返せるようにする）
   const { data, error } = await supabaseAdmin
     .from("rich_menus")
-    .update({ ...body, line_rich_menu_id: null, is_active: false, updated_at: new Date().toISOString() })
+    .update({ ...body, updated_at: new Date().toISOString() })
     .eq("id", Number(id))
     .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 4. 画像がある場合、LINE APIに再登録
+  // 3. 画像がある場合、LINE APIに新メニューを先に作成
   if (data.image_url) {
     const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
     const lineRichMenuId = await createLineRichMenu(data, origin);
@@ -42,16 +39,31 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       const imageOk = await uploadRichMenuImage(lineRichMenuId, data.image_url);
 
       if (imageOk) {
+        // 新メニュー作成成功 → DB更新
         await supabaseAdmin
           .from("rich_menus")
           .update({ line_rich_menu_id: lineRichMenuId, is_active: true })
           .eq("id", data.id);
 
-        await setDefaultRichMenu(lineRichMenuId);
-
         data.line_rich_menu_id = lineRichMenuId;
         data.is_active = true;
+
+        // selected=true の場合のみデフォルトメニューに設定
+        if (data.selected) {
+          await setDefaultRichMenu(lineRichMenuId);
+        }
+
+        // 4. 旧メニューを削除（新メニュー成功後に安全に削除）
+        if (oldLineMenuId && oldLineMenuId !== lineRichMenuId) {
+          await deleteLineRichMenu(oldLineMenuId).catch(() => {});
+        }
+      } else {
+        // 画像アップロード失敗 → 作成したメニューを削除
+        await deleteLineRichMenu(lineRichMenuId).catch(() => {});
+        console.error("[Rich Menu PUT] Image upload failed, keeping old menu");
       }
+    } else {
+      console.error("[Rich Menu PUT] LINE menu create failed, keeping old menu");
     }
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { linkRichMenuToUser } from "@/lib/line-richmenu";
 
 /**
  * 個人情報フォーム保存API
@@ -152,7 +153,36 @@ export async function POST(req: NextRequest) {
       console.error("[register/personal-info] Intake upsert failed:", intakeError.message);
     }
 
-    // 7) Cookie設定 + レスポンス
+    // 7) 「個人情報提出ずみ」タグを付与（tag_id=1）
+    const { error: tagError } = await supabaseAdmin
+      .from("patient_tags")
+      .upsert(
+        { patient_id: patientId, tag_id: 1, assigned_by: "register" },
+        { onConflict: "patient_id,tag_id" }
+      );
+    if (tagError) {
+      console.error("[register/personal-info] Tag assign failed:", tagError.message);
+    }
+
+    // 8) リッチメニューを「個人情報入力後」に切り替え
+    if (lineUserId) {
+      const { data: postMenu } = await supabaseAdmin
+        .from("rich_menus")
+        .select("line_rich_menu_id")
+        .eq("name", "個人情報入力後")
+        .maybeSingle();
+
+      if (postMenu?.line_rich_menu_id) {
+        const linked = await linkRichMenuToUser(lineUserId, postMenu.line_rich_menu_id);
+        if (linked) {
+          console.log("[register/personal-info] Rich menu switched to 個人情報入力後 for", lineUserId);
+        } else {
+          console.error("[register/personal-info] Failed to switch rich menu for", lineUserId);
+        }
+      }
+    }
+
+    // 9) Cookie設定 + レスポンス
     const res = NextResponse.json({ ok: true, patient_id: patientId });
 
     res.cookies.set("__Host-patient_id", patientId, {

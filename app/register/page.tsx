@@ -10,6 +10,19 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // 初回登録済みチェック
+  React.useEffect(() => {
+    fetch("/api/register/check")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.registered) setAlreadyRegistered(true);
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
 
   // フォーム入力
   const [name, setName] = useState("");
@@ -67,6 +80,49 @@ function Inner() {
       setSaving(false);
     }
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f0f0f0]">
+        <p className="text-sm text-slate-500">読み込み中…</p>
+      </div>
+    );
+  }
+
+  if (alreadyRegistered) {
+    return (
+      <div className="min-h-screen bg-[#f0f0f0]">
+        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+          <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
+            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            <span className="text-[10px] text-slate-400">個人情報フォーム</span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-lg pb-10">
+          <div className="bg-white mt-2 px-6 py-10 text-center">
+            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2">既に登録済みです</h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              個人情報フォームは既に提出されています。
+              <br />
+              マイページからご利用ください。
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/mypage")}
+              className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
+            >
+              マイページへ
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (done) {
     return (
