@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
+export const dynamic = "force-dynamic";
+
 // メッセージ送信履歴一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
