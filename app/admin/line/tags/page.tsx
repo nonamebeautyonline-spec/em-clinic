@@ -9,6 +9,13 @@ interface Tag {
   description: string | null;
   is_auto: boolean;
   created_at: string;
+  patient_count: number;
+}
+
+interface TagPatient {
+  patient_id: string;
+  patient_name: string;
+  has_line: boolean;
 }
 
 const PRESET_COLORS = [
@@ -34,6 +41,16 @@ export default function TagManagementPage() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+  // 該当者一覧モーダル
+  const [patientsModal, setPatientsModal] = useState<{ tag: Tag; patients: TagPatient[]; loading: boolean } | null>(null);
+
+  const handleShowPatients = async (tag: Tag) => {
+    setPatientsModal({ tag, patients: [], loading: true });
+    const res = await fetch(`/api/admin/tags/${tag.id}`, { credentials: "include" });
+    const data = await res.json();
+    setPatientsModal({ tag, patients: data.patients || [], loading: false });
+  };
 
   const fetchTags = async () => {
     const res = await fetch("/api/admin/tags", { credentials: "include" });
@@ -183,6 +200,18 @@ export default function TagManagementPage() {
                 {tag.description && (
                   <p className="text-xs text-gray-400 mb-3 line-clamp-2 leading-relaxed">{tag.description}</p>
                 )}
+
+                {/* 友だち人数 */}
+                <div className="mb-3">
+                  <button
+                    onClick={() => handleShowPatients(tag)}
+                    className="text-sm font-bold hover:underline transition-colors"
+                    style={{ color: tag.color }}
+                  >
+                    {tag.patient_count}人
+                  </button>
+                  <span className="text-[10px] text-gray-400 ml-1">が該当</span>
+                </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-gray-50">
                   <span
@@ -339,6 +368,55 @@ export default function TagManagementPage() {
                   削除する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 該当者一覧モーダル */}
+      {patientsModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPatientsModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium text-white"
+                    style={{ backgroundColor: patientsModal.tag.color }}
+                  >
+                    {patientsModal.tag.name}
+                  </span>
+                  <span className="text-sm font-bold text-gray-700">
+                    {patientsModal.patients.length}人
+                  </span>
+                </div>
+                <button onClick={() => setPatientsModal(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              {patientsModal.loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+                </div>
+              ) : patientsModal.patients.length === 0 ? (
+                <div className="text-center py-10 text-sm text-gray-400">該当者がいません</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {patientsModal.patients.map(p => (
+                    <div key={p.patient_id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-2 h-2 rounded-full ${p.has_line ? "bg-emerald-500" : "bg-gray-300"}`} />
+                        <span className="text-sm font-medium text-gray-800">{p.patient_name}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">{p.patient_id}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

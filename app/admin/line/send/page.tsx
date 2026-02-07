@@ -347,34 +347,47 @@ export default function BroadcastSendPage() {
           </div>
 
           {/* 該当者表示 + プレビュー */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <button
-              onClick={handlePreview}
-              disabled={loadingPreview}
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 transition-colors"
-            >
-              {loadingPreview ? (
-                <>
-                  <div className="w-3 h-3 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
-                  確認中...
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  該当者表示
-                </>
-              )}
-            </button>
-            {preview && (
-              <span className="text-sm font-bold text-emerald-600">
-                ※{preview.sendable}人へ配信されます
-                {preview.no_uid > 0 && (
-                  <span className="text-xs text-gray-400 font-normal ml-2">（UID無し{preview.no_uid}人）</span>
+          <div className="pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handlePreview}
+                disabled={loadingPreview}
+                className="px-4 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                {loadingPreview ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                    確認中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    該当者表示
+                  </>
                 )}
-              </span>
+              </button>
+              {preview && (
+                <span className="text-xs text-gray-400">
+                  条件: {includeConditions.length === 0 ? "全員" : `${includeConditions.length}件`}
+                  {excludeConditions.length > 0 && ` / 除外${excludeConditions.length}件`}
+                </span>
+              )}
+            </div>
+
+            {/* 人数表示（目立つ） */}
+            {preview && (
+              <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-bold text-emerald-700">※{preview.sendable}人</span>
+                  <span className="text-sm text-emerald-600">へ配信されます</span>
+                  {preview.no_uid > 0 && (
+                    <span className="text-xs text-gray-400 ml-auto">（UID無し{preview.no_uid}人）</span>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
