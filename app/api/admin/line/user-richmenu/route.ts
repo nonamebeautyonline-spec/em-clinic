@@ -8,6 +8,50 @@ const LINE_ACCESS_TOKEN =
   process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
   process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 
+// LINE APIからリッチメニュー詳細を取得
+async function fetchLineRichMenuDetail(richMenuId: string) {
+  if (!LINE_ACCESS_TOKEN) return null;
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/richmenu/${richMenuId}`, {
+      headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// DBまたはLINE APIからメニュー情報を構築
+async function resolveRichMenu(richMenuId: string, isDefault: boolean) {
+  // まずDBを確認
+  const { data: dbMenu } = await supabaseAdmin
+    .from("rich_menus")
+    .select("id, name, image_url, line_rich_menu_id")
+    .eq("line_rich_menu_id", richMenuId)
+    .maybeSingle();
+
+  if (dbMenu) {
+    return {
+      id: dbMenu.id,
+      name: dbMenu.name,
+      image_url: dbMenu.image_url,
+      line_rich_menu_id: dbMenu.line_rich_menu_id,
+      is_default: isDefault,
+    };
+  }
+
+  // DBになければLINE APIから名前を取得、画像はプロキシURLを使用
+  const detail = await fetchLineRichMenuDetail(richMenuId);
+  return {
+    line_rich_menu_id: richMenuId,
+    name: detail?.name || (isDefault ? "デフォルトメニュー" : "リッチメニュー"),
+    image_url: `/api/admin/line/richmenu-image?menu_id=${richMenuId}`,
+    is_default: isDefault,
+  };
+}
+
 // ユーザーに紐づくリッチメニューを取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -51,41 +95,13 @@ export async function GET(req: NextRequest) {
     const defaultMenuId = defaultData.richMenuId;
     if (!defaultMenuId) return NextResponse.json({ menu: null });
 
-    // DBからメニュー情報取得
-    const { data: dbMenu } = await supabaseAdmin
-      .from("rich_menus")
-      .select("id, name, image_url, line_rich_menu_id")
-      .eq("line_rich_menu_id", defaultMenuId)
-      .maybeSingle();
-
-    return NextResponse.json({
-      menu: dbMenu ? {
-        id: dbMenu.id,
-        name: dbMenu.name,
-        image_url: dbMenu.image_url,
-        line_rich_menu_id: dbMenu.line_rich_menu_id,
-        is_default: true,
-      } : { line_rich_menu_id: defaultMenuId, name: "デフォルトメニュー", image_url: null, is_default: true },
-    });
+    const menu = await resolveRichMenu(defaultMenuId, true);
+    return NextResponse.json({ menu });
   }
 
   const lineData = await lineRes.json();
   const richMenuId = lineData.richMenuId;
 
-  // DBからメニュー情報取得
-  const { data: dbMenu } = await supabaseAdmin
-    .from("rich_menus")
-    .select("id, name, image_url, line_rich_menu_id")
-    .eq("line_rich_menu_id", richMenuId)
-    .maybeSingle();
-
-  return NextResponse.json({
-    menu: dbMenu ? {
-      id: dbMenu.id,
-      name: dbMenu.name,
-      image_url: dbMenu.image_url,
-      line_rich_menu_id: dbMenu.line_rich_menu_id,
-      is_default: false,
-    } : { line_rich_menu_id: richMenuId, name: "不明なメニュー", image_url: null, is_default: false },
-  });
+  const menu = await resolveRichMenu(richMenuId, false);
+  return NextResponse.json({ menu });
 }
