@@ -48,14 +48,14 @@ interface Template {
   id: number; name: string; content: string; message_type: string;
 }
 
-const MARK_OPTIONS = [
-  { value: "none", label: "なし", color: "transparent", icon: "○" },
-  { value: "red", label: "未対応", color: "#EF4444", icon: "●" },
-  { value: "yellow", label: "対応中", color: "#EAB308", icon: "●" },
-  { value: "green", label: "対応済み", color: "#22C55E", icon: "●" },
-  { value: "blue", label: "重要", color: "#3B82F6", icon: "●" },
-  { value: "gray", label: "保留", color: "#6B7280", icon: "●" },
-];
+interface MarkDef {
+  id: number;
+  value: string;
+  label: string;
+  color: string;
+}
+
+const MARK_NONE: MarkDef = { id: 0, value: "none", label: "なし", color: "transparent" };
 
 type UpperTab = "home" | "tags";
 type LowerTab = "timeline" | "action" | "talk";
@@ -75,6 +75,7 @@ export default function FriendDetailPage() {
   const [patientFields, setPatientFields] = useState<FieldValue[]>([]);
   const [allTags, setAllTags] = useState<TagDef[]>([]);
   const [allFieldDefs, setAllFieldDefs] = useState<FieldDef[]>([]);
+  const [allMarks, setAllMarks] = useState<MarkDef[]>([]);
   const [messages, setMessages] = useState<MessageLog[]>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -104,7 +105,7 @@ export default function FriendDetailPage() {
 
   // ── データ取得 ──
   const fetchAll = useCallback(async () => {
-    const [detailRes, tagsRes, markRes, fieldsRes, logRes, allTagsRes, fieldDefsRes] = await Promise.all([
+    const [detailRes, tagsRes, markRes, fieldsRes, logRes, allTagsRes, fieldDefsRes, marksRes] = await Promise.all([
       fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(patientId)}&type=id`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/tags`, { credentials: "include" }),
       fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/mark`, { credentials: "include" }),
@@ -112,11 +113,12 @@ export default function FriendDetailPage() {
       fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(patientId)}&limit=${MSG_BATCH}`, { credentials: "include" }),
       fetch("/api/admin/tags", { credentials: "include" }),
       fetch("/api/admin/friend-fields", { credentials: "include" }),
+      fetch("/api/admin/line/marks", { credentials: "include" }),
     ]);
 
-    const [detailData, tagsData, markData, fieldsData, logData, allTagsData, fieldDefsData] = await Promise.all([
+    const [detailData, tagsData, markData, fieldsData, logData, allTagsData, fieldDefsData, marksData] = await Promise.all([
       detailRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(),
-      logRes.json(), allTagsRes.json(), fieldDefsRes.json(),
+      logRes.json(), allTagsRes.json(), fieldDefsRes.json(), marksRes.json(),
     ]);
 
     if (detailData.found) setDetail(detailData);
@@ -132,6 +134,7 @@ export default function FriendDetailPage() {
     }
     if (allTagsData.tags) setAllTags(allTagsData.tags);
     if (fieldDefsData.fields) setAllFieldDefs(fieldDefsData.fields);
+    if (marksData.marks) setAllMarks(marksData.marks);
     setLoading(false);
   }, [patientId]);
 
@@ -253,7 +256,7 @@ export default function FriendDetailPage() {
   };
 
   // ── ユーティリティ ──
-  const currentMark = MARK_OPTIONS.find(m => m.value === patientMark) || MARK_OPTIONS[0];
+  const currentMark = allMarks.find(m => m.value === patientMark) || MARK_NONE;
   const assignedTagIds = patientTags.map(t => t.tag_id);
   const availableTags = allTags.filter(t => !assignedTagIds.includes(t.id));
 
@@ -418,7 +421,7 @@ export default function FriendDetailPage() {
                     </button>
                     {showMarkDropdown && (
                       <div className="absolute z-20 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden w-36">
-                        {MARK_OPTIONS.map(m => (
+                        {allMarks.map(m => (
                           <button
                             key={m.value}
                             onClick={() => handleMarkChange(m.value)}

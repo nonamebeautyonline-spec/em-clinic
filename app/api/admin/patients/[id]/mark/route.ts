@@ -26,8 +26,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { mark, note } = await req.json();
 
-  const validMarks = ["none", "red", "yellow", "green", "blue", "gray"];
-  if (!validMarks.includes(mark)) return NextResponse.json({ error: "Invalid mark" }, { status: 400 });
+  // "none" は常に許可、それ以外は mark_definitions テーブルで検証
+  if (mark !== "none") {
+    const { data: markDef } = await supabaseAdmin
+      .from("mark_definitions")
+      .select("id")
+      .eq("value", mark)
+      .maybeSingle();
+    if (!markDef) return NextResponse.json({ error: "Invalid mark" }, { status: 400 });
+  }
 
   const { error } = await supabaseAdmin
     .from("patient_marks")

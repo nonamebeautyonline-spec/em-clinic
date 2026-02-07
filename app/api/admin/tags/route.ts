@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
   // タグごとの患者数を一括取得
   const { data: allPT } = await supabaseAdmin
     .from("patient_tags")
-    .select("tag_id");
+    .select("tag_id")
+    .limit(100000);
 
   const countMap = new Map<number, number>();
   for (const pt of allPT || []) {

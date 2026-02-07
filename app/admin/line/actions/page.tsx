@@ -41,14 +41,12 @@ interface Template {
   content: string;
 }
 
-const MARK_OPTIONS = [
-  { value: "none", label: "なし" },
-  { value: "red", label: "要対応" },
-  { value: "yellow", label: "対応中" },
-  { value: "green", label: "対応済み" },
-  { value: "blue", label: "重要" },
-  { value: "gray", label: "保留" },
-];
+interface MarkDef {
+  id: number;
+  value: string;
+  label: string;
+  color: string;
+}
 
 const STEP_TYPES = [
   { type: "send_text", label: "テキスト送信" },
@@ -80,9 +78,10 @@ export default function ActionsPage() {
   const [editingFolder, setEditingFolder] = useState<number | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
 
-  // タグ・テンプレート一覧
+  // タグ・テンプレート・マーク一覧
   const [allTags, setAllTags] = useState<TagDef[]>([]);
   const [allTemplates, setAllTemplates] = useState<Template[]>([]);
+  const [allMarks, setAllMarks] = useState<MarkDef[]>([]);
 
   const fetchFolders = useCallback(async () => {
     const res = await fetch("/api/admin/line/action-folders", { credentials: "include" });
@@ -105,9 +104,11 @@ export default function ActionsPage() {
       fetchFolders(),
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
-    ]).then(([, tagsData, tmplData]) => {
+      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
+    ]).then(([, tagsData, tmplData, marksData]) => {
       if (tagsData.tags) setAllTags(tagsData.tags);
       if (tmplData.templates) setAllTemplates(tmplData.templates);
+      if (marksData.marks) setAllMarks(marksData.marks);
       setLoading(false);
     });
   }, [fetchFolders]);
@@ -220,7 +221,7 @@ export default function ActionsPage() {
       case "send_template": return `テンプレート送信: ${step.template_name || `ID:${step.template_id}`}`;
       case "tag_add": return `タグ[${step.tag_name || `ID:${step.tag_id}`}]を追加`;
       case "tag_remove": return `タグ[${step.tag_name || `ID:${step.tag_id}`}]を解除`;
-      case "mark_change": return `対応マークを「${MARK_OPTIONS.find(m => m.value === step.mark)?.label || step.mark}」に変更`;
+      case "mark_change": return `対応マークを「${allMarks.find(m => m.value === step.mark)?.label || step.mark}」に変更`;
       default: return "不明な動作";
     }
   };
@@ -533,7 +534,7 @@ export default function ActionsPage() {
                             onChange={e => updateStep(i, { mark: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20"
                           >
-                            {MARK_OPTIONS.map(m => (
+                            {allMarks.map(m => (
                               <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
                           </select>

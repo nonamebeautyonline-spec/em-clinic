@@ -32,6 +32,13 @@ interface FilterCondition {
   value?: string;
 }
 
+interface MarkDef {
+  id: number;
+  value: string;
+  label: string;
+  color: string;
+}
+
 interface Broadcast {
   id: number;
   name: string;
@@ -45,14 +52,6 @@ interface Broadcast {
   sent_at: string | null;
 }
 
-const MARK_OPTIONS = [
-  { value: "red", label: "要対応", color: "#EF4444" },
-  { value: "yellow", label: "対応中", color: "#EAB308" },
-  { value: "green", label: "対応済み", color: "#22C55E" },
-  { value: "blue", label: "重要", color: "#3B82F6" },
-  { value: "gray", label: "保留", color: "#6B7280" },
-];
-
 const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
   draft: { text: "下書き", bg: "bg-gray-50", textColor: "text-gray-600", dot: "bg-gray-400" },
   scheduled: { text: "予約済み", bg: "bg-blue-50", textColor: "text-blue-700", dot: "bg-blue-500" },
@@ -63,6 +62,7 @@ const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: st
 
 export default function BroadcastSendPage() {
   const [tags, setTags] = useState<Tag[]>([]);
+  const [marks, setMarks] = useState<MarkDef[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
 
   // 一斉配信フィルタ
@@ -116,10 +116,12 @@ export default function BroadcastSendPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/broadcast", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, templatesData, broadcastData]) => {
+    ]).then(([tagsData, marksData, templatesData, broadcastData]) => {
       if (tagsData.tags) setTags(tagsData.tags);
+      if (marksData.marks) setMarks(marksData.marks);
       if (templatesData.templates) setTemplates(templatesData.templates);
       if (broadcastData.broadcasts) setBroadcasts(broadcastData.broadcasts);
       setLoadingHistory(false);
@@ -301,6 +303,7 @@ export default function BroadcastSendPage() {
                     key={i}
                     condition={c}
                     tags={tags}
+                    marks={marks}
                     onUpdate={(updates) => updateCondition("include", i, updates)}
                     onRemove={() => removeCondition("include", i)}
                   />
@@ -337,6 +340,7 @@ export default function BroadcastSendPage() {
                     key={i}
                     condition={c}
                     tags={tags}
+                    marks={marks}
                     onUpdate={(updates) => updateCondition("exclude", i, updates)}
                     onRemove={() => removeCondition("exclude", i)}
                     isExclude
@@ -773,12 +777,14 @@ export default function BroadcastSendPage() {
 function ConditionRow({
   condition,
   tags,
+  marks,
   onUpdate,
   onRemove,
   isExclude,
 }: {
   condition: FilterCondition;
   tags: Tag[];
+  marks: MarkDef[];
   onUpdate: (updates: Partial<FilterCondition>) => void;
   onRemove: () => void;
   isExclude?: boolean;
@@ -823,7 +829,7 @@ function ConditionRow({
           onChange={(e) => onUpdate({ values: [e.target.value] })}
           className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
         >
-          {MARK_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          {marks.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
       )}
 
