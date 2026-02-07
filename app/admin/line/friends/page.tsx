@@ -33,10 +33,11 @@ export default function FriendsListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // 一括操作
-  const [bulkMarkOpen, setBulkMarkOpen] = useState(false);
-  const [bulkTagAddOpen, setBulkTagAddOpen] = useState(false);
-  const [bulkTagRemoveOpen, setBulkTagRemoveOpen] = useState(false);
+  const [bulkTab, setBulkTab] = useState<"mark" | "tag">("mark");
+  const [bulkTagAction, setBulkTagAction] = useState<"add" | "remove">("add");
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkSelectedMark, setBulkSelectedMark] = useState("");
+  const [bulkSelectedTag, setBulkSelectedTag] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -58,12 +59,7 @@ export default function FriendsListPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
-    const close = () => {
-      setOpenMarkDropdown(null);
-      setBulkMarkOpen(false);
-      setBulkTagAddOpen(false);
-      setBulkTagRemoveOpen(false);
-    };
+    const close = () => setOpenMarkDropdown(null);
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
@@ -124,32 +120,30 @@ export default function FriendsListPage() {
     setEditingFields(fieldMap);
   };
 
-  // 一括操作
-  const handleBulkMark = async (mark: string) => {
-    setBulkMarkOpen(false);
-    if (selectedIds.size === 0) return;
+  // 一括操作実行
+  const handleBulkMarkExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedMark) return;
     setBulkProcessing(true);
     await fetch("/api/admin/patients/bulk/mark", {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-      body: JSON.stringify({ patient_ids: [...selectedIds], mark }),
+      body: JSON.stringify({ patient_ids: [...selectedIds], mark: bulkSelectedMark }),
     });
-    // ローカル更新
-    setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark } : p));
+    setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark: bulkSelectedMark } : p));
     setSelectedIds(new Set());
+    setBulkSelectedMark("");
     setBulkProcessing(false);
   };
 
-  const handleBulkTag = async (tagId: number, action: "add" | "remove") => {
-    setBulkTagAddOpen(false);
-    setBulkTagRemoveOpen(false);
-    if (selectedIds.size === 0) return;
+  const handleBulkTagExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedTag) return;
     setBulkProcessing(true);
     await fetch("/api/admin/patients/bulk/tags", {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-      body: JSON.stringify({ patient_ids: [...selectedIds], tag_id: tagId, action }),
+      body: JSON.stringify({ patient_ids: [...selectedIds], tag_id: bulkSelectedTag, action: bulkTagAction }),
     });
     await fetchData();
     setSelectedIds(new Set());
+    setBulkSelectedTag(null);
     setBulkProcessing(false);
   };
 
@@ -353,91 +347,115 @@ export default function FriendsListPage() {
         </div>
       )}
 
-      {/* 一括操作バー */}
+      {/* 友だち一括操作パネル */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-800 border-t border-slate-700 shadow-2xl">
-          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-3 flex items-center gap-4">
-            <span className="text-white text-sm font-medium">
-              {selectedIds.size}人選択中
-            </span>
-            <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white text-xs underline">
+        <div className="sticky bottom-0 z-30 bg-slate-800 border-t border-slate-700 shadow-2xl rounded-t-2xl mt-6">
+          {/* ヘッダー: 選択数 + 選択解除 */}
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-700">
+            <span className="text-white text-sm font-bold">友だち一括操作</span>
+            <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedIds.size}人選択中</span>
+            <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white text-xs ml-1">
               選択解除
             </button>
-            <div className="flex-1" />
-
-            {/* 対応マーク一括変更 */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => { setBulkMarkOpen(!bulkMarkOpen); setBulkTagAddOpen(false); setBulkTagRemoveOpen(false); }}
-                disabled={bulkProcessing}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <span className="w-3 h-3 rounded-full bg-gradient-to-br from-red-400 to-blue-400" />
-                対応マーク
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              {bulkMarkOpen && (
-                <div className="absolute bottom-full mb-1 left-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[140px]">
-                  {markDefs.map(m => (
-                    <button key={m.value} onClick={() => handleBulkMark(m.value)} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
-                      <span className="w-4 h-4 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* タグ一括追加 */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => { setBulkTagAddOpen(!bulkTagAddOpen); setBulkMarkOpen(false); setBulkTagRemoveOpen(false); }}
-                disabled={bulkProcessing}
-                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                + タグ追加
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              {bulkTagAddOpen && (
-                <div className="absolute bottom-full mb-1 right-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto">
-                  {allTags.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-400">タグがありません</div>
-                  ) : allTags.map(t => (
-                    <button key={t.id} onClick={() => handleBulkTag(t.id, "add")} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
-                      <span className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* タグ一括削除 */}
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => { setBulkTagRemoveOpen(!bulkTagRemoveOpen); setBulkMarkOpen(false); setBulkTagAddOpen(false); }}
-                disabled={bulkProcessing}
-                className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                - タグ削除
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-              </button>
-              {bulkTagRemoveOpen && (
-                <div className="absolute bottom-full mb-1 right-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto">
-                  {allTags.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-400">タグがありません</div>
-                  ) : allTags.map(t => (
-                    <button key={t.id} onClick={() => handleBulkTag(t.id, "remove")} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
-                      <span className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {bulkProcessing && (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="ml-auto w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+          </div>
+
+          {/* タブ */}
+          <div className="flex items-center border-b border-slate-700 px-2">
+            <button
+              onClick={() => setBulkTab("mark")}
+              className={`px-4 py-2.5 text-xs font-medium transition-colors relative ${
+                bulkTab === "mark" ? "text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              対応マーク
+              {bulkTab === "mark" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-400 rounded-full" />}
+            </button>
+            <button
+              onClick={() => setBulkTab("tag")}
+              className={`px-4 py-2.5 text-xs font-medium transition-colors relative ${
+                bulkTab === "tag" ? "text-white" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              タグ
+              {bulkTab === "tag" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-400 rounded-full" />}
+            </button>
+          </div>
+
+          {/* タブコンテンツ */}
+          <div className="px-5 py-4">
+            {bulkTab === "mark" && (
+              <div>
+                <p className="text-slate-300 text-xs mb-3">チェックした友だちの対応マークを変更</p>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkSelectedMark}
+                    onChange={(e) => setBulkSelectedMark(e.target.value)}
+                    className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">マークを選択...</option>
+                    {markDefs.map(m => (
+                      <option key={m.value} value={m.value}>{m.icon} {m.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkMarkExec}
+                    disabled={bulkProcessing || !bulkSelectedMark}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    変更
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {bulkTab === "tag" && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => setBulkTagAction("add")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      bulkTagAction === "add" ? "bg-emerald-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                    }`}
+                  >
+                    追加
+                  </button>
+                  <button
+                    onClick={() => setBulkTagAction("remove")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      bulkTagAction === "remove" ? "bg-rose-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                    }`}
+                  >
+                    削除
+                  </button>
+                  <span className="text-slate-400 text-xs ml-1">
+                    チェックした友だちのタグを{bulkTagAction === "add" ? "追加" : "削除"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkSelectedTag || ""}
+                    onChange={(e) => setBulkSelectedTag(e.target.value ? Number(e.target.value) : null)}
+                    className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">タグを選択...</option>
+                    {allTags.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkTagExec}
+                    disabled={bulkProcessing || !bulkSelectedTag}
+                    className={`px-5 py-2 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      bulkTagAction === "add" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-rose-600 hover:bg-rose-500"
+                    }`}
+                  >
+                    {bulkTagAction === "add" ? "追加" : "削除"}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
