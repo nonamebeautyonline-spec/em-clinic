@@ -93,7 +93,8 @@ export async function GET(req: NextRequest) {
       const { data: patients } = await supabase
         .from("intake")
         .select("patient_id, patient_name")
-        .in("patient_id", patientIds);
+        .in("patient_id", patientIds)
+        .limit(100000);
 
       (patients || []).forEach((p: any) => {
         patientNameMap[p.patient_id] = p.patient_name || "";
@@ -106,7 +107,8 @@ export async function GET(req: NextRequest) {
       const { data: allOrders } = await supabase
         .from("orders")
         .select("patient_id")
-        .in("patient_id", patientIds);
+        .in("patient_id", patientIds)
+        .limit(100000);
 
       // 患者IDごとにカウント
       (allOrders || []).forEach((order: any) => {

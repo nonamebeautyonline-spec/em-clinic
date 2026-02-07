@@ -14,7 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .from("patient_tags")
     .select("patient_id, assigned_at")
     .eq("tag_id", Number(id))
-    .order("assigned_at", { ascending: false });
+    .order("assigned_at", { ascending: false })
+    .limit(100000);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -26,7 +27,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .from("intake")
     .select("patient_id, patient_name, line_id")
     .in("patient_id", patientIds)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100000);
 
   // patient_idでユニーク化（最新優先）
   const nameMap = new Map<string, { name: string; has_line: boolean }>();

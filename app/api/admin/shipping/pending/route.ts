@@ -57,7 +57,8 @@ export async function GET(req: NextRequest) {
       .is("shipping_date", null)
       .eq("status", "confirmed")
       .gte("paid_at", cutoffISO)
-      .order("paid_at", { ascending: false });
+      .order("paid_at", { ascending: false })
+      .limit(100000);
 
     const { data: ordersPending, error: ordersPendingError } = await supabase
       .from("orders")
@@ -66,7 +67,8 @@ export async function GET(req: NextRequest) {
       .eq("status", "pending_confirmation")
       .eq("payment_method", "bank_transfer")
       .gte("created_at", cutoffISO)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100000);
 
     // ★ 本日手動で発送リストに追加された注文（発送漏れ対応）
     const { data: ordersManuallyAdded, error: ordersManuallyAddedError } = await supabase
@@ -75,7 +77,8 @@ export async function GET(req: NextRequest) {
       .is("shipping_date", null)
       .gte("shipping_list_created_at", todayStartISO)
       .lt("shipping_list_created_at", tomorrowStartISO)
-      .order("shipping_list_created_at", { ascending: false });
+      .order("shipping_list_created_at", { ascending: false })
+      .limit(100000);
 
     const ordersError = ordersConfirmedError || ordersPendingError || ordersManuallyAddedError;
 
@@ -114,7 +117,8 @@ export async function GET(req: NextRequest) {
       const { data: patients } = await supabase
         .from("intake")
         .select("patient_id, patient_name, answerer_id")
-        .in("patient_id", patientIds);
+        .in("patient_id", patientIds)
+        .limit(100000);
 
       (patients || []).forEach((p: any) => {
         patientInfoMap[p.patient_id] = {
@@ -130,7 +134,8 @@ export async function GET(req: NextRequest) {
       const { data: allOrders } = await supabase
         .from("orders")
         .select("patient_id")
-        .in("patient_id", patientIds);
+        .in("patient_id", patientIds)
+        .limit(100000);
 
       // 患者IDごとにカウント
       (allOrders || []).forEach((order: any) => {

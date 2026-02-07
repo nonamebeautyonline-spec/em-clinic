@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
         .gte("reserved_date", fromParam)
         .neq("status", "canceled")
         .order("reserved_date", { ascending: true })
-        .order("reserved_time", { ascending: true });
+        .order("reserved_time", { ascending: true })
+        .limit(100000);
 
       if (futureError) {
         console.error("Supabase reservations error:", futureError);
@@ -69,7 +70,8 @@ export async function GET(req: NextRequest) {
         .gte("reserved_date", startDate)
         .lte("reserved_date", endDate)
         .order("reserved_date", { ascending: true })
-        .order("reserved_time", { ascending: true });
+        .order("reserved_time", { ascending: true })
+        .limit(100000);
 
       if (monthError) {
         console.error("Supabase reservations error:", monthError);
@@ -107,7 +109,8 @@ export async function GET(req: NextRequest) {
       .from("reservations")
       .select("reserve_id")
       .eq("reserved_date", targetDate)
-      .neq("status", "canceled");
+      .neq("status", "canceled")
+      .limit(100000);
 
     const validReserveIds = reservationsData
       ? new Set(reservationsData.map((r: any) => r.reserve_id))
@@ -121,7 +124,8 @@ export async function GET(req: NextRequest) {
       .select("*")
       .eq("reserved_date", targetDate)
       .not("reserved_date", "is", null)
-      .order("reserved_time", { ascending: true });
+      .order("reserved_time", { ascending: true })
+      .limit(100000);
 
     if (error) {
       console.error("Supabase intake error:", error);

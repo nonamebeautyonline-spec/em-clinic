@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
       .from("orders")
       .select("product_code, patient_id")
       .gte("shipping_date", todayStartISO.split("T")[0])
-      .lt("shipping_date", todayEndISO.split("T")[0]);
+      .lt("shipping_date", todayEndISO.split("T")[0])
+      .limit(100000);
 
     const todayShippingTotal = todayShippingData?.length || 0;
 
@@ -74,7 +75,8 @@ export async function GET(request: NextRequest) {
       .select("amount")
       .eq("payment_method", "card")
       .gte("paid_at", todayStartISO)
-      .lt("paid_at", todayEndISO);
+      .lt("paid_at", todayEndISO)
+      .limit(100000);
 
     const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
 
@@ -84,7 +86,8 @@ export async function GET(request: NextRequest) {
       .select("amount")
       .eq("payment_method", "bank_transfer")
       .gte("paid_at", todayStartISO)
-      .lt("paid_at", todayEndISO);
+      .lt("paid_at", todayEndISO)
+      .limit(100000);
 
     const todayBankTransferRevenue =
       bankTransferOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
@@ -95,7 +98,8 @@ export async function GET(request: NextRequest) {
     const { data: monthOrders } = await supabase
       .from("orders")
       .select("patient_id")
-      .gte("paid_at", monthStartISO);
+      .gte("paid_at", monthStartISO)
+      .limit(100000);
 
     const monthPatientIds = monthOrders?.map((o) => o.patient_id) || [];
     let monthReorderCount = 0;

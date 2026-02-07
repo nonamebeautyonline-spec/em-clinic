@@ -67,14 +67,16 @@ export async function GET(request: NextRequest) {
       .select("patient_id")
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
-      .eq("status", "OK");
+      .eq("status", "OK")
+      .limit(100000);
 
     const { data: completedPatientsNG } = await supabase
       .from("reservations")
       .select("patient_id")
       .gte("reserved_date", reservationStartDate)
       .lt("reserved_date", reservationEndDate)
-      .eq("status", "NG");
+      .eq("status", "NG")
+      .limit(100000);
 
     // ユニークな患者IDを集計
     const allCompletedPatientIds = [
@@ -143,7 +145,8 @@ export async function GET(request: NextRequest) {
         .from("orders")
         .select("patient_id")
         .in("patient_id", uniquePatientIds)
-        .lt("created_at", startISO);
+        .lt("created_at", startISO)
+        .limit(100000);
 
       const previousPatientSet = new Set(previousOrders?.map((o) => o.patient_id) || []);
 
@@ -250,7 +253,8 @@ export async function GET(request: NextRequest) {
           .from("orders")
           .select("patient_id")
           .in("patient_id", uniquePaidPatientIds)
-          .lt("created_at", startISO);
+          .lt("created_at", startISO)
+          .limit(100000);
 
         const previousPatientSet = new Set(previousOrders?.map(o => o.patient_id) || []);
 
@@ -385,7 +389,8 @@ export async function GET(request: NextRequest) {
         .from("orders")
         .select("patient_id")
         .in("patient_id", uniqueConsultedIds)
-        .not("paid_at", "is", null);
+        .not("paid_at", "is", null)
+        .limit(100000);
 
       paidPatientCount = new Set(paidOrders?.map(o => o.patient_id) || []).size;
     }
@@ -428,7 +433,8 @@ export async function GET(request: NextRequest) {
       const { data: reservations } = await supabase
         .from("reservations")
         .select("patient_id")
-        .in("patient_id", uniqueIntakeIds);
+        .in("patient_id", uniqueIntakeIds)
+        .limit(100000);
 
       reservedPatientCount = new Set(reservations?.map(r => r.patient_id) || []).size;
     }

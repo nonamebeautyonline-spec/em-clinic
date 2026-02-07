@@ -25,7 +25,8 @@ export async function GET(req: Request) {
           .select("reserve_id")
           .gte("reserved_date", fromDate)
           .lte("reserved_date", toDate)
-          .neq("status", "canceled");
+          .neq("status", "canceled")
+          .limit(100000);
 
         if (reservationsData) {
           validReserveIds = new Set(reservationsData.map((r: any) => r.reserve_id));
@@ -36,7 +37,8 @@ export async function GET(req: Request) {
       let query = supabase
         .from("intake")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(100000);
 
       // 日付フィルタ（reserved_dateで絞り込み）
       if (fromDate && toDate) {
