@@ -6,6 +6,9 @@ interface Tag { id: number; name: string; color: string; }
 interface PatientRow { patient_id: string; patient_name: string; line_id: string | null; mark: string; tags: Tag[]; fields: Record<string, string>; }
 interface FieldDef { id: number; name: string; field_type: string; options?: string[]; }
 interface MarkDef { id: number; value: string; label: string; color: string; icon: string; }
+interface Template { id: number; name: string; content: string; }
+interface ActionDef { id: number; name: string; }
+interface RichMenuDef { id: number; name: string; line_rich_menu_id: string | null; is_active: boolean; }
 
 const PAGE_SIZE = 50;
 
@@ -14,6 +17,9 @@ export default function FriendsListPage() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [fieldDefs, setFieldDefs] = useState<FieldDef[]>([]);
   const [markDefs, setMarkDefs] = useState<MarkDef[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [actions, setActions] = useState<ActionDef[]>([]);
+  const [richMenus, setRichMenus] = useState<RichMenuDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTag, setFilterTag] = useState<number | null>(null);
   const [filterMark, setFilterMark] = useState<string>("");
@@ -33,27 +39,40 @@ export default function FriendsListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // 一括操作
-  const [bulkTab, setBulkTab] = useState<"mark" | "tag">("mark");
+  type BulkTabType = "mark" | "template" | "tag" | "field" | "action" | "menu";
+  const [bulkTab, setBulkTab] = useState<BulkTabType>("mark");
   const [bulkTagAction, setBulkTagAction] = useState<"add" | "remove">("add");
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [bulkSelectedMark, setBulkSelectedMark] = useState("");
   const [bulkSelectedTag, setBulkSelectedTag] = useState<number | null>(null);
+  const [bulkSelectedTemplate, setBulkSelectedTemplate] = useState<number | null>(null);
+  const [bulkSelectedField, setBulkSelectedField] = useState<number | null>(null);
+  const [bulkFieldValue, setBulkFieldValue] = useState("");
+  const [bulkSelectedAction, setBulkSelectedAction] = useState<number | null>(null);
+  const [bulkSelectedMenu, setBulkSelectedMenu] = useState<number | null>(null);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [patientsRes, tagsRes, fieldsRes, marksRes] = await Promise.all([
+    const [patientsRes, tagsRes, fieldsRes, marksRes, templatesRes, actionsRes, menusRes] = await Promise.all([
       fetch("/api/admin/line/friends-list", { credentials: "include" }),
       fetch("/api/admin/tags", { credentials: "include" }),
       fetch("/api/admin/friend-fields", { credentials: "include" }),
       fetch("/api/admin/line/marks", { credentials: "include" }),
+      fetch("/api/admin/line/templates", { credentials: "include" }),
+      fetch("/api/admin/line/actions", { credentials: "include" }),
+      fetch("/api/admin/line/rich-menus", { credentials: "include" }),
     ]);
-    const [patientsData, tagsData, fieldsData, marksData] = await Promise.all([
-      patientsRes.json(), tagsRes.json(), fieldsRes.json(), marksRes.json(),
+    const [patientsData, tagsData, fieldsData, marksData, templatesData, actionsData, menusData] = await Promise.all([
+      patientsRes.json(), tagsRes.json(), fieldsRes.json(), marksRes.json(), templatesRes.json(), actionsRes.json(), menusRes.json(),
     ]);
     if (patientsData.patients) setPatients(patientsData.patients);
     if (tagsData.tags) setAllTags(tagsData.tags);
     if (fieldsData.fields) setFieldDefs(fieldsData.fields);
     if (marksData.marks) setMarkDefs(marksData.marks);
+    if (templatesData.templates) setTemplates(templatesData.templates);
+    if (actionsData.actions) setActions(actionsData.actions);
+    if (menusData.menus) setRichMenus(menusData.menus);
     setLoading(false);
   }, []);
 
@@ -124,11 +143,14 @@ export default function FriendsListPage() {
   const handleBulkMarkExec = async () => {
     if (selectedIds.size === 0 || !bulkSelectedMark) return;
     setBulkProcessing(true);
+    setBulkResult(null);
     await fetch("/api/admin/patients/bulk/mark", {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ patient_ids: [...selectedIds], mark: bulkSelectedMark }),
     });
+    const markLabel = markDefs.find(m => m.value === bulkSelectedMark)?.label || bulkSelectedMark;
     setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark: bulkSelectedMark } : p));
+    setBulkResult(`${selectedIds.size}人の対応マークを「${markLabel}」に変更しました`);
     setSelectedIds(new Set());
     setBulkSelectedMark("");
     setBulkProcessing(false);
@@ -137,13 +159,86 @@ export default function FriendsListPage() {
   const handleBulkTagExec = async () => {
     if (selectedIds.size === 0 || !bulkSelectedTag) return;
     setBulkProcessing(true);
+    setBulkResult(null);
     await fetch("/api/admin/patients/bulk/tags", {
       method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ patient_ids: [...selectedIds], tag_id: bulkSelectedTag, action: bulkTagAction }),
     });
     await fetchData();
+    setBulkResult(`${selectedIds.size}人のタグを${bulkTagAction === "add" ? "追加" : "削除"}しました`);
     setSelectedIds(new Set());
     setBulkSelectedTag(null);
+    setBulkProcessing(false);
+  };
+
+  const handleBulkTemplateExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedTemplate) return;
+    if (!confirm(`${selectedIds.size}人にテンプレートメッセージを送信しますか？`)) return;
+    setBulkProcessing(true);
+    setBulkResult(null);
+    const res = await fetch("/api/admin/patients/bulk/send", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], template_id: bulkSelectedTemplate }),
+    });
+    const data = await res.json();
+    setBulkResult(`送信完了: 成功${data.sent}件 / 失敗${data.failed}件 / UID無し${data.no_uid}件`);
+    setSelectedIds(new Set());
+    setBulkSelectedTemplate(null);
+    setBulkProcessing(false);
+  };
+
+  const handleBulkFieldExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedField) return;
+    setBulkProcessing(true);
+    setBulkResult(null);
+    await fetch("/api/admin/patients/bulk/fields", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], field_id: bulkSelectedField, value: bulkFieldValue }),
+    });
+    await fetchData();
+    setBulkResult(`${selectedIds.size}人の友だち情報を更新しました`);
+    setSelectedIds(new Set());
+    setBulkSelectedField(null);
+    setBulkFieldValue("");
+    setBulkProcessing(false);
+  };
+
+  const handleBulkActionExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedAction) return;
+    const actionName = actions.find(a => a.id === bulkSelectedAction)?.name || "";
+    if (!confirm(`${selectedIds.size}人にアクション「${actionName}」を実行しますか？`)) return;
+    setBulkProcessing(true);
+    setBulkResult(null);
+    const res = await fetch("/api/admin/patients/bulk/action", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], action_id: bulkSelectedAction }),
+    });
+    const data = await res.json();
+    setBulkResult(`アクション実行完了: 成功${data.success}件 / 失敗${data.failed}件`);
+    await fetchData();
+    setSelectedIds(new Set());
+    setBulkSelectedAction(null);
+    setBulkProcessing(false);
+  };
+
+  const handleBulkMenuExec = async () => {
+    if (selectedIds.size === 0 || !bulkSelectedMenu) return;
+    const menuName = richMenus.find(m => m.id === bulkSelectedMenu)?.name || "";
+    if (!confirm(`${selectedIds.size}人にリッチメニュー「${menuName}」を割り当てますか？`)) return;
+    setBulkProcessing(true);
+    setBulkResult(null);
+    const res = await fetch("/api/admin/patients/bulk/menu", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], rich_menu_id: bulkSelectedMenu }),
+    });
+    const data = await res.json();
+    if (data.error && !data.ok) {
+      setBulkResult(`エラー: ${data.error}`);
+    } else {
+      setBulkResult(`メニュー割り当て完了: 成功${data.linked}件 / 失敗${data.failed}件 / UID無し${data.no_uid}件`);
+    }
+    setSelectedIds(new Set());
+    setBulkSelectedMenu(null);
     setBulkProcessing(false);
   };
 
@@ -354,38 +449,43 @@ export default function FriendsListPage() {
           <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-700">
             <span className="text-white text-sm font-bold">友だち一括操作</span>
             <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedIds.size}人選択中</span>
-            <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white text-xs ml-1">
+            <button onClick={() => { setSelectedIds(new Set()); setBulkResult(null); }} className="text-slate-400 hover:text-white text-xs ml-1">
               選択解除
             </button>
             {bulkProcessing && (
               <div className="ml-auto w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             )}
+            {bulkResult && !bulkProcessing && (
+              <span className="ml-auto text-emerald-400 text-xs font-medium">{bulkResult}</span>
+            )}
           </div>
 
           {/* タブ */}
-          <div className="flex items-center border-b border-slate-700 px-2">
-            <button
-              onClick={() => setBulkTab("mark")}
-              className={`px-4 py-2.5 text-xs font-medium transition-colors relative ${
-                bulkTab === "mark" ? "text-white" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              対応マーク
-              {bulkTab === "mark" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-400 rounded-full" />}
-            </button>
-            <button
-              onClick={() => setBulkTab("tag")}
-              className={`px-4 py-2.5 text-xs font-medium transition-colors relative ${
-                bulkTab === "tag" ? "text-white" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              タグ
-              {bulkTab === "tag" && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-400 rounded-full" />}
-            </button>
+          <div className="flex items-center border-b border-slate-700 px-2 overflow-x-auto">
+            {([
+              { key: "mark" as BulkTabType, label: "対応マーク" },
+              { key: "template" as BulkTabType, label: "テンプレート送信" },
+              { key: "tag" as BulkTabType, label: "タグ" },
+              { key: "field" as BulkTabType, label: "友だち情報" },
+              { key: "menu" as BulkTabType, label: "メニュー" },
+              { key: "action" as BulkTabType, label: "アクション" },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setBulkTab(tab.key); setBulkResult(null); }}
+                className={`px-4 py-2.5 text-xs font-medium transition-colors relative whitespace-nowrap ${
+                  bulkTab === tab.key ? "text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {tab.label}
+                {bulkTab === tab.key && <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-emerald-400 rounded-full" />}
+              </button>
+            ))}
           </div>
 
           {/* タブコンテンツ */}
           <div className="px-5 py-4">
+            {/* 対応マーク */}
             {bulkTab === "mark" && (
               <div>
                 <p className="text-slate-300 text-xs mb-3">チェックした友だちの対応マークを変更</p>
@@ -411,6 +511,41 @@ export default function FriendsListPage() {
               </div>
             )}
 
+            {/* テンプレート送信 */}
+            {bulkTab === "template" && (
+              <div>
+                <p className="text-slate-300 text-xs mb-3">チェックした友だちにテンプレートメッセージを送信</p>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkSelectedTemplate || ""}
+                    onChange={(e) => setBulkSelectedTemplate(e.target.value ? Number(e.target.value) : null)}
+                    className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">テンプレートを選択...</option>
+                    {templates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkTemplateExec}
+                    disabled={bulkProcessing || !bulkSelectedTemplate}
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    送信
+                  </button>
+                </div>
+                {bulkSelectedTemplate && (
+                  <div className="mt-3 p-3 bg-slate-700/50 rounded-lg">
+                    <p className="text-slate-400 text-[10px] uppercase tracking-wider mb-1">プレビュー</p>
+                    <p className="text-slate-200 text-xs whitespace-pre-wrap leading-relaxed">
+                      {templates.find(t => t.id === bulkSelectedTemplate)?.content || ""}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* タグ */}
             {bulkTab === "tag" && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -453,6 +588,112 @@ export default function FriendsListPage() {
                     }`}
                   >
                     {bulkTagAction === "add" ? "追加" : "削除"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 友だち情報 */}
+            {bulkTab === "field" && (
+              <div>
+                <p className="text-slate-300 text-xs mb-3">チェックした友だちの情報フィールドを一括更新</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <select
+                    value={bulkSelectedField || ""}
+                    onChange={(e) => { setBulkSelectedField(e.target.value ? Number(e.target.value) : null); setBulkFieldValue(""); }}
+                    className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 min-w-[160px]"
+                  >
+                    <option value="">フィールドを選択...</option>
+                    {fieldDefs.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                  {bulkSelectedField && (() => {
+                    const fd = fieldDefs.find(f => f.id === bulkSelectedField);
+                    if (!fd) return null;
+                    if (fd.field_type === "select") {
+                      return (
+                        <select
+                          value={bulkFieldValue}
+                          onChange={(e) => setBulkFieldValue(e.target.value)}
+                          className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        >
+                          <option value="">値を選択...</option>
+                          {fd.options?.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      );
+                    }
+                    return (
+                      <input
+                        type={fd.field_type === "number" ? "number" : fd.field_type === "date" ? "date" : "text"}
+                        value={bulkFieldValue}
+                        onChange={(e) => setBulkFieldValue(e.target.value)}
+                        placeholder="値を入力..."
+                        className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      />
+                    );
+                  })()}
+                  <button
+                    onClick={handleBulkFieldExec}
+                    disabled={bulkProcessing || !bulkSelectedField}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    更新
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* メニュー */}
+            {bulkTab === "menu" && (
+              <div>
+                <p className="text-slate-300 text-xs mb-3">チェックした友だちにリッチメニューを割り当て</p>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkSelectedMenu || ""}
+                    onChange={(e) => setBulkSelectedMenu(e.target.value ? Number(e.target.value) : null)}
+                    className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">リッチメニューを選択...</option>
+                    {richMenus.filter(m => m.line_rich_menu_id).map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkMenuExec}
+                    disabled={bulkProcessing || !bulkSelectedMenu}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    割り当て
+                  </button>
+                </div>
+                {richMenus.filter(m => m.line_rich_menu_id).length === 0 && (
+                  <p className="text-slate-400 text-xs mt-2">LINE登録済みのリッチメニューがありません。リッチメニュー設定から先にLINEに登録してください。</p>
+                )}
+              </div>
+            )}
+
+            {/* アクション */}
+            {bulkTab === "action" && (
+              <div>
+                <p className="text-slate-300 text-xs mb-3">チェックした友だちにアクションを一括実行</p>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={bulkSelectedAction || ""}
+                    onChange={(e) => setBulkSelectedAction(e.target.value ? Number(e.target.value) : null)}
+                    className="flex-1 max-w-xs px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  >
+                    <option value="">アクションを選択...</option>
+                    {actions.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkActionExec}
+                    disabled={bulkProcessing || !bulkSelectedAction}
+                    className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    実行
                   </button>
                 </div>
               </div>
