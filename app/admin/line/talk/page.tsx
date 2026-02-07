@@ -1034,12 +1034,6 @@ export default function TalkPage() {
                 </span>
               )}
               <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => inputRef.current?.focus()}
-                  className="px-3 py-1.5 bg-[#00B900] text-white rounded-lg text-[11px] font-medium hover:bg-[#009900] transition-colors"
-                >
-                  個別返信
-                </button>
                 <Link
                   href={`/admin/line/friends/${encodeURIComponent(selectedPatient.patient_id)}`}
                   className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-[11px] font-medium hover:bg-gray-50 transition-colors flex items-center gap-1"

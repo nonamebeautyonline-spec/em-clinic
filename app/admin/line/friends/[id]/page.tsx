@@ -691,8 +691,73 @@ export default function FriendDetailPage() {
           </div>
         )}
 
-        {/* ===== 下部セクション ===== */}
+        {/* ===== クイック返信 ===== */}
         <div className="mt-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="grid grid-cols-2 gap-6">
+              {/* クイック返信 */}
+              <div>
+                <h4 className="text-xs font-bold text-gray-500 mb-2">クイック返信</h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleQuickSend}
+                    disabled={sending || !quickMessage.trim()}
+                    className="px-4 py-2 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-lg text-xs font-medium disabled:opacity-40 shadow-sm transition-all flex-shrink-0"
+                  >
+                    個別返信
+                  </button>
+                  <input
+                    type="text"
+                    value={quickMessage}
+                    onChange={(e) => setQuickMessage(e.target.value)}
+                    placeholder="テキストを入力"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleQuickSend(); }}
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors">
+                    拡大して入力
+                  </button>
+                  <button
+                    onClick={handleQuickSend}
+                    disabled={sending || !quickMessage.trim()}
+                    className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors disabled:opacity-40"
+                  >
+                    送信
+                  </button>
+                </div>
+              </div>
+
+              {/* テンプレート送信 */}
+              <div>
+                <h4 className="text-xs font-bold text-gray-500 mb-2">テンプレート送信</h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={openTemplatePicker}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-500 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    テンプレート名を入力
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={openTemplatePicker}
+                    className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors"
+                  >
+                    コピーして編集
+                  </button>
+                  <button
+                    onClick={openTemplatePicker}
+                    className="text-[10px] text-[#06C755] hover:text-[#05a648] border border-[#06C755] rounded px-2 py-1 transition-colors font-medium"
+                  >
+                    送信
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 下部タブ */}
           <div className="flex border-b border-gray-200 mb-0">
             {([
@@ -818,72 +883,6 @@ export default function FriendDetailPage() {
           {/* ===== 個別トーク ===== */}
           {lowerTab === "talk" && (
             <div className="bg-white rounded-b-2xl border border-t-0 border-gray-100 shadow-sm">
-              {/* クイック返信 */}
-              <div className="p-5 border-b border-gray-100">
-                <div className="grid grid-cols-2 gap-6">
-                  {/* クイック返信 */}
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2">クイック返信</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleQuickSend}
-                        disabled={sending || !quickMessage.trim()}
-                        className="px-4 py-2 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-lg text-xs font-medium disabled:opacity-40 shadow-sm transition-all flex-shrink-0"
-                      >
-                        個別返信
-                      </button>
-                      <input
-                        type="text"
-                        value={quickMessage}
-                        onChange={(e) => setQuickMessage(e.target.value)}
-                        placeholder="テキストを入力"
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                        onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleQuickSend(); }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors">
-                        拡大して入力
-                      </button>
-                      <button
-                        onClick={handleQuickSend}
-                        disabled={sending || !quickMessage.trim()}
-                        className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors disabled:opacity-40"
-                      >
-                        送信
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* テンプレート送信 */}
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-500 mb-2">テンプレート送信</h4>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={openTemplatePicker}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-500 text-left hover:bg-gray-50 transition-colors"
-                      >
-                        テンプレート名を入力
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={openTemplatePicker}
-                        className="text-[10px] text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 transition-colors"
-                      >
-                        コピーして編集
-                      </button>
-                      <button
-                        onClick={openTemplatePicker}
-                        className="text-[10px] text-[#06C755] hover:text-[#05a648] border border-[#06C755] rounded px-2 py-1 transition-colors font-medium"
-                      >
-                        送信
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* 直近のメッセージ */}
               <div className="p-5">
                 <h4 className="text-xs font-bold text-gray-500 mb-3">直近のメッセージ</h4>
