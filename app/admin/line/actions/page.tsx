@@ -1,6 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  ConditionToggle,
+  ConditionSummary,
+  ConditionBuilderModal,
+  type StepCondition,
+  type TagDef,
+  type MarkDef,
+} from "../_components/ConditionBuilder";
 
 interface Folder {
   id: number;
@@ -9,7 +17,7 @@ interface Folder {
 }
 
 interface ActionStep {
-  type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change";
+  type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
   content?: string;
   template_id?: number;
   template_name?: string;
@@ -17,6 +25,9 @@ interface ActionStep {
   tag_name?: string;
   mark?: string;
   note?: string;
+  menu_id?: string;
+  menu_name?: string;
+  condition?: StepCondition;
 }
 
 interface Action {
@@ -29,23 +40,16 @@ interface Action {
   updated_at: string;
 }
 
-interface TagDef {
-  id: number;
-  name: string;
-  color: string;
-}
-
 interface Template {
   id: number;
   name: string;
   content: string;
 }
 
-interface MarkDef {
+interface RichMenu {
   id: number;
-  value: string;
-  label: string;
-  color: string;
+  name: string;
+  line_rich_menu_id: string | null;
 }
 
 const STEP_TYPES = [
@@ -54,6 +58,7 @@ const STEP_TYPES = [
   { type: "tag_add", label: "タグ追加" },
   { type: "tag_remove", label: "タグ削除" },
   { type: "mark_change", label: "対応マーク変更" },
+  { type: "menu_change", label: "メニュー操作" },
 ] as const;
 
 export default function ActionsPage() {
@@ -78,10 +83,14 @@ export default function ActionsPage() {
   const [editingFolder, setEditingFolder] = useState<number | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
 
-  // タグ・テンプレート・マーク一覧
+  // タグ・テンプレート・マーク・リッチメニュー一覧
   const [allTags, setAllTags] = useState<TagDef[]>([]);
   const [allTemplates, setAllTemplates] = useState<Template[]>([]);
   const [allMarks, setAllMarks] = useState<MarkDef[]>([]);
+  const [allRichMenus, setAllRichMenus] = useState<RichMenu[]>([]);
+
+  // 条件ビルダーモーダル
+  const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
   const fetchFolders = useCallback(async () => {
     const res = await fetch("/api/admin/line/action-folders", { credentials: "include" });
@@ -105,10 +114,12 @@ export default function ActionsPage() {
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-    ]).then(([, tagsData, tmplData, marksData]) => {
+      fetch("/api/admin/line/rich-menus", { credentials: "include" }).then(r => r.json()),
+    ]).then(([, tagsData, tmplData, marksData, rmData]) => {
       if (tagsData.tags) setAllTags(tagsData.tags);
       if (tmplData.templates) setAllTemplates(tmplData.templates);
       if (marksData.marks) setAllMarks(marksData.marks);
+      if (rmData.menus) setAllRichMenus(rmData.menus);
       setLoading(false);
     });
   }, [fetchFolders]);
@@ -201,9 +212,10 @@ export default function ActionsPage() {
 
   // ステップ操作
   const addStep = (type: ActionStep["type"]) => {
-    const step: ActionStep = { type };
+    const step: ActionStep = { type, condition: { enabled: false, rules: [] } };
     if (type === "send_text") step.content = "";
     if (type === "mark_change") step.mark = "none";
+    if (type === "menu_change") step.menu_id = "";
     setActionSteps(prev => [...prev, step]);
   };
 
@@ -222,6 +234,7 @@ export default function ActionsPage() {
       case "tag_add": return `タグ[${step.tag_name || `ID:${step.tag_id}`}]を追加`;
       case "tag_remove": return `タグ[${step.tag_name || `ID:${step.tag_id}`}]を解除`;
       case "mark_change": return `対応マークを「${allMarks.find(m => m.value === step.mark)?.label || step.mark}」に変更`;
+      case "menu_change": return `メニューを「${step.menu_name || allRichMenus.find(rm => String(rm.id) === step.menu_id)?.name || "未選択"}」に変更`;
       default: return "不明な動作";
     }
   };
@@ -473,19 +486,47 @@ export default function ActionsPage() {
                 <div className="space-y-3">
                   <p className="text-xs font-medium text-gray-500">設定済みの動作 ({actionSteps.length})</p>
                   {actionSteps.map((step, i) => (
-                    <div key={i} className="border border-gray-200 rounded-lg p-4 relative">
-                      <button
-                        onClick={() => removeStep(i)}
-                        className="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
+                    <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* ステップヘッダー */}
+                      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-500 cursor-grab">
+                            ≡
+                          </span>
+                          <span className="text-xs font-bold text-gray-700">
+                            {i + 1}. {STEP_TYPES.find(s => s.type === step.type)?.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ConditionToggle
+                            condition={step.condition || { enabled: false, rules: [] }}
+                            onChange={(cond) => updateStep(i, { condition: cond })}
+                            onEditClick={() => setConditionEditingIndex(i)}
+                          />
+                          <button
+                            onClick={() => removeStep(i)}
+                            className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
+                      </div>
 
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        {STEP_TYPES.find(s => s.type === step.type)?.label}
-                      </span>
+                      {/* 条件サマリー */}
+                      {step.condition?.enabled && step.condition.rules.length > 0 && (
+                        <div className="px-4 py-2 bg-amber-50/50 border-b border-amber-200">
+                          <ConditionSummary
+                            condition={step.condition}
+                            tags={allTags}
+                            marks={allMarks}
+                            onEditClick={() => setConditionEditingIndex(i)}
+                            onRemoveClick={() => updateStep(i, { condition: { enabled: false, rules: [] } })}
+                          />
+                        </div>
+                      )}
 
-                      <div className="mt-2">
+                      {/* ステップ内容 */}
+                      <div className="px-4 py-3">
                         {step.type === "send_text" && (
                           <textarea
                             value={step.content || ""}
@@ -539,6 +580,22 @@ export default function ActionsPage() {
                             ))}
                           </select>
                         )}
+
+                        {step.type === "menu_change" && (
+                          <select
+                            value={step.menu_id || ""}
+                            onChange={e => {
+                              const rm = allRichMenus.find(r => String(r.id) === e.target.value);
+                              updateStep(i, { menu_id: e.target.value, menu_name: rm?.name });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20"
+                          >
+                            <option value="">メニューを選択</option>
+                            {allRichMenus.map(rm => (
+                              <option key={rm.id} value={String(rm.id)}>{rm.name}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -569,6 +626,19 @@ export default function ActionsPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* 条件ビルダーモーダル */}
+      {conditionEditingIndex !== null && (
+        <ConditionBuilderModal
+          condition={actionSteps[conditionEditingIndex]?.condition || { enabled: false, rules: [] }}
+          tags={allTags}
+          marks={allMarks}
+          onSave={(cond) => {
+            updateStep(conditionEditingIndex, { condition: cond });
+            setConditionEditingIndex(null);
+          }}
+          onClose={() => setConditionEditingIndex(null)}
+        />
       )}
     </div>
   );

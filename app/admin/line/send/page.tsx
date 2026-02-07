@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-
-interface Tag {
-  id: number;
-  name: string;
-  color: string;
-}
+import {
+  ConditionBuilderModal,
+  type ConditionRule,
+  type StepCondition,
+  type TagDef,
+  type MarkDef,
+} from "../_components/ConditionBuilder";
 
 interface Template {
   id: number;
@@ -25,18 +26,14 @@ interface PreviewResult {
 interface FilterCondition {
   type: string;
   tag_id?: number;
+  tag_ids?: number[];
+  tag_match?: string;
   match?: string;
   values?: string[];
+  mark_match?: string;
   field_id?: number;
   operator?: string;
   value?: string;
-}
-
-interface MarkDef {
-  id: number;
-  value: string;
-  label: string;
-  color: string;
 }
 
 interface Broadcast {
@@ -61,7 +58,7 @@ const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: st
 };
 
 export default function BroadcastSendPage() {
-  const [tags, setTags] = useState<Tag[]>([]);
+  const [tags, setTags] = useState<TagDef[]>([]);
   const [marks, setMarks] = useState<MarkDef[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
 
@@ -128,10 +125,55 @@ export default function BroadcastSendPage() {
     });
   }, []);
 
+  // 詳細条件モーダル
+  const [showConditionModal, setShowConditionModal] = useState<"include" | "exclude" | null>(null);
+
   const addCondition = (target: "include" | "exclude") => {
-    const newCond: FilterCondition = { type: "tag", tag_id: tags[0]?.id, match: "has" };
+    const newCond: FilterCondition = { type: "tag", tag_id: tags[0]?.id, tag_ids: [], tag_match: "any_include", match: "has" };
     if (target === "include") setIncludeConditions(prev => [...prev, newCond]);
     else setExcludeConditions(prev => [...prev, newCond]);
+  };
+
+  // ConditionBuilderModal → FilterCondition変換
+  const handleConditionModalSave = (cond: StepCondition) => {
+    const target = showConditionModal;
+    if (!target) return;
+
+    const newConditions: FilterCondition[] = cond.rules.map(rule => {
+      if (rule.type === "tag") {
+        return { type: "tag", tag_ids: rule.tag_ids || [], tag_match: rule.tag_match || "any_include", match: "has" };
+      }
+      if (rule.type === "mark") {
+        return { type: "mark", values: rule.mark_values || [], mark_match: rule.mark_match || "any_match" };
+      }
+      if (rule.type === "name") {
+        return { type: "name", operator: rule.name_operator, value: rule.name_value };
+      }
+      if (rule.type === "registered_date") {
+        return { type: "registered_date", operator: rule.date_operator, value: rule.date_value };
+      }
+      if (rule.type === "field") {
+        return { type: "field", field_id: rule.field_id, operator: rule.field_operator, value: rule.field_value };
+      }
+      return { type: rule.type };
+    });
+
+    if (target === "include") setIncludeConditions(newConditions);
+    else setExcludeConditions(newConditions);
+    setShowConditionModal(null);
+  };
+
+  // FilterCondition → ConditionRule変換
+  const conditionsToRules = (conditions: FilterCondition[]): ConditionRule[] => {
+    return conditions.map(c => {
+      if (c.type === "tag") {
+        return { type: "tag" as const, tag_ids: c.tag_ids || (c.tag_id ? [c.tag_id] : []), tag_match: (c.tag_match || "any_include") as ConditionRule["tag_match"] };
+      }
+      if (c.type === "mark") {
+        return { type: "mark" as const, mark_values: c.values || [], mark_match: (c.mark_match || "any_match") as ConditionRule["mark_match"] };
+      }
+      return { type: c.type as ConditionRule["type"] };
+    });
   };
 
   const updateCondition = (target: "include" | "exclude", index: number, updates: Partial<FilterCondition>) => {
@@ -279,15 +321,26 @@ export default function BroadcastSendPage() {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-gray-500">絞り込み条件</span>
-              <button
-                onClick={() => addCondition("include")}
-                className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                条件追加
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowConditionModal("include")}
+                  className="px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  詳細条件設定
+                </button>
+                <button
+                  onClick={() => addCondition("include")}
+                  className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  条件追加
+                </button>
+              </div>
             </div>
             {includeConditions.length === 0 ? (
               <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
@@ -316,15 +369,26 @@ export default function BroadcastSendPage() {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-red-500">除外条件</span>
-              <button
-                onClick={() => addCondition("exclude")}
-                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                除外条件追加
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowConditionModal("exclude")}
+                  className="px-3 py-1.5 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  詳細条件設定
+                </button>
+                <button
+                  onClick={() => addCondition("exclude")}
+                  className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  除外条件追加
+                </button>
+              </div>
             </div>
             {excludeConditions.length === 0 ? (
               <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
@@ -769,6 +833,20 @@ export default function BroadcastSendPage() {
           </div>
         </div>
       )}
+
+      {/* 詳細条件設定モーダル */}
+      {showConditionModal && (
+        <ConditionBuilderModal
+          condition={{
+            enabled: true,
+            rules: conditionsToRules(showConditionModal === "include" ? includeConditions : excludeConditions),
+          }}
+          tags={tags}
+          marks={marks}
+          onSave={handleConditionModalSave}
+          onClose={() => setShowConditionModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -783,68 +861,152 @@ function ConditionRow({
   isExclude,
 }: {
   condition: FilterCondition;
-  tags: Tag[];
+  tags: TagDef[];
   marks: MarkDef[];
   onUpdate: (updates: Partial<FilterCondition>) => void;
   onRemove: () => void;
   isExclude?: boolean;
 }) {
+  const TAG_MATCH_OPTIONS = [
+    { value: "any_include", label: "いずれか1つ以上を含む" },
+    { value: "all_include", label: "全て含む" },
+    { value: "any_exclude", label: "1つ以上含む人を除外" },
+    { value: "all_exclude", label: "全て含む人を除外" },
+  ];
+
+  const MARK_MATCH_OPTIONS = [
+    { value: "any_match", label: "いずれかに一致" },
+    { value: "all_match", label: "全てに一致" },
+    { value: "any_exclude", label: "1つ以上含む人を除外" },
+    { value: "all_exclude", label: "全て含む人を除外" },
+  ];
+
+  const selectedTagIds = condition.tag_ids || (condition.tag_id ? [condition.tag_id] : []);
+
+  const toggleTag = (tagId: number) => {
+    const next = selectedTagIds.includes(tagId)
+      ? selectedTagIds.filter(id => id !== tagId)
+      : [...selectedTagIds, tagId];
+    onUpdate({ tag_ids: next, tag_id: next[0] });
+  };
+
+  const selectedMarkValues = condition.values || [];
+  const toggleMark = (val: string) => {
+    const next = selectedMarkValues.includes(val)
+      ? selectedMarkValues.filter(v => v !== val)
+      : [...selectedMarkValues, val];
+    onUpdate({ values: next });
+  };
+
   return (
-    <div className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${
+    <div className={`p-3 rounded-xl border transition-colors ${
       isExclude ? "bg-red-50/30 border-red-100" : "bg-emerald-50/30 border-emerald-100"
     }`}>
-      <select
-        value={condition.type}
-        onChange={(e) => onUpdate({ type: e.target.value })}
-        className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
-      >
-        <option value="tag">タグ</option>
-        <option value="mark">対応マーク</option>
-        <option value="has_line_uid">LINE有無</option>
-      </select>
+      <div className="flex items-center gap-2 mb-2">
+        <select
+          value={condition.type}
+          onChange={(e) => onUpdate({ type: e.target.value })}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+        >
+          <option value="tag">タグ</option>
+          <option value="mark">対応マーク</option>
+          <option value="has_line_uid">LINE有無</option>
+        </select>
 
-      {condition.type === "tag" && (
-        <>
+        {condition.type === "tag" && (
           <select
-            value={condition.tag_id || ""}
-            onChange={(e) => onUpdate({ tag_id: Number(e.target.value) })}
+            value={condition.tag_match || "any_include"}
+            onChange={(e) => onUpdate({ tag_match: e.target.value })}
             className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
           >
-            {tags.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {TAG_MATCH_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
+        )}
+
+        {condition.type === "mark" && (
           <select
-            value={condition.match || "has"}
-            onChange={(e) => onUpdate({ match: e.target.value })}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
+            value={condition.mark_match || "any_match"}
+            onChange={(e) => onUpdate({ mark_match: e.target.value })}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
           >
-            <option value="has">を持つ</option>
-            <option value="not_has">を持たない</option>
+            {MARK_MATCH_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
-        </>
+        )}
+
+        {condition.type === "has_line_uid" && (
+          <span className="flex items-center gap-1.5 text-xs text-gray-500 flex-1 px-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            LINE UIDあり
+          </span>
+        )}
+
+        <button onClick={onRemove} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* タグ複数選択 */}
+      {condition.type === "tag" && (
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {tags.map(t => {
+            const selected = selectedTagIds.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleTag(t.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  selected
+                    ? "text-white shadow-sm"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-gray-300"
+                }`}
+                style={selected ? { backgroundColor: t.color } : {}}
+              >
+                {selected && (
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {t.name}
+              </button>
+            );
+          })}
+        </div>
       )}
 
+      {/* マーク複数選択 */}
       {condition.type === "mark" && (
-        <select
-          value={condition.values?.[0] || ""}
-          onChange={(e) => onUpdate({ values: [e.target.value] })}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white flex-1 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all"
-        >
-          {marks.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {marks.map(m => {
+            const selected = selectedMarkValues.includes(m.value);
+            return (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => toggleMark(m.value)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  selected
+                    ? "bg-white shadow-sm ring-2 ring-amber-400"
+                    : "bg-white border border-gray-200 text-gray-600 hover:border-gray-300"
+                }`}
+              >
+                {m.value !== "none" ? (
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
+                ) : (
+                  <span className="w-2.5 h-2.5 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                )}
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
       )}
-
-      {condition.type === "has_line_uid" && (
-        <span className="flex items-center gap-1.5 text-xs text-gray-500 flex-1 px-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          LINE UIDあり
-        </span>
-      )}
-
-      <button onClick={onRemove} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
     </div>
   );
 }
