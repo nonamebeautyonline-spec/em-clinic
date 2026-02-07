@@ -545,7 +545,9 @@ export default function FriendDetailPage() {
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">{detail.latestOrder.refund_status}</span>
                       </div>
                     )}
-                    <InfoRow label="追跡番号" mono>{detail.latestOrder.tracking || "—"}</InfoRow>
+                    <InfoRow label="追跡番号" mono>{detail.latestOrder.tracking && detail.latestOrder.tracking !== "-" ? (
+                      <a href={`https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${detail.latestOrder.tracking.replace(/-/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{detail.latestOrder.tracking}</a>
+                    ) : "—"}</InfoRow>
                     {detail.latestOrder.phone && <InfoRow label="電話" mono>{detail.latestOrder.phone}</InfoRow>}
                     {detail.latestOrder.email && (
                       <div className="flex items-start justify-between py-1 gap-2">

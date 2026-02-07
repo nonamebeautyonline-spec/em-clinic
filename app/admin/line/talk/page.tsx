@@ -1201,7 +1201,9 @@ export default function TalkPage() {
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">{patientDetail.latestOrder.refund_status}</span>
                   </div>
                 )}
-                <InfoRow label="追跡番号" mono>{patientDetail.latestOrder.tracking}</InfoRow>
+                <InfoRow label="追跡番号" mono>{patientDetail.latestOrder.tracking && patientDetail.latestOrder.tracking !== "-" ? (
+                  <a href={`https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${patientDetail.latestOrder.tracking.replace(/-/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">{patientDetail.latestOrder.tracking}</a>
+                ) : (patientDetail.latestOrder.tracking || "-")}</InfoRow>
                 {patientDetail.latestOrder.phone && <InfoRow label="電話" mono>{patientDetail.latestOrder.phone}</InfoRow>}
                 {patientDetail.latestOrder.email && (
                   <div className="flex items-start justify-between py-[3px] gap-2">
