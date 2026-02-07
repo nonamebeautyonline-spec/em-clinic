@@ -109,6 +109,10 @@ export default function TalkPage() {
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [searchId, setSearchId] = useState("");
   const [searchName, setSearchName] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [msgSearchResults, setMsgSearchResults] = useState<{ patient_id: string; content: string; sent_at: string }[]>([]);
+  const [msgSearching, setMsgSearching] = useState(false);
+  const msgSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [displayCount, setDisplayCount] = useState(DISPLAY_BATCH);
   const listRef = useRef<HTMLDivElement>(null);
@@ -205,6 +209,29 @@ export default function TalkPage() {
   useEffect(() => {
     setDisplayCount(DISPLAY_BATCH);
   }, [searchId, searchName]);
+
+  // メッセージ検索（デバウンス）
+  useEffect(() => {
+    if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current);
+    const q = searchMessage.trim();
+    if (!q) {
+      setMsgSearchResults([]);
+      setMsgSearching(false);
+      return;
+    }
+    setMsgSearching(true);
+    msgSearchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/messages/log?search=${encodeURIComponent(q)}&limit=30`, { credentials: "include" });
+        const data = await res.json();
+        if (data.messages) {
+          setMsgSearchResults(data.messages);
+        }
+      } catch { /* ignore */ }
+      setMsgSearching(false);
+    }, 400);
+    return () => { if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current); };
+  }, [searchMessage]);
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
@@ -655,6 +682,21 @@ export default function TalkPage() {
               </button>
             )}
           </div>
+          <div className="relative">
+            <svg className="w-3.5 h-3.5 text-gray-300 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+            <input
+              type="text"
+              value={searchMessage}
+              onChange={(e) => setSearchMessage(e.target.value)}
+              placeholder="メッセージ内容で検索"
+              className="w-full pl-8 pr-7 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50 transition-all"
+            />
+            {searchMessage && (
+              <button onClick={() => setSearchMessage("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-[10px] text-gray-400 pt-0.5">
             <span>{filteredFriends.length}件</span>
             {pinnedIds.length > 0 && (
@@ -666,9 +708,49 @@ export default function TalkPage() {
           </div>
         </div>
 
-        {/* 友達一覧 */}
+        {/* 友達一覧 / メッセージ検索結果 */}
         <div ref={listRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto overscroll-contain">
-          {friendsLoading ? (
+          {searchMessage.trim() ? (
+            /* メッセージ検索結果モード */
+            msgSearching ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
+              </div>
+            ) : msgSearchResults.length === 0 ? (
+              <div className="text-center py-16 text-gray-300 text-xs">該当するメッセージなし</div>
+            ) : (
+              <div>
+                <div className="px-3 py-1.5 bg-blue-50/60 border-b border-blue-100/50">
+                  <span className="text-[9px] font-bold text-blue-500 tracking-wider flex items-center gap-1">
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                    メッセージ検索結果 {msgSearchResults.length}件
+                  </span>
+                </div>
+                {msgSearchResults.map((msg, i) => {
+                  const friend = friends.find(f => f.patient_id === msg.patient_id);
+                  const displayName = friend?.patient_name || msg.patient_id;
+                  const snippet = msg.content.length > 60 ? msg.content.slice(0, 60) + "…" : msg.content;
+                  const sentDate = formatDateShort(msg.sent_at);
+                  return (
+                    <button
+                      key={`${msg.patient_id}-${msg.sent_at}-${i}`}
+                      onClick={() => {
+                        const f = friend || { patient_id: msg.patient_id, patient_name: msg.patient_id, line_id: null, mark: "none", tags: [], fields: {} };
+                        selectPatient(f);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${selectedPatient?.patient_id === msg.patient_id ? "bg-[#00B900]/5" : ""}`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] font-medium text-gray-800 truncate">{displayName}</span>
+                        <span className="text-[9px] text-gray-300 flex-shrink-0 ml-2">{sentDate}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 leading-relaxed line-clamp-2">{snippet}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : friendsLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
             </div>

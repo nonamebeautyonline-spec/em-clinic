@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
   const limit = Number(searchParams.get("limit")) || 50;
   const offset = Number(searchParams.get("offset")) || 0;
   const messageType = searchParams.get("type");
+  const search = searchParams.get("search")?.trim();
 
   let query = supabaseAdmin
     .from("message_log")
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
 
   if (patientId) query = query.eq("patient_id", patientId);
   if (messageType) query = query.eq("message_type", messageType);
+  if (search) query = query.ilike("content", `%${search}%`);
 
   const { data, error, count } = await query;
 
