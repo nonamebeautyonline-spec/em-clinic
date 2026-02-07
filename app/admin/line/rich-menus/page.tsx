@@ -34,6 +34,17 @@ interface RichMenuArea {
 interface ActionItem {
   type: string;
   value: string;
+  timing?: string;
+  conditionEnabled?: boolean;
+  mode?: string;
+  fieldName?: string;
+  valueType?: string;
+  operation?: string;
+}
+
+interface TemplateOption {
+  id: number;
+  name: string;
 }
 
 interface ButtonConfig {
@@ -136,6 +147,9 @@ export default function RichMenuManagementPage() {
   // 回答フォーム一覧
   const [allForms, setAllForms] = useState<FormOption[]>([]);
 
+  // テンプレート一覧
+  const [allTemplates, setAllTemplates] = useState<TemplateOption[]>([]);
+
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
   const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
@@ -155,6 +169,9 @@ export default function RichMenuManagementPage() {
     fetch("/api/admin/line/forms", { credentials: "include" })
       .then(r => r.json())
       .then(data => { if (data.forms) setAllForms(data.forms); });
+    fetch("/api/admin/line/templates", { credentials: "include" })
+      .then(r => r.json())
+      .then(data => { if (data.templates) setAllTemplates(data.templates.map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))); });
   }, []);
 
   // --- Editor helpers ---
@@ -735,7 +752,7 @@ export default function RichMenuManagementPage() {
         </div>
       </div>
 
-      {/* アクション設定モーダル */}
+      {/* アクション設定モーダル (Lステップ風) */}
       {actionModalIndex !== null && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setActionModalIndex(null)}>
           <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -747,39 +764,14 @@ export default function RichMenuManagementPage() {
             </div>
 
             <div className="px-6 py-6 overflow-y-auto">
-              <p className="text-sm text-gray-500 text-center mb-5">行う動作を選択してください</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {ACTION_CATALOG.map(ac => {
-                  const isSelected = tempActions.some(a => a.type === ac.type);
-                  return (
-                    <button key={ac.type}
-                      onClick={() => {
-                        setTempActions(prev =>
-                          isSelected
-                            ? prev.filter(a => a.type !== ac.type)
-                            : [...prev, { type: ac.type, value: "" }]
-                        );
-                      }}
-                      className={`px-4 py-2 border rounded-lg text-sm transition-all ${
-                        isSelected
-                          ? "border-[#06C755] bg-green-50 text-[#06C755] font-medium"
-                          : "border-gray-300 text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-                      }`}>
-                      {ac.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* 選択済みアクションの設定欄 */}
+              {/* 設定済みアクション一覧 (上部) */}
               {tempActions.length > 0 && (
-                <div className="mt-5 space-y-3 border-t border-gray-100 pt-5">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">選択したアクションの設定</p>
+                <div className="space-y-4 mb-6">
                   {tempActions.map((a, ai) => {
                     const catalog = ACTION_CATALOG.find(ac => ac.type === a.type);
                     const placeholder: Record<string, string> = {
                       text_send: "送信するテキストを入力",
-                      template_send: "テンプレート名またはIDを入力",
+                      template_send: "テンプレート名を入力",
                       tag_op: "タグ名を入力（例: VIP, 新規）",
                       friend_info: "フィールド名=値（例: メモ=重要顧客）",
                       scenario: "シナリオ名を入力",
@@ -791,29 +783,251 @@ export default function RichMenuManagementPage() {
                       phase: "フェーズ名を入力",
                     };
                     return (
-                      <div key={ai} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-700 font-medium">{`${ai + 1}. ${catalog?.label || a.type}`}</span>
-                          <button onClick={() => setTempActions(prev => prev.filter((_, idx) => idx !== ai))}
-                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 flex items-center gap-1 text-xs">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            削除
-                          </button>
+                      <div key={ai} className="border border-gray-200 rounded-xl overflow-hidden">
+                        {/* アクションヘッダー */}
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 cursor-grab select-none text-lg leading-none">≡</span>
+                            <span className="text-sm font-bold text-gray-700">{`${ai + 1}. ${catalog?.label || a.type}`}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, conditionEnabled: !item.conditionEnabled } : item))}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs border transition-all ${
+                                a.conditionEnabled
+                                  ? "border-[#06C755] bg-green-50 text-[#06C755]"
+                                  : "border-gray-300 text-gray-500 hover:bg-gray-100"
+                              }`}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                              {a.conditionEnabled ? "条件ON" : "条件OFF"}
+                            </button>
+                            <button
+                              onClick={() => setTempActions(prev => {
+                                if (ai === 0) return prev;
+                                const next = [...prev];
+                                [next[ai - 1], next[ai]] = [next[ai], next[ai - 1]];
+                                return next;
+                              })}
+                              disabled={ai === 0}
+                              className="p-1.5 rounded border border-gray-300 hover:bg-gray-100 text-gray-400 disabled:opacity-30 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            </button>
+                            <button
+                              onClick={() => setTempActions(prev => {
+                                if (ai === prev.length - 1) return prev;
+                                const next = [...prev];
+                                [next[ai], next[ai + 1]] = [next[ai + 1], next[ai]];
+                                return next;
+                              })}
+                              disabled={ai === tempActions.length - 1}
+                              className="p-1.5 rounded border border-gray-300 hover:bg-gray-100 text-gray-400 disabled:opacity-30 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            <button onClick={() => setTempActions(prev => prev.filter((_, idx) => idx !== ai))}
+                              className="p-1.5 rounded border border-gray-300 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
                         </div>
-                        <textarea
-                          value={a.value}
-                          onChange={e => {
-                            setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item));
-                          }}
-                          placeholder={placeholder[a.type] || "値を入力"}
-                          rows={6}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-y"
-                        />
+
+                        {/* アクション設定本体 */}
+                        <div className="p-4 space-y-3">
+                          {a.type === "template_send" ? (
+                            <>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">テンプレート</label>
+                                <select
+                                  value={a.value}
+                                  onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                >
+                                  <option value="">テンプレート名を入力</option>
+                                  {allTemplates.map(t => (
+                                    <option key={t.id} value={String(t.id)}>{t.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">送信タイミング</label>
+                                <select
+                                  value={a.timing || "immediate"}
+                                  onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, timing: e.target.value } : item))}
+                                  className="w-fit px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                >
+                                  <option value="immediate">すぐに送信する</option>
+                                  <option value="after_1min">1分後に送信</option>
+                                  <option value="after_5min">5分後に送信</option>
+                                  <option value="after_30min">30分後に送信</option>
+                                  <option value="after_1hour">1時間後に送信</option>
+                                  <option value="after_1day">1日後に送信</option>
+                                </select>
+                              </div>
+                            </>
+                          ) : a.type === "tag_op" ? (
+                            <>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">タグ操作</label>
+                                <div className="flex items-center gap-6">
+                                  <label className="flex items-center gap-1.5 text-sm">
+                                    <input type="radio" checked={(a.mode || "add") === "add"}
+                                      onChange={() => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, mode: "add" } : item))}
+                                      className="accent-[#06C755]" />
+                                    タグを追加
+                                  </label>
+                                  <label className="flex items-center gap-1.5 text-sm">
+                                    <input type="radio" checked={a.mode === "remove"}
+                                      onChange={() => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, mode: "remove" } : item))}
+                                      className="accent-[#06C755]" />
+                                    タグをはずす
+                                  </label>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">タグ選択</label>
+                                <input
+                                  type="text"
+                                  value={a.value}
+                                  onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                  placeholder="タグ名を入力"
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                                />
+                              </div>
+                            </>
+                          ) : a.type === "friend_info" ? (
+                            <>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">友だち情報選択</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={a.fieldName || ""}
+                                    onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, fieldName: e.target.value } : item))}
+                                    placeholder="友だち情報名を入力"
+                                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                                  />
+                                  <span className="text-sm text-gray-600 flex-shrink-0">に</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">操作内容</label>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={a.valueType || "constant"}
+                                    onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, valueType: e.target.value } : item))}
+                                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                  >
+                                    <option value="constant">定数</option>
+                                    <option value="friend_info">友だち情報</option>
+                                  </select>
+                                  <input
+                                    type="text"
+                                    value={a.value}
+                                    onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                    placeholder=""
+                                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                                  />
+                                  <span className="text-sm text-gray-600 flex-shrink-0">を</span>
+                                  <select
+                                    value={a.operation || "assign"}
+                                    onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, operation: e.target.value } : item))}
+                                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                  >
+                                    <option value="assign">← (代入)</option>
+                                    <option value="append">+ (追加)</option>
+                                    <option value="delete">× (削除)</option>
+                                  </select>
+                                  <span className="text-sm text-gray-600 flex-shrink-0">する</span>
+                                </div>
+                              </div>
+                            </>
+                          ) : a.type === "mark_display" ? (
+                            <>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">対応マーク</label>
+                                <select
+                                  value={a.value}
+                                  onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                >
+                                  <option value="">変更しない</option>
+                                  <option value="blue">🔵 未対応</option>
+                                  <option value="purple">🟣 処方ずみ</option>
+                                  <option value="green">🟢 電話番号確認中</option>
+                                  <option value="red">🔴 予約変更依頼中</option>
+                                  <option value="gray">不通</option>
+                                </select>
+                              </div>
+                              <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                                <label className="text-sm text-gray-600 text-right">表示状態</label>
+                                <select
+                                  value={a.mode || ""}
+                                  onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, mode: e.target.value } : item))}
+                                  className="w-fit px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                                >
+                                  <option value="">変更しない</option>
+                                  <option value="show">表示</option>
+                                  <option value="hide">非表示</option>
+                                </select>
+                              </div>
+                            </>
+                          ) : a.type === "menu_op" ? (
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                              <label className="text-sm text-gray-600 text-right">メニュー変更</label>
+                              <select
+                                value={a.value}
+                                onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white"
+                              >
+                                <option value="">リッチメニュー名を入力</option>
+                                {menus.map(m => (
+                                  <option key={m.id} value={String(m.id)}>{m.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : a.type === "text_send" ? (
+                            <div className="grid grid-cols-[100px_1fr] items-start gap-3">
+                              <label className="text-sm text-gray-600 text-right pt-2">テキスト</label>
+                              <textarea
+                                value={a.value}
+                                onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                placeholder={placeholder[a.type]}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-y"
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-[100px_1fr] items-center gap-3">
+                              <label className="text-sm text-gray-600 text-right">{catalog?.label || a.type}</label>
+                              <input
+                                type="text"
+                                value={a.value}
+                                onChange={e => setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item))}
+                                placeholder={placeholder[a.type] || "値を入力"}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+
+              {/* 動作追加ボタン (下部) */}
+              <p className="text-sm text-gray-500 text-center mb-3">動作を更に追加できます</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {ACTION_CATALOG.map(ac => (
+                  <button key={ac.type}
+                    onClick={() => setTempActions(prev => [...prev, { type: ac.type, value: "", timing: ac.type === "template_send" ? "immediate" : undefined, mode: ac.type === "tag_op" ? "add" : undefined }])}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:border-gray-400 hover:bg-gray-50 transition-all">
+                    {ac.label}
+                  </button>
+                ))}
+              </div>
 
               <div className="mt-6 flex items-center gap-2">
                 <label className="flex items-center gap-2 text-sm text-gray-600">
