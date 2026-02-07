@@ -73,20 +73,29 @@ async function syncToGas(action: string, id: number) {
   }
 }
 
-// ===== LINE Profile API でLINE表示名を取得 =====
-async function getLineDisplayName(lineUid: string): Promise<string> {
-  if (!LINE_ACCESS_TOKEN) return "";
+// ===== LINE Profile API でプロフィール取得 =====
+async function getLineProfile(lineUid: string): Promise<{ displayName: string; pictureUrl: string }> {
+  if (!LINE_ACCESS_TOKEN) return { displayName: "", pictureUrl: "" };
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUid}`, {
       headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       cache: "no-store",
     });
-    if (!res.ok) return "";
+    if (!res.ok) return { displayName: "", pictureUrl: "" };
     const profile = await res.json();
-    return profile.displayName || "";
+    return {
+      displayName: profile.displayName || "",
+      pictureUrl: profile.pictureUrl || "",
+    };
   } catch {
-    return "";
+    return { displayName: "", pictureUrl: "" };
   }
+}
+
+// 後方互換
+async function getLineDisplayName(lineUid: string): Promise<string> {
+  const p = await getLineProfile(lineUid);
+  return p.displayName;
 }
 
 // ===== LINE UIDから patient_id を逆引き =====
@@ -133,8 +142,20 @@ async function handleFollow(lineUid: string) {
   const isReturning = !!patient;
   const settingKey = isReturning ? "returning_blocked" : "new_friend";
 
-  // LINE表示名を取得（patient_nameがない場合のフォールバック）
-  const displayName = patient?.patient_name || await getLineDisplayName(lineUid);
+  // LINEプロフィール取得（表示名 + アイコン画像URL）
+  const lineProfile = await getLineProfile(lineUid);
+  const displayName = patient?.patient_name || lineProfile.displayName;
+
+  // intakeにLINEプロフィール情報を保存
+  if (patient?.patient_id && (lineProfile.displayName || lineProfile.pictureUrl)) {
+    await supabaseAdmin
+      .from("intake")
+      .update({
+        line_display_name: lineProfile.displayName || null,
+        line_picture_url: lineProfile.pictureUrl || null,
+      })
+      .eq("patient_id", patient.patient_id);
+  }
 
   // friend_add_settings を取得
   const { data: setting } = await supabaseAdmin
@@ -275,6 +296,27 @@ async function handleUnfollow(lineUid: string) {
 // =================================================================
 async function handleMessage(lineUid: string, message: any) {
   const patient = await findPatientByLineUid(lineUid);
+
+  // LINEプロフィール未保存なら取得して保存
+  if (patient?.patient_id) {
+    const { data: existing } = await supabaseAdmin
+      .from("intake")
+      .select("line_picture_url")
+      .eq("patient_id", patient.patient_id)
+      .maybeSingle();
+    if (!existing?.line_picture_url) {
+      const profile = await getLineProfile(lineUid);
+      if (profile.displayName || profile.pictureUrl) {
+        await supabaseAdmin
+          .from("intake")
+          .update({
+            line_display_name: profile.displayName || null,
+            line_picture_url: profile.pictureUrl || null,
+          })
+          .eq("patient_id", patient.patient_id);
+      }
+    }
+  }
 
   let content = "";
   let msgType = message.type || "unknown";

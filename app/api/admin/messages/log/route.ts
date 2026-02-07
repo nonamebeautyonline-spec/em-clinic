@@ -15,16 +15,21 @@ export async function GET(req: NextRequest) {
   const offset = Number(searchParams.get("offset")) || 0;
   const messageType = searchParams.get("type");
   const search = searchParams.get("search")?.trim();
+  const since = searchParams.get("since"); // ISO8601: この時刻より後の新着のみ
 
   let query = supabaseAdmin
     .from("message_log")
     .select("*", { count: "exact" })
-    .order("sent_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order("sent_at", { ascending: false });
+
+  if (!since) {
+    query = query.range(offset, offset + limit - 1);
+  }
 
   if (patientId) query = query.eq("patient_id", patientId);
   if (messageType) query = query.eq("message_type", messageType);
   if (search) query = query.ilike("content", `%${search}%`);
+  if (since) query = query.gt("sent_at", since);
 
   const { data, error, count } = await query;
 

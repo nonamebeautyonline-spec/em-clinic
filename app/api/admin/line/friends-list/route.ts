@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   // 並列でデータ取得（1000行超に対応）
   const [intakeRes, tagsRes, marksRes, fieldDefsRes, fieldValsRes] = await Promise.all([
     fetchAll(
-      () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
+      () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id, line_display_name, line_picture_url").not("patient_id", "is", null).order("created_at", { ascending: false }),
     ),
     fetchAll(
       () => supabaseAdmin.from("patient_tags").select("patient_id, tag_id, tag_definitions(id, name, color)"),
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
   }
 
   // patient_idでユニーク化（最新レコード優先）
-  const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
+  const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null; line_display_name: string | null; line_picture_url: string | null }>();
   for (const row of intakeRes.data || []) {
     if (!patientMap.has(row.patient_id)) {
       patientMap.set(row.patient_id, row);
@@ -80,13 +80,22 @@ export async function GET(req: NextRequest) {
   }
 
   // 最新メッセージを取得（各患者の直近1件）
+  // last_sent_atはシステムイベント含む全ログの最新時刻（ソート用）
+  // last_messageは表示用テキスト（eventタイプを除く）
   const { data: lastMessages } = await fetchAll(
-    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at").order("sent_at", { ascending: false }),
+    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type").order("sent_at", { ascending: false }),
   );
 
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
+  const lastActivityMap = new Map<string, string>();
   for (const row of lastMessages || []) {
-    if (row.patient_id && !lastMsgMap.has(row.patient_id)) {
+    if (!row.patient_id) continue;
+    // ソート用: 全ログの最新時刻
+    if (!lastActivityMap.has(row.patient_id)) {
+      lastActivityMap.set(row.patient_id, row.sent_at);
+    }
+    // 表示用: イベント以外の最新メッセージ
+    if (!lastMsgMap.has(row.patient_id) && row.message_type !== "event" && row.event_type !== "system") {
       lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
     }
   }
@@ -94,15 +103,18 @@ export async function GET(req: NextRequest) {
   // 統合
   const patients = Array.from(patientMap.values()).map(p => {
     const lastMsg = lastMsgMap.get(p.patient_id);
+    const lastActivity = lastActivityMap.get(p.patient_id);
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
       line_id: p.line_id,
+      line_display_name: p.line_display_name || null,
+      line_picture_url: p.line_picture_url || null,
       mark: markMap.get(p.patient_id) || "none",
       tags: tagMap.get(p.patient_id) || [],
       fields: fieldValMap.get(p.patient_id) || {},
       last_message: lastMsg?.content || null,
-      last_sent_at: lastMsg?.sent_at || null,
+      last_sent_at: lastActivity || lastMsg?.sent_at || null,
     };
   });
 

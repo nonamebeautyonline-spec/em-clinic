@@ -7,6 +7,8 @@ interface Friend {
   patient_id: string;
   patient_name: string;
   line_id: string | null;
+  line_display_name?: string | null;
+  line_picture_url?: string | null;
   mark: string;
   tags: { id: number; name: string; color: string }[];
   fields: Record<string, string>;
@@ -165,6 +167,7 @@ export default function TalkPage() {
   const [markNote, setMarkNote] = useState("");
   const [savingMark, setSavingMark] = useState(false);
   const [markOptions, setMarkOptions] = useState<MarkOption[]>(DEFAULT_MARK_OPTIONS);
+  const [userRichMenu, setUserRichMenu] = useState<{ id?: number; name: string; image_url: string | null; line_rich_menu_id: string; is_default: boolean } | null>(null);
 
   // ピン留め
   useEffect(() => {
@@ -260,6 +263,7 @@ export default function TalkPage() {
     setShowTagPicker(false);
     setShowMarkDropdown(false);
     setPatientDetail(null);
+    setUserRichMenu(null);
 
     shouldScrollToBottom.current = true;
 
@@ -270,6 +274,14 @@ export default function TalkPage() {
       fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/fields`, { credentials: "include" }),
       fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(friend.patient_id)}&type=id`, { credentials: "include" }),
     ]);
+
+    // リッチメニューはLINE API呼び出しがあるため別途非同期で取得（ブロックしない）
+    if (friend.line_id) {
+      fetch(`/api/admin/line/user-richmenu?patient_id=${encodeURIComponent(friend.patient_id)}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(d => { if (d.menu) setUserRichMenu(d.menu); })
+        .catch(() => {});
+    }
 
     const [logData, tagsData, markData, fieldsData, detailData] = await Promise.all([
       logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(), detailRes.json(),
@@ -331,6 +343,55 @@ export default function TalkPage() {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // ポーリング: 選択中の患者の新着メッセージを5秒ごとにチェック
+  const selectedPatientRef = useRef<Friend | null>(null);
+  const messagesRef = useRef<MessageLog[]>([]);
+  selectedPatientRef.current = selectedPatient;
+  messagesRef.current = messages;
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const patient = selectedPatientRef.current;
+      const msgs = messagesRef.current;
+      if (!patient || msgs.length === 0) return;
+
+      const lastMsg = msgs[msgs.length - 1];
+      if (!lastMsg?.sent_at) return;
+
+      try {
+        const res = await fetch(
+          `/api/admin/messages/log?patient_id=${encodeURIComponent(patient.patient_id)}&since=${encodeURIComponent(lastMsg.sent_at)}`,
+          { credentials: "include" }
+        );
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          // 既存IDと重複しない新着のみ追加
+          const existingIds = new Set(msgs.map(m => m.id));
+          const newMsgs = (data.messages as MessageLog[]).filter(m => !existingIds.has(m.id));
+          if (newMsgs.length > 0) {
+            shouldScrollToBottom.current = true;
+            setMessages(prev => [...prev, ...newMsgs.reverse()]);
+          }
+        }
+      } catch { /* ignore */ }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // ポーリング: 左カラムの友だちリストを15秒ごとに更新
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
+        const data = await res.json();
+        if (data.patients) setFriends(data.patients);
+      } catch { /* ignore */ }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // メッセージ送信
   const handleSend = async () => {
@@ -678,8 +739,13 @@ export default function TalkPage() {
     return true;
   });
 
-  const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id));
-  const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id));
+  const sortByLatest = (a: Friend, b: Friend) => {
+    const ta = a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0;
+    const tb = b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0;
+    return tb - ta;
+  };
+  const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
+  const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatest);
   const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
   const hasMore = unpinnedFriends.length > displayCount;
 
@@ -898,7 +964,7 @@ export default function TalkPage() {
             </div>
 
             {/* メッセージ */}
-            <div ref={msgContainerRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 bg-[#7494C0]/15">
+            <div ref={msgContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 bg-[#7494C0]/15">
               {messagesLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="bg-white rounded-2xl px-5 py-2.5 text-gray-400 text-xs shadow-sm">読み込み中...</div>
@@ -941,25 +1007,29 @@ export default function TalkPage() {
                         <div className="flex justify-center my-1">
                           <div className="max-w-[80%] bg-white/80 border border-gray-200 rounded-lg px-4 py-2 text-center">
                             <div className="text-[10px] text-gray-400 mb-0.5">{formatTime(m.sent_at)}</div>
-                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap">{m.content}</div>
+                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
                           </div>
                         </div>
                       ) : isIncoming ? (
                         /* 受信メッセージ: 左寄せ・白バブル + アバター */
                         <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
                           {showAvatar ? (
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-                              {selectedPatient?.patient_name?.charAt(0) || "?"}
-                            </div>
+                            selectedPatient?.line_picture_url ? (
+                              <img src={selectedPatient.line_picture_url} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+                                {selectedPatient?.patient_name?.charAt(0) || "?"}
+                              </div>
+                            )
                           ) : (
                             <div className="w-9 flex-shrink-0" />
                           )}
                           <div className="max-w-[65%]">
                             {showAvatar && (
-                              <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.patient_name || ""}</div>
+                              <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.line_display_name || selectedPatient?.patient_name || ""}</div>
                             )}
                             <div className="flex items-end gap-1.5">
-                              <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm border border-gray-100">
+                              <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
                                 {m.content}
                               </div>
                               <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTime(m.sent_at)}</span>
@@ -974,7 +1044,7 @@ export default function TalkPage() {
                             <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                           </div>
                           <div className="max-w-[65%]">
-                            <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap shadow-sm">{m.content}</div>
+                            <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
                           </div>
                         </div>
                       )}
@@ -1260,9 +1330,13 @@ export default function TalkPage() {
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {/* プロフィール */}
             <div className="px-4 pt-5 pb-4 text-center border-b border-gray-100">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-sm">
-                {selectedPatient.patient_name.charAt(0)}
-              </div>
+              {selectedPatient.line_picture_url ? (
+                <img src={selectedPatient.line_picture_url} alt="" className="w-14 h-14 rounded-full mx-auto shadow-sm object-cover" />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-sm">
+                  {selectedPatient.patient_name.charAt(0)}
+                </div>
+              )}
               <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_name}</h3>
               <p className="text-[10px] text-gray-400 font-mono mt-0.5">{selectedPatient.patient_id}</p>
               {selectedPatient.line_id ? (
@@ -1497,7 +1571,7 @@ export default function TalkPage() {
 
             {/* 再処方 */}
             {patientDetail && patientDetail.reorders.length > 0 && (
-              <div className="px-4 py-3">
+              <div className="px-4 py-3 border-b border-gray-100">
                 <SectionLabel>再処方</SectionLabel>
                 {patientDetail.reorders.map((r, i) => (
                   <div key={i} className="flex items-center justify-between py-[3px]">
@@ -1514,6 +1588,34 @@ export default function TalkPage() {
                 ))}
               </div>
             )}
+
+            {/* リッチメニュー */}
+            <div className="px-4 py-3">
+              <SectionLabel>リッチメニュー</SectionLabel>
+              {userRichMenu ? (
+                <div>
+                  <div className="text-[12px] text-gray-800 font-medium mb-1.5">{userRichMenu.name}</div>
+                  {userRichMenu.image_url && (
+                    <div className="rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                      <img src={userRichMenu.image_url} alt={userRichMenu.name} className="w-full h-auto" />
+                    </div>
+                  )}
+                  {!userRichMenu.image_url && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-4 text-center">
+                      <svg className="w-8 h-8 text-gray-300 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>
+                      <span className="text-[10px] text-gray-400">プレビューなし</span>
+                    </div>
+                  )}
+                  {userRichMenu.is_default && (
+                    <span className="inline-block mt-1.5 text-[9px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">デフォルト</span>
+                  )}
+                </div>
+              ) : selectedPatient?.line_id ? (
+                <div className="text-[11px] text-gray-300">読み込み中...</div>
+              ) : (
+                <div className="text-[11px] text-gray-300">LINE未連携</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1537,12 +1639,19 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
       }`}
     >
       <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-          {f.patient_name.charAt(0)}
-        </div>
+        {f.line_picture_url ? (
+          <img src={f.line_picture_url} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+            {f.patient_name.charAt(0)}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
             <span className="text-[13px] font-medium text-gray-800 truncate">{f.patient_name}</span>
+            {f.line_display_name && f.line_display_name !== f.patient_name && (
+              <span className="text-[10px] text-gray-400 truncate flex-shrink-0">({f.line_display_name})</span>
+            )}
             {f.mark && f.mark !== "none" && (
               <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: markColor }} />
             )}
