@@ -55,11 +55,8 @@ export default function FriendsListPage() {
   // 詳細検索
   const [showAdvSearch, setShowAdvSearch] = useState(false);
   const [advSearch, setAdvSearch] = useState({
-    tagInclude: [] as number[],
-    tagIncludeMode: "any" as "any" | "all",
-    tagExclude: [] as number[],
-    markInclude: [] as string[],
-    markExclude: [] as string[],
+    tagConditions: [] as { mode: string; tagIds: number[] }[],
+    markConditions: [] as { mode: string; values: string[] }[],
     fieldConditions: [] as { fieldId: number; operator: string; value: string }[],
     lineStatus: "" as string,
   });
@@ -255,22 +252,41 @@ export default function FriendsListPage() {
     setBulkProcessing(false);
   };
 
-  // 詳細検索ヘルパー
-  const toggleAdvTag = (tagId: number, list: "tagInclude" | "tagExclude") => {
-    const other = list === "tagInclude" ? "tagExclude" : "tagInclude";
+  // 詳細検索ヘルパー（タグ条件グループ）
+  const addTagCondition = () => {
+    setAdvSearch(prev => ({ ...prev, tagConditions: [...prev.tagConditions, { mode: "include_any", tagIds: [] }] }));
+  };
+  const updateTagConditionMode = (idx: number, mode: string) => {
+    setAdvSearch(prev => ({ ...prev, tagConditions: prev.tagConditions.map((c, i) => i === idx ? { ...c, mode } : c) }));
+  };
+  const toggleTagInCondition = (condIdx: number, tagId: number) => {
     setAdvSearch(prev => ({
       ...prev,
-      [list]: prev[list].includes(tagId) ? prev[list].filter((id: number) => id !== tagId) : [...prev[list], tagId],
-      [other]: prev[other].filter((id: number) => id !== tagId),
+      tagConditions: prev.tagConditions.map((c, i) => i === condIdx ? {
+        ...c, tagIds: c.tagIds.includes(tagId) ? c.tagIds.filter(id => id !== tagId) : [...c.tagIds, tagId],
+      } : c),
     }));
   };
-  const toggleAdvMark = (value: string, list: "markInclude" | "markExclude") => {
-    const other = list === "markInclude" ? "markExclude" : "markInclude";
+  const removeTagCondition = (idx: number) => {
+    setAdvSearch(prev => ({ ...prev, tagConditions: prev.tagConditions.filter((_, i) => i !== idx) }));
+  };
+  // 詳細検索ヘルパー（マーク条件グループ）
+  const addMarkCondition = () => {
+    setAdvSearch(prev => ({ ...prev, markConditions: [...prev.markConditions, { mode: "include", values: [] }] }));
+  };
+  const updateMarkConditionMode = (idx: number, mode: string) => {
+    setAdvSearch(prev => ({ ...prev, markConditions: prev.markConditions.map((c, i) => i === idx ? { ...c, mode } : c) }));
+  };
+  const toggleMarkInCondition = (condIdx: number, value: string) => {
     setAdvSearch(prev => ({
       ...prev,
-      [list]: prev[list].includes(value) ? prev[list].filter((v: string) => v !== value) : [...prev[list], value],
-      [other]: prev[other].filter((v: string) => v !== value),
+      markConditions: prev.markConditions.map((c, i) => i === condIdx ? {
+        ...c, values: c.values.includes(value) ? c.values.filter(v => v !== value) : [...c.values, value],
+      } : c),
     }));
+  };
+  const removeMarkCondition = (idx: number) => {
+    setAdvSearch(prev => ({ ...prev, markConditions: prev.markConditions.filter((_, i) => i !== idx) }));
   };
   const addFieldCondition = () => {
     if (fieldDefs.length === 0) return;
@@ -289,8 +305,8 @@ export default function FriendsListPage() {
     setAdvSearch(prev => ({ ...prev, fieldConditions: prev.fieldConditions.filter((_, i) => i !== idx) }));
   };
   const applyAdvSearch = () => {
-    const hasAny = advSearch.tagInclude.length > 0 || advSearch.tagExclude.length > 0
-      || advSearch.markInclude.length > 0 || advSearch.markExclude.length > 0
+    const hasAny = advSearch.tagConditions.some(c => c.tagIds.length > 0)
+      || advSearch.markConditions.some(c => c.values.length > 0)
       || advSearch.fieldConditions.length > 0 || advSearch.lineStatus !== "";
     setAdvActive(hasAny);
     setShowAdvSearch(false);
@@ -298,12 +314,12 @@ export default function FriendsListPage() {
     if (hasAny) { setFilterTag(null); setFilterMark(""); setFilterLine(""); }
   };
   const clearAdvSearch = () => {
-    setAdvSearch({ tagInclude: [], tagIncludeMode: "any", tagExclude: [], markInclude: [], markExclude: [], fieldConditions: [], lineStatus: "" });
+    setAdvSearch({ tagConditions: [], markConditions: [], fieldConditions: [], lineStatus: "" });
     setAdvActive(false);
   };
   const advConditionCount =
-    (advSearch.tagInclude.length > 0 ? 1 : 0) + (advSearch.tagExclude.length > 0 ? 1 : 0) +
-    (advSearch.markInclude.length > 0 ? 1 : 0) + (advSearch.markExclude.length > 0 ? 1 : 0) +
+    advSearch.tagConditions.filter(c => c.tagIds.length > 0).length +
+    advSearch.markConditions.filter(c => c.values.length > 0).length +
     advSearch.fieldConditions.length + (advSearch.lineStatus ? 1 : 0);
 
   // フィルタリング
@@ -312,16 +328,22 @@ export default function FriendsListPage() {
 
     if (advActive) {
       const pTagIds = p.tags.map(t => t.id);
-      if (advSearch.tagInclude.length > 0) {
-        if (advSearch.tagIncludeMode === "any") {
-          if (!advSearch.tagInclude.some(id => pTagIds.includes(id))) return false;
-        } else {
-          if (!advSearch.tagInclude.every(id => pTagIds.includes(id))) return false;
+      for (const cond of advSearch.tagConditions) {
+        if (cond.tagIds.length === 0) continue;
+        const hasAny = cond.tagIds.some(id => pTagIds.includes(id));
+        const hasAll = cond.tagIds.every(id => pTagIds.includes(id));
+        switch (cond.mode) {
+          case "include_any": if (!hasAny) return false; break;
+          case "include_all": if (!hasAll) return false; break;
+          case "exclude_any": if (hasAny) return false; break;
+          case "exclude_all": if (hasAll) return false; break;
         }
       }
-      if (advSearch.tagExclude.length > 0 && advSearch.tagExclude.some(id => pTagIds.includes(id))) return false;
-      if (advSearch.markInclude.length > 0 && !advSearch.markInclude.includes(p.mark)) return false;
-      if (advSearch.markExclude.length > 0 && advSearch.markExclude.includes(p.mark)) return false;
+      for (const cond of advSearch.markConditions) {
+        if (cond.values.length === 0) continue;
+        if (cond.mode === "include" && !cond.values.includes(p.mark)) return false;
+        if (cond.mode === "exclude" && cond.values.includes(p.mark)) return false;
+      }
       for (const cond of advSearch.fieldConditions) {
         const fd = fieldDefs.find(f => f.id === cond.fieldId);
         const val = fd ? (p.fields[fd.name] || "") : "";
@@ -871,51 +893,51 @@ export default function FriendsListPage() {
             </div>
 
             <div className="overflow-y-auto max-h-[calc(85vh-130px)] p-6 space-y-6">
-              {/* タグ条件（含む） */}
+              {/* タグ条件 */}
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <label className="text-sm font-semibold text-gray-700">タグを含む</label>
-                  <select
-                    value={advSearch.tagIncludeMode}
-                    onChange={(e) => setAdvSearch(prev => ({ ...prev, tagIncludeMode: e.target.value as "any" | "all" }))}
-                    className="px-2 py-1 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                  >
-                    <option value="any">いずれかを含む</option>
-                    <option value="all">すべてを含む</option>
-                  </select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-gray-700">タグ条件</label>
+                  <button onClick={addTagCondition} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    条件を追加
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {allTags.map(tag => {
-                    const active = advSearch.tagInclude.includes(tag.id);
+                {advSearch.tagConditions.length === 0 && (
+                  <p className="text-xs text-gray-400">タグ条件はありません。「条件を追加」から追加してください。</p>
+                )}
+                <div className="space-y-3">
+                  {advSearch.tagConditions.map((cond, idx) => {
+                    const isExclude = cond.mode.startsWith("exclude");
                     return (
-                      <button key={tag.id} onClick={() => toggleAdvTag(tag.id, "tagInclude")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
-                          active ? "text-white shadow-sm scale-105" : "text-gray-500 bg-white border-gray-200 hover:border-gray-300"
-                        }`}
-                        style={active ? { backgroundColor: tag.color, borderColor: tag.color } : {}}
-                      >
-                        {active && <span className="mr-1">&#x2713;</span>}{tag.name}
-                      </button>
-                    );
-                  })}
-                  {allTags.length === 0 && <p className="text-xs text-gray-400">タグがありません</p>}
-                </div>
-              </div>
-
-              {/* タグ条件（除外） */}
-              <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">タグを除外</label>
-                <div className="flex flex-wrap gap-2">
-                  {allTags.map(tag => {
-                    const active = advSearch.tagExclude.includes(tag.id);
-                    return (
-                      <button key={tag.id} onClick={() => toggleAdvTag(tag.id, "tagExclude")}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${
-                          active ? "text-white bg-red-500 border-red-500 shadow-sm scale-105" : "text-gray-500 bg-white border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        {active && <span className="mr-1">&#x2717;</span>}{tag.name}
-                      </button>
+                      <div key={idx} className={`rounded-xl p-3 border ${isExclude ? "bg-red-50/50 border-red-100" : "bg-indigo-50/50 border-indigo-100"}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <select value={cond.mode} onChange={(e) => updateTagConditionMode(idx, e.target.value)}
+                            className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                            <option value="include_any">選択したタグのいずれか1つ以上を含む人</option>
+                            <option value="include_all">選択したタグを全て含む人</option>
+                            <option value="exclude_any">選択したタグを1つ以上含む人を除外</option>
+                            <option value="exclude_all">選択したタグを全て含む人を除外</option>
+                          </select>
+                          <button onClick={() => removeTagCondition(idx)} className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                            <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {allTags.map(tag => {
+                            const active = cond.tagIds.includes(tag.id);
+                            return (
+                              <button key={tag.id} onClick={() => toggleTagInCondition(idx, tag.id)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                                  active ? "text-white shadow-sm" : "text-gray-500 bg-white border-gray-200 hover:border-gray-300"
+                                }`}
+                                style={active ? { backgroundColor: tag.color, borderColor: tag.color } : {}}
+                              >
+                                {active && <span className="mr-0.5">&#x2713;</span>}{tag.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -923,43 +945,48 @@ export default function FriendsListPage() {
 
               <hr className="border-gray-100" />
 
-              {/* 対応マーク条件（含む） */}
+              {/* 対応マーク条件 */}
               <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">対応マーク（含む）</label>
-                <div className="flex flex-wrap gap-2">
-                  {markDefs.map(m => {
-                    const active = advSearch.markInclude.includes(m.value);
-                    return (
-                      <button key={m.value} onClick={() => toggleAdvMark(m.value, "markInclude")}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${
-                          active ? "border-gray-400 bg-gray-50 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"
-                        }`}
-                      >
-                        <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
-                        {m.label}
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-gray-700">対応マーク条件</label>
+                  <button onClick={addMarkCondition} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    条件を追加
+                  </button>
                 </div>
-              </div>
-
-              {/* 対応マーク条件（除外） */}
-              <div>
-                <label className="text-sm font-semibold text-gray-700 mb-2 block">対応マーク（除外）</label>
-                <div className="flex flex-wrap gap-2">
-                  {markDefs.map(m => {
-                    const active = advSearch.markExclude.includes(m.value);
-                    return (
-                      <button key={m.value} onClick={() => toggleAdvMark(m.value, "markExclude")}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${
-                          active ? "border-red-400 bg-red-50 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"
-                        }`}
-                      >
-                        <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
-                        {m.label}
-                      </button>
-                    );
-                  })}
+                {advSearch.markConditions.length === 0 && (
+                  <p className="text-xs text-gray-400">マーク条件はありません。「条件を追加」から追加してください。</p>
+                )}
+                <div className="space-y-3">
+                  {advSearch.markConditions.map((cond, idx) => (
+                    <div key={idx} className={`rounded-xl p-3 border ${cond.mode === "exclude" ? "bg-red-50/50 border-red-100" : "bg-indigo-50/50 border-indigo-100"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <select value={cond.mode} onChange={(e) => updateMarkConditionMode(idx, e.target.value)}
+                          className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                          <option value="include">選択したマークのいずれかに一致する人</option>
+                          <option value="exclude">選択したマークのいずれかに一致する人を除外</option>
+                        </select>
+                        <button onClick={() => removeMarkCondition(idx)} className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                          <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {markDefs.map(m => {
+                          const active = cond.values.includes(m.value);
+                          return (
+                            <button key={m.value} onClick={() => toggleMarkInCondition(idx, m.value)}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border-2 transition-all ${
+                                active ? "border-gray-400 bg-gray-50 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"
+                              }`}
+                            >
+                              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
