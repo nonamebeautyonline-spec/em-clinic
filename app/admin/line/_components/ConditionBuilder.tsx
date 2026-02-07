@@ -84,15 +84,27 @@ export function ConditionToggle({
   onChange: (condition: StepCondition) => void;
   onEditClick: () => void;
 }) {
-  const toggle = () => {
-    onChange({ ...condition, enabled: !condition.enabled });
+  const handleClick = () => {
+    if (!condition.enabled) {
+      // OFFからONにする時：ONにしてモーダルを開く
+      onChange({ ...condition, enabled: true });
+      onEditClick();
+    } else {
+      // 既にONの時：条件設定モーダルを開く
+      onEditClick();
+    }
+  };
+
+  const handleOff = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange({ ...condition, enabled: false, rules: [] });
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <button
         type="button"
-        onClick={toggle}
+        onClick={handleClick}
         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
           condition.enabled
             ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
@@ -104,6 +116,18 @@ export function ConditionToggle({
         </svg>
         {condition.enabled ? "条件ON" : "条件OFF"}
       </button>
+      {condition.enabled && (
+        <button
+          type="button"
+          onClick={handleOff}
+          className="p-0.5 rounded text-amber-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          title="条件をOFFにする"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

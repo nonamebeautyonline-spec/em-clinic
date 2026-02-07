@@ -71,6 +71,22 @@ async function syncToGas(action: string, id: number) {
   }
 }
 
+// ===== LINE Profile API でLINE表示名を取得 =====
+async function getLineDisplayName(lineUid: string): Promise<string> {
+  if (!LINE_ACCESS_TOKEN) return "";
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUid}`, {
+      headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return "";
+    const profile = await res.json();
+    return profile.displayName || "";
+  } catch {
+    return "";
+  }
+}
+
 // ===== LINE UIDから patient_id を逆引き =====
 async function findPatientByLineUid(lineUid: string) {
   const { data } = await supabaseAdmin
@@ -115,6 +131,9 @@ async function handleFollow(lineUid: string) {
   const isReturning = !!patient;
   const settingKey = isReturning ? "returning_blocked" : "new_friend";
 
+  // LINE表示名を取得（patient_nameがない場合のフォールバック）
+  const displayName = patient?.patient_name || await getLineDisplayName(lineUid);
+
   // friend_add_settings を取得
   const { data: setting } = await supabaseAdmin
     .from("friend_add_settings")
@@ -139,13 +158,14 @@ async function handleFollow(lineUid: string) {
     greeting_message?: string;
     assign_tags?: number[];
     assign_mark?: string;
+    menu_change?: string;
     actions?: any[];
   };
 
   // グリーティングメッセージ送信
   if (val.greeting_message) {
     const text = val.greeting_message
-      .replace(/\{name\}/g, patient?.patient_name || "")
+      .replace(/\{name\}/g, displayName)
       .replace(/\{patient_id\}/g, patient?.patient_id || "");
 
     await pushMessage(lineUid, [{ type: "text", text }]);
@@ -185,6 +205,23 @@ async function handleFollow(lineUid: string) {
         },
         { onConflict: "patient_id" }
       );
+  }
+
+  // リッチメニュー変更
+  if (val.menu_change) {
+    const { data: menu } = await supabaseAdmin
+      .from("rich_menus")
+      .select("line_rich_menu_id")
+      .eq("id", Number(val.menu_change))
+      .maybeSingle();
+
+    if (menu?.line_rich_menu_id) {
+      await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      });
+      console.log(`[webhook] follow: assigned rich menu ${val.menu_change} to ${lineUid}`);
+    }
   }
 }
 
