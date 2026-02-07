@@ -729,6 +729,47 @@ export default function RichMenuManagementPage() {
                 })}
               </div>
 
+              {/* 選択済みアクションの設定欄 */}
+              {tempActions.length > 0 && (
+                <div className="mt-5 space-y-3 border-t border-gray-100 pt-5">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">選択したアクションの設定</p>
+                  {tempActions.map((a, ai) => {
+                    const catalog = ACTION_CATALOG.find(ac => ac.type === a.type);
+                    const placeholder: Record<string, string> = {
+                      text_send: "送信するテキストを入力",
+                      template_send: "テンプレート名またはIDを入力",
+                      tag_op: "タグ名を入力（例: VIP, 新規）",
+                      friend_info: "フィールド名=値（例: メモ=重要顧客）",
+                      scenario: "シナリオ名を入力",
+                      menu_op: "メニュー名またはIDを入力",
+                      reminder: "リマインダ内容を入力",
+                      mark_display: "マーク（red/yellow/green/blue/gray）",
+                      event_reservation: "イベント名を入力",
+                      shared_info: "キー=値を入力",
+                      phase: "フェーズ名を入力",
+                    };
+                    return (
+                      <div key={ai} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 font-medium w-32 flex-shrink-0 text-right">{catalog?.label || a.type}</span>
+                        <input
+                          type="text"
+                          value={a.value}
+                          onChange={e => {
+                            setTempActions(prev => prev.map((item, idx) => idx === ai ? { ...item, value: e.target.value } : item));
+                          }}
+                          placeholder={placeholder[a.type] || "値を入力"}
+                          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                        />
+                        <button onClick={() => setTempActions(prev => prev.filter((_, idx) => idx !== ai))}
+                          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="mt-6 flex items-center gap-2">
                 <label className="flex items-center gap-2 text-sm text-gray-600">
                   <input type="checkbox" checked={repeatActions} onChange={e => setRepeatActions(e.target.checked)}
