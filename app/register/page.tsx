@@ -10,7 +10,7 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [regStatus, setRegStatus] = useState<"none" | "needsVerify" | "complete">("none");
   const [checking, setChecking] = useState(true);
 
   // 初回登録済みチェック + LINE認証確認
@@ -19,11 +19,12 @@ function Inner() {
       .then((r) => r.json())
       .then((data) => {
         if (data.needsLineLogin) {
-          // line_user_idクッキーがない → LINE Loginでクッキー取得後にここへ戻る
           window.location.href = "/api/line/login?returnUrl=/register";
           return;
         }
-        if (data.registered) setAlreadyRegistered(true);
+        if (data.registered) {
+          setRegStatus(data.verifyComplete ? "complete" : "needsVerify");
+        }
       })
       .catch(() => {})
       .finally(() => setChecking(false));
@@ -94,7 +95,42 @@ function Inner() {
     );
   }
 
-  if (alreadyRegistered) {
+  if (regStatus === "needsVerify") {
+    return (
+      <div className="min-h-screen bg-[#f0f0f0]">
+        <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+          <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
+            <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            <span className="text-[10px] text-slate-400">個人情報フォーム</span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-lg pb-10">
+          <div className="bg-white mt-2 px-6 py-10 text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2">個人情報は入力済みです</h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              電話番号の認証がまだ完了していません。
+              <br />
+              引き続き、電話番号認証にお進みください。
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/mypage/init")}
+              className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
+            >
+              電話番号認証へ進む
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (regStatus === "complete") {
     return (
       <div className="min-h-screen bg-[#f0f0f0]">
         <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">

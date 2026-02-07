@@ -73,6 +73,56 @@ async function syncToGas(action: string, id: number) {
   }
 }
 
+// ===== LINE Content APIから画像をDL → Supabase Storageに保存 =====
+const IMAGE_BUCKET = "line-images";
+
+async function downloadAndSaveImage(
+  messageId: string,
+  patientId: string
+): Promise<string | null> {
+  if (!LINE_ACCESS_TOKEN || !messageId) return null;
+
+  try {
+    const res = await fetch(
+      `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+      { headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` } }
+    );
+    if (!res.ok) {
+      console.error("[webhook] LINE content download failed:", res.status);
+      return null;
+    }
+
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    const ext = contentType.includes("png")
+      ? "png"
+      : contentType.includes("webp")
+        ? "webp"
+        : contentType.includes("gif")
+          ? "gif"
+          : "jpg";
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    const fileName = `${patientId}/${Date.now()}_recv.${ext}`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(IMAGE_BUCKET)
+      .upload(fileName, buffer, { contentType, upsert: false });
+
+    if (uploadError) {
+      console.error("[webhook] Image upload error:", uploadError.message);
+      return null;
+    }
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from(IMAGE_BUCKET)
+      .getPublicUrl(fileName);
+    console.log("[webhook] Image saved:", urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error("[webhook] Image download/upload error:", err);
+    return null;
+  }
+}
+
 // ===== LINE Profile API でプロフィール取得 =====
 async function getLineProfile(lineUid: string): Promise<{ displayName: string; pictureUrl: string }> {
   if (!LINE_ACCESS_TOKEN) return { displayName: "", pictureUrl: "" };
@@ -339,9 +389,14 @@ async function handleMessage(lineUid: string, message: any) {
     case "text":
       content = message.text || "";
       break;
-    case "image":
-      content = "[画像]";
+    case "image": {
+      const imageUrl = await downloadAndSaveImage(
+        message.id,
+        patient?.patient_id || `uid_${lineUid.slice(-8)}`
+      );
+      content = imageUrl || "[画像]";
       break;
+    }
     case "video":
       content = "[動画]";
       break;

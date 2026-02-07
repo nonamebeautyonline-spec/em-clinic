@@ -26,15 +26,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ registered: false });
   }
 
-  // answerers に名前が入っているか確認
+  // answerers に名前・電話番号が入っているか確認
   const { data: answerer } = await supabaseAdmin
     .from("answerers")
-    .select("name")
+    .select("name, tel")
     .eq("patient_id", intake.patient_id)
     .maybeSingle();
 
   if (answerer?.name) {
-    return NextResponse.json({ registered: true });
+    // 個人情報は提出済み → 電話認証も完了しているか？
+    const verifyComplete = !!answerer.tel;
+    return NextResponse.json({ registered: true, verifyComplete });
   }
 
   return NextResponse.json({ registered: false });

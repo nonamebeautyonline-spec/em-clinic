@@ -104,6 +104,16 @@ const DEFAULT_MARK_OPTIONS: MarkOption[] = [
   { value: "none", label: "未対応", color: "#06B6D4", icon: "●" },
 ];
 
+// 画像URL判定（Supabase storage の画像URLか）
+function isImageUrl(text: string) {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("http")) return false;
+  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(trimmed)) return true;
+  if (trimmed.includes("supabase.co/storage/") && trimmed.includes("line-images/")) return true;
+  return false;
+}
+
 const PIN_STORAGE_KEY = "talk_pinned_patients";
 const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
@@ -499,7 +509,7 @@ export default function TalkPage() {
     if (data.ok) {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: `[画像] ${file.name}`, status: "sent",
+        id: Date.now(), content: data.imageUrl || `[画像] ${file.name}`, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);
@@ -734,17 +744,6 @@ export default function TalkPage() {
     setShowMenuPicker(false);
   };
 
-  // 画像URL判定（Supabase storage の画像URLか）
-  const isImageUrl = (text: string) => {
-    if (!text) return false;
-    const trimmed = text.trim();
-    if (!trimmed.startsWith("http")) return false;
-    // Supabase storageの画像 or 一般的な画像URL
-    if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(trimmed)) return true;
-    if (trimmed.includes("supabase.co/storage/") && trimmed.includes("line-images/")) return true;
-    return false;
-  };
-
   // ユーティリティ
   const formatTime = (s: string) => {
     const d = new Date(s);
@@ -915,7 +914,7 @@ export default function TalkPage() {
                 {msgSearchResults.map((msg, i) => {
                   const friend = friends.find(f => f.patient_id === msg.patient_id);
                   const displayName = friend?.patient_name || msg.patient_id;
-                  const snippet = msg.content.length > 60 ? msg.content.slice(0, 60) + "…" : msg.content;
+                  const snippet = isImageUrl(msg.content) ? "[画像]" : msg.content.length > 60 ? msg.content.slice(0, 60) + "…" : msg.content;
                   const sentDate = formatDateShort(msg.sent_at);
                   return (
                     <button
@@ -1781,7 +1780,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
           </div>
           <div className="flex items-center gap-1 mt-0.5">
             <p className="text-[10px] text-gray-400 truncate flex-1">
-              {f.last_message || "メッセージなし"}
+              {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (
               <span className="text-[11px] text-gray-700 flex-shrink-0">{formatDateShort(f.last_sent_at)}</span>

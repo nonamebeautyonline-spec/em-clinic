@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     patient_id: patientId,
     line_uid: intake.line_id,
     message_type: "individual",
-    content: `[画像] ${file.name}`,
+    content: imageUrl,
     status,
     direction: "outgoing",
   });
