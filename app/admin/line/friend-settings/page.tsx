@@ -156,7 +156,7 @@ export default function FriendAddSettingsPage() {
         setting_value: {
           steps: editSteps,
           greeting_message: editSteps.find(s => s.type === "send_text")?.content || "",
-          assign_tags: editSteps.filter(s => s.type === "tag_add").map(s => s.tag_name || "").filter(Boolean),
+          assign_tags: editSteps.filter(s => s.type === "tag_add").map(s => s.tag_id).filter((id): id is number => !!id),
           assign_mark: editSteps.find(s => s.type === "mark_change")?.mark || "none",
           menu_change: editSteps.find(s => s.type === "menu_change")?.menu_id || "",
           actions: [],
