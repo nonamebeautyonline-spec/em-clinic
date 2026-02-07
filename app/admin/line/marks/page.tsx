@@ -177,11 +177,7 @@ export default function MarkManagementPage() {
 
                 {/* ラベル */}
                 <div className="flex items-center gap-3">
-                  {mark.value !== "none" ? (
-                    <span className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: mark.color }} />
-                  ) : (
-                    <span className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
-                  )}
+                  <span className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: mark.color }} />
                   <span className="text-sm font-medium text-gray-800">{mark.label}</span>
                 </div>
 

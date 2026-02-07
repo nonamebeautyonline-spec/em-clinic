@@ -16,14 +16,24 @@ export async function GET(req: NextRequest) {
 
   // マークごとの患者数をDB集計で取得（1000行制限を回避）
   const countMap = new Map<string, number>();
+  let assignedTotal = 0;
   for (const m of data || []) {
     if (m.value === "none") continue;
     const { count } = await supabaseAdmin
       .from("patient_marks")
       .select("*", { count: "exact", head: true })
       .eq("mark", m.value);
-    countMap.set(m.value, count || 0);
+    const c = count || 0;
+    countMap.set(m.value, c);
+    assignedTotal += c;
   }
+
+  // 未対応（none）= 全患者 - マーク付き患者数
+  const { count: totalPatients } = await supabaseAdmin
+    .from("intake")
+    .select("patient_id", { count: "exact", head: true })
+    .not("patient_id", "is", null);
+  countMap.set("none", (totalPatients || 0) - assignedTotal);
 
   const marks = (data || []).map(m => ({
     ...m,

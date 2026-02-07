@@ -55,7 +55,7 @@ interface MarkDef {
   color: string;
 }
 
-const MARK_NONE: MarkDef = { id: 0, value: "none", label: "なし", color: "transparent" };
+const MARK_NONE: MarkDef = { id: 0, value: "none", label: "未対応", color: "#06B6D4" };
 
 type UpperTab = "home" | "tags";
 type LowerTab = "timeline" | "action" | "talk";

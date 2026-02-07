@@ -101,7 +101,7 @@ interface MarkOption {
 }
 
 const DEFAULT_MARK_OPTIONS: MarkOption[] = [
-  { value: "none", label: "なし", color: "transparent", icon: "○" },
+  { value: "none", label: "未対応", color: "#06B6D4", icon: "●" },
 ];
 
 const PIN_STORAGE_KEY = "talk_pinned_patients";
@@ -728,6 +728,17 @@ export default function TalkPage() {
     setShowMenuPicker(false);
   };
 
+  // 画像URL判定（Supabase storage の画像URLか）
+  const isImageUrl = (text: string) => {
+    if (!text) return false;
+    const trimmed = text.trim();
+    if (!trimmed.startsWith("http")) return false;
+    // Supabase storageの画像 or 一般的な画像URL
+    if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(trimmed)) return true;
+    if (trimmed.includes("supabase.co/storage/") && trimmed.includes("line-images/")) return true;
+    return false;
+  };
+
   // ユーティリティ
   const formatTime = (s: string) => {
     const d = new Date(s);
@@ -792,8 +803,8 @@ export default function TalkPage() {
   const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
   const hasMore = unpinnedFriends.length > displayCount;
 
-  const getMarkColor = (mark: string) => markOptions.find(m => m.value === mark)?.color || "transparent";
-  const getMarkLabel = (mark: string) => markOptions.find(m => m.value === mark)?.label || "なし";
+  const getMarkColor = (mark: string) => markOptions.find(m => m.value === mark)?.color || "#06B6D4";
+  const getMarkLabel = (mark: string) => markOptions.find(m => m.value === mark)?.label || "未対応";
   const currentMark = markOptions.find(m => m.value === patientMark) || markOptions[0];
 
   const assignedTagIds = patientTags.map(t => t.tag_id);
@@ -1074,9 +1085,15 @@ export default function TalkPage() {
                               <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.line_display_name || selectedPatient?.patient_name || ""}</div>
                             )}
                             <div className="flex items-end gap-1.5">
-                              <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
-                                {m.content}
-                              </div>
+                              {isImageUrl(m.content) ? (
+                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100">
+                                  <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                                </div>
+                              ) : (
+                                <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
+                                  {m.content}
+                                </div>
+                              )}
                               <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTime(m.sent_at)}</span>
                             </div>
                           </div>
@@ -1089,7 +1106,13 @@ export default function TalkPage() {
                             <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                           </div>
                           <div className="max-w-[65%]">
-                            <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
+                            {isImageUrl(m.content) ? (
+                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm">
+                                <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                              </div>
+                            ) : (
+                              <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
+                            )}
                           </div>
                         </div>
                       )}
