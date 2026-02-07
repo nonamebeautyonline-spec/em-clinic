@@ -49,10 +49,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });
   }
 
+  // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
+  const { data: nextReservation } = await supabaseAdmin
+    .from("reservations")
+    .select("reserved_date, reserved_time")
+    .eq("patient_id", patient_id)
+    .neq("status", "canceled")
+    .gte("reserved_date", new Date().toISOString().split("T")[0])
+    .order("reserved_date", { ascending: true })
+    .order("reserved_time", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
   // テンプレート変数を置換
   const resolvedMessage = message
     .replace(/\{name\}/g, intake.patient_name || "")
-    .replace(/\{patient_id\}/g, patient_id);
+    .replace(/\{patient_id\}/g, patient_id)
+    .replace(/\{send_date\}/g, new Date().toLocaleDateString("ja-JP"))
+    .replace(/\{next_reservation_date\}/g, nextReservation?.reserved_date || "")
+    .replace(/\{next_reservation_time\}/g, nextReservation?.reserved_time?.substring(0, 5) || "");
 
   // LINE Push送信
   const res = await pushMessage(intake.line_id, [{ type: "text", text: resolvedMessage }]);

@@ -68,6 +68,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, broadcast_id: broadcast.id, total: targets.length, status: "scheduled" });
   }
 
+  // 予約日時の差し込み用: 全対象患者の次回予約を一括取得
+  const targetPatientIds = targets.map(t => t.patient_id);
+  const nextReservationMap = new Map<string, { date: string; time: string }>();
+  if (targetPatientIds.length > 0) {
+    const { data: reservations } = await supabaseAdmin
+      .from("reservations")
+      .select("patient_id, reserved_date, reserved_time")
+      .in("patient_id", targetPatientIds)
+      .neq("status", "canceled")
+      .gte("reserved_date", new Date().toISOString().split("T")[0])
+      .order("reserved_date", { ascending: true })
+      .order("reserved_time", { ascending: true });
+
+    for (const r of reservations || []) {
+      if (!nextReservationMap.has(r.patient_id)) {
+        nextReservationMap.set(r.patient_id, {
+          date: r.reserved_date,
+          time: r.reserved_time?.substring(0, 5) || "",
+        });
+      }
+    }
+  }
+
+  const todayStr = new Date().toLocaleDateString("ja-JP");
+
   // 即時送信
   let sentCount = 0;
   let failedCount = 0;
@@ -86,9 +111,13 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
+    const nextRes = nextReservationMap.get(target.patient_id);
     const resolvedMsg = message
       .replace(/\{name\}/g, target.patient_name || "")
-      .replace(/\{patient_id\}/g, target.patient_id);
+      .replace(/\{patient_id\}/g, target.patient_id)
+      .replace(/\{send_date\}/g, todayStr)
+      .replace(/\{next_reservation_date\}/g, nextRes?.date || "")
+      .replace(/\{next_reservation_time\}/g, nextRes?.time || "");
 
     try {
       const res = await pushMessage(target.line_id, [{ type: "text", text: resolvedMsg }]);

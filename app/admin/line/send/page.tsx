@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Tag {
   id: number;
@@ -88,6 +88,25 @@ export default function BroadcastSendPage() {
   // 配信履歴
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+
+  // テキストエリア参照（カーソル位置に変数を挿入するため）
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertVariable = (variable: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setMessage(prev => prev + variable);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newMessage = message.substring(0, start) + variable + message.substring(end);
+    setMessage(newMessage);
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + variable.length;
+      textarea.focus();
+    }, 0);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -445,17 +464,35 @@ export default function BroadcastSendPage() {
             </div>
           )}
 
+          {/* 差し込み変数ツールバー */}
+          <div className="flex flex-wrap items-center gap-1 mb-2 p-2 bg-gray-50/80 rounded-lg border border-gray-200">
+            <span className="text-[10px] text-gray-400 mr-1 font-medium">差し込み</span>
+            {[
+              { label: "名前", variable: "{name}" },
+              { label: "患者番号", variable: "{patient_id}" },
+              { label: "配信日", variable: "{send_date}" },
+              { label: "次回予約日", variable: "{next_reservation_date}" },
+              { label: "次回予約時間", variable: "{next_reservation_time}" },
+            ].map(v => (
+              <button
+                key={v.variable}
+                type="button"
+                onClick={() => insertVariable(v.variable)}
+                className="px-2.5 py-1 text-[11px] font-medium bg-white border border-gray-200 rounded-md text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-colors"
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder={"メッセージを入力してください\n\nテンプレート変数: {name}, {patient_id}"}
+            placeholder="メッセージを入力してください"
             className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm h-36 focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50 resize-none transition-all leading-relaxed"
           />
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex gap-2">
-              <span className="text-[10px] text-gray-300 bg-gray-50 px-2 py-0.5 rounded">{"{name}"}</span>
-              <span className="text-[10px] text-gray-300 bg-gray-50 px-2 py-0.5 rounded">{"{patient_id}"}</span>
-            </div>
+          <div className="flex items-center justify-end mt-2">
             <span className="text-xs text-gray-400">{message.length}文字</span>
           </div>
         </div>
