@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const GAS_INTAKE_URL = process.env.GAS_MYPAGE_URL; // intake GAS (問診マスター)
+const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,69 +25,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "line_user_id required" }, { status: 400 });
     }
 
-    if (!GAS_INTAKE_URL) {
-      console.error("[update-line-user-id] GAS_INTAKE_URL not configured");
-      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
-    }
+    // ★ DB先行: Supabase intakeテーブルを更新
+    const updateValue = lineUserId === "" ? null : lineUserId;
+    const { error: dbError } = await supabase
+      .from("intake")
+      .update({ line_id: updateValue })
+      .eq("patient_id", patientId);
 
-    // ★ GAS update_line_user_id を呼び出し
-    const gasResponse = await fetch(GAS_INTAKE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "update_line_user_id",
-        patient_id: patientId,
-        line_user_id: lineUserId,
-      }),
-      signal: AbortSignal.timeout(10000), // 10秒タイムアウト
-    });
-
-    const gasText = await gasResponse.text().catch(() => "");
-    let gasData: any = {};
-
-    try {
-      gasData = gasText ? JSON.parse(gasText) : {};
-    } catch {
-      console.error("[update-line-user-id] GAS returned invalid JSON");
-      return NextResponse.json({ ok: false, error: "gas_invalid_response" }, { status: 500 });
-    }
-
-    if (!gasResponse.ok || !gasData.ok) {
-      console.error(`[update-line-user-id] GAS error:`, gasData);
+    if (dbError) {
+      console.error(`[update-line-user-id] DB update error:`, dbError);
       return NextResponse.json(
-        { ok: false, error: gasData.error || "gas_update_failed" },
-        { status: gasResponse.ok ? 200 : gasResponse.status }
-      );
-    }
-
-    console.log(`[update-line-user-id] GAS updated for patient ${patientId}`);
-
-    // ★ Supabase intakesテーブルも更新（該当するpatient_idの全行）
-    try {
-      const updateValue = lineUserId === "" ? null : lineUserId;
-      const { error: dbError } = await supabase
-        .from("intake")
-        .update({ line_id: updateValue })
-        .eq("patient_id", patientId);
-
-      if (dbError) {
-        console.error(`[update-line-user-id] Supabase update error:`, dbError);
-        return NextResponse.json(
-          { ok: false, error: "db_update_failed", detail: dbError.message },
-          { status: 500 }
-        );
-      }
-
-      console.log(`[update-line-user-id] DB updated for patient ${patientId}: line_id=${lineUserId || "(null)"}`);
-    } catch (dbErr: any) {
-      console.error(`[update-line-user-id] DB update exception:`, dbErr);
-      return NextResponse.json(
-        { ok: false, error: "db_update_exception", detail: String(dbErr) },
+        { ok: false, error: "db_update_failed", detail: dbError.message },
         { status: 500 }
       );
     }
 
-    console.log(`[update-line-user-id] Completed for patient ${patientId}: line_user_id=${lineUserId}`);
+    console.log(`[update-line-user-id] DB updated for patient ${patientId}: line_id=${lineUserId || "(null)"}`);
+
+    // ★ GAS同期（非同期・失敗してもログのみ）
+    if (GAS_MYPAGE_URL) {
+      fetch(GAS_MYPAGE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "update_line_user_id",
+          patient_id: patientId,
+          line_user_id: lineUserId,
+        }),
+        signal: AbortSignal.timeout(10000),
+      }).then(async (res) => {
+        const text = await res.text().catch(() => "");
+        if (!res.ok) console.error("[update-line-user-id] GAS sync failed (non-blocking):", text);
+        else console.log(`[update-line-user-id] GAS synced for patient ${patientId}`);
+      }).catch((e) => console.error("[update-line-user-id] GAS sync error (non-blocking):", e));
+    }
+
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
     console.error("POST /api/admin/update-line-user-id error", err);

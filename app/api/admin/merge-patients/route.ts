@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const GAS_INTAKE_URL = process.env.GAS_MYPAGE_URL; // intake GAS (問診マスター)
-const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL; // Square Webhook GAS (のなめマスター)
+const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
+const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL;
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,80 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!GAS_INTAKE_URL) {
-      console.error("[merge-patients] GAS_INTAKE_URL not configured");
-      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
-    }
-
-    // ★ GAS merge_patients を呼び出し
-    const gasResponse = await fetch(GAS_INTAKE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "merge_patients",
-        old_patient_id: oldPatientId,
-        new_patient_id: newPatientId,
-      }),
-      signal: AbortSignal.timeout(120000),
-    });
-
-    const gasText = await gasResponse.text().catch(() => "");
-    let gasData: any = {};
-
-    try {
-      gasData = gasText ? JSON.parse(gasText) : {};
-    } catch {
-      console.error("[merge-patients] GAS returned invalid JSON");
-      return NextResponse.json({ ok: false, error: "gas_invalid_response" }, { status: 500 });
-    }
-
-    if (!gasResponse.ok || !gasData.ok) {
-      console.error(`[merge-patients] GAS error:`, gasData);
-      return NextResponse.json(
-        { ok: false, error: gasData.error || "gas_merge_failed" },
-        { status: gasResponse.ok ? 200 : gasResponse.status }
-      );
-    }
-
-    console.log(`[merge-patients] GAS intake merged: ${oldPatientId} -> ${newPatientId}`);
-
-    // ★ Square Webhook GAS (のなめマスター) の patient_id を更新
-    if (GAS_ADMIN_URL) {
-      try {
-        const squareGasResponse = await fetch(GAS_ADMIN_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "merge_patients",
-            old_patient_id: oldPatientId,
-            new_patient_id: newPatientId,
-          }),
-          signal: AbortSignal.timeout(120000),
-        });
-
-        const squareGasText = await squareGasResponse.text().catch(() => "");
-        let squareGasData: any = {};
-
-        try {
-          squareGasData = squareGasText ? JSON.parse(squareGasText) : {};
-        } catch {
-          console.error("[merge-patients] Square Webhook GAS returned invalid JSON");
-        }
-
-        if (squareGasResponse.ok && squareGasData.ok) {
-          console.log(`[merge-patients] Square Webhook GAS (のなめマスター) merged: ${oldPatientId} -> ${newPatientId}`);
-        } else {
-          console.error(`[merge-patients] Square Webhook GAS error:`, squareGasData);
-        }
-      } catch (err) {
-        console.error(`[merge-patients] Square Webhook GAS call failed:`, err);
-        // のなめマスター更新失敗は警告のみ（統合処理は継続）
-      }
-    } else {
-      console.log("[merge-patients] GAS_ADMIN_URL not configured, skipping のなめマスター update");
-    }
-
-    // ★ Supabase intakesテーブルの旧patient_idを新patient_idに置き換え
+    // ★ DB先行: Supabase intakesテーブルの旧patient_idを新patient_idに置き換え
     const { error: intakesError } = await supabase
       .from("intakes")
       .update({ patient_id: newPatientId })
@@ -118,10 +45,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
     console.log(`[merge-patients] DB intakes: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
 
-    // ★ Supabase ordersテーブルの旧patient_idを新patient_idに置き換え
+    // ★ Supabase ordersテーブル
     const { error: ordersError } = await supabase
       .from("orders")
       .update({ patient_id: newPatientId })
@@ -134,10 +60,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
     console.log(`[merge-patients] DB orders: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
 
-    // ★ Supabase reservationsテーブルの旧patient_idを新patient_idに置き換え
+    // ★ Supabase reservationsテーブル
     const { error: reservationsError } = await supabase
       .from("reservations")
       .update({ patient_id: newPatientId })
@@ -150,8 +75,42 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
     console.log(`[merge-patients] DB reservations: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
+
+    // ★ GAS同期（非同期・失敗してもログのみ）
+    if (GAS_MYPAGE_URL) {
+      fetch(GAS_MYPAGE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "merge_patients",
+          old_patient_id: oldPatientId,
+          new_patient_id: newPatientId,
+        }),
+        signal: AbortSignal.timeout(120000),
+      }).then(async (res) => {
+        const text = await res.text().catch(() => "");
+        if (res.ok) console.log(`[merge-patients] GAS intake synced: ${oldPatientId} -> ${newPatientId}`);
+        else console.error("[merge-patients] GAS intake sync failed (non-blocking):", text);
+      }).catch((e) => console.error("[merge-patients] GAS intake sync error (non-blocking):", e));
+    }
+
+    if (GAS_ADMIN_URL) {
+      fetch(GAS_ADMIN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "merge_patients",
+          old_patient_id: oldPatientId,
+          new_patient_id: newPatientId,
+        }),
+        signal: AbortSignal.timeout(120000),
+      }).then(async (res) => {
+        const text = await res.text().catch(() => "");
+        if (res.ok) console.log(`[merge-patients] GAS admin synced: ${oldPatientId} -> ${newPatientId}`);
+        else console.error("[merge-patients] GAS admin sync failed (non-blocking):", text);
+      }).catch((e) => console.error("[merge-patients] GAS admin sync error (non-blocking):", e));
+    }
 
     console.log(`[merge-patients] Completed: ${oldPatientId} -> ${newPatientId}`);
     return NextResponse.json({ ok: true }, { status: 200 });

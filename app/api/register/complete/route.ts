@@ -2,8 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const GAS_REGISTER_URL = process.env.GAS_REGISTER_URL;
-
 export async function POST(req: NextRequest) {
   try {
     const { phone } = (await req.json().catch(() => ({}))) as { phone?: string };
@@ -18,38 +16,10 @@ export async function POST(req: NextRequest) {
     let pid: string | null = null;
 
     // ============================================================
-    // ステップ1: GASで既存患者を検索（既存Lステップ経由の患者用）
-    // ============================================================
-    if (GAS_REGISTER_URL) {
-      try {
-        const gasRes = await fetch(GAS_REGISTER_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, line_user_id: lineUserId }),
-          cache: "no-store",
-        });
-
-        if (gasRes.ok) {
-          const text = await gasRes.text().catch(() => "");
-          let data: any = {};
-          try { data = text ? JSON.parse(text) : {}; } catch {}
-
-          const gasPid = data?.pid ?? data?.patient_id ?? data?.Patient_ID ?? null;
-          if (gasPid && !(data?.ok === false && (data?.message === "not_found" || data?.error === "not_found"))) {
-            pid = String(gasPid);
-            console.log("[register/complete] Found patient via GAS:", pid);
-          }
-        }
-      } catch (e) {
-        console.error("[register/complete] GAS lookup failed:", e);
-      }
-    }
-
-    // ============================================================
-    // ステップ2: Supabaseで電話番号から既存患者を検索
+    // ステップ1: Supabaseで電話番号から既存患者を検索
     //   → スマホ/LINE変更時の再紐付け
     // ============================================================
-    if (!pid) {
+    {
       const { data: byPhone } = await supabaseAdmin
         .from("answerers")
         .select("patient_id")
@@ -64,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================================
-    // ステップ3: cookie の patient_id を使う
+    // ステップ2: cookie の patient_id を使う
     //   → /register で事前発行された新規患者
     // ============================================================
     if (!pid && cookiePatientId) {
@@ -89,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================================
-    // ステップ4: 電話番号 + line_user_id を紐付け更新
+    // ステップ3: 電話番号 + line_user_id を紐付け更新
     // ============================================================
 
     // answerers テーブルに電話番号を保存
@@ -138,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================================
-    // ステップ5: Cookie設定 + レスポンス
+    // ステップ4: Cookie設定 + レスポンス
     // ============================================================
     const res = NextResponse.json({ ok: true }, { status: 200 });
 

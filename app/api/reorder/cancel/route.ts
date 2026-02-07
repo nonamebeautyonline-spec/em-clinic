@@ -105,34 +105,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ GASでキャンセル
-    const gasRes = await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "cancel",
-        patient_id: patientId,
-      }),
-      cache: "no-store",
-    });
-
-    const gasText = await gasRes.text().catch(() => "");
-    let gasJson: any = {};
-    try {
-      gasJson = gasText ? JSON.parse(gasText) : {};
-    } catch {
-      gasJson = {};
-    }
-
-    if (!gasRes.ok || gasJson.ok === false) {
-      console.error("GAS reorder cancel error:", gasRes.status, gasText);
-      return NextResponse.json(
-        { ok: false, error: gasJson.error || "GAS error" },
-        { status: 500 }
-      );
-    }
-
-    // ★ DBも更新
+    // ★ DB先行でキャンセル
     if (targetReorder) {
       try {
         const { error: dbError } = await supabaseAdmin
@@ -142,12 +115,26 @@ export async function POST(req: NextRequest) {
 
         if (dbError) {
           console.error("[reorder/cancel] DB update error:", dbError);
-        } else {
-          console.log(`[reorder/cancel] DB update success, id=${targetReorder.id}`);
+          return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
         }
+        console.log(`[reorder/cancel] DB update success, id=${targetReorder.id}`);
       } catch (dbErr) {
         console.error("[reorder/cancel] DB update exception:", dbErr);
+        return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
       }
+    }
+
+    // ★ GAS同期（非同期・失敗してもログのみ）
+    if (GAS_REORDER_URL) {
+      fetch(GAS_REORDER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", patient_id: patientId }),
+        cache: "no-store",
+      }).catch((e) => console.error("[reorder/cancel] GAS sync failed (non-blocking):", e));
+    }
+
+    if (targetReorder) {
 
       // ★ LINE通知（管理者に即通知して誤操作防止）
       const statusLabel = targetReorder.status === "pending" ? "申請中" : "承認済み";

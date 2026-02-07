@@ -275,7 +275,12 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const answers = (intakeRecord?.answers as Record<string, any>) || {};
-    const medicalInfo = {
+
+    // 問診未提出（answersが空 or 問診項目がない）場合は medicalInfo を null にして非表示
+    const hasIntakeAnswers = answers && Object.keys(answers).length > 0
+      && (answers.current_disease_yesno || answers.glp_history || answers.med_yesno || answers.allergy_yesno);
+
+    const medicalInfo = hasIntakeAnswers ? {
       kana: intakeRecord?.patient_kana || answers?.カナ || answers?.name_kana || "",
       gender: answers?.性別 || answers?.sex || "",
       birthday: answers?.生年月日 || answers?.birth || "",
@@ -284,7 +289,7 @@ export async function GET(req: NextRequest) {
       medicationHistory: answers?.med_yesno === "yes" ? (answers?.med_detail || "") : "なし",
       allergies: answers?.allergy_yesno === "yes" ? (answers?.allergy_detail || "") : "アレルギーなし",
       prescriptionMenu: intakeRecord?.prescription_menu || "",
-    };
+    } : null;
 
     return NextResponse.json({
       found: true,

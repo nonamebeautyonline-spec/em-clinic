@@ -203,17 +203,15 @@ export async function POST(req: NextRequest) {
       // 処理は続行（intakeとGASが成功すれば問題なし）
     }
 
-    // GAS結果チェック
+    // GAS結果チェック（失敗してもSupabase書き込み済みなので続行）
     let json: any = {};
     if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
       const error = gasResult.status === "rejected"
         ? gasResult.reason
         : gasResult.value.text;
-      console.error("[GAS] Intake write failed:", error);
-      return NextResponse.json({ ok: false, error: "gas_error" }, { status: 500 });
-    }
-
-    if (gasResult.status === "fulfilled") {
+      console.error("[GAS] Intake write failed (non-blocking):", error);
+      // GAS失敗でもSupabase書き込み済みなので処理を続行
+    } else if (gasResult.status === "fulfilled") {
       json = gasResult.value.json;
     }
 
