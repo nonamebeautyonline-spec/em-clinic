@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 // ============================================================
@@ -231,6 +231,8 @@ function FieldRenderer({
 
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get("preview") === "1";
   const [formData, setFormData] = useState<FormDisplayData | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
@@ -240,14 +242,15 @@ export default function PublicFormPage() {
   const [thanksMessage, setThanksMessage] = useState("");
 
   useEffect(() => {
-    fetch(`/api/forms/${slug}`)
+    const url = isPreview ? `/api/forms/${slug}?preview=1` : `/api/forms/${slug}`;
+    fetch(url, { credentials: "include" })
       .then(r => r.json())
       .then(data => {
         if (data.error) setPageError(data.error);
         else if (data.form) setFormData(data.form);
       })
       .catch(() => setPageError("読み込みに失敗しました"));
-  }, [slug]);
+  }, [slug, isPreview]);
 
   const handleSubmit = async () => {
     if (!formData) return;
@@ -266,6 +269,18 @@ export default function PublicFormPage() {
       // LIFFからの取得は今後対応
       const params = new URLSearchParams(window.location.search);
       lineUserId = params.get("line_user_id");
+    }
+
+    // プレビューモードでは実際に送信しない
+    if (isPreview) {
+      setSubmitting(false);
+      setThanksMessage(
+        (formData?.settings as unknown as Record<string, string>)?.confirm_text
+          ? "（プレビュー）送信は行われませんでした。"
+          : "（プレビュー）送信は行われませんでした。"
+      );
+      setDone(true);
+      return;
     }
 
     const res = await fetch(`/api/forms/${slug}/submit`, {
@@ -353,8 +368,14 @@ export default function PublicFormPage() {
 
   return (
     <div className="min-h-screen bg-[#f0f0f0]">
+      {/* プレビューバナー */}
+      {isPreview && (
+        <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium sticky top-0 z-30">
+          プレビューモード（回答は送信されません）
+        </div>
+      )}
       {/* ヘッダー */}
-      <header className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+      <header className={`${isPreview ? "" : "sticky top-0"} z-20 bg-white border-b border-slate-200 shadow-sm`}>
         <div className="mx-auto max-w-lg px-4 py-3 flex items-center justify-between">
           <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
           <span className="text-[10px] text-slate-400">{formData.title}</span>

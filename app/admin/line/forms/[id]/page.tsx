@@ -42,7 +42,10 @@ interface FormSettings {
   confirm_dialog: boolean;
   confirm_text: string;
   confirm_button_text: string;
+  confirm_cancel_text: string;
+  deadline_enabled: boolean;
   deadline: string;
+  max_responses_enabled: boolean;
   max_responses: number | null;
   responses_per_person: number | null;
   thanks_url: string;
@@ -95,9 +98,12 @@ const SAVE_TARGETS = [
 
 const DEFAULT_SETTINGS: FormSettings = {
   confirm_dialog: true,
-  confirm_text: "この内容で送信しますか？",
-  confirm_button_text: "送信する",
+  confirm_text: "送信してよろしいですか？",
+  confirm_button_text: "送信",
+  confirm_cancel_text: "キャンセル",
+  deadline_enabled: false,
   deadline: "",
+  max_responses_enabled: false,
   max_responses: null,
   responses_per_person: null,
   thanks_url: "",
@@ -188,6 +194,25 @@ export default function FormEditorPage() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  // 保存してプレビュー
+  const saveAndPreview = async () => {
+    setSaving(true);
+    const body = { name, title, description, folder_id: folderId, fields, settings };
+    await fetch(`/api/admin/line/forms/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    window.open(`/forms/${form?.slug}?preview=1`, "_blank");
+  };
+
+  // プレビュー（保存なし）
+  const openPreview = () => {
+    window.open(`/forms/${form?.slug}?preview=1`, "_blank");
   };
 
   // 公開切替
@@ -296,25 +321,38 @@ export default function FormEditorPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Link
             href={`/admin/line/forms/${id}/responses`}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
             回答一覧
           </Link>
           <button
+            onClick={openPreview}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            プレビュー
+          </button>
+          <button
             onClick={togglePublish}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${form.is_published ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${form.is_published ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-blue-500 text-white hover:bg-blue-600"}`}
           >
             {form.is_published ? "非公開にする" : "公開する"}
           </button>
           <button
             onClick={save}
             disabled={saving}
-            className="px-6 py-2 bg-[#00B900] text-white rounded-lg text-sm font-medium hover:bg-[#009900] transition-colors disabled:opacity-40 shadow-sm"
+            className="px-5 py-2 bg-[#00B900] text-white rounded-lg text-sm font-medium hover:bg-[#009900] transition-colors disabled:opacity-40 shadow-sm"
           >
             {saving ? "保存中..." : saved ? "保存しました" : "保存"}
+          </button>
+          <button
+            onClick={saveAndPreview}
+            disabled={saving}
+            className="px-4 py-2 border-2 border-[#00B900] text-[#00B900] rounded-lg text-sm font-medium hover:bg-[#00B900]/5 transition-colors disabled:opacity-40"
+          >
+            保存してプレビュー
           </button>
         </div>
       </div>
@@ -587,112 +625,160 @@ export default function FormEditorPage() {
 
       {/* 設定タブ */}
       {tab === "settings" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
-          {/* 確認ダイアログ */}
-          <div>
-            <label className="flex items-center gap-2 text-sm text-gray-700 font-medium mb-3">
-              <input
-                type="checkbox"
-                checked={settings.confirm_dialog}
-                onChange={e => setSettings(s => ({ ...s, confirm_dialog: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
-              />
-              送信前に確認ダイアログを表示
-            </label>
-            {settings.confirm_dialog && (
-              <div className="ml-6 space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">確認テキスト</label>
-                  <input
-                    type="text"
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <tbody>
+              {/* 確認テキスト */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium w-48 align-top whitespace-nowrap bg-gray-50/50">確認テキスト</td>
+                <td className="px-5 py-4">
+                  <textarea
                     value={settings.confirm_text}
                     onChange={e => setSettings(s => ({ ...s, confirm_text: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">確認ボタンテキスト</label>
+                </td>
+              </tr>
+              {/* ダイアログ送信ボタン */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">ダイアログ送信ボタン</td>
+                <td className="px-5 py-4">
                   <input
                     type="text"
                     value={settings.confirm_button_text}
                     onChange={e => setSettings(s => ({ ...s, confirm_button_text: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
                   />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 回答期限 */}
-          <div className="border-t border-gray-100 pt-5">
-            <label className="text-xs font-medium text-gray-600 mb-1 block">回答期限</label>
-            <input
-              type="datetime-local"
-              value={settings.deadline}
-              onChange={e => setSettings(s => ({ ...s, deadline: e.target.value }))}
-              className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
-            />
-            <p className="text-xs text-gray-400 mt-1">空欄の場合は期限なし</p>
-          </div>
-
-          {/* 回答数制限 */}
-          <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-5">
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">全体の回答数上限</label>
-              <input
-                type="number"
-                value={settings.max_responses ?? ""}
-                onChange={e => setSettings(s => ({ ...s, max_responses: e.target.value ? parseInt(e.target.value) : null }))}
-                placeholder="制限なし"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1 block">1人あたりの回答回数上限</label>
-              <input
-                type="number"
-                value={settings.responses_per_person ?? ""}
-                onChange={e => setSettings(s => ({ ...s, responses_per_person: e.target.value ? parseInt(e.target.value) : null }))}
-                placeholder="制限なし"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
-              />
-            </div>
-          </div>
-
-          {/* サンクス */}
-          <div className="border-t border-gray-100 pt-5">
-            <label className="text-xs font-medium text-gray-600 mb-1 block">完了メッセージ</label>
-            <textarea
-              value={settings.thanks_message}
-              onChange={e => setSettings(s => ({ ...s, thanks_message: e.target.value }))}
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">完了後リダイレクトURL</label>
-            <input
-              type="url"
-              value={settings.thanks_url}
-              onChange={e => setSettings(s => ({ ...s, thanks_url: e.target.value }))}
-              placeholder="https://..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
-            />
-            <p className="text-xs text-gray-400 mt-1">空欄の場合は完了メッセージを表示</p>
-          </div>
-
-          {/* 復元許可 */}
-          <div className="border-t border-gray-100 pt-5">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={settings.allow_restore}
-                onChange={e => setSettings(s => ({ ...s, allow_restore: e.target.checked }))}
-                className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
-              />
-              前回の回答を復元できるようにする
-            </label>
-          </div>
+                </td>
+              </tr>
+              {/* ダイアログキャンセルボタン */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">ダイアログキャンセルボタン</td>
+                <td className="px-5 py-4">
+                  <input
+                    type="text"
+                    value={settings.confirm_cancel_text}
+                    onChange={e => setSettings(s => ({ ...s, confirm_cancel_text: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                  />
+                </td>
+              </tr>
+              {/* 回答期限 */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">回答期限</td>
+                <td className="px-5 py-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={settings.deadline_enabled}
+                      onChange={e => setSettings(s => ({ ...s, deadline_enabled: e.target.checked, deadline: e.target.checked ? s.deadline : "" }))}
+                      className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                    />
+                    設定する
+                  </label>
+                  {settings.deadline_enabled && (
+                    <input
+                      type="datetime-local"
+                      value={settings.deadline}
+                      onChange={e => setSettings(s => ({ ...s, deadline: e.target.value }))}
+                      className="mt-2 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                    />
+                  )}
+                </td>
+              </tr>
+              {/* 先着数制限 */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">先着数制限</td>
+                <td className="px-5 py-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={settings.max_responses_enabled}
+                      onChange={e => setSettings(s => ({ ...s, max_responses_enabled: e.target.checked, max_responses: e.target.checked ? s.max_responses : null }))}
+                      className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                    />
+                    制限する
+                  </label>
+                  {settings.max_responses_enabled && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="number"
+                        value={settings.max_responses ?? ""}
+                        onChange={e => setSettings(s => ({ ...s, max_responses: e.target.value ? parseInt(e.target.value) : null }))}
+                        placeholder="100"
+                        min={1}
+                        className="w-32 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                      />
+                      <span className="text-sm text-gray-500">人</span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+              {/* 1人が回答できる回数 */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">1人が回答できる回数</td>
+                <td className="px-5 py-4">
+                  <select
+                    value={settings.responses_per_person ?? ""}
+                    onChange={e => setSettings(s => ({ ...s, responses_per_person: e.target.value ? parseInt(e.target.value) : null }))}
+                    className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                  >
+                    <option value="">何度でも可能</option>
+                    <option value="1">1回のみ</option>
+                    <option value="2">2回まで</option>
+                    <option value="3">3回まで</option>
+                    <option value="5">5回まで</option>
+                    <option value="10">10回まで</option>
+                  </select>
+                </td>
+              </tr>
+              {/* サンクスページURL */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium bg-gray-50/50">サンクスページURL</td>
+                <td className="px-5 py-4">
+                  <input
+                    type="url"
+                    value={settings.thanks_url}
+                    onChange={e => setSettings(s => ({ ...s, thanks_url: e.target.value }))}
+                    placeholder="https://..."
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900]"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">空欄の場合は完了メッセージを表示します</p>
+                </td>
+              </tr>
+              {/* 完了メッセージ */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium align-top bg-gray-50/50">完了メッセージ</td>
+                <td className="px-5 py-4">
+                  <textarea
+                    value={settings.thanks_message}
+                    onChange={e => setSettings(s => ({ ...s, thanks_message: e.target.value }))}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
+                  />
+                </td>
+              </tr>
+              {/* 回答復元 */}
+              <tr>
+                <td className="px-5 py-4 text-gray-700 font-medium align-top bg-gray-50/50">回答復元</td>
+                <td className="px-5 py-4">
+                  <label className="flex items-start gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={settings.allow_restore}
+                      onChange={e => setSettings(s => ({ ...s, allow_restore: e.target.checked }))}
+                      className="w-4 h-4 mt-0.5 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                    />
+                    <div>
+                      2回目以降の回答時に前回の回答を復元する(初期値は無視されます)
+                      <p className="text-xs text-gray-400 mt-0.5">別のフォームの回答や、回答した端末が異なる場合、時間が経過した場合は復元できません</p>
+                    </div>
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
     </div>
