@@ -14,14 +14,23 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // タグごとの患者数を一括取得
-  const { data: allPT } = await supabaseAdmin
-    .from("patient_tags")
-    .select("tag_id")
-    .limit(100000);
+  // タグごとの患者数を一括取得（ページネーション対応）
+  const allPT: { tag_id: number }[] = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data: batch } = await supabaseAdmin
+      .from("patient_tags")
+      .select("tag_id")
+      .range(from, from + PAGE - 1);
+    if (!batch || batch.length === 0) break;
+    allPT.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+  }
 
   const countMap = new Map<number, number>();
-  for (const pt of allPT || []) {
+  for (const pt of allPT) {
     countMap.set(pt.tag_id, (countMap.get(pt.tag_id) || 0) + 1);
   }
 
