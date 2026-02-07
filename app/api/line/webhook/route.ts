@@ -8,7 +8,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ===== 環境変数 =====
-const LINE_CHANNEL_SECRET = process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
+const LINE_CHANNEL_SECRET =
+  process.env.LINE_MESSAGING_API_CHANNEL_SECRET ||
+  process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 const LINE_ACCESS_TOKEN =
