@@ -199,6 +199,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "productCode_required" }, { status: 400 });
     }
 
+    // ★ NG患者は再処方申請不可
+    {
+      const { data: intakeRow } = await supabaseAdmin
+        .from("intake")
+        .select("status")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (intakeRow?.status === "NG") {
+        console.log(`[reorder/apply] NG患者の再処方申請をブロック: patient_id=${patientId}`);
+        return NextResponse.json(
+          { ok: false, error: "ng_patient", message: "処方不可と判定されているため、再処方を申請できません。再度診察予約をお取りください。" },
+          { status: 403 }
+        );
+      }
+    }
+
     // ★ 重複申請チェック: pending or confirmed の申請があれば拒否
     const { data: existingReorder, error: checkError } = await supabaseAdmin
       .from("reorders")

@@ -85,18 +85,18 @@ function toNumberOrUndefined(v: any): number | undefined {
 
 async function getPatientInfoFromSupabase(
   patientId: string
-): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean }> {
+): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null }> {
   try {
     const { data, error } = await supabase
       .from("intake")
-      .select("patient_id, patient_name, line_id")
+      .select("patient_id, patient_name, line_id, status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     if (error || !data) {
-      return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+      return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
     }
 
     return {
@@ -104,9 +104,10 @@ async function getPatientInfoFromSupabase(
       displayName: data.patient_name || "",
       lineId: data.line_id || "",
       hasIntake: true,
+      intakeStatus: data.status || null,
     };
   } catch {
-    return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+    return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
   }
 }
 
@@ -282,10 +283,11 @@ export async function GET(req: NextRequest) {
     ]);
 
     const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");
+    const isNG = patientInfo.intakeStatus === "NG";
     const hasAnyPaidOrder = orders.length > 0;
     const flags = {
-      canPurchaseCurrentCourse: !hasAnyPaidOrder,
-      canApplyReorder: hasAnyPaidOrder,
+      canPurchaseCurrentCourse: !hasAnyPaidOrder && !isNG,
+      canApplyReorder: hasAnyPaidOrder && !isNG,
       hasAnyPaidOrder,
     };
 
@@ -303,6 +305,7 @@ export async function GET(req: NextRequest) {
       ordersFlags: flags,
       reorders,
       hasIntake: patientInfo.hasIntake,
+      intakeStatus: patientInfo.intakeStatus,
     };
 
     return NextResponse.json(

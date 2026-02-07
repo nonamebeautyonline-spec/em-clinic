@@ -275,6 +275,8 @@ export default function AdminMypageView({ data }: { data: any }) {
   const nextReservation = data.nextReservation;
   const history = data.history || [];
   const hasIntake = data.hasIntake;
+  const intakeStatus = data.intakeStatus || null;
+  const isNG = intakeStatus === "NG";
 
   // ★ APIから来たordersをマッピング（snake_case → camelCase）
   const mapOrder = (o: any): Order => {
@@ -346,7 +348,7 @@ export default function AdminMypageView({ data }: { data: any }) {
   const lastHistory = hasHistory ? history[0] : null;
   const isFirstVisit = !hasHistory;
 
-  const canReserve = hasIntake === true && !hasHistory && !nextReservation;
+  const canReserve = hasIntake === true && (!hasHistory || isNG) && !nextReservation;
 
   const orderHistoryAll = (orders ?? [])
     .slice()
@@ -382,6 +384,7 @@ export default function AdminMypageView({ data }: { data: any }) {
 
   const showInitialPurchase =
     hasHistory &&
+    !isNG &&
     !(ordersFlags?.hasAnyPaidOrder ?? false) &&
     !hasPendingReorder;
 
@@ -475,6 +478,17 @@ export default function AdminMypageView({ data }: { data: any }) {
         >
           予約に進む（管理者ビュー）
         </button>
+
+        {/* ★ NG患者バナー */}
+        {isNG && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <p className="text-sm font-semibold text-rose-700 mb-1">処方不可（NG）</p>
+            <p className="text-[12px] text-rose-600 leading-relaxed">
+              診察の結果、現在処方ができない状態です。<br />
+              再度診察をご希望の場合は予約を取る必要があります。
+            </p>
+          </div>
+        )}
 
         {/* 初回決済ボタン（条件付き） */}
         {showInitialPurchase && (
@@ -583,8 +597,8 @@ export default function AdminMypageView({ data }: { data: any }) {
             </h2>
           </div>
 
-          {/* 再処方申請カード */}
-          {displayReorder && (
+          {/* 再処方申請カード（NG患者は非表示） */}
+          {displayReorder && !isNG && (
             <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
               <div className="text-xs font-semibold text-pink-700 mb-1">
                 {displayReorderStatus === "pending"
@@ -727,8 +741,8 @@ export default function AdminMypageView({ data }: { data: any }) {
             </div>
           )}
 
-          {/* 再処方申請ボタン */}
-          {ordersFlags?.hasAnyPaidOrder && (
+          {/* 再処方申請ボタン（NG患者は非表示） */}
+          {ordersFlags?.hasAnyPaidOrder && !isNG && (
             <div className="mt-4">
               <button
                 type="button"

@@ -330,6 +330,7 @@ export default function PatientDashboardInner() {
   const [showCancelSuccess, setShowCancelSuccess] = useState(false);
   const [canceling, setCanceling] = useState(false);
 const [hasIntake, setHasIntake] = useState<boolean | null>(null);
+const [intakeStatus, setIntakeStatus] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
 const [historyLoading, setHistoryLoading] = useState(false);
@@ -436,6 +437,7 @@ useEffect(() => {
         reorders?: any[];
           hasIntake?: boolean; // ★追加
   intakeId?: string;   // ★任意
+  intakeStatus?: string | null; // ★NG判定用
       };
       console.log(
   "[mypage api]",
@@ -447,6 +449,7 @@ useEffect(() => {
 // ★★★ ここに入れる ★★★
 const exists = api.hasIntake === true;
 setHasIntake(exists);
+setIntakeStatus(api.intakeStatus ?? null);
 
 if (typeof window !== "undefined") {
   if (exists) window.localStorage.setItem("has_intake", "1");
@@ -749,12 +752,13 @@ const archivedOrders = activeOrders.filter((o) => !isActiveOrder(o));
   const hasHistory = history.length > 0;
   const lastHistory = hasHistory ? history[0] : null;
   const isFirstVisit = !hasHistory;
+  const isNG = intakeStatus === "NG";
     // 予約ボタンの有効条件：
   //  - 問診済み
-  //  - 診察履歴がまだない（初回診察前）
+  //  - 診察履歴がまだない（初回診察前）、またはNG患者（再予約可）
   //  - すでに予約が入っていない
   const canReserve =
-  hasIntake === true && !hasHistory && !nextReservation;
+  hasIntake === true && (!hasHistory || isNG) && !nextReservation;
 
 const formatDate = (iso: string) => {
   const d = new Date(iso);
@@ -810,9 +814,10 @@ const orderHistoryToRender = showAllHistory ? orderHistoryAll : orderHistoryPrev
   const displayReorderStatus = displayReorder?.status; // "pending" | "confirmed" | undefined
 
 
-  // 初回購入ボタン（診察済み・まだ決済0回・申請も無しのときだけ）
+  // 初回購入ボタン（診察済み・まだ決済0回・申請も無し・NG以外のときだけ）
   const showInitialPurchase =
     hasHistory &&
+    !isNG &&
     !(ordersFlags?.hasAnyPaidOrder ?? false) &&
     !hasPendingReorder;
 
@@ -1017,6 +1022,16 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
   予約に進む
 </button>
 
+{/* ★ NG患者バナー */}
+{isNG && (
+  <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+    <p className="text-sm font-semibold text-rose-700 mb-1">処方不可</p>
+    <p className="text-[12px] text-rose-600 leading-relaxed">
+      診察の結果、現在処方ができない状態です。<br />
+      再度診察をご希望の場合は「予約に進む」から予約をお取りください。
+    </p>
+  </div>
+)}
 
         {/* 初回決済ボタン（条件付き） */}
         {showInitialPurchase && (
@@ -1136,8 +1151,8 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             </h2>
           </div>
 
-          {/* 再処方申請カード（pending or confirmed を表示） */}
-          {displayReorder && (
+          {/* 再処方申請カード（pending or confirmed を表示、NG患者は非表示） */}
+          {displayReorder && !isNG && (
             <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
               <div className="text-xs font-semibold text-pink-700 mb-1">
                 {displayReorderStatus === "pending"
@@ -1321,8 +1336,8 @@ onClick={() => handleOpenTracking(order)}
             </div>
           )}
 
-{/* 再処方申請ボタン（初回分決済後・申請中/許可済みがなければ有効） */}
-{ordersFlags?.hasAnyPaidOrder && (
+{/* 再処方申請ボタン（初回分決済後・申請中/許可済みがなければ有効・NG以外） */}
+{ordersFlags?.hasAnyPaidOrder && !isNG && (
   <div className="mt-4">
     <button
       type="button"

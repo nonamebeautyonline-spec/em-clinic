@@ -93,18 +93,18 @@ function inferCarrierFromDates(o: { shippingEta?: string; paidAt?: string }): Ca
  */
 async function getPatientInfoFromSupabase(
   patientId: string
-): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean } | null> {
+): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null } | null> {
   try {
     const { data, error } = await supabaseAdmin
       .from("intake")
-      .select("patient_id, patient_name, line_id")
+      .select("patient_id, patient_name, line_id, status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
     if (error || !data) {
-      return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+      return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
     }
 
     return {
@@ -112,10 +112,11 @@ async function getPatientInfoFromSupabase(
       displayName: data.patient_name || "",
       lineId: data.line_id || "",
       hasIntake: true,
+      intakeStatus: data.status || null,
     };
   } catch (err) {
     console.error("[Supabase] getPatientInfo error:", err);
-    return { id: patientId, displayName: "", lineId: "", hasIntake: false };
+    return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
   }
 }
 
@@ -357,10 +358,12 @@ export async function POST(_req: NextRequest) {
     const shouldSaveLineId = !!lineUserId && !existingLineId;
 
     // ordersFlags を計算
+    // ★ NG患者は購入不可
+    const isNG = patientInfo?.intakeStatus === "NG";
     const hasAnyPaidOrder = ordersAll.length > 0;
     const ordersFlags: OrdersFlags = {
-      canPurchaseCurrentCourse: !hasAnyPaidOrder,
-      canApplyReorder: hasAnyPaidOrder,
+      canPurchaseCurrentCourse: !hasAnyPaidOrder && !isNG,
+      canApplyReorder: hasAnyPaidOrder && !isNG,
       hasAnyPaidOrder,
     };
 
@@ -383,6 +386,7 @@ export async function POST(_req: NextRequest) {
       })),
       hasIntake,
       intakeId: "",
+      intakeStatus: patientInfo?.intakeStatus || null,
     };
 
     // キャッシュ保存（TTL=30分）

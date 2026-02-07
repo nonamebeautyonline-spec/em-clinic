@@ -52,6 +52,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ★ NG患者は決済不可
+    {
+      const { data: intakeRow } = await supabaseAdmin
+        .from("intake")
+        .select("status")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (intakeRow?.status === "NG") {
+        console.log(`[BankTransfer] NG患者の決済をブロック: patient_id=${patientId}`);
+        return NextResponse.json(
+          { error: "処方不可と判定されているため、決済できません。再度診察予約をお取りください。" },
+          { status: 403 }
+        );
+      }
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const now = new Date().toISOString();
 

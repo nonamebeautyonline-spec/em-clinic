@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { supabaseAdmin } from "@/lib/supabase";
 
 type ProductCode =
   | "MJL_2.5mg_1m"
@@ -140,6 +141,25 @@ export async function POST(req: NextRequest) {
         { error: "productCode is required." },
         { status: 400 }
       );
+    }
+
+    // ★ NG患者は決済不可
+    if (patientId) {
+      const { data: intakeRow } = await supabaseAdmin
+        .from("intake")
+        .select("status")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (intakeRow?.status === "NG") {
+        console.log(`[checkout] NG患者の決済をブロック: patient_id=${patientId}`);
+        return NextResponse.json(
+          { error: "処方不可と判定されているため、決済できません。再度診察予約をお取りください。" },
+          { status: 403 }
+        );
+      }
     }
 
     const product = PRODUCTS.find((p) => p.code === productCode);
