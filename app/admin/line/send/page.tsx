@@ -75,6 +75,11 @@ export default function BroadcastSendPage() {
   const [message, setMessage] = useState("");
   const [broadcastName, setBroadcastName] = useState("");
 
+  // 配信日時設定
+  const [scheduleMode, setScheduleMode] = useState<"immediate" | "scheduled">("immediate");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("12:00");
+
   // 送信状態
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -160,6 +165,10 @@ export default function BroadcastSendPage() {
     setResult(null);
     setShowConfirm(false);
 
+    const scheduled_at = scheduleMode === "scheduled" && scheduleDate
+      ? new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString()
+      : undefined;
+
     const res = await fetch("/api/admin/line/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -171,12 +180,18 @@ export default function BroadcastSendPage() {
           exclude: { conditions: excludeConditions },
         },
         message,
+        scheduled_at,
       }),
     });
     const data = await res.json();
-    setResult(data.ok
-      ? `配信完了: 送信${data.sent}件 / 失敗${data.failed}件 / UID無${data.no_uid}件`
-      : `配信失敗: ${data.error}`);
+
+    if (scheduled_at && data.ok) {
+      setResult(`予約完了: ${scheduleDate} ${scheduleTime} に${data.total}人へ配信予定`);
+    } else {
+      setResult(data.ok
+        ? `配信完了: 送信${data.sent}件 / 失敗${data.failed}件 / UID無${data.no_uid}件`
+        : `配信失敗: ${data.error}`);
+    }
 
     // 配信履歴を再取得
     if (data.ok) {
@@ -249,150 +264,145 @@ export default function BroadcastSendPage() {
           />
         </div>
 
-        {/* 絞り込み条件 */}
+        {/* 配信先設定 */}
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              絞り込み条件
-            </label>
-            <button
-              onClick={() => addCondition("include")}
-              className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              条件追加
-            </button>
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-4">
+            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            配信先設定
+          </label>
+
+          {/* 絞り込み条件 */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-gray-500">絞り込み条件</span>
+              <button
+                onClick={() => addCondition("include")}
+                className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                条件追加
+              </button>
+            </div>
+            {includeConditions.length === 0 ? (
+              <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                条件なし（全員が対象）
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {includeConditions.map((c, i) => (
+                  <ConditionRow
+                    key={i}
+                    condition={c}
+                    tags={tags}
+                    onUpdate={(updates) => updateCondition("include", i, updates)}
+                    onRemove={() => removeCondition("include", i)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-          {includeConditions.length === 0 ? (
-            <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              条件なし（全員が対象）
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {includeConditions.map((c, i) => (
-                <ConditionRow
-                  key={i}
-                  condition={c}
-                  tags={tags}
-                  onUpdate={(updates) => updateCondition("include", i, updates)}
-                  onRemove={() => removeCondition("include", i)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* 除外条件 */}
-        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-red-600">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-              </svg>
-              除外条件
-            </label>
-            <button
-              onClick={() => addCondition("exclude")}
-              className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              除外条件追加
-            </button>
+          {/* 除外条件 */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium text-red-500">除外条件</span>
+              <button
+                onClick={() => addCondition("exclude")}
+                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                除外条件追加
+              </button>
+            </div>
+            {excludeConditions.length === 0 ? (
+              <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                除外なし
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {excludeConditions.map((c, i) => (
+                  <ConditionRow
+                    key={i}
+                    condition={c}
+                    tags={tags}
+                    onUpdate={(updates) => updateCondition("exclude", i, updates)}
+                    onRemove={() => removeCondition("exclude", i)}
+                    isExclude
+                  />
+                ))}
+              </div>
+            )}
           </div>
-          {excludeConditions.length === 0 ? (
-            <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-3">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              除外なし
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {excludeConditions.map((c, i) => (
-                <ConditionRow
-                  key={i}
-                  condition={c}
-                  tags={tags}
-                  onUpdate={(updates) => updateCondition("exclude", i, updates)}
-                  onRemove={() => removeCondition("exclude", i)}
-                  isExclude
-                />
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* プレビュー */}
-        <button
-          onClick={handlePreview}
-          disabled={loadingPreview}
-          className="w-full py-3 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 rounded-xl text-sm font-medium text-gray-700 transition-all flex items-center justify-center gap-2 shadow-sm"
-        >
-          {loadingPreview ? (
-            <>
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-              確認中...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              対象者をプレビュー
-            </>
-          )}
-        </button>
+          {/* 該当者表示 + プレビュー */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <button
+              onClick={handlePreview}
+              disabled={loadingPreview}
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1 transition-colors"
+            >
+              {loadingPreview ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+                  確認中...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  該当者表示
+                </>
+              )}
+            </button>
+            {preview && (
+              <span className="text-sm font-bold text-emerald-600">
+                ※{preview.sendable}人へ配信されます
+                {preview.no_uid > 0 && (
+                  <span className="text-xs text-gray-400 font-normal ml-2">（UID無し{preview.no_uid}人）</span>
+                )}
+              </span>
+            )}
+          </div>
 
-        {preview && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100/50">
-            <div className="grid grid-cols-3 gap-4 mb-3">
-              <div className="text-center">
-                <div className="text-xl font-bold text-gray-800">{preview.total}</div>
-                <div className="text-[10px] text-gray-500">対象</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-emerald-600">{preview.sendable}</div>
-                <div className="text-[10px] text-emerald-500">送信可能</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xl font-bold text-gray-400">{preview.no_uid}</div>
-                <div className="text-[10px] text-gray-400">UID無し</div>
-              </div>
-            </div>
-            {preview.patients.length > 0 && (
-              <div className="max-h-28 overflow-y-auto mt-3 pt-3 border-t border-blue-100">
+          {/* 該当者詳細 */}
+          {preview && preview.patients.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="max-h-28 overflow-y-auto">
                 <div className="flex flex-wrap gap-1.5">
-                  {preview.patients.slice(0, 20).map(p => (
+                  {preview.patients.slice(0, 30).map(p => (
                     <span
                       key={p.patient_id}
                       className={`text-[11px] px-2 py-1 rounded-lg font-medium ${
                         p.has_line
-                          ? "bg-white/80 text-emerald-700 border border-emerald-200/50"
-                          : "bg-white/50 text-gray-500 border border-gray-200/50"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                          : "bg-gray-50 text-gray-500 border border-gray-200/50"
                       }`}
                     >
                       {p.patient_name || p.patient_id}
                     </span>
                   ))}
-                  {preview.patients.length > 20 && (
-                    <span className="text-[11px] text-gray-400 px-2 py-1">... 他{preview.patients.length - 20}名</span>
+                  {preview.patients.length > 30 && (
+                    <span className="text-[11px] text-gray-400 px-2 py-1">... 他{preview.patients.length - 30}名</span>
                   )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* メッセージ入力 */}
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
@@ -497,16 +507,97 @@ export default function BroadcastSendPage() {
           </div>
         </div>
 
+        {/* 配信日時設定 */}
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-4">
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            配信日時設定
+          </label>
+
+          <div className="space-y-3">
+            {/* すぐに配信 */}
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                scheduleMode === "immediate" ? "border-emerald-500" : "border-gray-300 group-hover:border-gray-400"
+              }`}>
+                {scheduleMode === "immediate" && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                )}
+              </span>
+              <span className="text-sm text-gray-700" onClick={() => setScheduleMode("immediate")}>
+                登録後すぐに配信する
+              </span>
+            </label>
+
+            {/* 日時指定 */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors mt-0.5 ${
+                scheduleMode === "scheduled" ? "border-emerald-500" : "border-gray-300 group-hover:border-gray-400"
+              }`}>
+                {scheduleMode === "scheduled" && (
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                )}
+              </span>
+              <div className="flex-1">
+                <span className="text-sm text-gray-700" onClick={() => setScheduleMode("scheduled")}>
+                  配信日時を指定する
+                </span>
+
+                {scheduleMode === "scheduled" && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <div>
+                      <label className="text-[10px] text-gray-400 mb-1 block">配信日</label>
+                      <input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 mb-1 block">配信時間</label>
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+        </div>
+
         {/* 送信ボタン */}
         <button
           onClick={() => setShowConfirm(true)}
-          disabled={sending || !message.trim()}
-          className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 font-medium shadow-lg shadow-green-500/25 transition-all text-sm flex items-center justify-center gap-2"
+          disabled={sending || !message.trim() || (scheduleMode === "scheduled" && !scheduleDate)}
+          className={`w-full py-3.5 text-white rounded-xl disabled:opacity-40 font-medium shadow-lg transition-all text-sm flex items-center justify-center gap-2 ${
+            scheduleMode === "scheduled"
+              ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-500/25"
+              : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+          }`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-          </svg>
-          一斉配信する
+          {scheduleMode === "scheduled" ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              予約配信する
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+              一斉配信する
+            </>
+          )}
         </button>
 
         {/* 送信結果 */}
@@ -608,7 +699,7 @@ export default function BroadcastSendPage() {
             </div>
 
             <div className="px-6 py-5">
-              <div className="mb-4">
+              <div className="mb-4 space-y-2">
                 {preview ? (
                   <div className="bg-blue-50 rounded-lg px-3 py-2 flex items-center gap-3">
                     <span className="text-sm font-bold text-blue-700">{preview.sendable}人</span>
@@ -617,6 +708,14 @@ export default function BroadcastSendPage() {
                 ) : (
                   <div className="bg-amber-50 rounded-lg px-3 py-2">
                     <span className="text-xs text-amber-600">プレビュー未実行です。対象者数を確認してください。</span>
+                  </div>
+                )}
+                {scheduleMode === "scheduled" && scheduleDate && (
+                  <div className="bg-indigo-50 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs text-indigo-700 font-medium">{scheduleDate} {scheduleTime} に予約配信</span>
                   </div>
                 )}
               </div>
@@ -636,14 +735,18 @@ export default function BroadcastSendPage() {
               <button
                 onClick={handleSend}
                 disabled={sending}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25 transition-all"
+                className={`flex-1 px-4 py-2.5 text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg transition-all ${
+                  scheduleMode === "scheduled"
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-blue-500/25"
+                    : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-green-500/25"
+                }`}
               >
                 {sending ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    送信中...
+                    {scheduleMode === "scheduled" ? "予約中..." : "送信中..."}
                   </span>
-                ) : "送信する"}
+                ) : scheduleMode === "scheduled" ? "予約する" : "送信する"}
               </button>
             </div>
           </div>
