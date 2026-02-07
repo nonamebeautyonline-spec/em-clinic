@@ -109,6 +109,38 @@ async function findPatientByLineUid(lineUid: string) {
   return data;
 }
 
+// ===== LINE UIDから患者を検索、なければ自動作成 =====
+async function findOrCreatePatient(lineUid: string) {
+  const existing = await findPatientByLineUid(lineUid);
+  if (existing) return existing;
+
+  // LINEプロフィール取得
+  const profile = await getLineProfile(lineUid);
+  const displayName = profile.displayName || `LINE_${lineUid.slice(-6)}`;
+
+  // patient_idを生成（LINE_で始まるUID末尾8文字）
+  const patientId = `LINE_${lineUid.slice(-8)}`;
+
+  // intakeレコードを作成
+  const { error } = await supabaseAdmin
+    .from("intake")
+    .upsert({
+      patient_id: patientId,
+      patient_name: displayName,
+      line_id: lineUid,
+      line_display_name: profile.displayName || null,
+      line_picture_url: profile.pictureUrl || null,
+    }, { onConflict: "patient_id" });
+
+  if (error) {
+    console.error("[webhook] auto-create intake failed:", error.message);
+    return null;
+  }
+
+  console.log(`[webhook] auto-created intake for ${lineUid} -> ${patientId} (${displayName})`);
+  return { patient_id: patientId, patient_name: displayName };
+}
+
 // ===== message_log に記録 =====
 async function logEvent(params: {
   patient_id?: string | null;
@@ -138,15 +170,17 @@ async function logEvent(params: {
 async function handleFollow(lineUid: string) {
   console.log("[webhook] follow:", lineUid);
 
-  const patient = await findPatientByLineUid(lineUid);
-  const isReturning = !!patient;
+  const existingPatient = await findPatientByLineUid(lineUid);
+  const isReturning = !!existingPatient;
   const settingKey = isReturning ? "returning_blocked" : "new_friend";
 
-  // LINEプロフィール取得（表示名 + アイコン画像URL）
+  // PIDなしユーザーも自動作成
+  const patient = existingPatient || await findOrCreatePatient(lineUid);
+
+  // LINEプロフィール取得・更新
   const lineProfile = await getLineProfile(lineUid);
   const displayName = patient?.patient_name || lineProfile.displayName;
 
-  // intakeにLINEプロフィール情報を保存
   if (patient?.patient_id && (lineProfile.displayName || lineProfile.pictureUrl)) {
     await supabaseAdmin
       .from("intake")
@@ -295,28 +329,8 @@ async function handleUnfollow(lineUid: string) {
 // message イベント処理（ユーザーからのテキスト等）
 // =================================================================
 async function handleMessage(lineUid: string, message: any) {
-  const patient = await findPatientByLineUid(lineUid);
-
-  // LINEプロフィール未保存なら取得して保存
-  if (patient?.patient_id) {
-    const { data: existing } = await supabaseAdmin
-      .from("intake")
-      .select("line_picture_url")
-      .eq("patient_id", patient.patient_id)
-      .maybeSingle();
-    if (!existing?.line_picture_url) {
-      const profile = await getLineProfile(lineUid);
-      if (profile.displayName || profile.pictureUrl) {
-        await supabaseAdmin
-          .from("intake")
-          .update({
-            line_display_name: profile.displayName || null,
-            line_picture_url: profile.pictureUrl || null,
-          })
-          .eq("patient_id", patient.patient_id);
-      }
-    }
-  }
+  // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
+  const patient = await findOrCreatePatient(lineUid);
 
   let content = "";
   let msgType = message.type || "unknown";
@@ -364,7 +378,7 @@ async function handleMessage(lineUid: string, message: any) {
 // postback イベント処理（ユーザーからのリッチメニュー操作等）
 // =================================================================
 async function handleUserPostback(lineUid: string, postbackData: string) {
-  const patient = await findPatientByLineUid(lineUid);
+  const patient = await findOrCreatePatient(lineUid);
 
   // JSON形式（リッチメニューのaction type）を試行
   let parsed: any = null;
