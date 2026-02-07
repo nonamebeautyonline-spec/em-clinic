@@ -74,10 +74,11 @@ export async function POST(req: Request) {
         })
         .eq("reserve_id", reserveId),
 
-      // 2b. reservationsテーブルのnote, prescription_menuも更新
+      // 2b. reservationsテーブルのstatus, note, prescription_menuも更新
       supabaseAdmin
         .from("reservations")
         .update({
+          status: status || "pending",
           note: note || null,
           prescription_menu: prescriptionMenu || null,
         })
