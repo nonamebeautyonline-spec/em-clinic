@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // directionがNULLの古いレコードはstatusから推定
+  // directionをstatusから正しく判定（DEFAULT 'outgoing'で既存データが全てoutgoingのため）
   const messages = (data || []).map((m: Record<string, unknown>) => ({
     ...m,
-    direction: m.direction || (["sent", "failed", "no_uid"].includes(m.status as string) ? "outgoing" : "incoming"),
+    direction: m.status === "received" ? "incoming" : (["sent", "failed", "no_uid"].includes(m.status as string) ? "outgoing" : (m.direction || "outgoing")),
   }));
 
   return NextResponse.json({ messages, total: count });
