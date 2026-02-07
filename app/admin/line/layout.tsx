@@ -3,18 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const LINE_TABS = [
+// 1行目: メイン機能
+const MAIN_TABS = [
   { href: "/admin/line", label: "トップ" },
   { href: "/admin/line/friends", label: "友達一覧" },
   { href: "/admin/line/talk", label: "個別トーク" },
   { href: "/admin/line/send", label: "一斉送信" },
+  { href: "/admin/line/templates", label: "テンプレート" },
+  { href: "/admin/line/forms", label: "回答フォーム" },
+];
+
+// 2行目: 設定・管理系
+const SUB_TABS = [
+  { href: "/admin/line/actions", label: "アクション管理" },
   { href: "/admin/line/tags", label: "タグ管理" },
   { href: "/admin/line/marks", label: "対応マーク" },
-  { href: "/admin/line/templates", label: "テンプレート" },
-  { href: "/admin/line/media", label: "メディア" },
-  { href: "/admin/line/rich-menus", label: "リッチメニュー" },
-  { href: "/admin/line/actions", label: "アクション管理" },
-  { href: "/admin/line/forms", label: "回答フォーム" },
+  { href: "/admin/line/media", label: "メディア一覧" },
+  { href: "/admin/line/rich-menus", label: "リッチメニュー設定" },
   { href: "/admin/line/friend-settings", label: "友達追加時設定" },
   { href: "/admin/line/friends/fields", label: "情報欄設定" },
   { href: "/admin/line/messages", label: "送信履歴" },
@@ -29,6 +34,27 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
     return pathname === href || pathname?.startsWith(href + "/");
   };
 
+  const renderTab = (tab: { href: string; label: string }) => {
+    const active = isActive(tab.href);
+    return (
+      <Link
+        key={tab.href}
+        href={tab.href}
+        scroll={false}
+        className={`relative px-3 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+          active
+            ? "text-[#06C755]"
+            : "text-gray-500 hover:text-gray-700"
+        }`}
+      >
+        {tab.label}
+        {active && (
+          <span className="absolute bottom-0 left-1.5 right-1.5 h-[2px] bg-[#06C755] rounded-full" />
+        )}
+      </Link>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* LINE機能 タブナビゲーション */}
@@ -41,27 +67,13 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
           </div>
           <span className="font-bold text-gray-800 text-sm">LINE機能</span>
         </div>
-        <div className="flex flex-wrap items-center px-2 pb-1">
-          {LINE_TABS.map(tab => {
-            const active = isActive(tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                scroll={false}
-                className={`relative px-3 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
-                  active
-                    ? "text-[#06C755]"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                {tab.label}
-                {active && (
-                  <span className="absolute bottom-0 left-1.5 right-1.5 h-[2px] bg-[#06C755] rounded-full" />
-                )}
-              </Link>
-            );
-          })}
+        {/* 1行目: メイン機能 */}
+        <div className="flex items-center px-2">
+          {MAIN_TABS.map(renderTab)}
+        </div>
+        {/* 2行目: 設定・管理系 */}
+        <div className="flex items-center px-2 pb-1 border-t border-gray-50">
+          {SUB_TABS.map(renderTab)}
         </div>
       </div>
       {/* コンテンツ */}

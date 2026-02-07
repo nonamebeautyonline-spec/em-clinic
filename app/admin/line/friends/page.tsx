@@ -5,22 +5,15 @@ import { useState, useEffect, useCallback } from "react";
 interface Tag { id: number; name: string; color: string; }
 interface PatientRow { patient_id: string; patient_name: string; line_id: string | null; mark: string; tags: Tag[]; fields: Record<string, string>; }
 interface FieldDef { id: number; name: string; field_type: string; options?: string[]; }
-interface FollowerStats { followers: number; targetedReaches: number; blocks: number; }
+interface MarkDef { id: number; value: string; label: string; color: string; icon: string; }
 
-const MARKS: Record<string, { color: string; label: string; ring: string }> = {
-  none: { color: "bg-gray-200", label: "未設定", ring: "ring-gray-300" },
-  red: { color: "bg-red-500", label: "要対応", ring: "ring-red-400" },
-  yellow: { color: "bg-amber-400", label: "対応中", ring: "ring-amber-400" },
-  green: { color: "bg-emerald-500", label: "対応済み", ring: "ring-emerald-400" },
-  blue: { color: "bg-blue-500", label: "重要", ring: "ring-blue-400" },
-  gray: { color: "bg-slate-400", label: "保留", ring: "ring-slate-400" },
-};
+const PAGE_SIZE = 50;
 
 export default function FriendsListPage() {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [fieldDefs, setFieldDefs] = useState<FieldDef[]>([]);
-  const [followerStats, setFollowerStats] = useState<FollowerStats | null>(null);
+  const [markDefs, setMarkDefs] = useState<MarkDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTag, setFilterTag] = useState<number | null>(null);
   const [filterMark, setFilterMark] = useState<string>("");
@@ -33,31 +26,54 @@ export default function FriendsListPage() {
   const [savingFields, setSavingFields] = useState(false);
   const [openMarkDropdown, setOpenMarkDropdown] = useState<string | null>(null);
 
+  // ページネーション
+  const [page, setPage] = useState(0);
+
+  // チェックボックス選択
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // 一括操作
+  const [bulkMarkOpen, setBulkMarkOpen] = useState(false);
+  const [bulkTagAddOpen, setBulkTagAddOpen] = useState(false);
+  const [bulkTagRemoveOpen, setBulkTagRemoveOpen] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [patientsRes, tagsRes, fieldsRes, followersRes] = await Promise.all([
+    const [patientsRes, tagsRes, fieldsRes, marksRes] = await Promise.all([
       fetch("/api/admin/line/friends-list", { credentials: "include" }),
       fetch("/api/admin/tags", { credentials: "include" }),
       fetch("/api/admin/friend-fields", { credentials: "include" }),
-      fetch("/api/admin/line/followers", { credentials: "include" }).catch(() => null),
+      fetch("/api/admin/line/marks", { credentials: "include" }),
     ]);
-    const [patientsData, tagsData, fieldsData] = await Promise.all([patientsRes.json(), tagsRes.json(), fieldsRes.json()]);
+    const [patientsData, tagsData, fieldsData, marksData] = await Promise.all([
+      patientsRes.json(), tagsRes.json(), fieldsRes.json(), marksRes.json(),
+    ]);
     if (patientsData.patients) setPatients(patientsData.patients);
     if (tagsData.tags) setAllTags(tagsData.tags);
     if (fieldsData.fields) setFieldDefs(fieldsData.fields);
-    if (followersRes?.ok) {
-      const fData = await followersRes.json();
-      if (fData.followers !== undefined) setFollowerStats(fData);
-    }
+    if (marksData.marks) setMarkDefs(marksData.marks);
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
-    const close = () => setOpenMarkDropdown(null);
+    const close = () => {
+      setOpenMarkDropdown(null);
+      setBulkMarkOpen(false);
+      setBulkTagAddOpen(false);
+      setBulkTagRemoveOpen(false);
+    };
     window.addEventListener("click", close);
     return () => window.removeEventListener("click", close);
   }, []);
+
+  // マーク定義から色・ラベルを取得
+  const getMarkStyle = (mark: string) => {
+    const def = markDefs.find(m => m.value === mark);
+    if (!def || def.value === "none") return { color: "bg-gray-200", label: "未設定", hex: "#D1D5DB" };
+    return { color: "", label: def.label, hex: def.color };
+  };
 
   const handleMarkChange = async (patientId: string, mark: string) => {
     setOpenMarkDropdown(null);
@@ -108,6 +124,36 @@ export default function FriendsListPage() {
     setEditingFields(fieldMap);
   };
 
+  // 一括操作
+  const handleBulkMark = async (mark: string) => {
+    setBulkMarkOpen(false);
+    if (selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    await fetch("/api/admin/patients/bulk/mark", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], mark }),
+    });
+    // ローカル更新
+    setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark } : p));
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+  };
+
+  const handleBulkTag = async (tagId: number, action: "add" | "remove") => {
+    setBulkTagAddOpen(false);
+    setBulkTagRemoveOpen(false);
+    if (selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    await fetch("/api/admin/patients/bulk/tags", {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ patient_ids: [...selectedIds], tag_id: tagId, action }),
+    });
+    await fetchData();
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+  };
+
+  // フィルタリング
   const filtered = patients.filter(p => {
     if (searchName && !p.patient_name?.includes(searchName) && !p.patient_id.includes(searchName)) return false;
     if (filterTag && !p.tags.some(t => t.id === filterTag)) return false;
@@ -117,8 +163,32 @@ export default function FriendsListPage() {
     return true;
   });
 
+  // フィルタ変更時にページリセット
+  useEffect(() => { setPage(0); }, [searchName, filterTag, filterMark, filterLine]);
+
+  // ページネーション
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // 全選択（現在のページ）
+  const allPageSelected = paged.length > 0 && paged.every(p => selectedIds.has(p.patient_id));
+  const toggleSelectAll = () => {
+    const next = new Set(selectedIds);
+    if (allPageSelected) {
+      for (const p of paged) next.delete(p.patient_id);
+    } else {
+      for (const p of paged) next.add(p.patient_id);
+    }
+    setSelectedIds(next);
+  };
+  const toggleSelect = (pid: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(pid)) next.delete(pid); else next.add(pid);
+    setSelectedIds(next);
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-24">
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -126,45 +196,6 @@ export default function FriendsListPage() {
           <p className="text-sm text-gray-500 mt-0.5">LINE連携済みの患者を管理</p>
         </div>
       </div>
-
-      {/* フォロワー統計カード */}
-      {followerStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-500/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">友達数</p>
-                <p className="text-3xl font-bold mt-1">{followerStats.followers.toLocaleString()}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-xs font-medium uppercase tracking-wider">ターゲットリーチ</p>
-                <p className="text-3xl font-bold mt-1">{followerStats.targetedReaches.toLocaleString()}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-rose-500/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-rose-100 text-xs font-medium uppercase tracking-wider">ブロック</p>
-                <p className="text-3xl font-bold mt-1">{followerStats.blocks.toLocaleString()}</p>
-              </div>
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* フィルタバー */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
@@ -183,7 +214,7 @@ export default function FriendsListPage() {
           </select>
           <select value={filterMark} onChange={(e) => setFilterMark(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
             <option value="">マーク: 全て</option>
-            {Object.entries(MARKS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            {markDefs.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           <select value={filterLine} onChange={(e) => setFilterLine(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
             <option value="">LINE: 全て</option>
@@ -207,6 +238,14 @@ export default function FriendsListPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
+                  <th className="px-3 py-3.5 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allPageSelected}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500/30"
+                    />
+                  </th>
                   <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider w-14">状態</th>
                   <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">患者</th>
                   <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">タグ</th>
@@ -217,65 +256,190 @@ export default function FriendsListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.slice(0, 100).map((p) => (
-                  <tr key={p.patient_id} className="hover:bg-gray-50/50 cursor-pointer transition-colors" onClick={() => openDetail(p)}>
-                    <td className="px-4 py-3">
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setOpenMarkDropdown(openMarkDropdown === p.patient_id ? null : p.patient_id); }}
-                          className={`w-7 h-7 rounded-full ${MARKS[p.mark]?.color || "bg-gray-200"} ring-2 ring-offset-1 ${MARKS[p.mark]?.ring || "ring-gray-300"} transition-transform hover:scale-110`}
+                {paged.map((p) => {
+                  const ms = getMarkStyle(p.mark);
+                  return (
+                    <tr key={p.patient_id} className={`hover:bg-gray-50/50 cursor-pointer transition-colors ${selectedIds.has(p.patient_id) ? "bg-emerald-50/40" : ""}`} onClick={() => openDetail(p)}>
+                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(p.patient_id)}
+                          onChange={() => toggleSelect(p.patient_id)}
+                          className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500/30"
                         />
-                        {openMarkDropdown === p.patient_id && (
-                          <div className="absolute left-0 top-9 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 z-20 min-w-[120px]">
-                            {Object.entries(MARKS).map(([k, v]) => (
-                              <button key={k} onClick={() => handleMarkChange(p.patient_id, k)} className="flex items-center gap-2 w-full px-2.5 py-1.5 hover:bg-gray-50 rounded-lg text-xs transition-colors">
-                                <span className={`w-4 h-4 rounded-full ${v.color}`} />
-                                <span>{v.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 text-sm">{p.patient_name}</div>
-                      <div className="text-[11px] text-gray-400 font-mono">{p.patient_id}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {p.tags.map(t => (
-                          <span key={t.id} className="px-2 py-0.5 rounded-md text-white text-[10px] font-medium shadow-sm" style={{ backgroundColor: t.color }}>
-                            {t.name}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    {fieldDefs.slice(0, 3).map(f => (
-                      <td key={f.id} className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
-                        {p.fields[f.name] || <span className="text-gray-300">-</span>}
                       </td>
-                    ))}
-                    <td className="px-4 py-3 text-center">
-                      {p.line_id ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 bg-[#00B900] rounded-full">
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 rounded-full">
-                          <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3">
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setOpenMarkDropdown(openMarkDropdown === p.patient_id ? null : p.patient_id); }}
+                            className="w-7 h-7 rounded-full ring-2 ring-offset-1 ring-gray-300 transition-transform hover:scale-110"
+                            style={{ backgroundColor: ms.hex || "#D1D5DB" }}
+                          />
+                          {openMarkDropdown === p.patient_id && (
+                            <div className="absolute left-0 top-9 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 z-20 min-w-[120px]">
+                              {markDefs.map(m => (
+                                <button key={m.value} onClick={() => handleMarkChange(p.patient_id, m.value)} className="flex items-center gap-2 w-full px-2.5 py-1.5 hover:bg-gray-50 rounded-lg text-xs transition-colors">
+                                  <span className="w-4 h-4 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                                  <span>{m.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900 text-sm">{p.patient_name}</div>
+                        <div className="text-[11px] text-gray-400 font-mono">{p.patient_id}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {p.tags.map(t => (
+                            <span key={t.id} className="px-2 py-0.5 rounded-md text-white text-[10px] font-medium shadow-sm" style={{ backgroundColor: t.color }}>
+                              {t.name}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      {fieldDefs.slice(0, 3).map(f => (
+                        <td key={f.id} className="px-4 py-3 text-sm text-gray-500 hidden lg:table-cell">
+                          {p.fields[f.name] || <span className="text-gray-300">-</span>}
+                        </td>
+                      ))}
+                      <td className="px-4 py-3 text-center">
+                        {p.line_id ? (
+                          <span className="inline-flex items-center justify-center w-6 h-6 bg-[#00B900] rounded-full">
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 rounded-full">
+                            <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          {filtered.length > 100 && (
-            <div className="px-4 py-3 text-center text-xs text-gray-400 border-t border-gray-50 bg-gray-50/50">
-              先頭100件を表示（全{filtered.length}件）
+
+          {/* ページネーション */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/50">
+              <button onClick={() => setPage(0)} disabled={page === 0}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+              </button>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="flex items-center gap-1 px-3">
+                <span className="text-sm font-medium text-gray-900">{page + 1}</span>
+                <span className="text-sm text-gray-400">/</span>
+                <span className="text-sm text-gray-400">{totalPages}</span>
+              </div>
+              <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+              <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}
+                className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+              </button>
+              <span className="text-xs text-gray-400 ml-2">（全{filtered.length}件）</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 一括操作バー */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-800 border-t border-slate-700 shadow-2xl">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-3 flex items-center gap-4">
+            <span className="text-white text-sm font-medium">
+              {selectedIds.size}人選択中
+            </span>
+            <button onClick={() => setSelectedIds(new Set())} className="text-slate-400 hover:text-white text-xs underline">
+              選択解除
+            </button>
+            <div className="flex-1" />
+
+            {/* 対応マーク一括変更 */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => { setBulkMarkOpen(!bulkMarkOpen); setBulkTagAddOpen(false); setBulkTagRemoveOpen(false); }}
+                disabled={bulkProcessing}
+                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <span className="w-3 h-3 rounded-full bg-gradient-to-br from-red-400 to-blue-400" />
+                対応マーク
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {bulkMarkOpen && (
+                <div className="absolute bottom-full mb-1 left-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[140px]">
+                  {markDefs.map(m => (
+                    <button key={m.value} onClick={() => handleBulkMark(m.value)} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
+                      <span className="w-4 h-4 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* タグ一括追加 */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => { setBulkTagAddOpen(!bulkTagAddOpen); setBulkMarkOpen(false); setBulkTagRemoveOpen(false); }}
+                disabled={bulkProcessing}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                + タグ追加
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {bulkTagAddOpen && (
+                <div className="absolute bottom-full mb-1 right-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto">
+                  {allTags.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-400">タグがありません</div>
+                  ) : allTags.map(t => (
+                    <button key={t.id} onClick={() => handleBulkTag(t.id, "add")} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* タグ一括削除 */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => { setBulkTagRemoveOpen(!bulkTagRemoveOpen); setBulkMarkOpen(false); setBulkTagAddOpen(false); }}
+                disabled={bulkProcessing}
+                className="px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                - タグ削除
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              {bulkTagRemoveOpen && (
+                <div className="absolute bottom-full mb-1 right-0 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 min-w-[160px] max-h-60 overflow-y-auto">
+                  {allTags.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-400">タグがありません</div>
+                  ) : allTags.map(t => (
+                    <button key={t.id} onClick={() => handleBulkTag(t.id, "remove")} className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 rounded-lg text-xs transition-colors text-gray-700">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {bulkProcessing && (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            )}
+          </div>
         </div>
       )}
 
@@ -287,7 +451,10 @@ export default function FriendsListPage() {
             <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full ${MARKS[selectedPatient.mark]?.color} ring-2 ring-white/30 flex items-center justify-center text-white text-sm font-bold`}>
+                  <div
+                    className="w-10 h-10 rounded-full ring-2 ring-white/30 flex items-center justify-center text-white text-sm font-bold"
+                    style={{ backgroundColor: getMarkStyle(selectedPatient.mark).hex || "#D1D5DB" }}
+                  >
                     {selectedPatient.patient_name?.charAt(0) || "?"}
                   </div>
                   <div>
@@ -306,12 +473,12 @@ export default function FriendsListPage() {
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">対応マーク</label>
                 <div className="flex gap-2 flex-wrap">
-                  {Object.entries(MARKS).map(([k, v]) => (
-                    <button key={k} onClick={() => setEditingMark(k)}
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${editingMark === k ? `${v.ring} border-current shadow-sm scale-105` : "border-gray-100 hover:border-gray-200"}`}
+                  {markDefs.map(m => (
+                    <button key={m.value} onClick={() => setEditingMark(m.value)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all ${editingMark === m.value ? "border-gray-400 shadow-sm scale-105" : "border-gray-100 hover:border-gray-200"}`}
                     >
-                      <span className={`w-3.5 h-3.5 rounded-full ${v.color}`} />
-                      {v.label}
+                      <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: m.value === "none" ? "#D1D5DB" : m.color }} />
+                      {m.label}
                     </button>
                   ))}
                 </div>

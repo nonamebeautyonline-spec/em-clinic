@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
+
+// 複数患者の対応マークを一括更新
+export async function POST(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { patient_ids, mark } = await req.json();
+
+  if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !mark) {
+    return NextResponse.json({ error: "patient_ids と mark は必須です" }, { status: 400 });
+  }
+
+  // mark_definitions で存在確認
+  const { data: markDef } = await supabaseAdmin
+    .from("mark_definitions")
+    .select("value")
+    .eq("value", mark)
+    .single();
+
+  if (!markDef) {
+    return NextResponse.json({ error: "無効なマークです" }, { status: 400 });
+  }
+
+  const now = new Date().toISOString();
+  const rows = patient_ids.map((pid: string) => ({
+    patient_id: pid,
+    mark,
+    updated_at: now,
+    updated_by: "admin",
+  }));
+
+  const { error } = await supabaseAdmin
+    .from("patient_marks")
+    .upsert(rows, { onConflict: "patient_id" });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, updated_count: patient_ids.length });
+}
