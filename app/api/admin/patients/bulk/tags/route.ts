@@ -13,25 +13,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "patient_ids, tag_id, action(add|remove) は必須です" }, { status: 400 });
   }
 
+  const BATCH_SIZE = 200;
+
   if (action === "add") {
-    const rows = patient_ids.map((pid: string) => ({
-      patient_id: pid,
-      tag_id: Number(tag_id),
-    }));
-
-    const { error } = await supabaseAdmin
-      .from("patient_tags")
-      .upsert(rows, { onConflict: "patient_id,tag_id" });
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
+      const batch = patient_ids.slice(i, i + BATCH_SIZE);
+      const rows = batch.map((pid: string) => ({
+        patient_id: pid,
+        tag_id: Number(tag_id),
+      }));
+      const { error } = await supabaseAdmin
+        .from("patient_tags")
+        .upsert(rows, { onConflict: "patient_id,tag_id" });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   } else {
-    const { error } = await supabaseAdmin
-      .from("patient_tags")
-      .delete()
-      .in("patient_id", patient_ids)
-      .eq("tag_id", Number(tag_id));
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
+      const batch = patient_ids.slice(i, i + BATCH_SIZE);
+      const { error } = await supabaseAdmin
+        .from("patient_tags")
+        .delete()
+        .in("patient_id", batch)
+        .eq("tag_id", Number(tag_id));
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true, updated_count: patient_ids.length });

@@ -288,8 +288,16 @@ export default function FriendsListPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-24">
+      {/* 処理中バナー */}
+      {bulkProcessing && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white px-4 py-2.5 flex items-center justify-center gap-3 shadow-lg">
+          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          <span className="text-sm font-semibold">一括処理を実行中です。完了するまでページを離れないでください。</span>
+        </div>
+      )}
+
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
+      <div className={`flex items-center justify-between mb-6 ${bulkProcessing ? "mt-10" : ""}`}>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">友達一覧</h1>
           <p className="text-sm text-gray-500 mt-0.5">LINE連携済みの患者を管理</p>

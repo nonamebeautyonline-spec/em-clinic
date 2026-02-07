@@ -25,17 +25,20 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const rows = patient_ids.map((pid: string) => ({
-    patient_id: pid,
-    mark,
-    updated_at: now,
-    updated_by: "admin",
-  }));
+  const BATCH_SIZE = 200;
 
-  const { error } = await supabaseAdmin
-    .from("patient_marks")
-    .upsert(rows, { onConflict: "patient_id" });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
+    const batch = patient_ids.slice(i, i + BATCH_SIZE);
+    const rows = batch.map((pid: string) => ({
+      patient_id: pid,
+      mark,
+      updated_at: now,
+      updated_by: "admin",
+    }));
+    const { error } = await supabaseAdmin
+      .from("patient_marks")
+      .upsert(rows, { onConflict: "patient_id" });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, updated_count: patient_ids.length });
 }

@@ -25,17 +25,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "テンプレートが見つかりません" }, { status: 404 });
   }
 
-  // 患者のLINE UID + 名前を取得
-  const { data: intakes } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id, line_id, patient_name")
-    .in("patient_id", patient_ids)
-    .not("line_id", "is", null);
-
+  // 患者のLINE UID + 名前を取得（バッチ処理）
+  const BATCH_SIZE = 200;
   const intakeMap = new Map<string, { line_id: string; patient_name: string }>();
-  for (const row of intakes || []) {
-    if (row.line_id) {
-      intakeMap.set(row.patient_id, { line_id: row.line_id, patient_name: row.patient_name || "" });
+  for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
+    const batch = patient_ids.slice(i, i + BATCH_SIZE);
+    const { data: intakes } = await supabaseAdmin
+      .from("intake")
+      .select("patient_id, line_id, patient_name")
+      .in("patient_id", batch)
+      .not("line_id", "is", null);
+    for (const row of intakes || []) {
+      if (row.line_id) {
+        intakeMap.set(row.patient_id, { line_id: row.line_id, patient_name: row.patient_name || "" });
+      }
     }
   }
 
