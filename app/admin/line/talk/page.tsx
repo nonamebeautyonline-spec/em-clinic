@@ -958,7 +958,7 @@ export default function TalkPage() {
                     <FriendItem key={f.patient_id} f={f} isPinned={true}
                       isSelected={selectedPatient?.patient_id === f.patient_id}
                       onSelect={selectPatient} onTogglePin={togglePin}
-                      getMarkColor={getMarkColor} formatDateShort={formatDateShort}
+                      getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
                       canPin={pinnedIds.length < MAX_PINS}
                     />
                   ))}
@@ -968,7 +968,7 @@ export default function TalkPage() {
                 <FriendItem key={f.patient_id} f={f} isPinned={false}
                   isSelected={selectedPatient?.patient_id === f.patient_id}
                   onSelect={selectPatient} onTogglePin={togglePin}
-                  getMarkColor={getMarkColor} formatDateShort={formatDateShort}
+                  getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
                   canPin={pinnedIds.length < MAX_PINS}
                 />
               ))}
@@ -1792,13 +1792,15 @@ export default function TalkPage() {
 }
 
 // 友達リストアイテム（メモ化のためコンポーネント分離）
-function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, formatDateShort, canPin }: {
+function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin }: {
   f: Friend; isPinned: boolean; isSelected: boolean;
   onSelect: (f: Friend) => void; onTogglePin: (id: string) => void;
-  getMarkColor: (mark: string) => string; formatDateShort: (s: string) => string;
+  getMarkColor: (mark: string) => string; getMarkLabel: (mark: string) => string; formatDateShort: (s: string) => string;
   canPin: boolean;
 }) {
   const markColor = getMarkColor(f.mark);
+  const markLabel = getMarkLabel(f.mark);
+  const showMark = f.mark && f.mark !== "none";
   return (
     <div
       onClick={() => onSelect(f)}
@@ -1820,9 +1822,6 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
             {f.line_display_name && f.line_display_name !== f.patient_name && (
               <span className="text-[10px] text-gray-400 truncate flex-shrink-0">({f.line_display_name})</span>
             )}
-            {f.mark && f.mark !== "none" && (
-              <span className="w-2 h-2 rounded-full flex-shrink-0 shadow-sm" style={{ backgroundColor: markColor }} />
-            )}
             {f.line_id ? (
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
             ) : null}
@@ -1831,9 +1830,16 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
             <p className="text-[12px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "14em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
-            {f.last_sent_at && (
-              <span className="text-[11px] text-gray-700 flex-shrink-0 ml-auto pl-1">{formatDateShort(f.last_sent_at)}</span>
-            )}
+            <div className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-auto pl-1">
+              {showMark && (
+                <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
+                  {markLabel}
+                </span>
+              )}
+              {f.last_sent_at && (
+                <span className="text-[11px] text-gray-700">{formatDateShort(f.last_sent_at)}</span>
+              )}
+            </div>
           </div>
         </div>
         <button
