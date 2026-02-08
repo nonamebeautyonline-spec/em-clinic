@@ -168,46 +168,46 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // --- リッチメニュー切り替え（非同期・バックグラウンド）---
-  (async () => {
-    try {
-      const [prescMenuRes, infoMenuRes] = await Promise.all([
-        supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "処方後").maybeSingle(),
-        supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "個人情報入力後").maybeSingle(),
-      ]);
-      const prescMenu = prescMenuRes.data?.line_rich_menu_id;
-      const infoMenu = infoMenuRes.data?.line_rich_menu_id;
-      if ((!prescMenu && !infoMenu) || !LINE_ACCESS_TOKEN) return;
+  // --- リッチメニュー切り替え ---
+  if (LINE_ACCESS_TOKEN) {
+    const [prescMenuRes, infoMenuRes] = await Promise.all([
+      supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "処方後").maybeSingle(),
+      supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "個人情報入力後").maybeSingle(),
+    ]);
+    const prescMenu = prescMenuRes.data?.line_rich_menu_id;
+    const infoMenu = infoMenuRes.data?.line_rich_menu_id;
 
-      // LINE連携済みの全患者をチェック
+    if (prescMenu || infoMenu) {
       const allTargets = [...patientMap.values()].filter(p =>
         p.line_id && !p.patient_id.startsWith("LINE_") && (orderPatientIds.has(p.patient_id) || answererPatientIds.has(p.patient_id))
       );
 
-      for (const p of allTargets) {
-        const targetMenu = orderPatientIds.has(p.patient_id) ? prescMenu : infoMenu;
-        if (!targetMenu || !p.line_id) continue;
-        try {
-          const currentRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu`, {
-            headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
-          });
-          const current = currentRes.ok ? await currentRes.json() : null;
-          if (current?.richMenuId !== targetMenu) {
-            await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu/${targetMenu}`, {
-              method: "POST",
+      // 5件ずつ並列処理（LINE APIレート制限対策）
+      for (let i = 0; i < allTargets.length; i += 5) {
+        const batch = allTargets.slice(i, i + 5);
+        await Promise.all(batch.map(async (p) => {
+          const targetMenu = orderPatientIds.has(p.patient_id) ? prescMenu : infoMenu;
+          if (!targetMenu || !p.line_id) return;
+          try {
+            const currentRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu`, {
               headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
             });
-            const menuName = targetMenu === prescMenu ? "処方後" : "個人情報入力後";
-            console.log(`[friends-list] auto-assigned ${menuName} rich menu to ${p.patient_id}`);
+            const current = currentRes.ok ? await currentRes.json() : null;
+            if (current?.richMenuId !== targetMenu) {
+              await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu/${targetMenu}`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+              });
+              const menuName = targetMenu === prescMenu ? "処方後" : "個人情報入力後";
+              console.log(`[friends-list] auto-assigned ${menuName} rich menu to ${p.patient_id}`);
+            }
+          } catch (err) {
+            console.error(`[friends-list] rich menu error for ${p.patient_id}:`, err);
           }
-        } catch (err) {
-          console.error(`[friends-list] rich menu error for ${p.patient_id}:`, err);
-        }
+        }));
       }
-    } catch (err) {
-      console.error("[friends-list] rich menu batch error:", err);
     }
-  })();
+  }
 
   // 統合
   const patients = Array.from(patientMap.values()).map(p => {
