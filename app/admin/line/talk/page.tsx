@@ -156,6 +156,7 @@ export default function TalkPage() {
   const [templateSearch, setTemplateSearch] = useState("");
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [sendingImage, setSendingImage] = useState(false);
+  const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null);
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -461,9 +462,14 @@ export default function TalkPage() {
     }
   };
 
+  const confirmTemplate = (template: Template) => {
+    setShowTemplatePicker(false);
+    setPendingTemplate(template);
+  };
+
   const sendTemplate = async (template: Template) => {
     if (sending || !selectedPatient) return;
-    setShowTemplatePicker(false);
+    setPendingTemplate(null);
     setSending(true);
     const payload: Record<string, string> = {
       patient_id: selectedPatient.patient_id,
@@ -772,12 +778,8 @@ export default function TalkPage() {
     if (i === 0) return true;
     return new Date(messages[i - 1].sent_at).toDateString() !== new Date(messages[i].sent_at).toDateString();
   };
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // Enterは改行、送信はボタンのみ
+  const handleKeyDown = (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {};
   const calcAge = (birthday: string) => {
     try {
       const bd = new Date(birthday);
@@ -835,7 +837,7 @@ export default function TalkPage() {
   return (
     <div className="h-full flex overflow-hidden bg-[#f8f9fb]">
       {/* ========== 左カラム ========== */}
-      <div className="w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
+      <div className="w-[300px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
         {/* 検索 */}
         <div className="p-3 border-b border-gray-100 space-y-1.5">
           <div className="relative">
@@ -1217,12 +1219,42 @@ export default function TalkPage() {
                 </button>
               </div>
               <div className="text-[9px] text-gray-300 mt-1 text-right">
-                {sendingImage ? "画像送信中..." : "Shift+Enter で改行"}
+                {sendingImage ? "画像送信中..." : "Enter で改行"}
               </div>
             </div>
           </>
         )}
       </div>
+
+      {/* テンプレート送信確認モーダル */}
+      {pendingTemplate && selectedPatient && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPendingTemplate(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-sm">テンプレート送信確認</h3>
+              <p className="text-[11px] text-gray-400 mt-0.5">「{pendingTemplate.name}」を {selectedPatient.patient_name} に送信しますか？</p>
+            </div>
+            <div className="px-5 py-4 max-h-60 overflow-y-auto">
+              {pendingTemplate.message_type === "image" ? (
+                <img src={pendingTemplate.content} alt="" className="max-w-full rounded-lg" />
+              ) : (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{pendingTemplate.content}</p>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => setPendingTemplate(null)}
+                className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
+              >キャンセル</button>
+              <button
+                onClick={() => sendTemplate(pendingTemplate)}
+                disabled={sending}
+                className="px-4 py-2 bg-[#00B900] text-white text-sm font-medium rounded-lg hover:bg-[#009900] disabled:opacity-50 transition-colors"
+              >送信</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 通話フォーム確認モーダル */}
       {showCallConfirm && selectedPatient && (
@@ -1380,7 +1412,7 @@ export default function TalkPage() {
                   {filteredTemplates.map(t => (
                     <button
                       key={t.id}
-                      onClick={() => sendTemplate(t)}
+                      onClick={() => confirmTemplate(t)}
                       disabled={sending}
                       className="w-full text-left px-5 py-3 hover:bg-[#00B900]/[0.03] transition-colors group disabled:opacity-50"
                     >
@@ -1789,7 +1821,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
             ) : null}
           </div>
           <div className="flex items-start gap-1">
-            <p className="text-[10px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "14em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <p className="text-[12px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "12em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (
