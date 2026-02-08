@@ -126,8 +126,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-red-600 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+          <p className="mt-4 text-slate-600">読み込み中...</p>
         </div>
       </div>
     );
@@ -139,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {pathname !== "/admin/line/talk" && (
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className="md:hidden fixed top-4 left-4 z-40 p-2 bg-red-700 text-white rounded-lg shadow-lg"
+          className="md:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
           aria-label="メニューを開く"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,13 +157,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             onClick={() => setIsMobileMenuOpen(false)}
           />
           {/* メニューパネル */}
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white text-gray-800 flex flex-col border-r border-gray-200">
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-white flex flex-col">
             {/* ヘッダー */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-red-700">
-              <h1 className="text-xl font-bold text-white">管理画面</h1>
+            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+              <h1 className="text-xl font-bold">管理画面</h1>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-2 hover:bg-red-600 rounded text-white"
+                className="p-2 hover:bg-slate-800 rounded"
                 aria-label="メニューを閉じる"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,10 +185,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ))}
             </nav>
             {/* ログアウト */}
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-slate-700">
               <button
                 onClick={handleLogout}
-                className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded flex items-center justify-center gap-2 text-sm"
+                className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm"
               >
                 <span>ログアウト</span>
                 <span>🚪</span>
@@ -202,16 +202,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside
         className={`hidden md:flex ${
           isSidebarOpen ? "w-64" : "w-20"
-        } bg-white text-gray-800 border-r border-gray-200 transition-all duration-300 flex-col h-screen sticky top-0`}
+        } bg-slate-900 text-white transition-all duration-300 flex-col h-screen sticky top-0`}
       >
         {/* ロゴ・トグル */}
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-red-700">
+        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           {isSidebarOpen ? (
             <>
-              <h1 className="text-xl font-bold text-white">管理画面</h1>
+              <h1 className="text-xl font-bold">管理画面</h1>
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-2 hover:bg-red-600 rounded text-white"
+                className="p-2 hover:bg-slate-800 rounded"
               >
                 ◀
               </button>
@@ -219,7 +219,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ) : (
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-red-600 rounded mx-auto text-white"
+              className="p-2 hover:bg-slate-800 rounded mx-auto"
             >
               ▶
             </button>
@@ -391,10 +391,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* ログアウト */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-slate-700">
           <button
             onClick={handleLogout}
-            className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded flex items-center justify-center gap-2 text-sm"
+            className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm"
           >
             {isSidebarOpen && <span>ログアウト</span>}
             <span>🚪</span>
@@ -408,8 +408,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {isPageTransitioning && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
             <div className="bg-white rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-red-600 rounded-full animate-spin" />
-              <span className="text-sm text-gray-600">読み込み中...</span>
+              <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+              <span className="text-sm text-slate-600">読み込み中...</span>
             </div>
           </div>
         )}
@@ -435,10 +435,8 @@ function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
     <Link
       href={href}
       scroll={false}
-      className={`w-full px-4 py-2 flex items-center gap-2.5 transition-colors ${
-        isActive
-          ? "bg-red-50 text-red-700 border-l-4 border-red-600 font-semibold"
-          : "hover:bg-gray-100 text-gray-700 border-l-4 border-transparent"
+      className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
+        isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
       }`}
     >
       <span className="text-base">{icon}</span>
@@ -461,10 +459,8 @@ function MobileMenuItem({ href, icon, label, isActive, onClick }: MobileMenuItem
       href={href}
       scroll={false}
       onClick={onClick}
-      className={`w-full px-4 py-3 flex items-center gap-3 transition-colors ${
-        isActive
-          ? "bg-red-50 text-red-700 border-l-4 border-red-600 font-semibold"
-          : "hover:bg-gray-100 text-gray-700 border-l-4 border-transparent"
+      className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
+        isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
       }`}
     >
       <span className="text-lg">{icon}</span>
@@ -483,7 +479,7 @@ function MenuSection({ label, isOpen }: MenuSectionProps) {
 
   return (
     <div className="px-4 py-2 mt-4 mb-2">
-      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</h2>
+      <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</h2>
     </div>
   );
 }
