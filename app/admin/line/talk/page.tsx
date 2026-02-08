@@ -890,7 +890,7 @@ export default function TalkPage() {
       </div>
 
       {/* ========== 左カラム ========== */}
-      <div className={`w-full md:w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
+      <div className={`w-full md:w-[340px] flex-1 md:flex-none md:flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
         selectedPatient && mobileView !== "list" ? "hidden md:flex" : "flex"
       }`}>
         {/* 検索 */}
@@ -1489,7 +1489,7 @@ export default function TalkPage() {
 
       {/* ========== 右カラム ========== */}
       {selectedPatient && (
-        <div className={`w-full md:w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col min-h-0 ${
+        <div className={`w-full md:w-[320px] flex-1 md:flex-none md:flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col min-h-0 ${
           mobileView !== "info" ? "hidden md:flex" : "flex"
         }`}>
           <div className="flex-1 overflow-y-auto overscroll-contain">

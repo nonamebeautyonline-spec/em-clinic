@@ -58,8 +58,8 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="flex flex-col h-full">
-      {/* LINE機能 タブナビゲーション */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200">
+      {/* LINE機能 タブナビゲーション（モバイルでは非表示） */}
+      <div className="hidden md:block flex-shrink-0 bg-white border-b border-gray-200">
         <div className="flex items-center gap-2 pl-5 pr-3 py-2 flex-shrink-0">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#06C755] to-[#05a648] flex items-center justify-center shadow-sm">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
