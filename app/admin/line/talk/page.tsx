@@ -184,6 +184,9 @@ export default function TalkPage() {
   const [allRichMenus, setAllRichMenus] = useState<{ id: number; name: string; image_url: string | null; line_rich_menu_id: string }[]>([]);
   const [changingMenu, setChangingMenu] = useState(false);
 
+  // 画像ライトボックス
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   // ピン留め
   useEffect(() => {
     try {
@@ -1094,7 +1097,7 @@ export default function TalkPage() {
                             )}
                             <div className="flex items-end gap-1.5">
                               {isImageUrl(m.content) ? (
-                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100">
+                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => setLightboxUrl(m.content.trim())}>
                                   <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                                 </div>
                               ) : (
@@ -1115,7 +1118,7 @@ export default function TalkPage() {
                           </div>
                           <div className="max-w-[65%]">
                             {isImageUrl(m.content) ? (
-                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm">
+                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(m.content.trim())}>
                                 <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                               </div>
                             ) : (
@@ -1787,6 +1790,29 @@ export default function TalkPage() {
           </div>
         </div>
       )}
+
+      {/* 画像ライトボックス */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="拡大画像"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1826,7 +1852,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
             ) : null}
           </div>
-          <p className="text-[12px] text-gray-400 leading-snug truncate">
+          <p className="text-[12px] text-gray-500 leading-snug truncate">
             {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
           </p>
         </div>
