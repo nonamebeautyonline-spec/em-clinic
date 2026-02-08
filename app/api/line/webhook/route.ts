@@ -18,6 +18,9 @@ const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 const LINE_ACCESS_TOKEN =
   process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
   process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+// 管理グループはbot(NOTIFY)チャネルに属するため、グループ送信には専用トークンを使用
+const LINE_NOTIFY_TOKEN =
+  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || LINE_ACCESS_TOKEN;
 
 // ===== LINE署名検証（HMAC-SHA256 → Base64）=====
 // 複数チャネルのいずれかで検証が通ればOK
@@ -48,14 +51,14 @@ function parseQueryString(data: string) {
   return out;
 }
 
-// ===== グループへプッシュ送信 =====
+// ===== グループへプッシュ送信（bot/NOTIFYチャネル経由）=====
 async function pushToGroup(toGroupId: string, text: string) {
-  if (!LINE_ACCESS_TOKEN || !toGroupId) return;
+  if (!LINE_NOTIFY_TOKEN || !toGroupId) return;
   const res = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${LINE_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${LINE_NOTIFY_TOKEN}`,
     },
     body: JSON.stringify({ to: toGroupId, messages: [{ type: "text", text }] }),
     cache: "no-store",
