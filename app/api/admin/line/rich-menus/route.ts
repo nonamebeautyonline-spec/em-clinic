@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, setDefaultRichMenu } from "@/lib/line-richmenu";
 
-// リッチメニュー一覧
+// リッチメニュー一覧（各メニューの表示人数付き）
 export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
@@ -16,7 +16,58 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ menus: data });
+
+    // メニューごとの表示人数を計算
+    // 1. LINE連携済み患者の総数
+    const { count: totalLine } = await supabaseAdmin
+      .from("intake")
+      .select("patient_id", { count: "exact", head: true })
+      .not("line_id", "is", null);
+
+    // 2. 注文がある患者（処方後メニュー対象）のpatient_idを取得
+    const orderPids = new Set<string>();
+    let offset = 0;
+    while (true) {
+      const { data: orders } = await supabaseAdmin
+        .from("orders")
+        .select("patient_id")
+        .range(offset, offset + 4999);
+      if (!orders || orders.length === 0) break;
+      for (const o of orders) orderPids.add(o.patient_id);
+      if (orders.length < 5000) break;
+      offset += 5000;
+    }
+
+    // 3. 注文患者のうちLINE連携済みの人数
+    let rxCount = 0;
+    const pidArr = [...orderPids];
+    for (let i = 0; i < pidArr.length; i += 100) {
+      const chunk = pidArr.slice(i, i + 100);
+      const { count } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id", { count: "exact", head: true })
+        .in("patient_id", chunk)
+        .not("line_id", "is", null);
+      rxCount += count || 0;
+    }
+
+    const total = totalLine || 0;
+    const noRxCount = total - rxCount;
+
+    // メニュー名に基づいてカウントをマッピング
+    const menus = (data || []).map((menu: any) => {
+      let user_count = 0;
+      if (menu.name === "処方後") {
+        user_count = rxCount;
+      } else if (menu.name === "個人情報入力後") {
+        user_count = noRxCount;
+      } else if (menu.name === "個人情報入力前" || menu.selected) {
+        user_count = total;
+      }
+      return { ...menu, user_count };
+    });
+
+    return NextResponse.json({ menus });
   } catch (e: any) {
     console.error("[Rich Menu GET] Unhandled error:", e?.message || e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });

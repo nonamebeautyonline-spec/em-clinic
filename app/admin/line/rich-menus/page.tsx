@@ -14,6 +14,7 @@ interface RichMenu {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  user_count?: number;
 }
 
 interface RichMenuArea {
@@ -452,7 +453,9 @@ export default function RichMenuManagementPage() {
                       <h3 className="font-bold text-gray-800 text-sm">{menu.name}</h3>
                       {menu.is_active && <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium border border-green-100">有効</span>}
                     </div>
-                    <div className="text-xs text-gray-400">ボタン数: {menu.areas.length} / 作成日: {formatDate(menu.created_at)}</div>
+                    <div className="text-xs text-gray-400">
+                      ボタン数: {menu.areas.length} / 表示中: <span className="font-medium text-gray-600">{menu.user_count ?? 0}人</span> / 作成日: {formatDate(menu.created_at)}
+                    </div>
                   </div>
                   <div className="px-5 py-4">
                     <div className="relative bg-gray-100 rounded-xl overflow-hidden" style={{ aspectRatio: "2500/1686" }}>
