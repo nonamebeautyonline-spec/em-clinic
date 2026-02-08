@@ -841,8 +841,8 @@ export default function TalkPage() {
   });
 
   const sortByLatest = (a: Friend, b: Friend) => {
-    const ta = a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0;
-    const tb = b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0;
+    const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : 0;
+    const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : 0;
     return tb - ta;
   };
   const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
@@ -1938,8 +1938,8 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
           </p>
         </div>
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pt-0.5">
-          {f.last_sent_at && (
-            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_sent_at)}</span>
+          {f.last_text_at && (
+            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at)}</span>
           )}
           {showMark && (
             <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
