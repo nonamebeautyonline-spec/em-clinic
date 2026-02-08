@@ -29,9 +29,13 @@ export function normalizeJPPhone(raw: string): string {
     digits = digits.slice(1);
   }
 
-  // 81（国際番号）を削除して0を追加（11桁以上の場合のみ）
+  // 81（国際番号）を削除（11桁以上の場合のみ）
+  // 例: 819012345678 → 09012345678, 8108012345678 → 08012345678
   if (digits.startsWith("81") && digits.length >= 11) {
-    digits = "0" + digits.slice(2);
+    digits = digits.slice(2);
+    if (!digits.startsWith("0")) {
+      digits = "0" + digits;
+    }
   }
 
   // 先頭に0がなく、7/8/9で始まる場合は0を追加 (80/90/70 → 080/090/070)

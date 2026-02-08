@@ -8,7 +8,7 @@ type Patient = {
   id: string;
   name: string;
   phone: string;
-  line_user_id?: string;
+  lineId?: string;
 } | null;
 
 export default function MergePatientsPage() {
@@ -71,9 +71,9 @@ export default function MergePatientsPage() {
     const confirmed = confirm(
       `以下の統合を実行します：\n\n` +
       `【統合元】${oldPatient.name} (${oldPatientId})\n` +
-      `LINE UID: ${oldPatient.line_user_id || "なし"}\n\n` +
+      `LINE UID: ${oldPatient.lineId || "なし"}\n\n` +
       `【統合先】${newPatient.name} (${newPatientId})\n` +
-      `現在のLINE UID: ${newPatient.line_user_id || "なし"}\n\n` +
+      `現在のLINE UID: ${newPatient.lineId || "なし"}\n\n` +
       `統合元の全データ（問診履歴・購入履歴）を統合先に統合します。\n` +
       `統合後、統合元のIDは無効になります。\n\n` +
       `よろしいですか？`
@@ -194,7 +194,7 @@ export default function MergePatientsPage() {
               <div>
                 <span className="text-slate-500">LINE UID：</span>
                 <span className="font-mono text-xs">
-                  {oldPatient.line_user_id || "（未登録）"}
+                  {oldPatient.lineId || "（未登録）"}
                 </span>
               </div>
             </div>
@@ -242,7 +242,7 @@ export default function MergePatientsPage() {
               <div>
                 <span className="text-slate-500">LINE UID：</span>
                 <span className="font-mono text-xs">
-                  {newPatient.line_user_id || "（未登録）"}
+                  {newPatient.lineId || "（未登録）"}
                 </span>
               </div>
             </div>

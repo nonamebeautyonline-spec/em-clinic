@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { normalizeJPPhone } from "@/lib/phone";
 
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
     const sex = body.sex || answersObj.性別 || answersObj.sex || "";
     const birth = body.birth || answersObj.生年月日 || answersObj.birth || "";
     const nameKana = body.name_kana || body.nameKana || answersObj.カナ || answersObj.name_kana || "";
-    const tel = body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "";
+    const tel = normalizeJPPhone(body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "");
     const email = body.email || answersObj.メールアドレス || answersObj.email || "";
     const lineId = body.line_id || body.lineId || answersObj.line_id || "";
     const answererId = body.answerer_id || answersObj.answerer_id || null;

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
+import { normalizeJPPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       id: patientId,
       name: answerer?.name || latestIntake?.patient_name || "",
       kana: answerer?.name_kana || answers?.カナ || answers?.name_kana || "",
-      phone: answerer?.tel || answers?.tel || "",
+      phone: normalizeJPPhone(answerer?.tel || answers?.tel || ""),
       sex: answerer?.sex || answers?.性別 || answers?.sex || "",
       birth: answerer?.birthday || answers?.生年月日 || answers?.birth || "",
       lineId: answerer?.line_id || null,
