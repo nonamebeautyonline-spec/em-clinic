@@ -659,7 +659,7 @@ async function executeRichMenuActions(
               direction: "outgoing",
               event_type: "postback",
               message_type: "individual",
-              content: `【${tmpl.name}】`,
+              content: `【${tmpl.name}】${text}`,
               status: "sent",
             });
             actionDetails.push(`画像[${tmpl.name}]を送信`);

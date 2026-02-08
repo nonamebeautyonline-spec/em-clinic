@@ -500,7 +500,7 @@ export default function TalkPage() {
     if (data.ok) {
       shouldScrollToBottom.current = true;
       const displayContent = template.message_type === "image"
-        ? `【${template.name}】`
+        ? `【${template.name}】${template.content}`
         : template.content;
       setMessages(prev => [...prev, {
         id: Date.now(), content: displayContent, status: "sent",

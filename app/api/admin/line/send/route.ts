@@ -78,9 +78,9 @@ export async function POST(req: NextRequest) {
   const res = await pushMessage(intake.line_id, [lineMessage]);
   const status = res?.ok ? "sent" : "failed";
 
-  // メッセージログに記録（画像テンプレはテンプレ名のみ保存）
+  // メッセージログに記録（画像テンプレは【テンプレ名】URL形式で保存）
   const logContent = message_type === "image" && template_name
-    ? `【${template_name}】`
+    ? `【${template_name}】${resolvedMessage}`
     : resolvedMessage;
   await supabaseAdmin.from("message_log").insert({
     patient_id,

@@ -58,8 +58,9 @@ export async function GET(req: NextRequest) {
   // 最新メッセージをマッピング
   const lastMessages = lastMsgRes.data || [];
 
-  // 左カラム表示用: 顧客送信メッセージ優先、なければフォロー/ブロック等イベント
+  // 左カラム表示用: 顧客メッセージ > テンプレ名 > フォロー/ブロック
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
+  const lastTemplateMap = new Map<string, { content: string; sent_at: string }>();
   const lastEventMap = new Map<string, { content: string; sent_at: string }>();
   const lastIncomingMap = new Map<string, string>();
   for (const row of lastMessages || []) {
@@ -72,8 +73,13 @@ export async function GET(req: NextRequest) {
     if (!lastMsgMap.has(row.patient_id) && row.direction === "incoming" && row.message_type !== "event") {
       lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
     }
-    // 表示用②: フォロー/ブロック等イベント（フォールバック）
-    if (!lastEventMap.has(row.patient_id) && row.direction === "incoming" && row.message_type === "event") {
+    // 表示用②: 送信テンプレ名（outgoing の【テンプレ名】形式）
+    if (!lastTemplateMap.has(row.patient_id) && row.direction === "outgoing" && /^【.+?】/.test(row.content || "")) {
+      const name = row.content.match(/^【.+?】/)?.[0] || row.content;
+      lastTemplateMap.set(row.patient_id, { content: name, sent_at: row.sent_at });
+    }
+    // 表示用③: フォロー/ブロックイベントのみ（systemイベントは除外）
+    if (!lastEventMap.has(row.patient_id) && row.direction === "incoming" && row.message_type === "event" && row.event_type !== "system") {
       lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
     }
   }
@@ -91,7 +97,7 @@ export async function GET(req: NextRequest) {
       mark: markMap.get(p.patient_id) || "none",
       tags: [],
       fields: {},
-      last_message: lastMsg?.content || lastEventMap.get(p.patient_id)?.content || null,
+      last_message: lastMsg?.content || lastTemplateMap.get(p.patient_id)?.content || lastEventMap.get(p.patient_id)?.content || null,
       last_sent_at: lastIncoming || null,
     };
   });

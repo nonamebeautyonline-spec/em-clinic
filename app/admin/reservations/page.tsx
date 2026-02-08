@@ -531,15 +531,15 @@ export default function ReservationsPage() {
                 戻る
               </button>
               <button
-                onClick={() => setShowReminderConfirm(true)}
-                disabled={sendingReminder || reminderPreview.total === 0}
+                onClick={handleLineRemindPreview}
+                disabled={lineRemindLoading || reminderPreview.total === 0}
                 className={`px-4 py-2 text-sm rounded-lg font-medium ${
-                  sendingReminder || reminderPreview.total === 0
+                  lineRemindLoading || reminderPreview.total === 0
                     ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
-                {sendingReminder ? "送信中..." : "LINE リマインド送信"}
+                {lineRemindLoading ? "読込中..." : "LINE リマインド送信"}
               </button>
               <button
                 onClick={handleDownloadReminderCSV}
