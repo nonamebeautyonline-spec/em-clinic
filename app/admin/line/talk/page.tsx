@@ -1777,7 +1777,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-[13px] font-medium text-gray-800 truncate">{f.patient_id.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name}</span>
+            <span className="text-sm font-semibold text-gray-800 truncate">{f.patient_id.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name}</span>
             {f.line_display_name && f.line_display_name !== f.patient_name && (
               <span className="text-[10px] text-gray-400 truncate flex-shrink-0">({f.line_display_name})</span>
             )}
@@ -1789,7 +1789,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
             ) : null}
           </div>
           <div className="flex items-center gap-1 mt-0.5">
-            <p className="text-[10px] text-gray-400 line-clamp-2 flex-1 break-all leading-relaxed">
+            <p className="text-[10px] text-gray-400 line-clamp-2 flex-1 leading-relaxed" style={{ maxWidth: "14em", wordBreak: "break-all" }}>
               {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (

@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
   // orders/answerers データを並列取得
   const [orderPatientsRes, answerersRes] = await Promise.all([
     fetchAll(() => supabaseAdmin.from("orders").select("patient_id").not("patient_id", "is", null)),
-    fetchAll(() => supabaseAdmin.from("answerers").select("patient_id, name").not("name", "is", null)),
+    fetchAll(() => supabaseAdmin.from("answerers").select("patient_id, name, tel").not("name", "is", null)),
   ]);
 
   const orderPatientIds = new Set(
@@ -118,6 +118,12 @@ export async function GET(req: NextRequest) {
   const answererPatientIds = new Set(
     (answerersRes.data || [])
       .filter((a: any) => a.name?.trim())
+      .map((a: any) => a.patient_id as string)
+  );
+  // verify完了済み（tel登録済み）患者のSet
+  const verifiedPatientIds = new Set(
+    (answerersRes.data || [])
+      .filter((a: any) => a.name?.trim() && a.tel)
       .map((a: any) => a.patient_id as string)
   );
 
@@ -178,8 +184,9 @@ export async function GET(req: NextRequest) {
     const infoMenu = infoMenuRes.data?.line_rich_menu_id;
 
     if (prescMenu || infoMenu) {
+      // リッチメニュー対象: orders有 or verify完了済み(tel登録済み)の患者
       const allTargets = [...patientMap.values()].filter(p =>
-        p.line_id && !p.patient_id.startsWith("LINE_") && (orderPatientIds.has(p.patient_id) || answererPatientIds.has(p.patient_id))
+        p.line_id && !p.patient_id.startsWith("LINE_") && (orderPatientIds.has(p.patient_id) || verifiedPatientIds.has(p.patient_id))
       );
 
       // 5件ずつ並列処理（LINE APIレート制限対策）

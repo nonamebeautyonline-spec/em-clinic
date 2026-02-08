@@ -34,14 +34,15 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
     return pathname === href || pathname?.startsWith(href + "/");
   };
 
-  const renderTab = (tab: { href: string; label: string }) => {
+  const renderTab = (tab: { href: string; label: string }, size: "main" | "sub" = "main") => {
     const active = isActive(tab.href);
+    const textSize = size === "main" ? "text-sm" : "text-[12px]";
     return (
       <Link
         key={tab.href}
         href={tab.href}
         scroll={false}
-        className={`relative px-3 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+        className={`relative px-3 py-1.5 ${textSize} font-medium whitespace-nowrap transition-colors ${
           active
             ? "text-[#06C755]"
             : "text-gray-500 hover:text-gray-700"
@@ -69,11 +70,11 @@ export default function LineLayout({ children }: { children: React.ReactNode }) 
         </div>
         {/* 1行目: メイン機能 */}
         <div className="flex items-center px-2">
-          {MAIN_TABS.map(renderTab)}
+          {MAIN_TABS.map(t => renderTab(t, "main"))}
         </div>
         {/* 2行目: 設定・管理系 */}
         <div className="flex items-center px-2 pb-1 border-t border-gray-50">
-          {SUB_TABS.map(renderTab)}
+          {SUB_TABS.map(t => renderTab(t, "sub"))}
         </div>
       </div>
       {/* コンテンツ */}

@@ -411,14 +411,15 @@ async function autoAssignStatusByPatient(
       // answerers に名前が入っているか（個人情報提出済み）
       const { data: answerer } = await supabaseAdmin
         .from("answerers")
-        .select("name")
+        .select("name, tel")
         .eq("patient_id", patientId)
         .maybeSingle();
 
       if (!answerer?.name) return;
 
       targetTagName = "個人情報提出ずみ";
-      targetMenuName = "個人情報入力後";
+      // リッチメニューはverify完了（tel登録済み）後のみ切り替え
+      targetMenuName = answerer.tel ? "個人情報入力後" : "";
     }
 
     // タグ付与
@@ -447,7 +448,8 @@ async function autoAssignStatusByPatient(
       }
     }
 
-    // リッチメニュー切り替え
+    // リッチメニュー切り替え（targetMenuNameが空の場合はスキップ）
+    if (!targetMenuName) return;
     const { data: menu } = await supabaseAdmin
       .from("rich_menus")
       .select("line_rich_menu_id")
@@ -478,6 +480,28 @@ async function autoAssignStatusByPatient(
 async function handleMessage(lineUid: string, message: any) {
   // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
   const patient = await findOrCreatePatient(lineUid);
+
+  // プロフィール未保存なら取得して更新（非ブロッキング）
+  if (patient?.patient_id) {
+    (async () => {
+      try {
+        const { data: intake } = await supabaseAdmin
+          .from("intake")
+          .select("line_picture_url")
+          .eq("patient_id", patient.patient_id)
+          .maybeSingle();
+        if (!intake?.line_picture_url) {
+          const profile = await getLineProfile(lineUid);
+          if (profile.displayName || profile.pictureUrl) {
+            await supabaseAdmin.from("intake").update({
+              line_display_name: profile.displayName || null,
+              line_picture_url: profile.pictureUrl || null,
+            }).eq("patient_id", patient.patient_id);
+          }
+        }
+      } catch {}
+    })();
+  }
 
   // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
   if (patient?.patient_id) {
