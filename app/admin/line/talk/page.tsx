@@ -1828,7 +1828,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
             ) : null}
           </div>
           <div className="flex items-start gap-1">
-            <p className="text-[12px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "12em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <p className="text-[12px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "14em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (
