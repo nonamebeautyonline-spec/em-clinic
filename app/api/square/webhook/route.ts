@@ -4,6 +4,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
+import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 
 export const runtime = "nodejs";
 
@@ -304,6 +305,15 @@ if (signatureKey && !signatureHeader) {
 
 if (reorderId) {
   await markReorderPaidInGas(reorderId, patientId);
+
+  // ★ 決済時カルテ自動作成（用量比較付き）
+  if (patientId && productCode) {
+    try {
+      await createReorderPaymentKarte(patientId, productCode, new Date().toISOString());
+    } catch (karteErr) {
+      console.error("[square/webhook] reorder payment karte error:", karteErr);
+    }
+  }
 }
 
       const createdAtIso = String(P?.created_at || "");

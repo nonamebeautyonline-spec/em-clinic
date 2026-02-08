@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
+import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -158,6 +159,13 @@ export async function POST(req: NextRequest) {
         }
       } catch (dbErr) {
         console.error("[BankTransfer] Supabase reorder paid exception:", dbErr);
+      }
+
+      // ★ 決済時カルテ自動作成（用量比較付き）
+      try {
+        await createReorderPaymentKarte(patientId, productCode, new Date().toISOString());
+      } catch (karteErr) {
+        console.error("[BankTransfer] reorder payment karte error:", karteErr);
       }
     }
 
