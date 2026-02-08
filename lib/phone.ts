@@ -24,17 +24,13 @@ export function normalizeJPPhone(raw: string): string {
   } else if (digits.startsWith("0070")) {
     digits = "070" + digits.slice(4);
   }
-  // 00プレフィックスを削除（国際電話の発信コード）
+  // その他の00プレフィックス → 先頭の0を1つだけ除去（0043→043 等の固定番号にも対応）
   else if (digits.startsWith("00")) {
-    digits = digits.slice(2);
-    // 00削除後に7/8/9で始まる場合は0を追加
-    if (/^[789]/.test(digits)) {
-      digits = "0" + digits;
-    }
+    digits = digits.slice(1);
   }
 
-  // 81（国際番号）を削除して0を追加
-  if (digits.startsWith("81")) {
+  // 81（国際番号）を削除して0を追加（11桁以上の場合のみ）
+  if (digits.startsWith("81") && digits.length >= 11) {
     digits = "0" + digits.slice(2);
   }
 

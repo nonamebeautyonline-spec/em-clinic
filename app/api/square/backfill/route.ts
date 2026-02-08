@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeJPPhone } from "@/lib/phone";
 
 export const runtime = "nodejs";
 
@@ -6,19 +7,6 @@ function isoOrEmpty(v: string | null) {
   if (!v) return "";
   const s = String(v).trim();
   return s;
-}
-
-function normalizeJPPhone(raw: string) {
-  const s = (raw || "").trim();
-  if (!s) return "";
-  let digits = s.replace(/[^\d]/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("81")) {
-    const rest = digits.slice(2);
-    digits = "0" + rest;
-  }
-  if (!digits.startsWith("0") && /^(70|80|90)/.test(digits)) digits = "0" + digits;
-  return digits;
 }
 
 function extractFromNote(note: string) {
