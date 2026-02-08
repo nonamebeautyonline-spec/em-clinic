@@ -831,7 +831,7 @@ export default function TalkPage() {
 
   // 検索フィルタ
   const filteredFriends = friends.filter(f => {
-    if (searchId && !f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
+    if (searchId && !(f.patient_id || "").toLowerCase().includes(searchId.toLowerCase())) return false;
     if (searchName) {
       const q = searchName.replace(/[\s　]/g, "").toLowerCase();
       const name = (f.patient_name || "").replace(/[\s　]/g, "").toLowerCase();
@@ -1521,7 +1521,7 @@ export default function TalkPage() {
                   {selectedPatient.patient_name?.charAt(0) || "?"}
                 </div>
               )}
-              <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_id.startsWith("LINE_") ? "🟧 " : ""}{selectedPatient.patient_name}</h3>
+              <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{selectedPatient.patient_name || "（名前なし）"}</h3>
               <p className="text-[10px] text-gray-400 font-mono mt-0.5">{selectedPatient.patient_id}</p>
               {selectedPatient.line_id ? (
                 <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-[#00B900] bg-[#00B900]/5 px-2 py-0.5 rounded-full">
@@ -1928,7 +1928,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-[13px] font-semibold text-gray-800 truncate">{f.patient_id.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name}</span>
+            <span className="text-[13px] font-semibold text-gray-800 truncate">{f.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name || "（名前なし）"}</span>
             {hasUnreadText && (
               <span className="w-2 h-2 rounded-full bg-[#00B900] flex-shrink-0" />
             )}
