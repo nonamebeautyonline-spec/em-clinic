@@ -55,6 +55,13 @@ export default function TrackingNumberPage() {
     tracking_number: "",
   });
 
+  // 発送通知一斉送信
+  const [notifyPreview, setNotifyPreview] = useState<{ patients: { patient_id: string; patient_name: string; line_id: string | null }[]; summary: { total: number; sendable: number; no_uid: number } } | null>(null);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number } | null>(null);
+
   const handleLoadTodayShipped = async () => {
     setLoading(true);
     setError("");
@@ -316,6 +323,39 @@ export default function TrackingNumberPage() {
           ? err.message
           : "LステップタグCSVのダウンロードに失敗しました"
       );
+    }
+  };
+
+  const handleNotifyPreview = async () => {
+    setNotifyLoading(true);
+    try {
+      const res = await fetch("/api/admin/shipping/notify-shipped", { credentials: "include" });
+      if (!res.ok) throw new Error("取得エラー");
+      const data = await res.json();
+      setNotifyPreview(data);
+      setShowNotifyConfirm(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "プレビュー取得に失敗しました");
+    } finally {
+      setNotifyLoading(false);
+    }
+  };
+
+  const handleNotifySend = async () => {
+    setNotifySending(true);
+    try {
+      const res = await fetch("/api/admin/shipping/notify-shipped", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("送信エラー");
+      const data = await res.json();
+      setNotifyResult(data);
+      setShowNotifyConfirm(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "送信に失敗しました");
+    } finally {
+      setNotifySending(false);
     }
   };
 
@@ -674,9 +714,44 @@ export default function TrackingNumberPage() {
                     onClick={handleDownloadLstepTags}
                     className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
                   >
-                    📥 CSVダウンロード
+                    CSVダウンロード
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* 発送通知一斉送信 */}
+            {result.updated > 0 && (
+              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-green-900">
+                      発送通知を一斉送信
+                    </h3>
+                    <p className="mt-1 text-xs text-green-700">
+                      本日発送した患者にLINEで発送通知メッセージを送信します
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleNotifyPreview}
+                    disabled={notifyLoading}
+                    className="ml-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {notifyLoading ? "読込中..." : "送信対象を確認"}
+                  </button>
+                </div>
+
+                {/* 送信結果 */}
+                {notifyResult && (
+                  <div className="mt-3 p-3 bg-white rounded border border-green-200">
+                    <p className="text-sm font-medium text-green-900">送信完了</p>
+                    <div className="mt-1 flex gap-4 text-xs">
+                      <span className="text-green-700">送信成功: <strong>{notifyResult.sent}</strong></span>
+                      {notifyResult.failed > 0 && <span className="text-red-600">失敗: <strong>{notifyResult.failed}</strong></span>}
+                      {notifyResult.no_uid > 0 && <span className="text-slate-500">LINE未連携: <strong>{notifyResult.no_uid}</strong></span>}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -734,6 +809,80 @@ export default function TrackingNumberPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+      {/* 発送通知確認モーダル */}
+      {showNotifyConfirm && notifyPreview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">発送通知の送信確認</h3>
+            </div>
+
+            <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4">
+              {/* 内訳 */}
+              <div className="flex gap-3">
+                <div className="flex-1 text-center p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600">送信対象</p>
+                  <p className="text-xl font-bold text-green-700">{notifyPreview.summary.sendable}</p>
+                </div>
+                {notifyPreview.summary.no_uid > 0 && (
+                  <div className="flex-1 text-center p-3 bg-slate-50 rounded-lg">
+                    <p className="text-xs text-slate-500">LINE未連携</p>
+                    <p className="text-xl font-bold text-slate-400">{notifyPreview.summary.no_uid}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 対象者リスト */}
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">送信対象者</p>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+                  {notifyPreview.patients.filter(p => p.line_id).map(p => (
+                    <div key={p.patient_id} className="px-3 py-2 text-sm flex justify-between">
+                      <span className="text-slate-900">{p.patient_name || p.patient_id}</span>
+                      <span className="text-xs text-slate-400 font-mono">{p.patient_id}</span>
+                    </div>
+                  ))}
+                </div>
+                {notifyPreview.patients.filter(p => !p.line_id).length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-slate-400 cursor-pointer">LINE未連携 ({notifyPreview.summary.no_uid}人)</summary>
+                    <div className="mt-1 max-h-24 overflow-y-auto border border-slate-100 rounded divide-y divide-slate-50">
+                      {notifyPreview.patients.filter(p => !p.line_id).map(p => (
+                        <div key={p.patient_id} className="px-3 py-1 text-xs text-slate-400">{p.patient_name || p.patient_id}</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+
+              {/* メッセージプレビュー */}
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-2">送信メッセージ</p>
+                <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  本日ヤマト運輸のチルド便で発送させていただきました。{"\n"}マイページにて追跡番号照会が可能となっており、発送が開始されると日時指定が可能となります。{"\n"}日時指定を希望される場合は追跡番号を入力してお試しください🌸{"\n\n"}お届け後、マンジャロは冷蔵保管をするようにお願いいたします。{"\n"}冷凍保存を行うと薬液が凍結したり効果が下がってしまいますのでご注意ください。
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowNotifyConfirm(false)}
+                disabled={notifySending}
+                className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleNotifySend}
+                disabled={notifySending || notifyPreview.summary.sendable === 0}
+                className="px-6 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {notifySending ? "送信中..." : `${notifyPreview.summary.sendable}人に送信する`}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
