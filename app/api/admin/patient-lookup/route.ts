@@ -267,7 +267,7 @@ export async function GET(req: NextRequest) {
     // 問診情報を取得（answers JSONBから）
     const { data: intakeRecord } = await supabaseAdmin
       .from("intake")
-      .select("patient_kana, phone, email, answers, prescription_menu")
+      .select("patient_kana, phone, email, answers, prescription_menu, created_at")
       .eq("patient_id", patientId)
       .order("id", { ascending: false })
       .limit(1)
@@ -304,6 +304,7 @@ export async function GET(req: NextRequest) {
       pendingBankTransfer: pendingBankInfo,
       nextReservation: formattedReservation,
       medicalInfo,
+      registeredAt: intakeRecord?.created_at || null,
     });
   } catch (error) {
     console.error("Patient lookup error:", error);

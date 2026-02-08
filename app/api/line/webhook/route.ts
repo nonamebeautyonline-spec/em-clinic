@@ -354,6 +354,12 @@ async function handleFollow(lineUid: string) {
       status: "received",
     });
   }
+
+  // 既存患者のステータスに基づくタグ＋メニュー上書き
+  // （登録時設定より実データの状態を優先）
+  if (patient?.patient_id) {
+    await autoAssignStatusByPatient(patient.patient_id, lineUid);
+  }
 }
 
 // =================================================================
@@ -376,11 +382,107 @@ async function handleUnfollow(lineUid: string) {
 }
 
 // =================================================================
+// タグ＋リッチメニュー自動付与
+//   ordersあり → 処方ずみタグ + 処方後メニュー
+//   ordersなし & answerers.nameあり → 個人情報提出ずみタグ + 個人情報入力後メニュー
+// =================================================================
+async function autoAssignStatusByPatient(
+  patientId: string,
+  lineUid: string
+) {
+  try {
+    if (patientId.startsWith("LINE_")) return;
+
+    // ordersに1件でもあるか
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("id")
+      .eq("patient_id", patientId)
+      .limit(1)
+      .maybeSingle();
+
+    let targetTagName: string;
+    let targetMenuName: string;
+
+    if (order) {
+      targetTagName = "処方ずみ";
+      targetMenuName = "処方後";
+    } else {
+      // answerers に名前が入っているか（個人情報提出済み）
+      const { data: answerer } = await supabaseAdmin
+        .from("answerers")
+        .select("name")
+        .eq("patient_id", patientId)
+        .maybeSingle();
+
+      if (!answerer?.name) return;
+
+      targetTagName = "個人情報提出ずみ";
+      targetMenuName = "個人情報入力後";
+    }
+
+    // タグ付与
+    const { data: tagDef } = await supabaseAdmin
+      .from("tag_definitions")
+      .select("id")
+      .eq("name", targetTagName)
+      .maybeSingle();
+
+    if (tagDef) {
+      const { data: existing } = await supabaseAdmin
+        .from("patient_tags")
+        .select("tag_id")
+        .eq("patient_id", patientId)
+        .eq("tag_id", tagDef.id)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabaseAdmin
+          .from("patient_tags")
+          .upsert(
+            { patient_id: patientId, tag_id: tagDef.id, assigned_by: "auto" },
+            { onConflict: "patient_id,tag_id" }
+          );
+        console.log(`[webhook] auto-assigned ${targetTagName} tag to ${patientId}`);
+      }
+    }
+
+    // リッチメニュー切り替え
+    const { data: menu } = await supabaseAdmin
+      .from("rich_menus")
+      .select("line_rich_menu_id")
+      .eq("name", targetMenuName)
+      .maybeSingle();
+
+    if (menu?.line_rich_menu_id) {
+      const currentRes = await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu`, {
+        headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      });
+      const current = currentRes.ok ? await currentRes.json() : null;
+      if (current?.richMenuId !== menu.line_rich_menu_id) {
+        await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+        });
+        console.log(`[webhook] auto-assigned ${targetMenuName} rich menu to ${patientId}`);
+      }
+    }
+  } catch (err) {
+    console.error("[webhook] autoAssignStatusByPatient error:", err);
+  }
+}
+
+// =================================================================
 // message イベント処理（ユーザーからのテキスト等）
 // =================================================================
 async function handleMessage(lineUid: string, message: any) {
   // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
   const patient = await findOrCreatePatient(lineUid);
+
+  // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
+  if (patient?.patient_id) {
+    autoAssignStatusByPatient(patient.patient_id, lineUid).catch(() => {});
+  }
 
   let content = "";
   let msgType = message.type || "unknown";
@@ -434,6 +536,11 @@ async function handleMessage(lineUid: string, message: any) {
 // =================================================================
 async function handleUserPostback(lineUid: string, postbackData: string) {
   const patient = await findOrCreatePatient(lineUid);
+
+  // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
+  if (patient?.patient_id) {
+    autoAssignStatusByPatient(patient.patient_id, lineUid).catch(() => {});
+  }
 
   // JSON形式（リッチメニューのaction type）を試行
   let parsed: any = null;
