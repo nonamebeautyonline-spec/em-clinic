@@ -837,7 +837,7 @@ export default function TalkPage() {
   return (
     <div className="h-full flex overflow-hidden bg-[#f8f9fb]">
       {/* ========== 左カラム ========== */}
-      <div className="w-[300px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
+      <div className="w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
         {/* 検索 */}
         <div className="p-3 border-b border-gray-100 space-y-1.5">
           <div className="relative">
@@ -1826,25 +1826,23 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
             ) : null}
           </div>
-          <div className="flex items-start gap-1">
-            <p className="text-[12px] text-gray-400 leading-snug flex-shrink-0" style={{ width: "14em", wordBreak: "break-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-              {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
-            </p>
-            <div className="flex flex-col items-end gap-0.5 flex-shrink-0 ml-auto pl-1">
-              {showMark && (
-                <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
-                  {markLabel}
-                </span>
-              )}
-              {f.last_sent_at && (
-                <span className="text-[11px] text-gray-700">{formatDateShort(f.last_sent_at)}</span>
-              )}
-            </div>
-          </div>
+          <p className="text-[12px] text-gray-400 leading-snug truncate">
+            {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+          {f.last_sent_at && (
+            <span className="text-[11px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_sent_at)}</span>
+          )}
+          {showMark && (
+            <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
+              {markLabel}
+            </span>
+          )}
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onTogglePin(f.patient_id); }}
-          className={`flex-shrink-0 p-0.5 rounded transition-all ${
+          className={`flex-shrink-0 p-0.5 ml-1 rounded transition-all ${
             isPinned ? "text-amber-400" : "text-gray-200 opacity-0 group-hover:opacity-100 hover:text-amber-300"
           }`}
         >
