@@ -136,40 +136,55 @@ export async function createLineRichMenu(menu: {
 }
 
 /**
- * リッチメニュー画像をLINEにアップロード
+ * リッチメニュー画像をLINEにアップロード（リトライ付き）
  */
-export async function uploadRichMenuImage(richMenuId: string, imageUrl: string): Promise<boolean> {
+export async function uploadRichMenuImage(richMenuId: string, imageUrl: string, maxRetries = 3): Promise<boolean> {
   const token = getToken();
   if (!token || !imageUrl) return false;
 
-  // 画像をダウンロード
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) {
-    console.error("[LINE Rich Menu Image] Failed to download:", imageUrl, imgRes.status);
-    return false;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 画像をダウンロード
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) {
+        console.error(`[LINE Rich Menu Image] Download failed (attempt ${attempt}/${maxRetries}):`, imageUrl, imgRes.status);
+        if (attempt < maxRetries) { await sleep(1000 * attempt); continue; }
+        return false;
+      }
+
+      const contentType = imgRes.headers.get("content-type") || "image/png";
+      const buffer = await imgRes.arrayBuffer();
+      console.log(`[LINE Rich Menu Image] Downloaded ${buffer.byteLength} bytes, uploading to ${richMenuId} (attempt ${attempt}/${maxRetries})`);
+
+      // LINEにアップロード (JPEG or PNG, 1MB以下推奨)
+      const res = await fetch(`${LINE_DATA_API}/richmenu/${richMenuId}/content`, {
+        method: "POST",
+        headers: {
+          "Content-Type": contentType,
+          Authorization: `Bearer ${token}`,
+        },
+        body: buffer,
+      });
+
+      if (res.ok) {
+        console.log(`[LINE Rich Menu Image] Upload OK: ${richMenuId}`);
+        return true;
+      }
+
+      const text = await res.text().catch(() => "");
+      console.error(`[LINE Rich Menu Image Upload] ${res.status} (attempt ${attempt}/${maxRetries}):`, text);
+      if (attempt < maxRetries) { await sleep(1000 * attempt); continue; }
+      return false;
+    } catch (e) {
+      console.error(`[LINE Rich Menu Image] Exception (attempt ${attempt}/${maxRetries}):`, e);
+      if (attempt < maxRetries) { await sleep(1000 * attempt); continue; }
+      return false;
+    }
   }
-
-  const contentType = imgRes.headers.get("content-type") || "image/png";
-  const buffer = await imgRes.arrayBuffer();
-
-  // LINEにアップロード (JPEG or PNG, 1MB以下推奨)
-  const res = await fetch(`${LINE_DATA_API}/richmenu/${richMenuId}/content`, {
-    method: "POST",
-    headers: {
-      "Content-Type": contentType,
-      Authorization: `Bearer ${token}`,
-    },
-    body: buffer,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    console.error("[LINE Rich Menu Image Upload]", res.status, text);
-    return false;
-  }
-
-  return true;
+  return false;
 }
+
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 /**
  * LINE側のリッチメニューを削除
