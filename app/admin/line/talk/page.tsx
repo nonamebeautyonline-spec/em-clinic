@@ -105,14 +105,22 @@ const DEFAULT_MARK_OPTIONS: MarkOption[] = [
   { value: "none", label: "未対応", color: "#06B6D4", icon: "●" },
 ];
 
-// 画像URL判定（Supabase storage の画像URLか）
+// 画像URL判定（Supabase storage の画像URLか、【テンプレ名】URL形式か）
 function isImageUrl(text: string) {
   if (!text) return false;
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("http")) return false;
-  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(trimmed)) return true;
-  if (trimmed.includes("supabase.co/storage/") && trimmed.includes("line-images/")) return true;
+  const url = extractImageUrl(text);
+  if (!url.startsWith("http")) return false;
+  if (/\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url)) return true;
+  if (url.includes("supabase.co/storage/") && url.includes("line-images/")) return true;
   return false;
+}
+
+// 【テンプレ名】URL形式からURLを抽出（なければそのまま返す）
+function extractImageUrl(text: string) {
+  if (!text) return "";
+  const trimmed = text.trim();
+  const m = trimmed.match(/^【.+?】(.+)/);
+  return m ? m[1].trim() : trimmed;
 }
 
 const PIN_STORAGE_KEY = "talk_pinned_patients";
@@ -1097,8 +1105,8 @@ export default function TalkPage() {
                             )}
                             <div className="flex items-end gap-1.5">
                               {isImageUrl(m.content) ? (
-                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => setLightboxUrl(m.content.trim())}>
-                                  <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
+                                  <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                                 </div>
                               ) : (
                                 <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
@@ -1118,8 +1126,8 @@ export default function TalkPage() {
                           </div>
                           <div className="max-w-[65%]">
                             {isImageUrl(m.content) ? (
-                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(m.content.trim())}>
-                                <img src={m.content.trim()} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
+                                <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                               </div>
                             ) : (
                               <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
@@ -1852,8 +1860,12 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
             ) : null}
           </div>
-          <p className="text-[12px] text-gray-500 leading-snug truncate">
-            {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
+          <p className="text-[12px] text-gray-500 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-all" }}>
+            {f.last_message
+              ? f.last_message.match(/^【.+?】/) && isImageUrl(f.last_message.replace(/^【.+?】/, ""))
+                ? f.last_message.match(/^【.+?】/)![0]
+                : isImageUrl(f.last_message) ? "[画像]" : f.last_message
+              : "メッセージなし"}
           </p>
         </div>
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
