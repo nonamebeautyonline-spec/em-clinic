@@ -60,7 +60,7 @@ export default function TrackingNumberPage() {
   const [notifyLoading, setNotifyLoading] = useState(false);
   const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
-  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number } | null>(null);
+  const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number; mark_updated?: number; menu_switched?: number } | null>(null);
 
   const handleLoadTodayShipped = async () => {
     setLoading(true);
@@ -729,7 +729,7 @@ export default function TrackingNumberPage() {
                       発送通知を一斉送信
                     </h3>
                     <p className="mt-1 text-xs text-green-700">
-                      本日発送した患者にLINEで発送通知メッセージを送信します
+                      本日発送した患者にLINEで発送通知を送信し、対応マーク「処方ずみ」＆メニュー「処方後」に自動切替します
                     </p>
                   </div>
                   <button
@@ -745,10 +745,12 @@ export default function TrackingNumberPage() {
                 {notifyResult && (
                   <div className="mt-3 p-3 bg-white rounded border border-green-200">
                     <p className="text-sm font-medium text-green-900">送信完了</p>
-                    <div className="mt-1 flex gap-4 text-xs">
+                    <div className="mt-1 flex flex-wrap gap-4 text-xs">
                       <span className="text-green-700">送信成功: <strong>{notifyResult.sent}</strong></span>
                       {notifyResult.failed > 0 && <span className="text-red-600">失敗: <strong>{notifyResult.failed}</strong></span>}
                       {notifyResult.no_uid > 0 && <span className="text-slate-500">LINE未連携: <strong>{notifyResult.no_uid}</strong></span>}
+                      {(notifyResult.mark_updated ?? 0) > 0 && <span className="text-orange-600">マーク→処方ずみ: <strong>{notifyResult.mark_updated}</strong></span>}
+                      {(notifyResult.menu_switched ?? 0) > 0 && <span className="text-blue-600">メニュー→処方後: <strong>{notifyResult.menu_switched}</strong></span>}
                     </div>
                   </div>
                 )}
