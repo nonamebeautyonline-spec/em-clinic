@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         .maybeSingle(),
       supabaseAdmin
         .from("intake")
-        .select("id, patient_id, patient_name, status, note, prescription_menu, answers, reserved_date, reserved_time, created_at")
+        .select("id, patient_id, patient_name, status, note, prescription_menu, answers, reserved_date, reserved_time, created_at, line_id")
         .eq("patient_id", patientId)
         .order("id", { ascending: false })
         .limit(50),
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       phone: normalizeJPPhone(answerer?.tel || answers?.tel || ""),
       sex: answerer?.sex || answers?.性別 || answers?.sex || "",
       birth: answerer?.birthday || answers?.生年月日 || answers?.birth || "",
-      lineId: answerer?.line_id || null,
+      lineId: answerer?.line_id || latestIntake?.line_id || answers?.line_id || null,
     };
 
     // 問診一覧
