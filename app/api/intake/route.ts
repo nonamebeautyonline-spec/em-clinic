@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         // ★ 既存レコードがある場合はreserve_id等を保持
         const { data: existingRecord } = await supabase
           .from("intake")
-          .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
+          .select("patient_name, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
           .eq("patient_id", patientId)
           .maybeSingle();
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
           .from("intake")
           .upsert({
             patient_id: patientId,
-            patient_name: name || null,
+            patient_name: name || existingRecord?.patient_name || null,
             // ★ patient_kana, phone, emailはintakeテーブルに列がない
             //   これらはanswersフィールド内に格納済み（カナ, 電話番号等）
             answerer_id: answererId,
