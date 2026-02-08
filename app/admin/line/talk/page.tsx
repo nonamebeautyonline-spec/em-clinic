@@ -829,9 +829,10 @@ export default function TalkPage() {
     } catch { return null; }
   };
 
-  // 検索フィルタ
+  // 検索フィルタ（patient_idがないレコードは除外）
   const filteredFriends = friends.filter(f => {
-    if (searchId && !(f.patient_id || "").toLowerCase().includes(searchId.toLowerCase())) return false;
+    if (!f.patient_id) return false;
+    if (searchId && !f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
     if (searchName) {
       const q = searchName.replace(/[\s　]/g, "").toLowerCase();
       const name = (f.patient_name || "").replace(/[\s　]/g, "").toLowerCase();
@@ -1900,6 +1901,8 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
   canPin: boolean;
   readTimestamp?: string;
 }) {
+  // patient_idがないレコードは描画しない
+  if (!f.patient_id) return null;
   const markColor = getMarkColor(f.mark);
   const markLabel = getMarkLabel(f.mark);
   const showMark = f.mark && f.mark !== "none";
