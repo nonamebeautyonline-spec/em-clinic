@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 const LIST_URL = process.env.GAS_INTAKE_LIST_URL as string;
 const USE_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
   let offset = 0;
   for (;;) {

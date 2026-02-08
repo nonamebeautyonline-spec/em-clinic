@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
   let offset = 0;
   for (;;) {

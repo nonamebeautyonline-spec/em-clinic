@@ -5,7 +5,7 @@ import { pushMessage } from "@/lib/line-push";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
   let offset = 0;
   for (;;) {

@@ -26,7 +26,7 @@ export async function GET(
   // 回答一覧（1000行制限回避のためページネーション）
   const allResponses: any[] = [];
   let offset = 0;
-  const pageSize = 1000;
+  const pageSize = 5000;
   for (;;) {
     const { data: page, error: pageError } = await supabaseAdmin
       .from("form_responses")

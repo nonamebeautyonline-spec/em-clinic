@@ -4,7 +4,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 
 // ページネーション付き全件取得
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAll(buildQuery: () => any, pageSize = 1000) {
+async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
   let offset = 0;
   for (;;) {

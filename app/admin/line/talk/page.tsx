@@ -401,7 +401,7 @@ export default function TalkPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ポーリング: 左カラムの友だちリストを15秒ごとに更新
+  // ポーリング: 左カラムの友だちリストを30秒ごとに更新
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -409,7 +409,7 @@ export default function TalkPage() {
         const data = await res.json();
         if (data.patients) setFriends(data.patients);
       } catch { /* ignore */ }
-    }, 15000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, []);

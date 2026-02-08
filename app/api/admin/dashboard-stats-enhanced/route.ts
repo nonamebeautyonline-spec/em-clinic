@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const { startISO, endISO, startDate: reservationStartDate, endDate: reservationEndDate } = calculateDateRange(range, customStart, customEnd);
 
     // ページネーション用の定数
-    const pageSize = 1000;
+    const pageSize = 5000;
 
     // 1. 予約統計（reserved_dateで日付フィルタ）
     const { count: totalReservations } = await supabase
