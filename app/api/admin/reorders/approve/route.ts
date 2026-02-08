@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
+import { formatProductCode } from "@/lib/patient-utils";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     // まずpatient_idとstatusを取得
     const { data: reorderData, error: fetchError } = await supabaseAdmin
       .from("reorders")
-      .select("id, patient_id, status")
+      .select("id, patient_id, status, product_code")
       .eq("gas_row_number", Number(id))
       .single();
 
@@ -79,6 +80,33 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[admin/reorders/approve] Approved: gas_row=${id}, patient=${reorderData.patient_id}`);
+
+    // カルテ自動追加（再処方承認記録）
+    if (reorderData.patient_id) {
+      try {
+        const { data: answerer } = await supabaseAdmin
+          .from("answerers")
+          .select("name")
+          .eq("patient_id", reorderData.patient_id)
+          .limit(1)
+          .maybeSingle();
+
+        const productName = formatProductCode(reorderData.product_code);
+        const now = new Date();
+        const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+        const stamp = `${jst.getUTCFullYear()}/${String(jst.getUTCMonth() + 1).padStart(2, "0")}/${String(jst.getUTCDate()).padStart(2, "0")} ${String(jst.getUTCHours()).padStart(2, "0")}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
+
+        await supabaseAdmin.from("intake").insert({
+          patient_id: reorderData.patient_id,
+          patient_name: answerer?.name || "",
+          note: `再処方承認\n商品: ${productName}\n承認日時: ${stamp}`,
+          created_at: now.toISOString(),
+        });
+        console.log(`[admin/reorders/approve] Auto karte created for patient ${reorderData.patient_id}`);
+      } catch (karteErr) {
+        console.error("[admin/reorders/approve] Auto karte creation error:", karteErr);
+      }
+    }
 
     // キャッシュ削除
     if (reorderData.patient_id) {

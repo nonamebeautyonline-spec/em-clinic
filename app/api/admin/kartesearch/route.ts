@@ -27,17 +27,6 @@ export async function GET(req: NextRequest) {
         .limit(50);
       patientIds = [...new Set((data || []).map(r => r.patient_id).filter(Boolean))].slice(0, 20);
 
-    } else if (searchType === "tel") {
-      const digits = q.replace(/[^\d]/g, "");
-      if (digits.length >= 3) {
-        const { data } = await supabaseAdmin
-          .from("answerers")
-          .select("patient_id")
-          .ilike("tel", `%${digits}%`)
-          .limit(20);
-        patientIds = [...new Set((data || []).map(r => r.patient_id).filter(Boolean))];
-      }
-
     } else {
       // 氏名検索: answerers.name → フォールバックで intake.patient_name
       const normalizedQuery = q.replace(/[\s　]/g, "").toLowerCase();
