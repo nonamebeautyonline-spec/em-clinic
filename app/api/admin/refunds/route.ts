@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     // ordersテーブルから返金データを取得
     const { data: refunds, error } = await supabase
       .from("orders")
-      .select("id, patient_id, amount, refunded_amount, refund_status, refunded_at, status, created_at, product_code")
+      .select("id, patient_id, amount, refunded_amount, refund_status, refunded_at, status, created_at, product_code, product_name")
       .or("refund_status.eq.COMPLETED,refund_status.eq.PENDING,refund_status.eq.FAILED,status.eq.refunded")
       .order("refunded_at", { ascending: false });
 
@@ -34,9 +34,46 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
+    // 患者名を取得
+    const patientIds = [...new Set((refunds || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const nameMap: Record<string, string> = {};
+    if (patientIds.length > 0) {
+      const { data: patients } = await supabase
+        .from("intake")
+        .select("patient_id, patient_name")
+        .in("patient_id", patientIds);
+      for (const p of patients || []) {
+        if (p.patient_name && !nameMap[p.patient_id]) {
+          nameMap[p.patient_id] = p.patient_name;
+        }
+      }
+    }
+
+    // 商品名マッピング
+    const PRODUCT_NAMES: Record<string, string> = {
+      "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
+      "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
+      "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
+      "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
+      "MJL_5mg_2m": "マンジャロ 5mg 2ヶ月",
+      "MJL_5mg_3m": "マンジャロ 5mg 3ヶ月",
+      "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月",
+      "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月",
+      "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
+      "MJL_10mg_1m": "マンジャロ 10mg 1ヶ月",
+      "MJL_10mg_2m": "マンジャロ 10mg 2ヶ月",
+      "MJL_10mg_3m": "マンジャロ 10mg 3ヶ月",
+    };
+
+    const enriched = (refunds || []).map((r: any) => ({
+      ...r,
+      patient_name: nameMap[r.patient_id] || "",
+      product_display: PRODUCT_NAMES[r.product_code] || r.product_name || r.product_code || "",
+    }));
+
     return NextResponse.json({
       ok: true,
-      refunds: refunds || [],
+      refunds: enriched,
     });
   } catch (err) {
     console.error("[admin/refunds] Unexpected error:", err);

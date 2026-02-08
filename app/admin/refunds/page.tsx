@@ -14,6 +14,7 @@ type RefundItem = {
   status: string;
   created_at: string;
   product_code: string;
+  product_display?: string;
 };
 
 export default function RefundsPage() {
@@ -148,7 +149,7 @@ export default function RefundsPage() {
                 <tr>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">返金日時</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">患者ID</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-700">注文ID</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-700">患者氏名</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-700">商品</th>
                   <th className="px-4 py-3 text-right font-medium text-gray-700">返金額</th>
                   <th className="px-4 py-3 text-center font-medium text-gray-700">ステータス</th>
@@ -176,8 +177,8 @@ export default function RefundsPage() {
                           {refund.patient_id}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{refund.id.substring(0, 20)}...</td>
-                      <td className="px-4 py-3">{refund.product_code}</td>
+                      <td className="px-4 py-3">{refund.patient_name || "-"}</td>
+                      <td className="px-4 py-3">{refund.product_display || refund.product_code}</td>
                       <td className="px-4 py-3 text-right font-medium">
                         ¥{refund.refunded_amount.toLocaleString()}
                       </td>
