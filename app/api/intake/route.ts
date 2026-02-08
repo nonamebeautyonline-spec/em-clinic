@@ -74,21 +74,6 @@ export async function POST(req: NextRequest) {
     // ★ デバッグログ：抽出後の値を確認
     console.log("[Intake Debug] Extracted - name:", name, "sex:", sex, "answererId:", answererId);
 
-    // answersに個人情報を明示的に含める
-    const fullAnswers = {
-      ...answersObj,
-      氏名: name,
-      name: name,
-      性別: sex,
-      sex: sex,
-      生年月日: birth,
-      birth: birth,
-      カナ: nameKana,
-      name_kana: nameKana,
-      電話番号: tel,
-      tel: tel,
-    };
-
     // ★ Supabase と GAS に並列書き込み
     const payload = {
       ...body,
@@ -100,29 +85,42 @@ export async function POST(req: NextRequest) {
     const [supabaseIntakeResult, supabaseAnswererResult, gasResult] = await Promise.allSettled([
       // 1. Supabase intakeテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
-        // ★ 既存レコードがある場合はreserve_id等を保持
+        // ★ 既存レコードがある場合はreserve_id等＋answersを保持してマージ
         const { data: existingRecord } = await supabase
           .from("intake")
-          .select("patient_name, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
+          .select("patient_name, line_id, answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
           .eq("patient_id", patientId)
           .maybeSingle();
+
+        // ★ 既存answersとマージ — 問診フォームは個人情報を送らないため、
+        //   既存の個人情報（カナ,性別,生年月日,電話番号）を保持する
+        const existingAnswers = (existingRecord?.answers as Record<string, unknown>) || {};
+        const mergedAnswers = {
+          ...existingAnswers,   // 既存の値を下地に
+          ...answersObj,        // 新しい問診回答で上書き
+          // 個人情報は実際に値がある場合のみ上書き（空文字で既存を消さない）
+          ...(name ? { 氏名: name, name } : {}),
+          ...(sex ? { 性別: sex, sex } : {}),
+          ...(birth ? { 生年月日: birth, birth } : {}),
+          ...(nameKana ? { カナ: nameKana, name_kana: nameKana } : {}),
+          ...(tel ? { 電話番号: tel, tel } : {}),
+          ...(email ? { メールアドレス: email, email } : {}),
+        };
 
         const result = await supabase
           .from("intake")
           .upsert({
             patient_id: patientId,
             patient_name: name || existingRecord?.patient_name || null,
-            // ★ patient_kana, phone, emailはintakeテーブルに列がない
-            //   これらはanswersフィールド内に格納済み（カナ, 電話番号等）
             answerer_id: answererId,
-            line_id: lineId || null,
+            line_id: lineId || existingRecord?.line_id || null,
             reserve_id: existingRecord?.reserve_id ?? null,
             reserved_date: existingRecord?.reserved_date ?? null,
             reserved_time: existingRecord?.reserved_time ?? null,
             status: existingRecord?.status ?? null,
             note: existingRecord?.note ?? null,
             prescription_menu: existingRecord?.prescription_menu ?? null,
-            answers: fullAnswers,
+            answers: mergedAnswers,
           }, {
             onConflict: "patient_id",
           });
