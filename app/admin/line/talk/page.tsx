@@ -1482,7 +1482,15 @@ export default function TalkPage() {
                 {patientDetail.medicalInfo.gender && <InfoRow label="性別">{patientDetail.medicalInfo.gender}</InfoRow>}
                 {patientDetail.medicalInfo.birthday && (
                   <InfoRow label="生年月日">
-                    {patientDetail.medicalInfo.birthday}
+                    {(() => {
+                      const raw = patientDetail.medicalInfo.birthday;
+                      try {
+                        const d = new Date(raw);
+                        if (isNaN(d.getTime())) return raw;
+                        const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+                        return `${jst.getUTCFullYear()}年${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日`;
+                      } catch { return raw; }
+                    })()}
                     {(() => { const a = calcAge(patientDetail.medicalInfo.birthday); return a !== null ? `（${a}歳）` : ""; })()}
                   </InfoRow>
                 )}
