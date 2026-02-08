@@ -147,6 +147,9 @@ export default function RichMenuManagementPage() {
   const [mediaImages, setMediaImages] = useState<{ id: number; name: string; file_url: string }[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
 
+  // LINE同期オーバーレイ
+  const [syncStatus, setSyncStatus] = useState<{ show: boolean; step: string; done: boolean; error: string | null }>({ show: false, step: "", done: false, error: null });
+
   // アクション設定モーダル
   const [actionModalIndex, setActionModalIndex] = useState<number | null>(null);
   const [tempActions, setTempActions] = useState<ActionItem[]>([]);
@@ -327,6 +330,7 @@ export default function RichMenuManagementPage() {
   const handleSave = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
+    setSyncStatus({ show: true, step: "保存中...", done: false, error: null });
 
     const richMenuAreas: RichMenuArea[] = buttons.map(btn => ({
       bounds: btn.bounds,
@@ -355,6 +359,8 @@ export default function RichMenuManagementPage() {
     const url = editingMenu ? `/api/admin/line/rich-menus/${editingMenu.id}` : "/api/admin/line/rich-menus";
     const method = editingMenu ? "PUT" : "POST";
 
+    setSyncStatus({ show: true, step: "LINEに反映中...", done: false, error: null });
+
     try {
       const res = await fetch(url, {
         method,
@@ -364,15 +370,24 @@ export default function RichMenuManagementPage() {
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.sync_error) {
+          setSyncStatus({ show: true, step: "", done: true, error: `LINE同期エラー: ${data.sync_error}` });
+        } else {
+          setSyncStatus({ show: true, step: "", done: true, error: null });
+          setTimeout(() => {
+            setSyncStatus({ show: false, step: "", done: false, error: null });
+            setShowEditor(false);
+          }, 1500);
+        }
         await fetchMenus();
-        setShowEditor(false);
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "保存に失敗しました");
+        setSyncStatus({ show: true, step: "", done: true, error: data.error || "保存に失敗しました" });
       }
     } catch (e: any) {
       console.error("handleSave error:", e);
-      alert("保存中にエラーが発生しました。再度お試しください。");
+      setSyncStatus({ show: true, step: "", done: true, error: "通信エラーが発生しました。再度お試しください。" });
     } finally {
       setSaving(false);
     }
@@ -771,6 +786,45 @@ export default function RichMenuManagementPage() {
           </button>
         </div>
       </div>
+
+      {/* LINE同期オーバーレイ */}
+      {syncStatus.show && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm text-center">
+            {!syncStatus.done ? (
+              <>
+                <div className="w-14 h-14 mx-auto mb-4 relative">
+                  <div className="absolute inset-0 border-4 border-gray-200 rounded-full" />
+                  <div className="absolute inset-0 border-4 border-transparent border-t-[#06C755] rounded-full animate-spin" />
+                </div>
+                <p className="text-base font-bold text-gray-800 mb-1">{syncStatus.step}</p>
+                <p className="text-sm text-gray-400">メニューの作成・画像アップロード・ユーザー反映を行っています。この画面を閉じないでください。</p>
+              </>
+            ) : syncStatus.error ? (
+              <>
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <p className="text-base font-bold text-gray-800 mb-1">同期に失敗しました</p>
+                <p className="text-sm text-red-500 mb-4">{syncStatus.error}</p>
+                <button
+                  onClick={() => setSyncStatus({ show: false, step: "", done: false, error: null })}
+                  className="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200"
+                >
+                  閉じる
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-green-50 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-[#06C755]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <p className="text-base font-bold text-gray-800">反映が完了しました</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* アクション設定モーダル (Lステップ風) */}
       {actionModalIndex !== null && (
