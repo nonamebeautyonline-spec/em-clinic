@@ -1083,17 +1083,14 @@ export default function TalkPage() {
         ) : (
           <>
             {/* ヘッダー */}
-            <div className="flex-shrink-0 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-2.5 flex items-center gap-3 shadow-sm">
-              <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-sm font-bold flex-shrink-0">
-                {selectedPatient.patient_name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="font-bold text-[15px] leading-tight truncate">{selectedPatient.patient_name}</h2>
-                <span className="text-green-200/80 text-[11px] font-mono">{selectedPatient.patient_id}</span>
+            <div className="flex-shrink-0 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-1.5 flex items-center gap-2 shadow-sm">
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <h2 className="font-bold text-[14px] leading-tight truncate">{selectedPatient.patient_name}</h2>
+                <span className="text-green-200/80 text-[11px] font-mono flex-shrink-0">{selectedPatient.patient_id}</span>
               </div>
               <button
                 onClick={() => togglePin(selectedPatient.patient_id)}
-                className={`p-1.5 rounded-lg transition-all ${pinnedIds.includes(selectedPatient.patient_id) ? "bg-white/20 text-amber-300" : "hover:bg-white/10 text-white/40"}`}
+                className={`p-1 rounded-lg transition-all ${pinnedIds.includes(selectedPatient.patient_id) ? "bg-white/20 text-amber-300" : "hover:bg-white/10 text-white/40"}`}
               >
                 <svg className="w-4 h-4" fill={pinnedIds.includes(selectedPatient.patient_id) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
