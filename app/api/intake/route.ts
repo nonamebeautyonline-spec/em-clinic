@@ -250,10 +250,10 @@ if (json.masterInfo) {
     const masterInfo = json.masterInfo;
     console.log("[Intake] Updating Supabase with master info:", masterInfo.name);
 
-    // 既存のanswersを取得してマージ
+    // 既存レコードを取得してマージ（予約情報も保持）
     const { data: existingData } = await supabase
       .from("intake")
-      .select("answers")
+      .select("answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
       .eq("patient_id", patientId)
       .maybeSingle();
 
@@ -284,12 +284,12 @@ if (json.masterInfo) {
             patient_name: masterInfo.name || null,
             answerer_id: masterInfo.answererId || null,
             line_id: masterInfo.lineUserId || null,
-            reserve_id: null,
-            reserved_date: null,
-            reserved_time: null,
-            status: null,
-            note: null,
-            prescription_menu: null,
+            reserve_id: existingData?.reserve_id ?? null,
+            reserved_date: existingData?.reserved_date ?? null,
+            reserved_time: existingData?.reserved_time ?? null,
+            status: existingData?.status ?? null,
+            note: existingData?.note ?? null,
+            prescription_menu: existingData?.prescription_menu ?? null,
             answers: mergedAnswers
           }, {
             onConflict: "patient_id",
