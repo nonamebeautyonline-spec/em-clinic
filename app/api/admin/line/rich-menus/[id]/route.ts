@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu, bulkLinkRichMenu } from "@/lib/line-richmenu";
@@ -10,11 +9,10 @@ import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefault
  * - "個人情報入力後"  → intakeにいてordersがない患者
  * - "個人情報入力前"  → デフォルトメニューなので個別リンク不要
  */
-async function getTargetLineUserIds(menuName: string, _menuId: number): Promise<string[]> {
+async function getTargetLineUserIds(menuName: string): Promise<string[]> {
   const PAGE = 1000;
 
   if (menuName === "処方後") {
-    // ordersにある患者のline_idを取得
     const lineIds: string[] = [];
     let from = 0;
     while (true) {
@@ -39,7 +37,6 @@ async function getTargetLineUserIds(menuName: string, _menuId: number): Promise<
   }
 
   if (menuName === "個人情報入力後") {
-    // intakeにいてordersがない患者
     const lineIds: string[] = [];
     let from = 0;
     while (true) {
@@ -69,11 +66,13 @@ async function getTargetLineUserIds(menuName: string, _menuId: number): Promise<
     return Array.from(new Set(lineIds));
   }
 
-  // "個人情報入力前"等 → デフォルトメニューで対応、個別リンク不要
   return [];
 }
 
-// リッチメニュー更新 + LINE API再登録
+// Vercel Function の最大実行時間を延長（Pro: 最大300秒）
+export const maxDuration = 120;
+
+// リッチメニュー更新 + LINE API再登録（同期実行）
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
@@ -81,8 +80,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     const body = await req.json();
+    const tag = `[RichMenu:${id}]`;
 
-    // 1. 既存メニューを取得（LINE側IDチェック用）
+    // 1. 既存メニューを取得
     const { data: existing } = await supabaseAdmin
       .from("rich_menus")
       .select("line_rich_menu_id")
@@ -91,7 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const oldLineMenuId = existing?.line_rich_menu_id || null;
 
-    // 2. DB更新（まずDBだけ更新してレスポンスを速く返す）
+    // 2. DB更新
     const { data, error } = await supabaseAdmin
       .from("rich_menus")
       .update({ ...body, updated_at: new Date().toISOString() })
@@ -101,72 +101,72 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // 3. LINE API処理をレスポンス返却後にバックグラウンドで実行
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
-    const tag = `[RichMenu:${data.id}:${data.name}]`;
-    if (data.image_url) {
-      after(async () => {
-        try {
-          // Step 1: LINE APIに新メニュー作成
-          console.log(`${tag} Step1: Creating LINE menu (old: ${oldLineMenuId || "none"})`);
-          const lineRichMenuId = await createLineRichMenu(data, origin);
-          if (!lineRichMenuId) {
-            console.error(`${tag} Step1 FAILED: LINE menu create returned null`);
-            return;
-          }
-          console.log(`${tag} Step1 OK: ${lineRichMenuId}`);
-
-          // Step 2: 画像アップロード（3回リトライ）
-          console.log(`${tag} Step2: Uploading image`);
-          const imageOk = await uploadRichMenuImage(lineRichMenuId, data.image_url);
-          if (!imageOk) {
-            await deleteLineRichMenu(lineRichMenuId).catch(() => {});
-            console.error(`${tag} Step2 FAILED: Image upload failed after retries, new menu deleted`);
-            return;
-          }
-          console.log(`${tag} Step2 OK`);
-
-          // Step 3: DB更新
-          console.log(`${tag} Step3: Updating DB line_rich_menu_id`);
-          const { error: dbErr } = await supabaseAdmin
-            .from("rich_menus")
-            .update({ line_rich_menu_id: lineRichMenuId, is_active: true })
-            .eq("id", data.id);
-          if (dbErr) {
-            console.error(`${tag} Step3 FAILED: ${dbErr.message}`);
-          } else {
-            console.log(`${tag} Step3 OK`);
-          }
-
-          // Step 4: デフォルトメニュー設定
-          if (data.selected) {
-            console.log(`${tag} Step4: Setting as default`);
-            const ok = await setDefaultRichMenu(lineRichMenuId);
-            console.log(`${tag} Step4 ${ok ? "OK" : "FAILED"}`);
-          }
-
-          // Step 5: ユーザー再リンク + 旧メニュー削除
-          if (oldLineMenuId && oldLineMenuId !== lineRichMenuId) {
-            console.log(`${tag} Step5: Re-linking users`);
-            const targetUserIds = await getTargetLineUserIds(data.name, data.id);
-            console.log(`${tag} Step5: ${targetUserIds.length} target users found`);
-            if (targetUserIds.length > 0) {
-              const result = await bulkLinkRichMenu(targetUserIds, lineRichMenuId);
-              console.log(`${tag} Step5: Re-linked ${result.linked} users (failed: ${result.failed})`);
-            }
-            console.log(`${tag} Step5: Deleting old menu ${oldLineMenuId}`);
-            await deleteLineRichMenu(oldLineMenuId).catch(() => {});
-            console.log(`${tag} Step5 OK`);
-          }
-
-          console.log(`${tag} DONE: All steps completed, new menu: ${lineRichMenuId}`);
-        } catch (e) {
-          console.error(`${tag} UNCAUGHT ERROR:`, e);
-        }
-      });
+    // 3. LINE API同期（画像がある場合のみ）
+    if (!data.image_url) {
+      return NextResponse.json({ menu: data });
     }
 
-    return NextResponse.json({ menu: data });
+    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const syncLog: string[] = [];
+
+    // Step 1: LINE APIに新メニュー作成
+    console.log(`${tag} Step1: Creating LINE menu`);
+    const lineRichMenuId = await createLineRichMenu(data, origin);
+    if (!lineRichMenuId) {
+      console.error(`${tag} Step1 FAILED`);
+      syncLog.push("LINE menu create failed");
+      return NextResponse.json({ menu: data, sync_error: syncLog.join("; ") }, { status: 200 });
+    }
+    console.log(`${tag} Step1 OK: ${lineRichMenuId}`);
+    syncLog.push(`created: ${lineRichMenuId}`);
+
+    // Step 2: 画像アップロード（3回リトライ）
+    console.log(`${tag} Step2: Uploading image`);
+    const imageOk = await uploadRichMenuImage(lineRichMenuId, data.image_url);
+    if (!imageOk) {
+      await deleteLineRichMenu(lineRichMenuId).catch(() => {});
+      console.error(`${tag} Step2 FAILED`);
+      syncLog.push("image upload failed");
+      return NextResponse.json({ menu: data, sync_error: syncLog.join("; ") }, { status: 200 });
+    }
+    console.log(`${tag} Step2 OK`);
+
+    // Step 3: DB更新（line_rich_menu_id）
+    console.log(`${tag} Step3: Updating DB`);
+    const { error: dbErr } = await supabaseAdmin
+      .from("rich_menus")
+      .update({ line_rich_menu_id: lineRichMenuId, is_active: true })
+      .eq("id", data.id);
+    if (dbErr) {
+      console.error(`${tag} Step3 FAILED: ${dbErr.message}`);
+    } else {
+      console.log(`${tag} Step3 OK`);
+      data.line_rich_menu_id = lineRichMenuId;
+    }
+
+    // Step 4: デフォルトメニュー設定
+    if (data.selected) {
+      console.log(`${tag} Step4: Setting as default`);
+      const ok = await setDefaultRichMenu(lineRichMenuId);
+      console.log(`${tag} Step4 ${ok ? "OK" : "FAILED"}`);
+    }
+
+    // Step 5: ユーザー再リンク + 旧メニュー削除
+    if (oldLineMenuId && oldLineMenuId !== lineRichMenuId) {
+      console.log(`${tag} Step5: Re-linking users`);
+      const targetUserIds = await getTargetLineUserIds(data.name);
+      console.log(`${tag} Step5: ${targetUserIds.length} target users`);
+      if (targetUserIds.length > 0) {
+        const result = await bulkLinkRichMenu(targetUserIds, lineRichMenuId);
+        console.log(`${tag} Step5: Re-linked ${result.linked} (failed: ${result.failed})`);
+        syncLog.push(`relinked: ${result.linked}`);
+      }
+      console.log(`${tag} Step5: Deleting old ${oldLineMenuId}`);
+      await deleteLineRichMenu(oldLineMenuId).catch(() => {});
+    }
+
+    console.log(`${tag} DONE`);
+    return NextResponse.json({ menu: data, sync_ok: true, sync_log: syncLog });
   } catch (e: any) {
     console.error("[Rich Menu PUT] Unhandled error:", e?.message || e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
@@ -181,19 +181,16 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const { id } = await params;
 
-    // 1. LINE側のIDを取得
     const { data: existing } = await supabaseAdmin
       .from("rich_menus")
       .select("line_rich_menu_id")
       .eq("id", Number(id))
       .single();
 
-    // 2. LINE側から削除
     if (existing?.line_rich_menu_id) {
       await deleteLineRichMenu(existing.line_rich_menu_id);
     }
 
-    // 3. DB削除
     const { error } = await supabaseAdmin
       .from("rich_menus")
       .delete()
