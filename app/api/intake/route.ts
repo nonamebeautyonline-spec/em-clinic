@@ -135,17 +135,24 @@ export async function POST(req: NextRequest) {
 
       // 2. Supabase answerersテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
+        // 既存レコードを取得して、空値で上書きしないようにする
+        const { data: existingAnswerer } = await supabase
+          .from("answerers")
+          .select("tel, name, name_kana, sex, birthday, line_id")
+          .eq("patient_id", patientId)
+          .maybeSingle();
+
         const result = await supabase
           .from("answerers")
           .upsert({
             patient_id: patientId,
             answerer_id: answererId,
-            line_id: lineId || null,
-            name: name || null,
-            name_kana: nameKana || null,
-            sex: sex || null,
-            birthday: birth || null,
-            tel: tel || null,
+            line_id: lineId || existingAnswerer?.line_id || null,
+            name: name || existingAnswerer?.name || null,
+            name_kana: nameKana || existingAnswerer?.name_kana || null,
+            sex: sex || existingAnswerer?.sex || null,
+            birthday: birth || existingAnswerer?.birthday || null,
+            tel: tel || existingAnswerer?.tel || null,
           }, {
             onConflict: "patient_id",
           });
