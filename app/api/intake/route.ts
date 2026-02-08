@@ -235,80 +235,8 @@ if (json.timing) {
   });
 }
 
-// ★ デバッグ：GASレスポンスの構造を確認
+// GASレスポンスのログ（masterInfo第2 upsertは廃止 — Lステップ不使用のため不要）
 console.log("[Intake Debug] GAS Response keys:", Object.keys(json));
-console.log("[Intake Debug] masterInfo exists:", !!json.masterInfo);
-if (json.masterInfo) {
-  console.log("[Intake Debug] masterInfo keys:", Object.keys(json.masterInfo));
-} else {
-  console.log("[Intake Debug] ❌ masterInfo is missing from GAS response");
-}
-
-// ★ GASから返された問診マスター情報でSupabaseを更新
-if (json.masterInfo) {
-  try {
-    const masterInfo = json.masterInfo;
-    console.log("[Intake] Updating Supabase with master info:", masterInfo.name);
-
-    // 既存レコードを取得してマージ（予約情報も保持）
-    const { data: existingData } = await supabase
-      .from("intake")
-      .select("answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
-      .eq("patient_id", patientId)
-      .maybeSingle();
-
-    const existingAnswers = existingData?.answers || {};
-    const mergedAnswers = {
-      ...existingAnswers,
-      氏名: masterInfo.name || existingAnswers.氏名 || "",
-      name: masterInfo.name || existingAnswers.name || "",
-      性別: masterInfo.sex || existingAnswers.性別 || "",
-      sex: masterInfo.sex || existingAnswers.sex || "",
-      生年月日: masterInfo.birth || existingAnswers.生年月日 || "",
-      birth: masterInfo.birth || existingAnswers.birth || "",
-      カナ: masterInfo.nameKana || existingAnswers.カナ || "",
-      name_kana: masterInfo.nameKana || existingAnswers.name_kana || "",
-      電話番号: masterInfo.tel || tel || existingAnswers.電話番号 || "",
-      tel: masterInfo.tel || tel || existingAnswers.tel || "",
-      answerer_id: masterInfo.answererId || existingAnswers.answerer_id || "",
-      line_id: masterInfo.lineUserId || existingAnswers.line_id || ""
-    };
-
-    // Supabaseをupsert（リトライあり）- 最初のupsertが失敗している可能性を考慮
-    try {
-      await retrySupabaseWrite(async () => {
-        const result = await supabase
-          .from("intake")
-          .upsert({
-            patient_id: patientId,
-            patient_name: masterInfo.name || null,
-            answerer_id: masterInfo.answererId || null,
-            line_id: masterInfo.lineUserId || null,
-            reserve_id: existingData?.reserve_id ?? null,
-            reserved_date: existingData?.reserved_date ?? null,
-            reserved_time: existingData?.reserved_time ?? null,
-            status: existingData?.status ?? null,
-            note: existingData?.note ?? null,
-            prescription_menu: existingData?.prescription_menu ?? null,
-            answers: mergedAnswers
-          }, {
-            onConflict: "patient_id",
-          });
-
-        if (result.error) {
-          throw result.error;
-        }
-        return result;
-      });
-
-      console.log("[Intake] Successfully upserted master info in Supabase");
-    } catch (error) {
-      console.error("[Intake] Failed to upsert master info in Supabase after retries:", error);
-    }
-  } catch (e) {
-    console.error("[Intake] Error updating master info:", e);
-  }
-}
 
 const res = NextResponse.json({ ok: true, dedup });
 
