@@ -15,6 +15,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト" },
   { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
   { href: "/admin/doctor", icon: "🩺", label: "Drカルテ" },
+  { href: "/admin/karte", icon: "📄", label: "カルテ一覧" },
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
@@ -278,6 +279,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="Drカルテ"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/doctor"}
+          />
+          <MenuItem
+            href="/admin/karte"
+            icon="📄"
+            label="カルテ一覧"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/karte"}
           />
           <MenuItem
             href="/admin/kartesearch"
