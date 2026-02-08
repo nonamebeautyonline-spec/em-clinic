@@ -1494,7 +1494,6 @@ export default function TalkPage() {
                     {(() => { const a = calcAge(patientDetail.medicalInfo.birthday); return a !== null ? `（${a}歳）` : ""; })()}
                   </InfoRow>
                 )}
-                {patientDetail.medicalInfo.prescriptionMenu && <InfoRow label="処方メニュー">{patientDetail.medicalInfo.prescriptionMenu}</InfoRow>}
               </div>
             )}
 
