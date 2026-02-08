@@ -89,7 +89,7 @@ async function getPatientInfoFromSupabase(
   try {
     const { data, error } = await supabase
       .from("intake")
-      .select("patient_id, patient_name, line_id, status")
+      .select("patient_id, patient_name, line_id, status, answers")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -99,11 +99,15 @@ async function getPatientInfoFromSupabase(
       return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
     }
 
+    // 問診完了 = answersにng_check（問診の必須項目）が存在する
+    const answers = data.answers as Record<string, unknown> | null;
+    const hasCompletedQuestionnaire = !!answers && typeof answers.ng_check === "string" && answers.ng_check !== "";
+
     return {
       id: data.patient_id,
       displayName: data.patient_name || "",
       lineId: data.line_id || "",
-      hasIntake: true,
+      hasIntake: hasCompletedQuestionnaire,
       intakeStatus: data.status || null,
     };
   } catch {
