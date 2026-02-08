@@ -2,7 +2,76 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu } from "@/lib/line-richmenu";
+import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu, bulkLinkRichMenu } from "@/lib/line-richmenu";
+
+/**
+ * メニュー名に基づいて、個別リンク対象のLINE user IDを取得
+ * - "処方後"         → ordersがある患者
+ * - "個人情報入力後"  → intakeにいてordersがない患者
+ * - "個人情報入力前"  → デフォルトメニューなので個別リンク不要
+ */
+async function getTargetLineUserIds(menuName: string, _menuId: number): Promise<string[]> {
+  const PAGE = 1000;
+
+  if (menuName === "処方後") {
+    // ordersにある患者のline_idを取得
+    const lineIds: string[] = [];
+    let from = 0;
+    while (true) {
+      const { data } = await supabaseAdmin
+        .from("orders")
+        .select("patient_id")
+        .range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+
+      const patientIds = Array.from(new Set(data.map(d => d.patient_id)));
+      const { data: intakes } = await supabaseAdmin
+        .from("intake")
+        .select("line_id")
+        .in("patient_id", patientIds)
+        .not("line_id", "is", null);
+
+      if (intakes) lineIds.push(...intakes.map(i => i.line_id).filter(Boolean));
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    return Array.from(new Set(lineIds));
+  }
+
+  if (menuName === "個人情報入力後") {
+    // intakeにいてordersがない患者
+    const lineIds: string[] = [];
+    let from = 0;
+    while (true) {
+      const { data: intakes } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, line_id")
+        .not("line_id", "is", null)
+        .range(from, from + PAGE - 1);
+      if (!intakes || intakes.length === 0) break;
+
+      const patientIds = intakes.map(i => i.patient_id);
+      const { data: orders } = await supabaseAdmin
+        .from("orders")
+        .select("patient_id")
+        .in("patient_id", patientIds);
+
+      const orderPatientIds = new Set(orders?.map(o => o.patient_id) || []);
+      for (const i of intakes) {
+        if (i.line_id && !orderPatientIds.has(i.patient_id)) {
+          lineIds.push(i.line_id);
+        }
+      }
+
+      if (intakes.length < PAGE) break;
+      from += PAGE;
+    }
+    return Array.from(new Set(lineIds));
+  }
+
+  // "個人情報入力前"等 → デフォルトメニューで対応、個別リンク不要
+  return [];
+}
 
 // リッチメニュー更新 + LINE API再登録
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -61,8 +130,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             await setDefaultRichMenu(lineRichMenuId);
           }
 
-          // 旧メニューを削除（新メニュー成功後に安全に削除）
+          // 旧メニューのユーザーを新メニューに再リンク + 旧メニュー削除
           if (oldLineMenuId && oldLineMenuId !== lineRichMenuId) {
+            // メニュー名に基づいて対象ユーザーを特定し再リンク
+            const targetUserIds = await getTargetLineUserIds(data.name, data.id);
+            if (targetUserIds.length > 0) {
+              const result = await bulkLinkRichMenu(targetUserIds, lineRichMenuId);
+              console.log(`[Rich Menu PUT after] Re-linked ${result.linked} users (failed: ${result.failed}) to new menu ${lineRichMenuId}`);
+            }
             await deleteLineRichMenu(oldLineMenuId).catch(() => {});
           }
 

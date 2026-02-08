@@ -215,6 +215,46 @@ export async function linkRichMenuToUser(lineUserId: string, richMenuId: string)
 }
 
 /**
+ * 複数ユーザーにリッチメニューを一括割り当て（LINE Bulk Link API）
+ * 500人ずつバッチ処理
+ */
+export async function bulkLinkRichMenu(lineUserIds: string[], richMenuId: string): Promise<{ linked: number; failed: number }> {
+  const token = getToken();
+  if (!token || !richMenuId || lineUserIds.length === 0) return { linked: 0, failed: 0 };
+
+  let linked = 0;
+  let failed = 0;
+
+  for (let i = 0; i < lineUserIds.length; i += 500) {
+    const batch = lineUserIds.slice(i, i + 500);
+    const res = await fetch(`${LINE_API}/richmenu/bulk/link`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ richMenuId, userIds: batch }),
+    });
+
+    if (res.ok) {
+      linked += batch.length;
+    } else {
+      // バルク失敗時は個別にフォールバック
+      for (const uid of batch) {
+        const r = await fetch(`${LINE_API}/user/${uid}/richmenu/${richMenuId}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (r.ok) linked++;
+        else failed++;
+      }
+    }
+  }
+
+  return { linked, failed };
+}
+
+/**
  * 全ユーザーのデフォルトリッチメニューに設定
  */
 export async function setDefaultRichMenu(richMenuId: string): Promise<boolean> {
