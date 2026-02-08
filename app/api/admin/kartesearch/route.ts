@@ -1,57 +1,125 @@
-// app/api/admin/kartesearch/route.ts
+// カルテ検索API（Supabase直接検索）
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-type Candidate = {
-  patientId: string;
-  fallbackKey: string;
-  name: string;
-  phone: string;
-  lastSubmittedAt: string;
-};
-
 export async function GET(req: NextRequest) {
   try {
+    const isAuthorized = await verifyAdminAuth(req);
+    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
-    if (!q) return NextResponse.json({ ok: true, candidates: [] as Candidate[] });
+    const searchType = req.nextUrl.searchParams.get("type") || "name";
 
-    const GAS_KARTE_URL = process.env.GAS_KARTE_URL;
-    const KARTE_API_KEY = process.env.KARTE_API_KEY;
+    if (!q) return NextResponse.json({ ok: true, candidates: [] });
 
-    if (!GAS_KARTE_URL || !KARTE_API_KEY) {
-      return NextResponse.json(
-        { ok: false, message: "env_not_set" },
-        { status: 500 }
-      );
+    let patientIds: string[] = [];
+
+    if (searchType === "pid") {
+      const { data } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id")
+        .not("patient_id", "is", null)
+        .ilike("patient_id", `%${q}%`)
+        .order("id", { ascending: false })
+        .limit(50);
+      patientIds = [...new Set((data || []).map(r => r.patient_id).filter(Boolean))].slice(0, 20);
+
+    } else if (searchType === "tel") {
+      const digits = q.replace(/[^\d]/g, "");
+      if (digits.length >= 3) {
+        const { data } = await supabaseAdmin
+          .from("answerers")
+          .select("patient_id")
+          .ilike("tel", `%${digits}%`)
+          .limit(20);
+        patientIds = [...new Set((data || []).map(r => r.patient_id).filter(Boolean))];
+      }
+
+    } else {
+      // 氏名検索: answerers.name → フォールバックで intake.patient_name
+      const normalizedQuery = q.replace(/[\s　]/g, "").toLowerCase();
+      const searchPattern = `%${q.replace(/[\s　]/g, "%")}%`;
+
+      const { data: answererHits } = await supabaseAdmin
+        .from("answerers")
+        .select("patient_id, name")
+        .ilike("name", searchPattern)
+        .limit(50);
+
+      const fromAnswerers = (answererHits || [])
+        .filter(a => a.name && a.name.replace(/[\s　]/g, "").toLowerCase().includes(normalizedQuery))
+        .map(a => a.patient_id)
+        .filter(Boolean);
+
+      const { data: intakeHits } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id, patient_name")
+        .not("patient_id", "is", null)
+        .ilike("patient_name", searchPattern)
+        .order("id", { ascending: false })
+        .limit(50);
+
+      const fromIntake = (intakeHits || [])
+        .filter(i => i.patient_name && i.patient_name.replace(/[\s　]/g, "").toLowerCase().includes(normalizedQuery))
+        .map(i => i.patient_id)
+        .filter(Boolean);
+
+      patientIds = [...new Set([...fromAnswerers, ...fromIntake])].slice(0, 20);
     }
 
-    const res = await fetch(GAS_KARTE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // GAS側に apiKey を body で渡す
-      body: JSON.stringify({
-        apiKey: KARTE_API_KEY,
-        type: "searchPatients",
-        q,
-      }),
-      cache: "no-store",
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!data || data.ok !== true) {
-      return NextResponse.json(
-        { ok: false, message: "gas_error", data },
-        { status: 502 }
-      );
+    if (patientIds.length === 0) {
+      return NextResponse.json({ ok: true, candidates: [] });
     }
 
-    return NextResponse.json({ ok: true, candidates: data.candidates ?? [] });
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, message: "server_error", detail: String(e?.message || e) },
-      { status: 500 }
-    );
+    // answerers から基本情報
+    const { data: answererData } = await supabaseAdmin
+      .from("answerers")
+      .select("patient_id, name, tel, sex, birthday")
+      .in("patient_id", patientIds);
+
+    const answererMap = new Map<string, { name: string; tel: string; sex: string; birthday: string }>();
+    for (const a of answererData || []) {
+      answererMap.set(a.patient_id, { name: a.name || "", tel: a.tel || "", sex: a.sex || "", birthday: a.birthday || "" });
+    }
+
+    // intake から最終問診日と件数
+    const { data: intakeData } = await supabaseAdmin
+      .from("intake")
+      .select("patient_id, patient_name, created_at")
+      .in("patient_id", patientIds)
+      .order("id", { ascending: false });
+
+    const intakeMap = new Map<string, { name: string; lastAt: string; count: number }>();
+    for (const row of intakeData || []) {
+      if (!row.patient_id) continue;
+      const existing = intakeMap.get(row.patient_id);
+      if (existing) {
+        existing.count++;
+      } else {
+        intakeMap.set(row.patient_id, { name: row.patient_name || "", lastAt: row.created_at || "", count: 1 });
+      }
+    }
+
+    const candidates = patientIds.map(pid => {
+      const a = answererMap.get(pid);
+      const i = intakeMap.get(pid);
+      return {
+        patientId: pid,
+        name: a?.name || i?.name || "",
+        phone: a?.tel || "",
+        sex: a?.sex || "",
+        birth: a?.birthday || "",
+        lastSubmittedAt: i?.lastAt || "",
+        intakeCount: i?.count || 0,
+      };
+    }).filter(c => c.name);
+
+    return NextResponse.json({ ok: true, candidates });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ ok: false, message: "server_error", detail: msg }, { status: 500 });
   }
 }

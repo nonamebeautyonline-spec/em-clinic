@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -315,23 +316,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function formatProductCode(code: string | null): string {
-  if (!code) return "-";
-  return code
-    .replace("MJL_", "マンジャロ ")
-    .replace("_", " ")
-    .replace("1m", "1ヶ月")
-    .replace("2m", "2ヶ月")
-    .replace("3m", "3ヶ月");
-}
-
-function formatPaymentMethod(method: string | null): string {
-  if (!method) return "-";
-  if (method === "card" || method === "CARD" || method === "credit_card") return "カード";
-  if (method === "bank" || method === "BANK_TRANSFER" || method === "bank_transfer") return "銀行振込";
-  return method;
-}
-
+// formatStatus は patient-lookup 固有のローカル関数として残す
 function formatStatus(status: string | null): string {
   if (!status) return "-";
   const map: Record<string, string> = {
@@ -342,19 +327,4 @@ function formatStatus(status: string | null): string {
     canceled: "キャンセル",
   };
   return map[status] || status;
-}
-
-function formatDateJST(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  try {
-    const d = new Date(dateStr);
-    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-    const month = String(jst.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(jst.getUTCDate()).padStart(2, "0");
-    const hours = String(jst.getUTCHours()).padStart(2, "0");
-    const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
-    return `${month}/${day} ${hours}:${minutes}`;
-  } catch {
-    return dateStr.slice(0, 10);
-  }
 }
