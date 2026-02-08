@@ -14,6 +14,7 @@ interface Friend {
   fields: Record<string, string>;
   last_message?: string | null;
   last_sent_at?: string | null;
+  last_text_at?: string | null;
 }
 
 interface MessageLog {
@@ -124,6 +125,7 @@ function extractImageUrl(text: string) {
 }
 
 const PIN_STORAGE_KEY = "talk_pinned_patients";
+const READ_STORAGE_KEY = "talk_read_timestamps";
 const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
 const MSG_BATCH = 25;
@@ -198,17 +200,33 @@ export default function TalkPage() {
   // モバイルビュー切り替え: list / message / info
   const [mobileView, setMobileView] = useState<"list" | "message" | "info">("list");
 
-  // ピン留め
+  // 既読タイムスタンプ管理（テキスト未読ドット用）
+  const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>({});
+
+  // ピン留め & 既読タイムスタンプ初期化
   useEffect(() => {
     try {
       const stored = localStorage.getItem(PIN_STORAGE_KEY);
       if (stored) setPinnedIds(JSON.parse(stored));
+    } catch { /* ignore */ }
+    try {
+      const stored = localStorage.getItem(READ_STORAGE_KEY);
+      if (stored) setReadTimestamps(JSON.parse(stored));
     } catch { /* ignore */ }
   }, []);
 
   const savePins = (ids: string[]) => {
     setPinnedIds(ids);
     localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(ids));
+  };
+
+  const markAsRead = (patientId: string) => {
+    const now = new Date().toISOString();
+    setReadTimestamps(prev => {
+      const next = { ...prev, [patientId]: now };
+      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   };
 
   const togglePin = (patientId: string) => {
@@ -287,6 +305,8 @@ export default function TalkPage() {
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
+    // 既読にする
+    markAsRead(friend.patient_id);
     // 前の患者データを即座にクリア（誤操作防止）
     setSelectedPatient(friend);
     setMessages([]);
@@ -890,7 +910,7 @@ export default function TalkPage() {
       </div>
 
       {/* ========== 左カラム ========== */}
-      <div className={`w-full md:w-[340px] flex-1 md:flex-none md:flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
+      <div className={`w-full md:w-[300px] flex-1 md:flex-none md:flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
         selectedPatient && mobileView !== "list" ? "hidden md:flex" : "flex"
       }`}>
         {/* 検索 */}
@@ -1015,6 +1035,7 @@ export default function TalkPage() {
                       onSelect={selectPatient} onTogglePin={togglePin}
                       getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
                       canPin={pinnedIds.length < MAX_PINS}
+                      readTimestamp={readTimestamps[f.patient_id]}
                     />
                   ))}
                 </>
@@ -1025,6 +1046,7 @@ export default function TalkPage() {
                   onSelect={selectPatient} onTogglePin={togglePin}
                   getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
                   canPin={pinnedIds.length < MAX_PINS}
+                  readTimestamp={readTimestamps[f.patient_id]}
                 />
               ))}
               {hasMore && (
@@ -1874,51 +1896,53 @@ export default function TalkPage() {
 }
 
 // 友達リストアイテム（メモ化のためコンポーネント分離）
-function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin }: {
+function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin, readTimestamp }: {
   f: Friend; isPinned: boolean; isSelected: boolean;
   onSelect: (f: Friend) => void; onTogglePin: (id: string) => void;
   getMarkColor: (mark: string) => string; getMarkLabel: (mark: string) => string; formatDateShort: (s: string) => string;
   canPin: boolean;
+  readTimestamp?: string;
 }) {
   const markColor = getMarkColor(f.mark);
   const markLabel = getMarkLabel(f.mark);
   const showMark = f.mark && f.mark !== "none";
+  // テキスト未読判定: last_text_at が readTimestamp より新しければ未読
+  const hasUnreadText = !!(f.last_text_at && (!readTimestamp || f.last_text_at > readTimestamp));
+  // メッセージ表示テキスト
+  const displayMessage = f.last_message
+    ? f.last_message.match(/^【.+?】/) && isImageUrl(f.last_message.replace(/^【.+?】/, ""))
+      ? f.last_message.match(/^【.+?】/)![0]
+      : isImageUrl(f.last_message) ? "[画像]" : f.last_message
+    : "メッセージなし";
   return (
     <div
       onClick={() => onSelect(f)}
-      className={`px-3 py-1.5 cursor-pointer transition-all hover:bg-gray-50/80 border-b border-gray-50 group ${
+      className={`px-2 py-1.5 cursor-pointer transition-all hover:bg-gray-50/80 border-b border-gray-50 group ${
         isSelected ? "bg-[#00B900]/[0.04] border-l-[3px] border-l-[#00B900]" : "border-l-[3px] border-l-transparent"
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-1.5" style={{ minHeight: "52px" }}>
         {f.line_picture_url ? (
-          <img src={f.line_picture_url} alt="" className="w-8 h-8 rounded-full flex-shrink-0 shadow-sm object-cover" />
+          <img src={f.line_picture_url} alt="" className="w-8 h-8 rounded-full flex-shrink-0 shadow-sm object-cover mt-0.5" />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm mt-0.5">
             {f.patient_name.charAt(0)}
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold text-gray-800 truncate">{f.patient_id.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name}</span>
-            {f.line_display_name && f.line_display_name !== f.patient_name && (
-              <span className="text-[10px] text-gray-400 truncate flex-shrink-0">({f.line_display_name})</span>
+            <span className="text-[13px] font-semibold text-gray-800 truncate">{f.patient_id.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name}</span>
+            {hasUnreadText && (
+              <span className="w-2 h-2 rounded-full bg-[#00B900] flex-shrink-0" />
             )}
-            {f.line_id ? (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
-            ) : null}
           </div>
-          <p className="text-[12px] text-gray-500 leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-all" }}>
-            {f.last_message
-              ? f.last_message.match(/^【.+?】/) && isImageUrl(f.last_message.replace(/^【.+?】/, ""))
-                ? f.last_message.match(/^【.+?】/)![0]
-                : isImageUrl(f.last_message) ? "[画像]" : f.last_message
-              : "メッセージなし"}
+          <p className="text-[11px] text-gray-500 leading-[1.4]" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-all", height: "31px" }}>
+            {displayMessage}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pt-0.5">
           {f.last_sent_at && (
-            <span className="text-[11px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_sent_at)}</span>
+            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_sent_at)}</span>
           )}
           {showMark && (
             <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
@@ -1928,7 +1952,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onTogglePin(f.patient_id); }}
-          className={`flex-shrink-0 p-0.5 ml-1 rounded transition-all ${
+          className={`flex-shrink-0 p-0.5 rounded transition-all mt-0.5 ${
             isPinned ? "text-amber-400" : "text-gray-200 opacity-0 group-hover:opacity-100 hover:text-amber-300"
           }`}
         >

@@ -88,6 +88,9 @@ export async function GET(req: NextRequest) {
   const patients = Array.from(patientMap.values()).map(p => {
     const lastMsg = lastMsgMap.get(p.patient_id);
     const lastIncoming = lastIncomingMap.get(p.patient_id);
+    // 友達追加イベントは【友達追加】と表示
+    const lastEvent = lastEventMap.get(p.patient_id);
+    const eventDisplay = lastEvent ? "【友達追加】" : null;
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
@@ -97,8 +100,9 @@ export async function GET(req: NextRequest) {
       mark: markMap.get(p.patient_id) || "none",
       tags: [],
       fields: {},
-      last_message: lastMsg?.content || lastTemplateMap.get(p.patient_id)?.content || lastEventMap.get(p.patient_id)?.content || null,
+      last_message: lastMsg?.content || lastTemplateMap.get(p.patient_id)?.content || eventDisplay || null,
       last_sent_at: lastIncoming || null,
+      last_text_at: lastMsg?.sent_at || null,
     };
   });
 

@@ -18,7 +18,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
-  { href: "/admin/line/friends", icon: "💬", label: "LINE機能" },
+  { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者統合" },
@@ -243,7 +243,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           />
 
           <MenuItem
-            href="/admin/line/friends"
+            href="/admin/line/talk"
             icon="💬"
             label="LINE機能"
             isOpen={isSidebarOpen}
