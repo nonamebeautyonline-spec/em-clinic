@@ -834,7 +834,7 @@ export default function TalkPage() {
     if (searchId && !f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
     if (searchName) {
       const q = searchName.replace(/[\s　]/g, "").toLowerCase();
-      const name = f.patient_name.replace(/[\s　]/g, "").toLowerCase();
+      const name = (f.patient_name || "").replace(/[\s　]/g, "").toLowerCase();
       if (!name.includes(q)) return false;
     }
     return true;
@@ -1518,7 +1518,7 @@ export default function TalkPage() {
                 <img src={selectedPatient.line_picture_url} alt="" className="w-14 h-14 rounded-full mx-auto shadow-sm object-cover" />
               ) : (
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xl font-bold mx-auto shadow-sm">
-                  {selectedPatient.patient_name.charAt(0)}
+                  {selectedPatient.patient_name?.charAt(0) || "?"}
                 </div>
               )}
               <h3 className="font-bold text-gray-900 mt-2.5 text-[15px]">{selectedPatient.patient_id.startsWith("LINE_") ? "🟧 " : ""}{selectedPatient.patient_name}</h3>
@@ -1923,7 +1923,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
           <img src={f.line_picture_url} alt="" className="w-8 h-8 rounded-full flex-shrink-0 shadow-sm object-cover mt-0.5" />
         ) : (
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm mt-0.5">
-            {f.patient_name.charAt(0)}
+            {f.patient_name?.charAt(0) || "?"}
           </div>
         )}
         <div className="flex-1 min-w-0">
