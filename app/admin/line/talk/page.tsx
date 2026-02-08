@@ -1763,15 +1763,15 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
   return (
     <div
       onClick={() => onSelect(f)}
-      className={`px-3 py-2.5 cursor-pointer transition-all hover:bg-gray-50/80 border-b border-gray-50 group ${
+      className={`px-3 py-1.5 cursor-pointer transition-all hover:bg-gray-50/80 border-b border-gray-50 group ${
         isSelected ? "bg-[#00B900]/[0.04] border-l-[3px] border-l-[#00B900]" : "border-l-[3px] border-l-transparent"
       }`}
     >
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         {f.line_picture_url ? (
-          <img src={f.line_picture_url} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
+          <img src={f.line_picture_url} alt="" className="w-8 h-8 rounded-full flex-shrink-0 shadow-sm object-cover" />
         ) : (
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
             {f.patient_name.charAt(0)}
           </div>
         )}
@@ -1788,12 +1788,12 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
               <span className="w-1.5 h-1.5 rounded-full bg-[#00B900] flex-shrink-0" />
             ) : null}
           </div>
-          <div className="flex items-center gap-1 mt-0.5">
-            <p className="text-[10px] text-gray-400 line-clamp-2 flex-1 leading-relaxed" style={{ maxWidth: "14em", wordBreak: "break-all" }}>
+          <div className="flex items-center gap-1">
+            <p className="text-[10px] text-gray-400 line-clamp-1 flex-1 leading-snug" style={{ wordBreak: "break-all" }}>
               {f.last_message && isImageUrl(f.last_message) ? "[画像]" : f.last_message || "メッセージなし"}
             </p>
             {f.last_sent_at && (
-              <span className="text-[11px] text-gray-700 flex-shrink-0">{formatDateShort(f.last_sent_at)}</span>
+              <span className="text-[11px] text-gray-700 flex-shrink-0 ml-auto pl-2">{formatDateShort(f.last_sent_at)}</span>
             )}
           </div>
         </div>
