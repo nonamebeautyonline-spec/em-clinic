@@ -107,7 +107,17 @@ export async function POST(req: NextRequest) {
             text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
           }]);
           lineNotify = pushRes?.ok ? "sent" : "failed";
-          if (!pushRes?.ok) {
+          if (pushRes?.ok) {
+            await supabaseAdmin.from("message_log").insert({
+              patient_id: reorderData.patient_id,
+              line_uid: intake.line_id,
+              direction: "outgoing",
+              event_type: "message",
+              message_type: "text",
+              content: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+              status: "sent",
+            });
+          } else {
             console.error(`[admin/approve] LINE push failed: ${pushRes?.status}`);
           }
         } catch (err) {

@@ -929,6 +929,17 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
           text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
         }]);
         lineNotify = pushRes?.ok ? "sent" : "failed";
+        if (pushRes?.ok) {
+          await logEvent({
+            patient_id: reorderData.patient_id,
+            line_uid: intake.line_id,
+            direction: "outgoing",
+            event_type: "message",
+            message_type: "text",
+            content: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+            status: "sent",
+          });
+        }
       } catch (err) {
         lineNotify = "failed";
         console.error("[LINE webhook] Patient push error:", err);
