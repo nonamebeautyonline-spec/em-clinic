@@ -23,23 +23,17 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // 並列でデータ取得
-  const [intakeRes, tagsRes, marksRes, fieldDefsRes, fieldValsRes] = await Promise.all([
+  // 並列でデータ取得（左カラム表示に必要な最小限のみ）
+  // tags/fieldsは患者選択時に別APIで取得するためここでは不要
+  const [intakeRes, marksRes, lastMsgRes] = await Promise.all([
     fetchAll(
       () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id, line_display_name, line_picture_url").not("patient_id", "is", null).order("created_at", { ascending: false }),
     ),
     fetchAll(
-      () => supabaseAdmin.from("patient_tags").select("patient_id, tag_id, tag_definitions(id, name, color)"),
-    ),
-    fetchAll(
       () => supabaseAdmin.from("patient_marks").select("*"),
     ),
-    supabaseAdmin
-      .from("friend_field_definitions")
-      .select("*")
-      .order("sort_order", { ascending: true }),
     fetchAll(
-      () => supabaseAdmin.from("friend_field_values").select("patient_id, field_id, value, friend_field_definitions(name)"),
+      () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type, direction").order("sent_at", { ascending: false }),
     ),
   ]);
 
@@ -55,36 +49,14 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // タグをマッピング
-  const tagMap = new Map<string, { id: number; name: string; color: string }[]>();
-  for (const row of tagsRes.data || []) {
-    const td = row.tag_definitions as any;
-    if (!td) continue;
-    if (!tagMap.has(row.patient_id)) tagMap.set(row.patient_id, []);
-    tagMap.get(row.patient_id)!.push({ id: td.id, name: td.name, color: td.color });
-  }
-
   // マークをマッピング
   const markMap = new Map<string, string>();
   for (const row of marksRes.data || []) {
     markMap.set(row.patient_id, row.mark);
   }
 
-  // フィールド値をマッピング
-  const fieldValMap = new Map<string, Record<string, string>>();
-  for (const row of fieldValsRes.data || []) {
-    const fd = row.friend_field_definitions as any;
-    if (!fd) continue;
-    if (!fieldValMap.has(row.patient_id)) fieldValMap.set(row.patient_id, {});
-    fieldValMap.get(row.patient_id)![fd.name] = row.value || "";
-  }
-
-  // 最新メッセージを取得（各患者の直近1件）
-  // last_sent_atは顧客からのメッセージ・アクションの最新時刻（ソート用）
-  // last_messageは表示用テキスト（eventタイプを除く）
-  const { data: lastMessages } = await fetchAll(
-    () => supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type, direction").order("sent_at", { ascending: false }),
-  );
+  // 最新メッセージをマッピング
+  const lastMessages = lastMsgRes.data || [];
 
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
   const lastIncomingMap = new Map<string, string>();
@@ -112,8 +84,8 @@ export async function GET(req: NextRequest) {
       line_display_name: p.line_display_name || null,
       line_picture_url: p.line_picture_url || null,
       mark: markMap.get(p.patient_id) || "none",
-      tags: tagMap.get(p.patient_id) || [],
-      fields: fieldValMap.get(p.patient_id) || {},
+      tags: [],
+      fields: {},
       last_message: lastMsg?.content || null,
       last_sent_at: lastIncoming || null,
     };
