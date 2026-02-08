@@ -8,9 +8,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // ===== 環境変数 =====
-const LINE_CHANNEL_SECRET =
-  process.env.LINE_MESSAGING_API_CHANNEL_SECRET ||
-  process.env.LINE_NOTIFY_CHANNEL_SECRET || "";
+// 2つのLINEチャネル: Lオペ(MAPI) と 再処方許可bot(NOTIFY)
+const LINE_CHANNEL_SECRETS = [
+  process.env.LINE_MESSAGING_API_CHANNEL_SECRET,
+  process.env.LINE_NOTIFY_CHANNEL_SECRET,
+].filter(Boolean) as string[];
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 const LINE_ACCESS_TOKEN =
@@ -18,14 +20,20 @@ const LINE_ACCESS_TOKEN =
   process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 
 // ===== LINE署名検証（HMAC-SHA256 → Base64）=====
+// 複数チャネルのいずれかで検証が通ればOK
 function verifyLineSignature(rawBody: string, signature: string) {
-  if (!LINE_CHANNEL_SECRET || !signature) return false;
-  const hash = crypto
-    .createHmac("sha256", LINE_CHANNEL_SECRET)
-    .update(rawBody)
-    .digest("base64");
-  if (hash.length !== signature.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+  if (LINE_CHANNEL_SECRETS.length === 0 || !signature) return false;
+  for (const secret of LINE_CHANNEL_SECRETS) {
+    const hash = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("base64");
+    if (hash.length === signature.length &&
+        crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // ===== "a=b&c=d" → { a: b, c: d } =====
@@ -944,7 +952,7 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
 // =================================================================
 export async function POST(req: NextRequest) {
   try {
-    if (!LINE_CHANNEL_SECRET) {
+    if (LINE_CHANNEL_SECRETS.length === 0) {
       return NextResponse.json({ ok: false, error: "LINE_CHANNEL_SECRET missing" }, { status: 500 });
     }
 
