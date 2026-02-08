@@ -195,6 +195,9 @@ export default function TalkPage() {
   // 画像ライトボックス
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+  // モバイルビュー切り替え: list / message / info
+  const [mobileView, setMobileView] = useState<"list" | "message" | "info">("list");
+
   // ピン留め
   useEffect(() => {
     try {
@@ -337,6 +340,7 @@ export default function TalkPage() {
     if (detailData.found) setPatientDetail(detailData);
 
     setMessagesLoading(false);
+    setMobileView("message");
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
@@ -850,9 +854,30 @@ export default function TalkPage() {
   );
 
   return (
-    <div className="h-full flex overflow-hidden bg-[#f8f9fb]">
+    <div className="h-full flex flex-col md:flex-row overflow-hidden bg-[#f8f9fb]">
+      {/* ========== モバイルタブナビ ========== */}
+      {selectedPatient && (
+        <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 flex">
+          {(["list", "message", "info"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setMobileView(tab)}
+              className={`flex-1 py-2.5 text-xs font-bold tracking-wide transition-colors ${
+                mobileView === tab
+                  ? "text-[#00B900] border-b-2 border-[#00B900]"
+                  : "text-gray-400 hover:text-gray-600"
+              }`}
+            >
+              {tab === "list" ? "リスト" : tab === "message" ? "メッセージ" : "情報"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ========== 左カラム ========== */}
-      <div className="w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white">
+      <div className={`w-full md:w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
+        selectedPatient && mobileView !== "list" ? "hidden md:flex" : "flex"
+      }`}>
         {/* 検索 */}
         <div className="p-3 border-b border-gray-100 space-y-1.5">
           <div className="relative">
@@ -1003,7 +1028,9 @@ export default function TalkPage() {
       </div>
 
       {/* ========== 中央カラム ========== */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${
+        mobileView !== "message" ? "hidden md:flex" : "flex"
+      }`}>
         {!selectedPatient ? (
           <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100/50">
             <div className="text-center">
@@ -1020,6 +1047,12 @@ export default function TalkPage() {
           <>
             {/* ヘッダー */}
             <div className="flex-shrink-0 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-2.5 flex items-center gap-3 shadow-sm">
+              <button
+                onClick={() => { setMobileView("list"); setSelectedPatient(null); }}
+                className="md:hidden flex-shrink-0 p-1 -ml-1 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-sm font-bold flex-shrink-0">
                 {selectedPatient.patient_name.charAt(0)}
               </div>
@@ -1447,7 +1480,9 @@ export default function TalkPage() {
 
       {/* ========== 右カラム ========== */}
       {selectedPatient && (
-        <div className="w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col min-h-0">
+        <div className={`w-full md:w-[320px] flex-shrink-0 border-l border-gray-200/80 bg-white flex flex-col min-h-0 ${
+          mobileView !== "info" ? "hidden md:flex" : "flex"
+        }`}>
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {/* プロフィール */}
             <div className="px-4 pt-5 pb-4 text-center border-b border-gray-100">
