@@ -185,11 +185,11 @@ export default function MergePatientsPage() {
             <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
               <div>
                 <span className="text-slate-500">氏名：</span>
-                <span className="font-medium">{oldPatient.name}</span>
+                <span className={`font-medium ${newPatient && oldPatient.name && newPatient.name && oldPatient.name === newPatient.name ? "text-red-600 font-bold" : ""}`}>{oldPatient.name}</span>
               </div>
               <div>
                 <span className="text-slate-500">TEL：</span>
-                <span className="font-mono">{oldPatient.phone}</span>
+                <span className={`font-mono ${newPatient && oldPatient.phone && newPatient.phone && oldPatient.phone === newPatient.phone ? "text-red-600 font-bold" : ""}`}>{oldPatient.phone}</span>
               </div>
               <div>
                 <span className="text-slate-500">LINE UID：</span>
@@ -233,11 +233,11 @@ export default function MergePatientsPage() {
             <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
               <div>
                 <span className="text-slate-500">氏名：</span>
-                <span className="font-medium">{newPatient.name}</span>
+                <span className={`font-medium ${oldPatient && oldPatient.name && newPatient.name && oldPatient.name === newPatient.name ? "text-red-600 font-bold" : ""}`}>{newPatient.name}</span>
               </div>
               <div>
                 <span className="text-slate-500">TEL：</span>
-                <span className="font-mono">{newPatient.phone}</span>
+                <span className={`font-mono ${oldPatient && oldPatient.phone && newPatient.phone && oldPatient.phone === newPatient.phone ? "text-red-600 font-bold" : ""}`}>{newPatient.phone}</span>
               </div>
               <div>
                 <span className="text-slate-500">LINE UID：</span>
