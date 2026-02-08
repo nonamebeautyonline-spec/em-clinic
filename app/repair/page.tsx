@@ -155,6 +155,7 @@ export default function RepairPage() {
           <div className="mb-4">
             <label className="block text-sm font-medium text-slate-700 mb-1">
               電話番号
+              <span className="block text-xs text-slate-500 font-normal mt-0.5">診療時におかけする電話番号となります。正確にご入力ください。</span>
             </label>
             <input
               type="tel"
