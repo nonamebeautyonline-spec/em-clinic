@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { patient_id, message, message_type, flex } = await req.json();
+  const { patient_id, message, message_type, flex, template_name } = await req.json();
   if (!patient_id || (!message?.trim() && !flex)) {
     return NextResponse.json({ error: "patient_id と message は必須です" }, { status: 400 });
   }
@@ -78,12 +78,15 @@ export async function POST(req: NextRequest) {
   const res = await pushMessage(intake.line_id, [lineMessage]);
   const status = res?.ok ? "sent" : "failed";
 
-  // メッセージログに記録
+  // メッセージログに記録（画像テンプレはテンプレ名のみ保存）
+  const logContent = message_type === "image" && template_name
+    ? `【${template_name}】`
+    : resolvedMessage;
   await supabaseAdmin.from("message_log").insert({
     patient_id,
     line_uid: intake.line_id,
     message_type: "individual",
-    content: resolvedMessage,
+    content: logContent,
     status,
     direction: "outgoing",
   });

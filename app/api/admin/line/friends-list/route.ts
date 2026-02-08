@@ -58,18 +58,23 @@ export async function GET(req: NextRequest) {
   // 最新メッセージをマッピング
   const lastMessages = lastMsgRes.data || [];
 
+  // 左カラム表示用: 顧客送信メッセージ優先、なければフォロー/ブロック等イベント
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
+  const lastEventMap = new Map<string, { content: string; sent_at: string }>();
   const lastIncomingMap = new Map<string, string>();
   for (const row of lastMessages || []) {
     if (!row.patient_id) continue;
     // ソート用: 顧客からのメッセージ・アクション（incoming）の最新時刻のみ
-    // 管理側からの送信（outgoing）は表示順に影響させない
     if (!lastIncomingMap.has(row.patient_id) && row.direction !== "outgoing") {
       lastIncomingMap.set(row.patient_id, row.sent_at);
     }
-    // 表示用: イベント以外の最新メッセージ
-    if (!lastMsgMap.has(row.patient_id) && row.message_type !== "event" && row.event_type !== "system") {
+    // 表示用①: 顧客が送信したメッセージ（incoming かつ イベント以外）
+    if (!lastMsgMap.has(row.patient_id) && row.direction === "incoming" && row.message_type !== "event") {
       lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
+    }
+    // 表示用②: フォロー/ブロック等イベント（フォールバック）
+    if (!lastEventMap.has(row.patient_id) && row.direction === "incoming" && row.message_type === "event") {
+      lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
     }
   }
 
@@ -86,7 +91,7 @@ export async function GET(req: NextRequest) {
       mark: markMap.get(p.patient_id) || "none",
       tags: [],
       fields: {},
-      last_message: lastMsg?.content || null,
+      last_message: lastMsg?.content || lastEventMap.get(p.patient_id)?.content || null,
       last_sent_at: lastIncoming || null,
     };
   });

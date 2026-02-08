@@ -488,6 +488,7 @@ export default function TalkPage() {
     };
     if (template.message_type === "image") {
       payload.message_type = "image";
+      payload.template_name = template.name;
     }
     const res = await fetch("/api/admin/line/send", {
       method: "POST",
@@ -498,8 +499,11 @@ export default function TalkPage() {
     const data = await res.json();
     if (data.ok) {
       shouldScrollToBottom.current = true;
+      const displayContent = template.message_type === "image"
+        ? `【${template.name}】`
+        : template.content;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: template.content, status: "sent",
+        id: Date.now(), content: displayContent, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);

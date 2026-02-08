@@ -125,16 +125,36 @@ export async function POST(req: NextRequest) {
 
     const targets = await getTargetPatients(date);
 
-    // テストモード: 管理者のみに送信
+    // テストモード: 管理者（PID: 20251200128）にサンプルメッセージを送信
+    // 当日の予約がなくても送信可能
     const TEST_PID = "20251200128";
-    const sendTargets = testOnly
-      ? targets.filter((p: any) => p.patient_id === TEST_PID)
-      : targets;
-
-    if (testOnly && sendTargets.length === 0) {
-      return NextResponse.json({
-        error: `テスト対象 (PID: ${TEST_PID}) が本日の予約に見つかりません`,
-      }, { status: 400 });
+    let sendTargets;
+    if (testOnly) {
+      const testInTargets = targets.find((p: any) => p.patient_id === TEST_PID);
+      if (testInTargets) {
+        sendTargets = [testInTargets];
+      } else {
+        // 予約に含まれていなくても intake から LINE ID を取得して送信
+        const { data: testIntake } = await supabaseAdmin
+          .from("intake")
+          .select("patient_id, patient_name, line_id")
+          .eq("patient_id", TEST_PID)
+          .limit(1)
+          .maybeSingle();
+        if (!testIntake?.line_id) {
+          return NextResponse.json({
+            error: `テスト対象 (PID: ${TEST_PID}) のLINE IDが見つかりません`,
+          }, { status: 400 });
+        }
+        sendTargets = [{
+          patient_id: testIntake.patient_id,
+          patient_name: testIntake.patient_name || "",
+          line_id: testIntake.line_id,
+          reserved_time: "13:00:00", // サンプル時間
+        }];
+      }
+    } else {
+      sendTargets = targets;
     }
 
     const results: { patient_id: string; patient_name: string; status: "sent" | "no_uid" | "failed" }[] = [];
