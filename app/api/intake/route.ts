@@ -1,7 +1,7 @@
 // app/api/intake/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 
 const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
 
@@ -222,6 +222,49 @@ export async function POST(req: NextRequest) {
 
     // ★ キャッシュ削除（問診送信時）
     await invalidateDashboardCache(patientId);
+
+    // ★ LINE_仮レコードが残っていたら統合して削除
+    if (!patientId.startsWith("LINE_")) {
+      try {
+        // intakeに書き込まれたline_idを取得
+        const { data: currentIntake } = await supabaseAdmin
+          .from("intake")
+          .select("line_id")
+          .eq("patient_id", patientId)
+          .maybeSingle();
+
+        const resolvedLineId = currentIntake?.line_id;
+        if (resolvedLineId) {
+          const fakeId = `LINE_${resolvedLineId.slice(-8)}`;
+          const { data: fakeRecord } = await supabaseAdmin
+            .from("intake")
+            .select("patient_id")
+            .eq("patient_id", fakeId)
+            .maybeSingle();
+
+          if (fakeRecord) {
+            console.log(`[Intake] Merging fake record ${fakeId} -> ${patientId}`);
+            // message_log, patient_tags, patient_marks, friend_field_values を移行
+            const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+            await Promise.all(
+              migrateTables.map(async (table) => {
+                const { error } = await supabaseAdmin
+                  .from(table)
+                  .update({ patient_id: patientId })
+                  .eq("patient_id", fakeId);
+                if (error) console.error(`[Intake] Migration ${table} failed:`, error.message);
+              })
+            );
+            // 仮レコード削除
+            await supabaseAdmin.from("intake").delete().eq("patient_id", fakeId);
+            await supabaseAdmin.from("answerers").delete().eq("patient_id", fakeId);
+            console.log(`[Intake] Fake record ${fakeId} merged and deleted`);
+          }
+        }
+      } catch (e: any) {
+        console.error("[Intake] Fake record cleanup error (non-blocking):", e.message);
+      }
+    }
 
     // ★ GASは { ok:true, intakeId, timing } を返す前提
 const gasIntakeId = String(json.intakeId || "").trim();
