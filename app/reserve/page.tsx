@@ -129,8 +129,34 @@ const ReserveInner: React.FC = () => {
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // ▼ 患者情報をURL + localStorageから取得してマージ
+  // ▼ 問診完了チェック（未完了なら/intakeへリダイレクト）
+  const [intakeChecked, setIntakeChecked] = useState(false);
 
+  useEffect(() => {
+    if (isEdit) {
+      setIntakeChecked(true);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch("/api/mypage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({}),
+        });
+        if (!res.ok) { setIntakeChecked(true); return; }
+        const data = await res.json().catch(() => ({}));
+        if (data.hasIntake !== true) {
+          router.replace("/intake");
+          return;
+        }
+      } catch {
+        // エラー時はブロックしない
+      }
+      setIntakeChecked(true);
+    })();
+  }, [isEdit, router]);
 
   const baseDate = useMemo(() => {
     const d = new Date();
@@ -367,6 +393,14 @@ setTimeout(() => {
 
   const disabledPrevWeek = weekOffset <= 0;
 
+  if (!intakeChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-sm text-slate-500">問診状況を確認中です…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
       {/* ヘッダー */}
@@ -588,7 +622,7 @@ setTimeout(() => {
               <p className="text-[12px] text-slate-500 leading-relaxed">
                 {isEdit
                   ? "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。予約日時のみ変更され、問診フォームの再入力は不要です。"
-                  : "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。予約確定後に問診フォームへ進み、診察前に必要事項のご入力をお願いいたします。"}
+                  : "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。"}
               </p>
 
               <div className="flex gap-2">

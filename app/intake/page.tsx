@@ -350,6 +350,22 @@ const runPidCheck = async () => {
           window.localStorage.setItem("has_intake", "1");
         }
 
+        // 予約済みならマイページへ、未予約なら予約ページへ
+        try {
+          const mpRes = await fetch("/api/mypage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ refresh: true }),
+          });
+          const mpData = await mpRes.json().catch(() => ({}));
+          if (mpData.nextReservation) {
+            router.push("/mypage");
+            return;
+          }
+        } catch {
+          // エラー時はデフォルトで予約ページへ
+        }
         router.push("/reserve");
       } catch (e) {
         console.error(e);

@@ -533,11 +533,11 @@ export async function POST(req: NextRequest) {
         skipSupabase: true, // GAS側でSupabase書き込みをスキップ
       };
 
-      // ★ intakeテーブルから名前とステータスを取得（最新のレコード）
-      // ★★ 予約作成前にintakeレコードの存在を必須チェック ★★
+      // ★ intakeテーブルから名前・ステータス・問診回答を取得
+      // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
       const { data: intakeData, error: intakeCheckError } = await supabase
         .from("intake")
-        .select("patient_name, patient_id, status")
+        .select("patient_name, patient_id, status, answers")
         .eq("patient_id", pid)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -557,6 +557,17 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: "intake_not_found",
           message: "問診データが見つかりません。先に問診を完了してください。",
+        }, { status: 400 });
+      }
+
+      // ★ 問診完了チェック（ng_checkは問診の必須項目）
+      const intakeAnswers = intakeData.answers as Record<string, unknown> | null;
+      if (!intakeAnswers || typeof intakeAnswers.ng_check !== "string" || intakeAnswers.ng_check === "") {
+        console.error("[Reservation] Questionnaire not completed:", { patient_id: pid });
+        return NextResponse.json({
+          ok: false,
+          error: "questionnaire_not_completed",
+          message: "問診が完了していません。先に問診を完了してください。",
         }, { status: 400 });
       }
 
