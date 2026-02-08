@@ -267,7 +267,7 @@ export async function GET(req: NextRequest) {
     // 問診情報を取得（answers JSONBから）
     const { data: intakeRecord } = await supabaseAdmin
       .from("intake")
-      .select("patient_kana, phone, email, answers, prescription_menu, created_at")
+      .select("answers, prescription_menu, created_at")
       .eq("patient_id", patientId)
       .order("id", { ascending: false })
       .limit(1)
@@ -281,7 +281,7 @@ export async function GET(req: NextRequest) {
       && (answers.current_disease_yesno || answers.glp_history || answers.med_yesno || answers.allergy_yesno);
 
     const medicalInfo = hasIntakeAnswers ? {
-      kana: intakeRecord?.patient_kana || answers?.カナ || answers?.name_kana || "",
+      kana: answers?.カナ || answers?.name_kana || "",
       gender: answers?.性別 || answers?.sex || "",
       birthday: answers?.生年月日 || answers?.birth || "",
       medicalHistory: answers?.current_disease_yesno === "yes" ? (answers?.current_disease_detail || "") : "特記事項なし",
