@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { date, testOnly } = await req.json();
+    const { date, testOnly, patient_ids } = await req.json();
     if (!date) {
       return NextResponse.json({ error: "date required" }, { status: 400 });
     }
@@ -153,6 +153,10 @@ export async function POST(req: NextRequest) {
           reserved_time: "13:00:00", // サンプル時間
         }];
       }
+    } else if (patient_ids && Array.isArray(patient_ids) && patient_ids.length > 0) {
+      // チェックされた患者のみ送信
+      const pidSet = new Set(patient_ids);
+      sendTargets = targets.filter((p: any) => pidSet.has(p.patient_id));
     } else {
       sendTargets = targets;
     }

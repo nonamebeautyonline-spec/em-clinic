@@ -52,20 +52,11 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [reminderPreview, setReminderPreview] = useState<ReminderPreviewResult | null>(null);
   const [loadingReminder, setLoadingReminder] = useState(false);
-  const [sendingReminder, setSendingReminder] = useState(false);
-  const [reminderSendResult, setReminderSendResult] = useState<ReminderSendResult | null>(null);
-  const [showReminderConfirm, setShowReminderConfirm] = useState(false);
-
-  // LINE リマインド確認モーダル用
-  const [lineRemindPreview, setLineRemindPreview] = useState<{
-    patients: { patient_id: string; patient_name: string; line_id: string | null; reserved_time: string; formatted_time: string }[];
-    summary: { total: number; sendable: number; no_uid: number };
-    sampleMessage: string;
-  } | null>(null);
-  const [lineRemindLoading, setLineRemindLoading] = useState(false);
-  const [showLineRemindModal, setShowLineRemindModal] = useState(false);
   const [lineRemindSending, setLineRemindSending] = useState(false);
   const [lineRemindResult, setLineRemindResult] = useState<ReminderSendResult & { testOnly?: boolean } | null>(null);
+
+  // チェックボックス用（リマインド送信対象選択）
+  const [checkedPatientIds, setCheckedPatientIds] = useState<Set<string>>(new Set());
 
   // デフォルトは今日の日付
   const today = new Date().toISOString().slice(0, 10);
@@ -74,7 +65,7 @@ export default function ReservationsPage() {
   useEffect(() => {
     // 日付変更時は付帯情報・送信結果をリセット
     setReminderPreview(null);
-    setReminderSendResult(null);
+    setLineRemindResult(null);
     loadReservations();
   }, [selectedDate]);
 
@@ -146,6 +137,10 @@ export default function ReservationsPage() {
 
       const data = await res.json();
       setReminderPreview(data);
+      // 全患者をチェック状態で初期化
+      if (data.reminders) {
+        setCheckedPatientIds(new Set(data.reminders.map((r: ReminderData) => r.patient_id)));
+      }
     } catch (err) {
       console.error("Reminder preview error:", err);
       setError(err instanceof Error ? err.message : "付帯情報作成に失敗しました");
@@ -154,60 +149,19 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleSendReminder = async () => {
-    setShowReminderConfirm(false);
-    setSendingReminder(true);
-    setReminderSendResult(null);
-
-    try {
-      const res = await fetch("/api/admin/reservations/send-reminder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ date: selectedDate }),
-      });
-
-      if (!res.ok) {
-        throw new Error("リマインド送信に失敗しました");
-      }
-
-      const data = await res.json();
-      setReminderSendResult(data);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setSendingReminder(false);
-    }
-  };
-
-  // LINE リマインド（MAPI版）プレビュー
-  const handleLineRemindPreview = async () => {
-    setLineRemindLoading(true);
-    setLineRemindResult(null);
-    try {
-      const res = await fetch(`/api/admin/reservations/send-reminder?date=${selectedDate}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("取得エラー");
-      const data = await res.json();
-      setLineRemindPreview(data);
-      setShowLineRemindModal(true);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "プレビュー取得に失敗しました");
-    } finally {
-      setLineRemindLoading(false);
-    }
-  };
-
-  // LINE リマインド送信（全員 or テスト）
+  // LINE リマインド送信（選択者 or テスト）
   const handleLineRemindSend = async (testOnly: boolean) => {
     setLineRemindSending(true);
     try {
+      const payload: Record<string, unknown> = { date: selectedDate, testOnly };
+      if (!testOnly && checkedPatientIds.size > 0) {
+        payload.patient_ids = [...checkedPatientIds];
+      }
       const res = await fetch("/api/admin/reservations/send-reminder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ date: selectedDate, testOnly }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const errData = await res.json();
@@ -215,45 +169,10 @@ export default function ReservationsPage() {
       }
       const data = await res.json();
       setLineRemindResult(data);
-      if (!testOnly) setShowLineRemindModal(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "送信に失敗しました");
     } finally {
       setLineRemindSending(false);
-    }
-  };
-
-  const handleDownloadReminderCSV = async () => {
-    if (!reminderPreview) return;
-
-    try {
-      const res = await fetch("/api/admin/reservations/reminder-csv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          reminders: reminderPreview.reminders,
-          date: selectedDate,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("診療リマインドCSV生成に失敗しました");
-      }
-
-      // CSVダウンロード
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `reminder_${selectedDate.replace(/-/g, "")}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("CSV download error:", err);
-      alert(err instanceof Error ? err.message : "ダウンロードに失敗しました");
     }
   };
 
@@ -290,26 +209,15 @@ export default function ReservationsPage() {
         </button>
         <div className="hidden md:flex ml-auto gap-2">
           <button
-            onClick={handleLineRemindPreview}
-            disabled={lineRemindLoading || reservations.length === 0}
-            className={`px-4 py-2 text-sm rounded-lg font-medium ${
-              lineRemindLoading || reservations.length === 0
-                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {lineRemindLoading ? "読込中..." : "LINE リマインド送信"}
-          </button>
-          <button
             onClick={handleReminderPreview}
             disabled={loadingReminder || reservations.length === 0}
             className={`px-4 py-2 text-sm rounded-lg font-medium ${
               loadingReminder || reservations.length === 0
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-purple-600 text-white hover:bg-purple-700"
+                : "bg-green-600 text-white hover:bg-green-700"
             }`}
           >
-            {loadingReminder ? "作成中..." : "📋 付帯情報を作成"}
+            {loadingReminder ? "読込中..." : "リマインドを行う"}
           </button>
         </div>
       </div>
@@ -368,39 +276,25 @@ export default function ReservationsPage() {
             </p>
           </div>
 
-          {/* LINE リマインド送信結果 */}
-          {reminderSendResult && (
-            <div className="mx-6 mt-4 p-4 bg-slate-50 rounded-lg border">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-slate-800">LINE リマインド送信結果</h3>
-                <button onClick={() => setReminderSendResult(null)} className="text-slate-400 hover:text-slate-600">×</button>
-              </div>
-              <div className="flex gap-4 text-sm mb-3">
-                <span className="text-green-600 font-medium">送信済: {reminderSendResult.sent}件</span>
-                <span className="text-yellow-600 font-medium">UID無: {reminderSendResult.noUid}件</span>
-                {reminderSendResult.failed > 0 && (
-                  <span className="text-red-600 font-medium">失敗: {reminderSendResult.failed}件</span>
-                )}
-                <span className="text-slate-500">合計: {reminderSendResult.total}件</span>
-              </div>
-              {(reminderSendResult.noUid > 0 || reminderSendResult.failed > 0) && (
-                <div className="max-h-32 overflow-y-auto text-xs space-y-1">
-                  {reminderSendResult.results
-                    .filter(r => r.status !== "sent")
-                    .map((r, i) => (
-                      <div key={i} className={`px-2 py-1 rounded ${r.status === "no_uid" ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"}`}>
-                        {r.patient_name} ({r.patient_id}) - {r.status === "no_uid" ? "LINE UID未取得" : "送信失敗"}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
+                  <th className="px-3 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={reminderPreview ? checkedPatientIds.size === reminderPreview.reminders.length : false}
+                      onChange={(e) => {
+                        if (e.target.checked && reminderPreview) {
+                          setCheckedPatientIds(new Set(reminderPreview.reminders.map(r => r.patient_id)));
+                        } else {
+                          setCheckedPatientIds(new Set());
+                        }
+                      }}
+                      className="w-4 h-4 accent-green-600"
+                    />
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     予約時間
                   </th>
@@ -432,6 +326,19 @@ export default function ReservationsPage() {
 
                   return (
                     <tr key={i} className={rowClass}>
+                      <td className="px-3 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={checkedPatientIds.has(reminder.patient_id)}
+                          onChange={(e) => {
+                            const next = new Set(checkedPatientIds);
+                            if (e.target.checked) next.add(reminder.patient_id);
+                            else next.delete(reminder.patient_id);
+                            setCheckedPatientIds(next);
+                          }}
+                          className="w-4 h-4 accent-green-600"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">
                         {formatTime(reminder.reserved_time)}
                       </td>
@@ -514,43 +421,54 @@ export default function ReservationsPage() {
             </div>
           )}
 
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-            <div className="text-sm text-slate-600">
-              リマインド対象: <span className="font-semibold text-purple-600">{reminderPreview.total}件</span>
-              {reminderPreview.errors.length > 0 && (
-                <span className="ml-4 text-yellow-600">
-                  スキップ: {reminderPreview.errors.length}件
-                </span>
-              )}
+          {/* LINE リマインド送信結果（インライン表示） */}
+          {lineRemindResult && (
+            <div className={`mx-6 mt-4 p-4 rounded-lg border ${lineRemindResult.testOnly ? "bg-blue-50 border-blue-200" : "bg-green-50 border-green-200"}`}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm text-slate-800">
+                  {lineRemindResult.testOnly ? "テスト送信結果" : "LINE リマインド送信完了"}
+                </h3>
+                <button onClick={() => setLineRemindResult(null)} className="text-slate-400 hover:text-slate-600 text-sm">×</button>
+              </div>
+              <div className="flex gap-4 text-sm">
+                <span className="text-green-600 font-medium">送信成功: {lineRemindResult.sent}件</span>
+                {lineRemindResult.noUid > 0 && <span className="text-yellow-600 font-medium">LINE未連携: {lineRemindResult.noUid}件</span>}
+                {lineRemindResult.failed > 0 && <span className="text-red-600 font-medium">失敗: {lineRemindResult.failed}件</span>}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+          )}
+
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setReminderPreview(null)}
+                onClick={() => { setReminderPreview(null); setLineRemindResult(null); }}
                 className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 underline"
               >
                 戻る
               </button>
+              <span className="text-sm text-slate-500">
+                選択中: <span className="font-semibold text-green-600">{checkedPatientIds.size}人</span>
+                / {reminderPreview.total}人
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={handleLineRemindPreview}
-                disabled={lineRemindLoading || reminderPreview.total === 0}
-                className={`px-4 py-2 text-sm rounded-lg font-medium ${
-                  lineRemindLoading || reminderPreview.total === 0
+                onClick={() => handleLineRemindSend(true)}
+                disabled={lineRemindSending}
+                className="px-4 py-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium"
+              >
+                {lineRemindSending ? "送信中..." : "テスト送信（管理者のみ）"}
+              </button>
+              <button
+                onClick={() => handleLineRemindSend(false)}
+                disabled={lineRemindSending || checkedPatientIds.size === 0}
+                className={`px-5 py-2 text-sm rounded-lg font-medium ${
+                  lineRemindSending || checkedPatientIds.size === 0
                     ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
-                {lineRemindLoading ? "読込中..." : "LINE リマインド送信"}
-              </button>
-              <button
-                onClick={handleDownloadReminderCSV}
-                disabled={reminderPreview.total === 0}
-                className={`px-6 py-3 rounded-lg font-medium ${
-                  reminderPreview.total === 0
-                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                    : "bg-purple-600 text-white hover:bg-purple-700"
-                }`}
-              >
-                📥 CSVダウンロード
+                {lineRemindSending ? "送信中..." : `LINE リマインド送信（${checkedPatientIds.size}人）`}
               </button>
             </div>
           </div>
@@ -643,141 +561,6 @@ export default function ReservationsPage() {
         )}
       </div>}
 
-      {/* LINE リマインド送信確認モーダル */}
-      {showReminderConfirm && reminderPreview && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-[90vw] max-w-md p-6">
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              LINE リマインド一括送信
-            </h3>
-            <p className="text-sm text-slate-600 mb-2">
-              <span className="font-semibold text-slate-900">{formatDate(selectedDate)}</span>の予約者
-              <span className="font-semibold text-green-700"> {reminderPreview.total}名</span>に
-              LINEリマインドメッセージを一括送信します。
-            </p>
-            <p className="text-xs text-slate-500 mb-4">
-              ※ LINE UIDが未取得の患者にはスキップされます。送信後に結果が表示されます。
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowReminderConfirm(false)}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSendReminder}
-                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-              >
-                送信する
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* LINE リマインド送信モーダル（MAPI版） */}
-      {showLineRemindModal && lineRemindPreview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">LINE リマインド送信</h3>
-              <p className="text-xs text-slate-500 mt-1">Messaging APIで予約時間付きリマインドを送信</p>
-            </div>
-
-            <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4">
-              {/* 内訳 */}
-              <div className="flex gap-3">
-                <div className="flex-1 text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-xs text-green-600">送信対象</p>
-                  <p className="text-xl font-bold text-green-700">{lineRemindPreview.summary.sendable}</p>
-                </div>
-                <div className="flex-1 text-center p-3 bg-slate-50 rounded-lg">
-                  <p className="text-xs text-slate-500">全予約数</p>
-                  <p className="text-xl font-bold text-slate-600">{lineRemindPreview.summary.total}</p>
-                </div>
-                {lineRemindPreview.summary.no_uid > 0 && (
-                  <div className="flex-1 text-center p-3 bg-yellow-50 rounded-lg">
-                    <p className="text-xs text-yellow-600">LINE未連携</p>
-                    <p className="text-xl font-bold text-yellow-600">{lineRemindPreview.summary.no_uid}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 対象者リスト */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">送信対象者</p>
-                <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-                  {lineRemindPreview.patients.filter(p => p.line_id).map(p => (
-                    <div key={p.patient_id} className="px-3 py-2 text-sm flex justify-between items-center">
-                      <span className="text-slate-900">{p.patient_name || p.patient_id}</span>
-                      <span className="text-xs text-slate-400">{p.formatted_time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* メッセージプレビュー */}
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-2">配信内容（予約時間は各患者ごとに差し込み）</p>
-                <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-700 whitespace-pre-wrap leading-relaxed border border-slate-200">
-                  {lineRemindPreview.sampleMessage}
-                </div>
-              </div>
-
-              {/* テスト送信結果 */}
-              {lineRemindResult?.testOnly && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-900">テスト送信結果</p>
-                  <div className="mt-1 flex gap-4 text-xs">
-                    <span className="text-green-700">送信成功: <strong>{lineRemindResult.sent}</strong></span>
-                    {lineRemindResult.failed > 0 && <span className="text-red-600">失敗: <strong>{lineRemindResult.failed}</strong></span>}
-                    {lineRemindResult.noUid > 0 && <span className="text-slate-500">LINE未連携: <strong>{lineRemindResult.noUid}</strong></span>}
-                  </div>
-                </div>
-              )}
-
-              {/* 全員送信結果 */}
-              {lineRemindResult && !lineRemindResult.testOnly && (
-                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                  <p className="text-sm font-medium text-green-900">送信完了</p>
-                  <div className="mt-1 flex gap-4 text-xs">
-                    <span className="text-green-700">送信成功: <strong>{lineRemindResult.sent}</strong></span>
-                    {lineRemindResult.failed > 0 && <span className="text-red-600">失敗: <strong>{lineRemindResult.failed}</strong></span>}
-                    {lineRemindResult.noUid > 0 && <span className="text-slate-500">LINE未連携: <strong>{lineRemindResult.noUid}</strong></span>}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-between">
-              <button
-                onClick={() => { setShowLineRemindModal(false); setLineRemindResult(null); }}
-                disabled={lineRemindSending}
-                className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 disabled:opacity-50"
-              >
-                閉じる
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleLineRemindSend(true)}
-                  disabled={lineRemindSending}
-                  className="px-4 py-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium"
-                >
-                  {lineRemindSending ? "送信中..." : "テスト送信（管理者のみ）"}
-                </button>
-                <button
-                  onClick={() => handleLineRemindSend(false)}
-                  disabled={lineRemindSending || lineRemindPreview.summary.sendable === 0}
-                  className="px-6 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
-                >
-                  {lineRemindSending ? "送信中..." : `${lineRemindPreview.summary.sendable}人に送信する`}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* カルテモーダル */}
       {selectedReservation && (
