@@ -855,24 +855,39 @@ export default function TalkPage() {
 
   return (
     <div className="h-full flex flex-col md:flex-row overflow-hidden bg-[#f8f9fb]">
-      {/* ========== モバイルタブナビ ========== */}
-      {selectedPatient && (
-        <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 flex">
-          {(["list", "message", "info"] as const).map(tab => (
+      {/* ========== モバイルヘッダータブ（常時表示） ========== */}
+      <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 flex">
+        {([
+          { key: "list" as const, label: "リスト", icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          )},
+          { key: "message" as const, label: "メッセージ", icon: (
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+          )},
+          { key: "info" as const, label: "情報", icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+          )},
+        ]).map(tab => {
+          const isActive = mobileView === tab.key;
+          const isDisabled = tab.key !== "list" && !selectedPatient;
+          return (
             <button
-              key={tab}
-              onClick={() => setMobileView(tab)}
-              className={`flex-1 py-2.5 text-xs font-bold tracking-wide transition-colors ${
-                mobileView === tab
-                  ? "text-[#00B900] border-b-2 border-[#00B900]"
-                  : "text-gray-400 hover:text-gray-600"
+              key={tab.key}
+              onClick={() => !isDisabled && setMobileView(tab.key)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-[11px] font-bold transition-colors ${
+                isActive
+                  ? "text-[#00B900] border-b-[3px] border-[#00B900]"
+                  : isDisabled
+                    ? "text-gray-200 cursor-default"
+                    : "text-gray-400 hover:text-gray-600 border-b-[3px] border-transparent"
               }`}
             >
-              {tab === "list" ? "リスト" : tab === "message" ? "メッセージ" : "情報"}
+              {tab.icon}
+              {tab.label}
             </button>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
 
       {/* ========== 左カラム ========== */}
       <div className={`w-full md:w-[340px] flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
@@ -1047,12 +1062,6 @@ export default function TalkPage() {
           <>
             {/* ヘッダー */}
             <div className="flex-shrink-0 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white px-4 py-2.5 flex items-center gap-3 shadow-sm">
-              <button
-                onClick={() => { setMobileView("list"); setSelectedPatient(null); }}
-                className="md:hidden flex-shrink-0 p-1 -ml-1 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-              </button>
               <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-sm font-bold flex-shrink-0">
                 {selectedPatient.patient_name.charAt(0)}
               </div>
