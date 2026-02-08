@@ -1,14 +1,25 @@
 // app/api/admin/merge-patients/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL;
 
+// 統合対象テーブル一覧（patient_id カラムを持つテーブル）
+const MERGE_TABLES = [
+  "intake",
+  "orders",
+  "reservations",
+  "reorders",
+  "message_log",
+  "patient_tags",
+  "patient_marks",
+  "friend_field_values",
+] as const;
+
 export async function POST(req: NextRequest) {
   try {
-    // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -17,6 +28,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const oldPatientId = body.old_patient_id || "";
     const newPatientId = body.new_patient_id || "";
+    const deleteNewIntake = !!body.delete_new_intake; // 統合先の予約/問診を先に削除
 
     if (!oldPatientId || !newPatientId) {
       return NextResponse.json(
@@ -32,50 +44,100 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ DB先行: Supabase intakesテーブルの旧patient_idを新patient_idに置き換え
-    const { error: intakesError } = await supabase
-      .from("intakes")
-      .update({ patient_id: newPatientId })
-      .eq("patient_id", oldPatientId);
+    // ★ 統合先の予約/問診を先に削除（オプション）
+    if (deleteNewIntake) {
+      console.log(`[merge-patients] Deleting new patient data: ${newPatientId}`);
 
-    if (intakesError) {
-      console.error(`[merge-patients] Failed to update intakes:`, intakesError);
-      return NextResponse.json(
-        { ok: false, error: "db_intakes_update_failed", detail: intakesError.message },
-        { status: 500 }
-      );
+      const { error: delIntakeErr } = await supabaseAdmin
+        .from("intake")
+        .delete()
+        .eq("patient_id", newPatientId);
+      if (delIntakeErr) {
+        console.error("[merge-patients] Delete new intake failed:", delIntakeErr.message);
+      }
+
+      const { error: delReservationsErr } = await supabaseAdmin
+        .from("reservations")
+        .delete()
+        .eq("patient_id", newPatientId);
+      if (delReservationsErr) {
+        console.error("[merge-patients] Delete new reservations failed:", delReservationsErr.message);
+      }
+
+      // answerers も削除（統合元のデータで上書きするため）
+      const { error: delAnswererErr } = await supabaseAdmin
+        .from("answerers")
+        .delete()
+        .eq("patient_id", newPatientId);
+      if (delAnswererErr) {
+        console.error("[merge-patients] Delete new answerers failed:", delAnswererErr.message);
+      }
+
+      console.log(`[merge-patients] New patient data deleted: ${newPatientId}`);
     }
-    console.log(`[merge-patients] DB intakes: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
 
-    // ★ Supabase ordersテーブル
-    const { error: ordersError } = await supabase
-      .from("orders")
-      .update({ patient_id: newPatientId })
-      .eq("patient_id", oldPatientId);
+    // ★ 全テーブルの patient_id を一括更新
+    const results: Record<string, string> = {};
 
-    if (ordersError) {
-      console.error(`[merge-patients] Failed to update orders:`, ordersError);
-      return NextResponse.json(
-        { ok: false, error: "db_orders_update_failed", detail: ordersError.message },
-        { status: 500 }
-      );
+    for (const table of MERGE_TABLES) {
+      const { error, count } = await supabaseAdmin
+        .from(table)
+        .update({ patient_id: newPatientId })
+        .eq("patient_id", oldPatientId);
+
+      if (error) {
+        console.error(`[merge-patients] Failed to update ${table}:`, error.message);
+        results[table] = `error: ${error.message}`;
+      } else {
+        results[table] = `ok (${count ?? "?"} rows)`;
+        console.log(`[merge-patients] ${table}: ${oldPatientId} -> ${newPatientId} (${count ?? "?"} rows)`);
+      }
     }
-    console.log(`[merge-patients] DB orders: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
 
-    // ★ Supabase reservationsテーブル
-    const { error: reservationsError } = await supabase
-      .from("reservations")
-      .update({ patient_id: newPatientId })
-      .eq("patient_id", oldPatientId);
+    // ★ answerers統合: 統合元のline_id・個人情報を統合先に引き継ぎ
+    const { data: oldAnswerer } = await supabaseAdmin
+      .from("answerers")
+      .select("line_id, name, name_kana, tel, sex, birthday")
+      .eq("patient_id", oldPatientId)
+      .maybeSingle();
 
-    if (reservationsError) {
-      console.error(`[merge-patients] Failed to update reservations:`, reservationsError);
-      return NextResponse.json(
-        { ok: false, error: "db_reservations_update_failed", detail: reservationsError.message },
-        { status: 500 }
-      );
+    if (oldAnswerer) {
+      const { data: newAnswerer } = await supabaseAdmin
+        .from("answerers")
+        .select("line_id, name, name_kana, tel, sex, birthday")
+        .eq("patient_id", newPatientId)
+        .maybeSingle();
+
+      if (newAnswerer) {
+        // 統合先が存在する場合: 統合元の値で空フィールドを埋める
+        const merged = {
+          line_id: newAnswerer.line_id || oldAnswerer.line_id || null,
+          name: newAnswerer.name || oldAnswerer.name || null,
+          name_kana: newAnswerer.name_kana || oldAnswerer.name_kana || null,
+          tel: newAnswerer.tel || oldAnswerer.tel || null,
+          sex: newAnswerer.sex || oldAnswerer.sex || null,
+          birthday: newAnswerer.birthday || oldAnswerer.birthday || null,
+        };
+        await supabaseAdmin
+          .from("answerers")
+          .update(merged)
+          .eq("patient_id", newPatientId);
+        console.log(`[merge-patients] answerers merged into ${newPatientId}`);
+      } else {
+        // 統合先にanswerersがない場合: 統合元をそのまま移行
+        await supabaseAdmin
+          .from("answerers")
+          .update({ patient_id: newPatientId })
+          .eq("patient_id", oldPatientId);
+        console.log(`[merge-patients] answerers moved: ${oldPatientId} -> ${newPatientId}`);
+      }
+
+      // 統合元のanswererを削除（重複防止）
+      await supabaseAdmin
+        .from("answerers")
+        .delete()
+        .eq("patient_id", oldPatientId);
     }
-    console.log(`[merge-patients] DB reservations: Updated patient_id ${oldPatientId} -> ${newPatientId}`);
 
     // ★ GAS同期（非同期・失敗してもログのみ）
     if (GAS_MYPAGE_URL) {
@@ -112,8 +174,8 @@ export async function POST(req: NextRequest) {
       }).catch((e) => console.error("[merge-patients] GAS admin sync error (non-blocking):", e));
     }
 
-    console.log(`[merge-patients] Completed: ${oldPatientId} -> ${newPatientId}`);
-    return NextResponse.json({ ok: true }, { status: 200 });
+    console.log(`[merge-patients] Completed: ${oldPatientId} -> ${newPatientId}`, results);
+    return NextResponse.json({ ok: true, results }, { status: 200 });
   } catch (err) {
     console.error("POST /api/admin/merge-patients error", err);
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

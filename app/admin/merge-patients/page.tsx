@@ -22,6 +22,8 @@ export default function MergePatientsPage() {
   const [oldPatient, setOldPatient] = useState<Patient>(null);
   const [newPatient, setNewPatient] = useState<Patient>(null);
 
+  const [deleteNewIntake, setDeleteNewIntake] = useState(false);
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -74,7 +76,10 @@ export default function MergePatientsPage() {
       `LINE UID: ${oldPatient.lineId || "なし"}\n\n` +
       `【統合先】${newPatient.name} (${newPatientId})\n` +
       `現在のLINE UID: ${newPatient.lineId || "なし"}\n\n` +
-      `統合元の全データ（問診履歴・購入履歴）を統合先に統合します。\n` +
+      (deleteNewIntake
+        ? `⚠️ 統合先の予約・問診・個人情報を削除してから統合します。\n`
+        : ``) +
+      `統合元の全データ（問診履歴・購入履歴・LINE UID）を統合先に統合します。\n` +
       `統合後、統合元のIDは無効になります。\n\n` +
       `よろしいですか？`
     );
@@ -98,6 +103,7 @@ export default function MergePatientsPage() {
         body: JSON.stringify({
           old_patient_id: oldPatientId,
           new_patient_id: newPatientId,
+          delete_new_intake: deleteNewIntake,
         }),
       });
 
@@ -258,6 +264,24 @@ export default function MergePatientsPage() {
             統合元の全データ（問診履歴・購入履歴・LINE User ID）を統合先に統合します。
             統合元のpatient_idは全て統合先のpatient_idに置き換えられ、データの重複は発生しません。
           </p>
+
+          <label className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg cursor-pointer">
+            <input
+              type="checkbox"
+              checked={deleteNewIntake}
+              onChange={(e) => setDeleteNewIntake(e.target.checked)}
+              disabled={merging}
+              className="mt-0.5"
+            />
+            <div>
+              <span className="text-sm font-medium text-amber-800">
+                統合先の予約・問診を先に削除する
+              </span>
+              <p className="text-xs text-amber-600 mt-0.5">
+                新アカウントで既に予約を取っている場合にチェック。統合先のintake・予約・個人情報を削除してから統合元のデータを移行します。
+              </p>
+            </div>
+          </label>
 
           <button
             type="button"
