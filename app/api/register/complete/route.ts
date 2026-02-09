@@ -88,17 +88,32 @@ export async function POST(req: NextRequest) {
     // ステップ3: 電話番号 + line_user_id を紐付け更新
     // ============================================================
 
-    // answerers テーブルに電話番号を保存
-    await supabaseAdmin
+    // answerers テーブルに電話番号を保存（select→insert/update パターン）
+    const { data: existingAnswerer } = await supabaseAdmin
       .from("answerers")
-      .upsert({
-        patient_id: pid,
-        tel: phone,
-        ...(lineUserId ? { line_id: lineUserId } : {}),
-      }, { onConflict: "patient_id" })
-      .then(({ error }) => {
-        if (error) console.error("[register/complete] Answerers update error:", error.message);
-      });
+      .select("patient_id")
+      .eq("patient_id", pid)
+      .maybeSingle();
+
+    if (existingAnswerer) {
+      const { error } = await supabaseAdmin
+        .from("answerers")
+        .update({
+          tel: phone,
+          ...(lineUserId ? { line_id: lineUserId } : {}),
+        })
+        .eq("patient_id", pid);
+      if (error) console.error("[register/complete] Answerers update error:", error.message);
+    } else {
+      const { error } = await supabaseAdmin
+        .from("answerers")
+        .insert({
+          patient_id: pid,
+          tel: phone,
+          ...(lineUserId ? { line_id: lineUserId } : {}),
+        });
+      if (error) console.error("[register/complete] Answerers insert error:", error.message);
+    }
 
     // intake テーブルに line_id + プロフィール情報を保存
     if (lineUserId) {
@@ -134,16 +149,18 @@ export async function POST(req: NextRequest) {
         });
     }
 
-    // intake の answers に電話番号を追記
+    // intake の answers に電話番号を追記（最新レコードを対象）
     const { data: intakeRow } = await supabaseAdmin
       .from("intake")
-      .select("answers")
+      .select("id, answers")
       .eq("patient_id", pid)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (intakeRow) {
-      const existingAnswers = intakeRow.answers || {};
-      await supabaseAdmin
+      const existingAnswers = (intakeRow.answers as Record<string, unknown>) || {};
+      const { error } = await supabaseAdmin
         .from("intake")
         .update({
           answers: {
@@ -152,7 +169,8 @@ export async function POST(req: NextRequest) {
             tel: phone,
           },
         })
-        .eq("patient_id", pid);
+        .eq("id", intakeRow.id);
+      if (error) console.error("[register/complete] Intake answers update error:", error.message);
     }
 
     // ============================================================
