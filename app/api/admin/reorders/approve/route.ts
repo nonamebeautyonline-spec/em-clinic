@@ -103,45 +103,12 @@ export async function POST(req: NextRequest) {
 
         const note = buildKarteNote(reorderData.product_code, prevDose, currentDose);
 
-        // 1. reorders.karte_note に保存
+        // reorders.karte_note に保存（来院履歴は patientbundle で reorders から直接表示）
         await supabaseAdmin
           .from("reorders")
           .update({ karte_note: note })
           .eq("id", reorderData.id)
           .is("karte_note", null);
-
-        // 2. intake に Dr Note として作成（来院履歴に表示）
-        const { data: answerer } = await supabaseAdmin
-          .from("answerers")
-          .select("name, line_id")
-          .eq("patient_id", reorderData.patient_id)
-          .limit(1)
-          .maybeSingle();
-
-        let patientName = answerer?.name || "";
-        let lineId = answerer?.line_id || null;
-        if (!patientName) {
-          const { data: prevIntake } = await supabaseAdmin
-            .from("intake")
-            .select("patient_name, line_id")
-            .eq("patient_id", reorderData.patient_id)
-            .not("patient_name", "is", null)
-            .not("patient_name", "eq", "")
-            .limit(1)
-            .maybeSingle();
-          if (prevIntake) {
-            patientName = prevIntake.patient_name || "";
-            if (!lineId) lineId = prevIntake.line_id || null;
-          }
-        }
-
-        await supabaseAdmin.from("intake").insert({
-          patient_id: reorderData.patient_id,
-          patient_name: patientName,
-          line_id: lineId,
-          note,
-          created_at: new Date().toISOString(),
-        });
 
         console.log(`[admin/reorders/approve] karte saved: patient=${reorderData.patient_id}, dose=${currentDose}mg, prev=${prevDose}mg`);
       } catch (karteErr) {

@@ -86,12 +86,18 @@ export async function POST(req: NextRequest) {
     const [supabaseIntakeResult, supabaseAnswererResult, gasResult] = await Promise.allSettled([
       // 1. Supabase intakeテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
-        // ★ 既存レコードがある場合はreserve_id等＋answersを保持してマージ
-        const { data: existingRecord } = await supabase
+        // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
+        // ★ 複数 intake レコード対策: 問診本体（reserve_id あり）を優先取得
+        //   カルテレコード（note が "再処方" 始まり）の方が created_at が古い場合があるため
+        const { data: intakeRows } = await supabaseAdmin
           .from("intake")
-          .select("patient_name, line_id, answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
+          .select("id, patient_name, line_id, answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
           .eq("patient_id", patientId)
-          .maybeSingle();
+          .order("created_at", { ascending: false })
+          .limit(10);
+        const existingRecord = intakeRows?.find(r => r.reserve_id != null)
+          ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
+          ?? null;
 
         // ★ 既存answersとマージ — 問診フォームは個人情報を送らないため、
         //   既存の個人情報（カナ,性別,生年月日,電話番号）を保持する
@@ -122,12 +128,13 @@ export async function POST(req: NextRequest) {
             answers: mergedAnswers,
         };
 
+        // ★ 既存レコードは id 指定で更新（複数レコードの全上書き防止）
         const result = existingRecord
-          ? await supabase
+          ? await supabaseAdmin
               .from("intake")
               .update(intakePayload)
-              .eq("patient_id", patientId)
-          : await supabase
+              .eq("id", existingRecord.id)
+          : await supabaseAdmin
               .from("intake")
               .insert({ patient_id: patientId, ...intakePayload });
 
@@ -140,13 +147,14 @@ export async function POST(req: NextRequest) {
       // 2. Supabase answerersテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
         // 既存レコードを取得して、空値で上書きしないようにする
-        const { data: existingAnswerer } = await supabase
+        // ★ supabaseAdmin を使う（anon key だと RLS で読めず null → name 消失バグの原因）
+        const { data: existingAnswerer } = await supabaseAdmin
           .from("answerers")
           .select("tel, name, name_kana, sex, birthday, line_id")
           .eq("patient_id", patientId)
           .maybeSingle();
 
-        const result = await supabase
+        const result = await supabaseAdmin
           .from("answerers")
           .upsert({
             patient_id: patientId,

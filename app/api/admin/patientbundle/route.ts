@@ -64,17 +64,34 @@ export async function GET(req: NextRequest) {
       lineId: answerer?.line_id || latestIntake?.line_id || answers?.line_id || null,
     };
 
-    // 問診一覧
-    const formattedIntakes = intakes.map(i => ({
-      id: i.id,
-      submittedAt: i.created_at || "",
-      reservedDate: i.reserved_date || "",
-      reservedTime: i.reserved_time || "",
-      status: i.status || null,
-      prescriptionMenu: i.prescription_menu || "",
-      note: i.note || "",
-      answers: i.answers || {},
-    }));
+    // 来院履歴: intake（問診本体）+ reorders（再処方カルテ）を統合
+    // カルテ重複レコード（note が "再処方" 始まり & reserve_id なし）は除外
+    const realIntakes = intakes.filter(i => !(i.note || "").startsWith("再処方") || i.reserved_date);
+    const formattedIntakes = [
+      ...realIntakes.map(i => ({
+        id: i.id,
+        submittedAt: i.created_at || "",
+        reservedDate: i.reserved_date || "",
+        reservedTime: i.reserved_time || "",
+        status: i.status || null,
+        prescriptionMenu: i.prescription_menu || "",
+        note: i.note || "",
+        answers: i.answers || {},
+      })),
+      // 再処方カルテ（karte_note あり）を来院履歴に追加
+      ...reorders
+        .filter(r => r.karte_note)
+        .map(r => ({
+          id: `reorder-${r.id}`,
+          submittedAt: r.approved_at || r.paid_at || r.created_at || "",
+          reservedDate: "",
+          reservedTime: "",
+          status: null,
+          prescriptionMenu: "",
+          note: r.karte_note,
+          answers: {},
+        })),
+    ].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
     // 購入履歴
     const history = orders.map(o => ({
