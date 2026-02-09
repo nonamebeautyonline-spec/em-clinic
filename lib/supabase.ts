@@ -11,6 +11,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 // サーバーサイドAPI用（RLSバイパス）
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
+// ⚠️ intake テーブル注意:
+// patient_id にユニーク制約がない（再処方カルテで同一患者に複数レコードを持つため）。
+// upsert({ onConflict: "patient_id" }) は使用禁止 → select→insert/update パターンを使うこと。
+
 // 型定義
 export type Reservation = {
   id: number
