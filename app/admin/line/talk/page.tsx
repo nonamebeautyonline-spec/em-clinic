@@ -1899,7 +1899,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
   if (!f.patient_id) return null;
   const markColor = getMarkColor(f.mark);
   const markLabel = getMarkLabel(f.mark);
-  const showMark = f.mark && f.mark !== "none";
+  const showMark = !!f.mark;
   // テキスト未読判定: last_text_at が readTimestamp より新しければ未読
   const hasUnreadText = !!(f.last_text_at && (!readTimestamp || f.last_text_at > readTimestamp));
   // メッセージ表示テキスト
