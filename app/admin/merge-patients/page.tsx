@@ -22,8 +22,8 @@ type MergePatient = {
 } | null;
 
 type SearchCandidate = {
-  patient_id: string;
-  patient_name: string;
+  id: string;
+  name: string;
 };
 
 // ─── メインページ ───────────────────────────────────────
@@ -129,9 +129,9 @@ function NameChangeSection() {
       );
       const data = await res.json();
 
-      if (data.found) {
+      if (data.found && data.patient) {
         // 単一結果 → 直接選択
-        await loadPatientDetail(data.found.patient.id);
+        await loadPatientDetail(data.patient.id);
       } else if (data.candidates && data.candidates.length > 0) {
         setCandidates(data.candidates);
       } else {
@@ -315,18 +315,18 @@ function NameChangeSection() {
           <div className="divide-y divide-slate-100">
             {candidates.map((c) => (
               <button
-                key={c.patient_id}
+                key={c.id}
                 type="button"
-                onClick={() => loadPatientDetail(c.patient_id)}
+                onClick={() => loadPatientDetail(c.id)}
                 className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between"
                 disabled={loading}
               >
                 <div>
                   <span className="text-sm font-medium text-slate-800">
-                    {c.patient_name || "（氏名なし）"}
+                    {c.name || "（氏名なし）"}
                   </span>
                   <span className="ml-2 text-xs text-slate-400 font-mono">
-                    {c.patient_id}
+                    {c.id}
                   </span>
                 </div>
                 <span className="text-xs text-blue-600">選択 →</span>
