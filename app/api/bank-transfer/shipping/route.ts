@@ -53,12 +53,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ NG患者は決済不可
+    // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     {
       const { data: intakeRow } = await supabaseAdmin
         .from("intake")
         .select("status")
         .eq("patient_id", patientId)
+        .not("status", "is", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

@@ -41,8 +41,10 @@ type ReorderItem = {
   productName: string;
   status: string;
   rawStatus: string;
+  karteNote: string;
   createdAt: string;
   approvedAt: string | null;
+  paidAt: string | null;
 };
 
 export default function PatientDetailPage({
@@ -469,18 +471,26 @@ export default function PatientDetailPage({
                             : r.rawStatus === "canceled" ? "bg-gray-100 text-gray-500 border-gray-200"
                             : "bg-amber-50 text-amber-700 border-amber-200";
                           return (
-                            <div key={r.id} className="flex items-center justify-between gap-3 py-2.5">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-800">{r.productName}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor}`}>{r.status}</span>
+                            <div key={r.id} className="py-2.5">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-800">{r.productName}</span>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColor}`}>{r.status}</span>
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-0.5">
+                                    申請: {r.createdAt}
+                                    {r.approvedAt && <span className="ml-2 text-emerald-600 font-medium">承認: {r.approvedAt}</span>}
+                                    {r.paidAt && <span className="ml-2 text-blue-600 font-medium">決済: {r.paidAt}</span>}
+                                  </div>
                                 </div>
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  申請: {r.createdAt}
-                                  {r.approvedAt && <span className="ml-2 text-emerald-600 font-medium">承認: {r.approvedAt}</span>}
-                                </div>
+                                <span className="text-xs text-gray-300 font-mono">#{r.id}</span>
                               </div>
-                              <span className="text-xs text-gray-300 font-mono">#{r.id}</span>
+                              {r.karteNote && (
+                                <div className="mt-1.5 ml-1 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 whitespace-pre-wrap">
+                                  {r.karteNote}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

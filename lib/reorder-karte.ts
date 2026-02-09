@@ -1,4 +1,5 @@
 // 再処方決済時のカルテ自動作成ヘルパー
+// カルテは reorders テーブルの karte_note カラムに保存（intake テーブルは汚さない）
 import { supabaseAdmin } from "@/lib/supabase";
 import { formatProductCode } from "@/lib/patient-utils";
 
@@ -23,7 +24,6 @@ function buildKarteNote(
   let reason: string;
 
   if (prevDose == null || currentDose == null) {
-    // 前回なし or 用量不明 → 初回扱い
     reason = "副作用がなく、継続使用のため処方";
   } else if (currentDose > prevDose) {
     reason = "副作用がなく、効果を感じづらくなり増量処方";
@@ -37,12 +37,12 @@ function buildKarteNote(
 }
 
 /**
- * 再処方決済時にカルテ（intakeレコード）を自動作成
+ * 再処方決済時に reorders.karte_note を更新
  *
  * @param patientId    患者ID
  * @param productCode  今回の商品コード (例: "MJL_5mg_1m")
- * @param paidAt       決済日時 ISO文字列 (この時刻 - 15分をカルテのcreated_atにする)
- * @param reorderGasRow 今回のreorderのgas_row_number (重複チェック用、省略可)
+ * @param paidAt       決済日時 ISO文字列 (未使用だが互換性のため残す)
+ * @param reorderGasRow 今回のreorderのgas_row_number (特定用、省略可)
  */
 export async function createReorderPaymentKarte(
   patientId: string,
@@ -55,47 +55,20 @@ export async function createReorderPaymentKarte(
     return;
   }
 
-  // 重複チェック: 同じreorderに対してすでにカルテがあるかチェック
-  // noteに「再処方決済」+同じ商品名が含まれ、created_atが近いものがあればスキップ
-  const productName = formatProductCode(productCode);
-  const paidDate = new Date(paidAt);
-  const karteTime = new Date(paidDate.getTime() - 15 * 60 * 1000); // -15分
-
-  // ±30分以内に同じ商品の決済カルテがあればスキップ
-  const checkFrom = new Date(karteTime.getTime() - 30 * 60 * 1000).toISOString();
-  const checkTo = new Date(karteTime.getTime() + 30 * 60 * 1000).toISOString();
-
-  const { data: existing } = await supabaseAdmin
-    .from("intake")
-    .select("id")
-    .eq("patient_id", patientId)
-    .gte("created_at", checkFrom)
-    .lte("created_at", checkTo)
-    .ilike("note", `%再処方決済%${productName}%`)
-    .limit(1);
-
-  if (existing && existing.length > 0) {
-    console.log(`[reorder-karte] skipped: duplicate karte exists for patient=${patientId}, product=${productCode}`);
-    return;
-  }
-
   // 前回の決済済みreorderを取得して用量を比較
   const currentDose = extractDose(productCode);
   let prevDose: number | null = null;
 
   try {
-    let prevQuery = supabaseAdmin
+    const { data: prevReorders } = await supabaseAdmin
       .from("reorders")
       .select("product_code, paid_at")
       .eq("patient_id", patientId)
       .eq("status", "paid")
       .order("paid_at", { ascending: false })
-      .limit(2); // 今回分を除外するため2件取得
-
-    const { data: prevReorders } = await prevQuery;
+      .limit(2);
 
     if (prevReorders && prevReorders.length > 0) {
-      // 今回のreorderを除外（gas_row_numberがある場合はそれで、なければ直近を除外）
       const prev = prevReorders.find(r => r.product_code !== productCode) || prevReorders[1];
       if (prev) {
         prevDose = extractDose(prev.product_code || "");
@@ -105,52 +78,26 @@ export async function createReorderPaymentKarte(
     console.error("[reorder-karte] Error fetching previous reorder:", err);
   }
 
-  // 患者名・LINE IDを取得
-  let patientName = "";
-  let lineId: string | null = null;
-  try {
-    const { data: answerer } = await supabaseAdmin
-      .from("answerers")
-      .select("name, line_id")
-      .eq("patient_id", patientId)
-      .limit(1)
-      .maybeSingle();
-    patientName = answerer?.name || "";
-    lineId = answerer?.line_id || null;
-  } catch (_) {}
-  // answerers に名前がなければ intake から取得
-  if (!patientName) {
-    try {
-      const { data: prev } = await supabaseAdmin
-        .from("intake")
-        .select("patient_name, line_id")
-        .eq("patient_id", patientId)
-        .not("patient_name", "is", null)
-        .not("patient_name", "eq", "")
-        .limit(1)
-        .maybeSingle();
-      if (prev) {
-        patientName = prev.patient_name || "";
-        if (!lineId) lineId = prev.line_id || null;
-      }
-    } catch (_) {}
-  }
-
   // カルテ本文を生成
   const note = buildKarteNote(productCode, prevDose, currentDose);
 
-  // intakeレコード作成 (created_at = 決済時刻 - 15分)
-  const { error } = await supabaseAdmin.from("intake").insert({
-    patient_id: patientId,
-    patient_name: patientName,
-    line_id: lineId,
-    note,
-    created_at: karteTime.toISOString(),
-  });
+  // reorders テーブルの karte_note を更新
+  // 対象: 同じ patient_id + product_code で status=paid の最新レコード
+  let query = supabaseAdmin
+    .from("reorders")
+    .update({ karte_note: note })
+    .eq("patient_id", patientId)
+    .eq("product_code", productCode)
+    .eq("status", "paid")
+    .is("karte_note", null); // まだカルテ未作成のもののみ
+
+  const { data: updated, error } = await query.select("id");
 
   if (error) {
-    console.error(`[reorder-karte] intake insert error for patient=${patientId}:`, error);
+    console.error(`[reorder-karte] reorders update error for patient=${patientId}:`, error);
+  } else if (updated && updated.length > 0) {
+    console.log(`[reorder-karte] karte saved to reorders: patient=${patientId}, product=${productCode}, dose=${currentDose}mg, prevDose=${prevDose}mg, rows=${updated.length}`);
   } else {
-    console.log(`[reorder-karte] karte created: patient=${patientId}, product=${productCode}, dose=${currentDose}mg, prevDose=${prevDose}mg`);
+    console.log(`[reorder-karte] no matching reorder to update: patient=${patientId}, product=${productCode}`);
   }
 }

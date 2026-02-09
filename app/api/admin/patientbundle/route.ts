@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         .limit(30),
       supabaseAdmin
         .from("reorders")
-        .select("id, gas_row_number, product_code, status, note, created_at, approved_at")
+        .select("id, gas_row_number, product_code, status, note, karte_note, created_at, approved_at, paid_at")
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(10),
@@ -97,8 +97,10 @@ export async function GET(req: NextRequest) {
       status: formatReorderStatus(r.status),
       rawStatus: r.status || "",
       note: r.note || "",
+      karteNote: r.karte_note || "",
       createdAt: formatDateJST(r.created_at),
       approvedAt: r.approved_at ? formatDateJST(r.approved_at) : null,
+      paidAt: r.paid_at ? formatDateJST(r.paid_at) : null,
     }));
 
     return NextResponse.json({
