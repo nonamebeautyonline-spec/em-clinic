@@ -1941,8 +1941,8 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
           </p>
         </div>
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pt-0.5">
-          {f.last_text_at && (
-            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at)}</span>
+          {(f.last_text_at || f.last_sent_at) && (
+            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at || f.last_sent_at!)}</span>
           )}
           {showMark && (
             <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
