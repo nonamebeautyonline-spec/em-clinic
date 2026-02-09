@@ -15,7 +15,7 @@ export function extractDose(productCode: string): number | null {
 /**
  * 前回と今回の用量を比較してカルテ本文を生成
  */
-function buildKarteNote(
+export function buildKarteNote(
   productCode: string,
   prevDose: number | null,
   currentDose: number | null,
@@ -33,7 +33,7 @@ function buildKarteNote(
     reason = "副作用がなく、継続使用のため処方";
   }
 
-  return `再処方決済\n商品: ${productName}\n${reason}`;
+  return `再処方希望\n商品: ${productName}\n${reason}`;
 }
 
 /**

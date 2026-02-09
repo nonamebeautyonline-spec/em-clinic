@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { formatProductCode } from "@/lib/patient-utils";
+import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -81,9 +82,35 @@ export async function POST(req: NextRequest) {
 
     console.log(`[admin/reorders/approve] Approved: gas_row=${id}, patient=${reorderData.patient_id}`);
 
-    // カルテ自動追加（再処方承認記録）
-    if (reorderData.patient_id) {
+    // カルテ自動追加（用量比較付き）
+    if (reorderData.patient_id && reorderData.product_code) {
       try {
+        const currentDose = extractDose(reorderData.product_code);
+        let prevDose: number | null = null;
+
+        // 前回の決済済みreorderから用量を取得
+        const { data: prevReorders } = await supabaseAdmin
+          .from("reorders")
+          .select("product_code")
+          .eq("patient_id", reorderData.patient_id)
+          .eq("status", "paid")
+          .order("paid_at", { ascending: false })
+          .limit(1);
+
+        if (prevReorders && prevReorders.length > 0) {
+          prevDose = extractDose(prevReorders[0].product_code || "");
+        }
+
+        const note = buildKarteNote(reorderData.product_code, prevDose, currentDose);
+
+        // 1. reorders.karte_note に保存
+        await supabaseAdmin
+          .from("reorders")
+          .update({ karte_note: note })
+          .eq("id", reorderData.id)
+          .is("karte_note", null);
+
+        // 2. intake に Dr Note として作成（来院履歴に表示）
         const { data: answerer } = await supabaseAdmin
           .from("answerers")
           .select("name, line_id")
@@ -93,7 +120,6 @@ export async function POST(req: NextRequest) {
 
         let patientName = answerer?.name || "";
         let lineId = answerer?.line_id || null;
-        // answerers に名前がなければ intake から取得
         if (!patientName) {
           const { data: prevIntake } = await supabaseAdmin
             .from("intake")
@@ -109,21 +135,17 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const productName = formatProductCode(reorderData.product_code);
-        const now = new Date();
-        const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-        const stamp = `${jst.getUTCFullYear()}/${String(jst.getUTCMonth() + 1).padStart(2, "0")}/${String(jst.getUTCDate()).padStart(2, "0")} ${String(jst.getUTCHours()).padStart(2, "0")}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
-
         await supabaseAdmin.from("intake").insert({
           patient_id: reorderData.patient_id,
           patient_name: patientName,
           line_id: lineId,
-          note: `再処方承認\n商品: ${productName}\n承認日時: ${stamp}`,
-          created_at: now.toISOString(),
+          note,
+          created_at: new Date().toISOString(),
         });
-        console.log(`[admin/reorders/approve] Auto karte created for patient ${reorderData.patient_id}`);
+
+        console.log(`[admin/reorders/approve] karte saved: patient=${reorderData.patient_id}, dose=${currentDose}mg, prev=${prevDose}mg`);
       } catch (karteErr) {
-        console.error("[admin/reorders/approve] Auto karte creation error:", karteErr);
+        console.error("[admin/reorders/approve] karte error:", karteErr);
       }
     }
 

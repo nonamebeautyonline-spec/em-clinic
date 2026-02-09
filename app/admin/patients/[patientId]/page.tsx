@@ -486,11 +486,6 @@ export default function PatientDetailPage({
                                 </div>
                                 <span className="text-xs text-gray-300 font-mono">#{r.id}</span>
                               </div>
-                              {r.karteNote && (
-                                <div className="mt-1.5 ml-1 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 whitespace-pre-wrap">
-                                  {r.karteNote}
-                                </div>
-                              )}
                             </div>
                           );
                         })}
