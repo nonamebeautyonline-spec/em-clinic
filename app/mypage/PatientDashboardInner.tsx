@@ -495,6 +495,7 @@ if (typeof window !== "undefined") {
           const label = PRODUCT_LABELS[code] || code || "マンジャロ";
           return {
             id: String(r.id ?? ""),
+            gas_row_number: r.gas_row_number != null ? Number(r.gas_row_number) : null,
 timestamp: String(r.timestamp ?? r.createdAt ?? ""),
             product_code: code,
             productCode: code,

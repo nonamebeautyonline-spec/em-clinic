@@ -44,27 +44,43 @@ if (!Number.isFinite(idNum) || idNum < 2) {
     console.error("GAS reorder paid exception:", e);
   }
 
-  // ★ Supabaseも更新（gas_row_numberでマッチング）
+  // ★ Supabaseも更新（gas_row_numberでマッチング → ダメなら id でフォールバック）
   try {
+    const paidPayload = { status: "paid" as const, paid_at: new Date().toISOString() };
+
+    // 1) gas_row_number で更新を試みる
     let query = supabaseAdmin
       .from("reorders")
-      .update({
-        status: "paid",
-        paid_at: new Date().toISOString(),
-      })
-      .eq("gas_row_number", idNum);
+      .update(paidPayload)
+      .eq("gas_row_number", idNum)
+      .eq("status", "confirmed");
+    if (patientId) query = query.eq("patient_id", patientId);
 
-    // patient_idがあれば追加条件として使用（安全性向上）
-    if (patientId) {
-      query = query.eq("patient_id", patientId);
-    }
-
-    const { error: dbError } = await query;
+    const { data: updated, error: dbError } = await query.select("id");
 
     if (dbError) {
       console.error("[square/webhook] Supabase reorder paid error:", dbError);
+    } else if (updated && updated.length > 0) {
+      console.log(`[square/webhook] Supabase reorder paid success (gas_row), row=${idNum}`);
     } else {
-      console.log(`[square/webhook] Supabase reorder paid success, row=${idNum}`);
+      // 2) gas_row_number でヒットしなかった場合、id（SERIAL PK）でフォールバック
+      //    フロント側で gas_row_number が欠落して id が渡されたケースを救済
+      console.warn(`[square/webhook] gas_row_number=${idNum} matched 0 rows, trying id fallback`);
+      let fallback = supabaseAdmin
+        .from("reorders")
+        .update(paidPayload)
+        .eq("id", idNum)
+        .eq("status", "confirmed");
+      if (patientId) fallback = fallback.eq("patient_id", patientId);
+
+      const { data: fb, error: fbErr } = await fallback.select("id");
+      if (fbErr) {
+        console.error("[square/webhook] Supabase reorder paid fallback error:", fbErr);
+      } else if (fb && fb.length > 0) {
+        console.log(`[square/webhook] Supabase reorder paid success (id fallback), id=${idNum}`);
+      } else {
+        console.warn(`[square/webhook] Supabase reorder paid: no rows matched (gas_row=${idNum}, id=${idNum})`);
+      }
     }
   } catch (dbErr) {
     console.error("[square/webhook] Supabase reorder paid exception:", dbErr);
