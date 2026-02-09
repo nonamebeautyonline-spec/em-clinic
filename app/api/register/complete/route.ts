@@ -2,6 +2,7 @@
 // 電話認証完了時に answerers.tel を保存 + リッチメニュー切り替え
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { normalizeJPPhone } from "@/lib/phone";
 
 const LINE_ACCESS_TOKEN =
   process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
@@ -9,10 +10,12 @@ const LINE_ACCESS_TOKEN =
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone } = (await req.json().catch(() => ({}))) as { phone?: string };
-    if (!phone) {
+    const { phone: rawPhone } = (await req.json().catch(() => ({}))) as { phone?: string };
+    if (!rawPhone) {
       return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
     }
+    // +81形式 → 0始まり国内形式に正規化
+    const phone = normalizeJPPhone(rawPhone);
 
     const lineUserId = req.cookies.get("line_user_id")?.value || "";
     const cookiePatientId = req.cookies.get("__Host-patient_id")?.value
@@ -21,20 +24,21 @@ export async function POST(req: NextRequest) {
     let pid: string | null = null;
 
     // ============================================================
-    // ステップ1: Supabaseで電話番号から既存患者を検索
-    //   → スマホ/LINE変更時の再紐付け
+    // ステップ1: LINE UID で intake を検索（最優先）
+    //   → LINE連携済みユーザーの確実な紐付け
     // ============================================================
-    {
-      const { data: byPhone } = await supabaseAdmin
-        .from("answerers")
+    if (!pid && lineUserId) {
+      const { data: byLine } = await supabaseAdmin
+        .from("intake")
         .select("patient_id")
-        .eq("tel", phone)
+        .eq("line_id", lineUserId)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (byPhone?.patient_id) {
-        pid = byPhone.patient_id;
-        console.log("[register/complete] Found patient by phone in Supabase:", pid);
+      if (byLine?.patient_id) {
+        pid = byLine.patient_id;
+        console.log("[register/complete] Found patient by LINE UID:", pid);
       }
     }
 
@@ -43,7 +47,6 @@ export async function POST(req: NextRequest) {
     //   → /register で事前発行された新規患者
     // ============================================================
     if (!pid && cookiePatientId) {
-      // cookieのpatient_idが実在するか確認
       const { data: byCookie } = await supabaseAdmin
         .from("intake")
         .select("patient_id")
@@ -57,9 +60,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ============================================================
+    // ステップ3: 電話番号で answerers を検索（フォールバック）
+    //   → スマホ/LINE変更時の再紐付け
+    // ============================================================
+    if (!pid) {
+      const { data: byPhone } = await supabaseAdmin
+        .from("answerers")
+        .select("patient_id")
+        .eq("tel", phone)
+        .limit(1)
+        .maybeSingle();
+
+      if (byPhone?.patient_id) {
+        pid = byPhone.patient_id;
+        console.log("[register/complete] Found patient by phone:", pid);
+      }
+    }
+
     // どこにも見つからない
     if (!pid) {
-      console.error("[register/complete] Patient not found anywhere for phone:", phone.slice(-4));
+      console.error("[register/complete] Patient not found. lineUid:", lineUserId ? lineUserId.slice(-6) : "none", "cookie:", cookiePatientId || "none", "phone:", phone.slice(-4));
       return NextResponse.json({ ok: false, error: "not_found" }, { status: 200 });
     }
 

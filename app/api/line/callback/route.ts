@@ -1,6 +1,6 @@
 // app/api/line/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   // ★ LINE UIDでDB照合 → 既知の患者ならSMS認証スキップ
   let patientId: string | null = null;
 
-  const { data } = await supabase
+  const { data } = await supabaseAdmin
     .from("intake")
     .select("patient_id")
     .eq("line_id", lineUserId)

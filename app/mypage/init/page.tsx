@@ -120,7 +120,7 @@ body: JSON.stringify({ phone: normalized }),
       if (!completeJson?.ok) {
         if (completeJson?.error === "not_found") {
           throw new Error(
-            "問診フォームに入力した電話番号と同じ番号が見つかりませんでした。\n番号をご確認のうえ、もう一度お試しください。"
+            "患者情報の紐付けに失敗しました。\nお手数ですが、LINEメッセージより直接お問い合わせください。"
           );
         }
         throw new Error("マイページとの紐付けに失敗しました。時間をおいて再度お試しください。");
@@ -165,7 +165,7 @@ body: JSON.stringify({ phone: normalized }),
           <br />
           SMSで届く認証コードでご本人確認を行います。
           <br />
-          問診フォームで入力いただいた電話番号と同じ番号をご入力ください。
+          ご本人確認のため、携帯電話番号をご入力ください。
         </p>
 
         <div className="mt-5 flex items-center gap-2 text-[11px] text-slate-500">
