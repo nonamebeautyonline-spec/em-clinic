@@ -259,7 +259,7 @@ export default function TalkPage() {
         setMarkOptions(marksData.marks.map((m: { value: string; label: string; color: string; icon: string }) => ({
           value: m.value,
           label: m.label,
-          color: m.value === "none" ? "transparent" : m.color,
+          color: m.color,
           icon: m.icon || "●",
         })));
       }
@@ -1595,10 +1595,8 @@ export default function TalkPage() {
                   className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-white"
                 >
                   <div className="flex items-center gap-2">
-                    {currentMark.value !== "none" && (
-                      <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: currentMark.color }} />
-                    )}
-                    <span className={`text-[12px] ${currentMark.value === "none" ? "text-gray-400" : "text-gray-800 font-medium"}`}>
+                    <span className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: currentMark.color }} />
+                    <span className="text-[12px] text-gray-800 font-medium">
                       {currentMark.label}
                     </span>
                   </div>
@@ -1614,11 +1612,7 @@ export default function TalkPage() {
                         onClick={() => handleMarkChange(m.value)}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-gray-50 transition-colors text-[12px] ${patientMark === m.value ? "bg-gray-50 font-semibold" : "text-gray-600"}`}
                       >
-                        {m.value !== "none" ? (
-                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
-                        ) : (
-                          <span className="w-3 h-3 rounded-full border-2 border-gray-200" />
-                        )}
+                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: m.color }} />
                         {m.label}
                         {patientMark === m.value && <svg className="w-3.5 h-3.5 ml-auto text-[#00B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
                       </button>
