@@ -95,12 +95,12 @@ async function getPatientInfoFromSupabase(
   patientId: string
 ): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null } | null> {
   try {
-    // 最新intake（患者名・LINE ID・ステータス用）
+    // 最初のintake（問診本体）を取得 — 再処方カルテより必ず古い
     const { data, error } = await supabaseAdmin
       .from("intake")
       .select("patient_id, patient_name, line_id, status, answers")
       .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .limit(1)
       .single();
 
@@ -108,45 +108,15 @@ async function getPatientInfoFromSupabase(
       return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
     }
 
-    // 問診完了 = answersにng_check（問診の必須項目）があるintakeが1件でもあるか
-    // ※ 再処方カルテもintakeに入るため最新1件だけでは判定できない
-    let hasCompletedQuestionnaire = false;
     const answers = data.answers as Record<string, unknown> | null;
-    if (answers && typeof answers.ng_check === "string" && answers.ng_check !== "") {
-      hasCompletedQuestionnaire = true;
-    } else {
-      // 最新がカルテ等の場合、過去のintakeを確認
-      const { data: prev } = await supabaseAdmin
-        .from("intake")
-        .select("id")
-        .eq("patient_id", patientId)
-        .not("answers", "is", null)
-        .filter("answers->ng_check", "neq", null)
-        .limit(1)
-        .maybeSingle();
-      hasCompletedQuestionnaire = !!prev;
-    }
-
-    // intakeStatus は answers 付きの最新レコードから取得
-    let intakeStatus = data.status || null;
-    if (!intakeStatus && hasCompletedQuestionnaire) {
-      const { data: statusRow } = await supabaseAdmin
-        .from("intake")
-        .select("status")
-        .eq("patient_id", patientId)
-        .not("status", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      intakeStatus = statusRow?.status || null;
-    }
+    const hasCompletedQuestionnaire = !!answers && typeof answers.ng_check === "string" && answers.ng_check !== "";
 
     return {
       id: data.patient_id,
       displayName: data.patient_name || "",
       lineId: data.line_id || "",
       hasIntake: hasCompletedQuestionnaire,
-      intakeStatus,
+      intakeStatus: data.status || null,
     };
   } catch (err) {
     console.error("[Supabase] getPatientInfo error:", err);
