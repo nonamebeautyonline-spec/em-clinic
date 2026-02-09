@@ -174,18 +174,20 @@ export default function DoctorPage() {
         return;
       }
 
-      // ★ 既存データとマージ（重複排除）
+      // ★ 取得範囲内の既存行を最新データで差し替え
+      const rangeFrom = fromIso!;
+      const rangeTo = toIso!;
       setRows((prevRows) => {
-        const merged = [...prevRows];
-        const existingIds = new Set(prevRows.map((r) => pickReserveId(r)));
-
-        for (const row of newRows) {
-          const id = pickReserveId(row);
-          if (!existingIds.has(id)) {
-            merged.push(row);
-          }
-        }
-        return merged;
+        // 取得範囲外の行を保持
+        const outsideRange = prevRows.filter((r) => {
+          const date = normalizeDateStr(pick(r, ["reserved_date", "予約日"]));
+          if (!date) return true;
+          return date < rangeFrom || date > rangeTo;
+        });
+        // 範囲外でも同一予約IDがあれば除去（日付変更で移動した場合）
+        const newIds = new Set(newRows.map((r) => pickReserveId(r)));
+        const kept = outsideRange.filter((r) => !newIds.has(pickReserveId(r)));
+        return [...kept, ...newRows];
       });
 
       // ★ 取得済み日付を記録
