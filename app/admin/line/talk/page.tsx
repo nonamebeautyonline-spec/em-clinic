@@ -842,8 +842,8 @@ export default function TalkPage() {
   });
 
   const sortByLatest = (a: Friend, b: Friend) => {
-    const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : 0;
-    const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : 0;
+    const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : (a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0);
+    const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
     return tb - ta;
   };
   const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
