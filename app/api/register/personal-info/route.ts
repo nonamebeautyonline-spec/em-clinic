@@ -140,14 +140,37 @@ export async function POST(req: NextRequest) {
       birth: birthday,
     };
 
-    const { error: intakeError } = await supabaseAdmin
+    // 旧LINE_レコード削除済みなので insert で新規作成
+    // （patient_idユニーク制約がないため upsert は使えない）
+    const { data: existingIntake } = await supabaseAdmin
       .from("intake")
-      .upsert({
-        patient_id: patientId,
-        patient_name: name.trim(),
-        line_id: lineUserId || null,
-        answers,
-      }, { onConflict: "patient_id" });
+      .select("id")
+      .eq("patient_id", patientId)
+      .limit(1)
+      .maybeSingle();
+
+    let intakeError: any = null;
+    if (existingIntake) {
+      const { error } = await supabaseAdmin
+        .from("intake")
+        .update({
+          patient_name: name.trim(),
+          line_id: lineUserId || null,
+          answers,
+        })
+        .eq("patient_id", patientId);
+      intakeError = error;
+    } else {
+      const { error } = await supabaseAdmin
+        .from("intake")
+        .insert({
+          patient_id: patientId,
+          patient_name: name.trim(),
+          line_id: lineUserId || null,
+          answers,
+        });
+      intakeError = error;
+    }
 
     if (intakeError) {
       console.error("[register/personal-info] Intake upsert failed:", intakeError.message);

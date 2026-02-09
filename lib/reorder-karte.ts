@@ -105,17 +105,36 @@ export async function createReorderPaymentKarte(
     console.error("[reorder-karte] Error fetching previous reorder:", err);
   }
 
-  // 患者名を取得
+  // 患者名・LINE IDを取得
   let patientName = "";
+  let lineId: string | null = null;
   try {
     const { data: answerer } = await supabaseAdmin
       .from("answerers")
-      .select("name")
+      .select("name, line_id")
       .eq("patient_id", patientId)
       .limit(1)
       .maybeSingle();
     patientName = answerer?.name || "";
+    lineId = answerer?.line_id || null;
   } catch (_) {}
+  // answerers に名前がなければ intake から取得
+  if (!patientName) {
+    try {
+      const { data: prev } = await supabaseAdmin
+        .from("intake")
+        .select("patient_name, line_id")
+        .eq("patient_id", patientId)
+        .not("patient_name", "is", null)
+        .not("patient_name", "eq", "")
+        .limit(1)
+        .maybeSingle();
+      if (prev) {
+        patientName = prev.patient_name || "";
+        if (!lineId) lineId = prev.line_id || null;
+      }
+    } catch (_) {}
+  }
 
   // カルテ本文を生成
   const note = buildKarteNote(productCode, prevDose, currentDose);
@@ -124,6 +143,7 @@ export async function createReorderPaymentKarte(
   const { error } = await supabaseAdmin.from("intake").insert({
     patient_id: patientId,
     patient_name: patientName,
+    line_id: lineId,
     note,
     created_at: karteTime.toISOString(),
   });

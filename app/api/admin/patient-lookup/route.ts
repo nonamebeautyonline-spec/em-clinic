@@ -161,6 +161,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // answerers から名前・LINE IDをフォールバック取得
+    if (!patientName || patientName === "-") {
+      const { data: answerer } = await supabaseAdmin
+        .from("answerers")
+        .select("name, line_id")
+        .eq("patient_id", patientId)
+        .maybeSingle();
+      if (answerer?.name) patientName = answerer.name;
+    }
+
     // 全注文履歴を取得（処方履歴）
     const { data: allOrders } = await supabaseAdmin
       .from("orders")

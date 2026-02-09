@@ -182,16 +182,16 @@ async function findOrCreatePatient(lineUid: string) {
   // patient_idを生成（LINE_で始まるUID末尾8文字）
   const patientId = `LINE_${lineUid.slice(-8)}`;
 
-  // intakeレコードを作成
+  // intakeレコードを作成（patient_idユニーク制約なしのため insert を使用）
   const { error } = await supabaseAdmin
     .from("intake")
-    .upsert({
+    .insert({
       patient_id: patientId,
       patient_name: displayName,
       line_id: lineUid,
       line_display_name: profile.displayName || null,
       line_picture_url: profile.pictureUrl || null,
-    }, { onConflict: "patient_id" });
+    });
 
   if (error) {
     console.error("[webhook] auto-create intake failed:", error.message);

@@ -108,10 +108,8 @@ export async function POST(req: NextRequest) {
           ...(email ? { メールアドレス: email, email } : {}),
         };
 
-        const result = await supabase
-          .from("intake")
-          .upsert({
-            patient_id: patientId,
+        // patient_idユニーク制約なしのため select→insert/update パターン
+        const intakePayload = {
             patient_name: name || existingRecord?.patient_name || null,
             answerer_id: answererId,
             line_id: lineId || existingRecord?.line_id || null,
@@ -122,9 +120,16 @@ export async function POST(req: NextRequest) {
             note: existingRecord?.note ?? null,
             prescription_menu: existingRecord?.prescription_menu ?? null,
             answers: mergedAnswers,
-          }, {
-            onConflict: "patient_id",
-          });
+        };
+
+        const result = existingRecord
+          ? await supabase
+              .from("intake")
+              .update(intakePayload)
+              .eq("patient_id", patientId)
+          : await supabase
+              .from("intake")
+              .insert({ patient_id: patientId, ...intakePayload });
 
         if (result.error) {
           throw result.error;

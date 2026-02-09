@@ -25,9 +25,12 @@ export async function GET(req: NextRequest) {
 
   // 並列でデータ取得（左カラム表示に必要な最小限のみ）
   // tags/fieldsは患者選択時に別APIで取得するためここでは不要
-  const [intakeRes, marksRes, lastMsgRes] = await Promise.all([
+  const [intakeRes, answerersRes, marksRes, lastMsgRes] = await Promise.all([
     fetchAll(
       () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id, line_display_name, line_picture_url").not("patient_id", "is", null).order("created_at", { ascending: false }),
+    ),
+    fetchAll(
+      () => supabaseAdmin.from("answerers").select("patient_id, name, line_id"),
     ),
     fetchAll(
       () => supabaseAdmin.from("patient_marks").select("*"),
@@ -41,11 +44,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: intakeRes.error.message }, { status: 500 });
   }
 
+  // answerers情報をマッピング（名前・LINE IDのフォールバック用）
+  const answererMap = new Map<string, { name: string; line_id: string | null }>();
+  for (const row of answerersRes.data || []) {
+    if (row.patient_id) {
+      answererMap.set(row.patient_id, { name: row.name || "", line_id: row.line_id || null });
+    }
+  }
+
   // patient_idでユニーク化（最新レコード優先）
   const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null; line_display_name: string | null; line_picture_url: string | null }>();
   for (const row of intakeRes.data || []) {
     if (!patientMap.has(row.patient_id)) {
-      patientMap.set(row.patient_id, row);
+      // answerers の情報でフォールバック
+      const answerer = answererMap.get(row.patient_id);
+      patientMap.set(row.patient_id, {
+        ...row,
+        patient_name: row.patient_name || answerer?.name || "",
+        line_id: row.line_id || answerer?.line_id || null,
+      });
     }
   }
 

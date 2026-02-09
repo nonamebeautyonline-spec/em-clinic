@@ -86,10 +86,28 @@ export async function POST(req: NextRequest) {
       try {
         const { data: answerer } = await supabaseAdmin
           .from("answerers")
-          .select("name")
+          .select("name, line_id")
           .eq("patient_id", reorderData.patient_id)
           .limit(1)
           .maybeSingle();
+
+        let patientName = answerer?.name || "";
+        let lineId = answerer?.line_id || null;
+        // answerers に名前がなければ intake から取得
+        if (!patientName) {
+          const { data: prevIntake } = await supabaseAdmin
+            .from("intake")
+            .select("patient_name, line_id")
+            .eq("patient_id", reorderData.patient_id)
+            .not("patient_name", "is", null)
+            .not("patient_name", "eq", "")
+            .limit(1)
+            .maybeSingle();
+          if (prevIntake) {
+            patientName = prevIntake.patient_name || "";
+            if (!lineId) lineId = prevIntake.line_id || null;
+          }
+        }
 
         const productName = formatProductCode(reorderData.product_code);
         const now = new Date();
@@ -98,7 +116,8 @@ export async function POST(req: NextRequest) {
 
         await supabaseAdmin.from("intake").insert({
           patient_id: reorderData.patient_id,
-          patient_name: answerer?.name || "",
+          patient_name: patientName,
+          line_id: lineId,
           note: `再処方承認\n商品: ${productName}\n承認日時: ${stamp}`,
           created_at: now.toISOString(),
         });
