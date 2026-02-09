@@ -161,14 +161,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // answerers から名前・LINE IDをフォールバック取得
-    if (!patientName || patientName === "-") {
-      const { data: answerer } = await supabaseAdmin
-        .from("answerers")
-        .select("name, line_id")
-        .eq("patient_id", patientId)
-        .maybeSingle();
-      if (answerer?.name) patientName = answerer.name;
+    // answerers から個人情報をフォールバック取得（名前・カナ・性別・生年月日）
+    const { data: answerer } = await supabaseAdmin
+      .from("answerers")
+      .select("name, name_kana, sex, birthday, line_id")
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if ((!patientName || patientName === "-") && answerer?.name) {
+      patientName = answerer.name;
     }
 
     // 全注文履歴を取得（処方履歴）
@@ -287,19 +287,31 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const answers = (intakeRecord?.answers as Record<string, any>) || {};
 
-    // 問診未提出（answersが空 or 問診項目がない）場合は medicalInfo を null にして非表示
+    // 問診提出済みかどうか
     const hasIntakeAnswers = answers && Object.keys(answers).length > 0
       && (answers.current_disease_yesno || answers.glp_history || answers.med_yesno || answers.allergy_yesno);
 
+    // answerers に個人情報があるか（問診未提出でも登録済みなら表示）
+    const hasAnswererInfo = answerer && (answerer.name_kana || answerer.sex || answerer.birthday);
+
     const medicalInfo = hasIntakeAnswers ? {
-      kana: answers?.カナ || answers?.name_kana || "",
-      gender: answers?.性別 || answers?.sex || "",
-      birthday: answers?.生年月日 || answers?.birth || "",
+      kana: answers?.カナ || answers?.name_kana || answerer?.name_kana || "",
+      gender: answers?.性別 || answers?.sex || answerer?.sex || "",
+      birthday: answers?.生年月日 || answers?.birth || answerer?.birthday || "",
       medicalHistory: answers?.current_disease_yesno === "yes" ? (answers?.current_disease_detail || "") : "特記事項なし",
       glp1History: answers?.glp_history || "使用歴なし",
       medicationHistory: answers?.med_yesno === "yes" ? (answers?.med_detail || "") : "なし",
       allergies: answers?.allergy_yesno === "yes" ? (answers?.allergy_detail || "") : "アレルギーなし",
       prescriptionMenu: intakeRecord?.prescription_menu || "",
+    } : hasAnswererInfo ? {
+      kana: answerer?.name_kana || "",
+      gender: answerer?.sex || "",
+      birthday: answerer?.birthday || "",
+      medicalHistory: "",
+      glp1History: "",
+      medicationHistory: "",
+      allergies: "",
+      prescriptionMenu: "",
     } : null;
 
     return NextResponse.json({
