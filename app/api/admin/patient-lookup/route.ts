@@ -295,6 +295,7 @@ export async function GET(req: NextRequest) {
     const hasAnswererInfo = answerer && (answerer.name_kana || answerer.sex || answerer.birthday);
 
     const medicalInfo = hasIntakeAnswers ? {
+      hasIntake: true,
       kana: answers?.カナ || answers?.name_kana || answerer?.name_kana || "",
       gender: answers?.性別 || answers?.sex || answerer?.sex || "",
       birthday: answers?.生年月日 || answers?.birth || answerer?.birthday || "",
@@ -304,6 +305,7 @@ export async function GET(req: NextRequest) {
       allergies: answers?.allergy_yesno === "yes" ? (answers?.allergy_detail || "") : "アレルギーなし",
       prescriptionMenu: intakeRecord?.prescription_menu || "",
     } : hasAnswererInfo ? {
+      hasIntake: false,
       kana: answerer?.name_kana || "",
       gender: answerer?.sex || "",
       birthday: answerer?.birthday || "",

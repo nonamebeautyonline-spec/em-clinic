@@ -83,6 +83,7 @@ interface PatientDetail {
   pendingBankTransfer: { product: string; date: string } | null;
   nextReservation: string | null;
   medicalInfo: {
+    hasIntake?: boolean;
     kana: string;
     gender: string;
     birthday: string;
@@ -1677,8 +1678,8 @@ export default function TalkPage() {
               </div>
             )}
 
-            {/* 問診事項 */}
-            {patientDetail?.medicalInfo && (
+            {/* 問診事項（問診提出済みの場合のみ） */}
+            {patientDetail?.medicalInfo?.hasIntake && (
               <div className="px-4 py-3 border-b border-gray-100">
                 <SectionLabel>問診事項</SectionLabel>
                 <div className="space-y-2">
