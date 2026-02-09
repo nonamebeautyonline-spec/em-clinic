@@ -199,12 +199,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "productCode_required" }, { status: 400 });
     }
 
-    // ★ NG患者は再処方申請不可
+    // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
     {
       const { data: intakeRow } = await supabaseAdmin
         .from("intake")
         .select("status")
         .eq("patient_id", patientId)
+        .not("status", "is", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
