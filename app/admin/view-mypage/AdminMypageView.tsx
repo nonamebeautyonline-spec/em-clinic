@@ -282,11 +282,11 @@ export default function AdminMypageView({ data }: { data: any }) {
   const mapOrder = (o: any): Order => {
     // payment_status: COMPLETED → paid, PENDING → pending, etc.
     const mapPaymentStatus = (s: string): PaymentStatus => {
-      const normalized = String(s || "").toUpperCase();
-      if (normalized === "COMPLETED") return "paid";
-      if (normalized === "PENDING") return "pending";
-      if (normalized === "FAILED") return "failed";
-      if (normalized === "REFUNDED") return "refunded";
+      const upper = String(s || "").toUpperCase();
+      if (upper === "COMPLETED" || upper === "PAID") return "paid";
+      if (upper === "PENDING") return "pending";
+      if (upper === "FAILED") return "failed";
+      if (upper === "REFUNDED") return "refunded";
       return "pending";
     };
 
