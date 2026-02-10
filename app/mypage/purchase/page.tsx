@@ -161,17 +161,33 @@ function PurchasePageInner() {
             (a, b) => a.months - b.months
           );
 
+          const sectionColor =
+            section.mg === "2.5mg"
+              ? "border-emerald-400 bg-emerald-50"
+              : section.mg === "5mg"
+              ? "border-blue-400 bg-blue-50"
+              : "border-purple-400 bg-purple-50";
+          const badgeColor =
+            section.mg === "2.5mg"
+              ? "bg-emerald-500"
+              : section.mg === "5mg"
+              ? "bg-blue-500"
+              : "bg-purple-500";
+
           return (
             <section key={section.mg} className="space-y-3">
-              <div className="flex items-baseline justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">
+              <div className={`rounded-xl border-l-4 px-3 py-2.5 ${sectionColor}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white ${badgeColor}`}>
+                    {section.mg}
+                  </span>
+                  <h2 className="text-base font-bold text-slate-900">
                     {section.label}
                   </h2>
-                  <p className="mt-0.5 text-[11px] text-slate-500">
-                    週1回注射／{items.length}プラン
-                  </p>
                 </div>
+                <p className="mt-1 text-[11px] text-slate-600 ml-0.5">
+                  週1回注射／{items.length}プラン
+                </p>
               </div>
 
               <div className="space-y-3">
