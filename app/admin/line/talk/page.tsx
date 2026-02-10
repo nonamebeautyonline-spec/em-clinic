@@ -936,7 +936,7 @@ export default function TalkPage() {
       </div>
 
       {/* ========== 左カラム ========== */}
-      <div className={`w-full md:w-[300px] flex-1 md:flex-none md:flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
+      <div className={`w-full md:w-[350px] flex-1 md:flex-none md:flex-shrink-0 border-r border-gray-200/80 flex flex-col min-h-0 bg-white ${
         selectedPatient && mobileView !== "list" ? "hidden md:flex" : "flex"
       }`}>
         {/* 検索 */}
