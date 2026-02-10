@@ -1950,7 +1950,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-[13px] font-semibold text-gray-800 truncate">{f.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name || "（名前なし）"}</span>
+            <span className="text-[15px] font-semibold text-gray-800 truncate">{f.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name || "（名前なし）"}</span>
             {hasUnreadText && (
               <span className="w-2 h-2 rounded-full bg-[#00B900] flex-shrink-0" />
             )}
@@ -1961,7 +1961,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
         </div>
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pt-0.5">
           {(f.last_text_at || f.last_sent_at) && (
-            <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at || f.last_sent_at!)}</span>
+            <span className="text-[12px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at || f.last_sent_at!)}</span>
           )}
           {showMark && (
             <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>
