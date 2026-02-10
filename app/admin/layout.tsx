@@ -23,6 +23,8 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
+  { href: "/admin/products", icon: "💊", label: "商品管理" },
+  { href: "/admin/settings", icon: "🔧", label: "設定" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -381,6 +383,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           />
 
           <MenuSection label="システム" isOpen={isSidebarOpen} />
+          <MenuItem
+            href="/admin/products"
+            icon="💊"
+            label="商品管理"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/products"}
+          />
+          <MenuItem
+            href="/admin/settings"
+            icon="🔧"
+            label="設定"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/settings"}
+          />
           <MenuItem
             href="/admin/accounts"
             icon="⚙️"
