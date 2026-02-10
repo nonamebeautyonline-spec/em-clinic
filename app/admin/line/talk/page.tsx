@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 
 interface Friend {
@@ -123,6 +123,27 @@ function extractImageUrl(text: string) {
   const trimmed = text.trim();
   const m = trimmed.match(/^【.+?】(.+)/);
   return m ? m[1].trim() : trimmed;
+}
+
+// スタンプ判定・パース
+function isStickerContent(text: string): boolean {
+  return /^\[スタンプ\] packageId=\d+ stickerId=\d+$/.test(text?.trim());
+}
+function getStickerImageUrl(text: string): string | null {
+  const m = text?.match(/stickerId=(\d+)/);
+  return m ? `https://stickershop.line-scdn.net/stickershop/v1/sticker/${m[1]}/iPhone/sticker.png` : null;
+}
+
+// テキスト内URLをクリック可能にする
+function linkifyContent(text: string): ReactNode {
+  const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
+  const parts = text.split(urlRegex);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    urlRegex.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 break-all">{part}</a>
+    ) : part
+  );
 }
 
 const READ_STORAGE_KEY = "talk_read_timestamps";
@@ -1195,13 +1216,15 @@ export default function TalkPage() {
                               <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.line_display_name || selectedPatient?.patient_name || ""}</div>
                             )}
                             <div className="flex items-end gap-1.5">
-                              {isImageUrl(m.content) ? (
+                              {isStickerContent(m.content) ? (
+                                <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+                              ) : isImageUrl(m.content) ? (
                                 <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
                                   <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                                 </div>
                               ) : (
                                 <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
-                                  {m.content}
+                                  {linkifyContent(m.content)}
                                 </div>
                               )}
                               <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTime(m.sent_at)}</span>
@@ -1216,12 +1239,14 @@ export default function TalkPage() {
                             <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                           </div>
                           <div className="max-w-[65%]">
-                            {isImageUrl(m.content) ? (
+                            {isStickerContent(m.content) ? (
+                              <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+                            ) : isImageUrl(m.content) ? (
                               <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
                                 <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
                               </div>
                             ) : (
-                              <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{m.content}</div>
+                              <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{linkifyContent(m.content)}</div>
                             )}
                           </div>
                         </div>
@@ -1929,7 +1954,8 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
   const hasUnreadText = !!(f.last_text_at && (!readTimestamp || f.last_text_at > readTimestamp));
   // メッセージ表示テキスト
   const displayMessage = f.last_message
-    ? f.last_message.match(/^【.+?】/) && isImageUrl(f.last_message.replace(/^【.+?】/, ""))
+    ? isStickerContent(f.last_message) ? "[スタンプ]"
+      : f.last_message.match(/^【.+?】/) && isImageUrl(f.last_message.replace(/^【.+?】/, ""))
       ? f.last_message.match(/^【.+?】/)![0]
       : isImageUrl(f.last_message) ? "[画像]" : f.last_message
     : "メッセージなし";
