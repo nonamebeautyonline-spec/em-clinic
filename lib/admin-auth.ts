@@ -40,6 +40,23 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
  * リクエストからトークンを取得（後方互換性用）
  * クッキーがある場合はADMIN_TOKENを返す（API内部呼び出し用）
  */
+/**
+ * JWTからadmin userId（UUID）を取得
+ */
+export async function getAdminUserId(request: NextRequest): Promise<string | null> {
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      const { payload } = await jwtVerify(sessionCookie, secret);
+      return (payload as { userId?: string }).userId || null;
+    } catch {
+      // クッキー無効
+    }
+  }
+  return null;
+}
+
 export async function getAdminToken(request: NextRequest): Promise<string | null> {
   // クッキーベースの認証が成功した場合、ADMIN_TOKENを返す
   const sessionCookie = request.cookies.get("admin_session")?.value;

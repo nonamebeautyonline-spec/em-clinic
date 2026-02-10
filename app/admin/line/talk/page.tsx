@@ -125,7 +125,6 @@ function extractImageUrl(text: string) {
   return m ? m[1].trim() : trimmed;
 }
 
-const PIN_STORAGE_KEY = "talk_pinned_patients";
 const READ_STORAGE_KEY = "talk_read_timestamps";
 const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
@@ -204,12 +203,32 @@ export default function TalkPage() {
   // 既読タイムスタンプ管理（テキスト未読ドット用）
   const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>({});
 
-  // ピン留め & 既読タイムスタンプ初期化
+  // ピン留め初期化（DB）& 既読タイムスタンプ初期化（localStorage）
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(PIN_STORAGE_KEY);
-      if (stored) setPinnedIds(JSON.parse(stored));
-    } catch { /* ignore */ }
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/pins", { credentials: "include" });
+        const data = await res.json();
+        if (Array.isArray(data.pins) && data.pins.length > 0) {
+          setPinnedIds(data.pins);
+        } else {
+          // DB空 → localStorageからの自動移行
+          const local = localStorage.getItem("talk_pinned_patients");
+          if (local) {
+            const ids = JSON.parse(local) as string[];
+            if (ids.length > 0) {
+              setPinnedIds(ids);
+              fetch("/api/admin/pins", {
+                method: "PUT",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pins: ids }),
+              }).then(() => localStorage.removeItem("talk_pinned_patients")).catch(() => {});
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    })();
     try {
       const stored = localStorage.getItem(READ_STORAGE_KEY);
       if (stored) setReadTimestamps(JSON.parse(stored));
@@ -218,7 +237,12 @@ export default function TalkPage() {
 
   const savePins = (ids: string[]) => {
     setPinnedIds(ids);
-    localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(ids));
+    fetch("/api/admin/pins", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pins: ids }),
+    }).catch(() => {});
   };
 
   const markAsRead = (patientId: string) => {
