@@ -3,9 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-const GAS_ADMIN_URL = process.env.GAS_ADMIN_URL;
-
 // 統合対象テーブル一覧（patient_id カラムを持つテーブル）
 const MERGE_TABLES = [
   "intake",
@@ -137,41 +134,6 @@ export async function POST(req: NextRequest) {
         .from("answerers")
         .delete()
         .eq("patient_id", oldPatientId);
-    }
-
-    // ★ GAS同期（非同期・失敗してもログのみ）
-    if (GAS_MYPAGE_URL) {
-      fetch(GAS_MYPAGE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "merge_patients",
-          old_patient_id: oldPatientId,
-          new_patient_id: newPatientId,
-        }),
-        signal: AbortSignal.timeout(120000),
-      }).then(async (res) => {
-        const text = await res.text().catch(() => "");
-        if (res.ok) console.log(`[merge-patients] GAS intake synced: ${oldPatientId} -> ${newPatientId}`);
-        else console.error("[merge-patients] GAS intake sync failed (non-blocking):", text);
-      }).catch((e) => console.error("[merge-patients] GAS intake sync error (non-blocking):", e));
-    }
-
-    if (GAS_ADMIN_URL) {
-      fetch(GAS_ADMIN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind: "merge_patients",
-          old_patient_id: oldPatientId,
-          new_patient_id: newPatientId,
-        }),
-        signal: AbortSignal.timeout(120000),
-      }).then(async (res) => {
-        const text = await res.text().catch(() => "");
-        if (res.ok) console.log(`[merge-patients] GAS admin synced: ${oldPatientId} -> ${newPatientId}`);
-        else console.error("[merge-patients] GAS admin sync failed (non-blocking):", text);
-      }).catch((e) => console.error("[merge-patients] GAS admin sync error (non-blocking):", e));
     }
 
     console.log(`[merge-patients] Completed: ${oldPatientId} -> ${newPatientId}`, results);

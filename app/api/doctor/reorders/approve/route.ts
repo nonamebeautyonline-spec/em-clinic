@@ -5,24 +5,6 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
-
-// バックグラウンドでGAS同期
-async function syncToGas(action: string, id: number) {
-  if (!GAS_REORDER_URL) return;
-  try {
-    await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, id }),
-      cache: "no-store",
-    });
-    console.log(`[doctor/reorders/approve] GAS sync done: ${action} id=${id}`);
-  } catch (err) {
-    console.error(`[doctor/reorders/approve] GAS sync error:`, err);
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -122,9 +104,6 @@ export async function POST(req: NextRequest) {
         .update({ line_notify_result: lineNotify })
         .eq("gas_row_number", gasRowNumber);
     }
-
-    // ★ バックグラウンドでGAS同期（レスポンスを待たない）
-    syncToGas("approve", gasRowNumber).catch(() => {});
 
     return NextResponse.json({ ok: true, lineNotify }, { status: 200 });
   } catch (e) {

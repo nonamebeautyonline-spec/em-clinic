@@ -4,24 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
-
-// バックグラウンドでGAS同期
-async function syncToGas(action: string, id: number) {
-  if (!GAS_REORDER_URL) return;
-  try {
-    await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, id }),
-      cache: "no-store",
-    });
-    console.log(`[doctor/reorders/reject] GAS sync done: ${action} id=${id}`);
-  } catch (err) {
-    console.error(`[doctor/reorders/reject] GAS sync error:`, err);
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -80,9 +62,6 @@ export async function POST(req: NextRequest) {
       await invalidateDashboardCache(reorderData.patient_id);
       console.log(`[doctor/reorders/reject] Cache invalidated for patient ${reorderData.patient_id}`);
     }
-
-    // ★ バックグラウンドでGAS同期（レスポンスを待たない）
-    syncToGas("reject", gasRowNumber).catch(() => {});
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {

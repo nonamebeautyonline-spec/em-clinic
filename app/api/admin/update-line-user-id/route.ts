@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
-
 export async function POST(req: NextRequest) {
   try {
     // 認証チェック（クッキーまたはBearerトークン）
@@ -41,24 +39,6 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[update-line-user-id] DB updated for patient ${patientId}: line_id=${lineUserId || "(null)"}`);
-
-    // ★ GAS同期（非同期・失敗してもログのみ）
-    if (GAS_MYPAGE_URL) {
-      fetch(GAS_MYPAGE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_line_user_id",
-          patient_id: patientId,
-          line_user_id: lineUserId,
-        }),
-        signal: AbortSignal.timeout(10000),
-      }).then(async (res) => {
-        const text = await res.text().catch(() => "");
-        if (!res.ok) console.error("[update-line-user-id] GAS sync failed (non-blocking):", text);
-        else console.log(`[update-line-user-id] GAS synced for patient ${patientId}`);
-      }).catch((e) => console.error("[update-line-user-id] GAS sync error (non-blocking):", e));
-    }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

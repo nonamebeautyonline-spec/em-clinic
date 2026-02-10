@@ -14,7 +14,6 @@ const LINE_CHANNEL_SECRETS = [
   process.env.LINE_NOTIFY_CHANNEL_SECRET,
 ].filter(Boolean) as string[];
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL || "";
 const LINE_ACCESS_TOKEN =
   process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
   process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
@@ -66,21 +65,6 @@ async function pushToGroup(toGroupId: string, text: string) {
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error("[pushToGroup] failed", res.status, body);
-  }
-}
-
-// ===== GAS同期 =====
-async function syncToGas(action: string, id: number) {
-  if (!GAS_REORDER_URL) return;
-  try {
-    await fetch(GAS_REORDER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, id }),
-      cache: "no-store",
-    });
-  } catch (err) {
-    console.error("[LINE webhook] GAS sync error:", err);
   }
 }
 
@@ -911,8 +895,6 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
   if (reorderData.patient_id) {
     await invalidateDashboardCache(reorderData.patient_id);
   }
-
-  syncToGas(action, gasRowNumber).catch(() => {});
 
   // 患者へLINE通知（承認時のみ）
   if (action === "approve" && reorderData.patient_id) {

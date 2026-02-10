@@ -13,38 +13,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function markReorderPaidInGas(reorderId: string, patientId?: string) {
-  const url = process.env.GAS_REORDER_URL; // 既存の /api/reorder/* が使ってるやつと同じ
-  if (!url) {
-    console.error("GAS_REORDER_URL not set; cannot mark reorder paid");
-    return;
-  }
-
+async function markReorderPaid(reorderId: string, patientId?: string) {
 const idNum = Number(String(reorderId).trim());
 if (!Number.isFinite(idNum) || idNum < 2) {
   console.error("invalid reorderId for paid:", reorderId);
   return;
 }
 
-
-  try {
-    // ★ GASで paid に更新
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "paid", id: idNum }),
-      cache: "no-store",
-    });
-
-    const text = await res.text().catch(() => "");
-    if (!res.ok) {
-      console.error("GAS reorder paid failed:", res.status, text);
-    }
-  } catch (e) {
-    console.error("GAS reorder paid exception:", e);
-  }
-
-  // ★ Supabaseも更新（gas_row_numberでマッチング → ダメなら id でフォールバック）
+  // ★ Supabase更新（gas_row_numberでマッチング → ダメなら id でフォールバック）
   try {
     const paidPayload = { status: "paid" as const, paid_at: new Date().toISOString() };
 
@@ -178,20 +154,6 @@ function extractFromNote(note: string) {
   return out;
 }
 
-async function postToGas(payload: any) {
-  const gasUrl = process.env.GAS_UPSERT_URL;
-  if (!gasUrl) throw new Error("GAS_UPSERT_URL not set");
-
-  const res = await fetch(gasUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  const text = await res.text().catch(() => "");
-  return { ok: res.ok, status: res.status, text };
-}
-
 export async function GET() {
   return new NextResponse("ok", { status: 200 });
 }
@@ -251,18 +213,6 @@ if (signatureKey && !signatureHeader) {
       const refundId = String(refund?.id || "");
       const refundedAtIso = String(refund?.updated_at || refund?.created_at || "");
 
-      // GASへ「返金更新」だけ送る（GASはUrlFetchしない）
-      await postToGas({
-        kind: "refund",
-        event_id: eventId,
-        payment_id: paymentId,
-        refund_status: refundStatus,
-        refunded_amount: refundedAmount,
-        refunded_at_iso: refundedAtIso,
-        refund_id: refundId,
-        raw_event_type: eventType,
-      });
-
       // ★ Supabase ordersテーブルに返金情報を反映
       try {
         const { error: updateErr } = await supabaseAdmin
@@ -307,31 +257,16 @@ if (signatureKey && !signatureHeader) {
       const paymentId = String(pay?.id || "");
       if (!paymentId) return new NextResponse("ok", { status: 200 });
 
-      // statusがCOMPLETED以外なら、最低限ステータスだけ送る（API叩かない）
+      // statusがCOMPLETED以外なら無視
       const status = String(pay?.status || "");
       if (status && status !== "COMPLETED") {
-        await postToGas({
-          kind: "payment_status",
-          event_id: eventId,
-          payment_id: paymentId,
-          payment_status: status,
-          raw_event_type: eventType,
-        });
         return new NextResponse("ok", { status: 200 });
       }
 
       // COMPLETED のときだけ Square API で詳細を作る
       const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`);
       if (!pRes.ok) {
-        // 取れない場合もステータスだけ送っておく（後でバックフィルで埋まる）
-        await postToGas({
-          kind: "payment_status",
-          event_id: eventId,
-          payment_id: paymentId,
-          payment_status: "COMPLETED",
-          raw_event_type: eventType,
-          note: "square_get_payment_failed",
-        });
+        console.error("[square/webhook] Failed to get payment details:", paymentId);
         return new NextResponse("ok", { status: 200 });
       }
 
@@ -340,7 +275,7 @@ if (signatureKey && !signatureHeader) {
       const { patientId, productCode, reorderId } = extractFromNote(note);
 
 if (reorderId) {
-  await markReorderPaidInGas(reorderId, patientId);
+  await markReorderPaid(reorderId, patientId);
 
   // ★ 決済時カルテ自動作成（用量比較付き）
   if (patientId && productCode) {
@@ -425,28 +360,6 @@ if (reorderId) {
 
       const finalPhone = normalizeJPPhone(shipPhone || phone);
       const finalEmail = (email || "").trim();
-
-      await postToGas({
-        kind: "payment_completed",
-        event_id: eventId,
-        raw_event_type: eventType,
-        payment_id: paymentId,
-        created_at_iso: createdAtIso,
-        order_id: orderId,
-        payment_status: "COMPLETED",
-        order_datetime_iso: createdAtIso, // GAS側でJST変換
-        ship_name: shipName,
-        postal,
-        address,
-        email: finalEmail,
-        phone: finalPhone,
-        items: itemsText,
-        amount: amountText,
-        billing_name: billingName,
-        product_code: productCode,
-        patient_id: patientId,
-        reorder_id: reorderId, // 使うならGAS側で処理
-      });
 
       // ★ Supabase ordersテーブルにINSERT（マイページ用 + 発送管理用）
       // 重要: 既存の注文がある場合、shipping情報（tracking_number, shipping_date, shipping_status）を上書きしない

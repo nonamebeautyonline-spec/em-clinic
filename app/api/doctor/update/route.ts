@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 
-const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string;
-
 // ★ SERVICE_ROLE_KEYを使用してRLSをバイパス
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,28 +10,6 @@ const supabaseAdmin = createClient(
 
 function fail(code: string, status: number = 500) {
   return NextResponse.json({ ok: false, code }, { status });
-}
-
-// ★ GASへのバックグラウンド同期（fire-and-forget）
-function syncToGASBackground(payload: any) {
-  if (!GAS_INTAKE_URL) return;
-
-  fetch(GAS_INTAKE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      const text = await res.text().catch(() => "");
-      if (!res.ok) {
-        console.error("[doctor/update] GAS Background Sync Failed:", res.status, text?.slice(0, 200));
-      } else {
-        console.log("[doctor/update] GAS Background Sync OK");
-      }
-    })
-    .catch((err) => {
-      console.error("[doctor/update] GAS Background Sync Error:", err.message);
-    });
 }
 
 export async function POST(req: Request) {
@@ -115,9 +91,6 @@ export async function POST(req: Request) {
         console.error("[doctor/update] Failed to invalidate cache:", cacheError);
       }
     }
-
-    // ★ Step 4: GASはバックグラウンドで同期（ユーザーを待たせない）
-    syncToGASBackground({ type: "doctor_update", ...body });
 
     return NextResponse.json({ ok: true, patientId }, { status: 200 });
   } catch (err) {

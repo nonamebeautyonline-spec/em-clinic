@@ -6,32 +6,6 @@ import { supabase, supabaseAdmin } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL as string | undefined;
-
-// ★ GASへのバックグラウンド同期（fire-and-forget）
-function syncToGASBackground(payload: any) {
-  if (!GAS_RESERVATIONS_URL) return;
-
-  // バックグラウンドで実行（awaitしない）
-  fetch(GAS_RESERVATIONS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  })
-    .then(async (res) => {
-      const text = await res.text().catch(() => "");
-      if (!res.ok) {
-        console.error("[GAS Background Sync] Failed:", res.status, text?.slice(0, 200));
-      } else {
-        console.log("[GAS Background Sync] OK:", payload.type || "createReservation");
-      }
-    })
-    .catch((err) => {
-      console.error("[GAS Background Sync] Error:", err.message);
-    });
-}
-
 // ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
 const BOOKING_OPEN_DAY = 5;
 
@@ -469,22 +443,12 @@ export async function POST(req: NextRequest) {
       req.cookies.get("patient_id")?.value ||
       "";
 
-    const intakeId =
-      req.cookies.get("__Host-intake_id")?.value ||
-      req.cookies.get("intake_id")?.value ||
-      "";
-
     const type = body?.type as string | undefined;
 
     // bodyはログしない
     console.log("POST /api/reservations type:", type);
 
-    if (!GAS_RESERVATIONS_URL) {
-      // body を返さない
-      return NextResponse.json({ ok: true, mock: true }, { status: 200 });
-    }
-
-    // ★ 予約作成の場合のみSupabaseに並列書き込み
+    // ★ 予約作成
     if (type === "createReservation" || !type) {
       const date = body.date || "";
       const time = body.time || "";
@@ -523,15 +487,6 @@ export async function POST(req: NextRequest) {
       }
 
       const reserveId = "resv-" + Date.now();
-
-      const payload = {
-        ...body,
-        patient_id: pid,
-        intakeId: body.intakeId || intakeId,
-        intake_id: body.intake_id || intakeId,
-        reserveId: reserveId, // ★ Next.jsで生成したreserveIdを渡す
-        skipSupabase: true, // GAS側でSupabase書き込みをスキップ
-      };
 
       // ★ intakeテーブルから名前・ステータス・問診回答を取得
       // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
@@ -661,17 +616,13 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
-      syncToGASBackground(payload);
-
       return NextResponse.json({
         ok: true,
         reserveId: reserveId,
-        supabaseSync: true,
       }, { status: 200 });
     }
 
-    // ★ 予約キャンセルの場合はSupabaseにも並列書き込み
+    // ★ 予約キャンセル
     if (type === "cancelReservation") {
       const reserveId = body.reserveId || body.reservationId || body.id || "";
       const pid = body.patient_id || patientId;
@@ -680,14 +631,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "reserveId required" }, { status: 400 });
       }
 
-      const payload = {
-        ...body,
-        patient_id: pid,
-        intakeId: body.intakeId || intakeId,
-        intake_id: body.intake_id || intakeId,
-      };
-
-      // ★ DB先行書き込み（高速レスポンスのため）
+      // ★ DB書き込み
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
         retrySupabaseWrite(async () => {
@@ -745,13 +689,9 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
-      syncToGASBackground(payload);
-
       return NextResponse.json({
         ok: true,
         reserveId,
-        supabaseSync: true,
       }, { status: 200 });
     }
 
@@ -776,14 +716,7 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
 
-      const payload = {
-        ...body,
-        patient_id: pid,
-        intakeId: body.intakeId || intakeId,
-        intake_id: body.intake_id || intakeId,
-      };
-
-      // ★ DB先行書き込み（高速レスポンスのため）
+      // ★ DB書き込み
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルの日時を更新（リトライあり）
         retrySupabaseWrite(async () => {
@@ -851,69 +784,14 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // ★ GASはバックグラウンドで同期（ユーザーを待たせない）
-      syncToGASBackground(payload);
-
       return NextResponse.json({
         ok: true,
         reserveId,
-        supabaseSync: true,
       }, { status: 200 });
     }
 
-    // ★ その他の操作は従来通りGASのみ
-    const payload = {
-      ...body,
-      patient_id: body.patient_id || patientId,
-      intakeId: body.intakeId || intakeId,
-      intake_id: body.intake_id || intakeId,
-    };
-
-    const gasRes = await fetch(GAS_RESERVATIONS_URL!, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      cache: "no-store",
-    });
-
-    const text = await gasRes.text().catch(() => "");
-    let json: any = {};
-    try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
-
-    if (!gasRes.ok || json?.ok !== true) {
-      console.error("GAS reservations POST error:", gasRes.status, text);
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "gas_error",
-          gas_status: gasRes.status,
-          gas: json && Object.keys(json).length ? json : undefined,
-          detail: text,
-        },
-        { status: 500 }
-      );
-    }
-
-
-    // ★ キャッシュ削除（予約作成・変更・キャンセル時）
-    // GASレスポンスからpatient_idを取得（cookieよりも確実）
-    const pidFromGas = json.patientId || json.patient_id;
-    const finalPid = pidFromGas || patientId;
-
-    if (finalPid) {
-      await invalidateDashboardCache(finalPid);
-      console.log(`[reservations] Cache invalidated for patient_id=${finalPid}`);
-    } else {
-      console.warn(`[reservations] No patient_id found for cache invalidation (type=${type})`);
-    }
-
-    // ★ 丸返し禁止：成功だけ返す（必要なら予約ID等だけホワイトリストで返す）
-    return NextResponse.json({
-      ok: true,
-      reserveId: json.reserveId,
-      supabaseSync: json.supabaseSync
-    }, { status: 200 });
+    // 未知のtype
+    return NextResponse.json({ ok: false, error: `unknown type: ${type}` }, { status: 400 });
   } catch {
     console.error("POST /api/reservations error");
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

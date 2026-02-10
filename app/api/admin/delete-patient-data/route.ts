@@ -1,10 +1,8 @@
-// 管理者用: 患者データ削除（予約キャンセル + 問診削除 + GAS同期）
+// 管理者用: 患者データ削除（予約キャンセル + 問診削除）
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const GAS_RESERVATIONS_URL = process.env.GAS_RESERVATIONS_URL;
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { patient_id, delete_intake, delete_reservation, sync_gas } = body;
+    const { patient_id, delete_intake, delete_reservation } = body;
 
     if (!patient_id) {
       return NextResponse.json({ error: "patient_id required" }, { status: 400 });
@@ -24,7 +22,6 @@ export async function POST(req: NextRequest) {
     const results: {
       reservation_canceled?: boolean;
       intake_deleted?: boolean;
-      gas_synced?: boolean;
       errors: string[];
     } = { errors: [] };
 
@@ -50,29 +47,6 @@ export async function POST(req: NextRequest) {
         } else {
           results.reservation_canceled = true;
           console.log(`[admin/delete-patient-data] Canceled ${reservations.length} reservations for patient_id=${patient_id}`);
-
-          // GAS同期（予約削除）
-          if (sync_gas && GAS_RESERVATIONS_URL) {
-            for (const reservation of reservations) {
-              try {
-                await fetch(GAS_RESERVATIONS_URL, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    type: "deleteReservation",
-                    reserveId: reservation.reserve_id,
-                    patient_id: patient_id,
-                  }),
-                  cache: "no-store",
-                });
-                console.log(`[admin/delete-patient-data] GAS sync: deleted reservation ${reservation.reserve_id}`);
-              } catch (e) {
-                console.error(`[admin/delete-patient-data] GAS sync error:`, e);
-                results.errors.push(`GAS同期エラー: ${reservation.reserve_id}`);
-              }
-            }
-            results.gas_synced = true;
-          }
         }
       } else {
         console.log(`[admin/delete-patient-data] No active reservations for patient_id=${patient_id}`);

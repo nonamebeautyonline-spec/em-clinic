@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const GAS_REORDER_URL = process.env.GAS_REORDER_URL;
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
 
@@ -38,13 +37,6 @@ async function pushToAdminGroup(text: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!GAS_REORDER_URL) {
-      return NextResponse.json(
-        { ok: false, error: "GAS_REORDER_URL is not configured" },
-        { status: 500 }
-      );
-    }
-
     const cookieStore = await cookies();
     const patientId =
       cookieStore.get("__Host-patient_id")?.value ||
@@ -122,16 +114,6 @@ export async function POST(req: NextRequest) {
         console.error("[reorder/cancel] DB update exception:", dbErr);
         return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
       }
-    }
-
-    // ★ GAS同期（非同期・失敗してもログのみ）
-    if (GAS_REORDER_URL) {
-      fetch(GAS_REORDER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", patient_id: patientId }),
-        cache: "no-store",
-      }).catch((e) => console.error("[reorder/cancel] GAS sync failed (non-blocking):", e));
     }
 
     if (targetReorder) {

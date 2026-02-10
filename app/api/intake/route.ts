@@ -4,8 +4,6 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 
-const GAS_INTAKE_URL = process.env.GAS_INTAKE_URL as string | undefined;
-
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
   operation: () => Promise<T>,
@@ -38,10 +36,6 @@ async function retrySupabaseWrite<T>(
 
 export async function POST(req: NextRequest) {
   try {
-    if (!GAS_INTAKE_URL) {
-      return NextResponse.json({ ok: false, error: "server_config_error" }, { status: 500 });
-    }
-
     const body = await req.json().catch(() => ({} as any));
 
     const patientId =
@@ -62,7 +56,7 @@ export async function POST(req: NextRequest) {
     console.log("[Intake Debug] body.name:", body.name);
     console.log("[Intake Debug] body.answerer_id:", body.answerer_id);
 
-    // answersから個人情報を抽出（GASと同じロジック）
+    // answersから個人情報を抽出
     const name = body.name || answersObj.氏名 || answersObj.name || "";
     const sex = body.sex || answersObj.性別 || answersObj.sex || "";
     const birth = body.birth || answersObj.生年月日 || answersObj.birth || "";
@@ -75,15 +69,8 @@ export async function POST(req: NextRequest) {
     // ★ デバッグログ：抽出後の値を確認
     console.log("[Intake Debug] Extracted - name:", name, "sex:", sex, "answererId:", answererId);
 
-    // ★ Supabase と GAS に並列書き込み
-    const payload = {
-      ...body,
-      type: "intake",
-      patient_id: patientId,
-      skipSupabase: true, // ★ GAS側でSupabase書き込みをスキップ
-    };
-
-    const [supabaseIntakeResult, supabaseAnswererResult, gasResult] = await Promise.allSettled([
+    // ★ Supabase に並列書き込み
+    const [supabaseIntakeResult, supabaseAnswererResult] = await Promise.allSettled([
       // 1. Supabase intakeテーブルに書き込み（リトライあり）
       retrySupabaseWrite(async () => {
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
@@ -174,19 +161,6 @@ export async function POST(req: NextRequest) {
         }
         return result;
       }),
-
-      // 3. GASにPOST
-      fetch(GAS_INTAKE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      }).then(async (res) => {
-        const text = await res.text().catch(() => "");
-        let json: any = {};
-        try { json = text ? JSON.parse(text) : {}; } catch {}
-        return { ok: res.ok && json?.ok === true, json, text };
-      }),
     ]);
 
     // Supabase intake結果チェック
@@ -195,16 +169,12 @@ export async function POST(req: NextRequest) {
         ? supabaseIntakeResult.reason
         : supabaseIntakeResult.value.error;
 
-      // ★ Supabase失敗はログ出力のみ（GAS成功なら予約は確保される）
       console.error("❌❌❌ [CRITICAL] Supabase intake write FAILED ❌❌❌");
       console.error("[Supabase Error Details]", {
         patientId,
         error: error?.message || String(error),
         timestamp: new Date().toISOString()
       });
-      console.error("⚠️ DATA INCONSISTENCY: Record exists in GAS but not in Supabase");
-      console.error("⚠️ MANUAL FIX REQUIRED: Run bulk-fix-missing-info.mjs or create-missing script");
-      // 処理は続行（GAS成功なら予約は有効）
     }
 
     // Supabase answerers結果チェック
@@ -219,19 +189,6 @@ export async function POST(req: NextRequest) {
         error: error?.message || String(error),
         timestamp: new Date().toISOString()
       });
-      // 処理は続行（intakeとGASが成功すれば問題なし）
-    }
-
-    // GAS結果チェック（失敗してもSupabase書き込み済みなので続行）
-    let json: any = {};
-    if (gasResult.status === "rejected" || (gasResult.status === "fulfilled" && !gasResult.value.ok)) {
-      const error = gasResult.status === "rejected"
-        ? gasResult.reason
-        : gasResult.value.text;
-      console.error("[GAS] Intake write failed (non-blocking):", error);
-      // GAS失敗でもSupabase書き込み済みなので処理を続行
-    } else if (gasResult.status === "fulfilled") {
-      json = gasResult.value.json;
     }
 
     // ★ キャッシュ削除（問診送信時）
@@ -280,40 +237,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ★ GASは { ok:true, intakeId, timing } を返す前提
-const gasIntakeId = String(json.intakeId || "").trim();
-const dedup = !!json.dedup;
-
-// ★ タイミング情報をVercelログに記録
-if (json.timing) {
-  console.log("[Intake Timing]", {
-    patientId,
-    total: `${json.timing.total}ms`,
-    sheetWrite: `${json.timing.sheetWrite}ms`,
-    supabaseWrite: `${json.timing.supabaseWrite}ms`,
-    masterSync: `${json.timing.masterSync}ms`,
-    questionnaireSync: `${json.timing.questionnaireSync}ms`,
-    cacheInvalidate: `${json.timing.cacheInvalidate}ms`
-  });
-}
-
-// GASレスポンスのログ（masterInfo第2 upsertは廃止 — Lステップ不使用のため不要）
-console.log("[Intake Debug] GAS Response keys:", Object.keys(json));
-
-const res = NextResponse.json({ ok: true, dedup });
-
-// intakeId が取れたときだけ cookie を付与（dedup時に空でもOK）
-if (gasIntakeId) {
-  res.cookies.set("__Host-intake_id", gasIntakeId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    maxAge: 60 * 60 * 24,
-  });
-}
-
-return res;
+return NextResponse.json({ ok: true });
 
   } catch (error: any) {
     console.error("❌❌❌ [CRITICAL] Unhandled error in /api/intake ❌❌❌");
