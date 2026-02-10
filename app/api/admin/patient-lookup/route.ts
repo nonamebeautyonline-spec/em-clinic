@@ -161,71 +161,77 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // answerers から個人情報をフォールバック取得（名前・カナ・性別・生年月日）
-    const { data: answerer } = await supabaseAdmin
-      .from("answerers")
-      .select("name, name_kana, sex, birthday, line_id")
-      .eq("patient_id", patientId)
-      .maybeSingle();
+    // 6テーブル並列取得（逐次→並列で高速化）
+    const [answererRes, allOrdersRes, reordersRes, pendingResvRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
+      supabaseAdmin
+        .from("answerers")
+        .select("name, name_kana, sex, birthday, line_id")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("orders")
+        .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabaseAdmin
+        .from("reorders")
+        .select("id, gas_row_number, product_code, status, created_at, approved_at")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabaseAdmin
+        .from("intake")
+        .select("reserved_date, reserved_time, status")
+        .eq("patient_id", patientId)
+        .not("reserved_date", "is", null)
+        .not("reserved_time", "is", null)
+        .or("status.is.null,status.eq.")
+        .order("reserved_date", { ascending: true })
+        .order("reserved_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("intake")
+        .select("reserved_date, reserved_time, status")
+        .eq("patient_id", patientId)
+        .not("reserved_date", "is", null)
+        .not("reserved_time", "is", null)
+        .order("reserved_date", { ascending: false })
+        .order("reserved_time", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("orders")
+        .select("id, product_code, created_at")
+        .eq("patient_id", patientId)
+        .eq("payment_method", "bank_transfer")
+        .eq("status", "pending_confirmation")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("intake")
+        .select("answers, prescription_menu, created_at")
+        .eq("patient_id", patientId)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const answerer = answererRes.data;
+    const allOrders = allOrdersRes.data;
+    const reorders = reordersRes.data;
+    const pendingReservation = pendingResvRes.data;
+    const nextReservation = pendingReservation ?? latestResvRes.data;
+    const pendingBankTransfer = bankRes.data;
+    const intakeRecord = intakeRecordRes.data;
+
     if ((!patientName || patientName === "-") && answerer?.name) {
       patientName = answerer.name;
     }
 
-    // 全注文履歴を取得（処方履歴）
-    const { data: allOrders } = await supabaseAdmin
-      .from("orders")
-      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    // 最新注文（配送情報表示用）
     const latestOrder = allOrders?.[0] || null;
-
-    // 再処方履歴を取得（最新5件）
-    const { data: reorders } = await supabaseAdmin
-      .from("reorders")
-      .select("id, gas_row_number, product_code, status, created_at, approved_at")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    // 予約を取得（未診察の予約を優先、なければ最新の予約を表示）
-    const { data: pendingReservation } = await supabaseAdmin
-      .from("intake")
-      .select("reserved_date, reserved_time, status")
-      .eq("patient_id", patientId)
-      .not("reserved_date", "is", null)
-      .not("reserved_time", "is", null)
-      .or("status.is.null,status.eq.")
-      .order("reserved_date", { ascending: true })
-      .order("reserved_time", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    // 未診察の予約がなければ、最新の予約を取得（診察済み含む）
-    const nextReservation = pendingReservation ?? (await supabaseAdmin
-      .from("intake")
-      .select("reserved_date, reserved_time, status")
-      .eq("patient_id", patientId)
-      .not("reserved_date", "is", null)
-      .not("reserved_time", "is", null)
-      .order("reserved_date", { ascending: false })
-      .order("reserved_time", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    ).data;
-
-    // 銀行振込申請中（未照合）を確認 - ordersテーブルでstatus=pending_confirmationのもの
-    const { data: pendingBankTransfer } = await supabaseAdmin
-      .from("orders")
-      .select("id, product_code, created_at")
-      .eq("patient_id", patientId)
-      .eq("payment_method", "bank_transfer")
-      .eq("status", "pending_confirmation")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
     // フォーマット
     const formattedLatestOrder = latestOrder ? {
@@ -274,15 +280,6 @@ export async function GET(req: NextRequest) {
         formattedReservation = base;
       }
     }
-
-    // 問診情報を取得（answers JSONBから）
-    const { data: intakeRecord } = await supabaseAdmin
-      .from("intake")
-      .select("answers, prescription_menu, created_at")
-      .eq("patient_id", patientId)
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const answers = (intakeRecord?.answers as Record<string, any>) || {};
