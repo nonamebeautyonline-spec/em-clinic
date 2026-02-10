@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { getProductNamesMap } from "@/lib/products";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const PRODUCT_NAMES: Record<string, string> = {
-  "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-  "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
-  "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
-  "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
-  "MJL_5mg_2m": "マンジャロ 5mg 2ヶ月",
-  "MJL_5mg_3m": "マンジャロ 5mg 3ヶ月",
-  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月",
-  "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月",
-  "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,6 +15,9 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // ★ 商品名マップをDBから取得
+    const PRODUCT_NAMES = await getProductNamesMap();
 
     // クエリパラメータ: limit, offset, filter
     const searchParams = req.nextUrl.searchParams;

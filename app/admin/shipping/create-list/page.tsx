@@ -1,8 +1,27 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LZString from "lz-string";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+type SortMode = "dosage" | "date_asc" | "date_desc" | "name" | "price_desc" | "price_asc" | "manual";
 
 interface ShippingItem {
   id: string;
@@ -43,6 +62,8 @@ export default function CreateShippingListPage() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [showSortModal, setShowSortModal] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("dosage");
   const tableRef = useRef<HTMLTableElement>(null);
 
   useEffect(() => {
@@ -201,6 +222,57 @@ export default function CreateShippingListPage() {
     });
 
     return [...sortedSingle, ...sortedMerged];
+  };
+
+  // ★ プリセットソート関数
+  const sortByDate = (items: ShippingItem[], ascending: boolean): ShippingItem[] => {
+    return [...items].sort((a, b) => {
+      const diff = new Date(a.payment_date).getTime() - new Date(b.payment_date).getTime();
+      return ascending ? diff : -diff;
+    });
+  };
+
+  const sortByName = (items: ShippingItem[]): ShippingItem[] => {
+    return [...items].sort((a, b) => a.editable.name.localeCompare(b.editable.name, "ja"));
+  };
+
+  const sortByPrice = (items: ShippingItem[], descending: boolean): ShippingItem[] => {
+    return [...items].sort((a, b) => descending ? b.price - a.price : a.price - b.price);
+  };
+
+  const applySortMode = useCallback((mode: SortMode, currentItems: ShippingItem[]): ShippingItem[] => {
+    switch (mode) {
+      case "dosage": return sortByDosage(currentItems);
+      case "date_asc": return sortByDate(currentItems, true);
+      case "date_desc": return sortByDate(currentItems, false);
+      case "name": return sortByName(currentItems);
+      case "price_desc": return sortByPrice(currentItems, true);
+      case "price_asc": return sortByPrice(currentItems, false);
+      case "manual": return currentItems; // 手動並び替え時はそのまま
+      default: return currentItems;
+    }
+  }, []);
+
+  const handleApplySort = (mode: SortMode) => {
+    setSortMode(mode);
+    if (mode !== "manual") {
+      setItems(applySortMode(mode, items));
+    }
+    setShowSortModal(false);
+  };
+
+  // ★ ドラッグ＆ドロップのハンドラ
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = items.findIndex((item) => item.id === active.id);
+    const newIndex = items.findIndex((item) => item.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      setItems(arrayMove(items, oldIndex, newIndex));
+      setSortMode("manual");
+    }
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -445,6 +517,17 @@ export default function CreateShippingListPage() {
           >
             {isMerged ? "🔓 統合を解除" : "🔗 同じ氏名を統合"}
           </button>
+          <button
+            onClick={() => setShowSortModal(true)}
+            className="px-4 py-2 text-sm rounded-lg bg-indigo-500 text-white hover:bg-indigo-600"
+          >
+            並び替え
+            {sortMode !== "dosage" && (
+              <span className="ml-1 text-xs opacity-80">
+                ({sortMode === "date_asc" ? "決済日↑" : sortMode === "date_desc" ? "決済日↓" : sortMode === "name" ? "氏名" : sortMode === "price_desc" ? "金額↓" : sortMode === "price_asc" ? "金額↑" : "手動"})
+              </span>
+            )}
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -675,6 +758,186 @@ export default function CreateShippingListPage() {
           </table>
         </div>
       </div>
+      {/* ★ 並び替えモーダル */}
+      {showSortModal && (
+        <SortModal
+          currentMode={sortMode}
+          items={items}
+          onApply={handleApplySort}
+          onManualReorder={(reordered) => {
+            setItems(reordered);
+            setSortMode("manual");
+            setShowSortModal(false);
+          }}
+          onClose={() => setShowSortModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ★ 並び替えモーダルコンポーネント
+function SortModal({
+  currentMode,
+  items,
+  onApply,
+  onManualReorder,
+  onClose,
+}: {
+  currentMode: SortMode;
+  items: ShippingItem[];
+  onApply: (mode: SortMode) => void;
+  onManualReorder: (items: ShippingItem[]) => void;
+  onClose: () => void;
+}) {
+  const [selectedMode, setSelectedMode] = useState<SortMode>(currentMode);
+  const [dndItems, setDndItems] = useState<ShippingItem[]>(items);
+  const [showDnd, setShowDnd] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const presetOptions: { mode: SortMode; label: string }[] = [
+    { mode: "dosage", label: "用量順（2.5mg→5mg→7.5mg→10mg、本数降順）" },
+    { mode: "date_asc", label: "決済日順（古い順）" },
+    { mode: "date_desc", label: "決済日順（新しい順）" },
+    { mode: "name", label: "氏名順（五十音）" },
+    { mode: "price_desc", label: "金額順（高い順）" },
+    { mode: "price_asc", label: "金額順（安い順）" },
+  ];
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = dndItems.findIndex((item) => item.id === active.id);
+    const newIndex = dndItems.findIndex((item) => item.id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      setDndItems(arrayMove(dndItems, oldIndex, newIndex));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">並び替え</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+        </div>
+
+        <div className="px-6 py-4 overflow-y-auto" style={{ maxHeight: "60vh" }}>
+          {!showDnd ? (
+            <>
+              <p className="text-sm text-slate-600 mb-4">プリセットから選択するか、手動で並び替えてください。</p>
+              <div className="space-y-2 mb-6">
+                {presetOptions.map((opt) => (
+                  <label
+                    key={opt.mode}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedMode === opt.mode
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="sortMode"
+                      value={opt.mode}
+                      checked={selectedMode === opt.mode}
+                      onChange={() => setSelectedMode(opt.mode)}
+                      className="text-indigo-600"
+                    />
+                    <span className="text-sm text-slate-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => onApply(selectedMode)}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                >
+                  適用
+                </button>
+                <button
+                  onClick={() => setShowDnd(true)}
+                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium"
+                >
+                  手動で並び替え
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-600 mb-3">ドラッグして並び替えてください。</p>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={dndItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1">
+                    {dndItems.map((item, idx) => (
+                      <SortableRow key={item.id} item={item} index={idx} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => onManualReorder(dndItems)}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                >
+                  この順序で適用
+                </button>
+                <button
+                  onClick={() => setShowDnd(false)}
+                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-medium"
+                >
+                  戻る
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ★ ドラッグ可能な行コンポーネント
+function SortableRow({ item, index }: { item: ShippingItem; index: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 p-2 rounded border text-xs ${
+        isDragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 bg-white"
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 px-1"
+        title="ドラッグして並び替え"
+      >
+        &#x2261;
+      </button>
+      <span className="text-slate-400 w-6 text-right">{index + 1}.</span>
+      <span className="font-medium text-slate-700 truncate flex-1">{item.editable.name || item.name}</span>
+      <span className="text-slate-500 whitespace-nowrap">{item.product_name}</span>
+      <span className="text-slate-500">&yen;{item.price.toLocaleString()}</span>
     </div>
   );
 }

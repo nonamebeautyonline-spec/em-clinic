@@ -5,40 +5,10 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
+import { getProductNamesMap, getProductPricesMap } from "@/lib/products";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-// ★ 商品価格マッピング
-const PRODUCT_PRICES: Record<string, number> = {
-  "MJL_2.5mg_1m": 13000,
-  "MJL_2.5mg_2m": 25500,
-  "MJL_2.5mg_3m": 35000,
-  "MJL_5mg_1m": 22850,
-  "MJL_5mg_2m": 45500,
-  "MJL_5mg_3m": 63000,
-  "MJL_7.5mg_1m": 34000,
-  "MJL_7.5mg_2m": 65000,
-  "MJL_7.5mg_3m": 94000,
-  "MJL_10mg_1m": 35000,
-  "MJL_10mg_2m": 70000,
-  "MJL_10mg_3m": 105000,
-};
-
-const PRODUCT_NAMES: Record<string, string> = {
-  "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
-  "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
-  "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
-  "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
-  "MJL_5mg_2m": "マンジャロ 5mg 2ヶ月",
-  "MJL_5mg_3m": "マンジャロ 5mg 3ヶ月",
-  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月",
-  "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月",
-  "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
-  "MJL_10mg_1m": "マンジャロ 10mg 1ヶ月",
-  "MJL_10mg_2m": "マンジャロ 10mg 2ヶ月",
-  "MJL_10mg_3m": "マンジャロ 10mg 3ヶ月",
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -80,7 +50,9 @@ export async function POST(req: NextRequest) {
     // 仮IDを生成（照合時に bt_XXX に更新される）
     const tempOrderId = `bt_pending_${Date.now()}`;
 
-    // ★ 商品価格と商品名を取得
+    // ★ 商品価格と商品名をDBから取得
+    const PRODUCT_PRICES = await getProductPricesMap();
+    const PRODUCT_NAMES = await getProductNamesMap();
     const amount = PRODUCT_PRICES[productCode] || 0;
     const productName = PRODUCT_NAMES[productCode] || productCode;
 

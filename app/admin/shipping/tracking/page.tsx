@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface TrackingEntry {
   payment_id: string;
@@ -37,7 +36,6 @@ interface ConfirmResult {
 }
 
 export default function TrackingNumberPage() {
-  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ConfirmResult | null>(null);
@@ -293,39 +291,6 @@ export default function TrackingNumberPage() {
     }
   };
 
-  const handleDownloadLstepTags = async () => {
-    try {
-      const res = await fetch("/api/admin/shipping/export-lstep-tags", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
-      }
-
-      // CSVをダウンロード
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const today = new Date().toISOString().split("T")[0];
-      a.download = `lstep_tags_${today}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Download Lstep tags error:", err);
-      alert(
-        err instanceof Error
-          ? err.message
-          : "LステップタグCSVのダウンロードに失敗しました"
-      );
-    }
-  };
-
   const handleNotifyPreview = async () => {
     setNotifyLoading(true);
     try {
@@ -419,16 +384,7 @@ export default function TrackingNumberPage() {
             {loading ? "読み込み中..." : "📋 本日発送分を読み込む"}
           </button>
 
-          <button
-            onClick={handleDownloadLstepTags}
-            className="px-6 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700"
-          >
-            📥 Lステップタグをダウンロード
-          </button>
         </div>
-        <p className="text-xs text-slate-500 mt-3">
-          ※ Lステップタグは本日追跡番号を付与した患者に「発送したよ」タグを付けるためのCSVです
-        </p>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -697,28 +653,6 @@ export default function TrackingNumberPage() {
             </div>
 
             <p className="mt-4 text-sm text-slate-600">{result.message}</p>
-
-            {/* Lステップタグダウンロードボタン */}
-            {result.updated > 0 && (
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-blue-900">
-                      Lステップタグをダウンロード
-                    </h3>
-                    <p className="mt-1 text-xs text-blue-700">
-                      本日発送した患者に「発送したよ」タグを付与するためのCSVをダウンロードします
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleDownloadLstepTags}
-                    className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                  >
-                    CSVダウンロード
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* 発送通知一斉送信 */}
             {result.updated > 0 && (
