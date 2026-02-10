@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
       .is("shipping_date", null)
       .eq("status", "confirmed")
-      .not("refund_status", "in", "(COMPLETED,PENDING)")
+      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
       .gte("paid_at", cutoffISO)
       .order("paid_at", { ascending: false })
       .limit(100000);
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       .is("shipping_date", null)
       .eq("status", "pending_confirmation")
       .eq("payment_method", "bank_transfer")
-      .not("refund_status", "in", "(COMPLETED,PENDING)")
+      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
       .gte("created_at", cutoffISO)
       .order("created_at", { ascending: false })
       .limit(100000);
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       .from("orders")
       .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
       .is("shipping_date", null)
-      .not("refund_status", "in", "(COMPLETED,PENDING)")
+      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
       .gte("shipping_list_created_at", todayStartISO)
       .lt("shipping_list_created_at", tomorrowStartISO)
       .order("shipping_list_created_at", { ascending: false })
