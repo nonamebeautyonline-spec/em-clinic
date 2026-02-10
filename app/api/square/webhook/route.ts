@@ -263,6 +263,26 @@ if (signatureKey && !signatureHeader) {
         raw_event_type: eventType,
       });
 
+      // ★ Supabase ordersテーブルに返金情報を反映
+      try {
+        const { error: updateErr } = await supabaseAdmin
+          .from("orders")
+          .update({
+            refund_status: refundStatus || "COMPLETED",
+            refunded_amount: refundedAmount ? parseFloat(refundedAmount) : null,
+            refunded_at: refundedAtIso || new Date().toISOString(),
+            ...(refundStatus === "COMPLETED" ? { status: "refunded" } : {}),
+          })
+          .eq("id", paymentId);
+        if (updateErr) {
+          console.error("[square/webhook] refund update failed:", updateErr);
+        } else {
+          console.log("[square/webhook] refund updated in orders:", paymentId, refundStatus);
+        }
+      } catch (e) {
+        console.error("[square/webhook] refund Supabase error:", e);
+      }
+
       // ★ キャッシュ削除（返金時：paymentからpatientIdを取得）
       try {
         const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`);

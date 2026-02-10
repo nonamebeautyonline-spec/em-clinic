@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -94,11 +95,31 @@ export async function GET(req: Request) {
         };
 
         const g = await postToGas(payload);
+
+        // ★ Supabase ordersテーブルにも返金情報を反映
+        let dbStatus = "skipped";
+        try {
+          const refundAmount = payload.refunded_amount ? parseFloat(payload.refunded_amount) : null;
+          const { error: updateErr } = await supabaseAdmin
+            .from("orders")
+            .update({
+              refund_status: payload.refund_status || "COMPLETED",
+              refunded_amount: refundAmount,
+              refunded_at: payload.refunded_at_iso || new Date().toISOString(),
+              ...(payload.refund_status === "COMPLETED" ? { status: "refunded" } : {}),
+            })
+            .eq("id", paymentId);
+          dbStatus = updateErr ? `error: ${updateErr.message}` : "ok";
+        } catch (e: any) {
+          dbStatus = `error: ${e?.message || String(e)}`;
+        }
+
         results.push({
           payment_id: paymentId,
           refund_id: payload.refund_id,
           status: payload.refund_status,
           gas_status: g.status,
+          db_status: dbStatus,
         });
         processed++;
       }
