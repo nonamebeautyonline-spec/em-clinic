@@ -167,6 +167,10 @@ export default function TalkPage() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [displayCount, setDisplayCount] = useState(DISPLAY_BATCH);
   const listRef = useRef<HTMLDivElement>(null);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
 
   // 中央カラム
   const [selectedPatient, setSelectedPatient] = useState<Friend | null>(null);
@@ -292,13 +296,16 @@ export default function TalkPage() {
   };
 
   // 友達一覧を取得
-  useEffect(() => {
-    const fetchFriends = async () => {
+  const fetchFriends = useCallback(async () => {
+    try {
       const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
       const data = await res.json();
       if (data.patients) setFriends(data.patients);
-      setFriendsLoading(false);
-    };
+    } catch { /* ignore */ }
+    setFriendsLoading(false);
+  }, []);
+
+  useEffect(() => {
     fetchFriends();
 
     Promise.all([
@@ -318,6 +325,40 @@ export default function TalkPage() {
       }
     });
   }, []);
+
+  // プルダウンリフレッシュ（スマホのみ）
+  const PULL_THRESHOLD = 60;
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const el = listRef.current;
+    if (!el || el.scrollTop > 0) return;
+    touchStartY.current = e.touches[0].clientY;
+    isPulling.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling.current || pullRefreshing) return;
+    const el = listRef.current;
+    if (!el || el.scrollTop > 0) { isPulling.current = false; setPullDistance(0); return; }
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (dy > 0) {
+      setPullDistance(Math.min(dy * 0.4, 80));
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
+    }
+  }, [pullRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullDistance >= PULL_THRESHOLD) {
+      setPullRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      await fetchFriends();
+      setPullRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, fetchFriends]);
 
   // 左カラム無限スクロール
   const handleListScroll = useCallback(() => {
@@ -1062,7 +1103,29 @@ export default function TalkPage() {
         </div>
 
         {/* 友達一覧 / メッセージ検索結果 */}
-        <div ref={listRef} onScroll={handleListScroll} className="flex-1 overflow-y-auto overscroll-contain">
+        <div
+          ref={listRef}
+          onScroll={handleListScroll}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex-1 overflow-y-auto overscroll-contain"
+        >
+          {/* プルダウンリフレッシュ表示 */}
+          {(pullDistance > 0 || pullRefreshing) && (
+            <div
+              className="flex items-center justify-center overflow-hidden transition-[height] duration-200"
+              style={{ height: pullRefreshing ? PULL_THRESHOLD : pullDistance }}
+            >
+              {pullRefreshing ? (
+                <div className="w-5 h-5 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
+              ) : (
+                <div className={`text-[11px] transition-all ${pullDistance >= PULL_THRESHOLD ? "text-[#00B900] font-medium" : "text-gray-300"}`}>
+                  {pullDistance >= PULL_THRESHOLD ? "離して更新" : "↓ 引っ張って更新"}
+                </div>
+              )}
+            </div>
+          )}
           {searchMessage.trim() ? (
             /* メッセージ検索結果モード */
             msgSearching ? (
