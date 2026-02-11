@@ -1151,7 +1151,7 @@ export default function TalkPage() {
       </div>
 
       {/* ========== 中央カラム ========== */}
-      <div className={`flex-1 flex flex-col min-w-0 ${
+      <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
         mobileView !== "message" ? "hidden md:flex" : "flex"
       }`}>
         {!selectedPatient ? (
