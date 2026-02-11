@@ -274,6 +274,17 @@ const PRODUCT_LABELS: Record<string, string> = {
 // ------------------------- Component -------------------------
 export default function AdminMypageView({ data }: { data: any }) {
   const [showAllHistory, setShowAllHistory] = React.useState(false);
+  const [editingAddressOrderId, setEditingAddressOrderId] = React.useState<string | null>(null);
+  const [editPostalCode, setEditPostalCode] = React.useState("");
+  const [editAddress, setEditAddress] = React.useState("");
+  const [editShippingName, setEditShippingName] = React.useState("");
+  const [addressSaving, setAddressSaving] = React.useState(false);
+  const [toast, setToast] = React.useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 1200);
+  };
 
   const patient = data.patient || { id: "unknown", displayName: "ゲスト" };
   const nextReservation = data.nextReservation;
@@ -314,9 +325,49 @@ export default function AdminMypageView({ data }: { data: any }) {
     };
   };
 
-  const orders: Order[] = (data.orders || []).map(mapOrder);
+  const [orders, setOrders] = React.useState<Order[]>(() => (data.orders || []).map(mapOrder));
 
   const ordersFlags = data.ordersFlags || data.flags;
+
+  const handleSaveAddress = async (orderId: string) => {
+    setAddressSaving(true);
+    try {
+      const res = await fetch("/api/admin/update-order-address", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          orderId,
+          postalCode: editPostalCode,
+          address: editAddress,
+          shippingName: editShippingName,
+        }),
+      });
+      const json = await res.json().catch(() => ({} as any));
+      if (!res.ok || !json.ok) {
+        alert(json.error || "更新に失敗しました");
+        return;
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                postalCode: editPostalCode.replace(/[^0-9]/g, "").replace(/^(\d{3})(\d{4})$/, "$1-$2"),
+                address: editAddress,
+                ...(editShippingName ? { shippingName: editShippingName } : {}),
+              }
+            : o
+        )
+      );
+      setEditingAddressOrderId(null);
+      showToast("届け先を更新しました");
+    } catch {
+      alert("更新に失敗しました");
+    } finally {
+      setAddressSaving(false);
+    }
+  };
 
   // Reorders
   const reorders: ReorderItem[] = Array.isArray(data.reorders)
@@ -407,6 +458,12 @@ export default function AdminMypageView({ data }: { data: any }) {
 
   return (
     <div className="min-h-screen bg-[#FFF8FB]">
+      {/* トースト */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-2 rounded-full text-sm shadow-lg">
+          {toast}
+        </div>
+      )}
       {/* ヘッダー */}
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
@@ -732,11 +789,67 @@ export default function AdminMypageView({ data }: { data: any }) {
                         </p>
                       </div>
                     )}
-                    {/* ★ 配送先情報（管理者ビュー・読み取り専用） */}
-                    <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
-                      <p>配送先名義：{order.shippingName || "―"}</p>
-                      {order.postalCode && <p>郵便番号：{order.postalCode}</p>}
-                      {order.address && <p>住所：{order.address}</p>}
+                    {/* ★ 配送先情報（管理者ビュー） */}
+                    <div className="mt-2">
+                      {editingAddressOrderId === order.id ? (
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2.5 space-y-2">
+                          <label className="block">
+                            <span className="text-[13px] text-slate-600">配送先名義</span>
+                            <input type="text" value={editShippingName} onChange={(e) => setEditShippingName(e.target.value)} placeholder="氏名" className="mt-0.5 block w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
+                          </label>
+                          <label className="block">
+                            <span className="text-[13px] text-slate-600">郵便番号</span>
+                            <input type="text" value={editPostalCode} onChange={(e) => setEditPostalCode(e.target.value)} placeholder="1234567" className="mt-0.5 block w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
+                          </label>
+                          <label className="block">
+                            <span className="text-[13px] text-slate-600">住所</span>
+                            <textarea value={editAddress} onChange={(e) => setEditAddress(e.target.value)} rows={2} className="mt-0.5 block w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm" />
+                          </label>
+                          <div className="flex gap-2">
+                            <button type="button" disabled={addressSaving} onClick={() => handleSaveAddress(order.id)} className="px-5 py-2 rounded-full bg-indigo-500 text-white text-[13px] font-semibold disabled:opacity-50">
+                              {addressSaving ? "保存中…" : "保存"}
+                            </button>
+                            <button type="button" disabled={addressSaving} onClick={() => setEditingAddressOrderId(null)} className="px-5 py-2 rounded-full border border-slate-200 bg-white text-slate-600 text-[13px]">
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
+                            <p>配送先名義：{order.shippingName || "―"}</p>
+                            {order.postalCode && <p>郵便番号：{order.postalCode}</p>}
+                            {order.address && <p>住所：{order.address}</p>}
+                          </div>
+
+                          {order.shippingStatus === "shipped" || order.trackingNumber ? (
+                            <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                              ※ 発送済み。届け先変更・営業所留めは追跡番号からヤマト運輸でお手続きください。
+                            </p>
+                          ) : order.shippingListCreatedAt ? (
+                            <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                              ※ 発送リスト作成済み。顧客には「LINEからお問い合わせ」と案内されています。
+                            </p>
+                          ) : (
+                            <p className="text-xs text-slate-500 leading-relaxed mt-1">
+                              ※ 未発送。顧客もマイページから変更可能です。
+                            </p>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditShippingName(order.shippingName || "");
+                              setEditPostalCode(order.postalCode || "");
+                              setEditAddress(order.address || "");
+                              setEditingAddressOrderId(order.id);
+                            }}
+                            className="mt-1 px-4 py-1.5 rounded-full border border-indigo-200 bg-white text-indigo-600 text-[12px] font-semibold"
+                          >
+                            届け先を変更
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
