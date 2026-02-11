@@ -926,6 +926,7 @@ export default function TalkPage() {
     const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
     return tb - ta;
   };
+  const unreadCount = filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length;
   const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
   const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatest);
   const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
@@ -1056,7 +1057,7 @@ export default function TalkPage() {
                 onChange={(e) => setShowUnreadOnly(e.target.checked)}
                 className="w-3 h-3 accent-[#00B900] rounded"
               />
-              <span className="text-[10px] text-gray-500">未読のみ</span>
+              <span className="text-[10px] text-gray-500">未読のみ（{unreadCount}件）</span>
             </label>
           </div>
         </div>
@@ -1631,7 +1632,7 @@ export default function TalkPage() {
                   友だち詳細
                 </Link>
                 {patientDetail?.registeredAt && (
-                  <span className="text-[10px] text-gray-400">{(() => {
+                  <span className="text-[10px] text-gray-400">登録日時：{(() => {
                     try {
                       const d = new Date(patientDetail.registeredAt);
                       const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
