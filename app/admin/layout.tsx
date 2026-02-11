@@ -11,6 +11,7 @@ const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-pa
 // スマホ用メニュー項目（必要な機能のみ）
 const MOBILE_MENU_ITEMS = [
   { href: "/admin/accounting", icon: "💹", label: "売上管理" },
+  { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト" },
   { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
@@ -19,7 +20,6 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
-  { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
