@@ -111,6 +111,11 @@ export default function DoctorPage() {
   // カルテ textarea 用 ref（カーソル位置取得用）
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // 不通メッセージ送信関連
+  const [noAnswerSentIds, setNoAnswerSentIds] = useState<Set<string>>(new Set());
+  const [noAnswerConfirmTarget, setNoAnswerConfirmTarget] = useState<IntakeRow | null>(null);
+  const [sendingNoAnswerMsg, setSendingNoAnswerMsg] = useState(false);
+
   const todayIso = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState<string>(todayIso);
 
@@ -455,6 +460,63 @@ closeModalAndRefresh();
   }
 };
 
+  const NO_ANSWER_MESSAGE = `本日、診察予約のお時間に医師よりご連絡させていただきましたが、つながらず診察が完了しておりません💦
+
+診察をご希望の場合は、再度メッセージにてご連絡いただけますと幸いです💌
+その際、診察時間はあらためて調整させていただきますので、ご了承くださいませ☺️
+
+ご不明点などありましたら、いつでもお気軽にご連絡ください🫧`;
+
+  const handleSendNoAnswerMsg = async () => {
+    if (!noAnswerConfirmTarget || sendingNoAnswerMsg) return;
+    const pid = pick(noAnswerConfirmTarget, ["patient_id", "Patient_ID", "patientId"]);
+    if (!pid) {
+      alert("Patient IDが見つかりません");
+      return;
+    }
+
+    setSendingNoAnswerMsg(true);
+    try {
+      // 1. メッセージ送信
+      const sendRes = await fetch("/api/admin/line/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patient_id: pid, message: NO_ANSWER_MESSAGE }),
+      });
+      const sendJson = await sendRes.json();
+      if (!sendJson.ok) {
+        alert(`メッセージ送信に失敗しました: ${sendJson.error || sendJson.status || "不明なエラー"}`);
+        return;
+      }
+
+      // 2. 対応マークを「不通」に変更（mark_definitionsからラベル「不通」のvalueを取得）
+      try {
+        const marksRes = await fetch("/api/admin/line/marks", { credentials: "include" });
+        const marksJson = await marksRes.json();
+        const futsuMark = (marksJson.marks || []).find((m: { label: string; value: string }) => m.label === "不通");
+        if (futsuMark) {
+          await fetch(`/api/admin/patients/${pid}/mark`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ mark: futsuMark.value }),
+          });
+        }
+      } catch (markErr) {
+        console.warn("対応マーク更新に失敗:", markErr);
+      }
+
+      setNoAnswerSentIds((prev) => new Set(prev).add(pid));
+      alert("不通メッセージを送信しました");
+    } catch (e) {
+      console.error(e);
+      alert("送信に失敗しました");
+    } finally {
+      setSendingNoAnswerMsg(false);
+      setNoAnswerConfirmTarget(null);
+    }
+  };
 
   const now = new Date();
 
@@ -823,14 +885,13 @@ const isNoAnswer = callStatus === "no_answer";
             }
           };
 
-          const handleOpenLstep = (e: React.MouseEvent) => {
+          const handleOpenTalk = (e: React.MouseEvent) => {
             e.stopPropagation();
-            if (!answererId) {
-              alert("answerer_idが見つかりません");
+            if (!patientId) {
+              alert("Patient IDが見つかりません");
               return;
             }
-            const url = `https://manager.linestep.net/line/visual?member=${answererId}`;
-            window.open(url, "_blank");
+            window.open(`/admin/line/talk?pid=${patientId}`, "_blank");
           };
 
           return (
@@ -855,16 +916,40 @@ const isNoAnswer = callStatus === "no_answer";
                     📋
                   </button>
 
-                  {/* Lステップボタン */}
-                  {answererId && (
+                  {/* Lオペ トークボタン */}
+                  {patientId && (
                     <button
                       type="button"
-                      onClick={handleOpenLstep}
+                      onClick={handleOpenTalk}
                       className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold shadow-md flex items-center justify-center text-sm"
-                      title="Lステップで開く"
+                      title="Lオペ トークで開く"
                     >
-                      L
+                      T
                     </button>
+                  )}
+
+                  {/* 不通メッセージ送信ボタン */}
+                  {patientId && (
+                    noAnswerSentIds.has(patientId) ? (
+                      <div
+                        className="w-10 h-10 rounded-lg bg-gray-300 text-white font-bold shadow-md flex items-center justify-center text-[9px] leading-tight text-center"
+                        title="不通メッセージ送信済み"
+                      >
+                        送信済
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNoAnswerConfirmTarget(row);
+                        }}
+                        className="w-10 h-10 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md flex items-center justify-center text-[9px] leading-tight text-center"
+                        title="不通メッセージを送信"
+                      >
+                        不通
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -1217,6 +1302,40 @@ const isNoAnswer = callStatus === "no_answer";
                   この内容で処方する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 不通メッセージ確認モーダル */}
+      {noAnswerConfirmTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-[90vw] p-6 space-y-4">
+            <h3 className="text-sm font-semibold">不通メッセージ送信確認</h3>
+            <p className="text-xs text-slate-600">
+              <span className="font-semibold">{pick(noAnswerConfirmTarget, ["name", "氏名", "お名前"])}</span> さんに以下のメッセージをLINEで送信します。
+              送信と同時に対応マークを「不通」に変更します。
+            </p>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs whitespace-pre-wrap leading-relaxed text-slate-700">
+              {NO_ANSWER_MESSAGE}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setNoAnswerConfirmTarget(null)}
+                disabled={sendingNoAnswerMsg}
+                className="px-4 py-1.5 rounded-full bg-slate-100 text-[11px] text-slate-700 disabled:opacity-60"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleSendNoAnswerMsg}
+                disabled={sendingNoAnswerMsg}
+                className="px-4 py-1.5 rounded-full bg-amber-500 text-[11px] text-white disabled:opacity-60"
+              >
+                {sendingNoAnswerMsg ? "送信中…" : "送信する"}
+              </button>
             </div>
           </div>
         </div>

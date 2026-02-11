@@ -823,14 +823,13 @@ const isNoAnswer = callStatus === "no_answer";
             }
           };
 
-          const handleOpenLstep = (e: React.MouseEvent) => {
+          const handleOpenTalk = (e: React.MouseEvent) => {
             e.stopPropagation();
-            if (!answererId) {
-              alert("answerer_idが見つかりません");
+            if (!patientId) {
+              alert("Patient IDが見つかりません");
               return;
             }
-            const url = `https://manager.linestep.net/line/visual?member=${answererId}`;
-            window.open(url, "_blank");
+            window.open(`/admin/line/talk?pid=${patientId}`, "_blank");
           };
 
           return (
@@ -855,15 +854,15 @@ const isNoAnswer = callStatus === "no_answer";
                     📋
                   </button>
 
-                  {/* Lステップボタン */}
-                  {answererId && (
+                  {/* Lオペ トークボタン */}
+                  {patientId && (
                     <button
                       type="button"
-                      onClick={handleOpenLstep}
+                      onClick={handleOpenTalk}
                       className="w-10 h-10 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold shadow-md flex items-center justify-center text-sm"
-                      title="Lステップで開く"
+                      title="Lオペ トークで開く"
                     >
-                      L
+                      T
                     </button>
                   )}
                 </div>
