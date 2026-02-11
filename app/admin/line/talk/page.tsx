@@ -147,7 +147,6 @@ function linkifyContent(text: string): ReactNode {
   );
 }
 
-const READ_STORAGE_KEY = "talk_read_timestamps";
 const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
 const MSG_BATCH = 25;
@@ -225,19 +224,23 @@ export default function TalkPage() {
   // モバイルビュー切り替え: list / message / info
   const [mobileView, setMobileView] = useState<"list" | "message" | "info">("list");
 
-  // 既読タイムスタンプ管理（テキスト未読ドット用）
+  // 既読タイムスタンプ管理（DB共有）
   const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>({});
+  // 未読のみ表示フィルタ
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
-  // ピン留め初期化（DB）& 既読タイムスタンプ初期化（localStorage）
+  // ピン留め初期化（DB）& 既読タイムスタンプ初期化（DB）
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/admin/pins", { credentials: "include" });
-        const data = await res.json();
-        if (Array.isArray(data.pins) && data.pins.length > 0) {
-          setPinnedIds(data.pins);
+        const [pinsRes, readsRes] = await Promise.all([
+          fetch("/api/admin/pins", { credentials: "include" }),
+          fetch("/api/admin/chat-reads", { credentials: "include" }),
+        ]);
+        const pinsData = await pinsRes.json();
+        if (Array.isArray(pinsData.pins) && pinsData.pins.length > 0) {
+          setPinnedIds(pinsData.pins);
         } else {
-          // DB空 → localStorageからの自動移行
           const local = localStorage.getItem("talk_pinned_patients");
           if (local) {
             const ids = JSON.parse(local) as string[];
@@ -252,12 +255,10 @@ export default function TalkPage() {
             }
           }
         }
+        const readsData = await readsRes.json();
+        if (readsData.reads) setReadTimestamps(readsData.reads);
       } catch { /* ignore */ }
     })();
-    try {
-      const stored = localStorage.getItem(READ_STORAGE_KEY);
-      if (stored) setReadTimestamps(JSON.parse(stored));
-    } catch { /* ignore */ }
   }, []);
 
   const savePins = (ids: string[]) => {
@@ -272,11 +273,13 @@ export default function TalkPage() {
 
   const markAsRead = (patientId: string) => {
     const now = new Date().toISOString();
-    setReadTimestamps(prev => {
-      const next = { ...prev, [patientId]: now };
-      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    setReadTimestamps(prev => ({ ...prev, [patientId]: now }));
+    fetch("/api/admin/chat-reads", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ patient_id: patientId }),
+    }).catch(() => {});
   };
 
   const togglePin = (patientId: string) => {
@@ -1038,7 +1041,7 @@ export default function TalkPage() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-gray-400 pt-0.5">
+          <div className="flex items-center gap-3 text-[10px] text-gray-400 pt-0.5">
             <span>{filteredFriends.length}件</span>
             {pinnedIds.length > 0 && (
               <span className="flex items-center gap-0.5 text-amber-500">
@@ -1046,6 +1049,15 @@ export default function TalkPage() {
                 {pinnedIds.length}
               </span>
             )}
+            <label className="flex items-center gap-1 cursor-pointer select-none ml-auto">
+              <input
+                type="checkbox"
+                checked={showUnreadOnly}
+                onChange={(e) => setShowUnreadOnly(e.target.checked)}
+                className="w-3 h-3 accent-[#00B900] rounded"
+              />
+              <span className="text-[10px] text-gray-500">未読のみ</span>
+            </label>
           </div>
         </div>
 
@@ -1099,26 +1111,22 @@ export default function TalkPage() {
             <div className="text-center py-16 text-gray-300 text-xs">該当なし</div>
           ) : (
             <>
-              {pinnedFriends.length > 0 && (
-                <>
-                  <div className="px-3 py-1 bg-amber-50/60 border-b border-amber-100/50">
-                    <span className="text-[9px] font-bold text-amber-500 tracking-wider uppercase flex items-center gap-1">
-                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                      PIN
-                    </span>
-                  </div>
-                  {pinnedFriends.map(f => (
-                    <FriendItem key={f.patient_id} f={f} isPinned={true}
-                      isSelected={selectedPatient?.patient_id === f.patient_id}
-                      onSelect={selectPatient} onTogglePin={togglePin}
-                      getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
-                      canPin={pinnedIds.length < MAX_PINS}
-                      readTimestamp={readTimestamps[f.patient_id]}
-                    />
-                  ))}
-                </>
-              )}
-              {visibleUnpinned.map(f => (
+              {pinnedFriends.length > 0 && pinnedFriends.filter(f => {
+                if (!showUnreadOnly) return true;
+                return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
+              }).map(f => (
+                <FriendItem key={f.patient_id} f={f} isPinned={true}
+                  isSelected={selectedPatient?.patient_id === f.patient_id}
+                  onSelect={selectPatient} onTogglePin={togglePin}
+                  getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
+                  canPin={pinnedIds.length < MAX_PINS}
+                  readTimestamp={readTimestamps[f.patient_id]}
+                />
+              ))}
+              {visibleUnpinned.filter(f => {
+                if (!showUnreadOnly) return true;
+                return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
+              }).map(f => (
                 <FriendItem key={f.patient_id} f={f} isPinned={false}
                   isSelected={selectedPatient?.patient_id === f.patient_id}
                   onSelect={selectPatient} onTogglePin={togglePin}
@@ -2009,7 +2017,7 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
           <div className="flex items-center gap-1">
             <span className="text-[15px] font-semibold text-gray-800 truncate">{f.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name || "（名前なし）"}</span>
             {hasUnreadText && (
-              <span className="w-2 h-2 rounded-full bg-[#00B900] flex-shrink-0" />
+              <span className="w-3 h-3 rounded-full bg-[#00B900] flex-shrink-0" />
             )}
           </div>
           <p className="text-[11px] text-gray-500 leading-[1.4]" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-all", height: "31px" }}>
