@@ -136,7 +136,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
+    <div className="h-dvh bg-slate-50 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン（トークページでは非表示：専用タブナビを使用） */}
       {pathname !== "/admin/line/talk" && (
         <button
