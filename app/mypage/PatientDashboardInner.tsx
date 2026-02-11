@@ -1424,10 +1424,12 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       </div>
     ) : (
       /* 表示 */
-      <div className="text-[13px] text-slate-700 space-y-0.5">
-        {order.shippingName && <p>{order.shippingName}</p>}
-        <p>〒 {order.postalCode}</p>
-        <p>{order.address}</p>
+      <div className="space-y-2">
+        <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
+          {order.shippingName && <p>配送先名義：{order.shippingName}</p>}
+          <p>郵便番号：{order.postalCode}</p>
+          <p>住所：{order.address}</p>
+        </div>
 
         {order.shippingStatus === "shipped" || order.trackingNumber ? (
           /* 発送済み: ヤマトで変更・営業所留め案内 */

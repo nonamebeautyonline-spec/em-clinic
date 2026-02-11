@@ -37,6 +37,8 @@ interface Order {
   paymentMethod?: "credit_card" | "bank_transfer";
   postalCode?: string;
   address?: string;
+  shippingName?: string;
+  shippingListCreatedAt?: string;
 }
 
 interface PrescriptionHistoryItem {
@@ -305,6 +307,10 @@ export default function AdminMypageView({ data }: { data: any }) {
       paidAt: o.paid_at_jst || o.paidAt || o.created_at || o.createdAt || "",
       carrier: (o.carrier || "yamato") as Carrier,
       paymentMethod: ((o.payment_method || o.paymentMethod) === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
+      postalCode: o.postal_code || o.postalCode || undefined,
+      address: o.address || undefined,
+      shippingName: (o.shipping_name || o.shippingName) && (o.shipping_name || o.shippingName) !== "null" ? (o.shipping_name || o.shippingName) : undefined,
+      shippingListCreatedAt: o.shipping_list_created_at || o.shippingListCreatedAt || undefined,
     };
   };
 
@@ -728,9 +734,10 @@ export default function AdminMypageView({ data }: { data: any }) {
                     )}
                     {/* ★ 配送先住所（管理者ビュー・読み取り専用） */}
                     {order.postalCode && order.address && (
-                      <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
-                        <p>〒 {order.postalCode}</p>
-                        <p>{order.address}</p>
+                      <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
+                        {order.shippingName && <p>配送先名義：{order.shippingName}</p>}
+                        <p>郵便番号：{order.postalCode}</p>
+                        <p>住所：{order.address}</p>
                       </div>
                     )}
                   </div>
