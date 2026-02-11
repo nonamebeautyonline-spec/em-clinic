@@ -42,7 +42,7 @@ interface Order {
     carrier?: Carrier; // ★追加（APIから来る）
   postalCode?: string;
   address?: string;
-  patientName?: string;
+
   shippingName?: string;
   shippingListCreatedAt?: string;
 }
@@ -1426,7 +1426,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       /* 表示 */
       <div className="space-y-2">
         <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
-          <p>配送先名義：{order.shippingName || order.patientName || "―"}</p>
+          <p>配送先名義：{order.shippingName || "―"}</p>
           {order.postalCode && <p>郵便番号：{order.postalCode}</p>}
           {order.address && <p>住所：{order.address}</p>}
         </div>
@@ -1447,7 +1447,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
               <button
                 type="button"
                 onClick={() => {
-                  setEditShippingName(order.shippingName || order.patientName || "");
+                  setEditShippingName(order.shippingName || "");
                   setEditPostalCode(order.postalCode || "");
                   setEditAddress(order.address || "");
                   setEditingAddressOrderId(order.id);

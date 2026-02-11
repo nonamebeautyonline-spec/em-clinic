@@ -211,6 +211,10 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         refundStatus: normalizeRefundStatus(o.refund_status),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount),
+        postalCode: o.postal_code ?? undefined,
+        address: o.address ?? undefined,
+        shippingName: (o.shipping_name && o.shipping_name !== "null") ? o.shipping_name : undefined,
+        shippingListCreatedAt: o.shipping_list_created_at ?? undefined,
       };
     });
   } catch {

@@ -29,7 +29,6 @@ type OrderForMyPage = {
   refundedAmount?: number;
   postalCode?: string;
   address?: string;
-  patientName?: string;
   shippingName?: string;
   shippingListCreatedAt?: string;
 };
@@ -262,7 +261,6 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         refundedAmount: o.refunded_amount || undefined,
         postalCode: o.postal_code || undefined,
         address: o.address || undefined,
-        patientName: o.patient_name || undefined,
         shippingName: (o.shipping_name && o.shipping_name !== "null") ? o.shipping_name : undefined,
         shippingListCreatedAt: o.shipping_list_created_at || undefined,
       };
