@@ -363,8 +363,48 @@ export default function CreateShippingListPage() {
     setError("");
 
     try {
+      // ★ CSV作成直前にDBから最新の郵便番号・住所を再取得（顧客がマイページで変更した場合に反映）
+      try {
+        const freshRes = await fetch("/api/admin/shipping/pending", { credentials: "include" });
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          const freshOrders = freshData.orders || [];
+          const freshMap = new Map<string, { postal_code: string; address: string }>();
+          freshOrders.forEach((o: any) => {
+            freshMap.set(o.id, { postal_code: o.postal_code || "", address: o.address || "" });
+          });
+          // ローカルstateの郵便番号・住所を最新に更新（管理者が手動編集していない場合のみ）
+          setItems((prev) =>
+            prev.map((item) => {
+              const fresh = freshMap.get(item.id);
+              if (!fresh) return item;
+              const postalUntouched = item.editable.postal_code === item.postal_code;
+              const addressUntouched = item.editable.address === item.address;
+              return {
+                ...item,
+                postal_code: fresh.postal_code,
+                address: fresh.address,
+                editable: {
+                  ...item.editable,
+                  postal_code: postalUntouched ? fresh.postal_code : item.editable.postal_code,
+                  address: addressUntouched ? fresh.address : item.editable.address,
+                },
+              };
+            })
+          );
+        }
+      } catch (refreshErr) {
+        console.warn("[ExportYamatoB2] 住所再取得に失敗（ローカルデータで続行）:", refreshErr);
+      }
+
+      // 最新のstateを取得（setItemsは非同期なのでselectedItemsを再計算）
+      const latestItems = await new Promise<ShippingItem[]>((resolve) => {
+        setItems((prev) => { resolve(prev); return prev; });
+      });
+      const latestSelected = latestItems.filter((item) => item.selected);
+
       // 編集されたデータを送信
-      const exportData = selectedItems.map((item) => ({
+      const exportData = latestSelected.map((item) => ({
         payment_id: item.id,
         name: item.editable.name,
         postal: item.editable.postal_code,
@@ -374,11 +414,11 @@ export default function CreateShippingListPage() {
       }));
 
       // ★ 統合されている場合は、統合前の全payment_idも送信
-      let allPaymentIds: string[] = selectedItems.map((item) => item.id);
+      let allPaymentIds: string[] = latestSelected.map((item) => item.id);
 
       if (isMerged && originalItems.length > 0) {
         // 選択されているアイテムの名前リスト
-        const selectedNames = selectedItems.map((item) => item.editable.name);
+        const selectedNames = latestSelected.map((item) => item.editable.name);
 
         console.log("[ExportYamatoB2] Merged mode detected");
         console.log("[ExportYamatoB2] Selected names:", selectedNames);
@@ -393,7 +433,7 @@ export default function CreateShippingListPage() {
         console.log("[ExportYamatoB2] OriginalSelectedItems count:", originalSelectedItems.length);
 
         allPaymentIds = Array.from(new Set([
-          ...selectedItems.map((item) => item.id),
+          ...latestSelected.map((item) => item.id),
           ...originalSelectedItems.map((item) => item.id),
         ]));
 

@@ -42,6 +42,7 @@ interface Order {
     carrier?: Carrier; // ★追加（APIから来る）
   postalCode?: string;
   address?: string;
+  shippingListCreatedAt?: string;
 }
 
 interface PrescriptionHistoryItem {
@@ -638,11 +639,6 @@ const handleCopyTrackingIfYamato = async (order: Order) => {
 };
 
 
-const isBeforeCutoffJST = () => {
-  const now = new Date();
-  const jstHour = (now.getUTCHours() + 9) % 24;
-  return jstHour < 13;
-};
 
 const handleSaveAddress = async (orderId: string) => {
   setAddressSaving(true);
@@ -1376,7 +1372,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       /* 編集フォーム */
       <div className="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 space-y-2">
         <label className="block">
-          <span className="text-[10px] text-slate-600">郵便番号</span>
+          <span className="text-xs text-slate-600">郵便番号</span>
           <input
             type="text"
             value={editPostalCode}
@@ -1386,7 +1382,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           />
         </label>
         <label className="block">
-          <span className="text-[10px] text-slate-600">住所</span>
+          <span className="text-xs text-slate-600">住所</span>
           <textarea
             value={editAddress}
             onChange={(e) => setEditAddress(e.target.value)}
@@ -1399,7 +1395,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             type="button"
             disabled={addressSaving}
             onClick={() => handleSaveAddress(order.id)}
-            className="px-3 py-1 rounded-full bg-pink-500 text-white text-[11px] font-semibold disabled:opacity-50"
+            className="px-4 py-1.5 rounded-full bg-pink-500 text-white text-xs font-semibold disabled:opacity-50"
           >
             {addressSaving ? "保存中…" : "保存"}
           </button>
@@ -1407,7 +1403,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             type="button"
             disabled={addressSaving}
             onClick={() => setEditingAddressOrderId(null)}
-            className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-600 text-[11px]"
+            className="px-4 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs"
           >
             キャンセル
           </button>
@@ -1415,23 +1411,23 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       </div>
     ) : (
       /* 表示 */
-      <div className="text-[11px] text-slate-500 space-y-1">
+      <div className="text-xs text-slate-600 space-y-1">
         <p>〒 {order.postalCode}</p>
         <p>{order.address}</p>
 
         {order.shippingStatus === "shipped" || order.trackingNumber ? (
-          /* 発送済み: ヤマトで変更・営業所止め案内 */
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            ※ 届け先の変更・営業所止めをご希望の場合は、追跡番号からヤマト運輸のサイトでお手続きください。
+          /* 発送済み: ヤマトで変更・営業所留め案内 */
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            ※ 届け先の変更・営業所留めをご希望の場合は、追跡番号からヤマト運輸のサイトでお手続きください。
           </p>
         ) : (
           <>
-            {/* 未発送: 営業所止め案内（常時表示） */}
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              ※ 営業所止めをご希望の場合は、発送後に追跡番号からヤマト運輸のサイトでお手続きください。
+            {/* 未発送: 営業所留め案内（常時表示） */}
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              ※ 営業所留めをご希望の場合は、発送後に追跡番号からヤマト運輸のサイトでお手続きください。
             </p>
-            {isBeforeCutoffJST() ? (
-              /* 13時前: 編集ボタン */
+            {!order.shippingListCreatedAt ? (
+              /* 発送リスト未作成: 編集ボタン */
               <button
                 type="button"
                 onClick={() => {
@@ -1439,14 +1435,14 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
                   setEditAddress(order.address || "");
                   setEditingAddressOrderId(order.id);
                 }}
-                className="mt-1 px-3 py-1 rounded-full border border-pink-200 bg-white text-pink-600 text-[11px] font-medium"
+                className="mt-1 px-4 py-1.5 rounded-full border border-pink-200 bg-white text-pink-600 text-xs font-semibold"
               >
                 届け先を変更
               </button>
             ) : (
-              /* 13時以降: LINE案内 */
-              <p className="text-[10px] text-slate-400 leading-relaxed">
-                ※ 本日13時を過ぎたため、届け先の変更はLINEからお問い合わせください。
+              /* 発送リスト作成済み: LINE案内 */
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                ※ 発送準備に入ったため、届け先の変更はLINEからお問い合わせください。
               </p>
             )}
           </>

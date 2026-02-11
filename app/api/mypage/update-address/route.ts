@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     // 注文を取得して権限チェック
     const { data: order, error: fetchError } = await supabaseAdmin
       .from("orders")
-      .select("id, patient_id, shipping_status, tracking_number")
+      .select("id, patient_id, shipping_status, tracking_number, shipping_list_created_at")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -87,15 +87,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 13時カットオフ（JST）
-    const now = new Date();
-    const jstHour = (now.getUTCHours() + 9) % 24;
-    if (jstHour >= 13) {
+    // 発送リスト作成済みチェック
+    if (order.shipping_list_created_at) {
       return NextResponse.json(
         {
           ok: false,
-          error: "past_cutoff",
-          message: "13時を過ぎたため、届け先の変更はLINEからお問い合わせください。",
+          error: "shipping_list_created",
+          message: "発送準備に入ったため、届け先の変更はLINEからお問い合わせください。",
         },
         { status: 400 }
       );
