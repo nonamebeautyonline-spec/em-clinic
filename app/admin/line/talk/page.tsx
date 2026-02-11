@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 interface Friend {
   patient_id: string;
@@ -152,6 +153,9 @@ const DISPLAY_BATCH = 50;
 const MSG_BATCH = 25;
 
 export default function TalkPage() {
+  const searchParams = useSearchParams();
+  const initialPid = searchParams.get("pid");
+
   // 左カラム
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
@@ -351,6 +355,11 @@ export default function TalkPage() {
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
+    // URLに患者IDを反映（ブラウザ履歴は置換）
+    const url = new URL(window.location.href);
+    url.searchParams.set("pid", friend.patient_id);
+    window.history.replaceState({}, "", url.toString());
+
     // 既読にする
     markAsRead(friend.patient_id);
     // 前の患者データを即座にクリア（誤操作防止）
@@ -409,6 +418,17 @@ export default function TalkPage() {
     setMobileView("message");
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
+
+  // URLの ?pid= で指定された患者を自動選択
+  const autoSelectedRef = useRef(false);
+  useEffect(() => {
+    if (autoSelectedRef.current || friendsLoading || !initialPid) return;
+    const target = friends.find(f => f.patient_id === initialPid);
+    if (target) {
+      autoSelectedRef.current = true;
+      selectPatient(target);
+    }
+  }, [friends, friendsLoading, initialPid, selectPatient]);
 
   // 過去メッセージ読み込み
   const loadMoreMessages = useCallback(async () => {
