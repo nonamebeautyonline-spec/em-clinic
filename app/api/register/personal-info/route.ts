@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
       console.log("[register/personal-info] New patient_id:", patientId);
     }
 
-    // 4) LINE_仮IDがある場合、関連テーブルのpatient_idを正式IDに移行
+    // 4) LINE_仮IDがある場合、全テーブルの patient_id を実IDに統合更新
     if (oldLinePatientId && patientId) {
       console.log("[register/personal-info] Migrating", oldLinePatientId, "->", patientId);
-      const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+      const allTables = ["intake", "answerers", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
       await Promise.all(
-        migrateTables.map(async (table) => {
+        allTables.map(async (table) => {
           const { error } = await supabaseAdmin
             .from(table)
             .update({ patient_id: patientId })
@@ -105,31 +105,52 @@ export async function POST(req: NextRequest) {
           }
         })
       );
-      // 旧LINE_仮intakeレコードを削除（新しいIDで再作成される）
-      await supabaseAdmin.from("intake").delete().eq("patient_id", oldLinePatientId);
-      // 旧LINE_仮answerersレコードも削除
-      await supabaseAdmin.from("answerers").delete().eq("patient_id", oldLinePatientId);
       console.log("[register/personal-info] Migration complete:", oldLinePatientId, "->", patientId);
     }
 
-    // 5) Supabase answerers テーブルに保存
-    const { error: answererError } = await supabaseAdmin
+    // 5) answerers に個人情報を上書き保存（既存の tel 等はそのまま）
+    const { data: existingAnswerer } = await supabaseAdmin
       .from("answerers")
-      .upsert({
-        patient_id: patientId,
-        name: name.trim(),
-        name_kana: name_kana.trim(),
-        sex,
-        birthday,
-        line_id: lineUserId || null,
-      }, { onConflict: "patient_id" });
+      .select("patient_id")
+      .eq("patient_id", patientId)
+      .maybeSingle();
 
-    if (answererError) {
-      console.error("[register/personal-info] Answerers upsert failed:", answererError.message);
+    if (existingAnswerer) {
+      const { error } = await supabaseAdmin
+        .from("answerers")
+        .update({
+          name: name.trim(),
+          name_kana: name_kana.trim(),
+          sex,
+          birthday,
+          line_id: lineUserId || null,
+        })
+        .eq("patient_id", patientId);
+      if (error) console.error("[register/personal-info] Answerers update failed:", error.message);
+    } else {
+      const { error } = await supabaseAdmin
+        .from("answerers")
+        .insert({
+          patient_id: patientId,
+          name: name.trim(),
+          name_kana: name_kana.trim(),
+          sex,
+          birthday,
+          line_id: lineUserId || null,
+        });
+      if (error) console.error("[register/personal-info] Answerers insert failed:", error.message);
     }
 
-    // 6) Supabase intake テーブルに保存
-    const answers = {
+    // 6) intake の answers に個人情報をマージ（既存の問診・予約データはそのまま）
+    const { data: existingIntake } = await supabaseAdmin
+      .from("intake")
+      .select("id, answers")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const personalAnswers = {
       氏名: name.trim(),
       name: name.trim(),
       カナ: name_kana.trim(),
@@ -140,25 +161,17 @@ export async function POST(req: NextRequest) {
       birth: birthday,
     };
 
-    // 旧LINE_レコード削除済みなので insert で新規作成
-    // （patient_idユニーク制約がないため upsert は使えない）
-    const { data: existingIntake } = await supabaseAdmin
-      .from("intake")
-      .select("id")
-      .eq("patient_id", patientId)
-      .limit(1)
-      .maybeSingle();
-
     let intakeError: any = null;
     if (existingIntake) {
+      const oldAnswers = (existingIntake.answers as Record<string, unknown>) || {};
       const { error } = await supabaseAdmin
         .from("intake")
         .update({
           patient_name: name.trim(),
           line_id: lineUserId || null,
-          answers,
+          answers: { ...oldAnswers, ...personalAnswers },
         })
-        .eq("patient_id", patientId);
+        .eq("id", existingIntake.id);
       intakeError = error;
     } else {
       const { error } = await supabaseAdmin
@@ -167,7 +180,7 @@ export async function POST(req: NextRequest) {
           patient_id: patientId,
           patient_name: name.trim(),
           line_id: lineUserId || null,
-          answers,
+          answers: personalAnswers,
         });
       intakeError = error;
     }
