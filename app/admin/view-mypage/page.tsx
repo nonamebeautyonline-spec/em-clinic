@@ -170,7 +170,7 @@ export default function AdminViewMypagePage() {
           </button>
           <div style={{ fontSize: "0.875rem" }}>
             <strong>患者ID:</strong> {data.patientId} |{" "}
-            <strong>ソース:</strong> {data.source === "cache" ? "キャッシュ" : "GAS"}
+            <strong>ソース:</strong> {data.source === "cache" ? "キャッシュ" : "Supabase"}
           </div>
         </div>
         <button
