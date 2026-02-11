@@ -369,25 +369,28 @@ export default function CreateShippingListPage() {
         if (freshRes.ok) {
           const freshData = await freshRes.json();
           const freshOrders = freshData.orders || [];
-          const freshMap = new Map<string, { postal_code: string; address: string }>();
+          const freshMap = new Map<string, { postal_code: string; address: string; patient_name: string }>();
           freshOrders.forEach((o: any) => {
-            freshMap.set(o.id, { postal_code: o.postal_code || "", address: o.address || "" });
+            freshMap.set(o.id, { postal_code: o.postal_code || "", address: o.address || "", patient_name: o.patient_name || "" });
           });
-          // ローカルstateの郵便番号・住所を最新に更新（管理者が手動編集していない場合のみ）
+          // ローカルstateの郵便番号・住所・名義を最新に更新（管理者が手動編集していない場合のみ）
           setItems((prev) =>
             prev.map((item) => {
               const fresh = freshMap.get(item.id);
               if (!fresh) return item;
               const postalUntouched = item.editable.postal_code === item.postal_code;
               const addressUntouched = item.editable.address === item.address;
+              const nameUntouched = item.editable.name === item.name;
               return {
                 ...item,
                 postal_code: fresh.postal_code,
                 address: fresh.address,
+                name: fresh.patient_name || item.name,
                 editable: {
                   ...item.editable,
                   postal_code: postalUntouched ? fresh.postal_code : item.editable.postal_code,
                   address: addressUntouched ? fresh.address : item.editable.address,
+                  name: nameUntouched ? (fresh.patient_name || item.editable.name) : item.editable.name,
                 },
               };
             })

@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     const orderId = (body.orderId ?? "").trim();
     const rawPostal = (body.postalCode ?? "").trim();
     const address = (body.address ?? "").trim();
+    const shippingName = (body.shippingName ?? "").trim();
 
     // バリデーション
     if (!orderId) {
@@ -50,6 +51,12 @@ export async function POST(req: NextRequest) {
     if (address.length > 200) {
       return NextResponse.json(
         { ok: false, error: "住所は200文字以内で入力してください" },
+        { status: 400 }
+      );
+    }
+    if (shippingName && shippingName.length > 50) {
+      return NextResponse.json(
+        { ok: false, error: "名義は50文字以内で入力してください" },
         { status: 400 }
       );
     }
@@ -100,13 +107,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 更新
+    const updateData: Record<string, string> = {
+      postal_code: postalCode,
+      address,
+      updated_at: new Date().toISOString(),
+    };
+    if (shippingName) {
+      updateData.shipping_name = shippingName;
+    }
     const { error: updateError } = await supabaseAdmin
       .from("orders")
-      .update({
-        postal_code: postalCode,
-        address,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", orderId);
 
     if (updateError) {
