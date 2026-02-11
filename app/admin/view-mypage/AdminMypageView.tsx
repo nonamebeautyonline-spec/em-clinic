@@ -35,6 +35,8 @@ interface Order {
   paidAt?: string;
   carrier?: Carrier;
   paymentMethod?: "credit_card" | "bank_transfer";
+  postalCode?: string;
+  address?: string;
 }
 
 interface PrescriptionHistoryItem {
@@ -722,6 +724,13 @@ export default function AdminMypageView({ data }: { data: any }) {
                           <br />
                           金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
                         </p>
+                      </div>
+                    )}
+                    {/* ★ 配送先住所（管理者ビュー・読み取り専用） */}
+                    {order.postalCode && order.address && (
+                      <div className="mt-2 text-[11px] text-slate-500 space-y-0.5">
+                        <p>〒 {order.postalCode}</p>
+                        <p>{order.address}</p>
                       </div>
                     )}
                   </div>

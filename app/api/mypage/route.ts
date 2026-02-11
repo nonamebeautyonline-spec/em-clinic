@@ -27,6 +27,8 @@ type OrderForMyPage = {
   refundStatus?: RefundStatus;
   refundedAt?: string;
   refundedAmount?: number;
+  postalCode?: string;
+  address?: string;
 };
 
 type OrdersFlags = {
@@ -255,6 +257,8 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
         refundStatus,
         refundedAt: refundedAt || undefined,
         refundedAmount: o.refunded_amount || undefined,
+        postalCode: o.postal_code || undefined,
+        address: o.address || undefined,
       };
     });
   } catch (err) {

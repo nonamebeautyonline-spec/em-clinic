@@ -40,6 +40,8 @@ interface Order {
   refundedAmount?: number;   // JPY
   paidAt?: string;           // ISO（履歴表示に使うならあると便利）
     carrier?: Carrier; // ★追加（APIから来る）
+  postalCode?: string;
+  address?: string;
 }
 
 interface PrescriptionHistoryItem {
@@ -335,7 +337,10 @@ const [intakeStatus, setIntakeStatus] = useState<string | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
 const [historyLoading, setHistoryLoading] = useState(false);
 const [historyError, setHistoryError] = useState<string | null>(null);
-
+const [editingAddressOrderId, setEditingAddressOrderId] = useState<string | null>(null);
+const [editPostalCode, setEditPostalCode] = useState("");
+const [editAddress, setEditAddress] = useState("");
+const [addressSaving, setAddressSaving] = useState(false);
 
 const showToast = (msg: string) => {
   setToast(msg);
@@ -632,6 +637,51 @@ const handleCopyTrackingIfYamato = async (order: Order) => {
   else showToast("コピーに失敗しました");
 };
 
+
+const isBeforeCutoffJST = () => {
+  const now = new Date();
+  const jstHour = (now.getUTCHours() + 9) % 24;
+  return jstHour < 13;
+};
+
+const handleSaveAddress = async (orderId: string) => {
+  setAddressSaving(true);
+  try {
+    const res = await fetch("/api/mypage/update-address", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId,
+        postalCode: editPostalCode,
+        address: editAddress,
+      }),
+    });
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok || !json.ok) {
+      alert(json.message || json.error || "住所の更新に失敗しました");
+      return;
+    }
+    // ローカル state を更新
+    setData((prev) => {
+      if (!prev) return prev;
+      const updateOrder = (o: Order) =>
+        o.id === orderId
+          ? { ...o, postalCode: editPostalCode.replace(/[^0-9]/g, "").replace(/^(\d{3})(\d{4})$/, "$1-$2"), address: editAddress }
+          : o;
+      return {
+        ...prev,
+        activeOrders: prev.activeOrders.map(updateOrder),
+        orders: prev.orders.map(updateOrder),
+      };
+    });
+    setEditingAddressOrderId(null);
+    showToast("届け先を更新しました");
+  } catch {
+    alert("住所の更新に失敗しました");
+  } finally {
+    setAddressSaving(false);
+  }
+};
 
   const handleContactSupport = () => {
     alert("LINE公式アカウントをあとで紐づけます。");
@@ -1319,6 +1369,92 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
   ) : null}
 </div>
 
+{/* ★ 配送先住所 */}
+{order.postalCode && order.address && (
+  <div className="mt-2">
+    {editingAddressOrderId === order.id ? (
+      /* 編集フォーム */
+      <div className="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 space-y-2">
+        <label className="block">
+          <span className="text-[10px] text-slate-600">郵便番号</span>
+          <input
+            type="text"
+            value={editPostalCode}
+            onChange={(e) => setEditPostalCode(e.target.value)}
+            placeholder="1234567"
+            className="mt-0.5 block w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px]"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[10px] text-slate-600">住所</span>
+          <textarea
+            value={editAddress}
+            onChange={(e) => setEditAddress(e.target.value)}
+            rows={2}
+            className="mt-0.5 block w-full rounded-lg border border-slate-300 px-2 py-1.5 text-[13px]"
+          />
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={addressSaving}
+            onClick={() => handleSaveAddress(order.id)}
+            className="px-3 py-1 rounded-full bg-pink-500 text-white text-[11px] font-semibold disabled:opacity-50"
+          >
+            {addressSaving ? "保存中…" : "保存"}
+          </button>
+          <button
+            type="button"
+            disabled={addressSaving}
+            onClick={() => setEditingAddressOrderId(null)}
+            className="px-3 py-1 rounded-full border border-slate-200 bg-white text-slate-600 text-[11px]"
+          >
+            キャンセル
+          </button>
+        </div>
+      </div>
+    ) : (
+      /* 表示 */
+      <div className="text-[11px] text-slate-500 space-y-1">
+        <p>〒 {order.postalCode}</p>
+        <p>{order.address}</p>
+
+        {order.shippingStatus === "shipped" || order.trackingNumber ? (
+          /* 発送済み: ヤマトで変更・営業所止め案内 */
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            ※ 届け先の変更・営業所止めをご希望の場合は、追跡番号からヤマト運輸のサイトでお手続きください。
+          </p>
+        ) : (
+          <>
+            {/* 未発送: 営業所止め案内（常時表示） */}
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              ※ 営業所止めをご希望の場合は、発送後に追跡番号からヤマト運輸のサイトでお手続きください。
+            </p>
+            {isBeforeCutoffJST() ? (
+              /* 13時前: 編集ボタン */
+              <button
+                type="button"
+                onClick={() => {
+                  setEditPostalCode(order.postalCode || "");
+                  setEditAddress(order.address || "");
+                  setEditingAddressOrderId(order.id);
+                }}
+                className="mt-1 px-3 py-1 rounded-full border border-pink-200 bg-white text-pink-600 text-[11px] font-medium"
+              >
+                届け先を変更
+              </button>
+            ) : (
+              /* 13時以降: LINE案内 */
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                ※ 本日13時を過ぎたため、届け先の変更はLINEからお問い合わせください。
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    )}
+  </div>
+)}
 
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
