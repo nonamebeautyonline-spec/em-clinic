@@ -183,16 +183,14 @@ function Inner() {
             </div>
             <h2 className="text-lg font-bold text-slate-900 mb-2">個人情報を保存しました</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              続いて電話番号の認証を行います。
-              <br />
-              自動で認証ページに移動します。
+              自動でマイページに移動します。
             </p>
             <button
               type="button"
-              onClick={() => router.push("/mypage/init")}
+              onClick={() => router.push("/mypage")}
               className="mt-6 px-8 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"
             >
-              電話番号認証へ進む
+              マイページへ進む
             </button>
           </div>
         </main>
@@ -352,7 +350,7 @@ function Inner() {
           </button>
 
           <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-            送信後、電話番号のSMS認証に進みます。
+            送信後、マイページに進みます。
           </p>
         </div>
       </main>
