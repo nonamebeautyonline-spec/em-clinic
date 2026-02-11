@@ -390,13 +390,20 @@ export default function TalkPage() {
     if (friend.line_id) {
       fetch(`/api/admin/line/user-richmenu?patient_id=${encodeURIComponent(friend.patient_id)}`, { credentials: "include" })
         .then(r => r.json())
-        .then(d => { if (d.menu) setUserRichMenu(d.menu); })
+        .then(d => {
+          // staleガード
+          if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
+          if (d.menu) setUserRichMenu(d.menu);
+        })
         .catch(() => {});
     }
 
     const [logData, tagsData, markData, fieldsData, detailData] = await Promise.all([
       logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(), detailRes.json(),
     ]);
+
+    // staleガード: レスポンス到着時に既に別患者を選択していたら破棄
+    if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
 
     if (logData.messages) {
       const reversed = [...logData.messages].reverse();
@@ -794,6 +801,10 @@ export default function TalkPage() {
     setSavingMark(true);
     setPatientMark(newMark);
     setShowMarkDropdown(false);
+    // 左カラムの友だちリストにも即座に反映
+    setFriends(prev => prev.map(f =>
+      f.patient_id === selectedPatient.patient_id ? { ...f, mark: newMark } : f
+    ));
     await fetch(`/api/admin/patients/${encodeURIComponent(selectedPatient.patient_id)}/mark`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
