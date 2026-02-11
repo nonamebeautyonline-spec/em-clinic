@@ -15,15 +15,20 @@ export default async function MyPagePage() {
     redirect("/api/line/login");
   }
 
-  // 電話番号未登録 → SMS認証画面へ誘導
+  // 個人情報・電話番号の登録状態をチェック
   const patientId = cookieStore.get("__Host-patient_id")?.value
     || cookieStore.get("patient_id")?.value;
   if (patientId) {
     const { data: answerer } = await supabaseAdmin
       .from("answerers")
-      .select("tel")
+      .select("name, tel")
       .eq("patient_id", patientId)
       .maybeSingle();
+    // 個人情報未入力 → 個人情報フォームへ
+    if (!answerer?.name) {
+      redirect("/register");
+    }
+    // 電話番号未登録 → SMS認証画面へ
     if (!answerer?.tel) {
       redirect("/mypage/init");
     }
