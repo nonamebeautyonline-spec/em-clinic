@@ -734,14 +734,12 @@ export default function AdminMypageView({ data }: { data: any }) {
                         </p>
                       </div>
                     )}
-                    {/* ★ 配送先住所（管理者ビュー・読み取り専用） */}
-                    {order.postalCode && order.address && (
-                      <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
-                        <p>配送先名義：{order.shippingName || order.patientName || "―"}</p>
-                        <p>郵便番号：{order.postalCode}</p>
-                        <p>住所：{order.address}</p>
-                      </div>
-                    )}
+                    {/* ★ 配送先情報（管理者ビュー・読み取り専用） */}
+                    <div className="mt-2 rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
+                      <p>配送先名義：{order.shippingName || order.patientName || "―"}</p>
+                      {order.postalCode && <p>郵便番号：{order.postalCode}</p>}
+                      {order.address && <p>住所：{order.address}</p>}
+                    </div>
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
                     {order.trackingNumber && (

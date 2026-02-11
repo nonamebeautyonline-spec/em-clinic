@@ -1369,8 +1369,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
   ) : null}
 </div>
 
-{/* ★ 配送先住所 */}
-{order.postalCode && order.address && (
+{/* ★ 配送先情報 */}
   <div className="mt-2">
     {editingAddressOrderId === order.id ? (
       /* 編集フォーム */
@@ -1428,8 +1427,8 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       <div className="space-y-2">
         <div className="rounded-xl bg-sky-50 px-3 py-2.5 text-[13px] text-blue-900 space-y-1">
           <p>配送先名義：{order.shippingName || order.patientName || "―"}</p>
-          <p>郵便番号：{order.postalCode}</p>
-          <p>住所：{order.address}</p>
+          {order.postalCode && <p>郵便番号：{order.postalCode}</p>}
+          {order.address && <p>住所：{order.address}</p>}
         </div>
 
         {order.shippingStatus === "shipped" || order.trackingNumber ? (
@@ -1468,7 +1467,6 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       </div>
     )}
   </div>
-)}
 
                   </div>
                   <div className="mt-3 md:mt-0 flex w-full md:w-auto gap-2 md:flex-col md:items-end">
