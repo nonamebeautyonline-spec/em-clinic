@@ -1,4 +1,4 @@
--- 予約変更のアトミック関数（変更先スロットの定員チェック + UPDATE を1トランザクションで実行）
+-- update_reservation_atomic: reserved_time の time型比較を修正
 CREATE OR REPLACE FUNCTION update_reservation_atomic(
   p_reserve_id TEXT,
   p_new_date DATE,
@@ -13,10 +13,8 @@ DECLARE
   v_capacity INTEGER;
   v_booked_count INTEGER;
 BEGIN
-  -- 1. 変更先の曜日を取得
   v_weekday := EXTRACT(DOW FROM p_new_date);
 
-  -- 2. 日別例外（override）から capacity を取得
   SELECT capacity INTO v_capacity
   FROM doctor_date_overrides
   WHERE doctor_id = p_doctor_id
@@ -30,7 +28,6 @@ BEGIN
   ORDER BY start_time
   LIMIT 1;
 
-  -- 3. override で見つからなければ週間ルールから取得
   IF v_capacity IS NULL THEN
     SELECT capacity INTO v_capacity
     FROM doctor_weekly_rules
@@ -39,12 +36,10 @@ BEGIN
       AND enabled = true;
   END IF;
 
-  -- 4. デフォルト 2
   IF v_capacity IS NULL THEN
     v_capacity := 2;
   END IF;
 
-  -- 5. 変更先スロットの予約数をカウント（自分自身は除外、FOR UPDATE でロック）
   SELECT COUNT(*) INTO v_booked_count
   FROM (
     SELECT 1 FROM reservations
@@ -55,7 +50,6 @@ BEGIN
     FOR UPDATE
   ) locked;
 
-  -- 6. 定員チェック
   IF v_booked_count >= v_capacity THEN
     RETURN jsonb_build_object(
       'ok', false,
@@ -65,7 +59,6 @@ BEGIN
     );
   END IF;
 
-  -- 7. 予約の日時を UPDATE
   UPDATE reservations
   SET reserved_date = p_new_date,
       reserved_time = p_new_time::time

@@ -53,11 +53,13 @@ BEGIN
 
   -- 5. 該当スロットの予約数をカウント（FOR UPDATE でロック）
   SELECT COUNT(*) INTO v_booked_count
-  FROM reservations
-  WHERE reserved_date = p_reserved_date
-    AND reserved_time = p_reserved_time
-    AND status != 'canceled'
-  FOR UPDATE;
+  FROM (
+    SELECT 1 FROM reservations
+    WHERE reserved_date = p_reserved_date
+      AND reserved_time = p_reserved_time::time
+      AND status != 'canceled'
+    FOR UPDATE
+  ) locked;
 
   -- 6. 定員チェック
   IF v_booked_count >= v_capacity THEN
@@ -76,7 +78,7 @@ BEGIN
     note, prescription_menu
   ) VALUES (
     p_reserve_id, p_patient_id, p_patient_name,
-    p_reserved_date, p_reserved_time, 'pending',
+    p_reserved_date, p_reserved_time::time, 'pending',
     NULL, NULL
   );
 
