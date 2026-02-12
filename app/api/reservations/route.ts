@@ -543,71 +543,65 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ★ DB先行書き込み（高速レスポンスのため）
-      const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
-        // 1. reservationsテーブルに予約を作成（リトライあり）
-        retrySupabaseWrite(async () => {
-          const result = await supabase
-            .from("reservations")
-            .insert({
-              reserve_id: reserveId,
-              patient_id: pid,
-              patient_name: patientName,
-              reserved_date: date || null,
-              reserved_time: time || null,
-              status: "pending",
-              note: null,
-              prescription_menu: null,
-            });
+      // ★ RPC で定員チェック + INSERT をアトミックに実行
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+        "create_reservation_atomic",
+        {
+          p_reserve_id: reserveId,
+          p_patient_id: pid,
+          p_patient_name: patientName,
+          p_reserved_date: date,
+          p_reserved_time: time,
+          p_doctor_id: "dr_default",
+        }
+      );
 
-          if (result.error) {
-            throw result.error;
-          }
-          return result;
-        }),
-
-        // 2. intakeテーブルの予約情報を更新（リトライあり）
-        pid ? retrySupabaseWrite(async () => {
-          const updateResult = await supabase
-            .from("intake")
-            .update({
-              reserve_id: reserveId,
-              reserved_date: date || null,
-              reserved_time: time || null,
-            })
-            .eq("patient_id", pid)
-            .select();
-
-          if (updateResult.error) {
-            throw updateResult.error;
-          }
-
-          if (!updateResult.data || updateResult.data.length === 0) {
-            console.error("❌ [CRITICAL] Patient intake record NOT FOUND:", { patient_id: pid, reserve_id: reserveId });
-          } else {
-            console.log(`✓ Intake updated: patient_id=${pid}, reserve_id=${reserveId}`);
-          }
-
-          return updateResult;
-        }) : Promise.resolve({ error: null }),
-      ]);
-
-      // DB結果チェック - 予約作成失敗はエラー
-      if (supabaseReservationResult.status === "rejected" ||
-          (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
-        const error = supabaseReservationResult.status === "rejected"
-          ? supabaseReservationResult.reason
-          : supabaseReservationResult.value.error;
-        console.error("[Supabase] Reservation write failed:", error);
-        return NextResponse.json({ ok: false, error: "db_error", detail: String(error) }, { status: 500 });
+      if (rpcError) {
+        console.error("[Supabase] RPC create_reservation_atomic failed:", rpcError);
+        return NextResponse.json({ ok: false, error: "db_error", detail: rpcError.message }, { status: 500 });
       }
 
-      if (supabaseIntakeResult.status === "rejected" ||
-          (supabaseIntakeResult.status === "fulfilled" && supabaseIntakeResult.value.error)) {
-        const error = supabaseIntakeResult.status === "rejected"
-          ? supabaseIntakeResult.reason
-          : supabaseIntakeResult.value.error;
-        console.error("[Supabase] Intake update failed:", error);
+      // RPC が slot_full を返した場合
+      if (rpcResult && !rpcResult.ok) {
+        console.log(`[Reservation] slot_full: date=${date}, time=${time}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
+        return NextResponse.json({
+          ok: false,
+          error: "slot_full",
+          message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。",
+        }, { status: 409 });
+      }
+
+      console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
+
+      // intake テーブルの予約情報を更新
+      if (pid) {
+        try {
+          const updateResult = await retrySupabaseWrite(async () => {
+            const result = await supabase
+              .from("intake")
+              .update({
+                reserve_id: reserveId,
+                reserved_date: date || null,
+                reserved_time: time || null,
+              })
+              .eq("patient_id", pid)
+              .select();
+
+            if (result.error) {
+              throw result.error;
+            }
+
+            if (!result.data || result.data.length === 0) {
+              console.error("❌ [CRITICAL] Patient intake record NOT FOUND:", { patient_id: pid, reserve_id: reserveId });
+            } else {
+              console.log(`✓ Intake updated: patient_id=${pid}, reserve_id=${reserveId}`);
+            }
+
+            return result;
+          });
+        } catch (intakeError) {
+          console.error("[Supabase] Intake update failed:", intakeError);
+        }
       }
 
       // キャッシュ削除
@@ -716,66 +710,63 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
 
-      // ★ DB書き込み
-      const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
-        // 1. reservationsテーブルの日時を更新（リトライあり）
-        retrySupabaseWrite(async () => {
-          const result = await supabase
-            .from("reservations")
-            .update({
-              reserved_date: newDate,
-              reserved_time: newTime,
-            })
-            .eq("reserve_id", reserveId);
+      // ★ RPC で変更先スロットの定員チェック + UPDATE をアトミックに実行
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+        "update_reservation_atomic",
+        {
+          p_reserve_id: reserveId,
+          p_new_date: newDate,
+          p_new_time: newTime,
+          p_doctor_id: "dr_default",
+        }
+      );
 
-          if (result.error) {
-            throw result.error;
-          }
-          return result;
-        }),
-
-        // 2. intakeテーブルの日時を更新（リトライあり）
-        pid ? retrySupabaseWrite(async () => {
-          const result = await supabase
-            .from("intake")
-            .update({
-              reserved_date: newDate,
-              reserved_time: newTime,
-            })
-            .eq("patient_id", pid)
-            .eq("reserve_id", reserveId)
-            .select();
-
-          if (result.error) {
-            throw result.error;
-          }
-
-          if (!result.data || result.data.length === 0) {
-            console.error("❌ [CRITICAL] Intake update failed for updateReservation:", { patient_id: pid, reserve_id: reserveId });
-          } else {
-            console.log(`✓ Intake updated (change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
-          }
-
-          return result;
-        }) : Promise.resolve({ error: null }),
-      ]);
-
-      // DB結果チェック - 更新失敗はエラー
-      if (supabaseReservationResult.status === "rejected" ||
-          (supabaseReservationResult.status === "fulfilled" && supabaseReservationResult.value.error)) {
-        const error = supabaseReservationResult.status === "rejected"
-          ? supabaseReservationResult.reason
-          : supabaseReservationResult.value.error;
-        console.error("[Supabase] Reservation update failed:", error);
-        return NextResponse.json({ ok: false, error: "db_error", detail: String(error) }, { status: 500 });
+      if (rpcError) {
+        console.error("[Supabase] RPC update_reservation_atomic failed:", rpcError);
+        return NextResponse.json({ ok: false, error: "db_error", detail: rpcError.message }, { status: 500 });
       }
 
-      if (supabaseIntakeResult.status === "rejected" ||
-          (supabaseIntakeResult.status === "fulfilled" && supabaseIntakeResult.value.error)) {
-        const error = supabaseIntakeResult.status === "rejected"
-          ? supabaseIntakeResult.reason
-          : supabaseIntakeResult.value.error;
-        console.error("[Supabase] Intake update failed:", error);
+      // RPC が slot_full を返した場合
+      if (rpcResult && !rpcResult.ok) {
+        console.log(`[Reservation] slot_full on update: date=${newDate}, time=${newTime}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
+        return NextResponse.json({
+          ok: false,
+          error: "slot_full",
+          message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。",
+        }, { status: 409 });
+      }
+
+      console.log(`✓ Reservation updated: reserve_id=${reserveId}, date=${newDate}, time=${newTime}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
+
+      // intake テーブルの日時を更新
+      if (pid) {
+        try {
+          await retrySupabaseWrite(async () => {
+            const result = await supabase
+              .from("intake")
+              .update({
+                reserved_date: newDate,
+                reserved_time: newTime,
+              })
+              .eq("patient_id", pid)
+              .eq("reserve_id", reserveId)
+              .select();
+
+            if (result.error) {
+              throw result.error;
+            }
+
+            if (!result.data || result.data.length === 0) {
+              console.error("❌ [CRITICAL] Intake update failed for updateReservation:", { patient_id: pid, reserve_id: reserveId });
+            } else {
+              console.log(`✓ Intake updated (change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
+            }
+
+            return result;
+          });
+        } catch (intakeError) {
+          console.error("[Supabase] Intake update failed:", intakeError);
+        }
       }
 
       // キャッシュ削除
