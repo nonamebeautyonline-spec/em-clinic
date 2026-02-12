@@ -336,6 +336,22 @@ export async function POST(_req: NextRequest) {
 
     const lineUserId = getCookieValue("__Host-line_user_id") || getCookieValue("line_user_id");
 
+    // ★ line_user_id と patient_id の整合性チェック（アカウント切替による他人データ表示防止）
+    if (lineUserId && patientId) {
+      const { data: intakeCheck } = await supabaseAdmin
+        .from("intake")
+        .select("line_id")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (intakeCheck?.line_id && intakeCheck.line_id !== lineUserId) {
+        console.log(`[mypage API] PID mismatch: cookie=${patientId} line_id=${intakeCheck.line_id} current=${lineUserId}`);
+        return fail("pid_mismatch", 401);
+      }
+    }
+
     // キャッシュチェック（forceRefreshの場合はスキップ）
     const cacheKey = getDashboardCacheKey(patientId);
 

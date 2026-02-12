@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  // 既知の患者なら patient_id cookie もセット
+  // patient_id cookie を常に更新（アカウント切替時に古い cookie が残る問題を防止）
   if (patientId) {
     res.cookies.set("__Host-patient_id", patientId, {
       httpOnly: true,
@@ -103,6 +103,22 @@ export async function GET(req: NextRequest) {
       sameSite: "none",
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
+    });
+  } else {
+    // 未知の患者 → 古い patient_id cookie をクリア（他人のデータ表示防止）
+    res.cookies.set("__Host-patient_id", "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 0,
+    });
+    res.cookies.set("patient_id", "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+      maxAge: 0,
     });
   }
 

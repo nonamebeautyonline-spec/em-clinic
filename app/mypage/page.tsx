@@ -18,6 +18,27 @@ export default async function MyPagePage() {
   // 個人情報・電話番号の登録状態をチェック
   const patientId = cookieStore.get("__Host-patient_id")?.value
     || cookieStore.get("patient_id")?.value;
+
+  // ★ line_user_id と patient_id の整合性チェック
+  // 端末でLINEアカウントを切り替えた場合、古い patient_id cookie が残り
+  // 別人のデータが表示される問題を防止
+  if (patientId) {
+    const { data: intake } = await supabaseAdmin
+      .from("intake")
+      .select("line_id")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (intake?.line_id && intake.line_id !== lineUserId) {
+      // cookie の patient_id が現在の LINE ユーザーと不一致
+      // → LINE 再ログインで正しい cookie を取得させる
+      console.log(`[mypage] PID mismatch: cookie=${patientId} line_id=${intake.line_id} current=${lineUserId}`);
+      redirect("/api/line/login");
+    }
+  }
+
   if (patientId) {
     const { data: answerer } = await supabaseAdmin
       .from("answerers")

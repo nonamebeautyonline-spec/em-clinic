@@ -443,6 +443,24 @@ async function autoAssignStatusByPatient(
       }
     }
 
+    // 処方済みの場合、対応マークを「処方ずみ」（red）に自動設定
+    if (order) {
+      const { data: currentMark } = await supabaseAdmin
+        .from("patient_marks")
+        .select("mark")
+        .eq("patient_id", patientId)
+        .maybeSingle();
+      if (!currentMark || currentMark.mark !== "red") {
+        await supabaseAdmin
+          .from("patient_marks")
+          .upsert(
+            { patient_id: patientId, mark: "red", note: null, updated_at: new Date().toISOString(), updated_by: "auto" },
+            { onConflict: "patient_id" }
+          );
+        console.log(`[webhook] auto-assigned 処方ずみ mark to ${patientId}`);
+      }
+    }
+
     // リッチメニュー切り替え（targetMenuNameが空の場合はスキップ）
     if (!targetMenuName) return;
     const { data: menu } = await supabaseAdmin
