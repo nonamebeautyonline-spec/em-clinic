@@ -507,6 +507,21 @@ closeModalAndRefresh();
         console.warn("対応マーク更新に失敗:", markErr);
       }
 
+      // 3. call_status を "no_answer_sent" に更新（リロード後もグレーアウト維持）
+      const reserveId = pickReserveId(noAnswerConfirmTarget);
+      if (reserveId) {
+        try {
+          await fetch("/api/doctor/callstatus", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reserveId, callStatus: "no_answer_sent" }),
+          });
+          updateRowLocal(reserveId, { call_status: "no_answer_sent" });
+        } catch (csErr) {
+          console.warn("call_status更新に失敗:", csErr);
+        }
+      }
+
       setNoAnswerSentIds((prev) => new Set(prev).add(pid));
       alert("不通メッセージを送信しました");
     } catch (e) {
@@ -837,7 +852,8 @@ closeModalAndRefresh();
           const statusRaw = pick(row, ["status"]);
           const status = (statusRaw || "").toUpperCase();
           const callStatus = pick(row, ["call_status"]);
-const isNoAnswer = callStatus === "no_answer";
+const isNoAnswer = callStatus === "no_answer" || callStatus === "no_answer_sent";
+const isNoAnswerMsgSent = callStatus === "no_answer_sent";
 
           const reserveId = pickReserveId(row);
           const isTelMismatch =
@@ -930,7 +946,7 @@ const isNoAnswer = callStatus === "no_answer";
 
                   {/* 不通メッセージ送信ボタン */}
                   {patientId && (
-                    noAnswerSentIds.has(patientId) ? (
+                    (noAnswerSentIds.has(patientId) || isNoAnswerMsgSent) ? (
                       <div
                         className="w-10 h-10 rounded-lg bg-gray-300 text-white font-bold shadow-md flex items-center justify-center text-[9px] leading-tight text-center"
                         title="不通メッセージ送信済み"

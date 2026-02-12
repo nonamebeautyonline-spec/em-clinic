@@ -775,7 +775,7 @@ closeModalAndRefresh();
           const statusRaw = pick(row, ["status"]);
           const status = (statusRaw || "").toUpperCase();
           const callStatus = pick(row, ["call_status"]);
-const isNoAnswer = callStatus === "no_answer";
+const isNoAnswer = callStatus === "no_answer" || callStatus === "no_answer_sent";
 
           const reserveId = pickReserveId(row);
           const isTelMismatch =
