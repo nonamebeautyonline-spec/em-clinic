@@ -37,6 +37,8 @@ interface DashboardStats {
     active: number;
     new: number;
     repeatRate: number;
+    repeatPatients: number;
+    totalOrderPatients: number;
   };
   bankTransfer: {
     pending: number;
@@ -47,9 +49,15 @@ interface DashboardStats {
     reservationRateAfterIntake: number;
     consultationCompletionRate: number;
     lineRegisteredCount: number;
+    todayActiveReservations: number;
     todayNewReservations: number;
     todayPaidCount: number;
   };
+  dailyOrders: {
+    date: string;
+    first: number;
+    reorder: number;
+  }[];
 }
 
 export default function AdminDashboard() {
@@ -232,7 +240,7 @@ export default function AdminDashboard() {
               <div className="text-sm text-slate-600 mb-2">リピート率</div>
               <div className="text-3xl font-bold text-slate-900">{stats?.patients.repeatRate || 0}%</div>
               <div className="text-xs text-slate-500 mt-2">
-                全決済: {stats?.revenue.totalOrders || 0} / 再処方: {stats?.revenue.reorderOrders || 0}
+                注文患者: {stats?.patients.totalOrderPatients || 0} / リピーター: {stats?.patients.repeatPatients || 0}
               </div>
               <div className="text-xs text-slate-500 mt-1">
                 総患者: {stats?.patients.total || 0} / 新規: {stats?.patients.new || 0}
@@ -323,7 +331,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* 本日の予約数 */}
+        {/* アクティブ予約数 */}
         <div className="bg-white rounded-lg shadow p-6 border-l-4 border-sky-500">
           {loading ? (
             <div className="animate-pulse">
@@ -333,10 +341,13 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <>
-              <div className="text-sm text-slate-600 mb-2">本日の予約数</div>
-              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayNewReservations || 0}</div>
+              <div className="text-sm text-slate-600 mb-2">アクティブ予約数</div>
+              <div className="text-3xl font-bold text-slate-900">{stats?.kpi.todayActiveReservations || 0}</div>
               <div className="text-xs text-slate-500 mt-2">
-                今日作成された予約の数
+                キャンセル除く有効な予約数
+              </div>
+              <div className="text-xs text-slate-400 mt-1">
+                作成: {stats?.kpi.todayNewReservations || 0}件
               </div>
             </>
           )}
@@ -381,6 +392,63 @@ export default function AdminDashboard() {
             </>
           )}
         </div>
+      </div>
+
+      {/* 新規処方 vs 再処方 棒グラフ */}
+      <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <h2 className="text-lg font-bold text-slate-900 mb-4">新規処方 vs 再処方（日別）</h2>
+        {loading ? (
+          <div className="animate-pulse h-48 bg-slate-100 rounded" />
+        ) : stats?.dailyOrders && stats.dailyOrders.length > 0 ? (
+          <>
+            <div className="flex items-center gap-4 mb-4 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-blue-500" />
+                <span className="text-slate-600">新規処方</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded bg-orange-500" />
+                <span className="text-slate-600">再処方</span>
+              </div>
+            </div>
+            {(() => {
+              const maxTotal = Math.max(...stats.dailyOrders.map(d => d.first + d.reorder), 1);
+              const barMaxH = 180;
+              return (
+                <div className="flex items-end gap-1" style={{ height: barMaxH + 32 }}>
+                  {stats.dailyOrders.map((day) => {
+                    const total = day.first + day.reorder;
+                    const totalH = (total / maxTotal) * barMaxH;
+                    const firstH = total > 0 ? (day.first / total) * totalH : 0;
+                    const reorderH = total > 0 ? (day.reorder / total) * totalH : 0;
+                    return (
+                      <div key={day.date} className="flex flex-col items-center flex-1 min-w-0">
+                        <div className="text-xs text-slate-600 mb-1 font-medium">{total}</div>
+                        <div className="w-full flex flex-col justify-end" style={{ height: barMaxH }}>
+                          <div
+                            className="bg-orange-500 rounded-t-sm w-full"
+                            style={{ height: reorderH }}
+                            title={`再処方: ${day.reorder}`}
+                          />
+                          <div
+                            className="bg-blue-500 w-full"
+                            style={{ height: firstH, borderRadius: reorderH === 0 ? '2px 2px 0 0' : 0 }}
+                            title={`新規: ${day.first}`}
+                          />
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1 truncate w-full text-center">
+                          {day.date.slice(5)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </>
+        ) : (
+          <div className="text-sm text-slate-400 text-center py-8">データがありません</div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

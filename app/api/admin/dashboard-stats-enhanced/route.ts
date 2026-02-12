@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     while (true) {
       const { data: squareOrders } = await supabase
         .from("orders")
-        .select("amount, patient_id, created_at, product_code")
+        .select("amount, patient_id, created_at, paid_at, product_code")
         .eq("payment_method", "credit_card")
         .gte("paid_at", startISO)
         .lt("paid_at", endISO)
@@ -236,16 +236,20 @@ export async function GET(request: NextRequest) {
     const totalRevenue = grossRevenue - totalRefunded;
     const avgOrderAmount = orderCount > 0 ? Math.round(grossRevenue / orderCount) : 0;
 
-    // ★ 最適化: 再処方決済数を計算（すでに取得したデータを使用）
+    // ★ 再処方決済数・リピート率・日別データを計算
     let reorderOrderCount = 0;
+    let repeatPatientCount = 0;
+    let totalUniquePatients = 0;
+    let previousPatientSet = new Set<string>();
     const allPaidOrders = [
-      ...allSquareOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null })),
-      ...allBankTransferOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null }))
+      ...allSquareOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: o.paid_at || null })),
+      ...allBankTransferOrders.map(o => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: null as string | null }))
     ];
 
     if (allPaidOrders.length > 0) {
-      const allPaidPatientIds = allPaidOrders.map(o => o.patient_id).filter(id => id);
+      const allPaidPatientIds = allPaidOrders.map(o => o.patient_id).filter((id): id is string => !!id);
       const uniquePaidPatientIds = [...new Set(allPaidPatientIds)];
+      totalUniquePatients = uniquePaidPatientIds.length;
 
       if (uniquePaidPatientIds.length > 0) {
         // 範囲開始前の注文を一括取得
@@ -256,9 +260,9 @@ export async function GET(request: NextRequest) {
           .lt("created_at", startISO)
           .limit(100000);
 
-        const previousPatientSet = new Set(previousOrders?.map(o => o.patient_id) || []);
+        previousPatientSet = new Set(previousOrders?.map(o => o.patient_id) || []);
+        repeatPatientCount = uniquePaidPatientIds.filter(id => previousPatientSet.has(id)).length;
 
-        // 各注文について、その患者が過去に注文したことがあるかチェック
         for (const order of allPaidOrders) {
           if (order.patient_id && previousPatientSet.has(order.patient_id)) {
             reorderOrderCount++;
@@ -266,6 +270,33 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    // 日別新規/再処方データ（棒グラフ用）
+    const jstOffsetMs = 9 * 60 * 60 * 1000;
+    const dailyMap = new Map<string, { first: number; reorder: number }>();
+    for (const order of allSquareOrders) {
+      const dateStr = order.paid_at
+        ? new Date(new Date(order.paid_at).getTime() + jstOffsetMs).toISOString().split("T")[0]
+        : null;
+      if (!dateStr) continue;
+      if (!dailyMap.has(dateStr)) dailyMap.set(dateStr, { first: 0, reorder: 0 });
+      const day = dailyMap.get(dateStr)!;
+      if (order.patient_id && previousPatientSet.has(order.patient_id)) day.reorder++;
+      else day.first++;
+    }
+    for (const order of allBankTransferOrders) {
+      const dateStr = order.created_at
+        ? new Date(new Date(order.created_at).getTime() + jstOffsetMs).toISOString().split("T")[0]
+        : null;
+      if (!dateStr) continue;
+      if (!dailyMap.has(dateStr)) dailyMap.set(dateStr, { first: 0, reorder: 0 });
+      const day = dailyMap.get(dateStr)!;
+      if (order.patient_id && previousPatientSet.has(order.patient_id)) day.reorder++;
+      else day.first++;
+    }
+    const dailyOrders = [...dailyMap.entries()]
+      .map(([date, counts]) => ({ date, ...counts }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     // 4. 商品別売上
     const productSales: Record<
@@ -331,9 +362,9 @@ export async function GET(request: NextRequest) {
       .gte("created_at", startISO)
       .lt("created_at", endISO);
 
-    // ★ 最適化: リピート率計算は既に算出済みのreorderOrderCountを使用
+    // リピート率 = 期間内注文患者のうち過去にも注文した患者の割合（患者ベース）
     const repeatRate =
-      allPaidOrders.length > 0 ? Math.round((reorderOrderCount / allPaidOrders.length) * 100) : 0;
+      totalUniquePatients > 0 ? Math.round((repeatPatientCount / totalUniquePatients) * 100) : 0;
 
     // 6. 銀行振込状況（ordersテーブルから取得）
     const { count: pendingBankTransfer } = await supabase
@@ -390,6 +421,8 @@ export async function GET(request: NextRequest) {
         .select("patient_id")
         .in("patient_id", uniqueConsultedIds)
         .not("paid_at", "is", null)
+        .gte("paid_at", startISO)
+        .lt("paid_at", endISO)
         .limit(100000);
 
       paidPatientCount = new Set(paidOrders?.map(o => o.patient_id) || []).size;
@@ -434,6 +467,8 @@ export async function GET(request: NextRequest) {
         .from("reservations")
         .select("patient_id")
         .in("patient_id", uniqueIntakeIds)
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate)
         .limit(100000);
 
       reservedPatientCount = new Set(reservations?.map(r => r.patient_id) || []).size;
@@ -450,13 +485,23 @@ export async function GET(request: NextRequest) {
       ? Math.round(((completedReservations ?? 0) / nonCancelledReservations) * 100)
       : 0;
 
-    // 10. LINE登録者数（全期間）- Supabaseから直接取得
-    const { count: lineRegisteredCount } = await supabase
-      .from("patients")
-      .select("*", { count: "exact", head: true })
-      .not("line_user_id", "is", null);
+    // 10. LINE登録者数（全期間）- intakeテーブルのline_idで集計
+    const { data: lineIdData } = await supabase
+      .from("intake")
+      .select("line_id")
+      .not("line_id", "is", null)
+      .limit(100000);
+    const lineRegisteredCount = new Set(lineIdData?.map(r => r.line_id) || []).size;
 
-    // 11. 本日の予約された数（今日作成された予約の数）
+    // 11. アクティブ予約数（reserved_dateが期間内でキャンセル以外）
+    const { count: todayActiveReservations } = await supabase
+      .from("reservations")
+      .select("*", { count: "exact", head: true })
+      .gte("reserved_date", reservationStartDate)
+      .lt("reserved_date", reservationEndDate)
+      .neq("status", "canceled");
+
+    // 12. 本日作成された予約数
     const { count: todayNewReservations } = await supabase
       .from("reservations")
       .select("*", { count: "exact", head: true })
@@ -496,6 +541,8 @@ export async function GET(request: NextRequest) {
         active: activePatients,
         new: newPatients || 0,
         repeatRate,
+        repeatPatients: repeatPatientCount,
+        totalOrderPatients: totalUniquePatients,
       },
       bankTransfer: {
         pending: pendingBankTransfer || 0,
@@ -506,9 +553,11 @@ export async function GET(request: NextRequest) {
         reservationRateAfterIntake,
         consultationCompletionRate,
         lineRegisteredCount,
-        todayNewReservations,
+        todayActiveReservations: todayActiveReservations || 0,
+        todayNewReservations: todayNewReservations || 0,
         todayPaidCount,
       },
+      dailyOrders,
     });
   } catch (error) {
     console.error("[dashboard-stats-enhanced] Error:", error);
@@ -588,10 +637,13 @@ function calculateDateRange(
       break;
   }
 
+  // reserved_date はJST日付（DATE型）で保存されているため、JSTの日付文字列を返す
+  const jstStartForDate = new Date(start.getTime() + jstOffset);
+  const jstEndForDate = new Date(end.getTime() + jstOffset);
   return {
     startISO: start.toISOString(),
     endISO: end.toISOString(),
-    startDate: start.toISOString().split("T")[0],
-    endDate: end.toISOString().split("T")[0],
+    startDate: jstStartForDate.toISOString().split("T")[0],
+    endDate: jstEndForDate.toISOString().split("T")[0],
   };
 }
