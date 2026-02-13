@@ -16,7 +16,7 @@ export default async function MyPagePage() {
   }
 
   // 個人情報・電話番号の登録状態をチェック
-  const patientId = cookieStore.get("__Host-patient_id")?.value
+  let patientId = cookieStore.get("__Host-patient_id")?.value
     || cookieStore.get("patient_id")?.value;
 
   // ★ line_user_id と patient_id の整合性チェック
@@ -31,7 +31,29 @@ export default async function MyPagePage() {
       .limit(1)
       .maybeSingle();
 
-    if (intake?.line_id && intake.line_id !== lineUserId) {
+    if (!intake) {
+      // cookie の patient_id に対応する intake が存在しない（統合等で削除された場合）
+      // → line_user_id で正しい patient_id を探す
+      console.log(`[mypage] PID not found: cookie=${patientId}, looking up by line_uid=${lineUserId}`);
+      const { data: byLine } = await supabaseAdmin
+        .from("intake")
+        .select("patient_id")
+        .eq("line_id", lineUserId)
+        .not("patient_id", "like", "LINE_%")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (byLine?.patient_id) {
+        patientId = byLine.patient_id;
+        console.log(`[mypage] Resolved to ${patientId} via line_uid`);
+        // cookie は register/complete で再設定されるため、ここではリダイレクトで対応
+        redirect(`/api/register/complete-redirect?pid=${patientId}`);
+      } else {
+        // intake が無い → 新規登録へ
+        redirect("/register");
+      }
+    } else if (intake.line_id && intake.line_id !== lineUserId) {
       // cookie の patient_id が現在の LINE ユーザーと不一致
       // → LINE 再ログインで正しい cookie を取得させる
       console.log(`[mypage] PID mismatch: cookie=${patientId} line_id=${intake.line_id} current=${lineUserId}`);
