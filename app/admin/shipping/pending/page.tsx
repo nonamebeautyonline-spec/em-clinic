@@ -20,6 +20,7 @@ interface Order {
   email: string;
   purchase_count: number;
   tracking_number: string;
+  shipping_list_created_at: string | null;
 }
 
 interface MergeableGroup {
@@ -117,8 +118,8 @@ export default function ShippingPendingPage() {
   };
 
   const toggleAllOrders = () => {
-    // ★ pending_confirmation以外の注文のみを対象にする
-    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation");
+    // ★ pending_confirmationとラベル作成済み以外の注文のみを対象にする
+    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at);
     const selectableIds = selectableOrders.map((o) => o.id);
 
     // 選択可能な注文が全て選択されているか確認
@@ -187,7 +188,7 @@ export default function ShippingPendingPage() {
       <div className="mb-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 md:gap-4">
           <span className="text-sm text-slate-600">
-            合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed").length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件）
+            合計 {orders.length} 件（確認済み {orders.filter(o => o.status === "confirmed" && !o.shipping_list_created_at).length} 件 / ラベル作成済み {orders.filter(o => !!o.shipping_list_created_at).length} 件 / 振込確認待ち {orders.filter(o => o.status === "pending_confirmation").length} 件）
           </span>
           <span className="hidden md:inline text-sm font-semibold text-blue-600">
             選択中: {selectedOrderIds.size} 件
@@ -227,8 +228,8 @@ export default function ShippingPendingPage() {
                   <input
                     type="checkbox"
                     checked={
-                      orders.filter((o) => o.status !== "pending_confirmation").length > 0 &&
-                      orders.filter((o) => o.status !== "pending_confirmation").every((o) => selectedOrderIds.has(o.id))
+                      orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at).length > 0 &&
+                      orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at).every((o) => selectedOrderIds.has(o.id))
                     }
                     onChange={toggleAllOrders}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
@@ -276,11 +277,13 @@ export default function ShippingPendingPage() {
               ) : (
                 orders.map((order) => {
                   const isPending = order.status === "pending_confirmation";
+                  const isLabelCreated = !!order.shipping_list_created_at;
+                  const isDisabled = isPending || isLabelCreated;
                   return (
                     <tr
                       key={order.id}
                       className={`${
-                        isPending
+                        isDisabled
                           ? "bg-slate-100 text-slate-400"
                           : mergeableGroups.some((g) => g.patient_id === order.patient_id)
                           ? "bg-yellow-50 hover:bg-yellow-100"
@@ -292,13 +295,13 @@ export default function ShippingPendingPage() {
                         type="checkbox"
                         checked={selectedOrderIds.has(order.id)}
                         onChange={() => toggleOrderSelection(order.id)}
-                        disabled={isPending}
+                        disabled={isDisabled}
                         className={`w-4 h-4 text-blue-600 rounded focus:ring-blue-500 ${
-                          isPending ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                          isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
                         }`}
                       />
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
                       {formatDate(order.payment_date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -308,7 +311,7 @@ export default function ShippingPendingPage() {
                             order.payment_method === "クレジットカード"
                               ? "bg-yellow-300 text-black"
                               : "bg-cyan-300 text-black"
-                          } ${isPending ? "opacity-50" : ""}`}
+                          } ${isDisabled ? "opacity-50" : ""}`}
                         >
                           {order.payment_method}
                         </span>
@@ -317,41 +320,46 @@ export default function ShippingPendingPage() {
                             振込確認待ち
                           </span>
                         )}
+                        {isLabelCreated && !isPending && (
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-200 text-green-700">
+                            ラベル作成済み
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
                       {order.patient_name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => router.push(`/admin/patients/${order.patient_id}`)}
                         className={`font-mono ${
-                          isPending
+                          isDisabled
                             ? "text-slate-400 cursor-default"
                             : "text-blue-600 hover:text-blue-900 hover:underline"
                         }`}
-                        disabled={isPending}
+                        disabled={isDisabled}
                       >
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${isPending ? "text-slate-400" : "text-slate-600"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${isDisabled ? "text-slate-400" : "text-slate-600"}`}>
                       {order.lstep_id || "-"}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-900"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
                       {order.product_name}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-600"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-600"}`}>
                       {order.postal_code || "-"}
                     </td>
-                    <td className={`px-6 py-4 text-sm ${isPending ? "text-slate-400" : "text-slate-600"} max-w-xs truncate`}>
+                    <td className={`px-6 py-4 text-sm ${isDisabled ? "text-slate-400" : "text-slate-600"} max-w-xs truncate`}>
                       {order.address || "-"}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isPending ? "text-slate-400" : "text-slate-600"}`}>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-600"}`}>
                       {order.phone || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${isPending ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-700"} font-semibold`}>
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${isDisabled ? "bg-slate-200 text-slate-400" : "bg-slate-100 text-slate-700"} font-semibold`}>
                         {order.purchase_count}
                       </span>
                     </td>
