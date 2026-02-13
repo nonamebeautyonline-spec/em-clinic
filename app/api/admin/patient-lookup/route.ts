@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
     const [answererRes, allOrdersRes, reordersRes, pendingResvRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
       supabaseAdmin
         .from("answerers")
-        .select("name, name_kana, sex, birthday, line_id")
+        .select("name, name_kana, sex, birthday, line_id, tel")
         .eq("patient_id", patientId)
         .maybeSingle(),
       supabaseAdmin
@@ -326,6 +326,7 @@ export async function GET(req: NextRequest) {
       pendingBankTransfer: pendingBankInfo,
       nextReservation: formattedReservation,
       medicalInfo,
+      verifiedPhone: answerer?.tel || null,
       registeredAt: intakeRecord?.created_at || null,
     });
   } catch (error) {

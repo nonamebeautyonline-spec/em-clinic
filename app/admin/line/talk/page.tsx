@@ -94,6 +94,7 @@ interface PatientDetail {
     allergies: string;
     prescriptionMenu: string;
   } | null;
+  verifiedPhone: string | null;
   registeredAt: string | null;
 }
 
@@ -1706,15 +1707,15 @@ export default function TalkPage() {
             </div>
 
             {/* 個人情報 */}
-            {patientDetail?.medicalInfo && (
+            {(patientDetail?.medicalInfo || patientDetail?.verifiedPhone) && (
               <div className="px-4 py-3 border-b border-gray-100">
                 <SectionLabel>個人情報</SectionLabel>
-                {patientDetail.medicalInfo.kana && <InfoRow label="カナ">{patientDetail.medicalInfo.kana}</InfoRow>}
-                {patientDetail.medicalInfo.gender && <InfoRow label="性別">{patientDetail.medicalInfo.gender}</InfoRow>}
-                {patientDetail.medicalInfo.birthday && (
+                {patientDetail.medicalInfo?.kana && <InfoRow label="カナ">{patientDetail.medicalInfo.kana}</InfoRow>}
+                {patientDetail.medicalInfo?.gender && <InfoRow label="性別">{patientDetail.medicalInfo.gender}</InfoRow>}
+                {patientDetail.medicalInfo?.birthday && (
                   <InfoRow label="生年月日">
                     {(() => {
-                      const raw = patientDetail.medicalInfo.birthday;
+                      const raw = patientDetail.medicalInfo!.birthday;
                       try {
                         const d = new Date(raw);
                         if (isNaN(d.getTime())) return raw;
@@ -1722,9 +1723,10 @@ export default function TalkPage() {
                         return `${jst.getUTCFullYear()}年${jst.getUTCMonth() + 1}月${jst.getUTCDate()}日`;
                       } catch { return raw; }
                     })()}
-                    {(() => { const a = calcAge(patientDetail.medicalInfo.birthday); return a !== null ? `（${a}歳）` : ""; })()}
+                    {(() => { const a = calcAge(patientDetail.medicalInfo!.birthday); return a !== null ? `（${a}歳）` : ""; })()}
                   </InfoRow>
                 )}
+                {patientDetail.verifiedPhone && <InfoRow label="電話番号" mono>{patientDetail.verifiedPhone}</InfoRow>}
               </div>
             )}
 
