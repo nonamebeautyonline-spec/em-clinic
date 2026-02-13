@@ -10,20 +10,20 @@ const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-pa
 
 // ロゴコンポーネント
 function LogoMark({ compact }: { compact?: boolean }) {
+  const gradientClass = "bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent";
   if (compact) {
     return (
-      <span className="text-lg font-black tracking-tight" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
-        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">L</span>
+      <span className={`text-lg font-black tracking-tight ${gradientClass}`} style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        L
       </span>
     );
   }
   return (
     <div className="flex items-baseline gap-0">
-      <span className="text-xl font-black tracking-tight" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
-        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">L</span>
-        <span className="text-white">オペ</span>
+      <span className={`text-xl font-black tracking-tight ${gradientClass}`} style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        Lオペ
       </span>
-      <span className="ml-1.5 text-[10px] font-semibold text-slate-400 tracking-widest uppercase">for CLINIC</span>
+      <span className={`ml-1.5 text-[10px] font-semibold tracking-widest uppercase ${gradientClass}`}>for CLINIC</span>
     </div>
   );
 }
