@@ -1,12 +1,32 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 
 // 認証不要のパス
 const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup"];
+
+// ロゴコンポーネント
+function LogoMark({ compact }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <span className="text-lg font-black tracking-tight" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">L</span>
+      </span>
+    );
+  }
+  return (
+    <div className="flex items-baseline gap-0">
+      <span className="text-xl font-black tracking-tight" style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
+        <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">L</span>
+        <span className="text-white">オペ</span>
+      </span>
+      <span className="ml-1.5 text-[10px] font-semibold text-slate-400 tracking-widest uppercase">for CLINIC</span>
+    </div>
+  );
+}
 
 // スマホ用メニュー項目（必要な機能のみ）
 const MOBILE_MENU_ITEMS = [
@@ -35,8 +55,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
+
+  // 未読カウント取得
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/unread-count", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.count ?? 0);
+      }
+    } catch { /* 無視 */ }
+  }, []);
 
   useEffect(() => {
     // 認証不要のパスはスキップ
@@ -90,6 +122,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return () => clearTimeout(timer);
     }
   }, [pathname]);
+
+  // 未読カウントのポーリング（30秒間隔）
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, fetchUnreadCount]);
 
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
@@ -162,7 +202,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-white flex flex-col">
             {/* ヘッダー */}
             <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-              <h1 className="text-xl font-bold">管理画面</h1>
+              <LogoMark />
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-2 hover:bg-slate-800 rounded"
@@ -183,6 +223,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   label={item.label}
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
                   onClick={() => setIsMobileMenuOpen(false)}
+                  badge={item.href === "/admin/line/talk" ? unreadCount : undefined}
                 />
               ))}
             </nav>
@@ -210,7 +251,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           {isSidebarOpen ? (
             <>
-              <h1 className="text-xl font-bold">管理画面</h1>
+              <LogoMark />
               <button
                 onClick={() => setIsSidebarOpen(false)}
                 className="p-2 hover:bg-slate-800 rounded"
@@ -223,7 +264,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={() => setIsSidebarOpen(true)}
               className="p-2 hover:bg-slate-800 rounded mx-auto"
             >
-              ▶
+              <LogoMark compact />
             </button>
           )}
         </div>
@@ -251,6 +292,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="LINE機能"
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/line")}
+            badge={unreadCount}
           />
 
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
@@ -444,9 +486,10 @@ interface MenuItemProps {
   label: string;
   isOpen: boolean;
   isActive: boolean;
+  badge?: number;
 }
 
-function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
+function MenuItem({ href, icon, label, isOpen, isActive, badge }: MenuItemProps) {
   return (
     <Link
       href={href}
@@ -455,8 +498,24 @@ function MenuItem({ href, icon, label, isOpen, isActive }: MenuItemProps) {
         isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
       }`}
     >
-      <span className="text-base">{icon}</span>
-      {isOpen && <span className="text-sm font-medium">{label}</span>}
+      <span className="text-base relative">
+        {icon}
+        {!isOpen && badge != null && badge > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </span>
+      {isOpen && (
+        <>
+          <span className="text-sm font-medium">{label}</span>
+          {badge != null && badge > 0 && (
+            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </>
+      )}
     </Link>
   );
 }
@@ -467,9 +526,10 @@ interface MobileMenuItemProps {
   label: string;
   isActive: boolean;
   onClick: () => void;
+  badge?: number;
 }
 
-function MobileMenuItem({ href, icon, label, isActive, onClick }: MobileMenuItemProps) {
+function MobileMenuItem({ href, icon, label, isActive, onClick, badge }: MobileMenuItemProps) {
   return (
     <Link
       href={href}
@@ -481,6 +541,11 @@ function MobileMenuItem({ href, icon, label, isActive, onClick }: MobileMenuItem
     >
       <span className="text-lg">{icon}</span>
       <span className="text-sm font-medium">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }
