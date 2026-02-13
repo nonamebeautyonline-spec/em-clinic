@@ -1,7 +1,7 @@
 // app/api/reservations/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,7 +22,7 @@ async function isMonthEarlyOpen(targetMonth: string): Promise<boolean> {
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("booking_open_settings")
       .select("is_open")
       .eq("target_month", targetMonth)
@@ -491,7 +491,7 @@ export async function POST(req: NextRequest) {
 
       // ★ intakeテーブルから名前・ステータス・問診回答を取得
       // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
-      const { data: intakeData, error: intakeCheckError } = await supabase
+      const { data: intakeData, error: intakeCheckError } = await supabaseAdmin
         .from("intake")
         .select("patient_name, patient_id, status, answers")
         .eq("patient_id", pid)
@@ -532,7 +532,7 @@ export async function POST(req: NextRequest) {
       // ★ 前回NGの患者が再予約を取った場合、NGステータスをクリア
       if (intakeData.status === "NG") {
         console.log(`[Reservation] Resetting NG status for patient_id=${pid}`);
-        const { error: resetError } = await supabase
+        const { error: resetError } = await supabaseAdmin
           .from("intake")
           .update({ status: null })
           .eq("patient_id", pid);
@@ -578,7 +578,7 @@ export async function POST(req: NextRequest) {
       if (pid) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
-            const result = await supabase
+            const result = await supabaseAdmin
               .from("intake")
               .update({
                 reserve_id: reserveId,
@@ -630,7 +630,7 @@ export async function POST(req: NextRequest) {
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
         retrySupabaseWrite(async () => {
-          const result = await supabase
+          const result = await supabaseAdmin
             .from("reservations")
             .update({ status: "canceled" })
             .eq("reserve_id", reserveId);
@@ -643,7 +643,7 @@ export async function POST(req: NextRequest) {
 
         // 2. intakeテーブルの予約情報をクリア（リトライあり）
         pid ? retrySupabaseWrite(async () => {
-          const result = await supabase
+          const result = await supabaseAdmin
             .from("intake")
             .update({
               reserve_id: null,
@@ -743,7 +743,7 @@ export async function POST(req: NextRequest) {
       if (pid) {
         try {
           await retrySupabaseWrite(async () => {
-            const result = await supabase
+            const result = await supabaseAdmin
               .from("intake")
               .update({
                 reserved_date: newDate,

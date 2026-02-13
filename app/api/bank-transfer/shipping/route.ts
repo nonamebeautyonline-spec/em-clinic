@@ -1,14 +1,11 @@
 // app/api/bank-transfer/shipping/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { getProductNamesMap, getProductPricesMap } from "@/lib/products";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function POST(req: NextRequest) {
   try {
@@ -43,7 +40,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const now = new Date().toISOString();
 
     // ★ Plan A完全版: ordersテーブルのみに保存（bank_transfer_orders不要）
@@ -56,7 +52,7 @@ export async function POST(req: NextRequest) {
     const amount = PRODUCT_PRICES[productCode] || 0;
     const productName = PRODUCT_NAMES[productCode] || productCode;
 
-    const { data, error } = await supabase.from("orders").insert({
+    const { data, error } = await supabaseAdmin.from("orders").insert({
       id: tempOrderId,
       patient_id: patientId,
       product_code: productCode,

@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { invalidateDashboardCache } from "@/lib/redis";
-import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 
 export const runtime = "nodejs";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 async function markReorderPaid(reorderId: string, patientId?: string) {
 const idNum = Number(String(reorderId).trim());
@@ -366,7 +361,7 @@ if (reorderId) {
       if (patientId) {
         try {
           // 既存の注文を確認
-          const { data: existingOrder } = await supabase
+          const { data: existingOrder } = await supabaseAdmin
             .from("orders")
             .select("id, tracking_number, shipping_date, shipping_status")
             .eq("id", paymentId)
@@ -374,7 +369,7 @@ if (reorderId) {
 
           if (existingOrder) {
             // 既存の注文がある場合は、shipping情報を保持してその他の情報のみ更新
-            const { error } = await supabase
+            const { error } = await supabaseAdmin
               .from("orders")
               .update({
                 patient_id: patientId,
@@ -402,7 +397,7 @@ if (reorderId) {
             }
           } else {
             // 新規注文の場合はINSERT
-            const { error } = await supabase.from("orders").insert({
+            const { error } = await supabaseAdmin.from("orders").insert({
               id: paymentId,
               patient_id: patientId,
               product_code: productCode || null,

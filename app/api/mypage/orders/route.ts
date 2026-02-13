@@ -1,12 +1,7 @@
 // app/api/mypage/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseAdmin } from "@/lib/supabase";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
@@ -106,7 +101,7 @@ export async function GET(_req: NextRequest) {
 
     // ★ Supabaseから直接取得（GAS不要、50-100ms）
     // ordersテーブルにはクレカ決済と銀行振込（payment_method='bank_transfer'）の両方が入っている
-    const { data: rawOrders, error } = await supabase
+    const { data: rawOrders, error } = await supabaseAdmin
       .from("orders")
       .select("*")
       .eq("patient_id", patientId)
