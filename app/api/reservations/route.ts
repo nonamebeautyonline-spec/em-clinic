@@ -465,12 +465,12 @@ export async function POST(req: NextRequest) {
       }
 
       // ★★ GASと同じ1人1件制限：既存のアクティブな予約をチェック ★★
-      // canceled / NG / OK（診察済み）は再予約可能
+      // canceled / NG は再予約可能
       const { data: existingReservations } = await supabaseAdmin
         .from("reservations")
         .select("reserve_id, reserved_date, reserved_time, status")
         .eq("patient_id", pid)
-        .not("status", "in", '("canceled","NG","OK")')
+        .not("status", "in", '("canceled","NG")')
         .limit(1);
 
       if (existingReservations && existingReservations.length > 0) {
