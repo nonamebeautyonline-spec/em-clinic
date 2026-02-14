@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || "10")));
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
+    const date = req.nextUrl.searchParams.get("date"); // YYYY-MM-DD: その日に更新されたカルテのみ
 
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -73,6 +74,12 @@ export async function GET(req: NextRequest) {
     if (filterPatientIds) {
       countQuery = countQuery.in("patient_id", filterPatientIds);
     }
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      // 当日予約かつDrが入力済み（status/prescription_menu/noteのいずれかが存在）
+      countQuery = countQuery
+        .eq("reserved_date", date)
+        .or("status.not.is.null,prescription_menu.not.is.null,note.not.is.null");
+    }
     const { count } = await countQuery;
     const total = count || 0;
 
@@ -85,6 +92,11 @@ export async function GET(req: NextRequest) {
       .range(from, to);
     if (filterPatientIds) {
       dataQuery = dataQuery.in("patient_id", filterPatientIds);
+    }
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      dataQuery = dataQuery
+        .eq("reserved_date", date)
+        .or("status.not.is.null,prescription_menu.not.is.null,note.not.is.null");
     }
     const { data: intakes, error: dataError } = await dataQuery;
 

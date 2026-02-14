@@ -20,6 +20,13 @@ type KarteItem = {
   hasNote: boolean;
 };
 
+// JST今日の日付をYYYY-MM-DD形式で取得
+function getTodayJST() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
 export default function KarteListPage() {
   const router = useRouter();
   const [items, setItems] = useState<KarteItem[]>([]);
@@ -28,13 +35,15 @@ export default function KarteListPage() {
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterDate, setFilterDate] = useState<string>(getTodayJST()); // 当日デフォルト
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const fetchData = useCallback(async (p: number, l: number, q: string) => {
+  const fetchData = useCallback(async (p: number, l: number, q: string, date: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(l) });
       if (q) params.set("q", q);
+      if (date) params.set("date", date);
       const res = await fetch(`/api/admin/kartelist?${params}`);
       const json = await res.json();
       if (json.ok) {
@@ -49,15 +58,15 @@ export default function KarteListPage() {
   }, []);
 
   useEffect(() => {
-    fetchData(page, limit, searchQuery);
-  }, [page, limit, fetchData]); // searchQuery handled by debounce
+    fetchData(page, limit, searchQuery, filterDate);
+  }, [page, limit, filterDate, fetchData]); // searchQuery handled by debounce
 
   const handleSearchChange = (val: string) => {
     setSearchQuery(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setPage(1);
-      fetchData(1, limit, val);
+      fetchData(1, limit, val, filterDate);
     }, 300);
   };
 
@@ -103,29 +112,51 @@ export default function KarteListPage() {
 
       {/* 検索 + テーブル カード */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        {/* 検索バー */}
+        {/* 検索バー + 日付フィルター */}
         <div className="p-4 border-b border-gray-200">
-          <div className="relative max-w-xl">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="カルテ検索(カルテ本文・カルテ執筆者名・施術名・薬剤名・物品名で検索)"
-              className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
-            />
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            {searchQuery && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-xl">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="カルテ検索(カルテ本文・カルテ執筆者名・施術名・薬剤名・物品名で検索)"
+                className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
+              />
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => handleSearchChange("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => { setFilterDate(e.target.value); setPage(1); }}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
+              />
               <button
-                onClick={() => handleSearchChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => { setFilterDate(getTodayJST()); setPage(1); }}
+                className={`px-3 py-2 text-xs rounded-lg border transition ${filterDate === getTodayJST() ? "bg-red-50 border-red-300 text-red-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                今日
               </button>
-            )}
+              <button
+                onClick={() => { setFilterDate(""); setPage(1); }}
+                className={`px-3 py-2 text-xs rounded-lg border transition ${!filterDate ? "bg-red-50 border-red-300 text-red-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+              >
+                全件
+              </button>
+            </div>
           </div>
         </div>
 
@@ -166,7 +197,7 @@ export default function KarteListPage() {
               ) : items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
-                    {searchQuery ? "検索結果がありません" : "カルテデータがありません"}
+                    {searchQuery ? "検索結果がありません" : filterDate ? `${filterDate} のカルテはありません` : "カルテデータがありません"}
                   </td>
                 </tr>
               ) : (

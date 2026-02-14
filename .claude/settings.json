@@ -1,7 +1,11 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
-      "Bash(supabase db push:*)"
+      "Bash(supabase db push:*)",
+      "Bash(git -C /Users/administer/em-clinic log --oneline -5)"
     ]
   }
 }

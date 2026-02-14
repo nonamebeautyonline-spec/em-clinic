@@ -8,6 +8,7 @@ interface Template {
   content: string;
   message_type: string;
   category: string | null;
+  flex_content: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,7 +19,64 @@ interface Category {
   sort_order: number;
 }
 
-type TemplateTab = "text" | "image";
+type TemplateTab = "text" | "image" | "carousel" | "flex";
+
+/* ボタン・カルーセル用の型 */
+interface PanelButton {
+  label: string;
+  actionType: "url" | "postback" | "message";
+  actionValue: string;
+}
+
+interface CarouselPanel {
+  title: string;
+  body: string;
+  imageUrl: string;
+  buttons: PanelButton[];
+}
+
+const EMPTY_BUTTON: PanelButton = { label: "", actionType: "url", actionValue: "" };
+const EMPTY_PANEL: CarouselPanel = { title: "", body: "", imageUrl: "", buttons: [{ ...EMPTY_BUTTON }] };
+
+/** カルーセルパネルからLINE Flex Message JSONを生成 */
+function panelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
+  const bubbles = panels.map(panel => {
+    const bodyContents: Record<string, unknown>[] = [];
+    if (panel.title) {
+      bodyContents.push({ type: "text", text: panel.title, weight: "bold", size: "lg", wrap: true });
+    }
+    if (panel.body) {
+      bodyContents.push({ type: "text", text: panel.body, size: "sm", color: "#666666", wrap: true, margin: "md" });
+    }
+    const footerContents: Record<string, unknown>[] = panel.buttons
+      .filter(b => b.label.trim())
+      .map(b => ({
+        type: "button",
+        style: "primary",
+        color: "#06C755",
+        action: b.actionType === "url"
+          ? { type: "uri", label: b.label, uri: b.actionValue || "https://example.com" }
+          : b.actionType === "postback"
+            ? { type: "postback", label: b.label, data: b.actionValue }
+            : { type: "message", label: b.label, text: b.actionValue || b.label },
+      }));
+
+    const bubble: Record<string, unknown> = { type: "bubble" };
+    if (panel.imageUrl) {
+      bubble.hero = { type: "image", url: panel.imageUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" };
+    }
+    if (bodyContents.length > 0) {
+      bubble.body = { type: "box", layout: "vertical", contents: bodyContents, spacing: "sm" };
+    }
+    if (footerContents.length > 0) {
+      bubble.footer = { type: "box", layout: "vertical", contents: footerContents, spacing: "sm" };
+    }
+    return bubble;
+  });
+
+  if (bubbles.length === 1) return bubbles[0];
+  return { type: "carousel", contents: bubbles };
+}
 
 export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -39,6 +97,11 @@ export default function TemplateManagementPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // ボタン・カルーセル
+  const [panels, setPanels] = useState<CarouselPanel[]>([{ ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }]);
+  // Flex JSON直接編集
+  const [flexJson, setFlexJson] = useState("");
+  const [flexError, setFlexError] = useState("");
 
   const fetchData = async () => {
     const [tRes, cRes] = await Promise.all([
@@ -96,13 +159,33 @@ export default function TemplateManagementPage() {
   const handleSave = async () => {
     if (!name.trim() || saving) return;
 
-    const isImage = activeTab === "image";
-    const saveContent = isImage ? imageUrl : content.trim();
-    const saveType = isImage ? "image" : "text";
+    let saveContent = "";
+    let saveType = "text";
+    let flexContent: Record<string, unknown> | null = null;
 
-    if (!saveContent) {
-      alert(isImage ? "画像をアップロードしてください" : "本文を入力してください");
-      return;
+    if (activeTab === "image") {
+      if (!imageUrl) { alert("画像をアップロードしてください"); return; }
+      saveContent = imageUrl;
+      saveType = "image";
+    } else if (activeTab === "carousel") {
+      const validPanels = panels.filter(p => p.title.trim() || p.body.trim() || p.imageUrl);
+      if (validPanels.length === 0) { alert("パネルを1つ以上作成してください"); return; }
+      flexContent = panelsToFlex(validPanels);
+      saveType = "flex";
+      saveContent = `[カルーセル: ${validPanels.length}パネル]`;
+    } else if (activeTab === "flex") {
+      if (!flexJson.trim()) { alert("Flex JSONを入力してください"); return; }
+      try {
+        flexContent = JSON.parse(flexJson);
+      } catch {
+        alert("JSON形式が不正です"); return;
+      }
+      saveType = "flex";
+      saveContent = "";
+    } else {
+      if (!content.trim()) { alert("本文を入力してください"); return; }
+      saveContent = content.trim();
+      saveType = "text";
     }
 
     setSaving(true);
@@ -114,7 +197,7 @@ export default function TemplateManagementPage() {
       method,
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ name: name.trim(), content: saveContent, message_type: saveType, category }),
+      body: JSON.stringify({ name: name.trim(), content: saveContent, message_type: saveType, category, flex_content: flexContent }),
     });
 
     if (res.ok) {
@@ -168,6 +251,12 @@ export default function TemplateManagementPage() {
       setActiveTab("image");
       setImageUrl(t.content);
       setContent("");
+    } else if (t.message_type === "flex" && t.flex_content) {
+      // Flexテンプレート → JSON直接編集で開く
+      setActiveTab("flex");
+      setFlexJson(JSON.stringify(t.flex_content, null, 2));
+      setContent("");
+      setImageUrl("");
     } else {
       setActiveTab("text");
       setContent(t.content);
@@ -184,6 +273,9 @@ export default function TemplateManagementPage() {
     setActiveTab("text");
     setImageUrl("");
     setCategory("未分類");
+    setPanels([{ ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }]);
+    setFlexJson("");
+    setFlexError("");
   };
 
   const formatDate = (d: string) => {
@@ -191,7 +283,13 @@ export default function TemplateManagementPage() {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
   };
 
-  const canSave = name.trim() && (activeTab === "text" ? content.trim() : imageUrl);
+  const canSave = name.trim() && (
+    activeTab === "text" ? content.trim() :
+    activeTab === "image" ? imageUrl :
+    activeTab === "carousel" ? panels.some(p => p.title.trim() || p.body.trim()) :
+    activeTab === "flex" ? flexJson.trim() && !flexError :
+    false
+  );
 
   return (
     <div className="min-h-full bg-gray-50/50">

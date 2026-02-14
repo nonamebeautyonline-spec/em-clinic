@@ -27,36 +27,71 @@ interface PatientData {
 }
 
 export default function PatientDataPage() {
-  const [patientId, setPatientId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState<"id" | "name">("id");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<PatientData | null>(null);
   const [error, setError] = useState("");
   const [actionResult, setActionResult] = useState("");
+  const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
 
-  const handleSearch = async () => {
-    if (!patientId.trim()) return;
-
+  // PIDで患者データを読み込む
+  const loadPatientData = async (pid: string) => {
     setLoading(true);
     setError("");
     setData(null);
     setActionResult("");
+    setCandidates([]);
 
     try {
       const res = await fetch(
-        `/api/admin/delete-patient-data?patient_id=${encodeURIComponent(patientId.trim())}`,
-        {
-          credentials: "include",
-        }
+        `/api/admin/delete-patient-data?patient_id=${encodeURIComponent(pid)}`,
+        { credentials: "include" }
       );
-
       const json = await res.json();
-
       if (!res.ok) {
         setError(json.error || "検索失敗");
         return;
       }
-
       setData(json);
+    } catch {
+      setError("通信エラー");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+
+    if (searchType === "id") {
+      // PID検索: 直接データ取得
+      await loadPatientData(searchQuery.trim());
+      return;
+    }
+
+    // 氏名検索: patient-lookup APIで候補取得
+    setLoading(true);
+    setError("");
+    setData(null);
+    setActionResult("");
+    setCandidates([]);
+
+    try {
+      const res = await fetch(
+        `/api/admin/patient-lookup?q=${encodeURIComponent(searchQuery.trim())}&type=name`,
+        { cache: "no-store" }
+      );
+      const json = await res.json();
+
+      if (json.found && json.patient) {
+        // 1件だけ → 直接読み込み
+        await loadPatientData(json.patient.id);
+      } else if (json.candidates && json.candidates.length > 0) {
+        setCandidates(json.candidates);
+      } else {
+        setError("該当する患者が見つかりませんでした");
+      }
     } catch {
       setError("通信エラー");
     } finally {
@@ -103,7 +138,7 @@ export default function PatientDataPage() {
       if (json.ok) {
         setActionResult("✅ 処理完了");
         // 再検索
-        handleSearch();
+        loadPatientData(data.patient_id);
       } else {
         setActionResult(`❌ エラー: ${json.errors?.join(", ") || "不明"}`);
       }
@@ -123,24 +158,68 @@ export default function PatientDataPage() {
 
       {/* 検索フォーム */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={patientId}
-            onChange={(e) => setPatientId(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="患者IDを入力"
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        <div className="flex gap-3 items-end">
+          <div className="flex-1 space-y-1">
+            <div className="flex gap-3 text-xs text-gray-600">
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="searchType"
+                  checked={searchType === "id"}
+                  onChange={() => { setSearchType("id"); setCandidates([]); }}
+                  disabled={loading}
+                />
+                PID
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="searchType"
+                  checked={searchType === "name"}
+                  onChange={() => { setSearchType("name"); setCandidates([]); }}
+                  disabled={loading}
+                />
+                氏名
+              </label>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder={searchType === "id" ? "例: 20260130001" : "例: 山田太郎"}
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            />
+          </div>
           <button
             onClick={handleSearch}
-            disabled={loading || !patientId.trim()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            disabled={loading || !searchQuery.trim()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 h-[42px]"
           >
             {loading ? "検索中..." : "検索"}
           </button>
         </div>
       </div>
+
+      {/* 氏名検索の候補リスト */}
+      {candidates.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <h3 className="font-bold text-sm mb-3 text-gray-700">候補一覧（{candidates.length}件）</h3>
+          <div className="space-y-1">
+            {candidates.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => loadPatientData(c.id)}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition flex items-center justify-between border border-gray-100"
+              >
+                <span className="font-medium">{c.name}</span>
+                <span className="text-xs text-gray-400 font-mono">{c.id}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
