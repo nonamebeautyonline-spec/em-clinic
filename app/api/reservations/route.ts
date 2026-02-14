@@ -2,6 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
+import {
+  buildReservationCreatedFlex,
+  buildReservationChangedFlex,
+  buildReservationCanceledFlex,
+  sendReservationNotification,
+} from "@/lib/reservation-flex";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -493,7 +499,7 @@ export async function POST(req: NextRequest) {
       // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
       const { data: intakeData, error: intakeCheckError } = await supabaseAdmin
         .from("intake")
-        .select("patient_name, patient_id, status, answers")
+        .select("patient_name, patient_id, status, answers, line_id")
         .eq("patient_id", pid)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -611,6 +617,24 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
+      // LINE Flex メッセージ送信（非同期・レスポンスをブロックしない）
+      const lineId = intakeData?.line_id;
+      if (lineId && date && time) {
+        (async () => {
+          try {
+            const flex = buildReservationCreatedFlex(date, time);
+            await sendReservationNotification({
+              patientId: pid,
+              lineUid: lineId,
+              flex,
+              messageType: "reservation_created",
+            });
+          } catch (err) {
+            console.error("[reservations] LINE notification error:", err);
+          }
+        })();
+      }
+
       return NextResponse.json({
         ok: true,
         reserveId: reserveId,
@@ -625,6 +649,25 @@ export async function POST(req: NextRequest) {
       if (!reserveId) {
         return NextResponse.json({ ok: false, error: "reserveId required" }, { status: 400 });
       }
+
+      // LINE通知用に予約情報と line_id を事前取得
+      const [cancelResvInfo, cancelIntakeInfo] = await Promise.all([
+        supabaseAdmin
+          .from("reservations")
+          .select("reserved_date, reserved_time, patient_name")
+          .eq("reserve_id", reserveId)
+          .maybeSingle(),
+        pid
+          ? supabaseAdmin
+              .from("intake")
+              .select("line_id, patient_name")
+              .eq("patient_id", pid)
+              .not("line_id", "is", null)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
       // ★ DB書き込み
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
@@ -684,6 +727,26 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
+      // LINE Flex メッセージ送信（非同期）
+      const cancelLineId = cancelIntakeInfo?.data?.line_id;
+      const cancelDate = cancelResvInfo?.data?.reserved_date;
+      const cancelTime = cancelResvInfo?.data?.reserved_time;
+      if (cancelLineId && cancelDate && cancelTime) {
+        (async () => {
+          try {
+            const flex = buildReservationCanceledFlex(cancelDate, cancelTime);
+            await sendReservationNotification({
+              patientId: pid,
+              lineUid: cancelLineId,
+              flex,
+              messageType: "reservation_canceled",
+            });
+          } catch (err) {
+            console.error("[reservations] LINE cancel notification error:", err);
+          }
+        })();
+      }
+
       return NextResponse.json({
         ok: true,
         reserveId,
@@ -710,6 +773,13 @@ export async function POST(req: NextRequest) {
           message: `この日付はまだ予約を受け付けていません。毎月${BOOKING_OPEN_DAY}日に翌月の予約が開放されます。`,
         }, { status: 400 });
       }
+
+      // LINE通知用に変更前の日時を取得（RPCで上書きされる前に）
+      const { data: prevResvInfo } = await supabaseAdmin
+        .from("reservations")
+        .select("reserved_date, reserved_time")
+        .eq("reserve_id", reserveId)
+        .maybeSingle();
 
       // ★ RPC で変更先スロットの定員チェック + UPDATE をアトミックに実行
       const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
@@ -738,6 +808,18 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`✓ Reservation updated: reserve_id=${reserveId}, date=${newDate}, time=${newTime}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
+
+      // LINE通知用に line_id と patient_name を取得
+      const { data: changeIntakeInfo } = pid
+        ? await supabaseAdmin
+            .from("intake")
+            .select("line_id, patient_name")
+            .eq("patient_id", pid)
+            .not("line_id", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null };
 
       // intake テーブルの日時を更新
       if (pid) {
@@ -774,6 +856,29 @@ export async function POST(req: NextRequest) {
       if (pid) {
         await invalidateDashboardCache(pid);
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
+      }
+
+      // LINE Flex メッセージ送信（非同期）
+      const changeLineId = changeIntakeInfo?.line_id;
+      if (changeLineId && newDate && newTime) {
+        (async () => {
+          try {
+            const flex = buildReservationChangedFlex(
+              prevResvInfo?.reserved_date || newDate,
+              prevResvInfo?.reserved_time || newTime,
+              newDate,
+              newTime,
+            );
+            await sendReservationNotification({
+              patientId: pid,
+              lineUid: changeLineId,
+              flex,
+              messageType: "reservation_changed",
+            });
+          } catch (err) {
+            console.error("[reservations] LINE change notification error:", err);
+          }
+        })();
       }
 
       return NextResponse.json({
