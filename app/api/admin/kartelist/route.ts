@@ -75,10 +75,8 @@ export async function GET(req: NextRequest) {
       countQuery = countQuery.in("patient_id", filterPatientIds);
     }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      // 当日予約かつDrが入力済み（status/prescription_menu/noteのいずれかが存在）
-      countQuery = countQuery
-        .eq("reserved_date", date)
-        .or("status.not.is.null,prescription_menu.not.is.null,note.not.is.null");
+      // その日の予約患者を表示（Drがこれから入力するため入力済み条件は不要）
+      countQuery = countQuery.eq("reserved_date", date);
     }
     const { count } = await countQuery;
     const total = count || 0;
@@ -94,9 +92,7 @@ export async function GET(req: NextRequest) {
       dataQuery = dataQuery.in("patient_id", filterPatientIds);
     }
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      dataQuery = dataQuery
-        .eq("reserved_date", date)
-        .or("status.not.is.null,prescription_menu.not.is.null,note.not.is.null");
+      dataQuery = dataQuery.eq("reserved_date", date);
     }
     const { data: intakes, error: dataError } = await dataQuery;
 
