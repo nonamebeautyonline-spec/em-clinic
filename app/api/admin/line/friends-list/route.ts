@@ -66,6 +66,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // intakeに存在しない患者をmessage_logから補完（intakeが消失したケース対応）
+  const msgPatientIds = new Set<string>();
+  for (const row of lastMsgRes.data || []) {
+    if (row.patient_id && !patientMap.has(row.patient_id)) {
+      msgPatientIds.add(row.patient_id);
+    }
+  }
+  if (msgPatientIds.size > 0) {
+    for (const pid of msgPatientIds) {
+      const answerer = answererMap.get(pid);
+      patientMap.set(pid, {
+        patient_id: pid,
+        patient_name: answerer?.name || pid,
+        line_id: answerer?.line_id || null,
+        line_display_name: null,
+        line_picture_url: null,
+      });
+    }
+  }
+
   // マークをマッピング
   const markMap = new Map<string, string>();
   for (const row of marksRes.data || []) {
