@@ -1365,7 +1365,24 @@ export default function TalkPage() {
                             <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                           </div>
                           <div className="max-w-[65%]">
-                            {isStickerContent(m.content) ? (
+                            {m.message_type?.startsWith("reservation_") ? (
+                              /* 予約通知Flexカード */
+                              (() => {
+                                const isCanceled = m.message_type === "reservation_canceled";
+                                const isChanged = m.message_type === "reservation_changed";
+                                const label = isCanceled ? "予約キャンセル" : isChanged ? "予約変更" : "予約確定";
+                                const headerBg = isCanceled ? "#888" : "#E91E8C";
+                                const bodyText = (m.content || "").replace(/^\[/, "").replace(/\]$/, "").replace(/^【[^】]+】\s*/, "");
+                                return (
+                                  <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 min-w-[200px]">
+                                    <div className="px-3 py-2 text-white text-xs font-bold" style={{ backgroundColor: headerBg }}>{label}</div>
+                                    <div className="bg-white px-3 py-2.5">
+                                      <div className={"text-[13px] font-semibold leading-relaxed " + (isCanceled ? "text-gray-400 line-through" : "text-gray-900")}>{bodyText}</div>
+                                    </div>
+                                  </div>
+                                );
+                              })()
+                            ) : isStickerContent(m.content) ? (
                               <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
                             ) : isImageUrl(m.content) ? (
                               <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>

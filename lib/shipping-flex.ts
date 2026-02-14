@@ -85,7 +85,7 @@ export function buildShippingFlex(
             size: "full",
             aspectRatio: "3:2",
             aspectMode: "fit",
-            flex: 3,
+            flex: 1,
           },
           { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 1, align: "end", gravity: "bottom", wrap: true },
         ],
