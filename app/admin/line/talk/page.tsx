@@ -331,6 +331,7 @@ export default function TalkPage() {
   const [showMenuPicker, setShowMenuPicker] = useState(false);
   const [allRichMenus, setAllRichMenus] = useState<{ id: number; name: string; image_url: string | null; line_rich_menu_id: string }[]>([]);
   const [changingMenu, setChangingMenu] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // 右カラム表示設定
   const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({});
@@ -537,6 +538,7 @@ export default function TalkPage() {
     setPatientFields([]);
     setUserRichMenu(null);
     setShowMenuPicker(false);
+    setIsBlocked(false);
 
     shouldScrollToBottom.current = true;
 
@@ -548,14 +550,31 @@ export default function TalkPage() {
       fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(friend.patient_id)}&type=id`, { credentials: "include" }),
     ]);
 
-    // リッチメニューはLINE API呼び出しがあるため別途非同期で取得（ブロックしない）
+    // リッチメニュー・ブロック確認はLINE API呼び出しがあるため別途非同期で取得
     if (friend.line_id) {
       fetch(`/api/admin/line/user-richmenu?patient_id=${encodeURIComponent(friend.patient_id)}`, { credentials: "include" })
         .then(r => r.json())
         .then(d => {
-          // staleガード
           if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
           if (d.menu) setUserRichMenu(d.menu);
+        })
+        .catch(() => {});
+
+      // ブロック状態確認（ブロック時はmessage_logに自動記録される）
+      fetch(`/api/admin/line/check-block?patient_id=${encodeURIComponent(friend.patient_id)}`, { credentials: "include" })
+        .then(r => r.json())
+        .then(async (d) => {
+          if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
+          setIsBlocked(!!d.blocked);
+          // ブロック検知時、message_logにイベントが追加されたのでメッセージを再取得
+          if (d.blocked) {
+            const res = await fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=${MSG_BATCH}`, { credentials: "include" });
+            const data = await res.json();
+            if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
+            if (data.messages) {
+              setMessages([...data.messages].reverse());
+            }
+          }
         })
         .catch(() => {});
     }
@@ -1585,6 +1604,14 @@ export default function TalkPage() {
                     <span className="text-xs font-medium text-gray-700">アクション実行</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* ブロック警告 */}
+            {isBlocked && (
+              <div className="flex-shrink-0 bg-red-50 border-t border-red-200 px-4 py-2 flex items-center gap-2">
+                <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                <span className="text-xs text-red-600 font-medium">この友だちはLINEをブロックしています</span>
               </div>
             )}
 
