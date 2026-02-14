@@ -277,8 +277,10 @@ export default function BankTransferReconcilePage() {
                         minute: "2-digit",
                       })}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                      {order.patient_id}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                      <button onClick={() => window.open(`/admin/line/talk?patient_id=${order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                        {order.patient_id}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {order.patient_name || "-"}
@@ -413,8 +415,10 @@ export default function BankTransferReconcilePage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                         ¥{item.transfer.amount.toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                        {item.order.patient_id}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                        <button onClick={() => window.open(`/admin/line/talk?patient_id=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                          {item.order.patient_id}
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {item.order.product_code}
@@ -513,7 +517,11 @@ export default function BankTransferReconcilePage() {
                           {previewResult.debug.pendingOrders.map((o, i) => (
                             <tr key={i} className="border-t">
                               <td className="px-2 py-1 font-mono">{o.id}</td>
-                              <td className="px-2 py-1 font-mono">{o.patient_id}</td>
+                              <td className="px-2 py-1 font-mono">
+                                <button onClick={() => window.open(`/admin/line/talk?patient_id=${o.patient_id}`, '_blank')} className="text-blue-600 hover:underline">
+                                  {o.patient_id}
+                                </button>
+                              </td>
                               <td className="px-2 py-1">¥{o.amount.toLocaleString()}</td>
                               <td className="px-2 py-1">{o.account_name}</td>
                               <td className="px-2 py-1 font-mono text-blue-600">{o.accountNormalized}</td>
@@ -600,8 +608,10 @@ export default function BankTransferReconcilePage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                           ¥{item.transfer.amount.toLocaleString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                          {item.order.patient_id}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                          <button onClick={() => window.open(`/admin/line/talk?patient_id=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                            {item.order.patient_id}
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                           {item.order.product_code}
@@ -695,7 +705,9 @@ export default function BankTransferReconcilePage() {
               <div className="bg-slate-50 rounded p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">患者ID:</span>
-                  <span className="font-mono text-blue-600">{manualConfirmOrder.patient_id}</span>
+                  <button onClick={() => window.open(`/admin/line/talk?patient_id=${manualConfirmOrder.patient_id}`, '_blank')} className="font-mono text-blue-600 hover:text-blue-900 hover:underline">
+                    {manualConfirmOrder.patient_id}
+                  </button>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">氏名:</span>

@@ -215,7 +215,14 @@ export default function BankTransferManagementPage() {
                   ) : (
                     filteredOrders.map((order) => (
                       <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm text-slate-900">{order.patient_id}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <button
+                            onClick={() => window.open(`/admin/line/talk?patient_id=${order.patient_id}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-900 hover:underline font-mono"
+                          >
+                            {order.patient_id}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-sm text-slate-900">{order.shipping_name || order.account_name || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-600">{order.product_code || '-'}</td>
                         <td className="px-4 py-3 text-sm text-slate-900">{order.shipping_name || '-'}</td>
