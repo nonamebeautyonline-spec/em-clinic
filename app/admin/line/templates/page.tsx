@@ -402,9 +402,11 @@ export default function TemplateManagementPage() {
                       </button>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                          t.message_type === "image" ? "bg-purple-100 text-purple-600" : "bg-gray-100 text-gray-500"
+                          t.message_type === "image" ? "bg-purple-100 text-purple-600" :
+                          t.message_type === "flex" ? "bg-blue-100 text-blue-600" :
+                          "bg-gray-100 text-gray-500"
                         }`}>
-                          {t.message_type === "image" ? "画像" : "テキスト"}
+                          {t.message_type === "image" ? "画像" : t.message_type === "flex" ? (t.content?.includes("カルーセル") ? "カルーセル" : "Flex") : "テキスト"}
                         </span>
                         {t.message_type === "image" ? (
                           <img src={t.content} alt="" className="h-6 w-6 rounded object-cover" />
@@ -507,27 +509,25 @@ export default function TemplateManagementPage() {
 
               {/* タブ切替 */}
               <div>
-                <div className="flex border-b border-gray-200">
-                  <button
-                    onClick={() => setActiveTab("text")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      activeTab === "text"
-                        ? "text-[#06C755] border-b-2 border-[#06C755]"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    テキスト
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("image")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      activeTab === "image"
-                        ? "text-[#06C755] border-b-2 border-[#06C755]"
-                        : "text-gray-400 hover:text-gray-600"
-                    }`}
-                  >
-                    画像
-                  </button>
+                <div className="flex border-b border-gray-200 overflow-x-auto">
+                  {([
+                    { key: "text" as TemplateTab, label: "テキスト" },
+                    { key: "image" as TemplateTab, label: "画像" },
+                    { key: "carousel" as TemplateTab, label: "ボタン・カルーセル" },
+                    { key: "flex" as TemplateTab, label: "Flex" },
+                  ]).map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                        activeTab === tab.key
+                          ? "text-[#06C755] border-b-2 border-[#06C755]"
+                          : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -628,6 +628,256 @@ export default function TemplateManagementPage() {
                   )}
                 </div>
               )}
+
+              {/* ボタン・カルーセル ビルダー */}
+              {activeTab === "carousel" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">
+                      パネル {panels.length}/10（1枚ならボタン型、複数枚でカルーセル）
+                    </p>
+                    {panels.length < 10 && (
+                      <button
+                        onClick={() => setPanels([...panels, { ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }])}
+                        className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                        パネル追加
+                      </button>
+                    )}
+                  </div>
+
+                  {panels.map((panel, pi) => (
+                    <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
+                      {/* パネルヘッダー */}
+                      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                        <span className="text-xs font-bold text-gray-600">パネル {pi + 1}/{panels.length}</span>
+                        <div className="flex items-center gap-1">
+                          {pi > 0 && (
+                            <button
+                              onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }}
+                              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                              title="前に移動"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                            </button>
+                          )}
+                          {pi < panels.length - 1 && (
+                            <button
+                              onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }}
+                              className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                              title="後に移動"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                          )}
+                          {panels.length > 1 && (
+                            <button
+                              onClick={() => setPanels(panels.filter((_, i) => i !== pi))}
+                              className="p-1 text-gray-400 hover:text-red-500 rounded"
+                              title="削除"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        {/* 画像URL */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">画像URL</label>
+                          <input
+                            type="url"
+                            value={panel.imageUrl}
+                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], imageUrl: e.target.value }; setPanels(n); }}
+                            placeholder="https://example.com/image.jpg"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30"
+                          />
+                        </div>
+
+                        {/* タイトル */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
+                          <input
+                            type="text"
+                            value={panel.title}
+                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }}
+                            placeholder="タイトルを入力"
+                            maxLength={40}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30"
+                          />
+                          <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.title.length}/40</div>
+                        </div>
+
+                        {/* 本文 */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">本文</label>
+                          <textarea
+                            value={panel.body}
+                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], body: e.target.value }; setPanels(n); }}
+                            placeholder="本文を入力"
+                            rows={2}
+                            maxLength={60}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
+                          />
+                          <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.body.length}/60</div>
+                        </div>
+
+                        {/* ボタン */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-medium text-gray-600">ボタン</label>
+                            {panel.buttons.length < (panels.length === 1 ? 4 : 3) && (
+                              <button
+                                onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: [...n[pi].buttons, { ...EMPTY_BUTTON }] }; setPanels(n); }}
+                                className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium"
+                              >
+                                + 追加
+                              </button>
+                            )}
+                          </div>
+                          {panel.buttons.map((btn, bi) => (
+                            <div key={bi} className="flex items-center gap-2 mb-2">
+                              <input
+                                type="text"
+                                value={btn.label}
+                                onChange={(e) => {
+                                  const n = [...panels];
+                                  const btns = [...n[pi].buttons];
+                                  btns[bi] = { ...btns[bi], label: e.target.value };
+                                  n[pi] = { ...n[pi], buttons: btns };
+                                  setPanels(n);
+                                }}
+                                placeholder="ボタン名"
+                                maxLength={20}
+                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30"
+                              />
+                              <select
+                                value={btn.actionType}
+                                onChange={(e) => {
+                                  const n = [...panels];
+                                  const btns = [...n[pi].buttons];
+                                  btns[bi] = { ...btns[bi], actionType: e.target.value as PanelButton["actionType"] };
+                                  n[pi] = { ...n[pi], buttons: btns };
+                                  setPanels(n);
+                                }}
+                                className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none"
+                              >
+                                <option value="url">URL</option>
+                                <option value="postback">ポストバック</option>
+                                <option value="message">メッセージ</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={btn.actionValue}
+                                onChange={(e) => {
+                                  const n = [...panels];
+                                  const btns = [...n[pi].buttons];
+                                  btns[bi] = { ...btns[bi], actionValue: e.target.value };
+                                  n[pi] = { ...n[pi], buttons: btns };
+                                  setPanels(n);
+                                }}
+                                placeholder={btn.actionType === "url" ? "https://..." : btn.actionType === "postback" ? "action=xxx" : "返信テキスト"}
+                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30"
+                              />
+                              {panel.buttons.length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    const n = [...panels];
+                                    n[pi] = { ...n[pi], buttons: n[pi].buttons.filter((_, i) => i !== bi) };
+                                    setPanels(n);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-500"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* カルーセルプレビュー */}
+                  {panels.some(p => p.title || p.body || p.imageUrl) && (
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                        <span className="text-xs font-medium text-gray-600">プレビュー</span>
+                      </div>
+                      <div className="p-4 bg-[#7494c0]">
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {panels.filter(p => p.title || p.body || p.imageUrl).map((panel, i) => (
+                            <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
+                              {panel.imageUrl && (
+                                <div className="w-full h-28 bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${panel.imageUrl})` }} />
+                              )}
+                              <div className="px-3 py-2">
+                                {panel.title && <p className="text-sm font-bold text-gray-900">{panel.title}</p>}
+                                {panel.body && <p className="text-xs text-gray-500 mt-0.5">{panel.body}</p>}
+                              </div>
+                              {panel.buttons.filter(b => b.label).length > 0 && (
+                                <div className="px-3 pb-2 space-y-1">
+                                  {panel.buttons.filter(b => b.label).map((btn, bi) => (
+                                    <div key={bi} className="py-1.5 text-center text-xs font-medium text-white rounded-lg" style={{ backgroundColor: "#06C755" }}>
+                                      {btn.label}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Flex JSON直接編集 */}
+              {activeTab === "flex" && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Flex Message JSON <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
+                    </label>
+                    <p className="text-xs text-gray-400 mb-2">
+                      LINE Flex Message Simulator で作成したJSONを貼り付けてください
+                    </p>
+                    <textarea
+                      value={flexJson}
+                      onChange={(e) => {
+                        setFlexJson(e.target.value);
+                        if (e.target.value.trim()) {
+                          try { JSON.parse(e.target.value); setFlexError(""); } catch { setFlexError("JSON形式が不正です"); }
+                        } else { setFlexError(""); }
+                      }}
+                      placeholder='{"type":"bubble","body":{"type":"box",...}}'
+                      rows={12}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
+                      spellCheck={false}
+                    />
+                    {flexError && (
+                      <p className="text-xs text-red-500 mt-1">{flexError}</p>
+                    )}
+                    <div className="flex justify-end mt-1">
+                      <button
+                        onClick={() => {
+                          try {
+                            const parsed = JSON.parse(flexJson);
+                            setFlexJson(JSON.stringify(parsed, null, 2));
+                            setFlexError("");
+                          } catch { setFlexError("JSON形式が不正です"); }
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        整形
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
@@ -700,6 +950,8 @@ export default function TemplateManagementPage() {
             <div className="p-6 bg-[#7494C0] min-h-[300px]">
               {previewTemplate.message_type === "image" ? (
                 <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
+              ) : previewTemplate.message_type === "flex" && previewTemplate.flex_content ? (
+                <FlexPreviewSimple data={previewTemplate.flex_content} />
               ) : (
                 <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
                   <p className="text-sm whitespace-pre-wrap text-gray-800">{previewTemplate.content}</p>
@@ -739,4 +991,80 @@ export default function TemplateManagementPage() {
       )}
     </div>
   );
+}
+
+/* ---------- Flex簡易プレビュー ---------- */
+function FlexPreviewSimple({ data }: { data: Record<string, unknown> }) {
+  const type = data.type as string;
+
+  if (type === "carousel") {
+    const contents = (data.contents || []) as Record<string, unknown>[];
+    return (
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {contents.map((bubble, i) => (
+          <div key={i} className="flex-shrink-0 w-[240px]">
+            <BubblePreview bubble={bubble} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "bubble") {
+    return <div className="max-w-[280px]"><BubblePreview bubble={data} /></div>;
+  }
+
+  return <div className="text-white/60 text-xs text-center py-10">Flex: {type || "不明"}</div>;
+}
+
+function BubblePreview({ bubble }: { bubble: Record<string, unknown> }) {
+  const hero = bubble.hero as Record<string, unknown> | undefined;
+  const body = bubble.body as Record<string, unknown> | undefined;
+  const footer = bubble.footer as Record<string, unknown> | undefined;
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+      {hero && hero.type === "image" && !!hero.url && (
+        <div className="w-full bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${hero.url})`, aspectRatio: (hero.aspectRatio as string) || "20:13" }} />
+      )}
+      {body && <div className="px-3 py-2"><BoxPreview box={body} /></div>}
+      {footer && <div className="px-3 pb-2"><BoxPreview box={footer} /></div>}
+    </div>
+  );
+}
+
+function BoxPreview({ box }: { box: Record<string, unknown> }) {
+  const layout = box.layout as string;
+  const contents = (box.contents || []) as Record<string, unknown>[];
+  return (
+    <div className={`flex ${layout === "horizontal" ? "flex-row items-center" : "flex-col"} gap-1`}>
+      {contents.map((item, i) => <ElementPreview key={i} el={item} />)}
+    </div>
+  );
+}
+
+function ElementPreview({ el }: { el: Record<string, unknown> }) {
+  const type = el.type as string;
+  if (type === "text") {
+    const weight = el.weight === "bold" ? "font-bold" : "";
+    const size = el.size as string;
+    const cls = size === "xs" ? "text-[10px]" : size === "sm" ? "text-xs" : size === "lg" ? "text-base" : size === "xl" ? "text-lg" : "text-sm";
+    return <span className={`${cls} ${weight} leading-snug`} style={{ color: (el.color as string) || "#111" }}>{el.text as string}</span>;
+  }
+  if (type === "button") {
+    const action = el.action as Record<string, unknown>;
+    const style = el.style as string;
+    return (
+      <div className={`py-1.5 px-3 rounded-lg text-center text-xs font-medium ${style === "primary" ? "text-white" : "bg-gray-100 text-gray-700"}`}
+        style={style === "primary" ? { backgroundColor: (el.color as string) || "#06C755" } : undefined}>
+        {(action?.label as string) || "ボタン"}
+      </div>
+    );
+  }
+  if (type === "separator") return <hr className="border-gray-200 my-1" />;
+  if (type === "box") return <BoxPreview box={el} />;
+  if (type === "image" && el.url) {
+    return <div className="w-full bg-gray-200 bg-cover bg-center rounded" style={{ backgroundImage: `url(${el.url})`, aspectRatio: (el.aspectRatio as string) || "1/1", minHeight: "40px" }} />;
+  }
+  return null;
 }
