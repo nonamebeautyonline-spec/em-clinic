@@ -1,15 +1,8 @@
-// 本日発送患者への一斉LINE通知
+// 本日発送患者への一斉LINE通知（Flexメッセージ）
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { pushMessage } from "@/lib/line-push";
-
-const SHIPPING_MESSAGE = `本日ヤマト運輸のチルド便で発送させていただきました。
-マイページにて追跡番号照会が可能となっており、発送が開始されると日時指定が可能となります。
-日時指定を希望される場合は追跡番号を入力してお試しください🌸
-
-お届け後、マンジャロは冷蔵保管をするようにお願いいたします。
-冷凍保存を行うと薬液が凍結したり効果が下がってしまいますのでご注意ください。`;
+import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
 
 // 本日発送患者を取得（共通）
 async function getTodayShippedPatients() {
@@ -18,7 +11,7 @@ async function getTodayShippedPatients() {
 
   const { data: orders, error } = await supabaseAdmin
     .from("orders")
-    .select("patient_id, tracking_number")
+    .select("patient_id, tracking_number, carrier")
     .eq("shipping_date", today)
     .not("tracking_number", "is", null);
 
@@ -45,10 +38,15 @@ async function getTodayShippedPatients() {
 
   return uniquePids.map(pid => {
     const p = patientMap.get(pid);
+    // 患者ごとの追跡番号（複数注文対応）
+    const tracking = orders
+      .filter(o => o.patient_id === pid)
+      .map(o => ({ number: o.tracking_number as string, carrier: (o.carrier || "yamato") as string }));
     return {
       patient_id: pid,
       patient_name: p?.patient_name || "",
       line_id: p?.line_id || null,
+      tracking,
     };
   });
 }
@@ -115,22 +113,16 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 1) 発送通知送信
+      // 1) Flex発送通知送信
       try {
-        const res = await pushMessage(p.line_id, [{ type: "text", text: SHIPPING_MESSAGE }]);
-        const status = res?.ok ? "sent" : "failed";
-        if (res?.ok) sent++;
-        else failed++;
-
-        await supabaseAdmin.from("message_log").insert({
-          patient_id: p.patient_id,
-          line_uid: p.line_id,
-          direction: "outgoing",
-          event_type: "message",
-          message_type: "shipping_notify",
-          content: SHIPPING_MESSAGE,
-          status,
+        const flex = buildShippingFlex(p.tracking);
+        const result = await sendShippingNotification({
+          patientId: p.patient_id,
+          lineUid: p.line_id,
+          flex,
         });
+        if (result.ok) sent++;
+        else failed++;
       } catch {
         failed++;
       }
