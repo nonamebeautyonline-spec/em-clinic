@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
 
 // 複数患者にタグを一括追加/削除
 export async function POST(req: NextRequest) {
@@ -39,5 +40,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // メニュー自動切替ルール評価（非同期・失敗無視）
+  evaluateMenuRulesForMany(patient_ids).catch(() => {});
   return NextResponse.json({ ok: true, updated_count: patient_ids.length });
 }

@@ -12,6 +12,13 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
     { key: "webhook_signature_key", label: "Webhook Signature Key", envFallback: "SQUARE_WEBHOOK_SIGNATURE_KEY" },
     { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV" },
   ],
+  gmo: [
+    { key: "shop_id", label: "ショップID", envFallback: "GMO_SHOP_ID" },
+    { key: "shop_pass", label: "ショップパスワード", envFallback: "GMO_SHOP_PASS" },
+    { key: "site_id", label: "サイトID", envFallback: "GMO_SITE_ID" },
+    { key: "site_pass", label: "サイトパスワード", envFallback: "GMO_SITE_PASS" },
+    { key: "env", label: "環境 (sandbox / production)", envFallback: "GMO_ENV" },
+  ],
   line: [
     { key: "channel_access_token", label: "Channel Access Token", envFallback: "LINE_CHANNEL_ACCESS_TOKEN" },
     { key: "channel_secret", label: "Channel Secret", envFallback: "LINE_CHANNEL_SECRET" },

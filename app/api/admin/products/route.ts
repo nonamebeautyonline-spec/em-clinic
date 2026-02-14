@@ -21,7 +21,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { code, title, drug_name, dosage, duration_months, quantity, price, category, sort_order } = body;
+  const {
+    code, title, drug_name, dosage, duration_months, quantity, price,
+    category, sort_order, image_url, stock_quantity, discount_price,
+    discount_until, description, parent_id,
+  } = body;
 
   if (!code || !title || !price) {
     return NextResponse.json({ error: "code, title, price は必須です" }, { status: 400 });
@@ -41,6 +45,12 @@ export async function POST(req: NextRequest) {
       sort_order: sort_order || 0,
       is_active: true,
       tenant_id: null,
+      image_url: image_url || null,
+      stock_quantity: stock_quantity ?? null,
+      discount_price: discount_price ?? null,
+      discount_until: discount_until || null,
+      description: description || null,
+      parent_id: parent_id || null,
     })
     .select()
     .single();

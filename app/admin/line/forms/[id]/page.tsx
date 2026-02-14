@@ -73,6 +73,17 @@ interface Folder {
   name: string;
 }
 
+interface ActionDef {
+  id: number;
+  name: string;
+}
+
+interface FriendFieldDef {
+  id: number;
+  name: string;
+  field_type: string;
+}
+
 // ============================================================
 // 定数
 // ============================================================
@@ -141,6 +152,8 @@ export default function FormEditorPage() {
 
   const [form, setForm] = useState<FormData | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [actions, setActions] = useState<ActionDef[]>([]);
+  const [friendFields, setFriendFields] = useState<FriendFieldDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -174,8 +187,12 @@ export default function FormEditorPage() {
     Promise.all([
       fetchForm(),
       fetch("/api/admin/line/form-folders", { credentials: "include" }).then(r => r.json()),
-    ]).then(([, folderData]) => {
+      fetch("/api/admin/line/actions", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
+    ]).then(([, folderData, actionData, fieldData]) => {
       if (folderData.folders) setFolders(folderData.folders);
+      if (actionData.actions) setActions(actionData.actions);
+      if (fieldData.fields) setFriendFields(fieldData.fields);
       setLoading(false);
     });
   }, [fetchForm]);
@@ -605,11 +622,21 @@ export default function FormEditorPage() {
                               <label className="text-xs text-gray-500">登録先:</label>
                               <select
                                 value={field.save_target}
-                                onChange={e => updateField(field.id, { save_target: e.target.value })}
+                                onChange={e => updateField(field.id, { save_target: e.target.value, save_target_field_id: "" })}
                                 className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900]"
                               >
                                 {SAVE_TARGETS.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
                               </select>
+                              {field.save_target === "friend_field" && (
+                                <select
+                                  value={field.save_target_field_id}
+                                  onChange={e => updateField(field.id, { save_target_field_id: e.target.value })}
+                                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900]"
+                                >
+                                  <option value="">欄を選択...</option>
+                                  {friendFields.map(ff => <option key={ff.id} value={String(ff.id)}>{ff.name}</option>)}
+                                </select>
+                              )}
                             </div>
                           </div>
                         )}
@@ -757,6 +784,38 @@ export default function FormEditorPage() {
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] resize-none"
                   />
+                </td>
+              </tr>
+              {/* 送信後アクション */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium align-top bg-gray-50/50">送信後アクション</td>
+                <td className="px-5 py-4">
+                  <p className="text-xs text-gray-400 mb-2">フォーム送信時に自動実行するアクションを選択（複数可）</p>
+                  {actions.length === 0 ? (
+                    <p className="text-xs text-gray-400">アクションがありません。「アクション管理」で作成してください。</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {actions.map(a => (
+                        <label key={a.id} className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={(settings.post_actions || []).includes(a.id)}
+                            onChange={e => {
+                              const current = settings.post_actions || [];
+                              setSettings(s => ({
+                                ...s,
+                                post_actions: e.target.checked
+                                  ? [...current, a.id]
+                                  : current.filter((x: number) => x !== a.id),
+                              }));
+                            }}
+                            className="w-4 h-4 rounded border-gray-300 text-[#00B900] focus:ring-[#00B900]"
+                          />
+                          {a.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </td>
               </tr>
               {/* 回答復元 */}

@@ -29,6 +29,6 @@ export async function getPaymentProvider(tenantId?: string): Promise<PaymentProv
 export function getAvailableProviders(): { name: string; label: string; implemented: boolean }[] {
   return [
     { name: "square", label: "Square", implemented: true },
-    { name: "gmo", label: "GMO ペイメントゲートウェイ", implemented: false },
+    { name: "gmo", label: "GMO ペイメントゲートウェイ", implemented: true },
   ];
 }

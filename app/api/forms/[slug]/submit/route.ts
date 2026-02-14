@@ -1,5 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { pushMessage } from "@/lib/line-push";
+
+/**
+ * フォーム送信後のアクション実行
+ * actions テーブルの steps JSONB を順番に実行
+ */
+async function executeFormAction(actionId: number, patientId: string, lineUid: string) {
+  const { data: action } = await supabaseAdmin
+    .from("actions")
+    .select("id, name, steps")
+    .eq("id", actionId)
+    .single();
+
+  if (!action?.steps) return;
+
+  const steps = Array.isArray(action.steps) ? action.steps : [];
+
+  for (const step of steps) {
+    try {
+      switch (step.type) {
+        case "send_text":
+          if (step.content && lineUid) {
+            await pushMessage(lineUid, [{ type: "text", text: step.content }]);
+          }
+          break;
+
+        case "send_template":
+          if (step.template_id && lineUid) {
+            const { data: tpl } = await supabaseAdmin
+              .from("message_templates")
+              .select("content")
+              .eq("id", step.template_id)
+              .single();
+            if (tpl?.content) {
+              await pushMessage(lineUid, [{ type: "text", text: tpl.content }]);
+            }
+          }
+          break;
+
+        case "tag_add":
+          if (step.tag_id && patientId) {
+            await supabaseAdmin
+              .from("patient_tags")
+              .upsert(
+                { patient_id: patientId, tag_id: step.tag_id, assigned_by: "form_action" },
+                { onConflict: "patient_id,tag_id" }
+              );
+          }
+          break;
+
+        case "tag_remove":
+          if (step.tag_id && patientId) {
+            await supabaseAdmin
+              .from("patient_tags")
+              .delete()
+              .eq("patient_id", patientId)
+              .eq("tag_id", step.tag_id);
+          }
+          break;
+
+        case "mark_change":
+          if (step.mark !== undefined && patientId) {
+            await supabaseAdmin
+              .from("answerers")
+              .update({ mark: step.mark })
+              .eq("patient_id", patientId);
+          }
+          break;
+      }
+    } catch (e) {
+      console.error(`[form-action] step ${step.type} 実行エラー:`, e);
+    }
+  }
+}
 
 // 回答送信（認証不要）
 export async function POST(
@@ -122,15 +196,56 @@ export async function POST(
     return NextResponse.json({ error: insertErr.message }, { status: 500 });
   }
 
-  // 登録先処理（save_target）
-  for (const field of fields) {
-    if (!field.save_target || !answers?.[field.id as string]) continue;
+  // LINE UID → patient_id 取得（後続処理で共有）
+  let patientId: string | null = null;
+  if (line_user_id) {
+    const { data: patientData } = await supabaseAdmin
+      .from("intake")
+      .select("patient_id")
+      .eq("line_id", line_user_id)
+      .limit(1)
+      .maybeSingle();
+    patientId = patientData?.patient_id || null;
+  }
 
-    if (field.save_target === "patient" && line_user_id) {
-      // 患者情報への保存は今後拡張
+  // 登録先処理（save_target）— 友だち情報欄への保存
+  if (patientId) {
+    const fieldUpserts: { patient_id: string; field_id: number; value: string; updated_at: string }[] = [];
+    const now = new Date().toISOString();
+
+    for (const field of fields) {
+      if (!field.save_target || !answers?.[field.id as string]) continue;
+
+      if (field.save_target === "friend_field" && field.save_target_field_id) {
+        const val = answers[field.id as string];
+        const strVal = Array.isArray(val) ? (val as string[]).join(", ") : String(val);
+        fieldUpserts.push({
+          patient_id: patientId,
+          field_id: parseInt(field.save_target_field_id as string),
+          value: strVal,
+          updated_at: now,
+        });
+      }
     }
-    if (field.save_target === "friend_field" && line_user_id && field.save_target_field_id) {
-      // 友だち情報欄への保存は今後拡張
+
+    if (fieldUpserts.length > 0) {
+      const { error: fieldErr } = await supabaseAdmin
+        .from("friend_field_values")
+        .upsert(fieldUpserts, { onConflict: "patient_id,field_id" });
+      if (fieldErr) {
+        console.error("[form-submit] friend_field_values upsert error:", fieldErr.message);
+      }
+    }
+  }
+
+  // 送信後アクション（post_actions）実行
+  if (Array.isArray(settings.post_actions) && (settings.post_actions as number[]).length > 0 && patientId && line_user_id) {
+    for (const actionId of settings.post_actions as number[]) {
+      try {
+        await executeFormAction(actionId, patientId, line_user_id);
+      } catch (e) {
+        console.error(`[form-submit] post_action ${actionId} 実行エラー:`, e);
+      }
     }
   }
 
@@ -140,13 +255,6 @@ export async function POST(
       .from("forms")
       .select("name")
       .eq("id", form.id)
-      .maybeSingle();
-
-    const { data: patientData } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id")
-      .eq("line_id", line_user_id)
-      .limit(1)
       .maybeSingle();
 
     // 回答された項目名を収集
@@ -159,7 +267,7 @@ export async function POST(
       : "";
 
     await supabaseAdmin.from("message_log").insert({
-      patient_id: patientData?.patient_id || null,
+      patient_id: patientId,
       line_uid: line_user_id,
       event_type: "system",
       message_type: "event",

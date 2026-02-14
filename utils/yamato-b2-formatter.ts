@@ -1,9 +1,10 @@
 /**
  * ヤマトB2 CSVフォーマッター
  * GASのロジックをTypeScriptに移植
+ * ※設定は管理画面から変更可能（lib/shipping/config.ts参照）
  */
 
-interface YamatoB2Config {
+export interface YamatoB2Config {
   senderName: string;
   senderPostal: string;
   senderAddress: string;
@@ -14,10 +15,12 @@ interface YamatoB2Config {
   billingCategoryCode: string;
   fareManagementNo: string;
   itemName: string;
+  coolType?: string;
   forecastMessage: string;
   completedMessage: string;
 }
 
+/** デフォルト設定（DB未設定時のフォールバック） */
 export const YAMATO_B2_CONFIG: YamatoB2Config = {
   senderName: "のなめビューティー",
   senderPostal: "1040061",
@@ -29,6 +32,7 @@ export const YAMATO_B2_CONFIG: YamatoB2Config = {
   billingCategoryCode: "",
   fareManagementNo: "01",
   itemName: "サプリメント（引火性・高圧ガスなし）",
+  coolType: "2",
   forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
   completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
 };
@@ -143,7 +147,8 @@ interface OrderData {
   phone: string;
 }
 
-export function generateYamatoB2Row(order: OrderData, shipDate: string): string[] {
+export function generateYamatoB2Row(order: OrderData, shipDate: string, config?: YamatoB2Config): string[] {
+  const cfg = config || YAMATO_B2_CONFIG;
   const name = order.name.trim();
   const postal = normalizePostal(order.postal);
   const addressFull = order.address.trim();
@@ -157,12 +162,12 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   const isOkinawa = addressFull.includes("沖縄");
   const itemName = isOkinawa
     ? "医薬品・注射器（未使用、引火性・高圧ガスなし）"
-    : YAMATO_B2_CONFIG.itemName;
+    : cfg.itemName;
 
   const cols: string[] = [];
   cols.push(order.payment_id || ""); // 1: お客様管理番号
   cols.push("0"); // 2: 送り状種類
-  cols.push("2"); // 3: クール区分（2=冷凍）
+  cols.push(cfg.coolType || "2"); // 3: クール区分（0=常温, 1=冷蔵, 2=冷凍）
   cols.push(""); // 4: 伝票番号
   cols.push(shipDate); // 5: 出荷予定日
   cols.push(""); // 6: お届け予定（指定）日
@@ -179,12 +184,12 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   cols.push(""); // 17: お届け先名略称カナ
   cols.push("様"); // 18: 敬称
   cols.push(""); // 19: ご依頼主コード
-  cols.push(normalizePhoneForYamato(YAMATO_B2_CONFIG.senderPhone)); // 20: ご依頼主電話番号
-  cols.push(YAMATO_B2_CONFIG.senderPhoneBranch); // 21: ご依頼主電話番号枝番
-  cols.push(YAMATO_B2_CONFIG.senderPostal); // 22: ご依頼主郵便番号
-  cols.push(YAMATO_B2_CONFIG.senderAddress); // 23: ご依頼主住所
+  cols.push(normalizePhoneForYamato(cfg.senderPhone)); // 20: ご依頼主電話番号
+  cols.push(cfg.senderPhoneBranch); // 21: ご依頼主電話番号枝番
+  cols.push(cfg.senderPostal); // 22: ご依頼主郵便番号
+  cols.push(cfg.senderAddress); // 23: ご依頼主住所
   cols.push(""); // 24: ご依頼主住所（アパマン）
-  cols.push(YAMATO_B2_CONFIG.senderName); // 25: ご依頼主名
+  cols.push(cfg.senderName); // 25: ご依頼主名
   cols.push(""); // 26: ご依頼主略称カナ
   cols.push(""); // 27: 品名コード1
   cols.push(itemName); // 28: 品名1（沖縄判定により変更）
@@ -199,9 +204,9 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   cols.push(""); // 37: 営業所コード
   cols.push("1"); // 38: 発行枚数
   cols.push("1"); // 39: 個数口枠の印字
-  cols.push(YAMATO_B2_CONFIG.billingCustomerCode); // 40: ご請求先顧客コード
-  cols.push(YAMATO_B2_CONFIG.billingCategoryCode); // 41: ご請求先分類コード
-  cols.push(YAMATO_B2_CONFIG.fareManagementNo); // 42: 運賃管理番号
+  cols.push(cfg.billingCustomerCode); // 40: ご請求先顧客コード
+  cols.push(cfg.billingCategoryCode); // 41: ご請求先分類コード
+  cols.push(cfg.fareManagementNo); // 42: 運賃管理番号
   cols.push("0"); // 43: クロネコwebコレクトデータ登録
   cols.push(""); // 44: webコレクト加盟店コード
   cols.push(""); // 45: webコレクト申込受付番号1
@@ -210,7 +215,7 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string): string[
   cols.push("1"); // 48: お届け予定eメール利用区分
   cols.push(email); // 49: お届け予定eメールアドレス
   cols.push("1"); // 50: 入力機種
-  cols.push(YAMATO_B2_CONFIG.forecastMessage); // 51: お届け予定eメールメッセージ
+  cols.push(cfg.forecastMessage); // 51: お届け予定eメールメッセージ
   cols.push("0"); // 52: お届け完了eメール利用区分
   cols.push(""); // 53: お届け完了eメールアドレス
   cols.push(""); // 54: お届け完了eメールメッセージ
@@ -295,12 +300,12 @@ export function toCsvRow(cols: string[]): string {
 /**
  * CSVデータを生成
  */
-export function generateYamatoB2Csv(orders: OrderData[], shipDate: string): string {
+export function generateYamatoB2Csv(orders: OrderData[], shipDate: string, config?: YamatoB2Config): string {
   const rows: string[] = [];
   rows.push(toCsvRow(YAMATO_B2_HEADER));
 
   for (const order of orders) {
-    const row = generateYamatoB2Row(order, shipDate);
+    const row = generateYamatoB2Row(order, shipDate, config);
     rows.push(toCsvRow(row));
   }
 

@@ -95,6 +95,9 @@ export default function FriendDetailPage() {
     new Set(["received", "text", "auto", "sent", "system"])
   );
 
+  // 右カラム表示設定
+  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({});
+
   // クイック返信
   const [quickMessage, setQuickMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -138,7 +141,17 @@ export default function FriendDetailPage() {
     setLoading(false);
   }, [patientId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    fetchAll();
+    // 右カラム表示設定を取得
+    fetch("/api/admin/line/column-settings", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.sections) setVisibleSections(d.sections); })
+      .catch(() => {});
+  }, [fetchAll]);
+
+  // セクション表示判定（デフォルトON）
+  const isSectionVisible = (key: string) => visibleSections[key] !== false;
 
   // ── 過去メッセージ読み込み ──
   const loadMoreMessages = async () => {
@@ -402,6 +415,7 @@ export default function FriendDetailPage() {
                 <h3 className="text-sm font-bold text-gray-800 mb-4">基本</h3>
 
                 {/* 対応マーク */}
+                {isSectionVisible("mark") && (
                 <div className="flex items-center justify-between py-2 border-b border-gray-50">
                   <span className="text-xs text-gray-500">対応マーク</span>
                   <div className="relative">
@@ -439,9 +453,10 @@ export default function FriendDetailPage() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* 個人情報 */}
-                {detail.medicalInfo && (
+                {isSectionVisible("personal") && detail.medicalInfo && (
                   <>
                     {detail.medicalInfo.kana && (
                       <div className="flex items-center justify-between py-2 border-b border-gray-50">
@@ -500,7 +515,7 @@ export default function FriendDetailPage() {
                 </div>
 
                 {/* 次回予約 */}
-                {detail.nextReservation && (
+                {isSectionVisible("reservation") && detail.nextReservation && (
                   <div className="flex items-center justify-between py-2 border-b border-gray-50">
                     <span className="text-xs text-gray-500">次回予約</span>
                     <span className="text-xs text-blue-600 font-medium">{detail.nextReservation}</span>
@@ -509,7 +524,7 @@ export default function FriendDetailPage() {
               </div>
 
               {/* 問診内容 */}
-              {detail.medicalInfo && (
+              {isSectionVisible("medical") && detail.medicalInfo && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <h3 className="text-sm font-bold text-gray-800 mb-4">問診内容</h3>
                   <div className="space-y-3">
@@ -534,6 +549,7 @@ export default function FriendDetailPage() {
             {/* 右列 */}
             <div className="space-y-5">
               {/* 決済情報 */}
+              {isSectionVisible("latestOrder") && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 className="text-sm font-bold text-gray-800 mb-4">決済情報</h3>
                 {detail.latestOrder ? (
@@ -573,7 +589,7 @@ export default function FriendDetailPage() {
                 )}
 
                 {/* 銀行振込待ち */}
-                {detail.pendingBankTransfer && (
+                {isSectionVisible("bankTransfer") && detail.pendingBankTransfer && (
                   <div className="mt-3 px-3 py-2 bg-amber-50 rounded-lg border border-amber-100">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-200 text-amber-800 font-bold">振込待ち</span>
@@ -583,8 +599,10 @@ export default function FriendDetailPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* 処方歴 */}
+              {isSectionVisible("orderHistory") && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <h3 className="text-sm font-bold text-gray-800 mb-4">処方歴</h3>
                 {detail.orderHistory.length > 0 ? (
@@ -608,7 +626,7 @@ export default function FriendDetailPage() {
                 )}
 
                 {/* 再処方 */}
-                {detail.reorders.length > 0 && (
+                {isSectionVisible("reorders") && detail.reorders.length > 0 && (
                   <div className="mt-4">
                     <SectionLabel>再処方</SectionLabel>
                     {detail.reorders.map((r, i) => (
@@ -627,9 +645,10 @@ export default function FriendDetailPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* 友だち情報 */}
-              {allFieldDefs.length > 0 && (
+              {isSectionVisible("friendFields") && allFieldDefs.length > 0 && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <h3 className="text-sm font-bold text-gray-800 mb-4">友だち情報</h3>
                   {allFieldDefs.map(fd => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 // 患者のタグ一覧取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +32,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .upsert({ patient_id: id, tag_id, assigned_by: "admin" }, { onConflict: "patient_id,tag_id" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // メニュー自動切替ルール評価（非同期・失敗無視）
+  evaluateMenuRules(id).catch(() => {});
   return NextResponse.json({ ok: true });
 }
 
@@ -52,5 +55,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     .eq("tag_id", Number(tagId));
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // メニュー自動切替ルール評価（非同期・失敗無視）
+  evaluateMenuRules(id).catch(() => {});
   return NextResponse.json({ ok: true });
 }

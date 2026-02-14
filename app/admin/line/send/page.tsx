@@ -87,6 +87,12 @@ export default function BroadcastSendPage() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  // セグメント
+  const [segments, setSegments] = useState<{ id: string; name: string; includeConditions: FilterCondition[]; excludeConditions: FilterCondition[]; created_at: string }[]>([]);
+  const [showSegmentMenu, setShowSegmentMenu] = useState(false);
+  const [segmentName, setSegmentName] = useState("");
+  const [showSegmentSave, setShowSegmentSave] = useState(false);
+
   // 配信履歴
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -116,14 +122,47 @@ export default function BroadcastSendPage() {
       fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/broadcast", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, marksData, templatesData, broadcastData]) => {
+      fetch("/api/admin/line/segments", { credentials: "include" }).then(r => r.json()),
+    ]).then(([tagsData, marksData, templatesData, broadcastData, segData]) => {
       if (tagsData.tags) setTags(tagsData.tags);
       if (marksData.marks) setMarks(marksData.marks);
       if (templatesData.templates) setTemplates(templatesData.templates);
       if (broadcastData.broadcasts) setBroadcasts(broadcastData.broadcasts);
+      if (segData.segments) setSegments(segData.segments);
       setLoadingHistory(false);
     });
   }, []);
+
+  // セグメント保存
+  const handleSaveSegment = async () => {
+    if (!segmentName.trim()) return;
+    const res = await fetch("/api/admin/line/segments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: segmentName.trim(), includeConditions, excludeConditions }),
+    });
+    if (res.ok) {
+      const { segment } = await res.json();
+      setSegments(prev => [segment, ...prev]);
+      setSegmentName("");
+      setShowSegmentSave(false);
+    }
+  };
+
+  // セグメント読み込み
+  const handleLoadSegment = (seg: typeof segments[0]) => {
+    setIncludeConditions(seg.includeConditions || []);
+    setExcludeConditions(seg.excludeConditions || []);
+    setShowSegmentMenu(false);
+    setPreview(null);
+  };
+
+  // セグメント削除
+  const handleDeleteSegment = async (id: string) => {
+    await fetch(`/api/admin/line/segments?id=${id}`, { method: "DELETE", credentials: "include" });
+    setSegments(prev => prev.filter(s => s.id !== id));
+  };
 
   // 詳細条件モーダル
   const [showConditionModal, setShowConditionModal] = useState<"include" | "exclude" | null>(null);
@@ -310,12 +349,90 @@ export default function BroadcastSendPage() {
 
         {/* 配信先設定 */}
         <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-          <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-4">
-            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            配信先設定
-          </label>
+          <div className="flex items-center justify-between mb-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              配信先設定
+            </label>
+            <div className="flex items-center gap-2">
+              {/* セグメント読み込み */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSegmentMenu(!showSegmentMenu)}
+                  className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  セグメント
+                  {segments.length > 0 && <span className="ml-0.5 text-[10px] bg-indigo-200 text-indigo-700 rounded-full px-1.5">{segments.length}</span>}
+                </button>
+                {showSegmentMenu && (
+                  <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowSegmentMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 w-72 bg-white rounded-xl border border-gray-200 shadow-xl z-50">
+                    <div className="p-3 border-b border-gray-100">
+                      <p className="text-xs font-bold text-gray-600 mb-2">保存済みセグメント</p>
+                      {segments.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">セグメントがありません</p>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {segments.map(seg => (
+                            <div key={seg.id} className="flex items-center gap-2 group">
+                              <button
+                                onClick={() => handleLoadSegment(seg)}
+                                className="flex-1 text-left px-3 py-2 text-xs rounded-lg hover:bg-indigo-50 transition-colors"
+                              >
+                                <span className="font-medium text-gray-800">{seg.name}</span>
+                                <span className="text-gray-400 ml-2">
+                                  {(seg.includeConditions?.length || 0) + (seg.excludeConditions?.length || 0)}条件
+                                </span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSegment(seg.id)}
+                                className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs font-bold text-gray-600 mb-2">現在の条件を保存</p>
+                      {(includeConditions.length === 0 && excludeConditions.length === 0) ? (
+                        <p className="text-xs text-gray-400">条件を設定してから保存してください</p>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={segmentName}
+                            onChange={e => setSegmentName(e.target.value)}
+                            placeholder="セグメント名"
+                            className="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            onKeyDown={e => e.key === "Enter" && handleSaveSegment()}
+                          />
+                          <button
+                            onClick={handleSaveSegment}
+                            disabled={!segmentName.trim()}
+                            className="px-3 py-1.5 text-xs font-medium text-white bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-300 rounded-lg transition-colors"
+                          >
+                            保存
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* 絞り込み条件 */}
           <div className="mb-4">

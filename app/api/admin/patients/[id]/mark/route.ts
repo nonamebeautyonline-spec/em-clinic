@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 // 対応マーク取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -47,5 +48,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }, { onConflict: "patient_id" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // メニュー自動切替ルール評価（非同期・失敗無視）
+  evaluateMenuRules(id).catch(() => {});
   return NextResponse.json({ ok: true });
 }

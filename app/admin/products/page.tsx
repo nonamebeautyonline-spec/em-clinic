@@ -14,6 +14,12 @@ type Product = {
   is_active: boolean;
   sort_order: number;
   category: string;
+  image_url: string | null;
+  stock_quantity: number | null;
+  discount_price: number | null;
+  discount_until: string | null;
+  description: string | null;
+  parent_id: string | null;
 };
 
 type FormData = {
@@ -26,6 +32,12 @@ type FormData = {
   price: string;
   category: string;
   sort_order: string;
+  image_url: string;
+  stock_quantity: string;
+  discount_price: string;
+  discount_until: string;
+  description: string;
+  parent_id: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -38,6 +50,12 @@ const EMPTY_FORM: FormData = {
   price: "",
   category: "injection",
   sort_order: "0",
+  image_url: "",
+  stock_quantity: "",
+  discount_price: "",
+  discount_until: "",
+  description: "",
+  parent_id: "",
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -102,6 +120,12 @@ export default function ProductsPage() {
       price: product.price.toString(),
       category: product.category,
       sort_order: product.sort_order.toString(),
+      image_url: product.image_url || "",
+      stock_quantity: product.stock_quantity?.toString() || "",
+      discount_price: product.discount_price?.toString() || "",
+      discount_until: product.discount_until ? product.discount_until.slice(0, 10) : "",
+      description: product.description || "",
+      parent_id: product.parent_id || "",
     });
     setSaveError("");
     setShowModal(true);
@@ -137,6 +161,12 @@ export default function ProductsPage() {
       price: Number(form.price),
       category: form.category,
       sort_order: Number(form.sort_order) || 0,
+      image_url: form.image_url.trim() || null,
+      stock_quantity: form.stock_quantity ? Number(form.stock_quantity) : null,
+      discount_price: form.discount_price ? Number(form.discount_price) : null,
+      discount_until: form.discount_until || null,
+      description: form.description.trim() || null,
+      parent_id: form.parent_id || null,
     };
 
     try {
@@ -328,6 +358,9 @@ export default function ProductsPage() {
                   価格
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  在庫
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
                   カテゴリ
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -345,7 +378,7 @@ export default function ProductsPage() {
               {products.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={12}
                     className="px-4 py-8 text-center text-slate-500"
                   >
                     商品データがありません
@@ -378,7 +411,32 @@ export default function ProductsPage() {
                       {product.quantity ?? "-"}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-slate-900">
-                      ¥{product.price.toLocaleString()}
+                      <div>¥{product.price.toLocaleString()}</div>
+                      {product.discount_price != null && (
+                        <div className="text-xs text-red-600">
+                          割引: ¥{product.discount_price.toLocaleString()}
+                          {product.discount_until && (
+                            <span className="text-slate-400 ml-1">
+                              (~{new Date(product.discount_until).toLocaleDateString("ja-JP")})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      {product.stock_quantity != null ? (
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                          product.stock_quantity === 0
+                            ? "bg-red-100 text-red-700"
+                            : product.stock_quantity <= 5
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                        }`}>
+                          {product.stock_quantity}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">無制限</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
                       <span
@@ -636,6 +694,114 @@ export default function ProductsPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                   />
                 </div>
+              </div>
+
+              {/* 区切り線 */}
+              <div className="border-t border-slate-200 pt-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">拡張設定</h3>
+              </div>
+
+              {/* 商品画像URL */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  画像URL
+                </label>
+                <input
+                  type="url"
+                  value={form.image_url}
+                  onChange={(e) => handleFormChange("image_url", e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                />
+                {form.image_url && (
+                  <div className="mt-2">
+                    <img
+                      src={form.image_url}
+                      alt="プレビュー"
+                      className="w-20 h-20 object-cover rounded-lg border border-slate-200"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 在庫数 & 親商品 - 横並び */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    在庫数
+                  </label>
+                  <input
+                    type="number"
+                    value={form.stock_quantity}
+                    onChange={(e) => handleFormChange("stock_quantity", e.target.value)}
+                    placeholder="空欄=無制限"
+                    min="0"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">空欄の場合は在庫無制限</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    親商品
+                  </label>
+                  <select
+                    value={form.parent_id}
+                    onChange={(e) => handleFormChange("parent_id", e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 bg-white"
+                  >
+                    <option value="">なし（単体商品）</option>
+                    {products
+                      .filter(p => !p.parent_id && p.id !== editingProduct?.id)
+                      .map(p => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+              </div>
+
+              {/* 割引価格 & 割引期限 - 横並び */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    割引価格 (JPY)
+                  </label>
+                  <input
+                    type="number"
+                    value={form.discount_price}
+                    onChange={(e) => handleFormChange("discount_price", e.target.value)}
+                    placeholder="空欄=割引なし"
+                    min="0"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    割引期限
+                  </label>
+                  <input
+                    type="date"
+                    value={form.discount_until}
+                    onChange={(e) => handleFormChange("discount_until", e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">空欄の場合は無期限</p>
+                </div>
+              </div>
+
+              {/* 商品説明 */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  商品説明
+                </label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => handleFormChange("description", e.target.value)}
+                  placeholder="商品の詳細説明（任意）"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-none"
+                />
               </div>
             </div>
 

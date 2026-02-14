@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 /* ---------- types ---------- */
-type CategoryKey = "square" | "line" | "gas" | "general" | "payment";
+type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment";
 
 interface SettingItem {
   key: string;
@@ -15,11 +15,9 @@ interface SettingItem {
 type SettingsMap = Record<CategoryKey, SettingItem[]>;
 
 const CATEGORIES: { key: CategoryKey; label: string }[] = [
-  { key: "square", label: "Square" },
+  { key: "payment", label: "決済" },
   { key: "line", label: "LINE" },
-  { key: "gas", label: "GAS連携" },
   { key: "general", label: "一般" },
-  { key: "payment", label: "決済プロバイダー" },
 ];
 
 const SECRET_KEYWORDS = [
@@ -210,11 +208,18 @@ function SettingRow({
 
 /* ---------- payment provider panel ---------- */
 
+const PROVIDER_OPTIONS: { value: string; label: string; description: string; category: CategoryKey }[] = [
+  { value: "square", label: "Square", description: "クレジットカード決済（Payment Links API）", category: "square" },
+  { value: "gmo", label: "GMO ペイメントゲートウェイ", description: "クレジットカード決済（PG マルチペイメント）", category: "gmo" },
+];
+
 function PaymentProviderPanel({
   settings,
+  allSettings,
   onSaved,
 }: {
   settings: SettingItem[];
+  allSettings: SettingsMap | null;
   onSaved: (msg: string, type: "success" | "error") => void;
 }) {
   const providerSetting = settings.find((s) => s.key === "provider");
@@ -256,23 +261,26 @@ function PaymentProviderPanel({
     }
   };
 
-  const otherSettings = settings.filter((s) => s.key !== "provider");
+  // 選択中プロバイダーのAPI Key設定を取得
+  const selectedOption = PROVIDER_OPTIONS.find((o) => o.value === selected);
+  const providerSettings = selectedOption ? (allSettings?.[selectedOption.category] ?? []) : [];
 
   return (
     <div>
-      {/* provider radio selection */}
+      {/* プロバイダー選択 */}
       <div className="px-5 py-4 border-b border-slate-100">
         <p className="text-sm font-medium text-slate-900 mb-3">
           決済プロバイダー選択
         </p>
-        <div className="flex items-center gap-6">
-          {[
-            { value: "square", label: "Square" },
-            { value: "gmo", label: "GMO" },
-          ].map((opt) => (
+        <div className="space-y-3">
+          {PROVIDER_OPTIONS.map((opt) => (
             <label
               key={opt.value}
-              className="flex items-center gap-2 cursor-pointer"
+              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                selected === opt.value
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
             >
               <input
                 type="radio"
@@ -280,33 +288,53 @@ function PaymentProviderPanel({
                 value={opt.value}
                 checked={selected === opt.value}
                 onChange={(e) => setSelected(e.target.value)}
-                className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500"
+                className="w-4 h-4 mt-0.5 text-blue-600 border-slate-300 focus:ring-blue-500"
               />
-              <span className="text-sm text-slate-700">{opt.label}</span>
+              <div>
+                <span className="text-sm font-medium text-slate-900">{opt.label}</span>
+                <p className="text-xs text-slate-500 mt-0.5">{opt.description}</p>
+              </div>
             </label>
           ))}
         </div>
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-4 flex items-center gap-3">
           <SourceBadge source={providerSetting?.source ?? "未設定"} />
           <button
             onClick={handleSave}
             disabled={saving || !selected}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? "保存中..." : "プロバイダーを保存"}
           </button>
         </div>
       </div>
 
-      {/* other payment-related settings */}
-      {otherSettings.map((item) => (
-        <SettingRow
-          key={item.key}
-          item={item}
-          category="payment"
-          onSaved={onSaved}
-        />
-      ))}
+      {/* 選択中プロバイダーのAPI Key設定 */}
+      {selected && providerSettings.length > 0 && (
+        <div className="border-t border-slate-200">
+          <div className="px-5 py-3 bg-slate-50">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+              {selectedOption?.label} API設定
+            </p>
+          </div>
+          {providerSettings.map((item) => (
+            <SettingRow
+              key={item.key}
+              item={item}
+              category={selectedOption!.category}
+              onSaved={onSaved}
+            />
+          ))}
+        </div>
+      )}
+
+      {selected && providerSettings.length === 0 && (
+        <div className="px-5 py-6 text-center text-slate-400 text-sm border-t border-slate-200">
+          {selectedOption?.label} のAPI設定キーはまだ登録されていません。
+          <br />
+          上の保存ボタンを押してからページを再読み込みしてください。
+        </div>
+      )}
     </div>
   );
 }
@@ -317,7 +345,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsMap | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<CategoryKey>("square");
+  const [activeTab, setActiveTab] = useState<CategoryKey>("payment");
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -424,6 +452,7 @@ export default function SettingsPage() {
           {activeTab === "payment" ? (
             <PaymentProviderPanel
               settings={currentSettings}
+              allSettings={settings}
               onSaved={handleSaved}
             />
           ) : (

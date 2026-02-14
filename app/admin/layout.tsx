@@ -279,6 +279,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin"}
           />
           <MenuItem
+            href="/admin/analytics"
+            icon="📈"
+            label="売上分析"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/analytics"}
+          />
+          <MenuItem
             href="/admin/accounting"
             icon="💹"
             label="売上管理"
@@ -390,6 +397,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="追跡番号付与"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/tracking"}
+          />
+          <MenuItem
+            href="/admin/shipping/settings"
+            icon="⚙️"
+            label="配送設定"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/shipping/settings"}
           />
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />

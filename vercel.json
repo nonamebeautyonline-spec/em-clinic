@@ -11,11 +11,18 @@
     },
     "app/api/cron/send-scheduled/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/process-steps/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/send-scheduled",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-steps",
       "schedule": "*/5 * * * *"
     }
   ]

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
+import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -355,6 +356,15 @@ async function handleFollow(lineUid: string) {
   if (patient?.patient_id) {
     await autoAssignStatusByPatient(patient.patient_id, lineUid);
   }
+
+  // ステップ配信: follow トリガーのシナリオにエンロール
+  if (patient?.patient_id) {
+    try {
+      await checkFollowTriggerScenarios(patient.patient_id, lineUid);
+    } catch (e) {
+      console.error("[webhook] step enrollment follow error:", e);
+    }
+  }
 }
 
 // =================================================================
@@ -374,6 +384,15 @@ async function handleUnfollow(lineUid: string) {
     content: "ブロック（友だち解除）",
     status: "received",
   });
+
+  // ステップ配信: ブロック時に全アクティブシナリオを離脱
+  if (patient?.patient_id) {
+    try {
+      await exitAllStepEnrollments(patient.patient_id, "blocked");
+    } catch (e) {
+      console.error("[webhook] step exit on unfollow error:", e);
+    }
+  }
 }
 
 // =================================================================
@@ -566,6 +585,141 @@ async function handleMessage(lineUid: string, message: any) {
     content,
     status: "received",
   });
+
+  // キーワード自動応答チェック（テキストメッセージのみ）
+  if (message.type === "text" && message.text) {
+    try {
+      await checkAndReplyKeyword(lineUid, patient, message.text);
+    } catch (e) {
+      console.error("[webhook] keyword auto-reply error:", e);
+    }
+
+    // ステップ配信: keyword トリガーのシナリオにエンロール
+    if (patient?.patient_id) {
+      try {
+        await checkKeywordTriggerScenarios(message.text, patient.patient_id, lineUid);
+      } catch (e) {
+        console.error("[webhook] step enrollment keyword error:", e);
+      }
+    }
+  }
+}
+
+// =================================================================
+// キーワード自動応答
+// =================================================================
+async function checkAndReplyKeyword(
+  lineUid: string,
+  patient: { patient_id: string; patient_name: string } | null,
+  text: string
+) {
+  // 有効なルールを優先順位順に取得
+  const { data: rules } = await supabaseAdmin
+    .from("keyword_auto_replies")
+    .select("*")
+    .eq("is_enabled", true)
+    .order("priority", { ascending: false })
+    .order("id", { ascending: true });
+
+  if (!rules || rules.length === 0) return;
+
+  for (const rule of rules) {
+    let matched = false;
+    switch (rule.match_type) {
+      case "exact":
+        matched = text.trim() === rule.keyword;
+        break;
+      case "partial":
+        matched = text.includes(rule.keyword);
+        break;
+      case "regex":
+        try { matched = new RegExp(rule.keyword).test(text); } catch { matched = false; }
+        break;
+    }
+    if (!matched) continue;
+
+    // 条件ルールがある場合はチェック（簡易: タグ条件のみ対応）
+    if (rule.condition_rules && Array.isArray(rule.condition_rules) && rule.condition_rules.length > 0 && patient?.patient_id) {
+      const conditionMet = await evaluateConditionRules(patient.patient_id, rule.condition_rules);
+      if (!conditionMet) continue;
+    }
+
+    // マッチ → 応答送信
+    console.log(`[webhook] keyword auto-reply matched: rule=${rule.name}, keyword=${rule.keyword}`);
+
+    if (rule.reply_type === "text" && rule.reply_text) {
+      // 変数置換
+      let replyText = rule.reply_text;
+      replyText = replyText.replace(/\{name\}/g, patient?.patient_name || "");
+      replyText = replyText.replace(/\{patient_id\}/g, patient?.patient_id || "");
+      replyText = replyText.replace(/\{send_date\}/g, new Date().toLocaleDateString("ja-JP"));
+
+      await pushMessage(lineUid, [{ type: "text", text: replyText }]);
+
+      // 送信ログ
+      await logEvent({
+        patient_id: patient?.patient_id,
+        line_uid: lineUid,
+        direction: "outgoing",
+        event_type: "auto_reply",
+        message_type: "individual",
+        content: replyText,
+        status: "sent",
+      });
+    } else if (rule.reply_type === "template" && rule.reply_template_id) {
+      // テンプレートからメッセージ取得して送信
+      const { data: tpl } = await supabaseAdmin
+        .from("message_templates")
+        .select("content, message_type")
+        .eq("id", rule.reply_template_id)
+        .maybeSingle();
+
+      if (tpl?.content) {
+        let tplContent = tpl.content;
+        tplContent = tplContent.replace(/\{name\}/g, patient?.patient_name || "");
+        tplContent = tplContent.replace(/\{patient_id\}/g, patient?.patient_id || "");
+
+        await pushMessage(lineUid, [{ type: "text", text: tplContent }]);
+
+        await logEvent({
+          patient_id: patient?.patient_id,
+          line_uid: lineUid,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "individual",
+          content: tplContent,
+          status: "sent",
+        });
+      }
+    }
+
+    // 最初にマッチしたルールのみ実行（複数マッチは行わない）
+    return;
+  }
+}
+
+// 条件ルール評価（タグベース）
+async function evaluateConditionRules(patientId: string, rules: any[]): Promise<boolean> {
+  try {
+    // 患者のタグIDを取得
+    const { data: patientTags } = await supabaseAdmin
+      .from("patient_tags")
+      .select("tag_id")
+      .eq("patient_id", patientId);
+
+    const tagIds = new Set((patientTags || []).map((t: any) => t.tag_id));
+
+    for (const rule of rules) {
+      if (rule.type === "tag") {
+        const hasTag = tagIds.has(rule.tag_id);
+        if (rule.operator === "has" && !hasTag) return false;
+        if (rule.operator === "not_has" && hasTag) return false;
+      }
+    }
+    return true;
+  } catch {
+    return true; // 条件評価エラー時はマッチ扱い
+  }
 }
 
 // =================================================================

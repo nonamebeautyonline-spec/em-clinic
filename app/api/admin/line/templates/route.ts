@@ -21,14 +21,24 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, content, message_type, category } = await req.json();
-  if (!name?.trim() || !content?.trim()) {
-    return NextResponse.json({ error: "名前と内容は必須です" }, { status: 400 });
+  const { name, content, message_type, category, flex_content } = await req.json();
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
+  }
+  // flex テンプレートはcontent不要、それ以外はcontent必須
+  if (message_type !== "flex" && !content?.trim()) {
+    return NextResponse.json({ error: "内容は必須です" }, { status: 400 });
   }
 
   const { data, error } = await supabaseAdmin
     .from("message_templates")
-    .insert({ name: name.trim(), content: content.trim(), message_type: message_type || "text", category })
+    .insert({
+      name: name.trim(),
+      content: content?.trim() || "",
+      message_type: message_type || "text",
+      category,
+      flex_content: flex_content || null,
+    })
     .select()
     .single();
 

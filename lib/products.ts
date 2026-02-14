@@ -13,10 +13,16 @@ export type Product = {
   is_active: boolean;
   sort_order: number;
   category: string;
+  image_url: string | null;
+  stock_quantity: number | null;
+  discount_price: number | null;
+  discount_until: string | null;
+  description: string | null;
+  parent_id: string | null;
 };
 
 // ハードコードフォールバック（DB接続失敗時用）
-const FALLBACK_PRODUCTS: Omit<Product, "id">[] = [
+const FALLBACK_PRODUCTS: Omit<Product, "id" | "image_url" | "stock_quantity" | "discount_price" | "discount_until" | "description" | "parent_id">[] = [
   { code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 1, quantity: 4, price: 13000, is_active: true, sort_order: 1, category: "injection" },
   { code: "MJL_2.5mg_2m", title: "マンジャロ 2.5mg 2ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 2, quantity: 8, price: 25500, is_active: true, sort_order: 2, category: "injection" },
   { code: "MJL_2.5mg_3m", title: "マンジャロ 2.5mg 3ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 3, quantity: 12, price: 35000, is_active: true, sort_order: 3, category: "injection" },
@@ -49,12 +55,12 @@ export async function getProducts(tenantId?: string): Promise<Product[]> {
     const { data, error } = await query;
     if (error || !data || data.length === 0) {
       console.warn("[products] DB fetch failed or empty, using fallback:", error?.message);
-      return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}` }));
+      return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null }));
     }
     return data;
   } catch (e) {
     console.warn("[products] Exception, using fallback:", e);
-    return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}` }));
+    return FALLBACK_PRODUCTS.map((p, i) => ({ ...p, id: `fallback-${i}`, image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null }));
   }
 }
 
@@ -103,12 +109,12 @@ export async function getProductByCode(code: string, tenantId?: string): Promise
     if (error || !data) {
       // フォールバック
       const fb = FALLBACK_PRODUCTS.find((p) => p.code === code);
-      return fb ? { ...fb, id: "fallback" } : null;
+      return fb ? { ...fb, id: "fallback", image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null } : null;
     }
     return data;
   } catch (e) {
     const fb = FALLBACK_PRODUCTS.find((p) => p.code === code);
-    return fb ? { ...fb, id: "fallback" } : null;
+    return fb ? { ...fb, id: "fallback", image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null } : null;
   }
 }
 
