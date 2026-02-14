@@ -60,6 +60,7 @@ export default function CreateShippingListPage() {
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
   const [isMerged, setIsMerged] = useState(false); // 統合済みフラグ
   const [error, setError] = useState("");
+  const [mergeableGroups, setMergeableGroups] = useState<{ patient_id: string; patient_name: string; count: number }[]>([]);
   const [exporting, setExporting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [showSortModal, setShowSortModal] = useState(false);
@@ -83,6 +84,7 @@ export default function CreateShippingListPage() {
 
       const data = await res.json();
       const orders = data.orders || [];
+      setMergeableGroups(data.mergeableGroups || []);
 
       // ★ URLクエリパラメータから選択されたIDを取得（クライアントサイドのみ）
       const urlParams = new URLSearchParams(window.location.search);
@@ -542,6 +544,21 @@ export default function CreateShippingListPage() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
+        </div>
+      )}
+
+      {mergeableGroups.length > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-semibold text-yellow-900 mb-2">
+            ⚠️ まとめ配送候補（同一患者の複数注文）
+          </h3>
+          <ul className="space-y-1 text-sm text-yellow-800">
+            {mergeableGroups.map((group) => (
+              <li key={group.patient_id}>
+                {group.patient_name} ({group.patient_id}) - {group.count}件の注文
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
