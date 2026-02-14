@@ -792,7 +792,14 @@ export default function CreateShippingListPage() {
                     <td className="px-2 py-2 text-xs text-right font-semibold">
                       {item.dosage_10mg || 0}
                     </td>
-                    <td className="px-2 py-2 text-xs font-mono">{item.patient_id}</td>
+                    <td className="px-2 py-2 text-xs font-mono">
+                      <button
+                        onClick={() => window.open(`/admin/line/talk?patient_id=${item.patient_id}`, '_blank')}
+                        className="text-blue-600 hover:text-blue-900 hover:underline"
+                      >
+                        {item.patient_id}
+                      </button>
+                    </td>
                     <td className="px-2 py-2 text-xs font-mono">{item.payment_id}</td>
                   </tr>
                 ))
