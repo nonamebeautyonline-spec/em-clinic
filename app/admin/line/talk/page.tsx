@@ -169,7 +169,7 @@ const RIGHT_COLUMN_SECTIONS = [
 
 export default function TalkPage() {
   const searchParams = useSearchParams();
-  const initialPid = searchParams.get("pid");
+  const initialPid = searchParams.get("pid") || searchParams.get("patient_id");
 
   // 左カラム
   const [friends, setFriends] = useState<Friend[]>([]);

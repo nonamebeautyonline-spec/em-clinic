@@ -187,7 +187,7 @@ export default function RefundsPage() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
-                          onClick={() => router.push(`/admin/patients/${refund.patient_id}`)}
+                          onClick={() => window.open(`/admin/line/talk?patient_id=${refund.patient_id}`, '_blank')}
                           className="text-sm text-blue-600 hover:underline"
                         >
                           詳細
