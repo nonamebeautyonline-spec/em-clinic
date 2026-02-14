@@ -12,7 +12,7 @@ const WHITE = "#ffffff";      // ヘッダーテキスト
 const GRAY = "#666666";       // 補足テキスト
 
 // 画像URL（public/images/）
-const TRUCK_IMAGE_URL = "https://app.noname-beauty.jp/images/truck-pink.png";
+const TRUCK_IMAGE_URL = "https://app.noname-beauty.jp/images/%E3%81%AE.png";
 const PROGRESS_BAR_URL = "https://app.noname-beauty.jp/images/progress-bar.png";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
@@ -78,28 +78,28 @@ export function buildShippingFlex(
         type: "box",
         layout: "horizontal",
         contents: [
-          { type: "text", text: "発送", size: "xs", color: GRAY, flex: 0, gravity: "bottom" },
-          { type: "filler" },
+          { type: "text", text: "発送", size: "xs", color: GRAY, flex: 2, align: "start", gravity: "bottom" },
           {
             type: "image",
             url: TRUCK_IMAGE_URL,
-            size: "xxs",
+            size: "full",
             aspectRatio: "4:3",
             aspectMode: "fit",
-            flex: 0,
+            flex: 3,
           },
-          { type: "filler" },
-          { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 0, gravity: "bottom" },
+          { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 2, align: "end", gravity: "bottom", wrap: true },
         ],
         alignItems: "flex-end",
+        paddingStart: "12px",
+        paddingEnd: "12px",
       },
-      // プログレスバー画像（✅+ゲージ一体型）
+      // プログレスバー画像（横幅いっぱい）
       {
         type: "image",
         url: PROGRESS_BAR_URL,
         size: "full",
-        aspectRatio: "20:3",
-        aspectMode: "fit",
+        aspectRatio: "20:2",
+        aspectMode: "cover",
         margin: "xs",
       },
       // キャリア名（中央配置・括弧付き）
@@ -107,7 +107,10 @@ export function buildShippingFlex(
     ],
     backgroundColor: "#fdf2f8",
     cornerRadius: "8px",
-    paddingAll: "12px",
+    paddingTop: "12px",
+    paddingBottom: "12px",
+    paddingStart: "0px",
+    paddingEnd: "0px",
   };
 
   const bodyContents: any[] = [
