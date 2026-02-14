@@ -617,22 +617,20 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信（非同期・レスポンスをブロックしない）
+      // LINE Flex メッセージ送信
       const lineId = intakeData?.line_id;
       if (lineId && date && time) {
-        (async () => {
-          try {
-            const flex = buildReservationCreatedFlex(date, time);
-            await sendReservationNotification({
-              patientId: pid,
-              lineUid: lineId,
-              flex,
-              messageType: "reservation_created",
-            });
-          } catch (err) {
-            console.error("[reservations] LINE notification error:", err);
-          }
-        })();
+        try {
+          const flex = buildReservationCreatedFlex(date, time);
+          await sendReservationNotification({
+            patientId: pid,
+            lineUid: lineId,
+            flex,
+            messageType: "reservation_created",
+          });
+        } catch (err) {
+          console.error("[reservations] LINE notification error:", err);
+        }
       }
 
       return NextResponse.json({
@@ -727,24 +725,22 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信（非同期）
+      // LINE Flex メッセージ送信
       const cancelLineId = cancelIntakeInfo?.data?.line_id;
       const cancelDate = cancelResvInfo?.data?.reserved_date;
       const cancelTime = cancelResvInfo?.data?.reserved_time;
       if (cancelLineId && cancelDate && cancelTime) {
-        (async () => {
-          try {
-            const flex = buildReservationCanceledFlex(cancelDate, cancelTime);
-            await sendReservationNotification({
-              patientId: pid,
-              lineUid: cancelLineId,
-              flex,
-              messageType: "reservation_canceled",
-            });
-          } catch (err) {
-            console.error("[reservations] LINE cancel notification error:", err);
-          }
-        })();
+        try {
+          const flex = buildReservationCanceledFlex(cancelDate, cancelTime);
+          await sendReservationNotification({
+            patientId: pid,
+            lineUid: cancelLineId,
+            flex,
+            messageType: "reservation_canceled",
+          });
+        } catch (err) {
+          console.error("[reservations] LINE cancel notification error:", err);
+        }
       }
 
       return NextResponse.json({
@@ -858,27 +854,25 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信（非同期）
+      // LINE Flex メッセージ送信
       const changeLineId = changeIntakeInfo?.line_id;
       if (changeLineId && newDate && newTime) {
-        (async () => {
-          try {
-            const flex = buildReservationChangedFlex(
-              prevResvInfo?.reserved_date || newDate,
-              prevResvInfo?.reserved_time || newTime,
-              newDate,
-              newTime,
-            );
-            await sendReservationNotification({
-              patientId: pid,
-              lineUid: changeLineId,
-              flex,
-              messageType: "reservation_changed",
-            });
-          } catch (err) {
-            console.error("[reservations] LINE change notification error:", err);
-          }
-        })();
+        try {
+          const flex = buildReservationChangedFlex(
+            prevResvInfo?.reserved_date || newDate,
+            prevResvInfo?.reserved_time || newTime,
+            newDate,
+            newTime,
+          );
+          await sendReservationNotification({
+            patientId: pid,
+            lineUid: changeLineId,
+            flex,
+            messageType: "reservation_changed",
+          });
+        } catch (err) {
+          console.error("[reservations] LINE change notification error:", err);
+        }
       }
 
       return NextResponse.json({
