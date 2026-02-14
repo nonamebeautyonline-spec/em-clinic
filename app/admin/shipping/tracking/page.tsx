@@ -60,11 +60,53 @@ export default function TrackingNumberPage() {
   const [notifySending, setNotifySending] = useState(false);
   const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number; mark_updated?: number; menu_switched?: number } | null>(null);
 
-  // ページ読み込み時にラベル作成済みの発送分を自動ロード
+  // 過去発送履歴
+  type HistoryRange = "week" | "month" | "custom";
+  const [historyRange, setHistoryRange] = useState<HistoryRange>("week");
+  const [historyCustomFrom, setHistoryCustomFrom] = useState("");
+  const [historyCustomTo, setHistoryCustomTo] = useState("");
+  const [historyDays, setHistoryDays] = useState<{ date: string; count: number; items: { patient_id: string; patient_name: string; tracking_number: string }[] }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyExpandedDate, setHistoryExpandedDate] = useState<string | null>(null);
+
+  // ページ読み込み時にラベル作成済みの発送分を自動ロード + 過去1週間
   useEffect(() => {
     handleLoadTodayShipped();
+    loadHistory("week");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadHistory = async (range: HistoryRange, customFrom?: string, customTo?: string) => {
+    setHistoryLoading(true);
+    const today = new Date();
+    let from: string;
+    let to: string;
+    if (range === "custom" && customFrom && customTo) {
+      from = customFrom;
+      to = customTo;
+    } else if (range === "month") {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 30);
+      from = d.toISOString().slice(0, 10);
+      to = today.toISOString().slice(0, 10);
+    } else {
+      const d = new Date(today);
+      d.setDate(d.getDate() - 7);
+      from = d.toISOString().slice(0, 10);
+      to = today.toISOString().slice(0, 10);
+    }
+    try {
+      const res = await fetch(`/api/admin/shipping/history?from=${from}&to=${to}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryDays(data.days || []);
+      }
+    } catch (e) {
+      console.error("History load error:", e);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const handleLoadTodayShipped = async () => {
     setLoading(true);
@@ -827,6 +869,111 @@ export default function TrackingNumberPage() {
           </div>
         </div>
       )}
+
+      {/* 過去発送履歴 */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">過去の発送履歴</h2>
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          {(["week", "month", "custom"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => {
+                setHistoryRange(r);
+                if (r !== "custom") {
+                  loadHistory(r);
+                  setHistoryExpandedDate(null);
+                }
+              }}
+              className={`px-3 py-1.5 text-sm rounded-lg ${historyRange === r ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+            >
+              {r === "week" ? "1週間" : r === "month" ? "1ヶ月" : "カスタム"}
+            </button>
+          ))}
+          {historyRange === "custom" && (
+            <>
+              <input
+                type="date"
+                value={historyCustomFrom}
+                onChange={(e) => setHistoryCustomFrom(e.target.value)}
+                className="px-2 py-1.5 text-sm border border-slate-300 rounded-lg"
+              />
+              <span className="text-slate-400">〜</span>
+              <input
+                type="date"
+                value={historyCustomTo}
+                onChange={(e) => setHistoryCustomTo(e.target.value)}
+                className="px-2 py-1.5 text-sm border border-slate-300 rounded-lg"
+              />
+              <button
+                onClick={() => {
+                  if (historyCustomFrom && historyCustomTo) {
+                    loadHistory("custom", historyCustomFrom, historyCustomTo);
+                    setHistoryExpandedDate(null);
+                  }
+                }}
+                disabled={!historyCustomFrom || !historyCustomTo}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                検索
+              </button>
+            </>
+          )}
+        </div>
+
+        {historyLoading ? (
+          <div className="text-center py-8 text-slate-400">読み込み中...</div>
+        ) : historyDays.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">発送データがありません</div>
+        ) : (
+          <div className="space-y-1">
+            {historyDays.map((day) => (
+              <div key={day.date}>
+                <button
+                  onClick={() => setHistoryExpandedDate(historyExpandedDate === day.date ? null : day.date)}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-slate-800">{day.date}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-blue-600">{day.count}人</span>
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform ${historyExpandedDate === day.date ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+                {historyExpandedDate === day.date && (
+                  <div className="mx-4 mb-3 border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">PID</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">氏名</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">追跡番号</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {day.items.map((item, i) => (
+                          <tr key={`${item.patient_id}-${i}`} className="hover:bg-slate-50">
+                            <td className="px-4 py-2">
+                              <button
+                                onClick={() => window.open(`/admin/line/talk?pid=${item.patient_id}`, '_blank')}
+                                className="text-blue-600 hover:underline font-mono text-xs"
+                              >
+                                {item.patient_id}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-slate-800">{item.patient_name || "-"}</td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-600">{item.tracking_number || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
