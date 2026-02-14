@@ -1365,13 +1365,20 @@ export default function TalkPage() {
                             <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
                           </div>
                           <div className="max-w-[65%]">
-                            {m.message_type?.startsWith("reservation_") ? (
-                              /* 予約通知Flexカード */
-                              (() => {
-                                const isCanceled = m.message_type === "reservation_canceled";
-                                const isChanged = m.message_type === "reservation_changed";
-                                const label = isCanceled ? "予約キャンセル" : isChanged ? "予約変更" : "予約確定";
-                                const headerBg = isCanceled ? "#888" : "#E91E8C";
+                            {(() => {
+                              /* Flex系メッセージのカード表示 */
+                              const mt = m.message_type || "";
+                              const isReservation = mt.startsWith("reservation_");
+                              const isShipping = mt === "shipping_notify";
+                              const isFlexType = mt === "flex";
+                              const isLegacyFlex = mt === "individual" && /^\[.+\]$/.test((m.content || "").trim());
+                              if (isReservation || isShipping || isFlexType || isLegacyFlex) {
+                                const isCanceled = mt === "reservation_canceled";
+                                const isChanged = mt === "reservation_changed";
+                                const label = isReservation
+                                  ? (isCanceled ? "予約キャンセル" : isChanged ? "予約変更" : "予約確定")
+                                  : isShipping ? "発送通知" : "Flex";
+                                const headerBg = isCanceled ? "#888" : isShipping ? "#4CAF50" : "#E91E8C";
                                 const bodyText = (m.content || "").replace(/^\[/, "").replace(/\]$/, "").replace(/^【[^】]+】\s*/, "");
                                 return (
                                   <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 min-w-[200px]">
@@ -1381,8 +1388,9 @@ export default function TalkPage() {
                                     </div>
                                   </div>
                                 );
-                              })()
-                            ) : isStickerContent(m.content) ? (
+                              }
+                              return null;
+                            })() || (isStickerContent(m.content) ? (
                               <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
                             ) : isImageUrl(m.content) ? (
                               <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
@@ -1390,7 +1398,7 @@ export default function TalkPage() {
                               </div>
                             ) : (
                               <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{linkifyContent(m.content)}</div>
-                            )}
+                            ))}
                           </div>
                         </div>
                       )}

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from("message_log").insert({
       patient_id,
       line_uid: intake.line_id,
-      message_type: "individual",
+      message_type: "flex",
       content: `[${flex.altText || "Flex Message"}]`,
       status,
       direction: "outgoing",
