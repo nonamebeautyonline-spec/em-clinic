@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -1085,6 +1085,44 @@ export default function TalkPage() {
     return tb - ta;
   };
   const unreadCount = filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length;
+  // 孤立ピン自動マイグレーション（LINE_* → 正規patient_id）& クリーンアップ
+  const allPatientIds = useMemo(() => new Set(friends.map(f => f.patient_id)), [friends]);
+  useEffect(() => {
+    if (friends.length === 0 || pinnedIds.length === 0) return;
+    const orphanLineIds = pinnedIds.filter(id => id.startsWith("LINE_") && !allPatientIds.has(id));
+    const orphanOther = pinnedIds.filter(id => !id.startsWith("LINE_") && !allPatientIds.has(id));
+    if (orphanLineIds.length === 0 && orphanOther.length === 0) return;
+
+    // LINE_* IDの末尾8文字でline_idを逆引き → 正規patient_idに変換
+    const lineIdSuffixMap = new Map<string, string>(); // suffix → pinId
+    for (const pin of orphanLineIds) {
+      const suffix = pin.replace("LINE_", "");
+      lineIdSuffixMap.set(suffix, pin);
+    }
+    const migrated = new Map<string, string>(); // oldPin → newPatientId
+    for (const f of friends) {
+      if (!f.line_id) continue;
+      for (const [suffix, pin] of lineIdSuffixMap) {
+        if (f.line_id.endsWith(suffix)) {
+          migrated.set(pin, f.patient_id);
+          lineIdSuffixMap.delete(suffix);
+          break;
+        }
+      }
+    }
+
+    let newPins = pinnedIds.map(id => migrated.get(id) || id);
+    // 依然マッチしないIDを除去
+    newPins = newPins.filter(id => allPatientIds.has(id));
+    // 重複除去
+    newPins = [...new Set(newPins)];
+
+    if (JSON.stringify(newPins) !== JSON.stringify(pinnedIds)) {
+      console.log(`[pins] マイグレーション: ${migrated.size}件変換, ${pinnedIds.length - newPins.length}件除去`);
+      savePins(newPins);
+    }
+  }, [friends.length, pinnedIds.length]);
+
   const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
   const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatest);
   const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
@@ -1202,10 +1240,10 @@ export default function TalkPage() {
           </div>
           <div className="flex items-center gap-3 text-[10px] text-gray-400 pt-0.5">
             <span>{filteredFriends.length}件</span>
-            {pinnedIds.length > 0 && (
+            {pinnedFriends.length > 0 && (
               <span className="flex items-center gap-0.5 text-amber-500">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-                {pinnedIds.length}
+                {pinnedFriends.length}
               </span>
             )}
             <label className="flex items-center gap-1 cursor-pointer select-none ml-auto">
