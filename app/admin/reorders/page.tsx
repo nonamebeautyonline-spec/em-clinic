@@ -21,6 +21,16 @@ interface Reorder {
   }>;
 }
 
+// 商品コード→商品名マッピング
+const PRODUCT_NAMES: Record<string, string> = {
+  MJL_2_5mg_1m: "マンジャロ 2.5mg 1ヶ月", "MJL_2.5mg_1m": "マンジャロ 2.5mg 1ヶ月",
+  MJL_2_5mg_2m: "マンジャロ 2.5mg 2ヶ月", "MJL_2.5mg_2m": "マンジャロ 2.5mg 2ヶ月",
+  MJL_2_5mg_3m: "マンジャロ 2.5mg 3ヶ月", "MJL_2.5mg_3m": "マンジャロ 2.5mg 3ヶ月",
+  MJL_5mg_1m: "マンジャロ 5mg 1ヶ月", MJL_5mg_2m: "マンジャロ 5mg 2ヶ月", MJL_5mg_3m: "マンジャロ 5mg 3ヶ月",
+  "MJL_7.5mg_1m": "マンジャロ 7.5mg 1ヶ月", "MJL_7.5mg_2m": "マンジャロ 7.5mg 2ヶ月", "MJL_7.5mg_3m": "マンジャロ 7.5mg 3ヶ月",
+  MJL_10mg_1m: "マンジャロ 10mg 1ヶ月", MJL_10mg_2m: "マンジャロ 10mg 2ヶ月", MJL_10mg_3m: "マンジャロ 10mg 3ヶ月",
+};
+
 export default function ReordersPage() {
   const router = useRouter();
   const [reorders, setReorders] = useState<Reorder[]>([]);
@@ -187,7 +197,7 @@ export default function ReordersPage() {
                   患者名
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  商品コード
+                  商品名
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   ステータス
@@ -230,7 +240,7 @@ export default function ReordersPage() {
                       {reorder.patient_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                      {reorder.product_code}
+                      {PRODUCT_NAMES[reorder.product_code] || reorder.product_code}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

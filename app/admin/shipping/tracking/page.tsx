@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface TrackingEntry {
   payment_id: string;
@@ -59,6 +59,12 @@ export default function TrackingNumberPage() {
   const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
   const [notifyResult, setNotifyResult] = useState<{ sent: number; failed: number; no_uid: number; mark_updated?: number; menu_switched?: number } | null>(null);
+
+  // ページ読み込み時にラベル作成済みの発送分を自動ロード
+  useEffect(() => {
+    handleLoadTodayShipped();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLoadTodayShipped = async () => {
     setLoading(true);
@@ -366,22 +372,22 @@ export default function TrackingNumberPage() {
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">
-          1. 本日発送分を読み込む
+          1. 本日発送分（ラベル作成済み）
         </h2>
         <p className="text-sm text-slate-600 mb-4">
-          本日Yamato B2 CSVを出力した全注文を読み込みます。まとめ配送で消えたpayment_idも含めて表示されます。
+          本日Yamato B2 CSVを出力した全注文を自動表示しています。まとめ配送で消えたpayment_idも含まれます。
         </p>
         <div className="flex items-center gap-4">
           <button
             onClick={handleLoadTodayShipped}
             disabled={loading}
-            className={`px-6 py-3 rounded-lg font-medium ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
               loading
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
-                : "bg-green-600 text-white hover:bg-green-700"
+                : "bg-slate-600 text-white hover:bg-slate-700"
             }`}
           >
-            {loading ? "読み込み中..." : "📋 本日発送分を読み込む"}
+            {loading ? "読み込み中..." : "🔄 再読み込み"}
           </button>
 
         </div>
