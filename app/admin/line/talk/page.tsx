@@ -1330,22 +1330,18 @@ export default function TalkPage() {
             <div className="text-center py-16 text-gray-300 text-xs">該当なし</div>
           ) : (
             <>
-              {pinnedFriends.length > 0 && (
-                <div className="sticky top-0 z-10 bg-white border-b border-amber-100/60 shadow-[0_2px_4px_rgba(0,0,0,0.04)]" style={{ maxHeight: "45%", overflowY: "auto" }}>
-                  {pinnedFriends.filter(f => {
-                    if (!showUnreadOnly) return true;
-                    return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
-                  }).map(f => (
-                    <FriendItem key={f.patient_id} f={f} isPinned={true}
-                      isSelected={selectedPatient?.patient_id === f.patient_id}
-                      onSelect={selectPatient} onTogglePin={togglePin}
-                      getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
-                      canPin={pinnedIds.length < MAX_PINS}
-                      readTimestamp={readTimestamps[f.patient_id]}
-                    />
-                  ))}
-                </div>
-              )}
+              {pinnedFriends.length > 0 && pinnedFriends.filter(f => {
+                if (!showUnreadOnly) return true;
+                return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
+              }).map(f => (
+                <FriendItem key={f.patient_id} f={f} isPinned={true}
+                  isSelected={selectedPatient?.patient_id === f.patient_id}
+                  onSelect={selectPatient} onTogglePin={togglePin}
+                  getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
+                  canPin={pinnedIds.length < MAX_PINS}
+                  readTimestamp={readTimestamps[f.patient_id]}
+                />
+              ))}
               {visibleUnpinned.filter(f => {
                 if (!showUnreadOnly) return true;
                 return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
