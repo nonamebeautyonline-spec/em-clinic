@@ -125,7 +125,7 @@ export function buildShippingFlex(
     { type: "separator", margin: "md" },
     {
       type: "text",
-      text: "発送が開始されると日時指定が可能となります。",
+      text: "ヤマト運輸からの発送が開始されると日時指定が可能となります。",
       size: "sm",
       color: GRAY,
       wrap: true,
