@@ -153,120 +153,91 @@ function linkifyContent(text: string): ReactNode {
 const FLEX_SIZE: Record<string, string> = { xxs: "10px", xs: "12px", sm: "13px", md: "14px", lg: "16px", xl: "18px", xxl: "22px", "3xl": "26px", "4xl": "32px", "5xl": "38px" };
 const FLEX_MARGIN: Record<string, string> = { none: "0", xs: "2px", sm: "4px", md: "8px", lg: "12px", xl: "16px", xxl: "20px" };
 
-function renderFlexNode(node: any, key?: number): ReactNode {
-  if (!node) return null;
-  const k = key ?? 0;
-  const mt = node.margin ? FLEX_MARGIN[node.margin] || node.margin : undefined;
-
-  if (node.type === "text") {
-    const style: any = { lineHeight: 1.5 };
-    if (node.color) style.color = node.color;
-    if (node.size) style.fontSize = FLEX_SIZE[node.size] || node.size;
-    if (node.weight === "bold") style.fontWeight = 700;
-    if (node.decoration === "line-through") style.textDecoration = "line-through";
-    if (node.align) style.textAlign = node.align;
-    if (mt) style.marginTop = mt;
-    if (node.wrap) {
-      style.whiteSpace = "pre-wrap";
-      style.wordBreak = "break-word";
-    } else {
-      style.whiteSpace = "nowrap";
-      style.overflow = "hidden";
-      style.textOverflow = "ellipsis";
-    }
-    return <div key={k} style={style}>{node.text}</div>;
-  }
-
-  if (node.type === "image") {
-    const style: any = { maxWidth: "100%", display: "block" };
-    if (mt) style.marginTop = mt;
-    style.objectFit = node.aspectMode === "cover" ? "cover" : "contain";
-    if (node.size === "full") style.width = "100%";
-    else if (node.size) style.width = FLEX_SIZE[node.size] || node.size;
-    if (node.aspectRatio) {
-      const [w, h] = node.aspectRatio.split(":").map(Number);
-      if (w && h) style.aspectRatio = `${w}/${h}`;
-    }
-    if (node.cornerRadius) style.borderRadius = node.cornerRadius;
-    return <img key={k} src={node.url} alt="" style={style} loading="lazy" />;
-  }
-
-  if (node.type === "separator") {
-    return <div key={k} style={{ borderTop: "1px solid #ddd", ...(mt ? { marginTop: mt } : {}) }} />;
-  }
-
-  if (node.type === "button") {
-    const style: any = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
-    if (mt) style.marginTop = mt;
-    if (node.style === "primary") {
-      style.backgroundColor = node.color || "#06C755";
-      style.color = "#fff";
-    } else if (node.style === "secondary") {
-      style.backgroundColor = "#f0f0f0";
-      style.color = node.color || "#333";
-    } else {
-      style.backgroundColor = "transparent";
-      style.color = node.color || "#06C755";
-    }
-    const label = node.action?.label || "ボタン";
-    if (node.action?.type === "uri" && node.action?.uri) {
-      return <a key={k} href={node.action.uri} target="_blank" rel="noopener noreferrer" style={style}>{label}</a>;
-    }
-    return <div key={k} style={style}>{label}</div>;
-  }
-
-  if (node.type === "spacer") {
-    return <div key={k} style={{ height: node.size ? (FLEX_MARGIN[node.size] || "8px") : "8px" }} />;
-  }
-
-  if (node.type === "box") {
-    const isHorizontal = node.layout === "horizontal" || node.layout === "baseline";
-    const style: any = {};
-    if (isHorizontal) {
-      style.display = "flex";
-      if (node.layout === "baseline") style.alignItems = "baseline";
-      if (node.alignItems) style.alignItems = node.alignItems;
-    }
-    if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
-    if (node.cornerRadius) style.borderRadius = node.cornerRadius;
-    if (node.paddingAll) style.padding = node.paddingAll;
-    if (node.paddingTop) style.paddingTop = node.paddingTop;
-    if (node.paddingBottom) style.paddingBottom = node.paddingBottom;
-    if (node.paddingStart) style.paddingLeft = node.paddingStart;
-    if (node.paddingEnd) style.paddingRight = node.paddingEnd;
-    if (mt) style.marginTop = mt;
-    if (isHorizontal && node.spacing) style.gap = FLEX_MARGIN[node.spacing] || node.spacing;
-
-    if (isHorizontal) {
-      return (
-        <div key={k} style={style}>
-          {(node.contents || []).map((c: any, i: number) => {
-            const ws: any = { minWidth: 0 };
-            if (c.flex !== undefined) ws.flex = c.flex;
-            if (c.gravity === "bottom") ws.alignSelf = "flex-end";
-            else if (c.gravity === "center") ws.alignSelf = "center";
-            return <div key={i} style={ws}>{renderFlexNode(c, i)}</div>;
-          })}
-        </div>
-      );
-    }
-    return (
-      <div key={k} style={style}>
-        {(node.contents || []).map((c: any, i: number) => renderFlexNode(c, i))}
-      </div>
-    );
-  }
-  return null;
-}
-
+/** Flex Bubble をフラット方式でレンダリング（ツリーを1回走査→リーフ化→描画） */
 function renderFlexBubble(bubble: any): ReactNode {
   if (!bubble || bubble.type !== "bubble") return null;
+
+  // ツリーからリーフノードをフラット配列に収集（各ノードは厳密に1回だけ追加）
+  type Leaf = { node: any; section: "header" | "body" | "footer" };
+  const leaves: Leaf[] = [];
+  function collect(node: any, section: Leaf["section"]) {
+    if (!node) return;
+    if (node.type === "box") {
+      for (const c of (node.contents || [])) collect(c, section);
+      return;
+    }
+    leaves.push({ node, section });
+  }
+  if (bubble.header) collect(bubble.header, "header");
+  if (bubble.body) collect(bubble.body, "body");
+  if (bubble.footer) collect(bubble.footer, "footer");
+
+  const headerLeaves = leaves.filter(l => l.section === "header");
+  const bodyLeaves = leaves.filter(l => l.section === "body");
+  const footerLeaves = leaves.filter(l => l.section === "footer");
+
+  function renderLeaf(leaf: Leaf, idx: number): ReactNode {
+    const n = leaf.node;
+    const mt = n.margin ? FLEX_MARGIN[n.margin] || n.margin : undefined;
+
+    if (n.type === "text") {
+      const s: any = { lineHeight: 1.5 };
+      if (leaf.section === "header") { s.color = "#fff"; s.fontWeight = 700; s.fontSize = "16px"; }
+      else {
+        if (n.color) s.color = n.color;
+        if (n.size) s.fontSize = FLEX_SIZE[n.size] || n.size;
+        if (n.weight === "bold") s.fontWeight = 700;
+        if (n.decoration === "line-through") s.textDecoration = "line-through";
+        if (n.align) s.textAlign = n.align;
+      }
+      if (mt) s.marginTop = mt;
+      if (n.wrap) { s.whiteSpace = "pre-wrap"; s.wordBreak = "break-word"; }
+      return <div key={idx} style={s}>{n.text}</div>;
+    }
+    if (n.type === "image") {
+      const s: any = { maxWidth: "100%", display: "block" };
+      if (mt) s.marginTop = mt;
+      s.objectFit = n.aspectMode === "cover" ? "cover" : "contain";
+      if (n.size === "full") s.width = "100%";
+      if (n.aspectRatio) { const [w, h] = n.aspectRatio.split(":").map(Number); if (w && h) s.aspectRatio = `${w}/${h}`; }
+      return <img key={idx} src={n.url} alt="" style={s} loading="lazy" />;
+    }
+    if (n.type === "separator") {
+      return <div key={idx} style={{ borderTop: "1px solid #ddd", marginTop: mt || "8px" }} />;
+    }
+    if (n.type === "button") {
+      const s: any = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
+      if (mt) s.marginTop = mt;
+      if (n.style === "primary") { s.backgroundColor = n.color || "#06C755"; s.color = "#fff"; }
+      else if (n.style === "secondary") { s.backgroundColor = "#f0f0f0"; s.color = n.color || "#333"; }
+      else { s.backgroundColor = "transparent"; s.color = n.color || "#06C755"; }
+      const label = n.action?.label || "ボタン";
+      if (n.action?.type === "uri" && n.action?.uri) {
+        return <a key={idx} href={n.action.uri} target="_blank" rel="noopener noreferrer" style={s}>{label}</a>;
+      }
+      return <div key={idx} style={s}>{label}</div>;
+    }
+    return null;
+  }
+
+  const hdrBg = bubble.header?.backgroundColor || "#ec4899";
   return (
     <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200" style={{ minWidth: 200, maxWidth: 300 }}>
-      {bubble.header && renderFlexNode(bubble.header)}
-      {bubble.hero && renderFlexNode(bubble.hero)}
-      {bubble.body && renderFlexNode(bubble.body)}
-      {bubble.footer && renderFlexNode(bubble.footer)}
+      {headerLeaves.length > 0 && (
+        <div style={{ backgroundColor: hdrBg, padding: "12px 16px" }}>
+          {headerLeaves.map((l, i) => renderLeaf(l, i))}
+        </div>
+      )}
+      {bodyLeaves.length > 0 && (
+        <div style={{ padding: "16px" }}>
+          {bodyLeaves.map((l, i) => renderLeaf(l, i))}
+        </div>
+      )}
+      {footerLeaves.length > 0 && (
+        <div style={{ padding: "12px 16px" }}>
+          {footerLeaves.map((l, i) => renderLeaf(l, i))}
+        </div>
+      )}
     </div>
   );
 }
