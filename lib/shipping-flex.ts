@@ -12,7 +12,7 @@ const WHITE = "#ffffff";      // ヘッダーテキスト
 const GRAY = "#666666";       // 補足テキスト
 
 // 画像URL（public/images/）
-const TRUCK_IMAGE_URL = "https://app.noname-beauty.jp/images/%E3%81%AE.png";
+const TRUCK_IMAGE_URL = "https://app.noname-beauty.jp/images/truck-delivery.png";
 const PROGRESS_BAR_URL = "https://app.noname-beauty.jp/images/progress-bar.png";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
@@ -78,16 +78,16 @@ export function buildShippingFlex(
         type: "box",
         layout: "horizontal",
         contents: [
-          { type: "text", text: "発送", size: "xs", color: GRAY, flex: 2, align: "start", gravity: "bottom" },
+          { type: "text", text: "発送", size: "xs", color: GRAY, flex: 1, align: "start", gravity: "bottom" },
           {
             type: "image",
             url: TRUCK_IMAGE_URL,
             size: "full",
-            aspectRatio: "4:3",
+            aspectRatio: "3:2",
             aspectMode: "fit",
             flex: 3,
           },
-          { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 2, align: "end", gravity: "bottom", wrap: true },
+          { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 1, align: "end", gravity: "bottom", wrap: true },
         ],
         alignItems: "flex-end",
         paddingStart: "12px",
