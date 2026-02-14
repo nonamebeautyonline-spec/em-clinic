@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       line_uid: intake.line_id,
       message_type: "flex",
       content: `[${flex.altText || "Flex Message"}]`,
+      flex_json: flex.contents,
       status,
       direction: "outgoing",
     });

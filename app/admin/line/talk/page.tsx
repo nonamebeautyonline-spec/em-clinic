@@ -26,6 +26,7 @@ interface MessageLog {
   event_type?: string;
   sent_at: string;
   direction?: "incoming" | "outgoing";
+  flex_json?: any;
 }
 
 interface Template {
@@ -145,6 +146,126 @@ function linkifyContent(text: string): ReactNode {
     urlRegex.test(part) ? (
       <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 break-all">{part}</a>
     ) : part
+  );
+}
+
+// LINE Flex Bubble レンダラー
+const FLEX_SIZE: Record<string, string> = { xxs: "10px", xs: "12px", sm: "13px", md: "14px", lg: "16px", xl: "18px", xxl: "22px", "3xl": "26px", "4xl": "32px", "5xl": "38px" };
+const FLEX_MARGIN: Record<string, string> = { none: "0", xs: "2px", sm: "4px", md: "8px", lg: "12px", xl: "16px", xxl: "20px" };
+
+function renderFlexNode(node: any, key?: number): ReactNode {
+  if (!node) return null;
+  const k = key ?? 0;
+  const mt = node.margin ? FLEX_MARGIN[node.margin] || node.margin : undefined;
+
+  if (node.type === "text") {
+    const style: any = {};
+    if (node.color) style.color = node.color;
+    if (node.size) style.fontSize = FLEX_SIZE[node.size] || node.size;
+    if (node.weight === "bold") style.fontWeight = 700;
+    if (node.decoration === "line-through") style.textDecoration = "line-through";
+    if (node.align) style.textAlign = node.align;
+    if (mt) style.marginTop = mt;
+    if (!node.wrap) style.whiteSpace = "nowrap";
+    style.overflow = "hidden";
+    style.textOverflow = "ellipsis";
+    style.lineHeight = 1.5;
+    if (node.wrap) { style.whiteSpace = "pre-wrap"; style.wordBreak = "break-word"; }
+    return <div key={k} style={style}>{node.text}</div>;
+  }
+
+  if (node.type === "image") {
+    const style: any = { maxWidth: "100%", display: "block" };
+    if (mt) style.marginTop = mt;
+    if (node.aspectMode === "cover") style.objectFit = "cover";
+    else style.objectFit = "contain";
+    if (node.size === "full") style.width = "100%";
+    else if (node.size) style.width = FLEX_SIZE[node.size] || node.size;
+    if (node.aspectRatio) {
+      const [w, h] = node.aspectRatio.split(":").map(Number);
+      if (w && h) style.aspectRatio = `${w}/${h}`;
+    }
+    if (node.cornerRadius) style.borderRadius = node.cornerRadius;
+    return <img key={k} src={node.url} alt="" style={style} loading="lazy" />;
+  }
+
+  if (node.type === "separator") {
+    const style: any = { borderTop: "1px solid #ddd" };
+    if (mt) style.marginTop = mt;
+    return <div key={k} style={style} />;
+  }
+
+  if (node.type === "button") {
+    const style: any = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
+    if (mt) style.marginTop = mt;
+    if (node.style === "primary") {
+      style.backgroundColor = node.color || "#06C755";
+      style.color = "#fff";
+    } else if (node.style === "secondary") {
+      style.backgroundColor = "#f0f0f0";
+      style.color = node.color || "#333";
+    } else {
+      style.backgroundColor = "transparent";
+      style.color = node.color || "#06C755";
+    }
+    const label = node.action?.label || "ボタン";
+    if (node.action?.type === "uri" && node.action?.uri) {
+      return <a key={k} href={node.action.uri} target="_blank" rel="noopener noreferrer" style={style}>{label}</a>;
+    }
+    return <div key={k} style={style}>{label}</div>;
+  }
+
+  if (node.type === "spacer") {
+    const h = node.size ? (FLEX_MARGIN[node.size] || "8px") : "8px";
+    return <div key={k} style={{ height: h }} />;
+  }
+
+  if (node.type === "box") {
+    const style: any = {};
+    if (node.layout === "horizontal" || node.layout === "baseline") style.display = "flex";
+    else { style.display = "flex"; style.flexDirection = "column"; }
+    if (node.layout === "baseline") style.alignItems = "baseline";
+    if (node.alignItems) {
+      const aiMap: Record<string, string> = { "flex-start": "flex-start", "flex-end": "flex-end", center: "center" };
+      style.alignItems = aiMap[node.alignItems] || node.alignItems;
+    }
+    if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
+    if (node.cornerRadius) style.borderRadius = node.cornerRadius;
+    if (node.paddingAll) style.padding = node.paddingAll;
+    if (node.paddingTop) style.paddingTop = node.paddingTop;
+    if (node.paddingBottom) style.paddingBottom = node.paddingBottom;
+    if (node.paddingStart) style.paddingLeft = node.paddingStart;
+    if (node.paddingEnd) style.paddingRight = node.paddingEnd;
+    if (mt) style.marginTop = mt;
+    if (node.spacing) style.gap = FLEX_MARGIN[node.spacing] || node.spacing;
+    return (
+      <div key={k} style={style}>
+        {(node.contents || []).map((c: any, i: number) => {
+          const childStyle: any = {};
+          if (c.flex !== undefined && (node.layout === "horizontal" || node.layout === "baseline")) childStyle.flex = c.flex;
+          if (c.gravity === "bottom") childStyle.alignSelf = "flex-end";
+          else if (c.gravity === "center") childStyle.alignSelf = "center";
+          const child = renderFlexNode(c, i);
+          if (childStyle.flex !== undefined || childStyle.alignSelf) {
+            return <div key={i} style={childStyle}>{child}</div>;
+          }
+          return child;
+        })}
+      </div>
+    );
+  }
+  return null;
+}
+
+function renderFlexBubble(bubble: any): ReactNode {
+  if (!bubble || bubble.type !== "bubble") return null;
+  return (
+    <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200" style={{ minWidth: 200, maxWidth: 300 }}>
+      {bubble.header && renderFlexNode(bubble.header)}
+      {bubble.hero && renderFlexNode(bubble.hero)}
+      {bubble.body && renderFlexNode(bubble.body)}
+      {bubble.footer && renderFlexNode(bubble.footer)}
+    </div>
   );
 }
 
@@ -1366,7 +1487,9 @@ export default function TalkPage() {
                           </div>
                           <div className="max-w-[65%]">
                             {(() => {
-                              /* Flex系メッセージのカード表示 */
+                              /* flex_json がある場合はLINE風にFlex Bubble描画 */
+                              if (m.flex_json) return renderFlexBubble(m.flex_json);
+                              /* flex_json がない場合はフォールバック（旧形式カード） */
                               const mt = m.message_type || "";
                               const isReservation = mt.startsWith("reservation_");
                               const isShipping = mt === "shipping_notify";

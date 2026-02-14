@@ -219,6 +219,7 @@ export async function sendReservationNotification(params: {
       event_type: "message",
       message_type: messageType,
       content: `[${flex.altText}]`,
+      flex_json: flex.contents,
       status,
     });
 
@@ -233,6 +234,7 @@ export async function sendReservationNotification(params: {
         event_type: "message",
         message_type: messageType,
         content: `[${flex.altText}]`,
+        flex_json: flex.contents,
         status: "failed",
         error_message: String(err),
       });

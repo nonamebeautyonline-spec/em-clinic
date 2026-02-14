@@ -226,6 +226,7 @@ export async function sendShippingNotification(params: {
       event_type: "message",
       message_type: "shipping_notify",
       content: `[${flex.altText}]`,
+      flex_json: flex.contents,
       status,
     });
 
@@ -241,6 +242,7 @@ export async function sendShippingNotification(params: {
         event_type: "message",
         message_type: "shipping_notify",
         content: `[${flex.altText}]`,
+        flex_json: flex.contents,
         status: "failed",
         error_message: String(err),
       });
