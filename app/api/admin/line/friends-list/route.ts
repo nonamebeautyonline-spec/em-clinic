@@ -125,9 +125,10 @@ export async function GET(req: NextRequest) {
   const patients = Array.from(patientMap.values()).map(p => {
     const lastMsg = lastMsgMap.get(p.patient_id);
     const lastIncoming = lastIncomingMap.get(p.patient_id);
-    // 友達追加イベントは【友達追加】と表示
+    // 最新イベントに応じた表示
     const lastEvent = lastEventMap.get(p.patient_id);
-    const eventDisplay = lastEvent ? "【友達追加】" : null;
+    const isBlocked = lastEvent?.content?.includes("ブロック");
+    const eventDisplay = isBlocked ? "ブロックされました" : lastEvent ? "【友達追加】" : null;
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
@@ -135,6 +136,7 @@ export async function GET(req: NextRequest) {
       line_display_name: p.line_display_name || null,
       line_picture_url: p.line_picture_url || null,
       mark: markMap.get(p.patient_id) || "none",
+      is_blocked: !!isBlocked,
       tags: [],
       fields: {},
       last_message: lastMsg?.content || lastTemplateMap.get(p.patient_id)?.content || eventDisplay || null,
