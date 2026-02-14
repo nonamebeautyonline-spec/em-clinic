@@ -226,6 +226,25 @@ export async function POST(req: NextRequest) {
                 if (error) console.error(`[Intake] Migration ${table} failed:`, error.message);
               })
             );
+            // ピン留めのIDも移行（admin_users.pinned_patients JSONB配列）
+            try {
+              const { data: admins } = await supabaseAdmin
+                .from("admin_users")
+                .select("id, pinned_patients");
+              for (const admin of admins || []) {
+                const pins: string[] = admin.pinned_patients || [];
+                if (pins.includes(fakeId)) {
+                  const newPins = pins.map((p: string) => p === fakeId ? patientId : p);
+                  await supabaseAdmin
+                    .from("admin_users")
+                    .update({ pinned_patients: newPins })
+                    .eq("id", admin.id);
+                  console.log(`[Intake] Pin migrated for admin ${admin.id}: ${fakeId} -> ${patientId}`);
+                }
+              }
+            } catch (e: any) {
+              console.error("[Intake] Pin migration error:", e.message);
+            }
             // 仮レコード削除
             await supabaseAdmin.from("intake").delete().eq("patient_id", fakeId);
             await supabaseAdmin.from("answerers").delete().eq("patient_id", fakeId);
