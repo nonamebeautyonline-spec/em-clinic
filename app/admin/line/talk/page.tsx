@@ -159,26 +159,28 @@ function renderFlexNode(node: any, key?: number): ReactNode {
   const mt = node.margin ? FLEX_MARGIN[node.margin] || node.margin : undefined;
 
   if (node.type === "text") {
-    const style: any = {};
+    const style: any = { lineHeight: 1.5 };
     if (node.color) style.color = node.color;
     if (node.size) style.fontSize = FLEX_SIZE[node.size] || node.size;
     if (node.weight === "bold") style.fontWeight = 700;
     if (node.decoration === "line-through") style.textDecoration = "line-through";
     if (node.align) style.textAlign = node.align;
     if (mt) style.marginTop = mt;
-    if (!node.wrap) style.whiteSpace = "nowrap";
-    style.overflow = "hidden";
-    style.textOverflow = "ellipsis";
-    style.lineHeight = 1.5;
-    if (node.wrap) { style.whiteSpace = "pre-wrap"; style.wordBreak = "break-word"; }
+    if (node.wrap) {
+      style.whiteSpace = "pre-wrap";
+      style.wordBreak = "break-word";
+    } else {
+      style.whiteSpace = "nowrap";
+      style.overflow = "hidden";
+      style.textOverflow = "ellipsis";
+    }
     return <div key={k} style={style}>{node.text}</div>;
   }
 
   if (node.type === "image") {
     const style: any = { maxWidth: "100%", display: "block" };
     if (mt) style.marginTop = mt;
-    if (node.aspectMode === "cover") style.objectFit = "cover";
-    else style.objectFit = "contain";
+    style.objectFit = node.aspectMode === "cover" ? "cover" : "contain";
     if (node.size === "full") style.width = "100%";
     else if (node.size) style.width = FLEX_SIZE[node.size] || node.size;
     if (node.aspectRatio) {
@@ -190,9 +192,7 @@ function renderFlexNode(node: any, key?: number): ReactNode {
   }
 
   if (node.type === "separator") {
-    const style: any = { borderTop: "1px solid #ddd" };
-    if (mt) style.marginTop = mt;
-    return <div key={k} style={style} />;
+    return <div key={k} style={{ borderTop: "1px solid #ddd", ...(mt ? { marginTop: mt } : {}) }} />;
   }
 
   if (node.type === "button") {
@@ -216,18 +216,16 @@ function renderFlexNode(node: any, key?: number): ReactNode {
   }
 
   if (node.type === "spacer") {
-    const h = node.size ? (FLEX_MARGIN[node.size] || "8px") : "8px";
-    return <div key={k} style={{ height: h }} />;
+    return <div key={k} style={{ height: node.size ? (FLEX_MARGIN[node.size] || "8px") : "8px" }} />;
   }
 
   if (node.type === "box") {
+    const isHorizontal = node.layout === "horizontal" || node.layout === "baseline";
     const style: any = {};
-    if (node.layout === "horizontal" || node.layout === "baseline") style.display = "flex";
-    else { style.display = "flex"; style.flexDirection = "column"; }
-    if (node.layout === "baseline") style.alignItems = "baseline";
-    if (node.alignItems) {
-      const aiMap: Record<string, string> = { "flex-start": "flex-start", "flex-end": "flex-end", center: "center" };
-      style.alignItems = aiMap[node.alignItems] || node.alignItems;
+    if (isHorizontal) {
+      style.display = "flex";
+      if (node.layout === "baseline") style.alignItems = "baseline";
+      if (node.alignItems) style.alignItems = node.alignItems;
     }
     if (node.backgroundColor) style.backgroundColor = node.backgroundColor;
     if (node.cornerRadius) style.borderRadius = node.cornerRadius;
@@ -237,20 +235,24 @@ function renderFlexNode(node: any, key?: number): ReactNode {
     if (node.paddingStart) style.paddingLeft = node.paddingStart;
     if (node.paddingEnd) style.paddingRight = node.paddingEnd;
     if (mt) style.marginTop = mt;
-    if (node.spacing) style.gap = FLEX_MARGIN[node.spacing] || node.spacing;
+    if (isHorizontal && node.spacing) style.gap = FLEX_MARGIN[node.spacing] || node.spacing;
+
+    if (isHorizontal) {
+      return (
+        <div key={k} style={style}>
+          {(node.contents || []).map((c: any, i: number) => {
+            const ws: any = { minWidth: 0 };
+            if (c.flex !== undefined) ws.flex = c.flex;
+            if (c.gravity === "bottom") ws.alignSelf = "flex-end";
+            else if (c.gravity === "center") ws.alignSelf = "center";
+            return <div key={i} style={ws}>{renderFlexNode(c, i)}</div>;
+          })}
+        </div>
+      );
+    }
     return (
       <div key={k} style={style}>
-        {(node.contents || []).map((c: any, i: number) => {
-          const childStyle: any = {};
-          if (c.flex !== undefined && (node.layout === "horizontal" || node.layout === "baseline")) childStyle.flex = c.flex;
-          if (c.gravity === "bottom") childStyle.alignSelf = "flex-end";
-          else if (c.gravity === "center") childStyle.alignSelf = "center";
-          const child = renderFlexNode(c, i);
-          if (childStyle.flex !== undefined || childStyle.alignSelf) {
-            return <div key={i} style={childStyle}>{child}</div>;
-          }
-          return child;
-        })}
+        {(node.contents || []).map((c: any, i: number) => renderFlexNode(c, i))}
       </div>
     );
   }
