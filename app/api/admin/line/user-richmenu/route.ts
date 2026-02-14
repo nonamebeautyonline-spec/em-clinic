@@ -62,14 +62,17 @@ export async function GET(req: NextRequest) {
     const patientId = searchParams.get("patient_id");
     if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 
-    // patient_idからline_idを取得
-    const { data: patient } = await supabaseAdmin
+    // patient_idからline_idを取得（複数レコード対応: 最新を優先）
+    const { data: patients } = await supabaseAdmin
       .from("intake")
       .select("line_id")
       .eq("patient_id", patientId)
-      .maybeSingle();
+      .not("line_id", "is", null)
+      .order("id", { ascending: false })
+      .limit(1);
 
-    if (!patient?.line_id) {
+    const lineId = patients?.[0]?.line_id;
+    if (!lineId) {
       return NextResponse.json({ menu: null });
     }
 
@@ -78,7 +81,7 @@ export async function GET(req: NextRequest) {
     }
 
     // LINE APIでユーザーに紐づくリッチメニューIDを取得
-    const lineRes = await fetch(`https://api.line.me/v2/bot/user/${patient.line_id}/richmenu`, {
+    const lineRes = await fetch(`https://api.line.me/v2/bot/user/${lineId}/richmenu`, {
       headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       cache: "no-store",
     });
@@ -131,14 +134,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "メニューが見つからないかLINE未登録です" }, { status: 400 });
   }
 
-  // patient_idからline_idを取得
-  const { data: patient } = await supabaseAdmin
+  // patient_idからline_idを取得（複数レコード対応: 最新を優先）
+  const { data: patients } = await supabaseAdmin
     .from("intake")
     .select("line_id")
     .eq("patient_id", patient_id)
-    .maybeSingle();
+    .not("line_id", "is", null)
+    .order("id", { ascending: false })
+    .limit(1);
 
-  if (!patient?.line_id) {
+  const lineId = patients?.[0]?.line_id;
+  if (!lineId) {
     return NextResponse.json({ error: "LINE未連携のユーザーです" }, { status: 400 });
   }
 
@@ -147,7 +153,7 @@ export async function POST(req: NextRequest) {
   }
 
   // LINE APIでユーザーにリッチメニューを割り当て
-  const lineRes = await fetch(`https://api.line.me/v2/bot/user/${patient.line_id}/richmenu/${menu.line_rich_menu_id}`, {
+  const lineRes = await fetch(`https://api.line.me/v2/bot/user/${lineId}/richmenu/${menu.line_rich_menu_id}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
