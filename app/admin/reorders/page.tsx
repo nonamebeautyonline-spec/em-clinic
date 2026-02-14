@@ -220,7 +220,7 @@ export default function ReordersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">
                       <button
-                        onClick={() => window.open(`/admin/line/talk?patient_id=${reorder.patient_id}`, '_blank')}
+                        onClick={() => window.open(`/admin/line/talk?pid=${reorder.patient_id}`, '_blank')}
                         className="text-blue-600 hover:text-blue-900 hover:underline"
                       >
                         {reorder.patient_id}

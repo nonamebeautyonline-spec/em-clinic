@@ -777,7 +777,7 @@ export default function TrackingNumberPage() {
                   {notifyPreview.patients.filter(p => p.line_id).map(p => (
                     <div key={p.patient_id} className="px-3 py-2 text-sm flex justify-between">
                       <span className="text-slate-900">{p.patient_name || p.patient_id}</span>
-                      <button onClick={() => window.open(`/admin/line/talk?patient_id=${p.patient_id}`, '_blank')} className="text-xs text-blue-600 hover:text-blue-900 hover:underline font-mono">{p.patient_id}</button>
+                      <button onClick={() => window.open(`/admin/line/talk?pid=${p.patient_id}`, '_blank')} className="text-xs text-blue-600 hover:text-blue-900 hover:underline font-mono">{p.patient_id}</button>
                     </div>
                   ))}
                 </div>

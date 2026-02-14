@@ -191,7 +191,7 @@ export default function TodayShippingListPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap font-mono text-xs print:hidden">
                     <button
-                      onClick={() => window.open(`/admin/line/talk?patient_id=${item.patient_id}`, '_blank')}
+                      onClick={() => window.open(`/admin/line/talk?pid=${item.patient_id}`, '_blank')}
                       className="text-blue-600 hover:text-blue-900 hover:underline"
                     >
                       {item.patient_id}

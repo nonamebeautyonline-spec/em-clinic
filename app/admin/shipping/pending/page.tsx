@@ -332,7 +332,7 @@ export default function ShippingPendingPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
-                        onClick={() => window.open(`/admin/line/talk?patient_id=${order.patient_id}`, '_blank')}
+                        onClick={() => window.open(`/admin/line/talk?pid=${order.patient_id}`, '_blank')}
                         className={`font-mono ${
                           isDisabled
                             ? "text-slate-400 cursor-default"

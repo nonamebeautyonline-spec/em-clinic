@@ -217,7 +217,7 @@ export default function BankTransferManagementPage() {
                       <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="px-4 py-3 text-sm">
                           <button
-                            onClick={() => window.open(`/admin/line/talk?patient_id=${order.patient_id}`, '_blank')}
+                            onClick={() => window.open(`/admin/line/talk?pid=${order.patient_id}`, '_blank')}
                             className="text-blue-600 hover:text-blue-900 hover:underline font-mono"
                           >
                             {order.patient_id}

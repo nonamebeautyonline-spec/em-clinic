@@ -278,7 +278,7 @@ export default function BankTransferReconcilePage() {
                       })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                      <button onClick={() => window.open(`/admin/line/talk?patient_id=${order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                      <button onClick={() => window.open(`/admin/line/talk?pid=${order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
                         {order.patient_id}
                       </button>
                     </td>
@@ -416,7 +416,7 @@ export default function BankTransferReconcilePage() {
                         ¥{item.transfer.amount.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                        <button onClick={() => window.open(`/admin/line/talk?patient_id=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                        <button onClick={() => window.open(`/admin/line/talk?pid=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
                           {item.order.patient_id}
                         </button>
                       </td>
@@ -518,7 +518,7 @@ export default function BankTransferReconcilePage() {
                             <tr key={i} className="border-t">
                               <td className="px-2 py-1 font-mono">{o.id}</td>
                               <td className="px-2 py-1 font-mono">
-                                <button onClick={() => window.open(`/admin/line/talk?patient_id=${o.patient_id}`, '_blank')} className="text-blue-600 hover:underline">
+                                <button onClick={() => window.open(`/admin/line/talk?pid=${o.patient_id}`, '_blank')} className="text-blue-600 hover:underline">
                                   {o.patient_id}
                                 </button>
                               </td>
@@ -609,7 +609,7 @@ export default function BankTransferReconcilePage() {
                           ¥{item.transfer.amount.toLocaleString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                          <button onClick={() => window.open(`/admin/line/talk?patient_id=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                          <button onClick={() => window.open(`/admin/line/talk?pid=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
                             {item.order.patient_id}
                           </button>
                         </td>
@@ -705,7 +705,7 @@ export default function BankTransferReconcilePage() {
               <div className="bg-slate-50 rounded p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">患者ID:</span>
-                  <button onClick={() => window.open(`/admin/line/talk?patient_id=${manualConfirmOrder.patient_id}`, '_blank')} className="font-mono text-blue-600 hover:text-blue-900 hover:underline">
+                  <button onClick={() => window.open(`/admin/line/talk?pid=${manualConfirmOrder.patient_id}`, '_blank')} className="font-mono text-blue-600 hover:text-blue-900 hover:underline">
                     {manualConfirmOrder.patient_id}
                   </button>
                 </div>
