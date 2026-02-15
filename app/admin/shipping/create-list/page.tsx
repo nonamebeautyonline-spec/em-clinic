@@ -125,7 +125,7 @@ export default function CreateShippingListPage() {
             status: order.status,
             selected: true, // デフォルトで全選択（フィルタリング済みリスト）
             shipping_list_created_at: order.shipping_list_created_at || null,
-            isListCreated: !!order.shipping_list_created_at,
+            isListCreated: false,
             editable: {
               name: order.patient_name || "",
               postal_code: order.postal_code || "",
