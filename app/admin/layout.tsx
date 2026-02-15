@@ -44,9 +44,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
-  { href: "/admin/mypage-settings", icon: "🎨", label: "マイページ設定" },
-  { href: "/admin/flex-settings", icon: "💬", label: "LINE通知設定" },
-  { href: "/admin/settings", icon: "🔧", label: "設定" },
+  { href: "/admin/settings", icon: "⚙️", label: "設定" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -449,32 +447,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/products"}
           />
           <MenuItem
-            href="/admin/mypage-settings"
-            icon="🎨"
-            label="マイページ設定"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/mypage-settings"}
-          />
-          <MenuItem
-            href="/admin/flex-settings"
-            icon="💬"
-            label="LINE通知設定"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/flex-settings"}
-          />
-          <MenuItem
             href="/admin/settings"
-            icon="🔧"
+            icon="⚙️"
             label="設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/settings"}
-          />
-          <MenuItem
-            href="/admin/accounts"
-            icon="⚙️"
-            label="アカウント設定"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/accounts"}
           />
         </nav>
 
