@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // 対応マーク一覧（各マークの患者数付き）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabaseAdmin
-    .from("mark_definitions")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("mark_definitions")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -19,20 +25,26 @@ export async function GET(req: NextRequest) {
   let assignedTotal = 0;
   for (const m of data || []) {
     if (m.value === "none") continue;
-    const { count } = await supabaseAdmin
-      .from("patient_marks")
-      .select("*", { count: "exact", head: true })
-      .eq("mark", m.value);
+    const { count } = await withTenant(
+      supabaseAdmin
+        .from("patient_marks")
+        .select("*", { count: "exact", head: true })
+        .eq("mark", m.value),
+      tenantId
+    );
     const c = count || 0;
     countMap.set(m.value, c);
     assignedTotal += c;
   }
 
   // 未対応（none）= 全患者 - マーク付き患者数
-  const { count: totalPatients } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id", { count: "exact", head: true })
-    .not("patient_id", "is", null);
+  const { count: totalPatients } = await withTenant(
+    supabaseAdmin
+      .from("intake")
+      .select("patient_id", { count: "exact", head: true })
+      .not("patient_id", "is", null),
+    tenantId
+  );
   countMap.set("none", (totalPatients || 0) - assignedTotal);
 
   const marks = (data || []).map(m => ({
@@ -48,6 +60,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { label, color, icon } = await req.json();
   if (!label?.trim()) {
     return NextResponse.json({ error: "選択肢名は必須です" }, { status: 400 });
@@ -57,18 +70,20 @@ export async function POST(req: NextRequest) {
   const value = `custom_${Date.now()}`;
 
   // 最大sort_orderを取得
-  const { data: maxRow } = await supabaseAdmin
-    .from("mark_definitions")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .single();
+  const { data: maxRow } = await withTenant(
+    supabaseAdmin
+      .from("mark_definitions")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1),
+    tenantId
+  ).single();
 
   const nextOrder = (maxRow?.sort_order ?? 0) + 1;
 
   const { data, error } = await supabaseAdmin
     .from("mark_definitions")
-    .insert({ value, label: label.trim(), color: color || "#6B7280", icon: icon || "●", sort_order: nextOrder })
+    .insert({ ...tenantPayload(tenantId), value, label: label.trim(), color: color || "#6B7280", icon: icon || "●", sort_order: nextOrder })
     .select()
     .single();
 

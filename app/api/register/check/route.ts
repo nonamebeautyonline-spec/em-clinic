@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 /**
  * 個人情報フォームが既に提出済みかチェック
@@ -7,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
  * - 氏名が登録済みなら registered: true
  */
 export async function GET(req: NextRequest) {
+  const tenantId = resolveTenantId(req);
   const lineUserId = req.cookies.get("line_user_id")?.value || "";
 
   if (!lineUserId) {
@@ -14,11 +16,11 @@ export async function GET(req: NextRequest) {
   }
 
   // line_idで intake を検索 → 正式IDの患者が存在するか
-  const { data: intake } = await supabaseAdmin
+  const { data: intake } = await withTenant(supabaseAdmin
     .from("intake")
     .select("patient_id")
     .eq("line_id", lineUserId)
-    .not("patient_id", "like", "LINE_%")
+    .not("patient_id", "like", "LINE_%"), tenantId)
     .limit(1)
     .maybeSingle();
 
@@ -27,10 +29,10 @@ export async function GET(req: NextRequest) {
   }
 
   // answerers に名前・電話番号が入っているか確認
-  const { data: answerer } = await supabaseAdmin
-    .from("answerers")
+  const { data: answerer } = await withTenant(supabaseAdmin
+    .from("patients")
     .select("name, tel")
-    .eq("patient_id", intake.patient_id)
+    .eq("patient_id", intake.patient_id), tenantId)
     .maybeSingle();
 
   if (answerer?.name) {

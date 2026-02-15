@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(request);
+
     // 今日の日付（JST）
     const now = new Date();
     const jstOffset = 9 * 60 * 60 * 1000;
@@ -44,20 +47,26 @@ export async function GET(request: NextRequest) {
     const monthStartISO = monthStart.toISOString();
 
     // 1. 本日の予約件数（reservationsテーブル）
-    const { count: todayReservations } = await supabase
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .gte("reserved_time", todayStartISO)
-      .lt("reserved_time", todayEndISO)
-      .neq("status", "cancelled");
+    const { count: todayReservations } = await withTenant(
+      supabase
+        .from("reservations")
+        .select("*", { count: "exact", head: true })
+        .gte("reserved_time", todayStartISO)
+        .lt("reserved_time", todayEndISO)
+        .neq("status", "cancelled"),
+      tenantId
+    );
 
     // 2. 本日の配送件数（ordersテーブル、shipping_dateが今日）
     const { data: todayShippingData } = await fetchAll(() =>
-      supabase
-        .from("orders")
-        .select("product_code, patient_id")
-        .gte("shipping_date", todayStartISO.split("T")[0])
-        .lt("shipping_date", todayEndISO.split("T")[0])
+      withTenant(
+        supabase
+          .from("orders")
+          .select("product_code, patient_id")
+          .gte("shipping_date", todayStartISO.split("T")[0])
+          .lt("shipping_date", todayEndISO.split("T")[0]),
+        tenantId
+      )
     );
 
     const todayShippingTotal = todayShippingData?.length || 0;
@@ -70,11 +79,14 @@ export async function GET(request: NextRequest) {
     let todayShippingReorder = 0;
 
     for (const patientId of uniquePatientIds) {
-      const { count } = await supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("patient_id", patientId)
-        .lt("created_at", todayStartISO);
+      const { count } = await withTenant(
+        supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("patient_id", patientId)
+          .lt("created_at", todayStartISO),
+        tenantId
+      );
 
       if (count === 0) {
         todayShippingFirst++;
@@ -86,24 +98,30 @@ export async function GET(request: NextRequest) {
     // 3. 本日の売上
     // Square（ordersテーブル、payment_method = 'card'、paid_atが今日）
     const { data: squareOrders } = await fetchAll(() =>
-      supabase
-        .from("orders")
-        .select("amount")
-        .eq("payment_method", "card")
-        .gte("paid_at", todayStartISO)
-        .lt("paid_at", todayEndISO)
+      withTenant(
+        supabase
+          .from("orders")
+          .select("amount")
+          .eq("payment_method", "card")
+          .gte("paid_at", todayStartISO)
+          .lt("paid_at", todayEndISO),
+        tenantId
+      )
     );
 
     const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
 
     // 銀行振込（ordersテーブル、payment_method='bank_transfer'、paid_atが今日）
     const { data: bankTransferOrders } = await fetchAll(() =>
-      supabase
-        .from("orders")
-        .select("amount")
-        .eq("payment_method", "bank_transfer")
-        .gte("paid_at", todayStartISO)
-        .lt("paid_at", todayEndISO)
+      withTenant(
+        supabase
+          .from("orders")
+          .select("amount")
+          .eq("payment_method", "bank_transfer")
+          .gte("paid_at", todayStartISO)
+          .lt("paid_at", todayEndISO),
+        tenantId
+      )
     );
 
     const todayBankTransferRevenue =
@@ -113,21 +131,27 @@ export async function GET(request: NextRequest) {
 
     // 4. リピート率（今月の再注文 / 今月の全注文）
     const { data: monthOrders } = await fetchAll(() =>
-      supabase
-        .from("orders")
-        .select("patient_id")
-        .gte("paid_at", monthStartISO)
+      withTenant(
+        supabase
+          .from("orders")
+          .select("patient_id")
+          .gte("paid_at", monthStartISO),
+        tenantId
+      )
     );
 
     const monthPatientIds = monthOrders?.map((o) => o.patient_id) || [];
     let monthReorderCount = 0;
 
     for (const patientId of monthPatientIds) {
-      const { count } = await supabase
-        .from("orders")
-        .select("*", { count: "exact", head: true })
-        .eq("patient_id", patientId)
-        .lt("created_at", monthStartISO);
+      const { count } = await withTenant(
+        supabase
+          .from("orders")
+          .select("*", { count: "exact", head: true })
+          .eq("patient_id", patientId)
+          .lt("created_at", monthStartISO),
+        tenantId
+      );
 
       if (count && count > 0) {
         monthReorderCount++;
@@ -138,19 +162,28 @@ export async function GET(request: NextRequest) {
       monthPatientIds.length > 0 ? Math.round((monthReorderCount / monthPatientIds.length) * 100) : 0;
 
     // 5. 今月の統計
-    const { count: totalPatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true });
+    const { count: totalPatients } = await withTenant(
+      supabase
+        .from("intake")
+        .select("*", { count: "exact", head: true }),
+      tenantId
+    );
 
-    const { count: activePatients } = await supabase
-      .from("orders")
-      .select("patient_id", { count: "exact", head: true })
-      .gte("paid_at", monthStartISO);
+    const { count: activePatients } = await withTenant(
+      supabase
+        .from("orders")
+        .select("patient_id", { count: "exact", head: true })
+        .gte("paid_at", monthStartISO),
+      tenantId
+    );
 
-    const { count: newPatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", monthStartISO);
+    const { count: newPatients } = await withTenant(
+      supabase
+        .from("intake")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", monthStartISO),
+      tenantId
+    );
 
     return NextResponse.json({
       todayReservations: todayReservations || 0,

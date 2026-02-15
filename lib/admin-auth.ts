@@ -60,6 +60,23 @@ export async function getAdminUserId(request: NextRequest): Promise<string | nul
   return null;
 }
 
+/**
+ * JWTからtenantIdを取得
+ */
+export async function getAdminTenantId(request: NextRequest): Promise<string | null> {
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      const { payload } = await jwtVerify(sessionCookie, secret);
+      return (payload as { tenantId?: string | null }).tenantId || null;
+    } catch {
+      // クッキー無効
+    }
+  }
+  return null;
+}
+
 export async function getAdminToken(request: NextRequest): Promise<string | null> {
   // クッキーベースの認証が成功した場合、ADMIN_TOKENを返す
   const sessionCookie = request.cookies.get("admin_session")?.value;

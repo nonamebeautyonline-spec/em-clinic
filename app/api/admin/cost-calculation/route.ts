@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,6 +73,8 @@ export async function GET(req: NextRequest) {
     const startDate = `${yearMonth}-01`;
     const endDate = new Date(year, month, 0).toISOString().split("T")[0];
 
+    const tenantId = resolveTenantId(req);
+
     const jstOffset = 9 * 60 * 60 * 1000;
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
@@ -83,14 +86,17 @@ export async function GET(req: NextRequest) {
     let allSquareOrders: { id: string; product_code: string | null; amount: number }[] = [];
     let page = 0;
     while (true) {
-      const { data: squareOrders, error: squareError } = await supabase
-        .from("orders")
-        .select("id, product_code, amount")
-        .eq("payment_method", "credit_card")
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .not("paid_at", "is", null)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data: squareOrders, error: squareError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, product_code, amount")
+          .eq("payment_method", "credit_card")
+          .gte("paid_at", startISO)
+          .lt("paid_at", endISO)
+          .not("paid_at", "is", null)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+        tenantId
+      );
 
       if (squareError) {
         console.error("[cost-calculation] Square query error:", squareError);
@@ -106,14 +112,17 @@ export async function GET(req: NextRequest) {
     let allBankOrders: { id: string; product_code: string | null; amount: number }[] = [];
     page = 0;
     while (true) {
-      const { data: bankOrders, error: bankError } = await supabase
-        .from("orders")
-        .select("id, product_code, amount")
-        .eq("payment_method", "bank_transfer")
-        .in("status", ["pending_confirmation", "confirmed"])
-        .gte("created_at", startISO)
-        .lt("created_at", endISO)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data: bankOrders, error: bankError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, product_code, amount")
+          .eq("payment_method", "bank_transfer")
+          .in("status", ["pending_confirmation", "confirmed"])
+          .gte("created_at", startISO)
+          .lt("created_at", endISO)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+        tenantId
+      );
 
       if (bankError) {
         console.error("[cost-calculation] Bank query error:", bankError);

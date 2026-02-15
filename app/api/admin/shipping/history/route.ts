@@ -2,12 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from"); // YYYY-MM-DD
@@ -18,29 +21,26 @@ export async function GET(req: NextRequest) {
   }
 
   // shipping_dateが設定されている（=発送済み）注文を日付範囲で取得
-  const { data: orders, error } = await supabaseAdmin
-    .from("orders")
-    .select("id, patient_id, tracking_number, shipping_date, shipping_name")
-    .gte("shipping_date", from)
-    .lte("shipping_date", to)
-    .not("shipping_date", "is", null)
-    .order("shipping_date", { ascending: false });
+  const { data: orders, error } = await withTenant(
+    supabaseAdmin.from("orders").select("id, patient_id, tracking_number, shipping_date, shipping_name").gte("shipping_date", from).lte("shipping_date", to).not("shipping_date", "is", null).order("shipping_date", { ascending: false }),
+    tenantId
+  );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // patient_idから名前を取得
+  // patient_idから名前を取得（patientsテーブルから）
   const pids = Array.from(new Set((orders || []).map(o => o.patient_id).filter(Boolean)));
   const nameMap: Record<string, string> = {};
   if (pids.length > 0) {
-    const { data: patients } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name")
-      .in("patient_id", pids);
-    for (const p of patients || []) {
+    const { data: pData } = await withTenant(
+      supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", pids),
+      tenantId
+    );
+    for (const p of pData || []) {
       if (!nameMap[p.patient_id]) {
-        nameMap[p.patient_id] = p.patient_name || "";
+        nameMap[p.patient_id] = p.name || "";
       }
     }
   }

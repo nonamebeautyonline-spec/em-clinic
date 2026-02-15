@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
@@ -22,49 +25,30 @@ export async function GET(req: NextRequest) {
 
     let patientId = "";
     let patientName = "";
-    let intakeData: { patient_id: string; patient_name: string | null; line_id: string | null; answerer_id: string | null } | null = null;
+    let intakeAnswererId = "";
 
-    // 氏名検索の場合: スペース無視で部分一致、候補リストを返す
+    // 氏名検索の場合: patientsテーブルでスペース無視部分一致
     if (searchType === "name") {
-      // スペースを除去した検索クエリ
       const normalizedQuery = query.replace(/[\s　]/g, "").toLowerCase();
-
-      // まずilike検索で絞り込み（効率化）
       const searchPattern = `%${query.replace(/[\s　]/g, "%")}%`;
-      const { data: candidates } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name, line_id, answerer_id")
-        .not("patient_name", "is", null)
-        .ilike("patient_name", searchPattern)
-        .order("id", { ascending: false })
-        .limit(50);
 
-      // スペース無視で部分一致フィルタリング（DB検索で漏れがあった場合のため）
+      const { data: candidates } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .not("name", "is", null)
+          .ilike("name", searchPattern)
+          .limit(50),
+        tenantId
+      );
+
       let matchedCandidates = (candidates || [])
         .filter(c => {
-          if (!c.patient_name) return false;
-          const normalizedName = c.patient_name.replace(/[\s　]/g, "").toLowerCase();
+          if (!c.name) return false;
+          const normalizedName = c.name.replace(/[\s　]/g, "").toLowerCase();
           return normalizedName.includes(normalizedQuery);
         })
         .slice(0, 10);
-
-      // 候補が見つからない場合、より広範囲に検索
-      if (matchedCandidates.length === 0) {
-        const { data: allCandidates } = await supabaseAdmin
-          .from("intake")
-          .select("patient_id, patient_name, line_id, answerer_id")
-          .not("patient_name", "is", null)
-          .order("id", { ascending: false })
-          .limit(1000);
-
-        matchedCandidates = (allCandidates || [])
-          .filter(c => {
-            if (!c.patient_name) return false;
-            const normalizedName = c.patient_name.replace(/[\s　]/g, "").toLowerCase();
-            return normalizedName.includes(normalizedQuery);
-          })
-          .slice(0, 10);
-      }
 
       // 候補が複数ある場合は候補リストを返す
       if (matchedCandidates.length > 1) {
@@ -72,90 +56,88 @@ export async function GET(req: NextRequest) {
           found: false,
           candidates: matchedCandidates.map(c => ({
             id: c.patient_id,
-            name: c.patient_name,
+            name: c.name,
           })),
         });
       }
 
       // 候補が1件の場合はその患者を選択
       if (matchedCandidates.length === 1) {
-        intakeData = matchedCandidates[0];
-        patientId = intakeData.patient_id;
-        patientName = intakeData.patient_name || "-";
+        patientId = matchedCandidates[0].patient_id;
+        patientName = matchedCandidates[0].name || "-";
       }
     } else if (searchType === "answerer_id") {
       // answerer_id検索: LステップIDで検索
-      const { data: foundIntake } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name, line_id, answerer_id")
-        .eq("answerer_id", query)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: foundIntake } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("patient_id, answerer_id")
+          .eq("answerer_id", query)
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (foundIntake) {
-        intakeData = foundIntake;
         patientId = foundIntake.patient_id;
-        patientName = foundIntake.patient_name || "-";
+        intakeAnswererId = foundIntake.answerer_id || "";
       }
     } else if (searchType === "tracking") {
       // 追跡番号検索: ordersテーブルからpatient_idを取得
       const normalizedTracking = query.replace(/-/g, "");
-      // まず原文で検索、なければハイフン除去版で検索（.or() にユーザー入力を直接渡さない）
-      let orderData = (await supabaseAdmin
-        .from("orders")
-        .select("patient_id")
-        .eq("tracking_number", query)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle()).data;
-      if (!orderData && normalizedTracking !== query) {
-        orderData = (await supabaseAdmin
+      let orderData = (await withTenant(
+        supabaseAdmin
           .from("orders")
           .select("patient_id")
-          .eq("tracking_number", normalizedTracking)
+          .eq("tracking_number", query)
           .order("created_at", { ascending: false })
           .limit(1)
-          .maybeSingle()).data;
+          .maybeSingle(),
+        tenantId
+      )).data;
+      if (!orderData && normalizedTracking !== query) {
+        orderData = (await withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("patient_id")
+            .eq("tracking_number", normalizedTracking)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          tenantId
+        )).data;
       }
 
       if (orderData) {
         patientId = orderData.patient_id;
-        // intakeから患者情報を取得
-        const { data: foundIntake } = await supabaseAdmin
-          .from("intake")
-          .select("patient_id, patient_name, line_id, answerer_id")
-          .eq("patient_id", patientId)
-          .limit(1)
-          .maybeSingle();
-
-        if (foundIntake) {
-          intakeData = foundIntake;
-          patientName = foundIntake.patient_name || "-";
-        }
       }
     } else {
-      // ID検索: 従来通り
-      const { data: foundIntake } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name, line_id, answerer_id")
-        .ilike("patient_id", `%${query}%`)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (foundIntake) {
-        intakeData = foundIntake;
-        patientId = foundIntake.patient_id;
-        patientName = foundIntake.patient_name || "-";
-      } else {
-        // ordersテーブルでも検索
-        const { data: orderData } = await supabaseAdmin
-          .from("orders")
+      // ID検索: intakeからpatient_id部分一致
+      const { data: foundIntake } = await withTenant(
+        supabaseAdmin
+          .from("intake")
           .select("patient_id")
           .ilike("patient_id", `%${query}%`)
+          .order("id", { ascending: false })
           .limit(1)
-          .maybeSingle();
+          .maybeSingle(),
+        tenantId
+      );
+
+      if (foundIntake) {
+        patientId = foundIntake.patient_id;
+      } else {
+        // ordersテーブルでも検索
+        const { data: orderData } = await withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("patient_id")
+            .ilike("patient_id", `%${query}%`)
+            .limit(1)
+            .maybeSingle(),
+          tenantId
+        );
 
         if (orderData) {
           patientId = orderData.patient_id;
@@ -171,62 +153,101 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 6テーブル並列取得（逐次→並列で高速化）
+    // answerer_idをintakeから取得（まだ取得していない場合）
+    if (!intakeAnswererId) {
+      const { data: ansIdRow } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("answerer_id")
+          .eq("patient_id", patientId)
+          .not("answerer_id", "is", null)
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      );
+      intakeAnswererId = ansIdRow?.answerer_id || "";
+    }
+
+    // 7テーブル並列取得（逐次→並列で高速化）
     const [answererRes, allOrdersRes, reordersRes, pendingResvRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
-      supabaseAdmin
-        .from("answerers")
-        .select("name, name_kana, sex, birthday, line_id, tel")
-        .eq("patient_id", patientId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("orders")
-        .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-        .limit(10),
-      supabaseAdmin
-        .from("reorders")
-        .select("id, gas_row_number, product_code, status, created_at, approved_at")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-        .limit(5),
-      supabaseAdmin
-        .from("intake")
-        .select("reserved_date, reserved_time, status")
-        .eq("patient_id", patientId)
-        .not("reserved_date", "is", null)
-        .not("reserved_time", "is", null)
-        .or("status.is.null,status.eq.")
-        .order("reserved_date", { ascending: true })
-        .order("reserved_time", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("intake")
-        .select("reserved_date, reserved_time, status")
-        .eq("patient_id", patientId)
-        .not("reserved_date", "is", null)
-        .not("reserved_time", "is", null)
-        .order("reserved_date", { ascending: false })
-        .order("reserved_time", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("orders")
-        .select("id, product_code, created_at")
-        .eq("patient_id", patientId)
-        .eq("payment_method", "bank_transfer")
-        .eq("status", "pending_confirmation")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("intake")
-        .select("answers, prescription_menu, created_at")
-        .eq("patient_id", patientId)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("name, name_kana, sex, birthday, line_id, tel")
+          .eq("patient_id", patientId)
+          .maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
+          .eq("patient_id", patientId)
+          .order("created_at", { ascending: false })
+          .limit(10),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin
+          .from("reorders")
+          .select("id, reorder_number, product_code, status, created_at, approved_at")
+          .eq("patient_id", patientId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        tenantId
+      ),
+      // 次回予約（未診察）をreservationsから取得
+      withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("reserved_date, reserved_time, status")
+          .eq("patient_id", patientId)
+          .not("reserved_date", "is", null)
+          .not("reserved_time", "is", null)
+          .or("status.is.null,status.eq.")
+          .order("reserved_date", { ascending: true })
+          .order("reserved_time", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      ),
+      // 最新予約をreservationsから取得
+      withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("reserved_date, reserved_time, status")
+          .eq("patient_id", patientId)
+          .not("reserved_date", "is", null)
+          .not("reserved_time", "is", null)
+          .order("reserved_date", { ascending: false })
+          .order("reserved_time", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("id, product_code, created_at")
+          .eq("patient_id", patientId)
+          .eq("payment_method", "bank_transfer")
+          .eq("status", "pending_confirmation")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("answers, created_at")
+          .eq("patient_id", patientId)
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      ),
     ]);
 
     const answerer = answererRes.data;
@@ -240,6 +261,20 @@ export async function GET(req: NextRequest) {
     if ((!patientName || patientName === "-") && answerer?.name) {
       patientName = answerer.name;
     }
+
+    // prescription_menuを最新reservationから取得
+    const { data: latestResvForMenu } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("prescription_menu")
+        .eq("patient_id", patientId)
+        .not("prescription_menu", "is", null)
+        .order("reserved_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      tenantId
+    );
+    const latestPrescriptionMenu = latestResvForMenu?.prescription_menu || "";
 
     const latestOrder = allOrders?.[0] || null;
 
@@ -258,7 +293,7 @@ export async function GET(req: NextRequest) {
     } : null;
 
     const formattedReorders = (reorders || []).map(r => ({
-      id: r.gas_row_number,
+      id: r.reorder_number,
       date: formatDateJST(r.created_at),
       product: formatProductCode(r.product_code),
       status: formatStatus(r.status),
@@ -310,7 +345,7 @@ export async function GET(req: NextRequest) {
       glp1History: answers?.glp_history || "使用歴なし",
       medicationHistory: answers?.med_yesno === "yes" ? (answers?.med_detail || "") : "なし",
       allergies: answers?.allergy_yesno === "yes" ? (answers?.allergy_detail || "") : "アレルギーなし",
-      prescriptionMenu: intakeRecord?.prescription_menu || "",
+      prescriptionMenu: latestPrescriptionMenu,
     } : hasAnswererInfo ? {
       hasIntake: false,
       kana: answerer?.name_kana || "",
@@ -328,7 +363,7 @@ export async function GET(req: NextRequest) {
       patient: {
         id: patientId,
         name: patientName,
-        lstep_uid: intakeData?.answerer_id || "",
+        lstep_uid: intakeAnswererId || "",
       },
       latestOrder: formattedLatestOrder,
       orderHistory,

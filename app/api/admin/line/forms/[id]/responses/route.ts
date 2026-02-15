@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // 回答一覧取得
 export async function GET(
@@ -10,16 +11,19 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const format = searchParams.get("format"); // "csv" でCSV出力
 
   // フォーム情報
-  const { data: form } = await supabaseAdmin
-    .from("forms")
-    .select("id, name, fields")
-    .eq("id", parseInt(id))
-    .single();
+  const { data: form } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .select("id, name, fields")
+      .eq("id", parseInt(id)),
+    tenantId
+  ).single();
 
   if (!form) return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
 
@@ -28,12 +32,15 @@ export async function GET(
   let offset = 0;
   const pageSize = 5000;
   for (;;) {
-    const { data: page, error: pageError } = await supabaseAdmin
-      .from("form_responses")
-      .select("*")
-      .eq("form_id", parseInt(id))
-      .order("submitted_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+    const { data: page, error: pageError } = await withTenant(
+      supabaseAdmin
+        .from("form_responses")
+        .select("*")
+        .eq("form_id", parseInt(id))
+        .order("submitted_at", { ascending: false })
+        .range(offset, offset + pageSize - 1),
+      tenantId
+    );
     if (pageError) return NextResponse.json({ error: pageError.message }, { status: 500 });
     if (!page || page.length === 0) break;
     allResponses.push(...page);

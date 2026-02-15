@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,12 +16,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(request);
+
     // 銀行振込注文一覧を取得（ordersテーブルからpayment_method='bank_transfer'を抽出）
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("payment_method", "bank_transfer")
-      .order("created_at", { ascending: false });
+    const { data: orders, error } = await withTenant(
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("payment_method", "bank_transfer")
+        .order("created_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) {
       console.error("[bank-transfer-orders] Error:", error);

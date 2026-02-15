@@ -2,6 +2,7 @@
 // カルテは reorders テーブルの karte_note カラムに保存（intake テーブルは汚さない）
 import { supabaseAdmin } from "@/lib/supabase";
 import { formatProductCode } from "@/lib/patient-utils";
+import { withTenant } from "@/lib/tenant";
 
 /**
  * product_code から用量(mg)を抽出
@@ -42,31 +43,36 @@ export function buildKarteNote(
  * @param patientId    患者ID
  * @param productCode  今回の商品コード (例: "MJL_5mg_1m")
  * @param paidAt       決済日時 ISO文字列 (未使用だが互換性のため残す)
- * @param reorderGasRow 今回のreorderのgas_row_number (特定用、省略可)
+ * @param reorderNum 今回のreorderのreorder_number (特定用、省略可)
  */
 export async function createReorderPaymentKarte(
   patientId: string,
   productCode: string,
   paidAt: string,
-  reorderGasRow?: number,
+  reorderNum?: number,
+  tenantId?: string,
 ): Promise<void> {
   if (!patientId || !productCode) {
     console.log("[reorder-karte] skipped: missing patientId or productCode");
     return;
   }
 
-  // 前回の決済済みreorderを取得して用量を比較
+  // 前回の決済済みreorderを取得して用量を比較（テナントフィルター付き）
+  const tid = tenantId ?? null;
   const currentDose = extractDose(productCode);
   let prevDose: number | null = null;
 
   try {
-    const { data: prevReorders } = await supabaseAdmin
-      .from("reorders")
-      .select("product_code, paid_at")
-      .eq("patient_id", patientId)
-      .eq("status", "paid")
-      .order("paid_at", { ascending: false })
-      .limit(2);
+    const { data: prevReorders } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("product_code, paid_at")
+        .eq("patient_id", patientId)
+        .eq("status", "paid")
+        .order("paid_at", { ascending: false })
+        .limit(2),
+      tid,
+    );
 
     if (prevReorders && prevReorders.length > 0) {
       const prev = prevReorders.find(r => r.product_code !== productCode) || prevReorders[1];
@@ -81,15 +87,18 @@ export async function createReorderPaymentKarte(
   // カルテ本文を生成
   const note = buildKarteNote(productCode, prevDose, currentDose);
 
-  // reorders テーブルの karte_note を更新
+  // reorders テーブルの karte_note を更新（テナントフィルター付き）
   // 対象: 同じ patient_id + product_code で status=paid の最新レコード
-  let query = supabaseAdmin
-    .from("reorders")
-    .update({ karte_note: note })
-    .eq("patient_id", patientId)
-    .eq("product_code", productCode)
-    .eq("status", "paid")
-    .is("karte_note", null); // まだカルテ未作成のもののみ
+  let query = withTenant(
+    supabaseAdmin
+      .from("reorders")
+      .update({ karte_note: note })
+      .eq("patient_id", patientId)
+      .eq("product_code", productCode)
+      .eq("status", "paid")
+      .is("karte_note", null), // まだカルテ未作成のもののみ
+    tid,
+  );
 
   const { data: updated, error } = await query.select("id");
 

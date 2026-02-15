@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, setDefaultRichMenu } from "@/lib/line-richmenu";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // リッチメニュー一覧（各メニューの表示人数付き）
 export async function GET(req: NextRequest) {
@@ -10,28 +11,30 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data, error } = await supabaseAdmin
-      .from("rich_menus")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const tenantId = resolveTenantId(req);
+
+    const { data, error } = await withTenant(
+      supabaseAdmin.from("rich_menus").select("*").order("created_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // メニューごとの表示人数を計算
     // 1. LINE連携済み患者の総数
-    const { count: totalLine } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id", { count: "exact", head: true })
-      .not("line_id", "is", null);
+    const { count: totalLine } = await withTenant(
+      supabaseAdmin.from("intake").select("patient_id", { count: "exact", head: true }).not("line_id", "is", null),
+      tenantId
+    );
 
     // 2. 注文がある患者（処方後メニュー対象）のpatient_idを取得
     const orderPids = new Set<string>();
     let offset = 0;
     while (true) {
-      const { data: orders } = await supabaseAdmin
-        .from("orders")
-        .select("patient_id")
-        .range(offset, offset + 4999);
+      const { data: orders } = await withTenant(
+        supabaseAdmin.from("orders").select("patient_id").range(offset, offset + 4999),
+        tenantId
+      );
       if (!orders || orders.length === 0) break;
       for (const o of orders) orderPids.add(o.patient_id);
       if (orders.length < 5000) break;
@@ -43,11 +46,10 @@ export async function GET(req: NextRequest) {
     const pidArr = [...orderPids];
     for (let i = 0; i < pidArr.length; i += 100) {
       const chunk = pidArr.slice(i, i + 100);
-      const { count } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id", { count: "exact", head: true })
-        .in("patient_id", chunk)
-        .not("line_id", "is", null);
+      const { count } = await withTenant(
+        supabaseAdmin.from("intake").select("patient_id", { count: "exact", head: true }).in("patient_id", chunk).not("line_id", "is", null),
+        tenantId
+      );
       rxCount += count || 0;
     }
 
@@ -80,6 +82,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const tenantId = resolveTenantId(req);
     const { name, chat_bar_text, selected, size_type, areas, image_url } = await req.json();
     if (!name?.trim()) {
       return NextResponse.json({ error: "タイトルは必須です" }, { status: 400 });
@@ -89,6 +92,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from("rich_menus")
       .insert({
+        ...tenantPayload(tenantId),
         name: name.trim(),
         chat_bar_text: chat_bar_text || "メニュー",
         selected: selected ?? false,
@@ -106,25 +110,25 @@ export async function POST(req: NextRequest) {
       const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
       after(async () => {
         try {
-          const lineRichMenuId = await createLineRichMenu(data, origin);
+          const lineRichMenuId = await createLineRichMenu(data, origin, tenantId ?? undefined);
           if (!lineRichMenuId) {
             console.error("[Rich Menu POST after] LINE menu create failed");
             return;
           }
 
-          const imageOk = await uploadRichMenuImage(lineRichMenuId, image_url);
+          const imageOk = await uploadRichMenuImage(lineRichMenuId, image_url, 3, tenantId ?? undefined);
           if (!imageOk) {
             console.error("[Rich Menu POST after] Image upload failed");
             return;
           }
 
-          await supabaseAdmin
-            .from("rich_menus")
-            .update({ line_rich_menu_id: lineRichMenuId, is_active: true })
-            .eq("id", data.id);
+          await withTenant(
+            supabaseAdmin.from("rich_menus").update({ line_rich_menu_id: lineRichMenuId, is_active: true }).eq("id", data.id),
+            tenantId
+          );
 
           if (selected) {
-            await setDefaultRichMenu(lineRichMenuId);
+            await setDefaultRichMenu(lineRichMenuId, tenantId ?? undefined);
           }
 
           console.log("[Rich Menu POST after] LINE menu created:", lineRichMenuId);

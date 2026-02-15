@@ -3,17 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // 本日発送患者を取得（共通）
-async function getTodayShippedPatients() {
+async function getTodayShippedPatients(tenantId: string | null) {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const { data: orders, error } = await supabaseAdmin
-    .from("orders")
-    .select("patient_id, tracking_number, carrier")
-    .eq("shipping_date", today)
-    .not("tracking_number", "is", null);
+  const { data: orders, error } = await withTenant(
+    supabaseAdmin.from("orders").select("patient_id, tracking_number, carrier").eq("shipping_date", today).not("tracking_number", "is", null),
+    tenantId
+  );
 
   if (error) throw new Error(error.message);
   if (!orders || orders.length === 0) return [];
@@ -21,19 +21,19 @@ async function getTodayShippedPatients() {
   // patient_id単位でユニーク化
   const uniquePids = [...new Set(orders.map(o => o.patient_id))];
 
-  // intake から patient_name, line_id を取得
-  const { data: intakes } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id, patient_name, line_id")
-    .in("patient_id", uniquePids)
-    .not("patient_id", "is", null)
-    .order("id", { ascending: false });
+  // patients から patient_name, line_id を取得
+  const { data: pData } = await withTenant(
+    supabaseAdmin.from("patients").select("patient_id, name, line_id").in("patient_id", uniquePids),
+    tenantId
+  );
 
   const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
-  for (const row of intakes || []) {
-    if (!patientMap.has(row.patient_id)) {
-      patientMap.set(row.patient_id, row);
-    }
+  for (const row of pData || []) {
+    patientMap.set(row.patient_id, {
+      patient_id: row.patient_id,
+      patient_name: row.name || "",
+      line_id: row.line_id || null,
+    });
   }
 
   return uniquePids.map(pid => {
@@ -56,8 +56,10 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   try {
-    const patients = await getTodayShippedPatients();
+    const patients = await getTodayShippedPatients(tenantId);
     const sendable = patients.filter(p => p.line_id);
     const noUid = patients.filter(p => !p.line_id);
 
@@ -80,8 +82,10 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   try {
-    const patients = await getTodayShippedPatients();
+    const patients = await getTodayShippedPatients(tenantId);
     let sent = 0;
     let failed = 0;
     let noUid = 0;
@@ -89,20 +93,17 @@ export async function POST(req: NextRequest) {
     let menuSwitched = 0;
 
     // 「処方すみ」マーク定義を取得
-    const { data: markDef } = await supabaseAdmin
-      .from("mark_definitions")
-      .select("value")
-      .eq("label", "処方ずみ")
-      .maybeSingle();
+    const { data: markDef } = await withTenant(
+      supabaseAdmin.from("mark_definitions").select("value").eq("label", "処方ずみ"),
+      tenantId
+    ).maybeSingle();
     const rxMarkValue = markDef?.value || null;
 
     // 「処方後」リッチメニューを取得
-    const { data: rxMenu } = await supabaseAdmin
-      .from("rich_menus")
-      .select("line_rich_menu_id")
-      .eq("name", "処方後")
-      .not("line_rich_menu_id", "is", null)
-      .maybeSingle();
+    const { data: rxMenu } = await withTenant(
+      supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("name", "処方後").not("line_rich_menu_id", "is", null),
+      tenantId
+    ).maybeSingle();
     const rxMenuId = rxMenu?.line_rich_menu_id || null;
 
     const lineToken = process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
           patientId: p.patient_id,
           lineUid: p.line_id,
           flex,
+          tenantId: tenantId ?? undefined,
         });
         if (result.ok) sent++;
         else failed++;
@@ -130,11 +132,10 @@ export async function POST(req: NextRequest) {
       // 2) 対応マークを「処方すみ」に（未設定 or 別マークの場合のみ）
       if (rxMarkValue) {
         try {
-          const { data: current } = await supabaseAdmin
-            .from("patient_marks")
-            .select("mark")
-            .eq("patient_id", p.patient_id)
-            .maybeSingle();
+          const { data: current } = await withTenant(
+            supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", p.patient_id),
+            tenantId
+          ).maybeSingle();
 
           if (!current || current.mark !== rxMarkValue) {
             await supabaseAdmin

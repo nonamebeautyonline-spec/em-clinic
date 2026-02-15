@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
 import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { tenantPayload } from "@/lib/tenant";
 
 // デフォルト色（DB未設定時のフォールバック）
 const GRAY_LIGHT = "#999999"; // 取り消し線テキスト
@@ -215,14 +216,17 @@ export async function sendReservationNotification(params: {
   lineUid: string;
   flex: { type: "flex"; altText: string; contents: any };
   messageType: "reservation_created" | "reservation_changed" | "reservation_canceled";
+  tenantId?: string;
 }): Promise<void> {
-  const { patientId, lineUid, flex, messageType } = params;
+  const { patientId, lineUid, flex, messageType, tenantId } = params;
+  const tid = tenantId ?? null;
 
   try {
-    const res = await pushMessage(lineUid, [flex]);
+    const res = await pushMessage(lineUid, [flex], tenantId ?? undefined);
     const status = res?.ok ? "sent" : "failed";
 
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tid),
       patient_id: patientId,
       line_uid: lineUid,
       direction: "outgoing",
@@ -238,6 +242,7 @@ export async function sendReservationNotification(params: {
     console.error(`[reservation-flex] ${messageType} error:`, err);
     try {
       await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tid),
         patient_id: patientId,
         line_uid: lineUid,
         direction: "outgoing",

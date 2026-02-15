@@ -1,11 +1,14 @@
 // lib/line-richmenu.ts
 // LINE Rich Menu API ヘルパー
 
+import { getSettingOrEnv } from "@/lib/settings";
+
 const LINE_API = "https://api.line.me/v2/bot";
 const LINE_DATA_API = "https://api-data.line.me/v2/bot";
 
-function getToken() {
-  return process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
+// DB優先でトークンを取得（なければ環境変数にフォールバック）
+async function getToken(tenantId?: string) {
+  return (await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId)) || "";
 }
 
 interface RichMenuArea {
@@ -80,8 +83,8 @@ export async function createLineRichMenu(menu: {
   selected: boolean;
   size_type: string;
   areas: RichMenuArea[];
-}, origin: string): Promise<string | null> {
-  const token = getToken();
+}, origin: string, tenantId?: string): Promise<string | null> {
+  const token = await getToken(tenantId);
   if (!token) {
     console.error("[LINE Rich Menu] No access token configured");
     return null;
@@ -138,8 +141,8 @@ export async function createLineRichMenu(menu: {
 /**
  * リッチメニュー画像をLINEにアップロード（リトライ付き）
  */
-export async function uploadRichMenuImage(richMenuId: string, imageUrl: string, maxRetries = 3): Promise<boolean> {
-  const token = getToken();
+export async function uploadRichMenuImage(richMenuId: string, imageUrl: string, maxRetries = 3, tenantId?: string): Promise<boolean> {
+  const token = await getToken(tenantId);
   if (!token || !imageUrl) return false;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -189,8 +192,8 @@ function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 /**
  * LINE側のリッチメニューを削除
  */
-export async function deleteLineRichMenu(richMenuId: string): Promise<boolean> {
-  const token = getToken();
+export async function deleteLineRichMenu(richMenuId: string, tenantId?: string): Promise<boolean> {
+  const token = await getToken(tenantId);
   if (!token || !richMenuId) return false;
 
   const res = await fetch(`${LINE_API}/richmenu/${richMenuId}`, {
@@ -209,8 +212,8 @@ export async function deleteLineRichMenu(richMenuId: string): Promise<boolean> {
 /**
  * 特定ユーザーにリッチメニューを割り当て
  */
-export async function linkRichMenuToUser(lineUserId: string, richMenuId: string): Promise<boolean> {
-  const token = getToken();
+export async function linkRichMenuToUser(lineUserId: string, richMenuId: string, tenantId?: string): Promise<boolean> {
+  const token = await getToken(tenantId);
   if (!token || !lineUserId || !richMenuId) return false;
 
   const res = await fetch(`${LINE_API}/user/${lineUserId}/richmenu/${richMenuId}`, {
@@ -233,8 +236,8 @@ export async function linkRichMenuToUser(lineUserId: string, richMenuId: string)
  * 複数ユーザーにリッチメニューを一括割り当て（LINE Bulk Link API）
  * 500人ずつバッチ処理
  */
-export async function bulkLinkRichMenu(lineUserIds: string[], richMenuId: string): Promise<{ linked: number; failed: number }> {
-  const token = getToken();
+export async function bulkLinkRichMenu(lineUserIds: string[], richMenuId: string, tenantId?: string): Promise<{ linked: number; failed: number }> {
+  const token = await getToken(tenantId);
   if (!token || !richMenuId || lineUserIds.length === 0) return { linked: 0, failed: 0 };
 
   let linked = 0;
@@ -272,8 +275,8 @@ export async function bulkLinkRichMenu(lineUserIds: string[], richMenuId: string
 /**
  * 全ユーザーのデフォルトリッチメニューに設定
  */
-export async function setDefaultRichMenu(richMenuId: string): Promise<boolean> {
-  const token = getToken();
+export async function setDefaultRichMenu(richMenuId: string, tenantId?: string): Promise<boolean> {
+  const token = await getToken(tenantId);
   if (!token || !richMenuId) return false;
 
   const res = await fetch(`${LINE_API}/user/all/richmenu/${richMenuId}`, {

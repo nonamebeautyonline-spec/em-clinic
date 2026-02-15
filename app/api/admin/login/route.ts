@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     // ADMIN_TOKENチェック
     if (!ADMIN_TOKEN || token !== ADMIN_TOKEN) {
       return NextResponse.json(
@@ -36,12 +39,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ユーザー取得
-    const { data: user, error: userError } = await supabase
-      .from("admin_users")
-      .select("id, email, name, password_hash, is_active")
-      .eq("email", email)
-      .single();
+    // ユーザー取得（tenant_id も取得）
+    const { data: user, error: userError } = await withTenant(
+      supabase
+        .from("admin_users")
+        .select("id, email, name, password_hash, is_active, tenant_id")
+        .eq("email", email),
+      tenantId
+    ).single();
 
     if (userError || !user) {
       return NextResponse.json(
@@ -76,6 +81,7 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       email: user.email,
       name: user.name,
+      tenantId: user.tenant_id || null,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()

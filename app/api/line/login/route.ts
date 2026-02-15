@@ -1,16 +1,24 @@
 // app/api/line/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { resolveTenantId } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 const LINE_AUTH_URL = "https://access.line.me/oauth2/v2.1/authorize";
 
 export async function GET(req: NextRequest) {
-  if (!process.env.LINE_CHANNEL_ID || !process.env.LINE_REDIRECT_URI) {
+  const tenantId = resolveTenantId(req);
+  const tid = tenantId ?? undefined;
+
+  const channelId = (await getSettingOrEnv("line", "channel_id", "LINE_CHANNEL_ID", tid)) || "";
+  const redirectUri = (await getSettingOrEnv("line", "redirect_uri", "LINE_REDIRECT_URI", tid)) || "";
+
+  if (!channelId || !redirectUri) {
     return NextResponse.json(
       {
         ok: false,
         error: "LINE env missing",
-        id: process.env.LINE_CHANNEL_ID,
-        redirect: process.env.LINE_REDIRECT_URI,
+        id: channelId || undefined,
+        redirect: redirectUri || undefined,
       },
       { status: 500 }
     );
@@ -24,8 +32,8 @@ export async function GET(req: NextRequest) {
 
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: process.env.LINE_CHANNEL_ID!,
-    redirect_uri: process.env.LINE_REDIRECT_URI!,
+    client_id: channelId,
+    redirect_uri: redirectUri,
     state,
     scope: "openid profile",
     nonce,

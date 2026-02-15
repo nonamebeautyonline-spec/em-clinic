@@ -2,12 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import { redis } from "@/lib/redis";
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const verifySid = process.env.TWILIO_VERIFY_SID!;
-
-const client = twilio(accountSid, authToken);
+import { getSettingOrEnv } from "@/lib/settings";
+import { resolveTenantId } from "@/lib/tenant";
 
 // レート制限: 同一電話番号は60秒に1回、同一IPは10分に5回
 async function checkRateLimit(phone: string, ip: string): Promise<string | null> {
@@ -60,6 +56,22 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
+
+    // テナント解決 → DB優先で Twilio クレデンシャル取得
+    const tenantId = resolveTenantId(req);
+    const accountSid = await getSettingOrEnv("sms", "account_sid", "TWILIO_ACCOUNT_SID", tenantId ?? undefined);
+    const authToken = await getSettingOrEnv("sms", "auth_token", "TWILIO_AUTH_TOKEN", tenantId ?? undefined);
+    const verifySid = await getSettingOrEnv("sms", "verify_sid", "TWILIO_VERIFY_SID", tenantId ?? undefined);
+
+    if (!accountSid || !authToken || !verifySid) {
+      console.error("[verify/send] Twilio credentials not configured");
+      return NextResponse.json(
+        { error: "SMS設定が見つかりません。管理者にお問い合わせください。" },
+        { status: 500 }
+      );
+    }
+
+    const client = twilio(accountSid, authToken);
 
     const verification = await client.verify.v2
       .services(verifySid)

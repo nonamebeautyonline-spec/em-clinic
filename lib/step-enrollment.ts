@@ -1,30 +1,39 @@
 // lib/step-enrollment.ts — ステップ配信のトリガー・エンロール・離脱共通関数
 import { supabaseAdmin } from "@/lib/supabase";
+import { withTenant, tenantPayload } from "@/lib/tenant";
 
 /**
  * follow トリガーのシナリオを検索してエンロール
  */
-export async function checkFollowTriggerScenarios(patientId: string, lineUid: string) {
-  const { data: scenarios } = await supabaseAdmin
-    .from("step_scenarios")
-    .select("id")
-    .eq("trigger_type", "follow")
-    .eq("is_enabled", true);
+export async function checkFollowTriggerScenarios(patientId: string, lineUid: string, tenantId?: string) {
+  const tid = tenantId ?? null;
+  const { data: scenarios } = await withTenant(
+    supabaseAdmin
+      .from("step_scenarios")
+      .select("id")
+      .eq("trigger_type", "follow")
+      .eq("is_enabled", true),
+    tid,
+  );
 
   for (const s of scenarios || []) {
-    await enrollPatient(s.id, patientId, lineUid);
+    await enrollPatient(s.id, patientId, lineUid, tenantId);
   }
 }
 
 /**
  * keyword トリガーのシナリオを検索してエンロール
  */
-export async function checkKeywordTriggerScenarios(keyword: string, patientId: string, lineUid?: string) {
-  const { data: scenarios } = await supabaseAdmin
-    .from("step_scenarios")
-    .select("id, trigger_keyword, trigger_keyword_match")
-    .eq("trigger_type", "keyword")
-    .eq("is_enabled", true);
+export async function checkKeywordTriggerScenarios(keyword: string, patientId: string, lineUid?: string, tenantId?: string) {
+  const tid = tenantId ?? null;
+  const { data: scenarios } = await withTenant(
+    supabaseAdmin
+      .from("step_scenarios")
+      .select("id, trigger_keyword, trigger_keyword_match")
+      .eq("trigger_type", "keyword")
+      .eq("is_enabled", true),
+    tid,
+  );
 
   for (const s of scenarios || []) {
     if (!s.trigger_keyword) continue;
@@ -41,7 +50,7 @@ export async function checkKeywordTriggerScenarios(keyword: string, patientId: s
         break;
     }
     if (matched) {
-      await enrollPatient(s.id, patientId, lineUid);
+      await enrollPatient(s.id, patientId, lineUid, tenantId);
     }
   }
 }
@@ -49,31 +58,39 @@ export async function checkKeywordTriggerScenarios(keyword: string, patientId: s
 /**
  * tag_add トリガーのシナリオを検索してエンロール
  */
-export async function checkTagTriggerScenarios(patientId: string, tagId: number, lineUid?: string) {
-  const { data: scenarios } = await supabaseAdmin
-    .from("step_scenarios")
-    .select("id")
-    .eq("trigger_type", "tag_add")
-    .eq("trigger_tag_id", tagId)
-    .eq("is_enabled", true);
+export async function checkTagTriggerScenarios(patientId: string, tagId: number, lineUid?: string, tenantId?: string) {
+  const tid = tenantId ?? null;
+  const { data: scenarios } = await withTenant(
+    supabaseAdmin
+      .from("step_scenarios")
+      .select("id")
+      .eq("trigger_type", "tag_add")
+      .eq("trigger_tag_id", tagId)
+      .eq("is_enabled", true),
+    tid,
+  );
 
   for (const s of scenarios || []) {
-    await enrollPatient(s.id, patientId, lineUid);
+    await enrollPatient(s.id, patientId, lineUid, tenantId);
   }
 }
 
 /**
  * 患者をシナリオにエンロール
  */
-export async function enrollPatient(scenarioId: number, patientId: string, lineUid?: string) {
-  // 最初のステップの遅延を計算
-  const { data: firstStep } = await supabaseAdmin
-    .from("step_items")
-    .select("sort_order, delay_type, delay_value, send_time")
-    .eq("scenario_id", scenarioId)
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+export async function enrollPatient(scenarioId: number, patientId: string, lineUid?: string, tenantId?: string) {
+  const tid = tenantId ?? null;
+
+  // 最初のステップの遅延を計算（テナントフィルター付き）
+  const { data: firstStep } = await withTenant(
+    supabaseAdmin
+      .from("step_items")
+      .select("sort_order, delay_type, delay_value, send_time")
+      .eq("scenario_id", scenarioId)
+      .order("sort_order", { ascending: true })
+      .limit(1),
+    tid,
+  ).maybeSingle();
 
   if (!firstStep) return; // ステップなしシナリオはスキップ
 
@@ -83,6 +100,7 @@ export async function enrollPatient(scenarioId: number, patientId: string, lineU
   const { error } = await supabaseAdmin
     .from("step_enrollments")
     .insert({
+      ...tenantPayload(tid),
       scenario_id: scenarioId,
       patient_id: patientId,
       line_uid: lineUid || null,
@@ -100,18 +118,23 @@ export async function enrollPatient(scenarioId: number, patientId: string, lineU
     return;
   }
 
-  // 統計更新（直接インクリメント）
+  // 統計更新（直接インクリメント、テナントフィルター付き）
   try {
-    const { data: current } = await supabaseAdmin
-      .from("step_scenarios")
-      .select("total_enrolled")
-      .eq("id", scenarioId)
-      .single();
-    if (current) {
-      await supabaseAdmin
+    const { data: current } = await withTenant(
+      supabaseAdmin
         .from("step_scenarios")
-        .update({ total_enrolled: (current.total_enrolled || 0) + 1 })
-        .eq("id", scenarioId);
+        .select("total_enrolled")
+        .eq("id", scenarioId),
+      tid,
+    ).single();
+    if (current) {
+      await withTenant(
+        supabaseAdmin
+          .from("step_scenarios")
+          .update({ total_enrolled: (current.total_enrolled || 0) + 1 })
+          .eq("id", scenarioId),
+        tid,
+      );
     }
   } catch {
     // 統計更新失敗は無視
@@ -123,16 +146,19 @@ export async function enrollPatient(scenarioId: number, patientId: string, lineU
 /**
  * 全アクティブなenrollmentを離脱させる
  */
-export async function exitAllStepEnrollments(patientId: string, reason: string) {
-  const { error } = await supabaseAdmin
-    .from("step_enrollments")
-    .update({
-      status: "exited",
-      exited_at: new Date().toISOString(),
-      exit_reason: reason,
-    })
-    .eq("patient_id", patientId)
-    .eq("status", "active");
+export async function exitAllStepEnrollments(patientId: string, reason: string, tenantId?: string) {
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("step_enrollments")
+      .update({
+        status: "exited",
+        exited_at: new Date().toISOString(),
+        exit_reason: reason,
+      })
+      .eq("patient_id", patientId)
+      .eq("status", "active"),
+    tenantId ?? null,
+  );
 
   if (error) {
     console.error("[step-enrollment] exit error:", error.message);

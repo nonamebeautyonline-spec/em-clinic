@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -35,19 +36,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
-    const { id } = body; // id = gas_row_number
+    const { id } = body; // id = reorder_number
 
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
     // まずpatient_idとstatusを取得
-    const { data: reorderData, error: fetchError } = await supabaseAdmin
-      .from("reorders")
-      .select("id, patient_id, status")
-      .eq("gas_row_number", Number(id))
-      .single();
+    const { data: reorderData, error: fetchError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("id, patient_id, status")
+        .eq("reorder_number", Number(id)),
+      tenantId
+    ).single();
 
     if (fetchError || !reorderData) {
       console.error("[admin/reorders/reject] Reorder not found:", id);
@@ -64,20 +69,23 @@ export async function POST(req: NextRequest) {
     }
 
     // ステータス更新
-    const { error: dbError } = await supabaseAdmin
-      .from("reorders")
-      .update({
-        status: "rejected",
-        rejected_at: new Date().toISOString(),
-      })
-      .eq("gas_row_number", Number(id));
+    const { error: dbError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update({
+          status: "rejected",
+          rejected_at: new Date().toISOString(),
+        })
+        .eq("reorder_number", Number(id)),
+      tenantId
+    );
 
     if (dbError) {
       console.error("[admin/reorders/reject] DB update error:", dbError);
       return NextResponse.json({ error: "DB error" }, { status: 500 });
     }
 
-    console.log(`[admin/reorders/reject] Rejected: gas_row=${id}, patient=${reorderData.patient_id}`);
+    console.log(`[admin/reorders/reject] Rejected: reorder_num=${id}, patient=${reorderData.patient_id}`);
 
     // キャッシュ削除
     if (reorderData.patient_id) {

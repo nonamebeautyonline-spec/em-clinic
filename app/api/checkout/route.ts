@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getProductByCode } from "@/lib/products";
 import { getPaymentProvider } from "@/lib/payment";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 type Mode = "current" | "first" | "reorder";
 
@@ -12,6 +13,7 @@ const APP_BASE_URL = process.env.APP_BASE_URL;
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
     if (!APP_BASE_URL) {
       return NextResponse.json(
         { error: "Server configuration error. Missing APP_BASE_URL." },
@@ -37,14 +39,17 @@ export async function POST(req: NextRequest) {
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     if (patientId) {
-      const { data: intakeRow } = await supabaseAdmin
-        .from("intake")
-        .select("status")
-        .eq("patient_id", patientId)
-        .not("status", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: intakeRow } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("status")
+          .eq("patient_id", patientId)
+          .not("status", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (intakeRow?.status === "NG") {
         console.log(`[checkout] NG患者の決済をブロック: patient_id=${patientId}`);

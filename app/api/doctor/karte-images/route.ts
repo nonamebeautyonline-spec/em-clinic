@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const BUCKET = "karte-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get("patient_id");
   const reserveId = searchParams.get("reserve_id");
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
   if (patientId) query = query.eq("patient_id", patientId);
   if (reserveId) query = query.eq("reserve_id", reserveId);
 
-  const { data, error } = await query;
+  const { data, error } = await withTenant(query, tenantId);
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -51,6 +53,8 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -113,6 +117,7 @@ export async function POST(req: NextRequest) {
   const { data: inserted, error: dbError } = await supabaseAdmin
     .from("karte_images")
     .insert({
+      ...tenantPayload(tenantId),
       patient_id: patientId,
       intake_id: intakeId ? parseInt(intakeId) : null,
       reserve_id: reserveId || null,
@@ -141,6 +146,7 @@ export async function DELETE(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {
@@ -148,11 +154,14 @@ export async function DELETE(req: NextRequest) {
   }
 
   // ストレージのファイルも削除
-  const { data: image } = await supabaseAdmin
-    .from("karte_images")
-    .select("image_url")
-    .eq("id", parseInt(id))
-    .single();
+  const { data: image } = await withTenant(
+    supabaseAdmin
+      .from("karte_images")
+      .select("image_url")
+      .eq("id", parseInt(id))
+      .single(),
+    tenantId
+  );
 
   if (image?.image_url) {
     const url = new URL(image.image_url);
@@ -164,10 +173,13 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  const { error } = await supabaseAdmin
-    .from("karte_images")
-    .delete()
-    .eq("id", parseInt(id));
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("karte_images")
+      .delete()
+      .eq("id", parseInt(id)),
+    tenantId
+  );
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

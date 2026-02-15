@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const tenantId = resolveTenantId(req);
 
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
     const searchType = req.nextUrl.searchParams.get("type") || "name";
@@ -18,13 +21,16 @@ export async function GET(req: NextRequest) {
     let patientIds: string[] = [];
 
     if (searchType === "pid") {
-      const { data } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id")
-        .not("patient_id", "is", null)
-        .ilike("patient_id", `%${q}%`)
-        .order("id", { ascending: false })
-        .limit(50);
+      const { data } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("patient_id")
+          .not("patient_id", "is", null)
+          .ilike("patient_id", `%${q}%`)
+          .order("id", { ascending: false })
+          .limit(50),
+        tenantId
+      );
       patientIds = [...new Set((data || []).map(r => r.patient_id).filter(Boolean))].slice(0, 20);
 
     } else {
@@ -32,31 +38,21 @@ export async function GET(req: NextRequest) {
       const normalizedQuery = q.replace(/[\s　]/g, "").toLowerCase();
       const searchPattern = `%${q.replace(/[\s　]/g, "%")}%`;
 
-      const { data: answererHits } = await supabaseAdmin
-        .from("answerers")
-        .select("patient_id, name")
-        .ilike("name", searchPattern)
-        .limit(50);
+      const { data: answererHits } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .ilike("name", searchPattern)
+          .limit(50),
+        tenantId
+      );
 
       const fromAnswerers = (answererHits || [])
         .filter(a => a.name && a.name.replace(/[\s　]/g, "").toLowerCase().includes(normalizedQuery))
         .map(a => a.patient_id)
         .filter(Boolean);
 
-      const { data: intakeHits } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name")
-        .not("patient_id", "is", null)
-        .ilike("patient_name", searchPattern)
-        .order("id", { ascending: false })
-        .limit(50);
-
-      const fromIntake = (intakeHits || [])
-        .filter(i => i.patient_name && i.patient_name.replace(/[\s　]/g, "").toLowerCase().includes(normalizedQuery))
-        .map(i => i.patient_id)
-        .filter(Boolean);
-
-      patientIds = [...new Set([...fromAnswerers, ...fromIntake])].slice(0, 20);
+      patientIds = [...new Set([...fromAnswerers])].slice(0, 20);
     }
 
     if (patientIds.length === 0) {
@@ -64,10 +60,13 @@ export async function GET(req: NextRequest) {
     }
 
     // answerers から基本情報
-    const { data: answererData } = await supabaseAdmin
-      .from("answerers")
-      .select("patient_id, name, tel, sex, birthday")
-      .in("patient_id", patientIds);
+    const { data: answererData } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("patient_id, name, tel, sex, birthday")
+        .in("patient_id", patientIds),
+      tenantId
+    );
 
     const answererMap = new Map<string, { name: string; tel: string; sex: string; birthday: string }>();
     for (const a of answererData || []) {
@@ -75,20 +74,23 @@ export async function GET(req: NextRequest) {
     }
 
     // intake から最終問診日と件数
-    const { data: intakeData } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name, created_at")
-      .in("patient_id", patientIds)
-      .order("id", { ascending: false });
+    const { data: intakeData } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id, created_at")
+        .in("patient_id", patientIds)
+        .order("id", { ascending: false }),
+      tenantId
+    );
 
-    const intakeMap = new Map<string, { name: string; lastAt: string; count: number }>();
+    const intakeMap = new Map<string, { lastAt: string; count: number }>();
     for (const row of intakeData || []) {
       if (!row.patient_id) continue;
       const existing = intakeMap.get(row.patient_id);
       if (existing) {
         existing.count++;
       } else {
-        intakeMap.set(row.patient_id, { name: row.patient_name || "", lastAt: row.created_at || "", count: 1 });
+        intakeMap.set(row.patient_id, { lastAt: row.created_at || "", count: 1 });
       }
     }
 
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
       const i = intakeMap.get(pid);
       return {
         patientId: pid,
-        name: a?.name || i?.name || "",
+        name: a?.name || "",
         phone: a?.tel || "",
         sex: a?.sex || "",
         birth: a?.birthday || "",

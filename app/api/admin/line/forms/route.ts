@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { nanoid } from "nanoid";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // フォーム一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folder_id");
 
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   if (folderId) query = query.eq("folder_id", parseInt(folderId));
 
-  const { data, error } = await query;
+  const { data, error } = await withTenant(query, tenantId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ forms: data || [] });
 }
@@ -28,6 +30,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { name, folder_id } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "フォーム名は必須です" }, { status: 400 });
 
@@ -36,6 +39,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("forms")
     .insert({
+      ...tenantPayload(tenantId),
       name: name.trim(),
       title: name.trim(),
       folder_id: folder_id || null,

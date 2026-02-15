@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   const searchParams = req.nextUrl.searchParams;
   const month = searchParams.get("month"); // YYYY-MM
 
@@ -22,11 +25,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from("booking_open_settings")
-      .select("*")
-      .eq("target_month", month)
-      .single();
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("booking_open_settings")
+        .select("*")
+        .eq("target_month", month),
+      tenantId
+    ).single();
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 = no rows returned (not an error)
@@ -53,6 +58,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   try {
     const body = await req.json();
     const { month, memo } = body;
@@ -66,6 +73,7 @@ export async function POST(req: NextRequest) {
       .from("booking_open_settings")
       .upsert(
         {
+          ...tenantPayload(tenantId),
           target_month: month,
           is_open: true,
           opened_at: new Date().toISOString(),
@@ -101,6 +109,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   const searchParams = req.nextUrl.searchParams;
   const month = searchParams.get("month");
 
@@ -109,10 +119,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const { error } = await supabaseAdmin
-      .from("booking_open_settings")
-      .delete()
-      .eq("target_month", month);
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("booking_open_settings")
+        .delete()
+        .eq("target_month", month),
+      tenantId
+    );
 
     if (error) {
       console.error("DB error:", error);

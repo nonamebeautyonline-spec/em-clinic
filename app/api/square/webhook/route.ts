@@ -4,27 +4,32 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
 
-async function markReorderPaid(reorderId: string, patientId?: string) {
+async function markReorderPaid(reorderId: string, patientId?: string, tenantId: string | null = null) {
 const idNum = Number(String(reorderId).trim());
 if (!Number.isFinite(idNum) || idNum < 2) {
   console.error("invalid reorderId for paid:", reorderId);
   return;
 }
 
-  // ★ Supabase更新（gas_row_numberでマッチング → ダメなら id でフォールバック）
+  // ★ Supabase更新（reorder_numberでマッチング → ダメなら id でフォールバック）
   try {
     const paidPayload = { status: "paid" as const, paid_at: new Date().toISOString() };
 
-    // 1) gas_row_number で更新を試みる
-    let query = supabaseAdmin
-      .from("reorders")
-      .update(paidPayload)
-      .eq("gas_row_number", idNum)
-      .eq("status", "confirmed");
+    // 1) reorder_number で更新を試みる
+    let query = withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update(paidPayload)
+        .eq("reorder_number", idNum)
+        .eq("status", "confirmed"),
+      tenantId
+    );
     if (patientId) query = query.eq("patient_id", patientId);
 
     const { data: updated, error: dbError } = await query.select("id");
@@ -32,16 +37,19 @@ if (!Number.isFinite(idNum) || idNum < 2) {
     if (dbError) {
       console.error("[square/webhook] Supabase reorder paid error:", dbError);
     } else if (updated && updated.length > 0) {
-      console.log(`[square/webhook] Supabase reorder paid success (gas_row), row=${idNum}`);
+      console.log(`[square/webhook] Supabase reorder paid success (reorder_number), row=${idNum}`);
     } else {
-      // 2) gas_row_number でヒットしなかった場合、id（SERIAL PK）でフォールバック
-      //    フロント側で gas_row_number が欠落して id が渡されたケースを救済
-      console.warn(`[square/webhook] gas_row_number=${idNum} matched 0 rows, trying id fallback`);
-      let fallback = supabaseAdmin
-        .from("reorders")
-        .update(paidPayload)
-        .eq("id", idNum)
-        .eq("status", "confirmed");
+      // 2) reorder_number でヒットしなかった場合、id（SERIAL PK）でフォールバック
+      //    フロント側で reorder_number が欠落して id が渡されたケースを救済
+      console.warn(`[square/webhook] reorder_number=${idNum} matched 0 rows, trying id fallback`);
+      let fallback = withTenant(
+        supabaseAdmin
+          .from("reorders")
+          .update(paidPayload)
+          .eq("id", idNum)
+          .eq("status", "confirmed"),
+        tenantId
+      );
       if (patientId) fallback = fallback.eq("patient_id", patientId);
 
       const { data: fb, error: fbErr } = await fallback.select("id");
@@ -50,7 +58,7 @@ if (!Number.isFinite(idNum) || idNum < 2) {
       } else if (fb && fb.length > 0) {
         console.log(`[square/webhook] Supabase reorder paid success (id fallback), id=${idNum}`);
       } else {
-        console.warn(`[square/webhook] Supabase reorder paid: no rows matched (gas_row=${idNum}, id=${idNum})`);
+        console.warn(`[square/webhook] Supabase reorder paid: no rows matched (reorder_num=${idNum}, id=${idNum})`);
       }
     }
   } catch (dbErr) {
@@ -86,10 +94,8 @@ function verifySquareSignature(params: {
   return timingSafeEqual(digest, signatureHeader);
 }
 
-async function squareGet(path: string) {
-  const token = process.env.SQUARE_ACCESS_TOKEN!;
-  const env = process.env.SQUARE_ENV || "production";
-  const baseUrl = env === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
+async function squareGet(path: string, token: string, squareEnv: string) {
+  const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
 
   const res = await fetch(baseUrl + path, {
     method: "GET",
@@ -108,10 +114,8 @@ async function squareGet(path: string) {
   return { ok: res.ok, status: res.status, json, text };
 }
 
-async function squarePost(path: string, body: any) {
-  const token = process.env.SQUARE_ACCESS_TOKEN!;
-  const env = process.env.SQUARE_ENV || "production";
-  const baseUrl = env === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
+async function squarePost(path: string, body: any, token: string, squareEnv: string) {
+  const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
 
   const res = await fetch(baseUrl + path, {
     method: "POST",
@@ -155,39 +159,44 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const bodyText = await req.text();
+  const tenantId = resolveTenantId(req);
+  const tid = tenantId ?? undefined;
 
-// 署名検証（暫定：ヘッダ無しは通す）
-const signatureKey = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
-const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
+  // Square設定を動的取得
+  const signatureKey = (await getSettingOrEnv("square", "webhook_signature_key", "SQUARE_WEBHOOK_SIGNATURE_KEY", tid)) || "";
+  const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
+  const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
 
-const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
-const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
+  // 署名検証（暫定：ヘッダ無しは通す）
+  const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
 
-// ---- Signature check (temporary allow when header missing) ----
-if (signatureKey && !signatureHeader) {
-  console.error("Square signature header missing; accepting temporarily", {
-    verifyUrl,
-    bodyLen: bodyText.length,
-    keyLen: signatureKey.length,
-  });
-  // skip
-} else if (signatureKey) {
-  const payload = verifyUrl + bodyText;
-  const expected = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
-  const ok = timingSafeEqual(expected, signatureHeader || "");
-  if (!ok) {
-    console.error("Square signature mismatch", {
-      expected,
-      got: signatureHeader,
+  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
+  const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
+
+  // ---- Signature check (temporary allow when header missing) ----
+  if (signatureKey && !signatureHeader) {
+    console.error("Square signature header missing; accepting temporarily", {
       verifyUrl,
       bodyLen: bodyText.length,
       keyLen: signatureKey.length,
     });
-    return new NextResponse("unauthorized", { status: 401 });
+    // skip
+  } else if (signatureKey) {
+    const payload = verifyUrl + bodyText;
+    const expected = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
+    const ok = timingSafeEqual(expected, signatureHeader || "");
+    if (!ok) {
+      console.error("Square signature mismatch", {
+        expected,
+        got: signatureHeader,
+        verifyUrl,
+        bodyLen: bodyText.length,
+        keyLen: signatureKey.length,
+      });
+      return new NextResponse("unauthorized", { status: 401 });
+    }
   }
-}
-// --------------------------------------------------------------
-
+  // --------------------------------------------------------------
 
   // Squareへのレスポンスは最終的に200固定で返す（Square停止回避）
   let event: any = null;
@@ -210,15 +219,18 @@ if (signatureKey && !signatureHeader) {
 
       // ★ Supabase ordersテーブルに返金情報を反映
       try {
-        const { error: updateErr } = await supabaseAdmin
-          .from("orders")
-          .update({
-            refund_status: refundStatus || "COMPLETED",
-            refunded_amount: refundedAmount ? parseFloat(refundedAmount) : null,
-            refunded_at: refundedAtIso || new Date().toISOString(),
-            ...(refundStatus === "COMPLETED" ? { status: "refunded" } : {}),
-          })
-          .eq("id", paymentId);
+        const { error: updateErr } = await withTenant(
+          supabaseAdmin
+            .from("orders")
+            .update({
+              refund_status: refundStatus || "COMPLETED",
+              refunded_amount: refundedAmount ? parseFloat(refundedAmount) : null,
+              refunded_at: refundedAtIso || new Date().toISOString(),
+              ...(refundStatus === "COMPLETED" ? { status: "refunded" } : {}),
+            })
+            .eq("id", paymentId),
+          tenantId
+        );
         if (updateErr) {
           console.error("[square/webhook] refund update failed:", updateErr);
         } else {
@@ -230,7 +242,7 @@ if (signatureKey && !signatureHeader) {
 
       // ★ キャッシュ削除（返金時：paymentからpatientIdを取得）
       try {
-        const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`);
+        const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`, squareToken, squareEnv);
         if (pRes.ok) {
           const P = pRes.json?.payment || {};
           const note = String(P?.note || P?.payment_note || "");
@@ -259,7 +271,7 @@ if (signatureKey && !signatureHeader) {
       }
 
       // COMPLETED のときだけ Square API で詳細を作る
-      const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`);
+      const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`, squareToken, squareEnv);
       if (!pRes.ok) {
         console.error("[square/webhook] Failed to get payment details:", paymentId);
         return new NextResponse("ok", { status: 200 });
@@ -270,12 +282,12 @@ if (signatureKey && !signatureHeader) {
       const { patientId, productCode, reorderId } = extractFromNote(note);
 
 if (reorderId) {
-  await markReorderPaid(reorderId, patientId);
+  await markReorderPaid(reorderId, patientId, tenantId);
 
   // ★ 決済時カルテ自動作成（用量比較付き）
   if (patientId && productCode) {
     try {
-      await createReorderPaymentKarte(patientId, productCode, new Date().toISOString());
+      await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tenantId ?? undefined);
     } catch (karteErr) {
       console.error("[square/webhook] reorder payment karte error:", karteErr);
     }
@@ -310,7 +322,7 @@ if (reorderId) {
       let itemsText = "";
 
       if (orderId) {
-        const oRes = await squarePost(`/v2/orders/batch-retrieve`, { order_ids: [orderId] });
+        const oRes = await squarePost(`/v2/orders/batch-retrieve`, { order_ids: [orderId] }, squareToken, squareEnv);
         const order = oRes.ok ? (oRes.json?.orders?.[0] || null) : null;
 
         if (order) {
@@ -347,7 +359,7 @@ if (reorderId) {
 
       // customer は “email/phone不足時のみ” 補完
       if (customerId && (!email || (!shipPhone && !phone))) {
-        const cRes = await squareGet(`/v2/customers/${encodeURIComponent(customerId)}`);
+        const cRes = await squareGet(`/v2/customers/${encodeURIComponent(customerId)}`, squareToken, squareEnv);
         const C = cRes.ok ? (cRes.json?.customer || {}) : {};
         if (!email && C?.email_address) email = String(C.email_address).trim();
         if (!shipPhone && C?.phone_number) phone = String(C.phone_number).trim();
@@ -361,34 +373,39 @@ if (reorderId) {
       if (patientId) {
         try {
           // 既存の注文を確認
-          const { data: existingOrder } = await supabaseAdmin
-            .from("orders")
-            .select("id, tracking_number, shipping_date, shipping_status")
-            .eq("id", paymentId)
-            .maybeSingle();
+          const { data: existingOrder } = await withTenant(
+            supabaseAdmin
+              .from("orders")
+              .select("id, tracking_number, shipping_date, shipping_status")
+              .eq("id", paymentId),
+            tenantId
+          ).maybeSingle();
 
           if (existingOrder) {
             // 既存の注文がある場合は、shipping情報を保持してその他の情報のみ更新
-            const { error } = await supabaseAdmin
-              .from("orders")
-              .update({
-                patient_id: patientId,
-                product_code: productCode || null,
-                product_name: itemsText || null,
-                amount: amountText ? parseFloat(amountText) : 0,
-                paid_at: createdAtIso || new Date().toISOString(),
-                payment_status: "COMPLETED",
-                payment_method: "credit_card",
-                status: "confirmed",
-                // shipping_status, tracking_number, shipping_date は保持（上書きしない）
-                // 住所情報は既存のtracking_numberがなければ更新
-                ...(!existingOrder.tracking_number && shipName ? { shipping_name: shipName } : {}),
-                ...(!existingOrder.tracking_number && postal ? { postal_code: postal } : {}),
-                ...(!existingOrder.tracking_number && address ? { address: address } : {}),
-                ...(!existingOrder.tracking_number && finalPhone ? { phone: finalPhone } : {}),
-                ...(!existingOrder.tracking_number && finalEmail ? { email: finalEmail } : {}),
-              })
-              .eq("id", paymentId);
+            const { error } = await withTenant(
+              supabaseAdmin
+                .from("orders")
+                .update({
+                  patient_id: patientId,
+                  product_code: productCode || null,
+                  product_name: itemsText || null,
+                  amount: amountText ? parseFloat(amountText) : 0,
+                  paid_at: createdAtIso || new Date().toISOString(),
+                  payment_status: "COMPLETED",
+                  payment_method: "credit_card",
+                  status: "confirmed",
+                  // shipping_status, tracking_number, shipping_date は保持（上書きしない）
+                  // 住所情報は既存のtracking_numberがなければ更新
+                  ...(!existingOrder.tracking_number && shipName ? { shipping_name: shipName } : {}),
+                  ...(!existingOrder.tracking_number && postal ? { postal_code: postal } : {}),
+                  ...(!existingOrder.tracking_number && address ? { address: address } : {}),
+                  ...(!existingOrder.tracking_number && finalPhone ? { phone: finalPhone } : {}),
+                  ...(!existingOrder.tracking_number && finalEmail ? { email: finalEmail } : {}),
+                })
+                .eq("id", paymentId),
+              tenantId
+            );
 
             if (error) {
               console.error("[square/webhook] Supabase update failed:", error);
@@ -413,6 +430,7 @@ if (reorderId) {
               address: address || null,
               phone: finalPhone || null,
               email: finalEmail || null,
+              ...tenantPayload(tenantId),
             });
 
             if (error) {

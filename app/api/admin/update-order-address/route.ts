@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
     if (!(await verifyAdmin(req))) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json().catch(() => ({} as any));
     const orderId = (body.orderId ?? "").trim();
@@ -51,11 +54,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 注文の存在確認
-    const { data: order, error: fetchError } = await supabaseAdmin
-      .from("orders")
-      .select("id, patient_id")
-      .eq("id", orderId)
-      .maybeSingle();
+    const { data: order, error: fetchError } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("id, patient_id")
+        .eq("id", orderId),
+      tenantId
+    ).maybeSingle();
 
     if (fetchError || !order) {
       return NextResponse.json({ ok: false, error: "注文が見つかりません" }, { status: 404 });
@@ -71,10 +76,13 @@ export async function POST(req: NextRequest) {
       updateData.shipping_name = shippingName;
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("orders")
-      .update(updateData)
-      .eq("id", orderId);
+    const { error: updateError } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .update(updateData)
+        .eq("id", orderId),
+      tenantId
+    );
 
     if (updateError) {
       console.error("[admin/update-order-address] DB update error:", updateError);

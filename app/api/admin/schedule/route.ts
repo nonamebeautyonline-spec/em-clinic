@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const doctor_id = searchParams.get("doctor_id") || "";
@@ -13,10 +16,13 @@ export async function GET(req: NextRequest) {
 
   try {
     // doctors取得
-    const { data: doctorsData, error: doctorsError } = await supabaseAdmin
-      .from("doctors")
-      .select("*")
-      .order("sort_order");
+    const { data: doctorsData, error: doctorsError } = await withTenant(
+      supabaseAdmin
+        .from("doctors")
+        .select("*")
+        .order("sort_order"),
+      tenantId
+    );
 
     if (doctorsError) {
       console.error("doctors fetch error:", doctorsError);
@@ -37,7 +43,7 @@ export async function GET(req: NextRequest) {
     if (doctor_id) {
       rulesQuery = rulesQuery.eq("doctor_id", doctor_id);
     }
-    const { data: rulesData, error: rulesError } = await rulesQuery;
+    const { data: rulesData, error: rulesError } = await withTenant(rulesQuery, tenantId);
 
     if (rulesError) {
       console.error("weekly_rules fetch error:", rulesError);
@@ -69,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
     overridesQuery = overridesQuery.order("date", { ascending: true });
 
-    const { data: overridesData, error: overridesError } = await overridesQuery;
+    const { data: overridesData, error: overridesError } = await withTenant(overridesQuery, tenantId);
 
     if (overridesError) {
       console.error("date_overrides fetch error:", overridesError);

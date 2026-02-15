@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { order_id } = body;
 
@@ -26,14 +29,17 @@ export async function POST(req: NextRequest) {
     const now = new Date().toISOString();
 
     // 注文を更新（shipping_list_created_atを設定、shipping_dateはNULLのまま）
-    const { data, error } = await supabase
-      .from("orders")
-      .update({
-        shipping_list_created_at: now,
-        updated_at: now,
-      })
-      .eq("id", order_id)
-      .select("id, shipping_date, shipping_list_created_at");
+    const { data, error } = await withTenant(
+      supabase
+        .from("orders")
+        .update({
+          shipping_list_created_at: now,
+          updated_at: now,
+        })
+        .eq("id", order_id)
+        .select("id, shipping_date, shipping_list_created_at"),
+      tenantId
+    );
 
     if (error) {
       console.error("[AddToShipping] Error:", error);

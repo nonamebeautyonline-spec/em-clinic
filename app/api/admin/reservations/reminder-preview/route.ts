@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 interface ReminderData {
   lstep_id: string;
@@ -28,6 +24,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { date } = body;
 
@@ -37,54 +35,79 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ReminderPreview] Fetching reservations for date: ${date}`);
 
-    // キャンセル除外のため、reservationsテーブルから有効なreserve_idを取得
-    const { data: reservationsData } = await supabase
-      .from("reservations")
-      .select("reserve_id")
-      .eq("reserved_date", date)
-      .neq("status", "canceled");
+    // reservationsテーブルから予約データを直接取得（キャンセル除外）
+    const { data: resvData, error: resvError } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("reserve_id, patient_id, reserved_time, prescription_menu, status")
+        .eq("reserved_date", date)
+        .neq("status", "canceled")
+        .order("reserved_time", { ascending: true }),
+      tenantId
+    );
 
-    const validReserveIds = reservationsData
-      ? new Set(reservationsData.map((r: any) => r.reserve_id))
-      : new Set();
-
-    console.log(`[ReminderPreview] Valid (non-canceled) reservations: ${validReserveIds.size}`);
-
-    // intakeテーブルから予約データを取得
-    const { data: intakeData, error: intakeError } = await supabase
-      .from("intake")
-      .select("*")
-      .eq("reserved_date", date)
-      .not("reserved_date", "is", null)
-      .order("reserved_time", { ascending: true });
-
-    if (intakeError) {
-      console.error("Supabase intake error:", intakeError);
+    if (resvError) {
+      console.error("Supabase reservations error:", resvError);
       return NextResponse.json(
-        { error: "Database error", details: intakeError.message },
+        { error: "Database error", details: resvError.message },
         { status: 500 }
       );
     }
 
-    // キャンセル済み予約を除外
-    const filteredData = intakeData.filter((row: any) => {
-      if (!row.reserve_id) return true; // 予約なし問診は含める
-      return validReserveIds.has(row.reserve_id);
-    });
+    console.log(`[ReminderPreview] Reservations (non-canceled): ${(resvData || []).length}`);
 
-    console.log(`[ReminderPreview] Filtered ${intakeData.length} -> ${filteredData.length} (excluded canceled)`);
+    // patientsテーブルからpatient_name, line_idを取得
+    const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const pMap = new Map<string, { name: string; line_id: string }>();
+    if (patientIds.length > 0) {
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name, line_id")
+          .in("patient_id", patientIds),
+        tenantId
+      );
+      for (const p of pData || []) {
+        pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+      }
+    }
+
+    // intakeからcall_status, phone, answerer_idを取得（reserve_id で紐付け）
+    const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
+    const intakeMap = new Map<string, { call_status: string; phone: string; answerer_id: string }>();
+    if (reserveIds.length > 0) {
+      const { data: intakeData } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("reserve_id, call_status, phone, answerer_id")
+          .in("reserve_id", reserveIds),
+        tenantId
+      );
+      for (const row of intakeData || []) {
+        if (row.reserve_id && !intakeMap.has(row.reserve_id)) {
+          intakeMap.set(row.reserve_id, {
+            call_status: row.call_status || "",
+            phone: row.phone || "",
+            answerer_id: row.answerer_id || "",
+          });
+        }
+      }
+    }
 
     const reminderList: ReminderData[] = [];
     const errors: string[] = [];
 
-    for (const row of filteredData) {
-      const lstepId = row.answerer_id || "";
-      const lineUid = row.line_id || "";
-      const patientName = row.patient_name || "";
+    for (const row of resvData || []) {
+      const patient = pMap.get(row.patient_id);
+      const intake = intakeMap.get(row.reserve_id);
+
+      const lstepId = intake?.answerer_id || "";
+      const lineUid = patient?.line_id || "";
+      const patientName = patient?.name || "";
       const reservedTime = row.reserved_time || "";
-      const phone = row.phone || "";
+      const phone = intake?.phone || "";
       const doctorStatus = row.status || ""; // 前回診察ステータス（OK/NG）
-      const callStatus = row.call_status || ""; // 電話ステータス（不通など）
+      const callStatus = intake?.call_status || ""; // 電話ステータス（不通など）
       const prescriptionMenu = row.prescription_menu || ""; // 処方メニュー
 
       if (!lstepId) {

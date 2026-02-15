@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
 import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { tenantPayload } from "@/lib/tenant";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
 function formatTrackingNumber(num: string): string {
@@ -171,14 +172,17 @@ export async function sendShippingNotification(params: {
   patientId: string;
   lineUid: string;
   flex: { type: "flex"; altText: string; contents: any };
+  tenantId?: string;
 }): Promise<{ ok: boolean }> {
-  const { patientId, lineUid, flex } = params;
+  const { patientId, lineUid, flex, tenantId } = params;
+  const tid = tenantId ?? null;
 
   try {
-    const res = await pushMessage(lineUid, [flex]);
+    const res = await pushMessage(lineUid, [flex], tenantId ?? undefined);
     const status = res?.ok ? "sent" : "failed";
 
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tid),
       patient_id: patientId,
       line_uid: lineUid,
       direction: "outgoing",
@@ -195,6 +199,7 @@ export async function sendShippingNotification(params: {
     console.error(`[shipping-flex] shipping_notify error:`, err);
     try {
       await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tid),
         patient_id: patientId,
         line_uid: lineUid,
         direction: "outgoing",

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getProductNamesMap } from "@/lib/products";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +11,8 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     // ★ 商品名マップをDBから取得
     const PRODUCT_NAMES = await getProductNamesMap();
@@ -35,11 +33,14 @@ export async function GET(req: NextRequest) {
     const cutoffTime = new Date(yesterdayNoonJST.getTime() - jstOffset); // UTC に戻す
     const cutoffTimeISO = cutoffTime.toISOString();
 
-    // ベースクエリを構築
-    let countQuery = supabase.from("orders").select("*", { count: "exact", head: true });
-    let dataQuery = supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at, refund_status, refunded_at, refunded_amount");
+    // ベースクエリを構築（テナントフィルター付き）
+    let countQuery = withTenant(supabaseAdmin.from("orders").select("*", { count: "exact", head: true }), tenantId);
+    let dataQuery = withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at, refund_status, refunded_at, refunded_amount"),
+      tenantId
+    );
 
     // フィルター適用
     if (filter === "unshipped") {
@@ -79,28 +80,34 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
 
-    // 患者名を取得（intakeテーブルから）
+    // 患者名をpatientsテーブルから取得
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: patients } = await supabase
-        .from("intake")
-        .select("patient_id, patient_name")
-        .in("patient_id", patientIds)
-        .limit(100000);
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds)
+          .limit(100000),
+        tenantId
+      );
 
-      (patients || []).forEach((p: any) => {
-        patientNameMap[p.patient_id] = p.patient_name || "";
+      (pData || []).forEach((p: any) => {
+        patientNameMap[p.patient_id] = p.name || "";
       });
     }
 
     // 購入回数を計算（各患者の注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .in("patient_id", patientIds)
-        .limit(100000);
+      const { data: allOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("patient_id")
+          .in("patient_id", patientIds)
+          .limit(100000),
+        tenantId
+      );
 
       // 患者IDごとにカウント
       (allOrders || []).forEach((order: any) => {

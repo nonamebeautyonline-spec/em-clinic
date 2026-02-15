@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
@@ -28,8 +29,6 @@ type OrdersFlags = {
   canApplyReorder: boolean;
   hasAnyPaidOrder: boolean;
 };
-
-const GAS_MYPAGE_URL = process.env.GAS_MYPAGE_URL;
 
 function toIsoFlexible(v: any): string {
   const s = (typeof v === "string" ? v : String(v ?? "")).trim();
@@ -89,6 +88,7 @@ function toNumberOrUndefined(v: any): number | undefined {
 // Supabase ordersテーブルから直接取得（高速化）
 export async function GET(_req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(_req);
     const cookieStore = await cookies();
     const patientId =
       cookieStore.get("__Host-patient_id")?.value ||
@@ -101,10 +101,10 @@ export async function GET(_req: NextRequest) {
 
     // ★ Supabaseから直接取得（GAS不要、50-100ms）
     // ordersテーブルにはクレカ決済と銀行振込（payment_method='bank_transfer'）の両方が入っている
-    const { data: rawOrders, error } = await supabaseAdmin
+    const { data: rawOrders, error } = await withTenant(supabaseAdmin
       .from("orders")
       .select("*")
-      .eq("patient_id", patientId)
+      .eq("patient_id", patientId), tenantId)
       .order("paid_at", { ascending: false });
 
     if (error) {

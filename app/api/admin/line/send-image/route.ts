@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const BUCKET = "line-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -16,6 +17,8 @@ async function ensureBucket() {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -34,16 +37,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "JPEG、PNG、WebP形式のみ対応しています" }, { status: 400 });
   }
 
-  // 患者のLINE UIDを取得
-  const { data: intake } = await supabaseAdmin
-    .from("intake")
-    .select("line_id, patient_name")
-    .eq("patient_id", patientId)
-    .not("line_id", "is", null)
-    .limit(1)
-    .single();
+  // 患者の LINE UID を patients テーブルから取得
+  const { data: patient } = await withTenant(
+    supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patientId),
+    tenantId
+  ).maybeSingle();
 
-  if (!intake?.line_id) {
+  if (!patient?.line_id) {
     return NextResponse.json({ error: "LINE UIDが見つかりません" }, { status: 400 });
   }
 
@@ -67,15 +67,16 @@ export async function POST(req: NextRequest) {
   const imageUrl = urlData.publicUrl;
 
   // LINE Push送信
-  const res = await pushMessage(intake.line_id, [
+  const res = await pushMessage(patient.line_id, [
     { type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl },
-  ]);
+  ], tenantId ?? undefined);
   const status = res?.ok ? "sent" : "failed";
 
   // メッセージログに記録
   await supabaseAdmin.from("message_log").insert({
+    ...tenantPayload(tenantId),
     patient_id: patientId,
-    line_uid: intake.line_id,
+    line_uid: patient.line_id,
     message_type: "individual",
     content: imageUrl,
     status,

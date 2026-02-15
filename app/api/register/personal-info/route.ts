@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { linkRichMenuToUser } from "@/lib/line-richmenu";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 /**
  * 個人情報フォーム保存API
@@ -10,6 +11,7 @@ import { linkRichMenuToUser } from "@/lib/line-richmenu";
  */
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
     const body = await req.json().catch(() => ({} as any));
     const { name, name_kana, sex, birthday } = body as {
       name?: string;
@@ -39,10 +41,10 @@ export async function POST(req: NextRequest) {
     let oldLinePatientId: string | null = null; // LINE_プレフィックスの仮IDを保持
 
     if (lineUserId) {
-      const { data: existingByLine } = await supabaseAdmin
-        .from("intake")
+      const { data: existingByLine } = await withTenant(supabaseAdmin
+        .from("patients")
         .select("patient_id")
-        .eq("line_id", lineUserId)
+        .eq("line_id", lineUserId), tenantId)
         .limit(1)
         .maybeSingle();
 
@@ -71,12 +73,12 @@ export async function POST(req: NextRequest) {
     // 3) 新規患者 → patient_id を自動発行（既存最大値 + 1）
     if (!patientId) {
       // 非数値プレフィックスの仮IDを除外して数値IDのみ取得
-      // patient_idはテキスト型のため、LINE_*/TEST_FLOW_*が降順ソートで先頭に来てしまう問題を回避
-      const { data: maxRow } = await supabaseAdmin
-        .from("answerers")
+      // patient_idはテキスト型のため、LINE_*/TEST_*が降順ソートで先頭に来てしまう問題を回避
+      const { data: maxRow } = await withTenant(supabaseAdmin
+        .from("patients")
         .select("patient_id")
         .not("patient_id", "like", "LINE_%")
-        .not("patient_id", "like", "TEST_%")
+        .not("patient_id", "like", "TEST_%"), tenantId)
         .order("patient_id", { ascending: false })
         .limit(10);
 
@@ -97,13 +99,13 @@ export async function POST(req: NextRequest) {
     // 4) LINE_仮IDがある場合、全テーブルの patient_id を実IDに統合更新
     if (oldLinePatientId && patientId) {
       console.log("[register/personal-info] Migrating", oldLinePatientId, "->", patientId);
-      const allTables = ["intake", "answerers", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
+      const allTables = ["intake", "patients", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
       await Promise.all(
         allTables.map(async (table) => {
-          const { error } = await supabaseAdmin
+          const { error } = await withTenant(supabaseAdmin
             .from(table)
             .update({ patient_id: patientId })
-            .eq("patient_id", oldLinePatientId);
+            .eq("patient_id", oldLinePatientId), tenantId);
           if (error) {
             console.error(`[register/personal-info] Migration ${table} failed:`, error.message);
           }
@@ -113,15 +115,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 5) answerers に個人情報を上書き保存（既存の tel 等はそのまま）
-    const { data: existingAnswerer } = await supabaseAdmin
-      .from("answerers")
+    const { data: existingAnswerer } = await withTenant(supabaseAdmin
+      .from("patients")
       .select("patient_id")
-      .eq("patient_id", patientId)
+      .eq("patient_id", patientId), tenantId)
       .maybeSingle();
 
     if (existingAnswerer) {
-      const { error } = await supabaseAdmin
-        .from("answerers")
+      const { error } = await withTenant(supabaseAdmin
+        .from("patients")
         .update({
           name: name.trim(),
           name_kana: name_kana.trim(),
@@ -129,11 +131,11 @@ export async function POST(req: NextRequest) {
           birthday,
           line_id: lineUserId || null,
         })
-        .eq("patient_id", patientId);
+        .eq("patient_id", patientId), tenantId);
       if (error) console.error("[register/personal-info] Answerers update failed:", error.message);
     } else {
       const { error } = await supabaseAdmin
-        .from("answerers")
+        .from("patients")
         .insert({
           patient_id: patientId,
           name: name.trim(),
@@ -141,15 +143,16 @@ export async function POST(req: NextRequest) {
           sex,
           birthday,
           line_id: lineUserId || null,
+          ...tenantPayload(tenantId),
         });
       if (error) console.error("[register/personal-info] Answerers insert failed:", error.message);
     }
 
     // 6) intake の answers に個人情報をマージ（既存の問診・予約データはそのまま）
-    const { data: existingIntake } = await supabaseAdmin
+    const { data: existingIntake } = await withTenant(supabaseAdmin
       .from("intake")
       .select("id, answers")
-      .eq("patient_id", patientId)
+      .eq("patient_id", patientId), tenantId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -168,23 +171,20 @@ export async function POST(req: NextRequest) {
     let intakeError: any = null;
     if (existingIntake) {
       const oldAnswers = (existingIntake.answers as Record<string, unknown>) || {};
-      const { error } = await supabaseAdmin
+      const { error } = await withTenant(supabaseAdmin
         .from("intake")
         .update({
-          patient_name: name.trim(),
-          line_id: lineUserId || null,
           answers: { ...oldAnswers, ...personalAnswers },
         })
-        .eq("id", existingIntake.id);
+        .eq("id", existingIntake.id), tenantId);
       intakeError = error;
     } else {
       const { error } = await supabaseAdmin
         .from("intake")
         .insert({
           patient_id: patientId,
-          patient_name: name.trim(),
-          line_id: lineUserId || null,
           answers: personalAnswers,
+          ...tenantPayload(tenantId),
         });
       intakeError = error;
     }
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
     const { error: tagError } = await supabaseAdmin
       .from("patient_tags")
       .upsert(
-        { patient_id: patientId, tag_id: 1, assigned_by: "register" },
+        { patient_id: patientId, tag_id: 1, assigned_by: "register", ...tenantPayload(tenantId) },
         { onConflict: "patient_id,tag_id" }
       );
     if (tagError) {
@@ -206,14 +206,14 @@ export async function POST(req: NextRequest) {
 
     // 8) リッチメニューを「個人情報入力後」に切り替え
     if (lineUserId) {
-      const { data: postMenu } = await supabaseAdmin
+      const { data: postMenu } = await withTenant(supabaseAdmin
         .from("rich_menus")
         .select("line_rich_menu_id")
-        .eq("name", "個人情報入力後")
+        .eq("name", "個人情報入力後"), tenantId)
         .maybeSingle();
 
       if (postMenu?.line_rich_menu_id) {
-        const linked = await linkRichMenuToUser(lineUserId, postMenu.line_rich_menu_id);
+        const linked = await linkRichMenuToUser(lineUserId, postMenu.line_rich_menu_id, tenantId ?? undefined);
         if (linked) {
           console.log("[register/personal-info] Rich menu switched to 個人情報入力後 for", lineUserId);
         } else {

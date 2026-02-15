@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,6 +12,7 @@ const supabase = createClient(
 
 // トークン検証（GET）
 export async function GET(req: NextRequest) {
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
 
@@ -22,21 +24,24 @@ export async function GET(req: NextRequest) {
   }
 
   // トークン検証
-  const { data: resetToken, error } = await supabase
-    .from("password_reset_tokens")
-    .select(`
-      id,
-      expires_at,
-      used_at,
-      admin_user_id,
-      admin_users (
+  const { data: resetToken, error } = await withTenant(
+    supabase
+      .from("password_reset_tokens")
+      .select(`
         id,
-        email,
-        name
-      )
-    `)
-    .eq("token", token)
-    .single();
+        expires_at,
+        used_at,
+        admin_user_id,
+        admin_users (
+          id,
+          email,
+          name
+        )
+      `)
+      .eq("token", token)
+      .single(),
+    tenantId
+  );
 
   if (error || !resetToken) {
     return NextResponse.json(
@@ -93,12 +98,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     // トークン検証
-    const { data: resetToken, error: tokenError } = await supabase
-      .from("password_reset_tokens")
-      .select("id, admin_user_id, expires_at, used_at")
-      .eq("token", token)
-      .single();
+    const { data: resetToken, error: tokenError } = await withTenant(
+      supabase
+        .from("password_reset_tokens")
+        .select("id, admin_user_id, expires_at, used_at")
+        .eq("token", token)
+        .single(),
+      tenantId
+    );
 
     if (tokenError || !resetToken) {
       return NextResponse.json(
@@ -125,10 +135,13 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     // パスワード更新
-    const { error: updateError } = await supabase
-      .from("admin_users")
-      .update({ password_hash: passwordHash })
-      .eq("id", resetToken.admin_user_id);
+    const { error: updateError } = await withTenant(
+      supabase
+        .from("admin_users")
+        .update({ password_hash: passwordHash })
+        .eq("id", resetToken.admin_user_id),
+      tenantId
+    );
 
     if (updateError) {
       console.error("[Password Reset] Update error:", updateError);
@@ -139,10 +152,13 @@ export async function POST(req: NextRequest) {
     }
 
     // トークンを使用済みにする
-    await supabase
-      .from("password_reset_tokens")
-      .update({ used_at: new Date().toISOString() })
-      .eq("id", resetToken.id);
+    await withTenant(
+      supabase
+        .from("password_reset_tokens")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", resetToken.id),
+      tenantId
+    );
 
     return NextResponse.json({
       ok: true,

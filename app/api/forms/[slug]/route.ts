@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // 公開フォーム取得（認証不要、プレビューモードは管理者認証必要）
 export async function GET(
@@ -8,14 +9,18 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const isPreview = searchParams.get("preview") === "1";
 
-  const { data: form, error } = await supabaseAdmin
-    .from("forms")
-    .select("id, title, description, fields, settings, is_published, slug")
-    .eq("slug", slug)
-    .single();
+  const { data: form, error } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .select("id, title, description, fields, settings, is_published, slug")
+      .eq("slug", slug)
+      .single(),
+    tenantId
+  );
 
   if (error || !form) {
     return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
@@ -44,10 +49,13 @@ export async function GET(
 
   // 先着チェック
   if (settings.max_responses) {
-    const { count } = await supabaseAdmin
-      .from("form_responses")
-      .select("id", { count: "exact", head: true })
-      .eq("form_id", form.id);
+    const { count } = await withTenant(
+      supabaseAdmin
+        .from("form_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("form_id", form.id),
+      tenantId
+    );
     if (count !== null && count >= (settings.max_responses as number)) {
       return NextResponse.json({ error: "このフォームは回答数の上限に達しました" }, { status: 403 });
     }

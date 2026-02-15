@@ -3,6 +3,8 @@ import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { createClient } from "@supabase/supabase-js";
 import { jwtVerify } from "jose";
 
+import { resolveTenantId, withTenant } from "@/lib/tenant";
+
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -54,6 +56,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const items: CustomShippingItem[] = body.items || [];
     const allPaymentIds: string[] = body.all_payment_ids || items.map((item) => item.payment_id);
@@ -78,14 +82,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`[ExportYamatoB2Custom] Marking ${allPaymentIds.length} orders as list_created`);
 
-    const { data: updatedOrders, error: updateError } = await supabase
-      .from("orders")
-      .update({
+    const { data: updatedOrders, error: updateError } = await withTenant(
+      supabase.from("orders").update({
         shipping_list_created_at: now,
         updated_at: now,
-      })
-      .in("id", allPaymentIds)
-      .select("patient_id");
+      }).in("id", allPaymentIds).select("patient_id"),
+      tenantId
+    );
 
     if (updateError) {
       console.error("[ExportYamatoB2Custom] Failed to update orders:", updateError);

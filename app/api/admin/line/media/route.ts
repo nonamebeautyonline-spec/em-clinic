@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const BUCKET = "line-images";
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folder_id");
   const fileType = searchParams.get("file_type");
@@ -33,7 +35,7 @@ export async function GET(req: NextRequest) {
   if (fileType) query = query.eq("file_type", fileType);
   if (search) query = query.ilike("name", `%${search}%`);
 
-  const { data, error } = await query;
+  const { data, error } = await withTenant(query, tenantId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ files: data });
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const fileType = formData.get("file_type") as string | null;
@@ -104,6 +107,7 @@ export async function POST(req: NextRequest) {
   const { data: inserted, error: dbError } = await supabaseAdmin
     .from("media_files")
     .insert({
+      ...tenantPayload(tenantId),
       name: file.name,
       file_url: urlData.publicUrl,
       file_type: fileType,
@@ -126,6 +130,7 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const body = await req.json();
   const { id, name, folder_id } = body;
 
@@ -135,12 +140,13 @@ export async function PUT(req: NextRequest) {
   if (name !== undefined) updates.name = name;
   if (folder_id !== undefined) updates.folder_id = folder_id;
 
-  const { data, error } = await supabaseAdmin
-    .from("media_files")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("media_files")
+      .update(updates)
+      .eq("id", id),
+    tenantId
+  ).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -152,16 +158,19 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 
   // ストレージのファイルも削除
-  const { data: file } = await supabaseAdmin
-    .from("media_files")
-    .select("file_url")
-    .eq("id", parseInt(id))
-    .single();
+  const { data: file } = await withTenant(
+    supabaseAdmin
+      .from("media_files")
+      .select("file_url")
+      .eq("id", parseInt(id)),
+    tenantId
+  ).single();
 
   if (file?.file_url) {
     const url = new URL(file.file_url);
@@ -171,10 +180,13 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  const { error } = await supabaseAdmin
-    .from("media_files")
-    .delete()
-    .eq("id", parseInt(id));
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("media_files")
+      .delete()
+      .eq("id", parseInt(id)),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

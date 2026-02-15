@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,13 +28,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     // pending_confirmation の銀行振込注文を取得
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, shipping_name, account_name, address, postal_code, phone, created_at")
-      .eq("payment_method", "bank_transfer")
-      .eq("status", "pending_confirmation")
-      .order("created_at", { ascending: false });
+    const { data: orders, error } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount, shipping_name, account_name, address, postal_code, phone, created_at")
+        .eq("payment_method", "bank_transfer")
+        .eq("status", "pending_confirmation")
+        .order("created_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) {
       console.error("Supabase pending orders error:", error);
@@ -46,16 +52,19 @@ export async function GET(req: NextRequest) {
     // 患者IDのリストを取得
     const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
 
-    // 患者名を取得（intakeテーブルから）
+    // 患者名を取得（patientsテーブルから）
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: patients } = await supabase
-        .from("intake")
-        .select("patient_id, patient_name")
-        .in("patient_id", patientIds);
+      const { data: patients } = await withTenant(
+        supabase
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds),
+        tenantId
+      );
 
       (patients || []).forEach((p: any) => {
-        patientNameMap[p.patient_id] = p.patient_name || "";
+        patientNameMap[p.patient_id] = p.name || "";
       });
     }
 

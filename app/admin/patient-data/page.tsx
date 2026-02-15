@@ -13,15 +13,13 @@ interface Reservation {
 
 interface Intake {
   id: number;
-  patient_name: string;
-  reserved_date: string | null;
-  reserved_time: string | null;
   reserve_id: string | null;
   created_at: string;
 }
 
 interface PatientData {
   patient_id: string;
+  patient_name: string;
   reservations: Reservation[];
   intake: Intake | null;
 }
@@ -240,12 +238,10 @@ export default function PatientDataPage() {
           {/* 患者情報 */}
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-bold text-lg mb-3">患者ID: {data.patient_id}</h2>
-            {data.intake && (
-              <div className="text-gray-600">
-                <p>氏名: {data.intake.patient_name || "-"}</p>
-                <p>問診登録日: {data.intake.created_at?.slice(0, 10) || "-"}</p>
-              </div>
-            )}
+            <div className="text-gray-600">
+              <p>氏名: {data.patient_name || "-"}</p>
+              {data.intake && <p>問診登録日: {data.intake.created_at?.slice(0, 10) || "-"}</p>}
+            </div>
           </div>
 
           {/* アクティブな予約 */}
@@ -322,9 +318,7 @@ export default function PatientDataPage() {
             {data.intake ? (
               <div className="p-4">
                 <p><span className="text-gray-500">ID:</span> {data.intake.id}</p>
-                <p><span className="text-gray-500">氏名:</span> {data.intake.patient_name || "-"}</p>
-                <p><span className="text-gray-500">予約日:</span> {data.intake.reserved_date || "-"}</p>
-                <p><span className="text-gray-500">予約時間:</span> {data.intake.reserved_time || "-"}</p>
+                <p><span className="text-gray-500">reserve_id:</span> {data.intake.reserve_id || "-"}</p>
               </div>
             ) : (
               <div className="p-4 text-gray-500">問診データがありません</div>

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // 予約時間を "2026/2/8 13:00-13:15" 形式にフォーマット
 function formatReservationTime(dateStr: string, timeStr: string): string {
@@ -39,32 +40,45 @@ function buildReminderMessage(reservationTime: string): string {
 }
 
 // 対象患者を取得（共通）
-async function getTargetPatients(date: string) {
-  // キャンセル除外のため、reservationsテーブルから有効なreserve_idを取得
-  const { data: reservationsData } = await supabaseAdmin
-    .from("reservations")
-    .select("reserve_id")
-    .eq("reserved_date", date)
-    .neq("status", "canceled");
-
-  const validReserveIds = new Set(
-    (reservationsData || []).map((r: any) => r.reserve_id)
+async function getTargetPatients(date: string, tenantId: string | null) {
+  // reservationsテーブルから有効な予約を直接取得（キャンセル除外）
+  const { data: reservationsData, error: resvError } = await withTenant(
+    supabaseAdmin
+      .from("reservations")
+      .select("reserve_id, patient_id, reserved_time")
+      .eq("reserved_date", date)
+      .neq("status", "canceled")
+      .order("reserved_time", { ascending: true }),
+    tenantId
   );
 
-  // intakeテーブルから予約データを取得
-  const { data: intakeData, error: intakeError } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id, patient_name, line_id, reserve_id, reserved_time")
-    .eq("reserved_date", date)
-    .not("reserved_date", "is", null)
-    .order("reserved_time", { ascending: true });
+  if (resvError) throw new Error("DB error");
 
-  if (intakeError) throw new Error("DB error");
+  // patientsテーブルからpatient_name, line_idを取得
+  const patientIds = [...new Set((reservationsData || []).map((r: any) => r.patient_id).filter(Boolean))];
+  const pMap = new Map<string, { name: string; line_id: string }>();
+  if (patientIds.length > 0) {
+    const { data: pData } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("patient_id, name, line_id")
+        .in("patient_id", patientIds),
+      tenantId
+    );
+    for (const p of pData || []) {
+      pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+    }
+  }
 
-  // キャンセル済み除外
-  return (intakeData || []).filter((row: any) => {
-    if (!row.reserve_id) return true;
-    return validReserveIds.has(row.reserve_id);
+  return (reservationsData || []).map((r: any) => {
+    const patient = pMap.get(r.patient_id);
+    return {
+      patient_id: r.patient_id,
+      patient_name: patient?.name || "",
+      line_id: patient?.line_id || "",
+      reserve_id: r.reserve_id,
+      reserved_time: r.reserved_time,
+    };
   });
 }
 
@@ -73,12 +87,14 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   if (!date) return NextResponse.json({ error: "date required" }, { status: 400 });
 
   try {
-    const targets = await getTargetPatients(date);
+    const targets = await getTargetPatients(date, tenantId);
 
     const patients = targets.map((p: any) => ({
       patient_id: p.patient_id,
@@ -118,12 +134,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const { date, testOnly, patient_ids } = await req.json();
     if (!date) {
       return NextResponse.json({ error: "date required" }, { status: 400 });
     }
 
-    const targets = await getTargetPatients(date);
+    const targets = await getTargetPatients(date, tenantId);
 
     // テストモード: 管理者（PID: 20251200128）にサンプルメッセージを送信
     // 当日の予約がなくても送信可能
@@ -134,22 +152,23 @@ export async function POST(req: NextRequest) {
       if (testInTargets) {
         sendTargets = [testInTargets];
       } else {
-        // 予約に含まれていなくても intake から LINE ID を取得して送信
-        const { data: testIntake } = await supabaseAdmin
-          .from("intake")
-          .select("patient_id, patient_name, line_id")
-          .eq("patient_id", TEST_PID)
-          .limit(1)
-          .maybeSingle();
-        if (!testIntake?.line_id) {
+        // 予約に含まれていなくても patients から LINE ID を取得して送信
+        const { data: testPatient } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("patient_id, name, line_id")
+            .eq("patient_id", TEST_PID),
+          tenantId
+        ).maybeSingle();
+        if (!testPatient?.line_id) {
           return NextResponse.json({
             error: `テスト対象 (PID: ${TEST_PID}) のLINE IDが見つかりません`,
           }, { status: 400 });
         }
         sendTargets = [{
-          patient_id: testIntake.patient_id,
-          patient_name: testIntake.patient_name || "",
-          line_id: testIntake.line_id,
+          patient_id: testPatient.patient_id,
+          patient_name: testPatient.name || "",
+          line_id: testPatient.line_id,
           reserved_time: "13:00:00", // サンプル時間
         }];
       }
@@ -183,7 +202,7 @@ export async function POST(req: NextRequest) {
         const pushRes = await pushMessage(patient.line_id, [{
           type: "text",
           text: message,
-        }]);
+        }], tenantId ?? undefined);
 
         const status = pushRes?.ok ? "sent" : "failed";
         results.push({
@@ -194,6 +213,7 @@ export async function POST(req: NextRequest) {
 
         // メッセージログ記録
         await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
           patient_id: patient.patient_id,
           line_uid: patient.line_id,
           direction: "outgoing",

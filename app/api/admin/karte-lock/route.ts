@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json().catch(() => null);
+    const tenantId = resolveTenantId(req);
+
     if (!body?.intakeId) {
       return NextResponse.json(
         { error: "intakeId は必須です" },
@@ -23,14 +26,17 @@ export async function POST(req: NextRequest) {
 
     if (action === "unlock") {
       // ロック解除
-      const { error } = await supabaseAdmin
-        .from("intake")
-        .update({
-          locked_at: null,
-          locked_by: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", intakeId);
+      const { error } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .update({
+            locked_at: null,
+            locked_by: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", intakeId),
+        tenantId
+      );
 
       if (error)
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -39,14 +45,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ロック
-    const { error } = await supabaseAdmin
-      .from("intake")
-      .update({
-        locked_at: new Date().toISOString(),
-        locked_by: "admin",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", intakeId);
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .update({
+          locked_at: new Date().toISOString(),
+          locked_by: "admin",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intakeId),
+      tenantId
+    );
 
     if (error)
       return NextResponse.json({ error: error.message }, { status: 500 });

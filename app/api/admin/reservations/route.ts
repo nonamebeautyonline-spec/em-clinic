@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +11,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     // クエリパラメータ取得: date=YYYY-MM-DD, month=YYYY-MM, or from=YYYY-MM-DD
     const searchParams = req.nextUrl.searchParams;
     const dateParam = searchParams.get("date");
@@ -23,14 +21,17 @@ export async function GET(req: NextRequest) {
 
     // from指定がある場合は、その日以降の予約を全て取得
     if (fromParam) {
-      const { data: futureReservations, error: futureError } = await supabase
-        .from("reservations")
-        .select("*")
-        .gte("reserved_date", fromParam)
-        .neq("status", "canceled")
-        .order("reserved_date", { ascending: true })
-        .order("reserved_time", { ascending: true })
-        .limit(100000);
+      const { data: futureReservations, error: futureError } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("*")
+          .gte("reserved_date", fromParam)
+          .neq("status", "canceled")
+          .order("reserved_date", { ascending: true })
+          .order("reserved_time", { ascending: true })
+          .limit(100000),
+        tenantId
+      );
 
       if (futureError) {
         console.error("Supabase reservations error:", futureError);
@@ -64,14 +65,17 @@ export async function GET(req: NextRequest) {
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       // reservationsテーブルから月の予約を取得
-      const { data: monthReservations, error: monthError } = await supabase
-        .from("reservations")
-        .select("*")
-        .gte("reserved_date", startDate)
-        .lte("reserved_date", endDate)
-        .order("reserved_date", { ascending: true })
-        .order("reserved_time", { ascending: true })
-        .limit(100000);
+      const { data: monthReservations, error: monthError } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("*")
+          .gte("reserved_date", startDate)
+          .lte("reserved_date", endDate)
+          .order("reserved_date", { ascending: true })
+          .order("reserved_time", { ascending: true })
+          .limit(100000),
+        tenantId
+      );
 
       if (monthError) {
         console.error("Supabase reservations error:", monthError);
@@ -104,64 +108,88 @@ export async function GET(req: NextRequest) {
       targetDate = jstNow.toISOString().slice(0, 10);
     }
 
-    // ★ キャンセル除外のため、reservationsテーブルから有効なreserve_idを取得
-    const { data: reservationsData } = await supabase
-      .from("reservations")
-      .select("reserve_id")
-      .eq("reserved_date", targetDate)
-      .neq("status", "canceled")
-      .limit(100000);
+    // reservationsテーブルから予約データを直接取得（キャンセル除外）
+    const { data: resvData, error: resvError } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("*")
+        .eq("reserved_date", targetDate)
+        .neq("status", "canceled")
+        .order("reserved_time", { ascending: true })
+        .limit(100000),
+      tenantId
+    );
 
-    const validReserveIds = reservationsData
-      ? new Set(reservationsData.map((r: any) => r.reserve_id))
-      : new Set();
-
-    console.log(`[Admin Reservations] Valid (non-canceled) reservations for ${targetDate}: ${validReserveIds.size}`);
-
-    // intakeテーブルから予約データを取得（reserved_dateで日付フィルタ）
-    const { data, error } = await supabase
-      .from("intake")
-      .select("*")
-      .eq("reserved_date", targetDate)
-      .not("reserved_date", "is", null)
-      .order("reserved_time", { ascending: true })
-      .limit(100000);
-
-    if (error) {
-      console.error("Supabase intake error:", error);
+    if (resvError) {
+      console.error("Supabase reservations error:", resvError);
       return NextResponse.json({
         error: "Database error",
-        details: error.message || String(error),
-        hint: error.hint || null
+        details: resvError.message || String(resvError),
+        hint: (resvError as any).hint || null
       }, { status: 500 });
     }
 
-    // ★ キャンセル済み予約を除外
-    const filteredData = data.filter((row: any) => {
-      // reserve_idがない場合は含める（予約なし問診）
-      if (!row.reserve_id) return true;
-      // reserve_idがある場合、有効な予約リストに含まれるかチェック
-      return validReserveIds.has(row.reserve_id);
-    });
+    // 患者IDリストからpatientsテーブルで名前・line_idを取得
+    const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const pMap = new Map<string, { name: string; line_id: string }>();
+    if (patientIds.length > 0) {
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name, line_id")
+          .in("patient_id", patientIds),
+        tenantId
+      );
+      for (const p of pData || []) {
+        pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+      }
+    }
 
-    console.log(`[Admin Reservations] Filtered ${data.length} -> ${filteredData.length} (excluded canceled)`);
+    // intakeからcall_status, note, answerer_idを取得（reserve_id で紐付け）
+    const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
+    const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; phone: string }>();
+    if (reserveIds.length > 0) {
+      const { data: intakeData } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("reserve_id, call_status, note, answerer_id, phone")
+          .in("reserve_id", reserveIds),
+        tenantId
+      );
+      for (const row of intakeData || []) {
+        if (row.reserve_id && !intakeMap.has(row.reserve_id)) {
+          intakeMap.set(row.reserve_id, {
+            call_status: row.call_status || "",
+            note: row.note || "",
+            answerer_id: row.answerer_id || "",
+            phone: row.phone || "",
+          });
+        }
+      }
+    }
+
+    console.log(`[Admin Reservations] Reservations for ${targetDate}: ${(resvData || []).length}`);
 
     // レスポンス用に整形
-    const reservations = (filteredData || []).map((row: any) => ({
-      id: row.id || row.reserve_id,
-      reserve_id: row.reserve_id,
-      patient_id: row.patient_id,
-      patient_name: row.patient_name || row.name || "",
-      reserved_date: row.reserved_date,
-      reserved_time: row.reserved_time,
-      status: row.status || "pending",
-      phone: row.phone || "",
-      lstep_uid: row.answerer_id || "",
-      line_uid: row.line_id || "",
-      call_status: row.call_status || "",
-      note: row.note || "",
-      prescription_menu: row.prescription_menu || "",
-    }));
+    const reservations = (resvData || []).map((row: any) => {
+      const patient = pMap.get(row.patient_id);
+      const intake = intakeMap.get(row.reserve_id);
+      return {
+        id: row.id || row.reserve_id,
+        reserve_id: row.reserve_id,
+        patient_id: row.patient_id,
+        patient_name: row.patient_name || patient?.name || "",
+        reserved_date: row.reserved_date,
+        reserved_time: row.reserved_time,
+        status: row.status || "pending",
+        phone: intake?.phone || "",
+        lstep_uid: intake?.answerer_id || "",
+        line_uid: patient?.line_id || "",
+        call_status: intake?.call_status || "",
+        note: intake?.note || "",
+        prescription_menu: row.prescription_menu || "",
+      };
+    });
 
     return NextResponse.json({ reservations });
   } catch (error) {

@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { formatProductCode } from "@/lib/patient-utils";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -38,19 +39,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
-    const { id } = body; // id = gas_row_number
+    const { id } = body; // id = reorder_number
 
     if (!id) {
       return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
     // まずpatient_idとstatusを取得
-    const { data: reorderData, error: fetchError } = await supabaseAdmin
-      .from("reorders")
-      .select("id, patient_id, status, product_code")
-      .eq("gas_row_number", Number(id))
-      .single();
+    const { data: reorderData, error: fetchError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("id, patient_id, status, product_code")
+        .eq("reorder_number", Number(id))
+        .single(),
+      tenantId
+    );
 
     if (fetchError || !reorderData) {
       console.error("[admin/reorders/approve] Reorder not found:", id);
@@ -67,20 +73,23 @@ export async function POST(req: NextRequest) {
     }
 
     // ステータス更新
-    const { error: dbError } = await supabaseAdmin
-      .from("reorders")
-      .update({
-        status: "confirmed",
-        approved_at: new Date().toISOString(),
-      })
-      .eq("gas_row_number", Number(id));
+    const { error: dbError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update({
+          status: "confirmed",
+          approved_at: new Date().toISOString(),
+        })
+        .eq("reorder_number", Number(id)),
+      tenantId
+    );
 
     if (dbError) {
       console.error("[admin/reorders/approve] DB update error:", dbError);
       return NextResponse.json({ error: "DB error" }, { status: 500 });
     }
 
-    console.log(`[admin/reorders/approve] Approved: gas_row=${id}, patient=${reorderData.patient_id}`);
+    console.log(`[admin/reorders/approve] Approved: reorder_num=${id}, patient=${reorderData.patient_id}`);
 
     // カルテ自動追加（用量比較付き）
     if (reorderData.patient_id && reorderData.product_code) {
@@ -89,13 +98,16 @@ export async function POST(req: NextRequest) {
         let prevDose: number | null = null;
 
         // 前回の決済済みreorderから用量を取得
-        const { data: prevReorders } = await supabaseAdmin
-          .from("reorders")
-          .select("product_code")
-          .eq("patient_id", reorderData.patient_id)
-          .eq("status", "paid")
-          .order("paid_at", { ascending: false })
-          .limit(1);
+        const { data: prevReorders } = await withTenant(
+          supabaseAdmin
+            .from("reorders")
+            .select("product_code")
+            .eq("patient_id", reorderData.patient_id)
+            .eq("status", "paid")
+            .order("paid_at", { ascending: false })
+            .limit(1),
+          tenantId
+        );
 
         if (prevReorders && prevReorders.length > 0) {
           prevDose = extractDose(prevReorders[0].product_code || "");
@@ -104,11 +116,14 @@ export async function POST(req: NextRequest) {
         const note = buildKarteNote(reorderData.product_code, prevDose, currentDose);
 
         // reorders.karte_note に保存（来院履歴は patientbundle で reorders から直接表示）
-        await supabaseAdmin
-          .from("reorders")
-          .update({ karte_note: note })
-          .eq("id", reorderData.id)
-          .is("karte_note", null);
+        await withTenant(
+          supabaseAdmin
+            .from("reorders")
+            .update({ karte_note: note })
+            .eq("id", reorderData.id)
+            .is("karte_note", null),
+          tenantId
+        );
 
         console.log(`[admin/reorders/approve] karte saved: patient=${reorderData.patient_id}, dose=${currentDose}mg, prev=${prevDose}mg`);
       } catch (karteErr) {
@@ -128,25 +143,27 @@ export async function POST(req: NextRequest) {
     let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
 
     if (reorderData.patient_id) {
-      const { data: intake } = await supabaseAdmin
-        .from("intake")
-        .select("line_id")
-        .eq("patient_id", reorderData.patient_id)
-        .not("line_id", "is", null)
-        .limit(1)
-        .single();
+      const { data: patient } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("line_id")
+          .eq("patient_id", reorderData.patient_id)
+          .maybeSingle(),
+        tenantId
+      );
 
-      if (intake?.line_id) {
+      if (patient?.line_id) {
         try {
-          const pushRes = await pushMessage(intake.line_id, [{
+          const pushRes = await pushMessage(patient.line_id, [{
             type: "text",
             text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
-          }]);
+          }], tenantId ?? undefined);
           lineNotify = pushRes?.ok ? "sent" : "failed";
           if (pushRes?.ok) {
             await supabaseAdmin.from("message_log").insert({
+              ...tenantPayload(tenantId),
               patient_id: reorderData.patient_id,
-              line_uid: intake.line_id,
+              line_uid: patient.line_id,
               direction: "outgoing",
               event_type: "message",
               message_type: "text",
@@ -166,10 +183,13 @@ export async function POST(req: NextRequest) {
     }
 
     // LINE通知結果をDBに保存
-    await supabaseAdmin
-      .from("reorders")
-      .update({ line_notify_result: lineNotify })
-      .eq("gas_row_number", Number(id));
+    await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update({ line_notify_result: lineNotify })
+        .eq("reorder_number", Number(id)),
+      tenantId
+    );
 
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {

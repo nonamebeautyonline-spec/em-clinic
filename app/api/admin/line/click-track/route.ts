@@ -2,12 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // クリック計測リンク一覧（配信IDで絞り込み可）
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const broadcastId = searchParams.get("broadcast_id");
 
@@ -20,7 +22,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("broadcast_id", Number(broadcastId));
   }
 
-  const { data, error } = await query.limit(100);
+  const { data, error } = await withTenant(query, tenantId).limit(100);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // クリック数を整形
@@ -38,6 +40,7 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { original_url, label, broadcast_id } = await req.json();
   if (!original_url) {
     return NextResponse.json({ error: "URLは必須です" }, { status: 400 });
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("click_tracking_links")
     .insert({
+      ...tenantPayload(tenantId),
       tracking_code: trackingCode,
       original_url,
       label: label || null,

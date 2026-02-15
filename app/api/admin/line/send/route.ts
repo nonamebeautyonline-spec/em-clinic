@@ -2,29 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { patient_id, message, message_type, flex, template_name } = await req.json();
   if (!patient_id || (!message?.trim() && !flex)) {
     return NextResponse.json({ error: "patient_id と message は必須です" }, { status: 400 });
   }
 
-  // 患者のLINE UIDを取得
-  const { data: intake } = await supabaseAdmin
-    .from("intake")
-    .select("line_id, patient_name")
-    .eq("patient_id", patient_id)
-    .not("line_id", "is", null)
-    .limit(1)
-    .single();
+  // 患者の LINE UID・名前を patients テーブルから取得
+  const { data: patient } = await withTenant(
+    supabaseAdmin.from("patients").select("name, line_id").eq("patient_id", patient_id),
+    tenantId
+  ).maybeSingle();
 
-  if (!intake?.line_id) {
+  if (!patient?.line_id) {
     // メッセージログに記録（失敗）
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
       patient_id,
       message_type: "individual",
       content: message,
@@ -36,12 +37,13 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    const res = await pushMessage(intake.line_id, [flex]);
+    const res = await pushMessage(patient.line_id, [flex], tenantId ?? undefined);
     const status = res?.ok ? "sent" : "failed";
 
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
       patient_id,
-      line_uid: intake.line_id,
+      line_uid: patient.line_id,
       message_type: "flex",
       content: `[${flex.altText || "Flex Message"}]`,
       flex_json: flex.contents,
@@ -49,24 +51,18 @@ export async function POST(req: NextRequest) {
       direction: "outgoing",
     });
 
-    return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });
+    return NextResponse.json({ ok: status === "sent", status, patient_name: patient.name });
   }
 
   // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
-  const { data: nextReservation } = await supabaseAdmin
-    .from("reservations")
-    .select("reserved_date, reserved_time")
-    .eq("patient_id", patient_id)
-    .neq("status", "canceled")
-    .gte("reserved_date", new Date().toISOString().split("T")[0])
-    .order("reserved_date", { ascending: true })
-    .order("reserved_time", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const { data: nextReservation } = await withTenant(
+    supabaseAdmin.from("reservations").select("reserved_date, reserved_time").eq("patient_id", patient_id).neq("status", "canceled").gte("reserved_date", new Date().toISOString().split("T")[0]).order("reserved_date", { ascending: true }).order("reserved_time", { ascending: true }).limit(1),
+    tenantId
+  ).maybeSingle();
 
   // テンプレート変数を置換
   const resolvedMessage = message
-    .replace(/\{name\}/g, intake.patient_name || "")
+    .replace(/\{name\}/g, patient.name || "")
     .replace(/\{patient_id\}/g, patient_id)
     .replace(/\{send_date\}/g, new Date().toLocaleDateString("ja-JP"))
     .replace(/\{next_reservation_date\}/g, nextReservation?.reserved_date || "")
@@ -76,7 +72,7 @@ export async function POST(req: NextRequest) {
   const lineMessage = message_type === "image"
     ? { type: "image" as const, originalContentUrl: resolvedMessage, previewImageUrl: resolvedMessage }
     : { type: "text" as const, text: resolvedMessage };
-  const res = await pushMessage(intake.line_id, [lineMessage]);
+  const res = await pushMessage(patient.line_id, [lineMessage], tenantId ?? undefined);
   const status = res?.ok ? "sent" : "failed";
 
   // メッセージログに記録（画像テンプレは【テンプレ名】URL形式で保存）
@@ -84,13 +80,14 @@ export async function POST(req: NextRequest) {
     ? `【${template_name}】${resolvedMessage}`
     : resolvedMessage;
   await supabaseAdmin.from("message_log").insert({
+    ...tenantPayload(tenantId),
     patient_id,
-    line_uid: intake.line_id,
+    line_uid: patient.line_id,
     message_type: "individual",
     content: logContent,
     status,
     direction: "outgoing",
   });
 
-  return NextResponse.json({ ok: status === "sent", status, patient_name: intake.patient_name });
+  return NextResponse.json({ ok: status === "sent", status, patient_name: patient.name });
 }

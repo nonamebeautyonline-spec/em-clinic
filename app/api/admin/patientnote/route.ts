@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json().catch(() => null);
     const patientId = (body?.patientId || "").trim();
@@ -35,32 +38,41 @@ export async function POST(req: NextRequest) {
       : "";
 
     if (intakeId) {
-      const { error } = await supabaseAdmin
-        .from("intake")
-        .update({ note: noteWithStamp, updated_at: now.toISOString() })
-        .eq("id", intakeId)
-        .eq("patient_id", patientId);
+      const { error } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .update({ note: noteWithStamp, updated_at: now.toISOString() })
+          .eq("id", intakeId)
+          .eq("patient_id", patientId),
+        tenantId
+      );
 
       if (error) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
       }
     } else {
-      const { data: latest } = await supabaseAdmin
-        .from("intake")
-        .select("id")
-        .eq("patient_id", patientId)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: latest } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("id")
+          .eq("patient_id", patientId)
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (!latest) {
         return NextResponse.json({ ok: false, message: "intake_not_found" }, { status: 404 });
       }
 
-      const { error } = await supabaseAdmin
-        .from("intake")
-        .update({ note: noteWithStamp, updated_at: now.toISOString() })
-        .eq("id", latest.id);
+      const { error } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .update({ note: noteWithStamp, updated_at: now.toISOString() })
+          .eq("id", latest.id),
+        tenantId
+      );
 
       if (error) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });

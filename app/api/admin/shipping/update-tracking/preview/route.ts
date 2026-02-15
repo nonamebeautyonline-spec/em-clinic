@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 interface TrackingUpdate {
   paymentId: string;
@@ -25,6 +21,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
@@ -114,10 +112,10 @@ export async function POST(req: NextRequest) {
 
     // 全payment_idに対応する注文情報を一括取得
     if (paymentIds.length > 0) {
-      const { data: orders, error: ordersError } = await supabase
-        .from("orders")
-        .select("id, patient_id")
-        .in("id", paymentIds);
+      const { data: orders, error: ordersError } = await withTenant(
+        supabaseAdmin.from("orders").select("id, patient_id").in("id", paymentIds),
+        tenantId
+      );
 
       if (ordersError) {
         console.error(`[UpdateTrackingPreview] Orders fetch error:`, ordersError);
@@ -130,19 +128,31 @@ export async function POST(req: NextRequest) {
       // patient_idリストを取得
       const patientIds = orders ? Array.from(new Set(orders.map((o: any) => o.patient_id))) : [];
 
-      // intakeテーブルから患者情報とLステップIDを取得
+      // patientsテーブルから患者名を取得、intakeからLステップIDを取得
       let patientInfoMap: Record<string, { patient_name: string; lstep_id: string }> = {};
       if (patientIds.length > 0) {
-        const { data: patients } = await supabase
-          .from("intake")
-          .select("patient_id, patient_name, answerer_id")
-          .in("patient_id", patientIds);
+        const { data: pData } = await withTenant(
+          supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
+          tenantId
+        );
 
-        if (patients) {
-          for (const p of patients) {
+        const { data: intakeData } = await withTenant(
+          supabaseAdmin.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds).not("answerer_id", "is", null),
+          tenantId
+        );
+
+        const lstepMap = new Map<string, string>();
+        for (const i of intakeData || []) {
+          if (!lstepMap.has(i.patient_id)) {
+            lstepMap.set(i.patient_id, i.answerer_id || "");
+          }
+        }
+
+        if (pData) {
+          for (const p of pData) {
             patientInfoMap[p.patient_id] = {
-              patient_name: p.patient_name || "",
-              lstep_id: p.answerer_id || "",
+              patient_name: p.name || "",
+              lstep_id: lstepMap.get(p.patient_id) || "",
             };
           }
         }

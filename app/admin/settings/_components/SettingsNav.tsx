@@ -1,7 +1,7 @@
 // 設定ページ左サイドナビゲーション
 "use client";
 
-export type SectionKey = "general" | "payment" | "line" | "mypage" | "flex";
+export type SectionKey = "general" | "payment" | "line" | "mypage" | "flex" | "account";
 
 const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
@@ -9,6 +9,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "line", label: "LINE連携", icon: "💬" },
   { key: "mypage", label: "マイページ", icon: "🎨" },
   { key: "flex", label: "LINE通知", icon: "📩" },
+  { key: "account", label: "アカウント", icon: "👤" },
 ];
 
 interface SettingsNavProps {

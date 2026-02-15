@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     // 今日の日付範囲を計算（JST）
     const now = new Date();
@@ -29,12 +32,15 @@ export async function GET(req: NextRequest) {
     const endOfDay = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
 
     // 本日の予約を取得
-    const { data: reservations, error } = await supabase
-      .from("reservations")
-      .select("*")
-      .gte("reserved_time", startOfDay.toISOString())
-      .lt("reserved_time", endOfDay.toISOString())
-      .order("reserved_time", { ascending: true });
+    const { data: reservations, error } = await withTenant(
+      supabase
+        .from("reservations")
+        .select("*")
+        .gte("reserved_time", startOfDay.toISOString())
+        .lt("reserved_time", endOfDay.toISOString())
+        .order("reserved_time", { ascending: true }),
+      tenantId
+    );
 
     if (error) {
       console.error("Supabase error:", error);

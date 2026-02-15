@@ -1,6 +1,7 @@
 // app/r/[code]/route.ts — クリック計測リダイレクト
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export async function GET(
   req: NextRequest,
@@ -8,12 +9,17 @@ export async function GET(
 ) {
   const { code } = await params;
 
+  // テナントID解決（APIルートなのでreqを渡す）
+  const tenantId = resolveTenantId(req);
+
   // トラッキングリンク取得
-  const { data: link } = await supabaseAdmin
-    .from("click_tracking_links")
-    .select("id, original_url")
-    .eq("tracking_code", code)
-    .maybeSingle();
+  const { data: link } = await withTenant(
+    supabaseAdmin
+      .from("click_tracking_links")
+      .select("id, original_url")
+      .eq("tracking_code", code),
+    tenantId
+  ).maybeSingle();
 
   if (!link) {
     return NextResponse.json({ error: "リンクが見つかりません" }, { status: 404 });
@@ -24,6 +30,7 @@ export async function GET(
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "";
 
   await supabaseAdmin.from("click_tracking_events").insert({
+    ...tenantPayload(tenantId),
     link_id: link.id,
     user_agent: ua.slice(0, 500),
     ip_address: ip,

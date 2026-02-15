@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 import VerifyInner from "./VerifyInner";
 
 export default async function MypageInitPage() {
@@ -13,15 +14,20 @@ export default async function MypageInitPage() {
     redirect("/api/line/login");
   }
 
+  // テナントID解決
+  const tenantId = resolveTenantId();
+
   // 個人情報未入力 → 個人情報フォームへ
   const patientId = cookieStore.get("__Host-patient_id")?.value
     || cookieStore.get("patient_id")?.value;
   if (patientId) {
-    const { data: answerer } = await supabaseAdmin
-      .from("answerers")
-      .select("name")
-      .eq("patient_id", patientId)
-      .maybeSingle();
+    const { data: answerer } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("name")
+        .eq("patient_id", patientId),
+      tenantId
+    ).maybeSingle();
     if (!answerer?.name) {
       redirect("/register");
     }

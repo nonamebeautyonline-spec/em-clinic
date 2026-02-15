@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const LINE_API = "https://api.line.me/v2/bot/richmenu/bulk/link";
 
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const tenantId = resolveTenantId(req);
     const { patient_ids, rich_menu_id } = await req.json();
 
     if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !rich_menu_id) {
@@ -21,11 +23,14 @@ export async function POST(req: NextRequest) {
     }
 
     // リッチメニューのLINE側IDを取得
-    const { data: menu } = await supabaseAdmin
-      .from("rich_menus")
-      .select("id, name, line_rich_menu_id")
-      .eq("id", rich_menu_id)
-      .single();
+    const { data: menu } = await withTenant(
+      supabaseAdmin
+        .from("rich_menus")
+        .select("id, name, line_rich_menu_id")
+        .eq("id", rich_menu_id)
+        .single(),
+      tenantId
+    );
 
     if (!menu) {
       return NextResponse.json({ error: "リッチメニューが見つかりません" }, { status: 404 });
@@ -35,19 +40,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "このリッチメニューはLINEに登録されていません。先にリッチメニュー設定からLINEに登録してください。" }, { status: 400 });
     }
 
-    // 患者のLINE UIDを取得（大量IDに対応するためバッチ処理）
+    // 患者のLINE UIDをpatientsテーブルから取得（大量IDに対応するためバッチ処理）
     const lineUserIds: string[] = [];
     const BATCH_SIZE = 200;
     for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
       const batch = patient_ids.slice(i, i + BATCH_SIZE);
-      const { data: intakes } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, line_id")
-        .in("patient_id", batch)
-        .not("line_id", "is", null);
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, line_id")
+          .in("patient_id", batch)
+          .not("line_id", "is", null),
+        tenantId
+      );
 
-      if (intakes) {
-        for (const r of intakes) {
+      if (pData) {
+        for (const r of pData) {
           if (r.line_id) lineUserIds.push(r.line_id);
         }
       }

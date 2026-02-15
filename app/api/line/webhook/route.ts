@@ -4,29 +4,17 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ===== 環境変数 =====
-// 2つのLINEチャネル: Lオペ(MAPI) と 再処方許可bot(NOTIFY)
-const LINE_CHANNEL_SECRETS = [
-  process.env.LINE_MESSAGING_API_CHANNEL_SECRET,
-  process.env.LINE_NOTIFY_CHANNEL_SECRET,
-].filter(Boolean) as string[];
-const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
-const LINE_ACCESS_TOKEN =
-  process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
-// 管理グループはbot(NOTIFY)チャネルに属するため、グループ送信には専用トークンを使用
-const LINE_NOTIFY_TOKEN =
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || LINE_ACCESS_TOKEN;
-
 // ===== LINE署名検証（HMAC-SHA256 → Base64）=====
 // 複数チャネルのいずれかで検証が通ればOK
-function verifyLineSignature(rawBody: string, signature: string) {
-  if (LINE_CHANNEL_SECRETS.length === 0 || !signature) return false;
-  for (const secret of LINE_CHANNEL_SECRETS) {
+function verifyLineSignature(rawBody: string, signature: string, secrets: string[]) {
+  if (secrets.length === 0 || !signature) return false;
+  for (const secret of secrets) {
     const hash = crypto
       .createHmac("sha256", secret)
       .update(rawBody)
@@ -52,13 +40,13 @@ function parseQueryString(data: string) {
 }
 
 // ===== グループへプッシュ送信（bot/NOTIFYチャネル経由）=====
-async function pushToGroup(toGroupId: string, text: string) {
-  if (!LINE_NOTIFY_TOKEN || !toGroupId) return;
+async function pushToGroup(toGroupId: string, text: string, notifyToken: string) {
+  if (!notifyToken || !toGroupId) return;
   const res = await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${LINE_NOTIFY_TOKEN}`,
+      Authorization: `Bearer ${notifyToken}`,
     },
     body: JSON.stringify({ to: toGroupId, messages: [{ type: "text", text }] }),
     cache: "no-store",
@@ -74,14 +62,15 @@ const IMAGE_BUCKET = "line-images";
 
 async function downloadAndSaveImage(
   messageId: string,
-  patientId: string
+  patientId: string,
+  accessToken: string
 ): Promise<string | null> {
-  if (!LINE_ACCESS_TOKEN || !messageId) return null;
+  if (!accessToken || !messageId) return null;
 
   try {
     const res = await fetch(
       `https://api-data.line.me/v2/bot/message/${messageId}/content`,
-      { headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (!res.ok) {
       console.error("[webhook] LINE content download failed:", res.status);
@@ -120,11 +109,11 @@ async function downloadAndSaveImage(
 }
 
 // ===== LINE Profile API でプロフィール取得 =====
-async function getLineProfile(lineUid: string): Promise<{ displayName: string; pictureUrl: string }> {
-  if (!LINE_ACCESS_TOKEN) return { displayName: "", pictureUrl: "" };
+async function getLineProfile(lineUid: string, accessToken: string): Promise<{ displayName: string; pictureUrl: string }> {
+  if (!accessToken) return { displayName: "", pictureUrl: "" };
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUid}`, {
-      headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
     if (!res.ok) return { displayName: "", pictureUrl: "" };
@@ -139,51 +128,71 @@ async function getLineProfile(lineUid: string): Promise<{ displayName: string; p
 }
 
 // 後方互換
-async function getLineDisplayName(lineUid: string): Promise<string> {
-  const p = await getLineProfile(lineUid);
+async function getLineDisplayName(lineUid: string, accessToken: string): Promise<string> {
+  const p = await getLineProfile(lineUid, accessToken);
   return p.displayName;
 }
 
-// ===== LINE UIDから patient_id を逆引き =====
-async function findPatientByLineUid(lineUid: string) {
-  const { data } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id, patient_name")
-    .eq("line_id", lineUid)
-    .limit(1)
-    .maybeSingle();
-  return data;
+// ===== LINE UIDから patient_id を逆引き（patients テーブルを使用）=====
+async function findPatientByLineUid(lineUid: string, tenantId: string | null) {
+  const { data } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("patient_id, name")
+      .eq("line_id", lineUid)
+      .limit(1)
+      .maybeSingle(),
+    tenantId
+  );
+  if (!data) return null;
+  // 既存コードとの互換性のため patient_name プロパティも返す
+  return { patient_id: data.patient_id, patient_name: data.name || "" };
 }
 
 // ===== LINE UIDから患者を検索、なければ自動作成 =====
-async function findOrCreatePatient(lineUid: string) {
-  const existing = await findPatientByLineUid(lineUid);
+async function findOrCreatePatient(lineUid: string, tenantId: string | null, accessToken: string) {
+  const existing = await findPatientByLineUid(lineUid, tenantId);
   if (existing) return existing;
 
   // LINEプロフィール取得
-  const profile = await getLineProfile(lineUid);
+  const profile = await getLineProfile(lineUid, accessToken);
   const displayName = profile.displayName || `LINE_${lineUid.slice(-6)}`;
 
   // patient_idを生成（LINE_で始まるUID末尾8文字）
   const patientId = `LINE_${lineUid.slice(-8)}`;
 
-  // intakeレコードを作成（patient_idユニーク制約なしのため insert を使用）
-  const { error } = await supabaseAdmin
-    .from("intake")
-    .insert({
-      patient_id: patientId,
-      patient_name: displayName,
-      line_id: lineUid,
-      line_display_name: profile.displayName || null,
-      line_picture_url: profile.pictureUrl || null,
-    });
+  // intake + patients の両方にレコードを作成
+  // ★ patient_name, line_id, line_display_name, line_picture_url は patients が正
+  const [{ error: intakeErr }, { error: patientsErr }] = await Promise.all([
+    supabaseAdmin
+      .from("intake")
+      .insert({
+        ...tenantPayload(tenantId),
+        patient_id: patientId,
+      }),
+    supabaseAdmin
+      .from("patients")
+      .insert({
+        ...tenantPayload(tenantId),
+        patient_id: patientId,
+        name: displayName,
+        line_id: lineUid,
+        line_display_name: profile.displayName || null,
+        line_picture_url: profile.pictureUrl || null,
+      }),
+  ]);
 
-  if (error) {
-    console.error("[webhook] auto-create intake failed:", error.message);
+  if (intakeErr) {
+    console.error("[webhook] auto-create intake failed:", intakeErr.message);
+  }
+  if (patientsErr) {
+    console.error("[webhook] auto-create patients failed:", patientsErr.message);
+  }
+  if (intakeErr && patientsErr) {
     return null;
   }
 
-  console.log(`[webhook] auto-created intake for ${lineUid} -> ${patientId} (${displayName})`);
+  console.log(`[webhook] auto-created patient for ${lineUid} -> ${patientId} (${displayName})`);
   return { patient_id: patientId, patient_name: displayName };
 }
 
@@ -197,8 +206,10 @@ async function logEvent(params: {
   content: string;
   status: string;
   postback_data?: object | null;
+  tenantId?: string | null;
 }) {
   await supabaseAdmin.from("message_log").insert({
+    ...tenantPayload(params.tenantId ?? null),
     patient_id: params.patient_id || null,
     line_uid: params.line_uid,
     direction: params.direction,
@@ -213,39 +224,46 @@ async function logEvent(params: {
 // =================================================================
 // follow イベント処理
 // =================================================================
-async function handleFollow(lineUid: string) {
+async function handleFollow(lineUid: string, tenantId: string | null, accessToken: string) {
   console.log("[webhook] follow:", lineUid);
 
-  const existingPatient = await findPatientByLineUid(lineUid);
+  const existingPatient = await findPatientByLineUid(lineUid, tenantId);
   const isReturning = !!existingPatient;
   const settingKey = isReturning ? "returning_blocked" : "new_friend";
 
   // PIDなしユーザーも自動作成
-  const patient = existingPatient || await findOrCreatePatient(lineUid);
+  const patient = existingPatient || await findOrCreatePatient(lineUid, tenantId, accessToken);
 
   // LINEプロフィール取得・更新
-  const lineProfile = await getLineProfile(lineUid);
+  const lineProfile = await getLineProfile(lineUid, accessToken);
   const displayName = patient?.patient_name || lineProfile.displayName;
 
   if (patient?.patient_id && (lineProfile.displayName || lineProfile.pictureUrl)) {
-    await supabaseAdmin
-      .from("intake")
-      .update({
-        line_display_name: lineProfile.displayName || null,
-        line_picture_url: lineProfile.pictureUrl || null,
-      })
-      .eq("patient_id", patient.patient_id);
+    await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .update({
+          line_display_name: lineProfile.displayName || null,
+          line_picture_url: lineProfile.pictureUrl || null,
+        })
+        .eq("patient_id", patient.patient_id),
+      tenantId
+    );
   }
 
   // friend_add_settings を取得
-  const { data: setting } = await supabaseAdmin
-    .from("friend_add_settings")
-    .select("setting_value, enabled")
-    .eq("setting_key", settingKey)
-    .maybeSingle();
+  const { data: setting } = await withTenant(
+    supabaseAdmin
+      .from("friend_add_settings")
+      .select("setting_value, enabled")
+      .eq("setting_key", settingKey)
+      .maybeSingle(),
+    tenantId
+  );
 
   // ログ記録
   await logEvent({
+    tenantId,
     patient_id: patient?.patient_id,
     line_uid: lineUid,
     direction: "incoming",
@@ -274,8 +292,9 @@ async function handleFollow(lineUid: string) {
       .replace(/\{name\}/g, displayName)
       .replace(/\{patient_id\}/g, patient?.patient_id || "");
 
-    await pushMessage(lineUid, [{ type: "text", text }]);
+    await pushMessage(lineUid, [{ type: "text", text }], tenantId ?? undefined);
     await logEvent({
+      tenantId,
       patient_id: patient?.patient_id,
       line_uid: lineUid,
       direction: "outgoing",
@@ -294,10 +313,10 @@ async function handleFollow(lineUid: string) {
       await supabaseAdmin
         .from("patient_tags")
         .upsert(
-          { patient_id: patient.patient_id, tag_id: tagId, assigned_by: "follow" },
+          { ...tenantPayload(tenantId), patient_id: patient.patient_id, tag_id: tagId, assigned_by: "follow" },
           { onConflict: "patient_id,tag_id" }
         );
-      const { data: tagDef } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", tagId).maybeSingle();
+      const { data: tagDef } = await withTenant(supabaseAdmin.from("tag_definitions").select("name").eq("id", tagId).maybeSingle(), tenantId);
       if (tagDef?.name) tagNames.push(tagDef.name);
     }
     if (tagNames.length > 0) actionDetails.push(`タグ[${tagNames.join(", ")}]を追加`);
@@ -309,6 +328,7 @@ async function handleFollow(lineUid: string) {
       .from("patient_marks")
       .upsert(
         {
+          ...tenantPayload(tenantId),
           patient_id: patient.patient_id,
           mark: val.assign_mark,
           updated_by: "follow",
@@ -321,16 +341,19 @@ async function handleFollow(lineUid: string) {
 
   // リッチメニュー変更
   if (val.menu_change) {
-    const { data: menu } = await supabaseAdmin
-      .from("rich_menus")
-      .select("line_rich_menu_id, name")
-      .eq("id", Number(val.menu_change))
-      .maybeSingle();
+    const { data: menu } = await withTenant(
+      supabaseAdmin
+        .from("rich_menus")
+        .select("line_rich_menu_id, name")
+        .eq("id", Number(val.menu_change))
+        .maybeSingle(),
+      tenantId
+    );
 
     if (menu?.line_rich_menu_id) {
       await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       console.log(`[webhook] follow: assigned rich menu ${val.menu_change} to ${lineUid}`);
       actionDetails.push(`メニュー[${menu.name || val.menu_change}]にする`);
@@ -341,6 +364,7 @@ async function handleFollow(lineUid: string) {
   if (actionDetails.length > 0) {
     const trigger = isReturning ? "友だち再追加" : "友だち登録";
     await logEvent({
+      tenantId,
       patient_id: patient?.patient_id,
       line_uid: lineUid,
       direction: "incoming",
@@ -354,13 +378,13 @@ async function handleFollow(lineUid: string) {
   // 既存患者のステータスに基づくタグ＋メニュー上書き
   // （登録時設定より実データの状態を優先）
   if (patient?.patient_id) {
-    await autoAssignStatusByPatient(patient.patient_id, lineUid);
+    await autoAssignStatusByPatient(patient.patient_id, lineUid, tenantId, accessToken);
   }
 
   // ステップ配信: follow トリガーのシナリオにエンロール
   if (patient?.patient_id) {
     try {
-      await checkFollowTriggerScenarios(patient.patient_id, lineUid);
+      await checkFollowTriggerScenarios(patient.patient_id, lineUid, tenantId ?? undefined);
     } catch (e) {
       console.error("[webhook] step enrollment follow error:", e);
     }
@@ -370,12 +394,13 @@ async function handleFollow(lineUid: string) {
 // =================================================================
 // unfollow イベント処理
 // =================================================================
-async function handleUnfollow(lineUid: string) {
+async function handleUnfollow(lineUid: string, tenantId: string | null) {
   console.log("[webhook] unfollow:", lineUid);
 
-  const patient = await findPatientByLineUid(lineUid);
+  const patient = await findPatientByLineUid(lineUid, tenantId);
 
   await logEvent({
+    tenantId,
     patient_id: patient?.patient_id,
     line_uid: lineUid,
     direction: "incoming",
@@ -388,7 +413,7 @@ async function handleUnfollow(lineUid: string) {
   // ステップ配信: ブロック時に全アクティブシナリオを離脱
   if (patient?.patient_id) {
     try {
-      await exitAllStepEnrollments(patient.patient_id, "blocked");
+      await exitAllStepEnrollments(patient.patient_id, "blocked", tenantId ?? undefined);
     } catch (e) {
       console.error("[webhook] step exit on unfollow error:", e);
     }
@@ -402,18 +427,23 @@ async function handleUnfollow(lineUid: string) {
 // =================================================================
 async function autoAssignStatusByPatient(
   patientId: string,
-  lineUid: string
+  lineUid: string,
+  tenantId: string | null,
+  accessToken: string
 ) {
   try {
     if (patientId.startsWith("LINE_")) return;
 
     // ordersに1件でもあるか
-    const { data: order } = await supabaseAdmin
-      .from("orders")
-      .select("id")
-      .eq("patient_id", patientId)
-      .limit(1)
-      .maybeSingle();
+    const { data: order } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("id")
+        .eq("patient_id", patientId)
+        .limit(1)
+        .maybeSingle(),
+      tenantId
+    );
 
     let targetTagName: string;
     let targetMenuName: string;
@@ -423,11 +453,14 @@ async function autoAssignStatusByPatient(
       targetMenuName = "処方後";
     } else {
       // answerers に名前が入っているか（個人情報提出済み）
-      const { data: answerer } = await supabaseAdmin
-        .from("answerers")
-        .select("name, tel")
-        .eq("patient_id", patientId)
-        .maybeSingle();
+      const { data: answerer } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("name, tel")
+          .eq("patient_id", patientId)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (!answerer?.name) return;
 
@@ -437,25 +470,31 @@ async function autoAssignStatusByPatient(
     }
 
     // タグ付与
-    const { data: tagDef } = await supabaseAdmin
-      .from("tag_definitions")
-      .select("id")
-      .eq("name", targetTagName)
-      .maybeSingle();
+    const { data: tagDef } = await withTenant(
+      supabaseAdmin
+        .from("tag_definitions")
+        .select("id")
+        .eq("name", targetTagName)
+        .maybeSingle(),
+      tenantId
+    );
 
     if (tagDef) {
-      const { data: existing } = await supabaseAdmin
-        .from("patient_tags")
-        .select("tag_id")
-        .eq("patient_id", patientId)
-        .eq("tag_id", tagDef.id)
-        .maybeSingle();
+      const { data: existing } = await withTenant(
+        supabaseAdmin
+          .from("patient_tags")
+          .select("tag_id")
+          .eq("patient_id", patientId)
+          .eq("tag_id", tagDef.id)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (!existing) {
         await supabaseAdmin
           .from("patient_tags")
           .upsert(
-            { patient_id: patientId, tag_id: tagDef.id, assigned_by: "auto" },
+            { ...tenantPayload(tenantId), patient_id: patientId, tag_id: tagDef.id, assigned_by: "auto" },
             { onConflict: "patient_id,tag_id" }
           );
         console.log(`[webhook] auto-assigned ${targetTagName} tag to ${patientId}`);
@@ -464,16 +503,19 @@ async function autoAssignStatusByPatient(
 
     // 処方済みの場合、対応マークを「処方ずみ」（red）に自動設定
     if (order) {
-      const { data: currentMark } = await supabaseAdmin
-        .from("patient_marks")
-        .select("mark")
-        .eq("patient_id", patientId)
-        .maybeSingle();
+      const { data: currentMark } = await withTenant(
+        supabaseAdmin
+          .from("patient_marks")
+          .select("mark")
+          .eq("patient_id", patientId)
+          .maybeSingle(),
+        tenantId
+      );
       if (!currentMark || currentMark.mark !== "red") {
         await supabaseAdmin
           .from("patient_marks")
           .upsert(
-            { patient_id: patientId, mark: "red", note: null, updated_at: new Date().toISOString(), updated_by: "auto" },
+            { ...tenantPayload(tenantId), patient_id: patientId, mark: "red", note: null, updated_at: new Date().toISOString(), updated_by: "auto" },
             { onConflict: "patient_id" }
           );
         console.log(`[webhook] auto-assigned 処方ずみ mark to ${patientId}`);
@@ -482,21 +524,24 @@ async function autoAssignStatusByPatient(
 
     // リッチメニュー切り替え（targetMenuNameが空の場合はスキップ）
     if (!targetMenuName) return;
-    const { data: menu } = await supabaseAdmin
-      .from("rich_menus")
-      .select("line_rich_menu_id")
-      .eq("name", targetMenuName)
-      .maybeSingle();
+    const { data: menu } = await withTenant(
+      supabaseAdmin
+        .from("rich_menus")
+        .select("line_rich_menu_id")
+        .eq("name", targetMenuName)
+        .maybeSingle(),
+      tenantId
+    );
 
     if (menu?.line_rich_menu_id) {
       const currentRes = await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu`, {
-        headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       const current = currentRes.ok ? await currentRes.json() : null;
       if (current?.richMenuId !== menu.line_rich_menu_id) {
         await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         console.log(`[webhook] auto-assigned ${targetMenuName} rich menu to ${patientId}`);
       }
@@ -509,26 +554,32 @@ async function autoAssignStatusByPatient(
 // =================================================================
 // message イベント処理（ユーザーからのテキスト等）
 // =================================================================
-async function handleMessage(lineUid: string, message: any) {
+async function handleMessage(lineUid: string, message: any, tenantId: string | null, accessToken: string) {
   // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
-  const patient = await findOrCreatePatient(lineUid);
+  const patient = await findOrCreatePatient(lineUid, tenantId, accessToken);
 
   // プロフィール未保存なら取得して更新（非ブロッキング）
   if (patient?.patient_id) {
     (async () => {
       try {
-        const { data: intake } = await supabaseAdmin
-          .from("intake")
-          .select("line_picture_url")
-          .eq("patient_id", patient.patient_id)
-          .maybeSingle();
-        if (!intake?.line_picture_url) {
-          const profile = await getLineProfile(lineUid);
+        const { data: pt } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("line_picture_url")
+            .eq("patient_id", patient.patient_id)
+            .maybeSingle(),
+          tenantId
+        );
+        if (!pt?.line_picture_url) {
+          const profile = await getLineProfile(lineUid, accessToken);
           if (profile.displayName || profile.pictureUrl) {
-            await supabaseAdmin.from("intake").update({
-              line_display_name: profile.displayName || null,
-              line_picture_url: profile.pictureUrl || null,
-            }).eq("patient_id", patient.patient_id);
+            await withTenant(
+              supabaseAdmin.from("patients").update({
+                line_display_name: profile.displayName || null,
+                line_picture_url: profile.pictureUrl || null,
+              }).eq("patient_id", patient.patient_id),
+              tenantId
+            );
           }
         }
       } catch {}
@@ -537,7 +588,7 @@ async function handleMessage(lineUid: string, message: any) {
 
   // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
   if (patient?.patient_id) {
-    autoAssignStatusByPatient(patient.patient_id, lineUid).catch(() => {});
+    autoAssignStatusByPatient(patient.patient_id, lineUid, tenantId, accessToken).catch(() => {});
   }
 
   let content = "";
@@ -550,7 +601,8 @@ async function handleMessage(lineUid: string, message: any) {
     case "image": {
       const imageUrl = await downloadAndSaveImage(
         message.id,
-        patient?.patient_id || `uid_${lineUid.slice(-8)}`
+        patient?.patient_id || `uid_${lineUid.slice(-8)}`,
+        accessToken
       );
       content = imageUrl || "[画像]";
       break;
@@ -577,6 +629,7 @@ async function handleMessage(lineUid: string, message: any) {
   console.log("[webhook] message from", lineUid, ":", content.slice(0, 100));
 
   await logEvent({
+    tenantId,
     patient_id: patient?.patient_id,
     line_uid: lineUid,
     direction: "incoming",
@@ -589,7 +642,7 @@ async function handleMessage(lineUid: string, message: any) {
   // キーワード自動応答チェック（テキストメッセージのみ）
   if (message.type === "text" && message.text) {
     try {
-      await checkAndReplyKeyword(lineUid, patient, message.text);
+      await checkAndReplyKeyword(lineUid, patient, message.text, tenantId);
     } catch (e) {
       console.error("[webhook] keyword auto-reply error:", e);
     }
@@ -597,7 +650,7 @@ async function handleMessage(lineUid: string, message: any) {
     // ステップ配信: keyword トリガーのシナリオにエンロール
     if (patient?.patient_id) {
       try {
-        await checkKeywordTriggerScenarios(message.text, patient.patient_id, lineUid);
+        await checkKeywordTriggerScenarios(message.text, patient.patient_id, lineUid, tenantId ?? undefined);
       } catch (e) {
         console.error("[webhook] step enrollment keyword error:", e);
       }
@@ -611,15 +664,19 @@ async function handleMessage(lineUid: string, message: any) {
 async function checkAndReplyKeyword(
   lineUid: string,
   patient: { patient_id: string; patient_name: string } | null,
-  text: string
+  text: string,
+  tenantId: string | null
 ) {
   // 有効なルールを優先順位順に取得
-  const { data: rules } = await supabaseAdmin
-    .from("keyword_auto_replies")
-    .select("*")
-    .eq("is_enabled", true)
-    .order("priority", { ascending: false })
-    .order("id", { ascending: true });
+  const { data: rules } = await withTenant(
+    supabaseAdmin
+      .from("keyword_auto_replies")
+      .select("*")
+      .eq("is_enabled", true)
+      .order("priority", { ascending: false })
+      .order("id", { ascending: true }),
+    tenantId
+  );
 
   if (!rules || rules.length === 0) return;
 
@@ -640,7 +697,7 @@ async function checkAndReplyKeyword(
 
     // 条件ルールがある場合はチェック（簡易: タグ条件のみ対応）
     if (rule.condition_rules && Array.isArray(rule.condition_rules) && rule.condition_rules.length > 0 && patient?.patient_id) {
-      const conditionMet = await evaluateConditionRules(patient.patient_id, rule.condition_rules);
+      const conditionMet = await evaluateConditionRules(patient.patient_id, rule.condition_rules, tenantId);
       if (!conditionMet) continue;
     }
 
@@ -654,10 +711,11 @@ async function checkAndReplyKeyword(
       replyText = replyText.replace(/\{patient_id\}/g, patient?.patient_id || "");
       replyText = replyText.replace(/\{send_date\}/g, new Date().toLocaleDateString("ja-JP"));
 
-      await pushMessage(lineUid, [{ type: "text", text: replyText }]);
+      await pushMessage(lineUid, [{ type: "text", text: replyText }], tenantId ?? undefined);
 
       // 送信ログ
       await logEvent({
+        tenantId,
         patient_id: patient?.patient_id,
         line_uid: lineUid,
         direction: "outgoing",
@@ -668,20 +726,24 @@ async function checkAndReplyKeyword(
       });
     } else if (rule.reply_type === "template" && rule.reply_template_id) {
       // テンプレートからメッセージ取得して送信
-      const { data: tpl } = await supabaseAdmin
-        .from("message_templates")
-        .select("content, message_type")
-        .eq("id", rule.reply_template_id)
-        .maybeSingle();
+      const { data: tpl } = await withTenant(
+        supabaseAdmin
+          .from("message_templates")
+          .select("content, message_type")
+          .eq("id", rule.reply_template_id)
+          .maybeSingle(),
+        tenantId
+      );
 
       if (tpl?.content) {
         let tplContent = tpl.content;
         tplContent = tplContent.replace(/\{name\}/g, patient?.patient_name || "");
         tplContent = tplContent.replace(/\{patient_id\}/g, patient?.patient_id || "");
 
-        await pushMessage(lineUid, [{ type: "text", text: tplContent }]);
+        await pushMessage(lineUid, [{ type: "text", text: tplContent }], tenantId ?? undefined);
 
         await logEvent({
+          tenantId,
           patient_id: patient?.patient_id,
           line_uid: lineUid,
           direction: "outgoing",
@@ -699,13 +761,16 @@ async function checkAndReplyKeyword(
 }
 
 // 条件ルール評価（タグベース）
-async function evaluateConditionRules(patientId: string, rules: any[]): Promise<boolean> {
+async function evaluateConditionRules(patientId: string, rules: any[], tenantId: string | null): Promise<boolean> {
   try {
     // 患者のタグIDを取得
-    const { data: patientTags } = await supabaseAdmin
-      .from("patient_tags")
-      .select("tag_id")
-      .eq("patient_id", patientId);
+    const { data: patientTags } = await withTenant(
+      supabaseAdmin
+        .from("patient_tags")
+        .select("tag_id")
+        .eq("patient_id", patientId),
+      tenantId
+    );
 
     const tagIds = new Set((patientTags || []).map((t: any) => t.tag_id));
 
@@ -725,12 +790,12 @@ async function evaluateConditionRules(patientId: string, rules: any[]): Promise<
 // =================================================================
 // postback イベント処理（ユーザーからのリッチメニュー操作等）
 // =================================================================
-async function handleUserPostback(lineUid: string, postbackData: string) {
-  const patient = await findOrCreatePatient(lineUid);
+async function handleUserPostback(lineUid: string, postbackData: string, tenantId: string | null, accessToken: string) {
+  const patient = await findOrCreatePatient(lineUid, tenantId, accessToken);
 
   // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
   if (patient?.patient_id) {
-    autoAssignStatusByPatient(patient.patient_id, lineUid).catch(() => {});
+    autoAssignStatusByPatient(patient.patient_id, lineUid, tenantId, accessToken).catch(() => {});
   }
 
   // JSON形式（リッチメニューのaction type）を試行
@@ -759,6 +824,7 @@ async function handleUserPostback(lineUid: string, postbackData: string) {
 
   // ログ記録
   await logEvent({
+    tenantId,
     patient_id: patient?.patient_id,
     line_uid: lineUid,
     direction: "incoming",
@@ -771,7 +837,7 @@ async function handleUserPostback(lineUid: string, postbackData: string) {
 
   // リッチメニューのアクション実行
   if (parsed?.type === "rich_menu_action" && Array.isArray(parsed.actions)) {
-    await executeRichMenuActions(lineUid, patient, parsed.actions);
+    await executeRichMenuActions(lineUid, patient, parsed.actions, tenantId, accessToken);
   }
 }
 
@@ -781,7 +847,9 @@ async function handleUserPostback(lineUid: string, postbackData: string) {
 async function executeRichMenuActions(
   lineUid: string,
   patient: { patient_id: string; patient_name: string } | null,
-  actions: any[]
+  actions: any[],
+  tenantId: string | null,
+  accessToken: string
 ) {
   const actionDetails: string[] = [];
 
@@ -790,11 +858,14 @@ async function executeRichMenuActions(
       switch (action.type) {
         case "template_send": {
           if (!action.value) break;
-          const { data: tmpl } = await supabaseAdmin
-            .from("message_templates")
-            .select("content, name, message_type")
-            .eq("id", Number(action.value))
-            .maybeSingle();
+          const { data: tmpl } = await withTenant(
+            supabaseAdmin
+              .from("message_templates")
+              .select("content, name, message_type")
+              .eq("id", Number(action.value))
+              .maybeSingle(),
+            tenantId
+          );
           if (!tmpl) break;
 
           const text = tmpl.content
@@ -808,8 +879,9 @@ async function executeRichMenuActions(
               type: "image",
               originalContentUrl: text,
               previewImageUrl: text,
-            }]);
+            }], tenantId ?? undefined);
             await logEvent({
+              tenantId,
               patient_id: patient?.patient_id,
               line_uid: lineUid,
               direction: "outgoing",
@@ -820,8 +892,9 @@ async function executeRichMenuActions(
             });
             actionDetails.push(`画像[${tmpl.name}]を送信`);
           } else {
-            await pushMessage(lineUid, [{ type: "text", text }]);
+            await pushMessage(lineUid, [{ type: "text", text }], tenantId ?? undefined);
             await logEvent({
+              tenantId,
               patient_id: patient?.patient_id,
               line_uid: lineUid,
               direction: "outgoing",
@@ -841,8 +914,9 @@ async function executeRichMenuActions(
             .replace(/\{name\}/g, patient?.patient_name || "")
             .replace(/\{patient_id\}/g, patient?.patient_id || "");
 
-          await pushMessage(lineUid, [{ type: "text", text }]);
+          await pushMessage(lineUid, [{ type: "text", text }], tenantId ?? undefined);
           await logEvent({
+            tenantId,
             patient_id: patient?.patient_id,
             line_uid: lineUid,
             direction: "outgoing",
@@ -859,18 +933,21 @@ async function executeRichMenuActions(
           if (!patient?.patient_id || !action.value) break;
           // タグ名からtag_idを取得（なければ作成）
           let tagId: number | null = null;
-          const { data: existing } = await supabaseAdmin
-            .from("tag_definitions")
-            .select("id")
-            .eq("name", action.value)
-            .maybeSingle();
+          const { data: existing } = await withTenant(
+            supabaseAdmin
+              .from("tag_definitions")
+              .select("id")
+              .eq("name", action.value)
+              .maybeSingle(),
+            tenantId
+          );
 
           if (existing) {
             tagId = existing.id;
           } else if ((action.mode || "add") === "add") {
             const { data: created } = await supabaseAdmin
               .from("tag_definitions")
-              .insert({ name: action.value })
+              .insert({ ...tenantPayload(tenantId), name: action.value })
               .select("id")
               .single();
             tagId = created?.id || null;
@@ -882,16 +959,19 @@ async function executeRichMenuActions(
             await supabaseAdmin
               .from("patient_tags")
               .upsert(
-                { patient_id: patient.patient_id, tag_id: tagId, assigned_by: "richmenu" },
+                { ...tenantPayload(tenantId), patient_id: patient.patient_id, tag_id: tagId, assigned_by: "richmenu" },
                 { onConflict: "patient_id,tag_id" }
               );
             actionDetails.push(`タグ[${action.value}]を追加`);
           } else {
-            await supabaseAdmin
-              .from("patient_tags")
-              .delete()
-              .eq("patient_id", patient.patient_id)
-              .eq("tag_id", tagId);
+            await withTenant(
+              supabaseAdmin
+                .from("patient_tags")
+                .delete()
+                .eq("patient_id", patient.patient_id)
+                .eq("tag_id", tagId),
+              tenantId
+            );
             actionDetails.push(`タグ[${action.value}]を解除`);
           }
           break;
@@ -904,6 +984,7 @@ async function executeRichMenuActions(
               .from("patient_marks")
               .upsert(
                 {
+                  ...tenantPayload(tenantId),
                   patient_id: patient.patient_id,
                   mark: action.value,
                   updated_by: "richmenu",
@@ -919,16 +1000,19 @@ async function executeRichMenuActions(
         case "menu_op": {
           if (!action.value) break;
           // リッチメニューIDからLINE側IDを取得して個別割り当て
-          const { data: menu } = await supabaseAdmin
-            .from("rich_menus")
-            .select("line_rich_menu_id, name")
-            .eq("id", Number(action.value))
-            .maybeSingle();
+          const { data: menu } = await withTenant(
+            supabaseAdmin
+              .from("rich_menus")
+              .select("line_rich_menu_id, name")
+              .eq("id", Number(action.value))
+              .maybeSingle(),
+            tenantId
+          );
 
           if (menu?.line_rich_menu_id) {
             await fetch(`https://api.line.me/v2/bot/user/${lineUid}/richmenu/${menu.line_rich_menu_id}`, {
               method: "POST",
-              headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+              headers: { Authorization: `Bearer ${accessToken}` },
             });
             actionDetails.push(`メニュー[${menu.name || action.value}]にする`);
           }
@@ -938,30 +1022,39 @@ async function executeRichMenuActions(
         case "friend_info": {
           if (!patient?.patient_id || !action.fieldName) break;
           // 友だち情報欄を更新
-          const { data: fieldDef } = await supabaseAdmin
-            .from("friend_field_definitions")
-            .select("id")
-            .eq("name", action.fieldName)
-            .maybeSingle();
+          const { data: fieldDef } = await withTenant(
+            supabaseAdmin
+              .from("friend_field_definitions")
+              .select("id")
+              .eq("name", action.fieldName)
+              .maybeSingle(),
+            tenantId
+          );
 
           if (!fieldDef) break;
 
           const op = action.operation || "assign";
           if (op === "delete") {
-            await supabaseAdmin
-              .from("friend_field_values")
-              .delete()
-              .eq("patient_id", patient.patient_id)
-              .eq("field_id", fieldDef.id);
+            await withTenant(
+              supabaseAdmin
+                .from("friend_field_values")
+                .delete()
+                .eq("patient_id", patient.patient_id)
+                .eq("field_id", fieldDef.id),
+              tenantId
+            );
             actionDetails.push(`友だち情報[${action.fieldName}]を削除`);
           } else {
             // 代入 or 追加
-            const { data: current } = await supabaseAdmin
-              .from("friend_field_values")
-              .select("value")
-              .eq("patient_id", patient.patient_id)
-              .eq("field_id", fieldDef.id)
-              .maybeSingle();
+            const { data: current } = await withTenant(
+              supabaseAdmin
+                .from("friend_field_values")
+                .select("value")
+                .eq("patient_id", patient.patient_id)
+                .eq("field_id", fieldDef.id)
+                .maybeSingle(),
+              tenantId
+            );
 
             let newValue = action.value || "";
             if (op === "append" && current?.value) {
@@ -972,6 +1065,7 @@ async function executeRichMenuActions(
               .from("friend_field_values")
               .upsert(
                 {
+                  ...tenantPayload(tenantId),
                   patient_id: patient.patient_id,
                   field_id: fieldDef.id,
                   value: newValue,
@@ -995,6 +1089,7 @@ async function executeRichMenuActions(
   // アクション詳細をシステムイベントとして記録
   if (actionDetails.length > 0) {
     await logEvent({
+      tenantId,
       patient_id: patient?.patient_id,
       line_uid: lineUid,
       direction: "incoming",
@@ -1009,7 +1104,7 @@ async function executeRichMenuActions(
 // =================================================================
 // 管理グループ postback（再処方承認/却下 - 既存ロジック）
 // =================================================================
-async function handleAdminPostback(groupId: string, dataStr: string) {
+async function handleAdminPostback(groupId: string, dataStr: string, tenantId: string | null, notifyToken: string) {
   const q = parseQueryString(dataStr);
   const action = q["reorder_action"];
   const reorderId = q["reorder_id"];
@@ -1017,20 +1112,24 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
   if (!action || !reorderId) return;
   if (action !== "approve" && action !== "reject") return;
 
-  const gasRowNumber = Number(reorderId);
-  if (!Number.isFinite(gasRowNumber)) return;
+  const reorderNumber = Number(reorderId);
+  if (!Number.isFinite(reorderNumber)) return;
 
-  const { data: reorderData, error: selectError } = await supabaseAdmin
-    .from("reorders")
-    .select("id, patient_id, status")
-    .eq("gas_row_number", gasRowNumber)
-    .single();
+  const { data: reorderData, error: selectError } = await withTenant(
+    supabaseAdmin
+      .from("reorders")
+      .select("id, patient_id, status")
+      .eq("reorder_number", reorderNumber)
+      .single(),
+    tenantId
+  );
 
   if (selectError || !reorderData) {
-    console.error("[LINE webhook] Reorder not found:", gasRowNumber);
+    console.error("[LINE webhook] Reorder not found:", reorderNumber);
     await pushToGroup(
       groupId,
-      `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DBにレコードが見つかりません`
+      `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DBにレコードが見つかりません`,
+      notifyToken
     );
     return;
   }
@@ -1038,31 +1137,36 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
   if (reorderData.status !== "pending") {
     await pushToGroup(
       groupId,
-      `【再処方】この申請は既に処理済みです (${reorderData.status})\n申請ID: ${reorderId}`
+      `【再処方】この申請は既に処理済みです (${reorderData.status})\n申請ID: ${reorderId}`,
+      notifyToken
     );
     return;
   }
 
-  const { error: updateError } = await supabaseAdmin
-    .from("reorders")
-    .update({
-      status: action === "approve" ? "confirmed" : "rejected",
-      ...(action === "approve"
-        ? { approved_at: new Date().toISOString() }
-        : { rejected_at: new Date().toISOString() }),
-    })
-    .eq("gas_row_number", gasRowNumber);
+  const { error: updateError } = await withTenant(
+    supabaseAdmin
+      .from("reorders")
+      .update({
+        status: action === "approve" ? "confirmed" : "rejected",
+        ...(action === "approve"
+          ? { approved_at: new Date().toISOString() }
+          : { rejected_at: new Date().toISOString() }),
+      })
+      .eq("reorder_number", reorderNumber),
+    tenantId
+  );
 
   if (updateError) {
     console.error("[LINE webhook] DB update error:", updateError);
     await pushToGroup(
       groupId,
-      `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DB更新エラー`
+      `【再処方】${action === "approve" ? "承認" : "却下"} 失敗\n申請ID: ${reorderId}\n原因: DB更新エラー`,
+      notifyToken
     );
     return;
   }
 
-  console.log(`[LINE webhook] DB update success: ${action} gas_row=${gasRowNumber}`);
+  console.log(`[LINE webhook] DB update success: ${action} reorder_num=${reorderNumber}`);
 
   if (reorderData.patient_id) {
     await invalidateDashboardCache(reorderData.patient_id);
@@ -1070,26 +1174,28 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
 
   // 患者へLINE通知（承認時のみ）
   if (action === "approve" && reorderData.patient_id) {
-    const { data: intake } = await supabaseAdmin
-      .from("intake")
-      .select("line_id")
-      .eq("patient_id", reorderData.patient_id)
-      .not("line_id", "is", null)
-      .limit(1)
-      .single();
+    const { data: patientRow } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("line_id")
+        .eq("patient_id", reorderData.patient_id)
+        .maybeSingle(),
+      tenantId
+    );
 
     let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
-    if (intake?.line_id) {
+    if (patientRow?.line_id) {
       try {
-        const pushRes = await pushMessage(intake.line_id, [{
+        const pushRes = await pushMessage(patientRow.line_id, [{
           type: "text",
           text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
-        }]);
+        }], tenantId ?? undefined);
         lineNotify = pushRes?.ok ? "sent" : "failed";
         if (pushRes?.ok) {
           await logEvent({
+            tenantId,
             patient_id: reorderData.patient_id,
-            line_uid: intake.line_id,
+            line_uid: patientRow.line_id,
             direction: "outgoing",
             event_type: "message",
             message_type: "text",
@@ -1103,15 +1209,19 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
       }
     }
 
-    await supabaseAdmin
-      .from("reorders")
-      .update({ line_notify_result: lineNotify })
-      .eq("gas_row_number", gasRowNumber);
+    await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update({ line_notify_result: lineNotify })
+        .eq("reorder_number", reorderNumber),
+      tenantId
+    );
   }
 
   await pushToGroup(
     groupId,
-    `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`
+    `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`,
+    notifyToken
   );
 }
 
@@ -1120,17 +1230,44 @@ async function handleAdminPostback(groupId: string, dataStr: string) {
 // =================================================================
 export async function POST(req: NextRequest) {
   try {
-    if (LINE_CHANNEL_SECRETS.length === 0) {
-      return NextResponse.json({ ok: false, error: "LINE_CHANNEL_SECRET missing" }, { status: 500 });
-    }
-
-    // 署名検証
+    // ---- 署名検証（tenantId解決前なので環境変数フォールバックで先行実施）----
     const rawBody = await req.text();
     const signature = req.headers.get("x-line-signature") || "";
 
-    if (!verifyLineSignature(rawBody, signature)) {
+    const envSecrets = [
+      process.env.LINE_MESSAGING_API_CHANNEL_SECRET,
+      process.env.LINE_NOTIFY_CHANNEL_SECRET,
+    ].filter(Boolean) as string[];
+
+    if (envSecrets.length === 0) {
+      return NextResponse.json({ ok: false, error: "LINE_CHANNEL_SECRET missing" }, { status: 500 });
+    }
+
+    if (!verifyLineSignature(rawBody, signature, envSecrets)) {
       return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
     }
+
+    // ---- tenantId解決後に各種設定を動的取得 ----
+    const tenantId = resolveTenantId(req);
+    const tid = tenantId ?? undefined;
+
+    const messagingSecret = await getSettingOrEnv("line", "channel_secret", "LINE_MESSAGING_API_CHANNEL_SECRET", tid);
+    const notifySecret = await getSettingOrEnv("line", "notify_channel_secret", "LINE_NOTIFY_CHANNEL_SECRET", tid);
+    const LINE_CHANNEL_SECRETS = [messagingSecret, notifySecret].filter(Boolean) as string[];
+
+    // DB設定が環境変数と異なる場合、DB設定でも署名を再検証
+    const dbSecretsStr = LINE_CHANNEL_SECRETS.sort().join(",");
+    const envSecretsStr = [...envSecrets].sort().join(",");
+    if (dbSecretsStr !== envSecretsStr && !verifyLineSignature(rawBody, signature, LINE_CHANNEL_SECRETS)) {
+      return NextResponse.json({ ok: false, error: "invalid signature" }, { status: 401 });
+    }
+
+    const LINE_ACCESS_TOKEN = (await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tid))
+      || (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tid))
+      || "";
+    const LINE_NOTIFY_TOKEN = (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tid))
+      || LINE_ACCESS_TOKEN;
+    const LINE_ADMIN_GROUP_ID = (await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tid)) || "";
 
     const body = JSON.parse(rawBody);
     const events = Array.isArray(body?.events) ? body.events : [];
@@ -1143,7 +1280,7 @@ export async function POST(req: NextRequest) {
       // ===== 管理グループからのイベント =====
       if (groupId === LINE_ADMIN_GROUP_ID) {
         if (ev?.type === "postback") {
-          await handleAdminPostback(groupId, ev.postback?.data || "");
+          await handleAdminPostback(groupId, ev.postback?.data || "", tenantId, LINE_NOTIFY_TOKEN);
         }
         continue;
       }
@@ -1152,19 +1289,19 @@ export async function POST(req: NextRequest) {
       if (sourceType === "user" && lineUid) {
         switch (ev.type) {
           case "follow":
-            await handleFollow(lineUid);
+            await handleFollow(lineUid, tenantId, LINE_ACCESS_TOKEN);
             break;
 
           case "unfollow":
-            await handleUnfollow(lineUid);
+            await handleUnfollow(lineUid, tenantId);
             break;
 
           case "message":
-            await handleMessage(lineUid, ev.message || {});
+            await handleMessage(lineUid, ev.message || {}, tenantId, LINE_ACCESS_TOKEN);
             break;
 
           case "postback":
-            await handleUserPostback(lineUid, ev.postback?.data || "");
+            await handleUserPostback(lineUid, ev.postback?.data || "", tenantId, LINE_ACCESS_TOKEN);
             break;
 
           default:

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // Vercel Cron: 予約送信実行（5分おき）
 export async function GET(req: NextRequest) {
@@ -11,16 +12,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const now = new Date().toISOString();
 
   // 送信予定時刻を過ぎた未送信メッセージを取得
-  const { data: messages, error } = await supabaseAdmin
-    .from("scheduled_messages")
-    .select("*")
-    .eq("status", "scheduled")
-    .lte("scheduled_at", now)
-    .order("scheduled_at", { ascending: true })
-    .limit(50);
+  const { data: messages, error } = await withTenant(
+    supabaseAdmin
+      .from("scheduled_messages")
+      .select("*")
+      .eq("status", "scheduled")
+      .lte("scheduled_at", now)
+      .order("scheduled_at", { ascending: true })
+      .limit(50),
+    tenantId
+  );
 
   if (error) {
     console.error("[Cron] DB error:", error.message);
@@ -36,38 +41,47 @@ export async function GET(req: NextRequest) {
 
   for (const msg of messages) {
     if (!msg.line_uid) {
-      await supabaseAdmin.from("scheduled_messages").update({
-        status: "failed",
-        error_message: "LINE UIDなし",
-        sent_at: now,
-      }).eq("id", msg.id);
+      await withTenant(
+        supabaseAdmin.from("scheduled_messages").update({
+          status: "failed",
+          error_message: "LINE UIDなし",
+          sent_at: now,
+        }).eq("id", msg.id),
+        tenantId
+      );
       failed++;
       continue;
     }
 
     try {
-      // テンプレート変数を置換
-      const { data: intake } = await supabaseAdmin
-        .from("intake")
-        .select("patient_name")
-        .eq("patient_id", msg.patient_id)
-        .limit(1)
-        .single();
+      // テンプレート変数を置換（patientsテーブルから患者名取得）
+      const { data: patient } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("name")
+          .eq("patient_id", msg.patient_id)
+          .maybeSingle(),
+        tenantId
+      );
 
       const resolvedMsg = msg.message_content
-        .replace(/\{name\}/g, intake?.patient_name || "")
+        .replace(/\{name\}/g, patient?.name || "")
         .replace(/\{patient_id\}/g, msg.patient_id);
 
-      const res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }]);
+      const res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
 
       if (res?.ok) {
-        await supabaseAdmin.from("scheduled_messages").update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-        }).eq("id", msg.id);
+        await withTenant(
+          supabaseAdmin.from("scheduled_messages").update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+          }).eq("id", msg.id),
+          tenantId
+        );
 
         // メッセージログ
         await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
           patient_id: msg.patient_id,
           line_uid: msg.line_uid,
           message_type: "scheduled",
@@ -77,19 +91,25 @@ export async function GET(req: NextRequest) {
         });
         sent++;
       } else {
-        await supabaseAdmin.from("scheduled_messages").update({
-          status: "failed",
-          error_message: "LINE API error",
-          sent_at: new Date().toISOString(),
-        }).eq("id", msg.id);
+        await withTenant(
+          supabaseAdmin.from("scheduled_messages").update({
+            status: "failed",
+            error_message: "LINE API error",
+            sent_at: new Date().toISOString(),
+          }).eq("id", msg.id),
+          tenantId
+        );
         failed++;
       }
     } catch (err) {
-      await supabaseAdmin.from("scheduled_messages").update({
-        status: "failed",
-        error_message: err instanceof Error ? err.message : "Unknown error",
-        sent_at: new Date().toISOString(),
-      }).eq("id", msg.id);
+      await withTenant(
+        supabaseAdmin.from("scheduled_messages").update({
+          status: "failed",
+          error_message: err instanceof Error ? err.message : "Unknown error",
+          sent_at: new Date().toISOString(),
+        }).eq("id", msg.id),
+        tenantId
+      );
       failed++;
     }
   }

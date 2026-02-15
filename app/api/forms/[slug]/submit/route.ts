@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 /**
  * フォーム送信後のアクション実行
  * actions テーブルの steps JSONB を順番に実行
  */
-async function executeFormAction(actionId: number, patientId: string, lineUid: string) {
-  const { data: action } = await supabaseAdmin
-    .from("actions")
-    .select("id, name, steps")
-    .eq("id", actionId)
-    .single();
+async function executeFormAction(actionId: number, patientId: string, lineUid: string, tenantId: string | null) {
+  const { data: action } = await withTenant(
+    supabaseAdmin
+      .from("actions")
+      .select("id, name, steps")
+      .eq("id", actionId)
+      .single(),
+    tenantId
+  );
 
   if (!action?.steps) return;
 
@@ -22,19 +26,22 @@ async function executeFormAction(actionId: number, patientId: string, lineUid: s
       switch (step.type) {
         case "send_text":
           if (step.content && lineUid) {
-            await pushMessage(lineUid, [{ type: "text", text: step.content }]);
+            await pushMessage(lineUid, [{ type: "text", text: step.content }], tenantId ?? undefined);
           }
           break;
 
         case "send_template":
           if (step.template_id && lineUid) {
-            const { data: tpl } = await supabaseAdmin
-              .from("message_templates")
-              .select("content")
-              .eq("id", step.template_id)
-              .single();
+            const { data: tpl } = await withTenant(
+              supabaseAdmin
+                .from("message_templates")
+                .select("content")
+                .eq("id", step.template_id)
+                .single(),
+              tenantId
+            );
             if (tpl?.content) {
-              await pushMessage(lineUid, [{ type: "text", text: tpl.content }]);
+              await pushMessage(lineUid, [{ type: "text", text: tpl.content }], tenantId ?? undefined);
             }
           }
           break;
@@ -44,7 +51,7 @@ async function executeFormAction(actionId: number, patientId: string, lineUid: s
             await supabaseAdmin
               .from("patient_tags")
               .upsert(
-                { patient_id: patientId, tag_id: step.tag_id, assigned_by: "form_action" },
+                { ...tenantPayload(tenantId), patient_id: patientId, tag_id: step.tag_id, assigned_by: "form_action" },
                 { onConflict: "patient_id,tag_id" }
               );
           }
@@ -52,20 +59,26 @@ async function executeFormAction(actionId: number, patientId: string, lineUid: s
 
         case "tag_remove":
           if (step.tag_id && patientId) {
-            await supabaseAdmin
-              .from("patient_tags")
-              .delete()
-              .eq("patient_id", patientId)
-              .eq("tag_id", step.tag_id);
+            await withTenant(
+              supabaseAdmin
+                .from("patient_tags")
+                .delete()
+                .eq("patient_id", patientId)
+                .eq("tag_id", step.tag_id),
+              tenantId
+            );
           }
           break;
 
         case "mark_change":
           if (step.mark !== undefined && patientId) {
-            await supabaseAdmin
-              .from("answerers")
-              .update({ mark: step.mark })
-              .eq("patient_id", patientId);
+            await withTenant(
+              supabaseAdmin
+                .from("patients")
+                .update({ mark: step.mark })
+                .eq("patient_id", patientId),
+              tenantId
+            );
           }
           break;
       }
@@ -81,13 +94,17 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  const tenantId = resolveTenantId(req);
 
   // フォーム取得
-  const { data: form, error: formErr } = await supabaseAdmin
-    .from("forms")
-    .select("id, fields, settings, is_published")
-    .eq("slug", slug)
-    .single();
+  const { data: form, error: formErr } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .select("id, fields, settings, is_published")
+      .eq("slug", slug)
+      .single(),
+    tenantId
+  );
 
   if (formErr || !form) {
     return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
@@ -109,10 +126,13 @@ export async function POST(
 
   // 先着チェック
   if (settings.max_responses) {
-    const { count } = await supabaseAdmin
-      .from("form_responses")
-      .select("id", { count: "exact", head: true })
-      .eq("form_id", form.id);
+    const { count } = await withTenant(
+      supabaseAdmin
+        .from("form_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("form_id", form.id),
+      tenantId
+    );
     if (count !== null && count >= (settings.max_responses as number)) {
       return NextResponse.json({ error: "回答数の上限に達しました" }, { status: 403 });
     }
@@ -127,11 +147,14 @@ export async function POST(
 
   // 1人あたりの回答数チェック
   if (settings.responses_per_person && line_user_id) {
-    const { count } = await supabaseAdmin
-      .from("form_responses")
-      .select("id", { count: "exact", head: true })
-      .eq("form_id", form.id)
-      .eq("line_user_id", line_user_id);
+    const { count } = await withTenant(
+      supabaseAdmin
+        .from("form_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("form_id", form.id)
+        .eq("line_user_id", line_user_id),
+      tenantId
+    );
     if (count !== null && count >= (settings.responses_per_person as number)) {
       return NextResponse.json({ error: "回答回数の上限に達しています" }, { status: 403 });
     }
@@ -182,6 +205,7 @@ export async function POST(
   const { data: response, error: insertErr } = await supabaseAdmin
     .from("form_responses")
     .insert({
+      ...tenantPayload(tenantId),
       form_id: form.id,
       line_user_id: line_user_id || null,
       respondent_name: respondent_name || null,
@@ -199,12 +223,15 @@ export async function POST(
   // LINE UID → patient_id 取得（後続処理で共有）
   let patientId: string | null = null;
   if (line_user_id) {
-    const { data: patientData } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id")
-      .eq("line_id", line_user_id)
-      .limit(1)
-      .maybeSingle();
+    const { data: patientData } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id")
+        .eq("line_id", line_user_id)
+        .limit(1)
+        .maybeSingle(),
+      tenantId
+    );
     patientId = patientData?.patient_id || null;
   }
 
@@ -229,9 +256,10 @@ export async function POST(
     }
 
     if (fieldUpserts.length > 0) {
+      const upsertData = fieldUpserts.map(f => ({ ...tenantPayload(tenantId), ...f }));
       const { error: fieldErr } = await supabaseAdmin
         .from("friend_field_values")
-        .upsert(fieldUpserts, { onConflict: "patient_id,field_id" });
+        .upsert(upsertData, { onConflict: "patient_id,field_id" });
       if (fieldErr) {
         console.error("[form-submit] friend_field_values upsert error:", fieldErr.message);
       }
@@ -242,7 +270,7 @@ export async function POST(
   if (Array.isArray(settings.post_actions) && (settings.post_actions as number[]).length > 0 && patientId && line_user_id) {
     for (const actionId of settings.post_actions as number[]) {
       try {
-        await executeFormAction(actionId, patientId, line_user_id);
+        await executeFormAction(actionId, patientId, line_user_id, tenantId);
       } catch (e) {
         console.error(`[form-submit] post_action ${actionId} 実行エラー:`, e);
       }
@@ -251,11 +279,14 @@ export async function POST(
 
   // フォーム名を取得してシステムイベントログを記録
   if (line_user_id) {
-    const { data: formInfo } = await supabaseAdmin
-      .from("forms")
-      .select("name")
-      .eq("id", form.id)
-      .maybeSingle();
+    const { data: formInfo } = await withTenant(
+      supabaseAdmin
+        .from("forms")
+        .select("name")
+        .eq("id", form.id)
+        .maybeSingle(),
+      tenantId
+    );
 
     // 回答された項目名を収集
     const answeredFields = fields
@@ -267,6 +298,7 @@ export async function POST(
       : "";
 
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
       patient_id: patientId,
       line_uid: line_user_id,
       event_type: "system",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // ★ SERVICE_ROLE_KEYを使用してRLSをバイパス
 const supabaseAdmin = createClient(
@@ -17,6 +18,8 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   try {
     const body = await req.json().catch(() => ({}));
 
@@ -29,11 +32,14 @@ export async function POST(req: NextRequest) {
     console.log(`[doctor/update] Processing: reserveId=${reserveId}, status=${status}`);
 
     // ★ Step 1: intakeテーブルからpatient_idを取得
-    const { data: intakeData, error: intakeQueryError } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id")
-      .eq("reserve_id", reserveId)
-      .single();
+    const { data: intakeData, error: intakeQueryError } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id")
+        .eq("reserve_id", reserveId)
+        .single(),
+      tenantId
+    );
 
     if (intakeQueryError || !intakeData) {
       console.error("[doctor/update] Intake not found:", { reserveId, error: intakeQueryError });
@@ -44,25 +50,30 @@ export async function POST(req: NextRequest) {
 
     // ★ Step 2: DB先行書き込み（intakeテーブルとreservationsテーブル）
     const [intakeResult, reservationResult] = await Promise.allSettled([
-      // 2a. intakeテーブルを更新（status, note, prescription_menu）
-      supabaseAdmin
-        .from("intake")
-        .update({
-          status: status || null,
-          note: note || null,
-          prescription_menu: prescriptionMenu || null,
-        })
-        .eq("reserve_id", reserveId),
+      // 2a. intakeテーブルを更新（status, note）※ prescription_menu は reservations が正
+      withTenant(
+        supabaseAdmin
+          .from("intake")
+          .update({
+            status: status || null,
+            note: note || null,
+          })
+          .eq("reserve_id", reserveId),
+        tenantId
+      ),
 
       // 2b. reservationsテーブルのstatus, note, prescription_menuも更新
-      supabaseAdmin
-        .from("reservations")
-        .update({
-          status: status || "pending",
-          note: note || null,
-          prescription_menu: prescriptionMenu || null,
-        })
-        .eq("reserve_id", reserveId),
+      withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .update({
+            status: status || "pending",
+            note: note || null,
+            prescription_menu: prescriptionMenu || null,
+          })
+          .eq("reserve_id", reserveId),
+        tenantId
+      ),
     ]);
 
     // intakeの更新が失敗したらエラー

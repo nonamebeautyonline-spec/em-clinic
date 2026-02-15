@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // ファイルアップロード（認証不要）
 export async function POST(
@@ -7,13 +8,17 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  const tenantId = resolveTenantId(req);
 
   // フォーム存在チェック
-  const { data: form } = await supabaseAdmin
-    .from("forms")
-    .select("id, is_published")
-    .eq("slug", slug)
-    .single();
+  const { data: form } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .select("id, is_published")
+      .eq("slug", slug)
+      .single(),
+    tenantId
+  );
 
   if (!form || !form.is_published) {
     return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });

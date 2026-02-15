@@ -2,20 +2,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // シナリオ一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: scenarios, error } = await supabaseAdmin
-    .from("step_scenarios")
-    .select(`
+  const tenantId = resolveTenantId(req);
+
+  const { data: scenarios, error } = await withTenant(
+    supabaseAdmin.from("step_scenarios").select(`
       *,
       step_items(count),
       trigger_tag:tag_definitions!step_scenarios_trigger_tag_id_fkey(id, name, color)
-    `)
-    .order("created_at", { ascending: false });
+    `).order("created_at", { ascending: false }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -34,6 +37,8 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const body = await req.json();
   const { name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = body;
 
@@ -43,6 +48,7 @@ export async function POST(req: NextRequest) {
   const { data: scenario, error } = await supabaseAdmin
     .from("step_scenarios")
     .insert({
+      ...tenantPayload(tenantId),
       name: name.trim(),
       folder_id: folder_id || null,
       trigger_type: trigger_type || "follow",
@@ -60,6 +66,7 @@ export async function POST(req: NextRequest) {
   // ステップ一括挿入
   if (Array.isArray(steps) && steps.length > 0) {
     const stepRows = steps.map((s: any, i: number) => ({
+      ...tenantPayload(tenantId),
       scenario_id: scenario.id,
       sort_order: i,
       delay_type: s.delay_type || "days",
@@ -90,14 +97,15 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const body = await req.json();
   const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = body;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 
-  const { data: scenario, error } = await supabaseAdmin
-    .from("step_scenarios")
-    .update({
+  const { data: scenario, error } = await withTenant(
+    supabaseAdmin.from("step_scenarios").update({
       name: name?.trim() || "",
       folder_id: folder_id || null,
       trigger_type: trigger_type || "follow",
@@ -107,19 +115,22 @@ export async function PUT(req: NextRequest) {
       condition_rules: condition_rules || [],
       is_enabled: is_enabled !== false,
       updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
+    }).eq("id", id).select(),
+    tenantId
+  ).single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // ステップ: 全削除→再挿入（CASCADE で安全）
   if (Array.isArray(steps)) {
-    await supabaseAdmin.from("step_items").delete().eq("scenario_id", id);
+    await withTenant(
+      supabaseAdmin.from("step_items").delete().eq("scenario_id", id),
+      tenantId
+    );
 
     if (steps.length > 0) {
       const stepRows = steps.map((s: any, i: number) => ({
+        ...tenantPayload(tenantId),
         scenario_id: id,
         sort_order: i,
         delay_type: s.delay_type || "days",
@@ -145,14 +156,16 @@ export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 
-  const { error } = await supabaseAdmin
-    .from("step_scenarios")
-    .delete()
-    .eq("id", parseInt(id));
+  const { error } = await withTenant(
+    supabaseAdmin.from("step_scenarios").delete().eq("id", parseInt(id)),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

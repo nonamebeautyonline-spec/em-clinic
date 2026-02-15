@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
@@ -12,22 +13,24 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get("from") || "";
   const to = searchParams.get("to") || "";
 
+  const tenantId = resolveTenantId(req);
+
   switch (type) {
     case "daily":
-      return getDailyRevenue(from, to);
+      return getDailyRevenue(from, to, tenantId);
     case "ltv":
-      return getLTV();
+      return getLTV(tenantId);
     case "cohort":
-      return getCohort();
+      return getCohort(tenantId);
     case "products":
-      return getProductBreakdown(from, to);
+      return getProductBreakdown(from, to, tenantId);
     default:
       return NextResponse.json({ error: "不明なtype" }, { status: 400 });
   }
 }
 
 /** 日別売上推移 */
-async function getDailyRevenue(from: string, to: string) {
+async function getDailyRevenue(from: string, to: string, tenantId: string | null) {
   let query = supabaseAdmin
     .from("orders")
     .select("amount, paid_at, refund_status, refunded_amount")
@@ -36,7 +39,7 @@ async function getDailyRevenue(from: string, to: string) {
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await query;
+  const { data } = await withTenant(query, tenantId);
   if (!data) return NextResponse.json({ daily: [] });
 
   const map = new Map<string, { revenue: number; refunds: number; count: number }>();
@@ -65,11 +68,14 @@ async function getDailyRevenue(from: string, to: string) {
 }
 
 /** 患者LTV（生涯価値） */
-async function getLTV() {
-  const { data: orders } = await supabaseAdmin
-    .from("orders")
-    .select("patient_id, amount, paid_at, refund_status, refunded_amount")
-    .not("paid_at", "is", null);
+async function getLTV(tenantId: string | null) {
+  const { data: orders } = await withTenant(
+    supabaseAdmin
+      .from("orders")
+      .select("patient_id, amount, paid_at, refund_status, refunded_amount")
+      .not("paid_at", "is", null),
+    tenantId
+  );
 
   if (!orders) return NextResponse.json({ ltv: {} });
 
@@ -124,12 +130,15 @@ async function getLTV() {
 }
 
 /** コホート分析（月別初回購入→リピート率） */
-async function getCohort() {
-  const { data: orders } = await supabaseAdmin
-    .from("orders")
-    .select("patient_id, paid_at")
-    .not("paid_at", "is", null)
-    .order("paid_at", { ascending: true });
+async function getCohort(tenantId: string | null) {
+  const { data: orders } = await withTenant(
+    supabaseAdmin
+      .from("orders")
+      .select("patient_id, paid_at")
+      .not("paid_at", "is", null)
+      .order("paid_at", { ascending: true }),
+    tenantId
+  );
 
   if (!orders) return NextResponse.json({ cohort: [] });
 
@@ -178,7 +187,7 @@ async function getCohort() {
 }
 
 /** 商品別売上内訳 */
-async function getProductBreakdown(from: string, to: string) {
+async function getProductBreakdown(from: string, to: string, tenantId: string | null) {
   let query = supabaseAdmin
     .from("orders")
     .select("product_code, amount, refund_status, refunded_amount")
@@ -187,7 +196,7 @@ async function getProductBreakdown(from: string, to: string) {
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await query;
+  const { data } = await withTenant(query, tenantId);
   if (!data) return NextResponse.json({ products: [] });
 
   const map = new Map<string, { revenue: number; count: number }>();

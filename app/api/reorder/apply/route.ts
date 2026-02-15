@@ -4,19 +4,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-
-const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
-const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 // LINE Flex Message（承認・却下ボタン付き）を送信
 async function sendReorderNotification(
   patientId: string,
   patientName: string,
   productCode: string,
-  gasRowNumber: number,
-  history: string
+  reorderNumber: number,
+  history: string,
+  notifyToken: string,
+  adminGroupId: string
 ) {
-  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
+  if (!notifyToken || !adminGroupId) {
     console.log("[reorder/apply] LINE notification skipped (missing config)");
     return;
   }
@@ -94,7 +95,7 @@ async function sendReorderNotification(
             },
             {
               type: "text",
-              text: `申請ID: ${gasRowNumber}`,
+              text: `申請ID: ${reorderNumber}`,
               size: "xs",
               color: "#999999",
               margin: "md"
@@ -113,7 +114,7 @@ async function sendReorderNotification(
               action: {
                 type: "postback",
                 label: "承認",
-                data: `reorder_action=approve&reorder_id=${gasRowNumber}`
+                data: `reorder_action=approve&reorder_id=${reorderNumber}`
               }
             },
             {
@@ -122,7 +123,7 @@ async function sendReorderNotification(
               action: {
                 type: "postback",
                 label: "却下",
-                data: `reorder_action=reject&reorder_id=${gasRowNumber}`
+                data: `reorder_action=reject&reorder_id=${reorderNumber}`
               }
             }
           ]
@@ -134,17 +135,17 @@ async function sendReorderNotification(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${notifyToken}`,
       },
       body: JSON.stringify({
-        to: LINE_ADMIN_GROUP_ID,
+        to: adminGroupId,
         messages: [flexMessage],
       }),
       cache: "no-store",
     });
 
     const body = await res.text();
-    console.log(`[reorder/apply] LINE flex push status=${res.status} gasRow=${gasRowNumber}`);
+    console.log(`[reorder/apply] LINE flex push status=${res.status} reorderNum=${reorderNumber}`);
     if (!res.ok) {
       console.error("[reorder/apply] LINE push failed:", body);
     }
@@ -154,8 +155,8 @@ async function sendReorderNotification(
 }
 
 // テキスト通知（7.5mg警告用）
-async function pushTextToAdminGroup(text: string) {
-  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
+async function pushTextToAdminGroup(text: string, notifyToken: string, adminGroupId: string) {
+  if (!notifyToken || !adminGroupId) {
     return;
   }
 
@@ -164,10 +165,10 @@ async function pushTextToAdminGroup(text: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${notifyToken}`,
       },
       body: JSON.stringify({
-        to: LINE_ADMIN_GROUP_ID,
+        to: adminGroupId,
         messages: [{ type: "text", text }],
       }),
       cache: "no-store",
@@ -193,6 +194,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+    const tid = tenantId ?? undefined;
+
+    // LINE通知用トークンを動的取得
+    const LINE_NOTIFY_TOKEN = (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tid)) || "";
+    const LINE_ADMIN_GROUP_ID = (await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tid)) || "";
+
     const body = await req.json().catch(() => ({} as any));
     const productCode = body.productCode as string | undefined;
     if (!productCode) {
@@ -201,11 +209,14 @@ export async function POST(req: NextRequest) {
 
     // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
     {
-      const { data: intakeRow } = await supabaseAdmin
-        .from("intake")
-        .select("status")
-        .eq("patient_id", patientId)
-        .not("status", "is", null)
+      const { data: intakeRow } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("status")
+          .eq("patient_id", patientId)
+          .not("status", "is", null),
+        tenantId
+      )
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -220,11 +231,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ 重複申請チェック: pending or confirmed の申請があれば拒否
-    const { data: existingReorder, error: checkError } = await supabaseAdmin
-      .from("reorders")
-      .select("id, status, product_code")
-      .eq("patient_id", patientId)
-      .in("status", ["pending", "confirmed"])
+    const { data: existingReorder, error: checkError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("id, status, product_code")
+        .eq("patient_id", patientId)
+        .in("status", ["pending", "confirmed"]),
+      tenantId
+    )
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -246,15 +260,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ★ DB: gas_row_numberを生成（DBの最大値+1）
-    const { data: maxRow } = await supabaseAdmin
-      .from("reorders")
-      .select("gas_row_number")
-      .order("gas_row_number", { ascending: false })
+    // ★ DB: reorder_numberを生成（DBの最大値+1）
+    const { data: maxRow } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("reorder_number"),
+      tenantId
+    )
+      .order("reorder_number", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const gasRowNumber = (maxRow?.gas_row_number || 1) + 1;
+    const reorderNumber = (maxRow?.reorder_number || 1) + 1;
 
     const { data: insertedData, error: dbError } = await supabaseAdmin
       .from("reorders")
@@ -263,7 +280,8 @@ export async function POST(req: NextRequest) {
         product_code: productCode,
         status: "pending",
         line_uid: lineUid || null,
-        gas_row_number: gasRowNumber,
+        reorder_number: reorderNumber,
+        ...tenantPayload(tenantId),
       })
       .select("id")
       .single();
@@ -274,7 +292,7 @@ export async function POST(req: NextRequest) {
     }
 
     const dbId = insertedData.id;
-    console.log(`[reorder/apply] DB insert success: id=${dbId}, gas_row=${gasRowNumber}, patient=${patientId}`);
+    console.log(`[reorder/apply] DB insert success: id=${dbId}, reorder_num=${reorderNumber}, patient=${patientId}`);
 
     // ★ キャッシュ削除（即時）
     await invalidateDashboardCache(patientId);
@@ -282,19 +300,24 @@ export async function POST(req: NextRequest) {
     // ★ 患者名と処方歴を取得してLINE通知を送信（非同期）
     (async () => {
       try {
-        // 患者名を取得
-        const { data: intakeData } = await supabaseAdmin
-          .from("intake")
-          .select("patient_name")
-          .eq("patient_id", patientId)
-          .single();
-        const patientName = intakeData?.patient_name || patientId;
+        // 患者名を取得（patientsテーブルから）
+        const { data: patientData } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("name")
+            .eq("patient_id", patientId),
+          tenantId
+        ).maybeSingle();
+        const patientName = patientData?.name || patientId;
 
         // 過去の処方歴を取得（最新5件）
-        const { data: historyData } = await supabaseAdmin
-          .from("orders")
-          .select("product_code, shipping_date")
-          .eq("patient_id", patientId)
+        const { data: historyData } = await withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("product_code, shipping_date")
+            .eq("patient_id", patientId),
+          tenantId
+        )
           .order("created_at", { ascending: false })
           .limit(5);
 
@@ -309,7 +332,7 @@ export async function POST(req: NextRequest) {
           }).join("\n");
         }
 
-        await sendReorderNotification(patientId, patientName, productCode, gasRowNumber, history);
+        await sendReorderNotification(patientId, patientName, productCode, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
       } catch (err) {
         console.error("[reorder/apply] LINE notification error:", err);
       }
@@ -319,19 +342,21 @@ export async function POST(req: NextRequest) {
     if (productCode.includes("7.5mg")) {
       (async () => {
         try {
-          const { data: prev75Orders, error: prev75Error } = await supabaseAdmin
-            .from("orders")
-            .select("id")
-            .eq("patient_id", patientId)
-            .like("product_code", "%7.5mg%")
-            .limit(1);
+          const { data: prev75Orders, error: prev75Error } = await withTenant(
+            supabaseAdmin
+              .from("orders")
+              .select("id")
+              .eq("patient_id", patientId)
+              .like("product_code", "%7.5mg%"),
+            tenantId
+          ).limit(1);
 
           if (prev75Error) {
             console.error("[reorder/apply] 7.5mg history check error:", prev75Error);
           } else if (!prev75Orders || prev75Orders.length === 0) {
             console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
             const alertText = `⚠️【7.5mg 初回申請】⚠️\n患者ID: ${patientId}\n\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。`;
-            await pushTextToAdminGroup(alertText);
+            await pushTextToAdminGroup(alertText, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
           }
         } catch (err) {
           console.error("[reorder/apply] 7.5mg check exception:", err);

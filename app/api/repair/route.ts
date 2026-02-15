@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json().catch(() => ({} as Record<string, string>));
     const { name_kana, sex, birth, tel } = body;
 
@@ -23,11 +26,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. intake.answers を更新（既存をマージ）
-    const { data: intake } = await supabaseAdmin
-      .from("intake")
-      .select("answers")
-      .eq("patient_id", patientId)
-      .maybeSingle();
+    const { data: intake } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("answers")
+        .eq("patient_id", patientId),
+      tenantId
+    ).maybeSingle();
 
     const existingAnswers = (intake?.answers as Record<string, unknown>) || {};
     const updatedAnswers = {
@@ -42,10 +47,13 @@ export async function POST(req: NextRequest) {
       tel: tel,
     };
 
-    const { error: intakeError } = await supabaseAdmin
-      .from("intake")
-      .update({ answers: updatedAnswers })
-      .eq("patient_id", patientId);
+    const { error: intakeError } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .update({ answers: updatedAnswers })
+        .eq("patient_id", patientId),
+      tenantId
+    );
 
     if (intakeError) {
       console.error("[repair] intake update error:", intakeError.message);
@@ -54,13 +62,14 @@ export async function POST(req: NextRequest) {
 
     // 2. answerers テーブルも更新
     const { error: answererError } = await supabaseAdmin
-      .from("answerers")
+      .from("patients")
       .upsert({
         patient_id: patientId,
         name_kana: name_kana,
         sex: sex,
         birthday: birth,
         tel: tel,
+        ...tenantPayload(tenantId),
       }, { onConflict: "patient_id" });
 
     if (answererError) {

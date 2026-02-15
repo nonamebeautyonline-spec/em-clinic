@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, tenantPayload } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   try {
     const body = await req.json();
@@ -31,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabaseAdmin
       .from("doctors")
-      .upsert(record, { onConflict: "doctor_id" });
+      .upsert({ ...tenantPayload(tenantId), ...record }, { onConflict: "doctor_id" });
 
     if (error) {
       console.error("doctors upsert error:", error);

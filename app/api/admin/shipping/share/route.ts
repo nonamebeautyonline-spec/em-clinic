@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
 import { jwtVerify } from "jose";
+import { resolveTenantId, tenantPayload } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "認証エラー" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { data } = body;
 
@@ -61,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     // データを保存
     const { error } = await supabase.from("shipping_shares").insert({
+      ...tenantPayload(tenantId),
       id: shareId,
       data: data,
       expires_at: expiresAt.toISOString(),

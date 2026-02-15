@@ -7,6 +7,7 @@ import PaymentSection from "./_components/PaymentSection";
 import LineSection from "./_components/LineSection";
 import MypageSection from "./_components/MypageSection";
 import FlexSection from "./_components/FlexSection";
+import AccountSection from "./_components/AccountSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment";
@@ -232,6 +233,7 @@ export default function SettingsPage() {
             {activeSection === "line" && <LineSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
             {activeSection === "flex" && <FlexSection onToast={handleToast} />}
+            {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>
       </div>

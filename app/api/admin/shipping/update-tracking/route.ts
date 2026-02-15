@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json();
     const { csvContent } = body;
@@ -68,16 +71,19 @@ export async function POST(req: NextRequest) {
       // 各payment_idに対して追跡番号を付与
       for (const paymentId of paymentIds) {
         try {
-          const { data, error } = await supabase
-            .from("orders")
-            .update({
-              tracking_number: trackingNumber,
-              shipping_status: "shipped",
-              shipping_date: today,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", paymentId)
-            .select("id");
+          const { data, error } = await withTenant(
+            supabase
+              .from("orders")
+              .update({
+                tracking_number: trackingNumber,
+                shipping_status: "shipped",
+                shipping_date: today,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", paymentId)
+              .select("id"),
+            tenantId
+          );
 
           if (error) {
             console.error(`[UpdateTracking] Error updating ${paymentId}:`, error);

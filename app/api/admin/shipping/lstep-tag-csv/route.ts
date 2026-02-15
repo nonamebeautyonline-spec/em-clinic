@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId } from "@/lib/tenant";
 
 const TAG_ATTR_ID = "9217653"; // タグID（GASと同じ）
 
@@ -11,6 +12,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json();
     const { lstepIds } = body as { lstepIds: string[] };

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,29 +18,37 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     // ordersテーブルから返金データを取得
-    const { data: refunds, error } = await supabase
-      .from("orders")
-      .select("id, patient_id, amount, refunded_amount, refund_status, refunded_at, status, created_at, product_code, product_name")
-      .or("refund_status.eq.COMPLETED,refund_status.eq.PENDING,refund_status.eq.FAILED,status.eq.refunded")
-      .order("refunded_at", { ascending: false });
+    const { data: refunds, error } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("id, patient_id, amount, refunded_amount, refund_status, refunded_at, status, created_at, product_code, product_name")
+        .or("refund_status.eq.COMPLETED,refund_status.eq.PENDING,refund_status.eq.FAILED,status.eq.refunded")
+        .order("refunded_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) {
       console.error("[admin/refunds] Database error:", error);
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
-    // 患者名を取得
+    // 患者名をpatientsテーブルから取得
     const patientIds = [...new Set((refunds || []).map((r: any) => r.patient_id).filter(Boolean))];
     const nameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: patients } = await supabase
-        .from("intake")
-        .select("patient_id, patient_name")
-        .in("patient_id", patientIds);
-      for (const p of patients || []) {
-        if (p.patient_name && !nameMap[p.patient_id]) {
-          nameMap[p.patient_id] = p.patient_name;
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds),
+        tenantId
+      );
+      for (const p of pData || []) {
+        if (p.name && !nameMap[p.patient_id]) {
+          nameMap[p.patient_id] = p.name;
         }
       }
     }

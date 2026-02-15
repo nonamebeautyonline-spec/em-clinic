@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
@@ -36,6 +37,7 @@ async function retrySupabaseWrite<T>(
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
     const body = await req.json().catch(() => ({} as any));
 
     const patientId =
@@ -76,12 +78,15 @@ export async function POST(req: NextRequest) {
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
         // ★ 複数 intake レコード対策: 問診本体（reserve_id あり）を優先取得
         //   カルテレコード（note が "再処方" 始まり）の方が created_at が古い場合があるため
-        const { data: intakeRows } = await supabaseAdmin
-          .from("intake")
-          .select("id, patient_name, line_id, answers, reserve_id, reserved_date, reserved_time, status, note, prescription_menu")
-          .eq("patient_id", patientId)
-          .order("created_at", { ascending: false })
-          .limit(10);
+        const { data: intakeRows } = await withTenant(
+          supabaseAdmin
+            .from("intake")
+            .select("id, answers, reserve_id, status, note")
+            .eq("patient_id", patientId)
+            .order("created_at", { ascending: false })
+            .limit(10),
+          tenantId
+        );
         const existingRecord = intakeRows?.find(r => r.reserve_id != null)
           ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
           ?? null;
@@ -102,28 +107,28 @@ export async function POST(req: NextRequest) {
         };
 
         // patient_idユニーク制約なしのため select→insert/update パターン
+        // ★ 冗長カラム (patient_name, line_id, reserved_date, reserved_time, prescription_menu) は
+        //   patients / reservations テーブルが正のため書き込み不要
         const intakePayload = {
-            patient_name: name || existingRecord?.patient_name || null,
             answerer_id: answererId,
-            line_id: lineId || existingRecord?.line_id || null,
             reserve_id: existingRecord?.reserve_id ?? null,
-            reserved_date: existingRecord?.reserved_date ?? null,
-            reserved_time: existingRecord?.reserved_time ?? null,
             status: existingRecord?.status ?? null,
             note: existingRecord?.note ?? null,
-            prescription_menu: existingRecord?.prescription_menu ?? null,
             answers: mergedAnswers,
         };
 
         // ★ 既存レコードは id 指定で更新（複数レコードの全上書き防止）
         const result = existingRecord
-          ? await supabaseAdmin
-              .from("intake")
-              .update(intakePayload)
-              .eq("id", existingRecord.id)
+          ? await withTenant(
+              supabaseAdmin
+                .from("intake")
+                .update(intakePayload)
+                .eq("id", existingRecord.id),
+              tenantId
+            )
           : await supabaseAdmin
               .from("intake")
-              .insert({ patient_id: patientId, ...intakePayload });
+              .insert({ ...tenantPayload(tenantId), patient_id: patientId, ...intakePayload });
 
         if (result.error) {
           throw result.error;
@@ -135,15 +140,19 @@ export async function POST(req: NextRequest) {
       retrySupabaseWrite(async () => {
         // 既存レコードを取得して、空値で上書きしないようにする
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null → name 消失バグの原因）
-        const { data: existingAnswerer } = await supabaseAdmin
-          .from("answerers")
-          .select("tel, name, name_kana, sex, birthday, line_id")
-          .eq("patient_id", patientId)
-          .maybeSingle();
+        const { data: existingAnswerer } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("tel, name, name_kana, sex, birthday, line_id")
+            .eq("patient_id", patientId)
+            .maybeSingle(),
+          tenantId
+        );
 
         const result = await supabaseAdmin
-          .from("answerers")
+          .from("patients")
           .upsert({
+            ...tenantPayload(tenantId),
             patient_id: patientId,
             answerer_id: answererId,
             line_id: lineId || existingAnswerer?.line_id || null,
@@ -197,21 +206,27 @@ export async function POST(req: NextRequest) {
     // ★ LINE_仮レコードが残っていたら統合して削除
     if (!patientId.startsWith("LINE_")) {
       try {
-        // intakeに書き込まれたline_idを取得
-        const { data: currentIntake } = await supabaseAdmin
-          .from("intake")
-          .select("line_id")
-          .eq("patient_id", patientId)
-          .maybeSingle();
+        // patients テーブルから line_id を取得
+        const { data: currentPatient } = await withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("line_id")
+            .eq("patient_id", patientId)
+            .maybeSingle(),
+          tenantId
+        );
 
-        const resolvedLineId = currentIntake?.line_id;
+        const resolvedLineId = currentPatient?.line_id;
         if (resolvedLineId) {
           const fakeId = `LINE_${resolvedLineId.slice(-8)}`;
-          const { data: fakeRecord } = await supabaseAdmin
-            .from("intake")
-            .select("patient_id")
-            .eq("patient_id", fakeId)
-            .maybeSingle();
+          const { data: fakeRecord } = await withTenant(
+            supabaseAdmin
+              .from("intake")
+              .select("patient_id")
+              .eq("patient_id", fakeId)
+              .maybeSingle(),
+            tenantId
+          );
 
           if (fakeRecord) {
             console.log(`[Intake] Merging fake record ${fakeId} -> ${patientId}`);
@@ -219,26 +234,35 @@ export async function POST(req: NextRequest) {
             const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
             await Promise.all(
               migrateTables.map(async (table) => {
-                const { error } = await supabaseAdmin
-                  .from(table)
-                  .update({ patient_id: patientId })
-                  .eq("patient_id", fakeId);
+                const { error } = await withTenant(
+                  supabaseAdmin
+                    .from(table)
+                    .update({ patient_id: patientId })
+                    .eq("patient_id", fakeId),
+                  tenantId
+                );
                 if (error) console.error(`[Intake] Migration ${table} failed:`, error.message);
               })
             );
             // ピン留めのIDも移行（admin_users.pinned_patients JSONB配列）
             try {
-              const { data: admins } = await supabaseAdmin
-                .from("admin_users")
-                .select("id, pinned_patients");
+              const { data: admins } = await withTenant(
+                supabaseAdmin
+                  .from("admin_users")
+                  .select("id, pinned_patients"),
+                tenantId
+              );
               for (const admin of admins || []) {
                 const pins: string[] = admin.pinned_patients || [];
                 if (pins.includes(fakeId)) {
                   const newPins = pins.map((p: string) => p === fakeId ? patientId : p);
-                  await supabaseAdmin
-                    .from("admin_users")
-                    .update({ pinned_patients: newPins })
-                    .eq("id", admin.id);
+                  await withTenant(
+                    supabaseAdmin
+                      .from("admin_users")
+                      .update({ pinned_patients: newPins })
+                      .eq("id", admin.id),
+                    tenantId
+                  );
                   console.log(`[Intake] Pin migrated for admin ${admin.id}: ${fakeId} -> ${patientId}`);
                 }
               }
@@ -246,8 +270,8 @@ export async function POST(req: NextRequest) {
               console.error("[Intake] Pin migration error:", e.message);
             }
             // 仮レコード削除
-            await supabaseAdmin.from("intake").delete().eq("patient_id", fakeId);
-            await supabaseAdmin.from("answerers").delete().eq("patient_id", fakeId);
+            await withTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
+            await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
             console.log(`[Intake] Fake record ${fakeId} merged and deleted`);
           }
         }

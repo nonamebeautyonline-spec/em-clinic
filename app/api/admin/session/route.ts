@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
         email: payload.email,
         name: payload.name,
         role: payload.role,
+        tenantId: (payload as any).tenantId || null,
       },
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     });

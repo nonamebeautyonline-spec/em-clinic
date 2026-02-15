@@ -8,6 +8,7 @@ import {
   type MenuAutoRule,
 } from "@/lib/menu-auto-rules";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // ルール一覧取得
 export async function GET(req: NextRequest) {
@@ -76,15 +77,20 @@ export async function PUT(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   // 全LINE連携済み患者を取得
-  const { data: patients } = await supabaseAdmin
-    .from("patients")
-    .select("patient_id")
-    .not("line_id", "is", null);
+  const { data: patients } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("patient_id")
+      .not("line_id", "is", null),
+    tenantId
+  );
 
   const ids = (patients || []).map(p => p.patient_id);
   if (ids.length === 0) return NextResponse.json({ ok: true, evaluated: 0 });
 
-  await evaluateMenuRulesForMany(ids);
+  await evaluateMenuRulesForMany(ids, tenantId ?? undefined);
   return NextResponse.json({ ok: true, evaluated: ids.length });
 }

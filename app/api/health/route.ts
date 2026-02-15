@@ -3,11 +3,13 @@
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET() {
+  const tenantId = resolveTenantId();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -25,10 +27,13 @@ export async function GET() {
 
   // Supabase接続テスト
   try {
-    const { data, error } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id")
-      .limit(1);
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id")
+        .limit(1),
+      tenantId
+    );
 
     if (error) {
       health.supabase.connection = "❌ エラー";

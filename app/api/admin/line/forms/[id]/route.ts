@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // フォーム詳細取得
 export async function GET(
@@ -10,12 +11,15 @@ export async function GET(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { data, error } = await supabaseAdmin
-    .from("forms")
-    .select("*")
-    .eq("id", parseInt(id))
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .select("*")
+      .eq("id", parseInt(id)),
+    tenantId
+  ).single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
@@ -30,6 +34,7 @@ export async function PUT(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const body = await req.json();
 
@@ -42,12 +47,13 @@ export async function PUT(
   if (body.settings !== undefined) updates.settings = body.settings;
   if (body.is_published !== undefined) updates.is_published = body.is_published;
 
-  const { data, error } = await supabaseAdmin
-    .from("forms")
-    .update(updates)
-    .eq("id", parseInt(id))
-    .select()
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .update(updates)
+      .eq("id", parseInt(id)),
+    tenantId
+  ).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, form: data });
@@ -61,11 +67,15 @@ export async function DELETE(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { error } = await supabaseAdmin
-    .from("forms")
-    .delete()
-    .eq("id", parseInt(id));
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .delete()
+      .eq("id", parseInt(id)),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

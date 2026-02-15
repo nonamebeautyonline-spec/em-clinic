@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -16,6 +17,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json();
     const { order_id, tracking_number, update_only, shipping_date: customShippingDate } = body;
@@ -46,11 +49,14 @@ export async function POST(req: NextRequest) {
         };
 
     // 注文を更新
-    const { data, error } = await supabase
-      .from("orders")
-      .update(updateData)
-      .eq("id", order_id)
-      .select("id, patient_id, tracking_number, shipping_date");
+    const { data, error } = await withTenant(
+      supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", order_id)
+        .select("id, patient_id, tracking_number, shipping_date"),
+      tenantId
+    );
 
     if (error) {
       console.error("[UpdateTracking] Error:", error);

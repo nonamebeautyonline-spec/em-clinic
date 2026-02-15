@@ -3,35 +3,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { enrollPatient } from "@/lib/step-enrollment";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // 登録者一覧
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
 
-  const { data, error } = await supabaseAdmin
-    .from("step_enrollments")
-    .select("*")
-    .eq("scenario_id", scenarioId)
-    .order("enrolled_at", { ascending: false })
-    .limit(200);
+  const { data, error } = await withTenant(
+    supabaseAdmin.from("step_enrollments").select("*").eq("scenario_id", scenarioId).order("enrolled_at", { ascending: false }).limit(200),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // 患者名を取得
+  // 患者名をpatientsテーブルから取得
   const patientIds = [...new Set((data || []).map((e: any) => e.patient_id))];
   const nameMap: Record<string, string> = {};
   if (patientIds.length > 0) {
-    const { data: patients } = await supabaseAdmin
-      .from("intake")
-      .select("patient_id, patient_name")
-      .in("patient_id", patientIds);
-    for (const p of patients || []) {
-      if (p.patient_name && !nameMap[p.patient_id]) {
-        nameMap[p.patient_id] = p.patient_name;
+    const { data: pData } = await withTenant(
+      supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
+      tenantId
+    );
+    for (const p of pData || []) {
+      if (p.name && !nameMap[p.patient_id]) {
+        nameMap[p.patient_id] = p.name;
       }
     }
   }
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
   const { patient_ids } = await req.json();
@@ -59,14 +60,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   let enrolled = 0;
   for (const pid of patient_ids) {
-    // LINE UID を取得
-    const { data: intake } = await supabaseAdmin
-      .from("intake")
-      .select("line_id")
-      .eq("patient_id", pid)
-      .maybeSingle();
+    // LINE UID をpatientsテーブルから取得
+    const { data: patient } = await withTenant(
+      supabaseAdmin.from("patients").select("line_id").eq("patient_id", pid),
+      tenantId
+    ).maybeSingle();
 
-    await enrollPatient(scenarioId, pid, intake?.line_id);
+    await enrollPatient(scenarioId, pid, patient?.line_id, tenantId ?? undefined);
     enrolled++;
   }
 
@@ -78,6 +78,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
   const { searchParams } = new URL(req.url);
@@ -85,16 +86,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   if (!patientId) return NextResponse.json({ error: "patient_id は必須です" }, { status: 400 });
 
-  const { error } = await supabaseAdmin
-    .from("step_enrollments")
-    .update({
+  const { error } = await withTenant(
+    supabaseAdmin.from("step_enrollments").update({
       status: "exited",
       exited_at: new Date().toISOString(),
       exit_reason: "manual",
-    })
-    .eq("scenario_id", scenarioId)
-    .eq("patient_id", patientId)
-    .eq("status", "active");
+    }).eq("scenario_id", scenarioId).eq("patient_id", patientId).eq("status", "active"),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

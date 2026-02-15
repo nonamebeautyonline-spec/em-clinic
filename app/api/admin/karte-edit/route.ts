@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     const { intakeId, note } = body;
     if (!intakeId) {
       return NextResponse.json(
@@ -29,11 +32,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ロック確認
-    const { data: intake } = await supabaseAdmin
-      .from("intake")
-      .select("id, locked_at")
-      .eq("id", intakeId)
-      .single();
+    const { data: intake } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("id, locked_at")
+        .eq("id", intakeId),
+      tenantId
+    ).single();
 
     if (!intake) {
       return NextResponse.json(
@@ -50,13 +55,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 更新
-    const { error: updateErr } = await supabaseAdmin
-      .from("intake")
-      .update({
-        note: note || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", intakeId);
+    const { error: updateErr } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .update({
+          note: note || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", intakeId),
+      tenantId
+    );
 
     if (updateErr) {
       return NextResponse.json(

@@ -1,6 +1,7 @@
 // lib/menu-auto-rules.ts — リッチメニュー自動切替ルールの評価
 import { supabaseAdmin } from "@/lib/supabase";
-import { getSetting, setSetting } from "@/lib/settings";
+import { getSetting, setSetting, getSettingOrEnv } from "@/lib/settings";
+import { withTenant } from "@/lib/tenant";
 
 export interface MenuRuleCondition {
   type: "tag" | "mark" | "field";
@@ -38,17 +39,18 @@ export async function saveMenuRules(rules: MenuAutoRule[]): Promise<boolean> {
 }
 
 /** 患者1人に対してルールを評価し、マッチしたらメニューを切り替える */
-export async function evaluateMenuRules(patientId: string): Promise<void> {
+export async function evaluateMenuRules(patientId: string, tenantId?: string): Promise<void> {
   const rules = await loadMenuRules();
   const activeRules = rules.filter(r => r.enabled).sort((a, b) => a.priority - b.priority);
   if (activeRules.length === 0) return;
 
-  // 患者データを一括取得
+  // 患者データを一括取得（テナントフィルター付き）
+  const tid = tenantId ?? null;
   const [tagsRes, markRes, fieldsRes, lineRes] = await Promise.all([
-    supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patientId),
-    supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patientId).maybeSingle(),
-    supabaseAdmin.from("friend_field_values").select("field_id, value").eq("patient_id", patientId),
-    supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+    withTenant(supabaseAdmin.from("patient_tags").select("tag_id").eq("patient_id", patientId), tid),
+    withTenant(supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", patientId), tid).maybeSingle(),
+    withTenant(supabaseAdmin.from("friend_field_values").select("field_id, value").eq("patient_id", patientId), tid),
+    withTenant(supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId), tid).maybeSingle(),
   ]);
 
   const lineId = lineRes.data?.line_id;
@@ -61,7 +63,7 @@ export async function evaluateMenuRules(patientId: string): Promise<void> {
   // ルールを優先順に評価
   for (const rule of activeRules) {
     if (matchesRule(rule, patientTagIds, patientMark, fieldMap)) {
-      await assignMenu(lineId, rule.target_menu_id);
+      await assignMenu(lineId, rule.target_menu_id, tenantId);
       return;
     }
   }
@@ -125,17 +127,16 @@ function matchFieldValue(actual: string, op: string, expected: string): boolean 
 }
 
 /** メニューを割り当て */
-async function assignMenu(lineId: string, menuId: number): Promise<void> {
-  // DBからLINE側のリッチメニューIDを取得
-  const { data } = await supabaseAdmin
-    .from("rich_menus")
-    .select("line_rich_menu_id")
-    .eq("id", menuId)
-    .maybeSingle();
+async function assignMenu(lineId: string, menuId: number, tenantId?: string): Promise<void> {
+  // DBからLINE側のリッチメニューIDを取得（テナントフィルター付き）
+  const { data } = await withTenant(
+    supabaseAdmin.from("rich_menus").select("line_rich_menu_id").eq("id", menuId),
+    tenantId ?? null,
+  ).maybeSingle();
 
   if (!data?.line_rich_menu_id) return;
 
-  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const token = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId);
   if (!token) return;
 
   try {
@@ -149,11 +150,11 @@ async function assignMenu(lineId: string, menuId: number): Promise<void> {
 }
 
 /** 複数患者に対してルールを評価 */
-export async function evaluateMenuRulesForMany(patientIds: string[]): Promise<void> {
+export async function evaluateMenuRulesForMany(patientIds: string[], tenantId?: string): Promise<void> {
   // 並列数を制限して評価
   const batchSize = 10;
   for (let i = 0; i < patientIds.length; i += batchSize) {
     const batch = patientIds.slice(i, i + batchSize);
-    await Promise.all(batch.map(id => evaluateMenuRules(id)));
+    await Promise.all(batch.map(id => evaluateMenuRules(id, tenantId)));
   }
 }

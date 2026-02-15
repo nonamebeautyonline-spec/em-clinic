@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // 公開/非公開切替
 export async function POST(
@@ -10,15 +11,17 @@ export async function POST(
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { id } = await params;
   const { is_published } = await req.json();
 
-  const { data, error } = await supabaseAdmin
-    .from("forms")
-    .update({ is_published: !!is_published, updated_at: new Date().toISOString() })
-    .eq("id", parseInt(id))
-    .select("id, is_published")
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("forms")
+      .update({ is_published: !!is_published, updated_at: new Date().toISOString() })
+      .eq("id", parseInt(id)),
+    tenantId
+  ).select("id, is_published").single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, form: data });

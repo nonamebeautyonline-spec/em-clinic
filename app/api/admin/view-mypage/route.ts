@@ -1,12 +1,8 @@
 // app/api/admin/view-mypage/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -84,31 +80,39 @@ function toNumberOrUndefined(v: any): number | undefined {
 // ─── Supabase クエリ ───
 
 async function getPatientInfoFromSupabase(
-  patientId: string
+  patientId: string,
+  tenantId: string | null
 ): Promise<{ id: string; displayName: string; lineId: string; hasIntake: boolean; intakeStatus: string | null }> {
   try {
-    // 最初のintake（問診本体）を取得 — 再処方カルテより必ず古い
-    const { data, error } = await supabase
-      .from("intake")
-      .select("patient_id, patient_name, line_id, status, answers")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single();
+    // patientsテーブルからname, line_idを取得
+    const { data: patient } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("patient_id, name, line_id")
+        .eq("patient_id", patientId),
+      tenantId
+    ).maybeSingle();
 
-    if (error || !data) {
-      return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
-    }
+    // intakeから status, answers を取得（問診本体）
+    const { data: intake } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("patient_id, status, answers")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: true })
+        .limit(1),
+      tenantId
+    ).maybeSingle();
 
-    const answers = data.answers as Record<string, unknown> | null;
+    const answers = (intake?.answers as Record<string, unknown>) || null;
     const hasCompletedQuestionnaire = !!answers && typeof answers.ng_check === "string" && answers.ng_check !== "";
 
     return {
-      id: data.patient_id,
-      displayName: data.patient_name || "",
-      lineId: data.line_id || "",
+      id: patientId,
+      displayName: patient?.name || "",
+      lineId: patient?.line_id || "",
       hasIntake: hasCompletedQuestionnaire,
-      intakeStatus: data.status || null,
+      intakeStatus: intake?.status || null,
     };
   } catch {
     return { id: patientId, displayName: "", lineId: "", hasIntake: false, intakeStatus: null };
@@ -116,21 +120,24 @@ async function getPatientInfoFromSupabase(
 }
 
 async function getNextReservationFromSupabase(
-  patientId: string
+  patientId: string,
+  tenantId: string | null
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data, error } = await supabase
-      .from("intake")
-      .select("reserve_id, reserved_date, reserved_time, patient_name, status")
-      .eq("patient_id", patientId)
-      .not("reserve_id", "is", null)
-      .not("reserved_date", "is", null)
-      .not("reserved_time", "is", null)
-      .or("status.is.null,status.eq.")
-      .order("reserved_date", { ascending: true })
-      .order("reserved_time", { ascending: true })
-      .limit(1)
-      .single();
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("reserve_id, reserved_date, reserved_time, status")
+        .eq("patient_id", patientId)
+        .not("reserve_id", "is", null)
+        .not("reserved_date", "is", null)
+        .not("reserved_time", "is", null)
+        .or("status.is.null,status.eq.")
+        .order("reserved_date", { ascending: true })
+        .order("reserved_time", { ascending: true })
+        .limit(1),
+      tenantId
+    ).maybeSingle();
 
     if (error || !data) return null;
 
@@ -149,21 +156,48 @@ type ConsultationHistory = {
 };
 
 async function getConsultationHistoryFromSupabase(
-  patientId: string
+  patientId: string,
+  tenantId: string | null
 ): Promise<ConsultationHistory[]> {
   try {
-    const { data, error } = await supabase
-      .from("intake")
-      .select("reserve_id, reserved_date, reserved_time, status, note, prescription_menu, updated_at")
-      .eq("patient_id", patientId)
-      .eq("status", "OK")
-      .order("updated_at", { ascending: false });
+    // intakeからstatus=OKのレコードを取得（note, reserve_id, updated_at）
+    const { data: intakeData, error } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("reserve_id, status, note, updated_at")
+        .eq("patient_id", patientId)
+        .eq("status", "OK")
+        .order("updated_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) return [];
 
-    return (data || []).map((row: any) => {
-      const date = row.reserved_date || row.updated_at?.split("T")[0] || "";
-      const prescriptionMenu = row.prescription_menu || "";
+    // reservationsからreserved_date, prescription_menuを取得
+    const reserveIds = (intakeData || []).map(r => r.reserve_id).filter(Boolean);
+    const resvMap = new Map<string, { reserved_date: string; prescription_menu: string }>();
+    if (reserveIds.length > 0) {
+      const { data: resvData } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("reserve_id, reserved_date, prescription_menu")
+          .in("reserve_id", reserveIds),
+        tenantId
+      );
+      for (const r of resvData || []) {
+        if (r.reserve_id) {
+          resvMap.set(r.reserve_id, {
+            reserved_date: r.reserved_date || "",
+            prescription_menu: r.prescription_menu || "",
+          });
+        }
+      }
+    }
+
+    return (intakeData || []).map((row: any) => {
+      const resv = resvMap.get(row.reserve_id);
+      const date = resv?.reserved_date || row.updated_at?.split("T")[0] || "";
+      const prescriptionMenu = resv?.prescription_menu || "";
       const title = `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`;
 
       return {
@@ -178,13 +212,16 @@ async function getConsultationHistoryFromSupabase(
   }
 }
 
-async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[]> {
+async function getOrdersFromSupabase(patientId: string, tenantId: string | null): Promise<OrderForMyPage[]> {
   try {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("paid_at", { ascending: false });
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("paid_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) return [];
 
@@ -222,7 +259,7 @@ async function getOrdersFromSupabase(patientId: string): Promise<OrderForMyPage[
   }
 }
 
-async function getReordersFromSupabase(patientId: string): Promise<{
+async function getReordersFromSupabase(patientId: string, tenantId: string | null): Promise<{
   id: string;
   status: string;
   createdAt: string;
@@ -231,11 +268,14 @@ async function getReordersFromSupabase(patientId: string): Promise<{
   months: number | undefined;
 }[]> {
   try {
-    const { data, error } = await supabase
-      .from("reorders")
-      .select("id, status, created_at, product_code")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("id, status, created_at, product_code")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false }),
+      tenantId
+    );
 
     if (error) return [];
 
@@ -271,6 +311,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
 
@@ -283,11 +325,11 @@ export async function GET(req: NextRequest) {
 
     // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）
     const [patientInfo, nextReservation, orders, history, reorders] = await Promise.all([
-      getPatientInfoFromSupabase(patientId),
-      getNextReservationFromSupabase(patientId),
-      getOrdersFromSupabase(patientId),
-      getConsultationHistoryFromSupabase(patientId),
-      getReordersFromSupabase(patientId),
+      getPatientInfoFromSupabase(patientId, tenantId),
+      getNextReservationFromSupabase(patientId, tenantId),
+      getOrdersFromSupabase(patientId, tenantId),
+      getConsultationHistoryFromSupabase(patientId, tenantId),
+      getReordersFromSupabase(patientId, tenantId),
     ]);
 
     const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");

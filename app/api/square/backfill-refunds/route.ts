@@ -1,5 +1,9 @@
+// app/api/square/backfill-refunds/route.ts
+// ★ GAS連携撤去済み: GAS_UPSERT_URLへの送信を廃止、Supabase ordersテーブルへの返金反映のみ
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -7,10 +11,8 @@ function isoFix(v: string | null) {
   return (v || "").trim().replaceAll(" ", "+");
 }
 
-async function squareGet(path: string) {
-  const token = process.env.SQUARE_ACCESS_TOKEN!;
-  const env = process.env.SQUARE_ENV || "production";
-  const baseUrl = env === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
+async function squareGet(path: string, token: string, squareEnv: string) {
+  const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
 
   const res = await fetch(baseUrl + path, {
     method: "GET",
@@ -28,26 +30,17 @@ async function squareGet(path: string) {
   return { ok: res.ok, status: res.status, json, text };
 }
 
-async function postToGas(payload: any) {
-  const gasUrl = process.env.GAS_UPSERT_URL!;
-  const res = await fetch(gasUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const text = await res.text().catch(() => "");
-  return { ok: res.ok, status: res.status, text };
-}
-
 export async function GET(req: Request) {
   try {
-    if (!process.env.SQUARE_ACCESS_TOKEN) {
+    const tenantId = resolveTenantId(req);
+    const tid = tenantId ?? undefined;
+
+    const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
+    const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
+
+    if (!squareToken) {
       return NextResponse.json({ ok: false, error: "SQUARE_ACCESS_TOKEN not set" }, { status: 500 });
     }
-    if (!process.env.GAS_UPSERT_URL) {
-      return NextResponse.json({ ok: false, error: "GAS_UPSERT_URL not set" }, { status: 500 });
-    }
-
     const url = new URL(req.url);
     const begin = isoFix(url.searchParams.get("begin"));
     const end = isoFix(url.searchParams.get("end"));
@@ -69,7 +62,7 @@ export async function GET(req: Request) {
       qs.set("limit", "100");
       if (cursor) qs.set("cursor", cursor);
 
-      const rRes = await squareGet(`/v2/refunds?${qs.toString()}`);
+      const rRes = await squareGet(`/v2/refunds?${qs.toString()}`, squareToken, squareEnv);
       if (!rRes.ok) {
         return NextResponse.json(
           { ok: false, error: "list_refunds_failed", status: rRes.status, body: rRes.text?.slice(0, 500) },
@@ -84,31 +77,26 @@ export async function GET(req: Request) {
         const paymentId = String(r?.payment_id || "");
         if (!paymentId) continue;
 
-        const payload = {
-          kind: "refund",
-          payment_id: paymentId,
-          refund_status: String(r?.status || ""),
-          refunded_amount: (r?.amount_money?.amount != null) ? String(r.amount_money.amount) : "",
-          refunded_at_iso: String(r?.updated_at || r?.created_at || ""),
-          refund_id: String(r?.id || ""),
-          raw_event_type: "refund.backfill",
-        };
+        const refundStatus = String(r?.status || "");
+        const refundAmount = (r?.amount_money?.amount != null) ? parseFloat(String(r.amount_money.amount)) : null;
+        const refundedAt = String(r?.updated_at || r?.created_at || "");
+        const refundId = String(r?.id || "");
 
-        const g = await postToGas(payload);
-
-        // ★ Supabase ordersテーブルにも返金情報を反映
+        // Supabase ordersテーブルに返金情報を反映
         let dbStatus = "skipped";
         try {
-          const refundAmount = payload.refunded_amount ? parseFloat(payload.refunded_amount) : null;
-          const { error: updateErr } = await supabaseAdmin
-            .from("orders")
-            .update({
-              refund_status: payload.refund_status || "COMPLETED",
-              refunded_amount: refundAmount,
-              refunded_at: payload.refunded_at_iso || new Date().toISOString(),
-              ...(payload.refund_status === "COMPLETED" ? { status: "refunded" } : {}),
-            })
-            .eq("id", paymentId);
+          const { error: updateErr } = await withTenant(
+            supabaseAdmin
+              .from("orders")
+              .update({
+                refund_status: refundStatus || "COMPLETED",
+                refunded_amount: refundAmount,
+                refunded_at: refundedAt || new Date().toISOString(),
+                ...(refundStatus === "COMPLETED" ? { status: "refunded" } : {}),
+              })
+              .eq("id", paymentId),
+            tenantId
+          );
           dbStatus = updateErr ? `error: ${updateErr.message}` : "ok";
         } catch (e: any) {
           dbStatus = `error: ${e?.message || String(e)}`;
@@ -116,9 +104,8 @@ export async function GET(req: Request) {
 
         results.push({
           payment_id: paymentId,
-          refund_id: payload.refund_id,
-          status: payload.refund_status,
-          gas_status: g.status,
+          refund_id: refundId,
+          status: refundStatus,
           db_status: dbStatus,
         });
         processed++;
@@ -133,5 +120,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
   }
 }
-
-export {};

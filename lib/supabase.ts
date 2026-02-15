@@ -16,6 +16,19 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 // upsert({ onConflict: "patient_id" }) は使用禁止 → select→insert/update パターンを使うこと。
 
 // 型定義
+export type Patient = {
+  id: number
+  patient_id: string
+  name: string | null
+  name_kana: string | null
+  tel: string | null
+  sex: string | null
+  birthday: string | null
+  line_id: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type Reservation = {
   id: number
   reserve_id: string

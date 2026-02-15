@@ -20,13 +20,15 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
     { key: "env", label: "環境 (sandbox / production)", envFallback: "GMO_ENV" },
   ],
   line: [
-    { key: "channel_access_token", label: "Channel Access Token", envFallback: "LINE_CHANNEL_ACCESS_TOKEN" },
-    { key: "channel_secret", label: "Channel Secret", envFallback: "LINE_CHANNEL_SECRET" },
+    { key: "channel_id", label: "Channel ID (OAuth)", envFallback: "LINE_CHANNEL_ID" },
+    { key: "channel_secret", label: "Channel Secret (OAuth)", envFallback: "LINE_CHANNEL_SECRET" },
+    { key: "channel_access_token", label: "MAPI Channel Access Token", envFallback: "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN" },
+    { key: "notify_channel_secret", label: "通知Bot Channel Secret", envFallback: "LINE_NOTIFY_CHANNEL_SECRET" },
+    { key: "notify_channel_access_token", label: "通知Bot Channel Access Token", envFallback: "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN" },
+    { key: "admin_group_id", label: "管理グループID", envFallback: "LINE_ADMIN_GROUP_ID" },
+    { key: "redirect_uri", label: "OAuth Redirect URI", envFallback: "LINE_REDIRECT_URI" },
   ],
-  gas: [
-    { key: "reorder_url", label: "GAS Reorder URL", envFallback: "GAS_REORDER_URL" },
-    { key: "upsert_url", label: "GAS Upsert URL", envFallback: "GAS_UPSERT_URL" },
-  ],
+  gas: [],
   general: [
     { key: "clinic_name", label: "クリニック名" },
     { key: "app_base_url", label: "App Base URL", envFallback: "APP_BASE_URL" },
@@ -39,6 +41,11 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   ],
   flex: [
     { key: "config", label: "FLEX通知設定（JSON）" },
+  ],
+  sms: [
+    { key: "account_sid", label: "Twilio Account SID", envFallback: "TWILIO_ACCOUNT_SID" },
+    { key: "auth_token", label: "Twilio Auth Token", envFallback: "TWILIO_AUTH_TOKEN" },
+    { key: "verify_sid", label: "Twilio Verify SID", envFallback: "TWILIO_VERIFY_SID" },
   ],
 };
 

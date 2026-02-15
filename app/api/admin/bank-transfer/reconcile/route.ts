@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -106,15 +107,20 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Reconcile] Parsed ${transfers.length} transfers from CSV`);
 
+    const tenantId = resolveTenantId(req);
+
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // pending_confirmationの注文を取得
-    const { data: pendingOrders, error: fetchError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount")
-      .eq("status", "pending_confirmation")
-      .eq("payment_method", "bank_transfer");
+    const { data: pendingOrders, error: fetchError } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount")
+        .eq("status", "pending_confirmation")
+        .eq("payment_method", "bank_transfer"),
+      tenantId
+    );
 
     if (fetchError) {
       console.error("[Reconcile] Fetch error:", fetchError);
@@ -140,11 +146,14 @@ export async function POST(req: NextRequest) {
     console.log(`[Reconcile] Found ${pendingOrders.length} pending orders`);
 
     // ★ ordersから振込名義人（account_name）を取得
-    const { data: pendingOrdersWithNames, error: fetchNamesError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, account_name, shipping_name")
-      .eq("status", "pending_confirmation")
-      .eq("payment_method", "bank_transfer");
+    const { data: pendingOrdersWithNames, error: fetchNamesError } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount, account_name, shipping_name")
+        .eq("status", "pending_confirmation")
+        .eq("payment_method", "bank_transfer"),
+      tenantId
+    );
 
     if (fetchNamesError) {
       console.error("[Reconcile] Fetch names error:", fetchNamesError);
@@ -216,10 +225,13 @@ export async function POST(req: NextRequest) {
 
       // payment_idを採番（bt_XXX形式）
       // bt_pending_XXX を除外し、bt_1, bt_2, ... のみを対象
-      const { data: allBtOrders } = await supabase
-        .from("orders")
-        .select("id")
-        .like("id", "bt_%");
+      const { data: allBtOrders } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id")
+          .like("id", "bt_%"),
+        tenantId
+      );
 
       // bt_数字 のみを抽出して最大値を取得
       let maxNum = 0;
@@ -239,16 +251,19 @@ export async function POST(req: NextRequest) {
 
       // 更新
       const now = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({
-          status: "confirmed",
-          id: nextBtId, // 新しいpayment_idに変更
-          paid_at: now, // ★ 照合完了時に決済日時を設定
-          payment_status: "COMPLETED",
-          updated_at: now,
-        })
-        .eq("id", orderId);
+      const { error: updateError } = await withTenant(
+        supabase
+          .from("orders")
+          .update({
+            status: "confirmed",
+            id: nextBtId, // 新しいpayment_idに変更
+            paid_at: now, // ★ 照合完了時に決済日時を設定
+            payment_status: "COMPLETED",
+            updated_at: now,
+          })
+          .eq("id", orderId),
+        tenantId
+      );
 
       if (updateError) {
         console.error(`[Reconcile] Update error for order ${orderId}:`, updateError);

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from "jose";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -48,6 +44,8 @@ export async function GET(request: NextRequest) {
     const customStart = searchParams.get("start");
     const customEnd = searchParams.get("end");
 
+    const tenantId = resolveTenantId(request);
+
     // 日付範囲を計算
     const { startISO, endISO, startDate: reservationStartDate, endDate: reservationEndDate } = calculateDateRange(range, customStart, customEnd);
 
@@ -55,28 +53,37 @@ export async function GET(request: NextRequest) {
     const pageSize = 5000;
 
     // 1. 予約統計（reserved_dateで日付フィルタ）
-    const { count: totalReservations } = await supabase
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .gte("reserved_date", reservationStartDate)
-      .lt("reserved_date", reservationEndDate);
+    const { count: totalReservations } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("*", { count: "exact", head: true })
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate),
+      tenantId
+    );
 
     // 診察完了: Drstatusが"OK"または"NG"のユニークな患者数
-    const { data: completedPatientsOK } = await supabase
-      .from("reservations")
-      .select("patient_id")
-      .gte("reserved_date", reservationStartDate)
-      .lt("reserved_date", reservationEndDate)
-      .eq("status", "OK")
-      .limit(100000);
+    const { data: completedPatientsOK } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("patient_id")
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate)
+        .eq("status", "OK")
+        .limit(100000),
+      tenantId
+    );
 
-    const { data: completedPatientsNG } = await supabase
-      .from("reservations")
-      .select("patient_id")
-      .gte("reserved_date", reservationStartDate)
-      .lt("reserved_date", reservationEndDate)
-      .eq("status", "NG")
-      .limit(100000);
+    const { data: completedPatientsNG } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("patient_id")
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate)
+        .eq("status", "NG")
+        .limit(100000),
+      tenantId
+    );
 
     // ユニークな患者IDを集計
     const allCompletedPatientIds = [
@@ -85,12 +92,15 @@ export async function GET(request: NextRequest) {
     ];
     const completedReservations = new Set(allCompletedPatientIds.filter(id => id)).size;
 
-    const { count: cancelledReservations } = await supabase
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .gte("reserved_date", reservationStartDate)
-      .lt("reserved_date", reservationEndDate)
-      .eq("status", "canceled");
+    const { count: cancelledReservations } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("*", { count: "exact", head: true })
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate)
+        .eq("status", "canceled"),
+      tenantId
+    );
 
     const cancelRate =
       (totalReservations ?? 0) > 0 ? Math.round(((cancelledReservations ?? 0) / (totalReservations ?? 0)) * 100) : 0;
@@ -107,23 +117,29 @@ export async function GET(request: NextRequest) {
     const shippingEndDate = jstEndDate.toISOString().split("T")[0]; // YYYY-MM-DD
 
     // 配送総数（countのみ）
-    const { count: shippingTotal } = await supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .gte("shipping_date", shippingStartDate)
-      .lt("shipping_date", shippingEndDate);
+    const { count: shippingTotal } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .gte("shipping_date", shippingStartDate)
+        .lt("shipping_date", shippingEndDate),
+      tenantId
+    );
 
     // 新規/再処方判定用に実データを全件取得（patient_idのみ）
     let shippingOrders: any[] = [];
     let page = 0;
 
     while (true) {
-      const { data: orders } = await supabase
-        .from("orders")
-        .select("patient_id, created_at")
-        .gte("shipping_date", shippingStartDate)
-        .lt("shipping_date", shippingEndDate)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: orders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("patient_id, created_at")
+          .gte("shipping_date", shippingStartDate)
+          .lt("shipping_date", shippingEndDate)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!orders || orders.length === 0) break;
       shippingOrders = shippingOrders.concat(orders);
@@ -141,12 +157,15 @@ export async function GET(request: NextRequest) {
       const uniquePatientIds = [...new Set(allPatientIds)];
 
       // 範囲開始前の注文データを一括取得
-      const { data: previousOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .in("patient_id", uniquePatientIds)
-        .lt("created_at", startISO)
-        .limit(100000);
+      const { data: previousOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("patient_id")
+          .in("patient_id", uniquePatientIds)
+          .lt("created_at", startISO)
+          .limit(100000),
+        tenantId
+      );
 
       const previousPatientSet = new Set(previousOrders?.map((o) => o.patient_id) || []);
 
@@ -166,13 +185,16 @@ export async function GET(request: NextRequest) {
     page = 0;
 
     while (true) {
-      const { data: squareOrders } = await supabase
-        .from("orders")
-        .select("amount, patient_id, created_at, paid_at, product_code")
-        .eq("payment_method", "credit_card")
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: squareOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("amount, patient_id, created_at, paid_at, product_code")
+          .eq("payment_method", "credit_card")
+          .gte("paid_at", startISO)
+          .lt("paid_at", endISO)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!squareOrders || squareOrders.length === 0) break;
       allSquareOrders = allSquareOrders.concat(squareOrders);
@@ -187,14 +209,17 @@ export async function GET(request: NextRequest) {
     page = 0;
 
     while (true) {
-      const { data: bankTransferOrders } = await supabase
-        .from("orders")
-        .select("amount, product_code, patient_id, created_at")
-        .eq("payment_method", "bank_transfer")
-        .in("status", ["pending_confirmation", "confirmed"])
-        .gte("created_at", startISO)
-        .lt("created_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: bankTransferOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("amount, product_code, patient_id, created_at")
+          .eq("payment_method", "bank_transfer")
+          .in("status", ["pending_confirmation", "confirmed"])
+          .gte("created_at", startISO)
+          .lt("created_at", endISO)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!bankTransferOrders || bankTransferOrders.length === 0) break;
       allBankTransferOrders = allBankTransferOrders.concat(bankTransferOrders);
@@ -213,13 +238,16 @@ export async function GET(request: NextRequest) {
     page = 0;
 
     while (true) {
-      const { data: refundedOrders } = await supabase
-        .from("orders")
-        .select("id, amount, refunded_amount, refund_status, refunded_at, product_code")
-        .eq("refund_status", "COMPLETED")
-        .gte("refunded_at", startISO)
-        .lt("refunded_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: refundedOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("id, amount, refunded_amount, refund_status, refunded_at, product_code")
+          .eq("refund_status", "COMPLETED")
+          .gte("refunded_at", startISO)
+          .lt("refunded_at", endISO)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!refundedOrders || refundedOrders.length === 0) break;
       allRefundedOrders = allRefundedOrders.concat(refundedOrders);
@@ -253,12 +281,15 @@ export async function GET(request: NextRequest) {
 
       if (uniquePaidPatientIds.length > 0) {
         // 範囲開始前の注文を一括取得
-        const { data: previousOrders } = await supabase
-          .from("orders")
-          .select("patient_id")
-          .in("patient_id", uniquePaidPatientIds)
-          .lt("created_at", startISO)
-          .limit(100000);
+        const { data: previousOrders } = await withTenant(
+          supabaseAdmin
+            .from("orders")
+            .select("patient_id")
+            .in("patient_id", uniquePaidPatientIds)
+            .lt("created_at", startISO)
+            .limit(100000),
+          tenantId
+        );
 
         previousPatientSet = new Set(previousOrders?.map(o => o.patient_id) || []);
         repeatPatientCount = uniquePaidPatientIds.filter(id => previousPatientSet.has(id)).length;
@@ -349,61 +380,79 @@ export async function GET(request: NextRequest) {
     const products = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
 
     // 5. 患者統計（最適化版）
-    const { count: totalPatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true });
+    const { count: totalPatients } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("*", { count: "exact", head: true }),
+      tenantId
+    );
 
     // ★ 最適化: すでに取得したallPaidOrdersを再利用
     const activePatients = new Set(allPaidOrders.map((o) => o.patient_id).filter(id => id)).size;
 
-    const { count: newPatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: newPatients } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
     // リピート率 = 期間内注文患者のうち過去にも注文した患者の割合（患者ベース）
     const repeatRate =
       totalUniquePatients > 0 ? Math.round((repeatPatientCount / totalUniquePatients) * 100) : 0;
 
     // 6. 銀行振込状況（ordersテーブルから取得）
-    const { count: pendingBankTransfer } = await supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("payment_method", "bank_transfer")
-      .eq("status", "pending_confirmation")
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: pendingBankTransfer } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("payment_method", "bank_transfer")
+        .eq("status", "pending_confirmation")
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
-    const { count: confirmedBankTransfer } = await supabase
-      .from("orders")
-      .select("*", { count: "exact", head: true })
-      .eq("payment_method", "bank_transfer")
-      .eq("status", "confirmed")
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: confirmedBankTransfer } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("payment_method", "bank_transfer")
+        .eq("status", "confirmed")
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
     // 7. 新しいKPI: 診療後の決済率
     // 診察完了した患者数（status = "OK" or "NG"）
-    const { count: consultedPatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true })
-      .in("status", ["OK", "NG"])
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: consultedPatients } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["OK", "NG"])
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
     // 診察完了した患者のpatient_idを取得
     let consultedPatientIds: any[] = [];
     page = 0;
 
     while (true) {
-      const { data: consultedData } = await supabase
-        .from("intake")
-        .select("patient_id")
-        .in("status", ["OK", "NG"])
-        .gte("created_at", startISO)
-        .lt("created_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: consultedData } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("patient_id")
+          .in("status", ["OK", "NG"])
+          .gte("created_at", startISO)
+          .lt("created_at", endISO)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!consultedData || consultedData.length === 0) break;
       consultedPatientIds = consultedPatientIds.concat(consultedData);
@@ -416,14 +465,17 @@ export async function GET(request: NextRequest) {
     if (consultedPatientIds.length > 0) {
       const uniqueConsultedIds = [...new Set(consultedPatientIds.map(i => i.patient_id))];
 
-      const { data: paidOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .in("patient_id", uniqueConsultedIds)
-        .not("paid_at", "is", null)
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .limit(100000);
+      const { data: paidOrders } = await withTenant(
+        supabaseAdmin
+          .from("orders")
+          .select("patient_id")
+          .in("patient_id", uniqueConsultedIds)
+          .not("paid_at", "is", null)
+          .gte("paid_at", startISO)
+          .lt("paid_at", endISO)
+          .limit(100000),
+        tenantId
+      );
 
       paidPatientCount = new Set(paidOrders?.map(o => o.patient_id) || []).size;
     }
@@ -434,23 +486,29 @@ export async function GET(request: NextRequest) {
 
     // 8. 新しいKPI: 問診後の予約率
     // 問診完了した患者数（全statusまたは特定のstatus？ここでは全intake）
-    const { count: intakePatients } = await supabase
-      .from("intake")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: intakePatients } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
     // 問診した患者のpatient_idを取得
     let intakePatientIds: any[] = [];
     page = 0;
 
     while (true) {
-      const { data: intakeData } = await supabase
-        .from("intake")
-        .select("patient_id")
-        .gte("created_at", startISO)
-        .lt("created_at", endISO)
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      const { data: intakeData } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("patient_id")
+          .gte("created_at", startISO)
+          .lt("created_at", endISO)
+          .range(page * pageSize, (page + 1) * pageSize - 1),
+        tenantId
+      );
 
       if (!intakeData || intakeData.length === 0) break;
       intakePatientIds = intakePatientIds.concat(intakeData);
@@ -463,13 +521,16 @@ export async function GET(request: NextRequest) {
     if (intakePatientIds.length > 0) {
       const uniqueIntakeIds = [...new Set(intakePatientIds.map(i => i.patient_id))];
 
-      const { data: reservations } = await supabase
-        .from("reservations")
-        .select("patient_id")
-        .in("patient_id", uniqueIntakeIds)
-        .gte("reserved_date", reservationStartDate)
-        .lt("reserved_date", reservationEndDate)
-        .limit(100000);
+      const { data: reservations } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("patient_id")
+          .in("patient_id", uniqueIntakeIds)
+          .gte("reserved_date", reservationStartDate)
+          .lt("reserved_date", reservationEndDate)
+          .limit(100000),
+        tenantId
+      );
 
       reservedPatientCount = new Set(reservations?.map(r => r.patient_id) || []).size;
     }
@@ -485,28 +546,37 @@ export async function GET(request: NextRequest) {
       ? Math.round(((completedReservations ?? 0) / nonCancelledReservations) * 100)
       : 0;
 
-    // 10. LINE登録者数（全期間）- intakeテーブルのline_idで集計
-    const { data: lineIdData } = await supabase
-      .from("intake")
-      .select("line_id")
-      .not("line_id", "is", null)
-      .limit(100000);
+    // 10. LINE登録者数（全期間）- patientsテーブルのline_idで集計
+    const { data: lineIdData } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("line_id")
+        .not("line_id", "is", null)
+        .limit(100000),
+      tenantId
+    );
     const lineRegisteredCount = new Set(lineIdData?.map(r => r.line_id) || []).size;
 
     // 11. アクティブ予約数（reserved_dateが期間内でキャンセル以外）
-    const { count: todayActiveReservations } = await supabase
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .gte("reserved_date", reservationStartDate)
-      .lt("reserved_date", reservationEndDate)
-      .neq("status", "canceled");
+    const { count: todayActiveReservations } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("*", { count: "exact", head: true })
+        .gte("reserved_date", reservationStartDate)
+        .lt("reserved_date", reservationEndDate)
+        .neq("status", "canceled"),
+      tenantId
+    );
 
     // 12. 本日作成された予約数
-    const { count: todayNewReservations } = await supabase
-      .from("reservations")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", startISO)
-      .lt("created_at", endISO);
+    const { count: todayNewReservations } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+      tenantId
+    );
 
     // ★ 最適化: 今日決済した人数（すでに取得したallPaidOrdersを使用）
     const todayPaidCount = new Set(allPaidOrders.map(o => o.patient_id).filter(id => id)).size;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,6 +17,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const orderIds = body.order_ids || [];
 
@@ -24,10 +27,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ordersテーブルから注文情報を取得
-    const { data: orders, error: ordersError } = await supabase
-      .from("orders")
-      .select("id, patient_id")
-      .in("id", orderIds);
+    const { data: orders, error: ordersError } = await withTenant(
+      supabase.from("orders").select("id, patient_id").in("id", orderIds),
+      tenantId
+    );
 
     if (ordersError) {
       console.error("Supabase orders error:", ordersError);
@@ -44,11 +47,11 @@ export async function POST(req: NextRequest) {
     // 患者IDを取得
     const patientIds = [...new Set(orders.map((o: any) => o.patient_id))];
 
-    // 患者情報を取得（intakeテーブルから）
-    const { data: patients, error: patientsError } = await supabase
-      .from("intake")
-      .select("patient_id, patient_name, postal_code, address, phone_number, email")
-      .in("patient_id", patientIds);
+    // 患者情報を取得（patientsテーブルから）
+    const { data: patients, error: patientsError } = await withTenant(
+      supabase.from("patients").select("patient_id, name, tel").in("patient_id", patientIds),
+      tenantId
+    );
 
     if (patientsError) {
       console.error("Supabase patients error:", patientsError);
@@ -58,15 +61,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 患者情報のマップを作成
+    // 患者情報のマップを作成（住所等は orders テーブルから取得するため最小限）
     const patientMap = new Map();
     (patients || []).forEach((p: any) => {
       patientMap.set(p.patient_id, {
-        name: p.patient_name || "",
-        postal: p.postal_code || "",
-        address: p.address || "",
-        phone: p.phone_number || "",
-        email: p.email || "",
+        name: p.name || "",
+        postal: "",
+        address: "",
+        phone: p.tel || "",
+        email: "",
       });
     });
 

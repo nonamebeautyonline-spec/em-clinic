@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,17 +28,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     // クエリパラメータ: limit
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "100");
 
     // ★ Plan A: ordersテーブルから銀行振込のみを取得（shipping_nameも追加）
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, payment_method, status, created_at, paid_at, shipping_date, tracking_number, shipping_name")
-      .eq("payment_method", "bank_transfer")
-      .order("created_at", { ascending: false })
-      .limit(limit);
+    const { data: orders, error } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount, payment_method, status, created_at, paid_at, shipping_date, tracking_number, shipping_name")
+        .eq("payment_method", "bank_transfer")
+        .order("created_at", { ascending: false })
+        .limit(limit),
+      tenantId
+    );
 
     if (error) {
       console.error("Supabase orders (bank_transfer) error:", error);
@@ -50,28 +56,34 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
 
-    // 患者名を取得（intakeテーブルから）
+    // 患者名を取得（patientsテーブルから）
     const patientNameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
-      const { data: patients } = await supabase
-        .from("intake")
-        .select("patient_id, patient_name")
-        .in("patient_id", patientIds);
+      const { data: patients } = await withTenant(
+        supabase
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds),
+        tenantId
+      );
 
       (patients || []).forEach((p: any) => {
-        patientNameMap[p.patient_id] = p.patient_name || "";
+        patientNameMap[p.patient_id] = p.name || "";
       });
     }
 
     // ★ 購入回数を計算（各患者の銀行振込確認済み注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allBankTransferOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .eq("payment_method", "bank_transfer")
-        .eq("status", "confirmed")
-        .in("patient_id", patientIds);
+      const { data: allBankTransferOrders } = await withTenant(
+        supabase
+          .from("orders")
+          .select("patient_id")
+          .eq("payment_method", "bank_transfer")
+          .eq("status", "confirmed")
+          .in("patient_id", patientIds),
+        tenantId
+      );
 
       // 患者IDごとにカウント
       (allBankTransferOrders || []).forEach((order: any) => {

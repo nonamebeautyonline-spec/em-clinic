@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
     const cookieStore = await cookies();
     const patientId =
       cookieStore.get("__Host-patient_id")?.value ||
@@ -62,10 +64,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 注文を取得して権限チェック
-    const { data: order, error: fetchError } = await supabaseAdmin
+    const { data: order, error: fetchError } = await withTenant(supabaseAdmin
       .from("orders")
       .select("id, patient_id, shipping_status, tracking_number, shipping_list_created_at")
-      .eq("id", orderId)
+      .eq("id", orderId), tenantId)
       .maybeSingle();
 
     if (fetchError || !order) {
@@ -115,10 +117,10 @@ export async function POST(req: NextRequest) {
     if (shippingName) {
       updateData.shipping_name = shippingName;
     }
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await withTenant(supabaseAdmin
       .from("orders")
       .update(updateData)
-      .eq("id", orderId);
+      .eq("id", orderId), tenantId);
 
     if (updateError) {
       console.error("[update-address] DB update error:", updateError);

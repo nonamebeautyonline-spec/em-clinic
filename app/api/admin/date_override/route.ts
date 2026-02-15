@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   try {
     const body = await req.json();
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
       deleteQuery = deleteQuery.is("slot_name", null);
     }
 
-    const { error: deleteError } = await deleteQuery;
+    const { error: deleteError } = await withTenant(deleteQuery, tenantId);
     if (deleteError) {
       console.error("date_override delete error:", deleteError);
       // 削除エラーは無視（レコードがない場合もある）
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest) {
     // 新規挿入
     const { error: insertError } = await supabaseAdmin
       .from("doctor_date_overrides")
-      .insert(record);
+      .insert({ ...tenantPayload(tenantId), ...record });
 
     if (insertError) {
       console.error("date_override insert error:", insertError);
@@ -81,6 +84,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const tenantId = resolveTenantId(req);
+
   try {
     const body = await req.json();
     const doctor_id = String(body.doctor_id || "").trim();
@@ -110,7 +115,7 @@ export async function DELETE(req: NextRequest) {
       query = query.is("slot_name", null);
     }
 
-    const { error } = await query;
+    const { error } = await withTenant(query, tenantId);
 
     if (error) {
       console.error("date_override delete error:", error);

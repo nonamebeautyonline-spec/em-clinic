@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,16 +19,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const { searchParams } = new URL(req.url);
     const yearMonth = searchParams.get("year_month");
 
     if (yearMonth) {
       // 特定月のデータを取得
-      const { data, error } = await supabase
-        .from("monthly_financials")
-        .select("*")
-        .eq("year_month", yearMonth)
-        .maybeSingle();
+      const { data, error } = await withTenant(
+        supabase
+          .from("monthly_financials")
+          .select("*")
+          .eq("year_month", yearMonth),
+        tenantId
+      ).maybeSingle();
 
       if (error) {
         console.error("[financials] GET error:", error);
@@ -68,11 +73,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: true, data });
     } else {
       // 直近12ヶ月分のデータを取得
-      const { data, error } = await supabase
-        .from("monthly_financials")
-        .select("*")
-        .order("year_month", { ascending: false })
-        .limit(12);
+      const { data, error } = await withTenant(
+        supabase
+          .from("monthly_financials")
+          .select("*")
+          .order("year_month", { ascending: false })
+          .limit(12),
+        tenantId
+      );
 
       if (error) {
         console.error("[financials] GET list error:", error);
@@ -96,6 +104,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { year_month, ...financialData } = body;
 
@@ -110,6 +120,7 @@ export async function POST(req: NextRequest) {
       .from("monthly_financials")
       .upsert(
         {
+          ...tenantPayload(tenantId),
           year_month,
           ...financialData,
           updated_at: new Date().toISOString(),

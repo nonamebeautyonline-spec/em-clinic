@@ -8,6 +8,7 @@ import {
   buildReservationCanceledFlex,
   sendReservationNotification,
 } from "@/lib/reservation-flex";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,7 +21,7 @@ let earlyOpenCache: Map<string, { isOpen: boolean; cachedAt: number }> = new Map
 const CACHE_TTL_MS = 60000; // 1分間キャッシュ
 
 // 指定された月が早期開放されているかチェック（DBから取得）
-async function isMonthEarlyOpen(targetMonth: string): Promise<boolean> {
+async function isMonthEarlyOpen(targetMonth: string, tenantId: string | null): Promise<boolean> {
   // キャッシュチェック
   const cached = earlyOpenCache.get(targetMonth);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
@@ -28,11 +29,13 @@ async function isMonthEarlyOpen(targetMonth: string): Promise<boolean> {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from("booking_open_settings")
-      .select("is_open")
-      .eq("target_month", targetMonth)
-      .single();
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("booking_open_settings")
+        .select("is_open")
+        .eq("target_month", targetMonth),
+      tenantId
+    ).single();
 
     if (error && error.code !== "PGRST116") {
       console.error("[isMonthEarlyOpen] DB error:", error);
@@ -49,7 +52,7 @@ async function isMonthEarlyOpen(targetMonth: string): Promise<boolean> {
 }
 
 // 指定された日付が予約可能かどうかをチェック（非同期版）
-async function isDateBookable(targetDate: string): Promise<boolean> {
+async function isDateBookable(targetDate: string, tenantId: string | null = null): Promise<boolean> {
   // JSTで現在日時を取得
   const now = new Date();
   const jstOffset = 9 * 60 * 60 * 1000;
@@ -87,11 +90,11 @@ async function isDateBookable(targetDate: string): Promise<boolean> {
       return true;
     }
     // 5日未満でも、管理者が早期開放していればOK
-    return await isMonthEarlyOpen(targetMonthStr2);
+    return await isMonthEarlyOpen(targetMonthStr2, tenantId);
   }
 
   // 翌々月以降: 管理者が早期開放していればOK
-  return await isMonthEarlyOpen(targetMonthStr2);
+  return await isMonthEarlyOpen(targetMonthStr2, tenantId);
 }
 
 // ★ Supabase書き込みリトライ機能
@@ -174,14 +177,18 @@ function dayOfWeek(ymdStr: string) {
 // ★ DBから予約済み枠を取得（日時ごとの予約数を集計）
 async function getBookedSlotsFromDB(
   start: string,
-  end: string
+  end: string,
+  tenantId: string | null = null
 ): Promise<BookedSlot[]> {
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select("reserved_date, reserved_time")
-    .gte("reserved_date", start)
-    .lte("reserved_date", end)
-    .neq("status", "canceled");
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("reservations")
+      .select("reserved_date, reserved_time")
+      .gte("reserved_date", start)
+      .lte("reserved_date", end)
+      .neq("status", "canceled"),
+    tenantId
+  );
 
   if (error) {
     console.error("[getBookedSlotsFromDB] error:", error);
@@ -211,25 +218,32 @@ async function getBookedSlotsFromDB(
 async function getScheduleFromDB(
   doctorId: string,
   start: string,
-  end: string
+  end: string,
+  tenantId: string | null = null
 ): Promise<{ weekly_rules: WeeklyRule[]; overrides: Override[] }> {
   // 週間ルール取得
-  const { data: rulesData, error: rulesError } = await supabaseAdmin
-    .from("doctor_weekly_rules")
-    .select("*")
-    .eq("doctor_id", doctorId);
+  const { data: rulesData, error: rulesError } = await withTenant(
+    supabaseAdmin
+      .from("doctor_weekly_rules")
+      .select("*")
+      .eq("doctor_id", doctorId),
+    tenantId
+  );
 
   if (rulesError) {
     console.error("[getScheduleFromDB] weekly_rules error:", rulesError);
   }
 
   // 日別例外取得
-  const { data: overridesData, error: overridesError } = await supabaseAdmin
-    .from("doctor_date_overrides")
-    .select("*")
-    .eq("doctor_id", doctorId)
-    .gte("date", start)
-    .lte("date", end);
+  const { data: overridesData, error: overridesError } = await withTenant(
+    supabaseAdmin
+      .from("doctor_date_overrides")
+      .select("*")
+      .eq("doctor_id", doctorId)
+      .gte("date", start)
+      .lte("date", end),
+    tenantId
+  );
 
   if (overridesError) {
     console.error("[getScheduleFromDB] overrides error:", overridesError);
@@ -358,6 +372,7 @@ export async function GET(req: NextRequest) {
   const start = searchParams.get("start");
   const end = searchParams.get("end");
   const date = searchParams.get("date");
+  const tenantId = resolveTenantId(req);
 
   try {
     const doctorId = "dr_default";
@@ -366,8 +381,8 @@ export async function GET(req: NextRequest) {
     if (date && !start && !end) {
       // ★ 予約済み枠とスケジュールを並列でDBから取得
       const [bookedSlots, scheduleData] = await Promise.all([
-        getBookedSlotsFromDB(date, date),
-        getScheduleFromDB(doctorId, date, date),
+        getBookedSlotsFromDB(date, date, tenantId),
+        getScheduleFromDB(doctorId, date, date, tenantId),
       ]);
 
       const out = buildAvailabilityRange(
@@ -380,7 +395,7 @@ export async function GET(req: NextRequest) {
       );
 
       // 翌月予約開放日チェック: 予約不可の日付の場合は空の枠を返す
-      const bookable = await isDateBookable(date);
+      const bookable = await isDateBookable(date, tenantId);
       const filteredOut = bookable ? out : [];
 
       return NextResponse.json(
@@ -400,8 +415,8 @@ export async function GET(req: NextRequest) {
 
     // ★ 予約済み枠とスケジュールを並列でDBから取得
     const [bookedSlots, scheduleData] = await Promise.all([
-      getBookedSlotsFromDB(start, end),
-      getScheduleFromDB(doctorId, start, end),
+      getBookedSlotsFromDB(start, end, tenantId),
+      getScheduleFromDB(doctorId, start, end, tenantId),
     ]);
 
     const allSlots = buildAvailabilityRange(
@@ -419,7 +434,7 @@ export async function GET(req: NextRequest) {
     const dateBookableMap = new Map<string, boolean>();
     await Promise.all(
       uniqueDates.map(async (date) => {
-        const bookable = await isDateBookable(date);
+        const bookable = await isDateBookable(date, tenantId);
         dateBookableMap.set(date, bookable);
       })
     );
@@ -443,12 +458,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as any));
-        // ★★★ ここに入れる ★★★
     const patientId =
       req.cookies.get("__Host-patient_id")?.value ||
       req.cookies.get("patient_id")?.value ||
       "";
 
+    const tenantId = resolveTenantId(req);
     const type = body?.type as string | undefined;
 
     // bodyはログしない
@@ -461,7 +476,7 @@ export async function POST(req: NextRequest) {
       const pid = body.patient_id || patientId;
 
       // ★★ 翌月予約開放日チェック ★★
-      if (date && !(await isDateBookable(date))) {
+      if (date && !(await isDateBookable(date, tenantId))) {
         console.log(`[Reservation] booking_not_open: date=${date}`);
         return NextResponse.json({
           ok: false,
@@ -472,12 +487,14 @@ export async function POST(req: NextRequest) {
 
       // ★★ GASと同じ1人1件制限：既存のアクティブな予約をチェック ★★
       // canceled / NG は再予約可能
-      const { data: existingReservations } = await supabaseAdmin
-        .from("reservations")
-        .select("reserve_id, reserved_date, reserved_time, status")
-        .eq("patient_id", pid)
-        .not("status", "in", '("canceled","NG")')
-        .limit(1);
+      const { data: existingReservations } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("reserve_id, reserved_date, reserved_time, status")
+          .eq("patient_id", pid)
+          .not("status", "in", '("canceled","NG")'),
+        tenantId
+      ).limit(1);
 
       if (existingReservations && existingReservations.length > 0) {
         const existing = existingReservations[0];
@@ -495,15 +512,31 @@ export async function POST(req: NextRequest) {
 
       const reserveId = "resv-" + Date.now();
 
-      // ★ intakeテーブルから名前・ステータス・問診回答を取得
+      // ★ intakeテーブルからステータス・問診回答を取得
       // ★★ 予約作成前にintakeレコードの存在 + 問診完了を必須チェック ★★
-      const { data: intakeData, error: intakeCheckError } = await supabaseAdmin
-        .from("intake")
-        .select("patient_name, patient_id, status, answers, line_id")
-        .eq("patient_id", pid)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [intakeRes, patientRes] = await Promise.all([
+        withTenant(
+          supabaseAdmin
+            .from("intake")
+            .select("patient_id, status, answers")
+            .eq("patient_id", pid),
+          tenantId
+        )
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        // ★ patient_name, line_id は patients テーブルから取得
+        withTenant(
+          supabaseAdmin
+            .from("patients")
+            .select("name, line_id")
+            .eq("patient_id", pid),
+          tenantId
+        ).maybeSingle(),
+      ]);
+
+      const intakeCheckError = intakeRes.error;
+      const intakeData = intakeRes.data;
 
       if (intakeCheckError) {
         console.error("[Reservation] Intake check error:", intakeCheckError);
@@ -533,15 +566,18 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
 
-      const patientName = intakeData.patient_name || null;
+      const patientName = patientRes.data?.name || null;
 
       // ★ 前回NGの患者が再予約を取った場合、NGステータスをクリア
       if (intakeData.status === "NG") {
         console.log(`[Reservation] Resetting NG status for patient_id=${pid}`);
-        const { error: resetError } = await supabaseAdmin
-          .from("intake")
-          .update({ status: null })
-          .eq("patient_id", pid);
+        const { error: resetError } = await withTenant(
+          supabaseAdmin
+            .from("intake")
+            .update({ status: null })
+            .eq("patient_id", pid),
+          tenantId
+        );
 
         if (resetError) {
           console.error("[Reservation] Failed to reset NG status:", resetError);
@@ -580,19 +616,19 @@ export async function POST(req: NextRequest) {
 
       console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
 
-      // intake テーブルの予約情報を更新
+      // intake テーブルに reserve_id を紐付け（日時は reservations が正）
       if (pid) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
-            const result = await supabaseAdmin
-              .from("intake")
-              .update({
-                reserve_id: reserveId,
-                reserved_date: date || null,
-                reserved_time: time || null,
-              })
-              .eq("patient_id", pid)
-              .select();
+            const result = await withTenant(
+              supabaseAdmin
+                .from("intake")
+                .update({
+                  reserve_id: reserveId,
+                })
+                .eq("patient_id", pid),
+              tenantId
+            ).select();
 
             if (result.error) {
               throw result.error;
@@ -618,7 +654,7 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE Flex メッセージ送信
-      const lineId = intakeData?.line_id;
+      const lineId = patientRes.data?.line_id;
       if (lineId && date && time) {
         try {
           const flex = await buildReservationCreatedFlex(date, time);
@@ -627,6 +663,7 @@ export async function POST(req: NextRequest) {
             lineUid: lineId,
             flex,
             messageType: "reservation_created",
+            tenantId: tenantId ?? undefined,
           });
         } catch (err) {
           console.error("[reservations] LINE notification error:", err);
@@ -649,21 +686,23 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE通知用に予約情報と line_id を事前取得
-      const [cancelResvInfo, cancelIntakeInfo] = await Promise.all([
-        supabaseAdmin
-          .from("reservations")
-          .select("reserved_date, reserved_time, patient_name")
-          .eq("reserve_id", reserveId)
-          .maybeSingle(),
+      const [cancelResvInfo, cancelPatientInfo] = await Promise.all([
+        withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .select("reserved_date, reserved_time, patient_name")
+            .eq("reserve_id", reserveId),
+          tenantId
+        ).maybeSingle(),
+        // ★ line_id は patients テーブルから取得
         pid
-          ? supabaseAdmin
-              .from("intake")
-              .select("line_id, patient_name")
-              .eq("patient_id", pid)
-              .not("line_id", "is", null)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle()
+          ? withTenant(
+              supabaseAdmin
+                .from("patients")
+                .select("line_id")
+                .eq("patient_id", pid),
+              tenantId
+            ).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
       ]);
 
@@ -671,10 +710,13 @@ export async function POST(req: NextRequest) {
       const [supabaseReservationResult, supabaseIntakeResult] = await Promise.allSettled([
         // 1. reservationsテーブルのstatusを"canceled"に更新（リトライあり）
         retrySupabaseWrite(async () => {
-          const result = await supabaseAdmin
-            .from("reservations")
-            .update({ status: "canceled" })
-            .eq("reserve_id", reserveId);
+          const result = await withTenant(
+            supabaseAdmin
+              .from("reservations")
+              .update({ status: "canceled" })
+              .eq("reserve_id", reserveId),
+            tenantId
+          );
 
           if (result.error) {
             throw result.error;
@@ -682,17 +724,18 @@ export async function POST(req: NextRequest) {
           return result;
         }),
 
-        // 2. intakeテーブルの予約情報をクリア（リトライあり）
+        // 2. intakeテーブルの reserve_id をクリア（日時は reservations が正）
         pid ? retrySupabaseWrite(async () => {
-          const result = await supabaseAdmin
-            .from("intake")
-            .update({
-              reserve_id: null,
-              reserved_date: null,
-              reserved_time: null,
-            })
-            .eq("patient_id", pid)
-            .eq("reserve_id", reserveId);
+          const result = await withTenant(
+            supabaseAdmin
+              .from("intake")
+              .update({
+                reserve_id: null,
+              })
+              .eq("patient_id", pid)
+              .eq("reserve_id", reserveId),
+            tenantId
+          );
 
           if (result.error) {
             throw result.error;
@@ -726,7 +769,7 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE Flex メッセージ送信
-      const cancelLineId = cancelIntakeInfo?.data?.line_id;
+      const cancelLineId = cancelPatientInfo?.data?.line_id;
       const cancelDate = cancelResvInfo?.data?.reserved_date;
       const cancelTime = cancelResvInfo?.data?.reserved_time;
       if (cancelLineId && cancelDate && cancelTime) {
@@ -737,6 +780,7 @@ export async function POST(req: NextRequest) {
             lineUid: cancelLineId,
             flex,
             messageType: "reservation_canceled",
+            tenantId: tenantId ?? undefined,
           });
         } catch (err) {
           console.error("[reservations] LINE cancel notification error:", err);
@@ -761,7 +805,7 @@ export async function POST(req: NextRequest) {
       }
 
       // ★★ 翌月予約開放日チェック ★★
-      if (!(await isDateBookable(newDate))) {
+      if (!(await isDateBookable(newDate, tenantId))) {
         console.log(`[Reservation] booking_not_open for update: date=${newDate}`);
         return NextResponse.json({
           ok: false,
@@ -771,11 +815,13 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE通知用に変更前の日時を取得（RPCで上書きされる前に）
-      const { data: prevResvInfo } = await supabaseAdmin
-        .from("reservations")
-        .select("reserved_date, reserved_time")
-        .eq("reserve_id", reserveId)
-        .maybeSingle();
+      const { data: prevResvInfo } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("reserved_date, reserved_time")
+          .eq("reserve_id", reserveId),
+        tenantId
+      ).maybeSingle();
 
       // ★ RPC で変更先スロットの定員チェック + UPDATE をアトミックに実行
       const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
@@ -805,48 +851,16 @@ export async function POST(req: NextRequest) {
 
       console.log(`✓ Reservation updated: reserve_id=${reserveId}, date=${newDate}, time=${newTime}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
 
-      // LINE通知用に line_id と patient_name を取得
-      const { data: changeIntakeInfo } = pid
-        ? await supabaseAdmin
-            .from("intake")
-            .select("line_id, patient_name")
-            .eq("patient_id", pid)
-            .not("line_id", "is", null)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
+      // ★ LINE通知用に line_id を patients テーブルから取得
+      const { data: changePatientInfo } = pid
+        ? await withTenant(
+            supabaseAdmin
+              .from("patients")
+              .select("line_id")
+              .eq("patient_id", pid),
+            tenantId
+          ).maybeSingle()
         : { data: null };
-
-      // intake テーブルの日時を更新
-      if (pid) {
-        try {
-          await retrySupabaseWrite(async () => {
-            const result = await supabaseAdmin
-              .from("intake")
-              .update({
-                reserved_date: newDate,
-                reserved_time: newTime,
-              })
-              .eq("patient_id", pid)
-              .eq("reserve_id", reserveId)
-              .select();
-
-            if (result.error) {
-              throw result.error;
-            }
-
-            if (!result.data || result.data.length === 0) {
-              console.error("❌ [CRITICAL] Intake update failed for updateReservation:", { patient_id: pid, reserve_id: reserveId });
-            } else {
-              console.log(`✓ Intake updated (change): patient_id=${pid}, reserve_id=${reserveId}, date=${newDate}, time=${newTime}`);
-            }
-
-            return result;
-          });
-        } catch (intakeError) {
-          console.error("[Supabase] Intake update failed:", intakeError);
-        }
-      }
 
       // キャッシュ削除
       if (pid) {
@@ -855,7 +869,7 @@ export async function POST(req: NextRequest) {
       }
 
       // LINE Flex メッセージ送信
-      const changeLineId = changeIntakeInfo?.line_id;
+      const changeLineId = changePatientInfo?.line_id;
       if (changeLineId && newDate && newTime) {
         try {
           const flex = await buildReservationChangedFlex(
@@ -869,6 +883,7 @@ export async function POST(req: NextRequest) {
             lineUid: changeLineId,
             flex,
             messageType: "reservation_changed",
+            tenantId: tenantId ?? undefined,
           });
         } catch (err) {
           console.error("[reservations] LINE change notification error:", err);

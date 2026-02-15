@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +14,20 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { patient_id } = await req.json();
   if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 
-  // patient_idからline_idを取得
-  const { data: patient } = await supabaseAdmin
-    .from("intake")
-    .select("line_id")
-    .eq("patient_id", patient_id)
-    .maybeSingle();
+  // patient_id から line_id を patients テーブルから取得
+  const { data: patientRow } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("line_id")
+      .eq("patient_id", patient_id),
+    tenantId
+  ).maybeSingle();
 
-  if (!patient?.line_id) {
+  if (!patientRow?.line_id) {
     return NextResponse.json({ error: "LINE ID not found" }, { status: 404 });
   }
 
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   // LINE Profile API
-  const res = await fetch(`https://api.line.me/v2/bot/profile/${patient.line_id}`, {
+  const res = await fetch(`https://api.line.me/v2/bot/profile/${patientRow.line_id}`, {
     headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
     cache: "no-store",
   });
@@ -45,11 +49,14 @@ export async function POST(req: NextRequest) {
   const displayName = profile.displayName || null;
   const pictureUrl = profile.pictureUrl || null;
 
-  // DBに保存
-  await supabaseAdmin
-    .from("intake")
-    .update({ line_display_name: displayName, line_picture_url: pictureUrl })
-    .eq("patient_id", patient_id);
+  // DBに保存（patients テーブルに保存）
+  await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .update({ line_display_name: displayName, line_picture_url: pictureUrl })
+      .eq("patient_id", patient_id),
+    tenantId
+  );
 
   return NextResponse.json({ ok: true, displayName, pictureUrl });
 }

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -41,6 +42,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     console.log(`[Confirm] Processing ${matches.length} matches`);
 
     // Supabase接続
@@ -58,13 +61,16 @@ export async function POST(req: NextRequest) {
       const patientId = match.order.patient_id;
 
       // patient_idでpending_confirmationの注文を検索
-      const { data: pendingOrders, error: fetchError } = await supabase
-        .from("orders")
-        .select("id, patient_id, product_code, amount")
-        .eq("patient_id", patientId)
-        .eq("status", "pending_confirmation")
-        .eq("payment_method", "bank_transfer")
-        .limit(1);
+      const { data: pendingOrders, error: fetchError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, patient_id, product_code, amount")
+          .eq("patient_id", patientId)
+          .eq("status", "pending_confirmation")
+          .eq("payment_method", "bank_transfer")
+          .limit(1),
+        tenantId
+      );
 
       if (fetchError || !pendingOrders || pendingOrders.length === 0) {
         console.error(`[Confirm] Order not found for patient ${patientId}`);
@@ -79,10 +85,13 @@ export async function POST(req: NextRequest) {
       const orderId = pendingOrders[0].id;
 
       // payment_idを採番（bt_XXX形式）
-      const { data: allBtOrders } = await supabase
-        .from("orders")
-        .select("id")
-        .like("id", "bt_%");
+      const { data: allBtOrders } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id")
+          .like("id", "bt_%"),
+        tenantId
+      );
 
       let maxNum = 0;
       if (allBtOrders && allBtOrders.length > 0) {
@@ -101,16 +110,19 @@ export async function POST(req: NextRequest) {
 
       // 更新
       const now = new Date().toISOString();
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({
-          status: "confirmed",
-          id: nextBtId,
-          paid_at: now, // ★ 照合完了時に決済日時を設定
-          payment_status: "COMPLETED",
-          updated_at: now,
-        })
-        .eq("id", orderId);
+      const { error: updateError } = await withTenant(
+        supabase
+          .from("orders")
+          .update({
+            status: "confirmed",
+            id: nextBtId,
+            paid_at: now, // ★ 照合完了時に決済日時を設定
+            payment_status: "COMPLETED",
+            updated_at: now,
+          })
+          .eq("id", orderId),
+        tenantId
+      );
 
       if (updateError) {
         console.error(`[Confirm] Update error for order ${orderId}:`, updateError);

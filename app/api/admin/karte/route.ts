@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json().catch(() => null);
     const patientId = (body?.patientId || "").trim();
@@ -22,24 +25,16 @@ export async function POST(req: NextRequest) {
     }
 
     // patient_name を answerers → intake フォールバックで取得
-    const { data: answerer } = await supabaseAdmin
-      .from("answerers")
-      .select("name")
-      .eq("patient_id", patientId)
-      .limit(1)
-      .maybeSingle();
-
-    let patientName = answerer?.name || "";
-    if (!patientName) {
-      const { data: latestIntake } = await supabaseAdmin
-        .from("intake")
-        .select("patient_name")
+    const { data: answerer } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("name")
         .eq("patient_id", patientId)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      patientName = latestIntake?.patient_name || "";
-    }
+        .limit(1),
+      tenantId
+    ).maybeSingle();
+
+    const patientName = answerer?.name || "";
 
     // タイムスタンプ付与
     const now = new Date();
@@ -50,8 +45,8 @@ export async function POST(req: NextRequest) {
     const { data: newIntake, error } = await supabaseAdmin
       .from("intake")
       .insert({
+        ...tenantPayload(tenantId),
         patient_id: patientId,
-        patient_name: patientName,
         note: noteWithStamp,
         created_at: now.toISOString(),
       })

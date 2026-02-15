@@ -4,10 +4,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   try {
     const body = await req.json();
@@ -19,17 +22,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const gasRowNumber = Number(id);
+    const reorderNumber = Number(id);
 
     // ★ DB-first: まずDBを更新
-    const { data: reorderData, error: selectError } = await supabaseAdmin
-      .from("reorders")
-      .select("id, patient_id, status")
-      .eq("gas_row_number", gasRowNumber)
-      .single();
+    const { data: reorderData, error: selectError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .select("id, patient_id, status")
+        .eq("reorder_number", reorderNumber)
+        .single(),
+      tenantId
+    );
 
     if (selectError || !reorderData) {
-      console.error("[doctor/reorders/reject] Reorder not found:", gasRowNumber);
+      console.error("[doctor/reorders/reject] Reorder not found:", reorderNumber);
       return NextResponse.json(
         { ok: false, error: "reorder_not_found" },
         { status: 404 }
@@ -43,13 +49,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("reorders")
-      .update({
-        status: "rejected",
-        rejected_at: new Date().toISOString(),
-      })
-      .eq("gas_row_number", gasRowNumber);
+    const { error: updateError } = await withTenant(
+      supabaseAdmin
+        .from("reorders")
+        .update({
+          status: "rejected",
+          rejected_at: new Date().toISOString(),
+        })
+        .eq("reorder_number", reorderNumber),
+      tenantId
+    );
 
     if (updateError) {
       console.error("[doctor/reorders/reject] DB update error:", updateError);
@@ -59,7 +68,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[doctor/reorders/reject] DB update success, gas_row=${gasRowNumber}`);
+    console.log(`[doctor/reorders/reject] DB update success, reorder_num=${reorderNumber}`);
 
     // ★ キャッシュ削除
     if (reorderData.patient_id) {

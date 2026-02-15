@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,6 +12,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json();
     const { patient_id, delete_intake, delete_reservation } = body;
@@ -27,20 +30,26 @@ export async function POST(req: NextRequest) {
 
     // 1. 予約をキャンセル（status = "canceled"）
     if (delete_reservation !== false) {
-      const { data: reservations, error: fetchError } = await supabaseAdmin
-        .from("reservations")
-        .select("id, reserve_id, reserved_date, reserved_time, status")
-        .eq("patient_id", patient_id)
-        .neq("status", "canceled");
+      const { data: reservations, error: fetchError } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("id, reserve_id, reserved_date, reserved_time, status")
+          .eq("patient_id", patient_id)
+          .neq("status", "canceled"),
+        tenantId
+      );
 
       if (fetchError) {
         results.errors.push(`予約取得エラー: ${fetchError.message}`);
       } else if (reservations && reservations.length > 0) {
-        const { error: cancelError } = await supabaseAdmin
-          .from("reservations")
-          .update({ status: "canceled" })
-          .eq("patient_id", patient_id)
-          .neq("status", "canceled");
+        const { error: cancelError } = await withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .update({ status: "canceled" })
+            .eq("patient_id", patient_id)
+            .neq("status", "canceled"),
+          tenantId
+        );
 
         if (cancelError) {
           results.errors.push(`予約キャンセルエラー: ${cancelError.message}`);
@@ -55,10 +64,13 @@ export async function POST(req: NextRequest) {
 
     // 2. 問診データを削除
     if (delete_intake) {
-      const { error: intakeError } = await supabaseAdmin
-        .from("intake")
-        .delete()
-        .eq("patient_id", patient_id);
+      const { error: intakeError } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .delete()
+          .eq("patient_id", patient_id),
+        tenantId
+      );
 
       if (intakeError) {
         results.errors.push(`問診削除エラー: ${intakeError.message}`);
@@ -94,6 +106,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const { searchParams } = new URL(req.url);
     const patient_id = searchParams.get("patient_id");
 
@@ -101,25 +115,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "patient_id required" }, { status: 400 });
     }
 
-    // 予約情報を取得
-    const { data: reservations } = await supabaseAdmin
-      .from("reservations")
-      .select("id, reserve_id, reserved_date, reserved_time, status, patient_name")
-      .eq("patient_id", patient_id)
-      .order("reserved_date", { ascending: false });
-
-    // 問診情報を取得
-    const { data: intakeData } = await supabaseAdmin
-      .from("intake")
-      .select("id, patient_name, reserved_date, reserved_time, reserve_id, created_at")
-      .eq("patient_id", patient_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 予約情報・患者名・問診情報を並列取得
+    const [{ data: reservations }, { data: patient }, { data: intakeData }] = await Promise.all([
+      withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("id, reserve_id, reserved_date, reserved_time, status, patient_name")
+          .eq("patient_id", patient_id)
+          .order("reserved_date", { ascending: false }),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("name")
+          .eq("patient_id", patient_id),
+        tenantId
+      ).maybeSingle(),
+      withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("id, reserve_id, created_at")
+          .eq("patient_id", patient_id)
+          .order("created_at", { ascending: false })
+          .limit(1),
+        tenantId
+      ).maybeSingle(),
+    ]);
 
     return NextResponse.json({
       ok: true,
       patient_id,
+      patient_name: patient?.name || "",
       reservations: reservations || [],
       intake: intakeData,
     });

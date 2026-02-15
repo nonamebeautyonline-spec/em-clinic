@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -24,6 +25,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { entries } = body as { entries: TrackingEntry[] };
 
@@ -46,16 +49,15 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("orders")
-          .update({
+        const { data, error } = await withTenant(
+          supabase.from("orders").update({
             tracking_number: tracking_number,
             shipping_status: "shipped",
             shipping_date: today,
             updated_at: new Date().toISOString(),
-          })
-          .eq("id", payment_id)
-          .select("id, patient_id");
+          }).eq("id", payment_id).select("id, patient_id"),
+          tenantId
+        );
 
         if (error) {
           console.error(`[UpdateTrackingConfirm] Error updating ${payment_id}:`, error);

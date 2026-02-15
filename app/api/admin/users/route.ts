@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,10 +23,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const { data: users, error } = await supabase
-    .from("admin_users")
-    .select("id, email, name, is_active, created_at, updated_at")
-    .order("created_at", { ascending: true });
+  const tenantId = resolveTenantId(req);
+
+  const { data: users, error } = await withTenant(
+    supabase
+      .from("admin_users")
+      .select("id, email, name, is_active, created_at, updated_at")
+      .order("created_at", { ascending: true }),
+    tenantId
+  );
 
   if (error) {
     console.error("[Admin Users] List error:", error);
@@ -44,6 +50,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   try {
     const body = await req.json();
     const { email, name } = body;
@@ -56,11 +64,13 @@ export async function POST(req: NextRequest) {
     }
 
     // メールアドレス重複チェック
-    const { data: existing } = await supabase
-      .from("admin_users")
-      .select("id")
-      .eq("email", email)
-      .single();
+    const { data: existing } = await withTenant(
+      supabase
+        .from("admin_users")
+        .select("id")
+        .eq("email", email),
+      tenantId
+    ).single();
 
     if (existing) {
       return NextResponse.json(
@@ -76,6 +86,7 @@ export async function POST(req: NextRequest) {
     const { data: newUser, error: insertError } = await supabase
       .from("admin_users")
       .insert({
+        ...tenantPayload(tenantId),
         email,
         name,
         password_hash: tempPasswordHash, // 仮（セットアップ前）
@@ -96,6 +107,7 @@ export async function POST(req: NextRequest) {
     const { error: tokenError } = await supabase
       .from("password_reset_tokens")
       .insert({
+        ...tenantPayload(tenantId),
         admin_user_id: newUser.id,
         token: setupToken,
         expires_at: expiresAt.toISOString(),
@@ -141,6 +153,8 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("id");
 
@@ -148,10 +162,13 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "id が必要です" }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("admin_users")
-    .delete()
-    .eq("id", userId);
+  const { error } = await withTenant(
+    supabase
+      .from("admin_users")
+      .delete()
+      .eq("id", userId),
+    tenantId
+  );
 
   if (error) {
     console.error("[Admin Users] Delete error:", error);

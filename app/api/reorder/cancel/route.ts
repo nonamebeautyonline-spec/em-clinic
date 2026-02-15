@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     // ★ リクエストボディから reorder_id を取得
     const body = await req.json().catch(() => ({} as any));
     const reorderId = body.reorder_id as number | undefined;
@@ -62,16 +65,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ 指定されたIDでレコードを取得（patient_idも確認してセキュリティ担保）
-    let targetReorder: { id: number; gas_row_number: number; status: string; product_code: string } | null = null;
+    let targetReorder: { id: number; reorder_number: number; status: string; product_code: string } | null = null;
 
     try {
-      const { data, error } = await supabaseAdmin
-        .from("reorders")
-        .select("id, gas_row_number, status, product_code")
-        .eq("id", reorderId)
-        .eq("patient_id", patientId)
-        .in("status", ["pending", "confirmed"])
-        .maybeSingle();
+      const { data, error } = await withTenant(
+        supabaseAdmin
+          .from("reorders")
+          .select("id, reorder_number, status, product_code")
+          .eq("id", reorderId)
+          .eq("patient_id", patientId)
+          .in("status", ["pending", "confirmed"]),
+        tenantId
+      ).maybeSingle();
 
       if (error) {
         console.error("[reorder/cancel] DB select error:", error);
@@ -100,10 +105,13 @@ export async function POST(req: NextRequest) {
     // ★ DB先行でキャンセル
     if (targetReorder) {
       try {
-        const { error: dbError } = await supabaseAdmin
-          .from("reorders")
-          .update({ status: "canceled" })
-          .eq("id", targetReorder.id);
+        const { error: dbError } = await withTenant(
+          supabaseAdmin
+            .from("reorders")
+            .update({ status: "canceled" })
+            .eq("id", targetReorder.id),
+          tenantId
+        );
 
         if (dbError) {
           console.error("[reorder/cancel] DB update error:", dbError);
@@ -123,7 +131,7 @@ export async function POST(req: NextRequest) {
       const notifyText = `【再処方キャンセル】患者が自らキャンセルしました
 
 患者ID: ${patientId}
-申請ID: ${targetReorder.gas_row_number || targetReorder.id}
+申請ID: ${targetReorder.reorder_number || targetReorder.id}
 状態: ${statusLabel} → キャンセル
 商品: ${targetReorder.product_code}
 

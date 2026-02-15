@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,12 @@ async function fetchLineRichMenuDetail(richMenuId: string) {
 }
 
 // DBまたはLINE APIからメニュー情報を構築
-async function resolveRichMenu(richMenuId: string, isDefault: boolean) {
+async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId: string | null) {
   // まずDBを確認
-  const { data: dbMenu } = await supabaseAdmin
-    .from("rich_menus")
-    .select("id, name, image_url, line_rich_menu_id")
-    .eq("line_rich_menu_id", richMenuId)
-    .maybeSingle();
+  const { data: dbMenu } = await withTenant(
+    supabaseAdmin.from("rich_menus").select("id, name, image_url, line_rich_menu_id").eq("line_rich_menu_id", richMenuId),
+    tenantId
+  ).maybeSingle();
 
   if (dbMenu) {
     return {
@@ -58,20 +58,19 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const tenantId = resolveTenantId(req);
+
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
     if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 
-    // patient_idからline_idを取得（複数レコード対応: 最新を優先）
-    const { data: patients } = await supabaseAdmin
-      .from("intake")
-      .select("line_id")
-      .eq("patient_id", patientId)
-      .not("line_id", "is", null)
-      .order("id", { ascending: false })
-      .limit(1);
+    // patient_id から line_id を patients テーブルから取得
+    const { data: patientRow } = await withTenant(
+      supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId),
+      tenantId
+    ).maybeSingle();
 
-    const lineId = patients?.[0]?.line_id;
+    const lineId = patientRow?.line_id;
     if (!lineId) {
       return NextResponse.json({ menu: null });
     }
@@ -99,14 +98,14 @@ export async function GET(req: NextRequest) {
       const defaultMenuId = defaultData.richMenuId;
       if (!defaultMenuId) return NextResponse.json({ menu: null });
 
-      const menu = await resolveRichMenu(defaultMenuId, true);
+      const menu = await resolveRichMenu(defaultMenuId, true, tenantId);
       return NextResponse.json({ menu });
     }
 
     const lineData = await lineRes.json();
     const richMenuId = lineData.richMenuId;
 
-    const menu = await resolveRichMenu(richMenuId, false);
+    const menu = await resolveRichMenu(richMenuId, false, tenantId);
     return NextResponse.json({ menu });
   } catch (e: any) {
     console.error("[User RichMenu GET] Unhandled error:", e?.message || e);
@@ -119,31 +118,29 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { patient_id, rich_menu_id } = await req.json();
   if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
   if (!rich_menu_id) return NextResponse.json({ error: "rich_menu_id required" }, { status: 400 });
 
   // DBからline_rich_menu_idを取得
-  const { data: menu } = await supabaseAdmin
-    .from("rich_menus")
-    .select("id, name, line_rich_menu_id, image_url")
-    .eq("id", rich_menu_id)
-    .maybeSingle();
+  const { data: menu } = await withTenant(
+    supabaseAdmin.from("rich_menus").select("id, name, line_rich_menu_id, image_url").eq("id", rich_menu_id),
+    tenantId
+  ).maybeSingle();
 
   if (!menu?.line_rich_menu_id) {
     return NextResponse.json({ error: "メニューが見つからないかLINE未登録です" }, { status: 400 });
   }
 
-  // patient_idからline_idを取得（複数レコード対応: 最新を優先）
-  const { data: patients } = await supabaseAdmin
-    .from("intake")
-    .select("line_id")
-    .eq("patient_id", patient_id)
-    .not("line_id", "is", null)
-    .order("id", { ascending: false })
-    .limit(1);
+  // patient_id から line_id を patients テーブルから取得
+  const { data: patientRow } = await withTenant(
+    supabaseAdmin.from("patients").select("line_id").eq("patient_id", patient_id),
+    tenantId
+  ).maybeSingle();
 
-  const lineId = patients?.[0]?.line_id;
+  const lineId = patientRow?.line_id;
   if (!lineId) {
     return NextResponse.json({ error: "LINE未連携のユーザーです" }, { status: 400 });
   }

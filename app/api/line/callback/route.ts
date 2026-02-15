@@ -1,6 +1,8 @@
 // app/api/line/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 const TOKEN_URL = "https://api.line.me/oauth2/v2.1/token";
 
@@ -18,16 +20,24 @@ export async function GET(req: NextRequest) {
     // 旧形式のstate（UUID文字列）の場合は無視
   }
 
+  const tenantId = resolveTenantId(req);
+  const tid = tenantId ?? undefined;
+
+  const appBaseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tid)) || "";
+  const channelId = (await getSettingOrEnv("line", "channel_id", "LINE_CHANNEL_ID", tid)) || "";
+  const channelSecret = (await getSettingOrEnv("line", "channel_secret", "LINE_CHANNEL_SECRET", tid)) || "";
+  const redirectUri = (await getSettingOrEnv("line", "redirect_uri", "LINE_REDIRECT_URI", tid)) || "";
+
   if (!code) {
-    return NextResponse.redirect(`${process.env.APP_BASE_URL}/login-error`);
+    return NextResponse.redirect(`${appBaseUrl}/login-error`);
   }
 
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: process.env.LINE_REDIRECT_URI!,
-    client_id: process.env.LINE_CHANNEL_ID!,
-    client_secret: process.env.LINE_CHANNEL_SECRET!,
+    redirect_uri: redirectUri,
+    client_id: channelId,
+    client_secret: channelSecret,
   });
 
   const tokenRes = await fetch(TOKEN_URL, {
@@ -38,7 +48,7 @@ export async function GET(req: NextRequest) {
 
   if (!tokenRes.ok) {
     console.error("LINE token error", await tokenRes.text());
-    return NextResponse.redirect(`${process.env.APP_BASE_URL}/login-error`);
+    return NextResponse.redirect(`${appBaseUrl}/login-error`);
   }
 
   const tokenJson = await tokenRes.json();
@@ -52,13 +62,16 @@ export async function GET(req: NextRequest) {
   // ★ LINE UIDでDB照合 → 既知の患者ならSMS認証スキップ
   let patientId: string | null = null;
 
-  const { data } = await supabaseAdmin
-    .from("intake")
-    .select("patient_id")
-    .eq("line_id", lineUserId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data } = await withTenant(
+    supabaseAdmin
+      .from("intake")
+      .select("patient_id")
+      .eq("line_id", lineUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    tenantId
+  );
 
   if (data?.patient_id) {
     patientId = data.patient_id;
@@ -70,11 +83,11 @@ export async function GET(req: NextRequest) {
   // 未知 → /mypage/init へ（SMS認証で初回紐付け）
   let redirectUrl: string;
   if (returnUrl && returnUrl.startsWith("/")) {
-    redirectUrl = `${process.env.APP_BASE_URL}${returnUrl}`;
+    redirectUrl = `${appBaseUrl}${returnUrl}`;
   } else {
     redirectUrl = patientId
-      ? `${process.env.APP_BASE_URL}/mypage`
-      : `${process.env.APP_BASE_URL}/mypage/init`;
+      ? `${appBaseUrl}/mypage`
+      : `${appBaseUrl}/mypage/init`;
   }
 
   const res = NextResponse.redirect(redirectUrl);

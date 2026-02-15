@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,16 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabaseAdmin
-    .from("karte_templates")
-    .select("*")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("karte_templates")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    tenantId
+  );
 
   if (error) {
     // テーブルが存在しない場合はデフォルトテンプレートを返す
@@ -47,6 +53,8 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const body = await req.json().catch(() => null);
   if (!body?.name || !body?.body) {
     return NextResponse.json(
@@ -58,6 +66,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("karte_templates")
     .insert({
+      ...tenantPayload(tenantId),
       name: body.name,
       category: body.category || "general",
       body: body.body,
@@ -78,6 +87,8 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const body = await req.json().catch(() => null);
   if (!body?.id) {
     return NextResponse.json({ error: "id は必須です" }, { status: 400 });
@@ -92,12 +103,14 @@ export async function PUT(req: NextRequest) {
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
   if (body.is_active !== undefined) updates.is_active = body.is_active;
 
-  const { data, error } = await supabaseAdmin
-    .from("karte_templates")
-    .update(updates)
-    .eq("id", body.id)
-    .select()
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("karte_templates")
+      .update(updates)
+      .eq("id", body.id)
+      .select(),
+    tenantId
+  ).single();
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -111,15 +124,20 @@ export async function DELETE(req: NextRequest) {
   if (!isAuthorized)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const id = new URL(req.url).searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "id は必須です" }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
-    .from("karte_templates")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq("id", parseInt(id));
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("karte_templates")
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("id", parseInt(id)),
+    tenantId
+  );
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

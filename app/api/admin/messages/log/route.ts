@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get("patient_id");
@@ -17,9 +20,9 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search")?.trim();
   const since = searchParams.get("since"); // ISO8601: この時刻より後の新着のみ
 
-  let query = supabaseAdmin
+  let query = withTenant(supabaseAdmin
     .from("message_log")
-    .select("*", { count: "exact" })
+    .select("*", { count: "exact" }), tenantId)
     .order("sent_at", { ascending: false });
 
   if (!since) {

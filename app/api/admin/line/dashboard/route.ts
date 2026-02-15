@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const LINE_TOKEN = process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN;
 
@@ -44,6 +45,8 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   // 1. フォロワー統計（昨日 + 過去7日分を並列取得）
   const dates: string[] = [];
   for (let i = 1; i <= 7; i++) {
@@ -65,33 +68,41 @@ export async function GET(req: NextRequest) {
   // 2. 今月の送信数
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01T00:00:00`;
-  const { count: monthlySent } = await supabaseAdmin
-    .from("message_log")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "sent")
-    .gte("sent_at", monthStart);
+  const { count: monthlySent } = await withTenant(
+    supabaseAdmin
+      .from("message_log")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sent")
+      .gte("sent_at", monthStart),
+    tenantId
+  );
 
   // 3. 最新送信メッセージ10件
-  const { data: recentMsgs } = await supabaseAdmin
-    .from("message_log")
-    .select("id, patient_id, message_type, content, status, sent_at")
-    .order("sent_at", { ascending: false })
-    .limit(10);
+  const { data: recentMsgs } = await withTenant(
+    supabaseAdmin
+      .from("message_log")
+      .select("id, patient_id, message_type, content, status, sent_at")
+      .order("sent_at", { ascending: false })
+      .limit(10),
+    tenantId
+  );
 
-  // patient_id → patient_name のマッピング
+  // patient_id → patient_name のマッピング（patients テーブルから取得）
   const patientIds = [...new Set((recentMsgs || []).map(m => m.patient_id).filter(Boolean))];
   let nameMap = new Map<string, string>();
   if (patientIds.length > 0) {
-    const { data: intakeRows } = await fetchAll(() =>
-      supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name")
-        .in("patient_id", patientIds)
-        .order("created_at", { ascending: false })
+    const { data: patientRows } = await fetchAll(() =>
+      withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds),
+        tenantId
+      )
     );
-    for (const row of intakeRows || []) {
+    for (const row of patientRows || []) {
       if (!nameMap.has(row.patient_id)) {
-        nameMap.set(row.patient_id, row.patient_name || "");
+        nameMap.set(row.patient_id, row.name || "");
       }
     }
   }

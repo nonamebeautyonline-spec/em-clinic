@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const LINE_ACCESS_TOKEN =
   process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
@@ -10,6 +11,7 @@ const LINE_ACCESS_TOKEN =
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
     const { phone: rawPhone } = (await req.json().catch(() => ({}))) as { phone?: string };
     if (!rawPhone) {
       return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
@@ -24,15 +26,14 @@ export async function POST(req: NextRequest) {
     let pid: string | null = null;
 
     // ============================================================
-    // ステップ1: LINE UID で intake を検索（最優先）
+    // ステップ1: LINE UID で patients を検索（最優先）
     //   → LINE連携済みユーザーの確実な紐付け
     // ============================================================
     if (!pid && lineUserId) {
-      const { data: byLine } = await supabaseAdmin
-        .from("intake")
+      const { data: byLine } = await withTenant(supabaseAdmin
+        .from("patients")
         .select("patient_id")
-        .eq("line_id", lineUserId)
-        .order("created_at", { ascending: false })
+        .eq("line_id", lineUserId), tenantId)
         .limit(1)
         .maybeSingle();
 
@@ -47,10 +48,10 @@ export async function POST(req: NextRequest) {
     //   → /register で事前発行された新規患者
     // ============================================================
     if (!pid && cookiePatientId) {
-      const { data: byCookie } = await supabaseAdmin
+      const { data: byCookie } = await withTenant(supabaseAdmin
         .from("intake")
         .select("patient_id")
-        .eq("patient_id", cookiePatientId)
+        .eq("patient_id", cookiePatientId), tenantId)
         .limit(1)
         .maybeSingle();
 
@@ -65,10 +66,10 @@ export async function POST(req: NextRequest) {
     //   → スマホ/LINE変更時の再紐付け
     // ============================================================
     if (!pid) {
-      const { data: byPhone } = await supabaseAdmin
-        .from("answerers")
+      const { data: byPhone } = await withTenant(supabaseAdmin
+        .from("patients")
         .select("patient_id")
-        .eq("tel", phone)
+        .eq("tel", phone), tenantId)
         .limit(1)
         .maybeSingle();
 
@@ -89,33 +90,34 @@ export async function POST(req: NextRequest) {
     // ============================================================
 
     // answerers テーブルに電話番号を保存（select→insert/update パターン）
-    const { data: existingAnswerer } = await supabaseAdmin
-      .from("answerers")
+    const { data: existingAnswerer } = await withTenant(supabaseAdmin
+      .from("patients")
       .select("patient_id")
-      .eq("patient_id", pid)
+      .eq("patient_id", pid), tenantId)
       .maybeSingle();
 
     if (existingAnswerer) {
-      const { error } = await supabaseAdmin
-        .from("answerers")
+      const { error } = await withTenant(supabaseAdmin
+        .from("patients")
         .update({
           tel: phone,
           ...(lineUserId ? { line_id: lineUserId } : {}),
         })
-        .eq("patient_id", pid);
+        .eq("patient_id", pid), tenantId);
       if (error) console.error("[register/complete] Answerers update error:", error.message);
     } else {
       const { error } = await supabaseAdmin
-        .from("answerers")
+        .from("patients")
         .insert({
           patient_id: pid,
           tel: phone,
           ...(lineUserId ? { line_id: lineUserId } : {}),
+          ...tenantPayload(tenantId),
         });
       if (error) console.error("[register/complete] Answerers insert error:", error.message);
     }
 
-    // intake テーブルに line_id + プロフィール情報を保存
+    // intake テーブルにプロフィール情報を保存（line_id は patients が正）
     if (lineUserId) {
       let lineDisplayName: string | null = null;
       let linePictureUrl: string | null = null;
@@ -135,32 +137,33 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await supabaseAdmin
-        .from("intake")
-        .update({
-          line_id: lineUserId,
-          ...(lineDisplayName ? { line_display_name: lineDisplayName } : {}),
-          ...(linePictureUrl ? { line_picture_url: linePictureUrl } : {}),
-        })
-        .eq("patient_id", pid)
-        .then(({ error }) => {
-          if (error) console.error("[register/complete] Intake update error:", error.message);
-          else console.log("[register/complete] line_id + profile updated for", pid);
-        });
+      if (lineDisplayName || linePictureUrl) {
+        await withTenant(supabaseAdmin
+          .from("patients")
+          .update({
+            ...(lineDisplayName ? { line_display_name: lineDisplayName } : {}),
+            ...(linePictureUrl ? { line_picture_url: linePictureUrl } : {}),
+          })
+          .eq("patient_id", pid), tenantId)
+          .then(({ error }) => {
+            if (error) console.error("[register/complete] Patient profile update error:", error.message);
+            else console.log("[register/complete] profile updated for", pid);
+          });
+      }
     }
 
     // intake の answers に電話番号を追記（最新レコードを対象）
-    const { data: intakeRow } = await supabaseAdmin
+    const { data: intakeRow } = await withTenant(supabaseAdmin
       .from("intake")
       .select("id, answers")
-      .eq("patient_id", pid)
+      .eq("patient_id", pid), tenantId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (intakeRow) {
       const existingAnswers = (intakeRow.answers as Record<string, unknown>) || {};
-      const { error } = await supabaseAdmin
+      const { error } = await withTenant(supabaseAdmin
         .from("intake")
         .update({
           answers: {
@@ -169,7 +172,7 @@ export async function POST(req: NextRequest) {
             tel: phone,
           },
         })
-        .eq("id", intakeRow.id);
+        .eq("id", intakeRow.id), tenantId);
       if (error) console.error("[register/complete] Intake answers update error:", error.message);
     }
 
@@ -179,18 +182,18 @@ export async function POST(req: NextRequest) {
     if (LINE_ACCESS_TOKEN && lineUserId) {
       try {
         // ordersがあれば「処方後」、なければ「個人情報入力後」
-        const { data: order } = await supabaseAdmin
+        const { data: order } = await withTenant(supabaseAdmin
           .from("orders")
           .select("id")
-          .eq("patient_id", pid)
+          .eq("patient_id", pid), tenantId)
           .limit(1)
           .maybeSingle();
 
         const menuName = order ? "処方後" : "個人情報入力後";
-        const { data: menu } = await supabaseAdmin
+        const { data: menu } = await withTenant(supabaseAdmin
           .from("rich_menus")
           .select("line_rich_menu_id")
-          .eq("name", menuName)
+          .eq("name", menuName), tenantId)
           .maybeSingle();
 
         if (menu?.line_rich_menu_id) {

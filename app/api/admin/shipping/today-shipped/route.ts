@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,6 +10,8 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     // 今日の0時〜23:59:59の範囲
     const today = new Date();
@@ -27,12 +25,10 @@ export async function GET(req: NextRequest) {
     console.log(`[TodayShipped] Fetching orders with shipping_list_created_at between ${todayStart} and ${tomorrowStart}`);
 
     // 本日shipping_list_created_atが設定された注文を取得
-    const { data: orders, error: ordersError } = await supabase
-      .from("orders")
-      .select("id, patient_id, tracking_number")
-      .gte("shipping_list_created_at", todayStart)
-      .lt("shipping_list_created_at", tomorrowStart)
-      .order("shipping_list_created_at", { ascending: true });
+    const { data: orders, error: ordersError } = await withTenant(
+      supabaseAdmin.from("orders").select("id, patient_id, tracking_number").gte("shipping_list_created_at", todayStart).lt("shipping_list_created_at", tomorrowStart).order("shipping_list_created_at", { ascending: true }),
+      tenantId
+    );
 
     if (ordersError) {
       console.error("[TodayShipped] Orders fetch error:", ordersError);
@@ -59,16 +55,16 @@ export async function GET(req: NextRequest) {
     // patient_idリストを取得
     const patientIds = Array.from(new Set(orders.map((o: any) => o.patient_id)));
 
-    // intakeテーブルから患者名を取得
-    const { data: patients } = await supabase
-      .from("intake")
-      .select("patient_id, patient_name")
-      .in("patient_id", patientIds);
+    // patientsテーブルから患者名を取得
+    const { data: pData } = await withTenant(
+      supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
+      tenantId
+    );
 
     const patientNameMap: Record<string, string> = {};
-    if (patients) {
-      for (const p of patients) {
-        patientNameMap[p.patient_id] = p.patient_name || "";
+    if (pData) {
+      for (const p of pData) {
+        patientNameMap[p.patient_id] = p.name || "";
       }
     }
 

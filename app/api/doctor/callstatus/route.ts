@@ -1,41 +1,14 @@
 // app/api/doctor/callstatus/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-
-const GAS_URL = process.env.GAS_MYPAGE_URL;
-
-// ★ SERVICE_ROLE_KEYを使用してRLSをバイパス
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-// ★ GASへのバックグラウンド同期（fire-and-forget）
-function syncToGASBackground(payload: any) {
-  if (!GAS_URL) return;
-
-  fetch(GAS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      const text = await res.text().catch(() => "");
-      if (!res.ok) {
-        console.error("[doctor/callstatus] GAS Background Sync Failed:", res.status, text?.slice(0, 200));
-      } else {
-        console.log("[doctor/callstatus] GAS Background Sync OK");
-      }
-    })
-    .catch((err) => {
-      console.error("[doctor/callstatus] GAS Background Sync Error:", err.message);
-    });
-}
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   try {
     const body = await req.json();
@@ -51,14 +24,16 @@ export async function POST(req: NextRequest) {
 
     const updatedAt = new Date().toISOString();
 
-    // ★ Step 1: DB先行書き込み（Supabase intakeテーブル）
-    const { error: supabaseError } = await supabaseAdmin
-      .from("intake")
-      .update({
-        call_status: callStatus,
-        call_status_updated_at: updatedAt,
-      })
-      .eq("reserve_id", reserveId);
+    const { error: supabaseError } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .update({
+          call_status: callStatus,
+          call_status_updated_at: updatedAt,
+        })
+        .eq("reserve_id", reserveId),
+      tenantId
+    );
 
     if (supabaseError) {
       console.error("[doctor/callstatus] Supabase update failed:", supabaseError);
@@ -68,14 +43,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[doctor/callstatus] ✅ DB updated: reserve_id=${reserveId}, call_status=${callStatus}`);
-
-    // ★ Step 2: GASはバックグラウンドで同期（ユーザーを待たせない）
-    syncToGASBackground({
-      type: "doctor_call_status",
-      reserveId,
-      callStatus,
-    });
+    console.log(`[doctor/callstatus] DB updated: reserve_id=${reserveId}, call_status=${callStatus}`);
 
     return NextResponse.json({ ok: true, updated_at: updatedAt });
   } catch (e: any) {

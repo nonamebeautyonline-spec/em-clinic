@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   try {
     const body = await req.json();
@@ -28,6 +31,7 @@ export async function POST(req: NextRequest) {
       }
 
       const record = {
+        ...tenantPayload(tenantId),
         doctor_id,
         weekday,
         enabled: rule.enabled === true,

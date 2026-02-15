@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
+import { resolveTenantId } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -10,6 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+  // productsテーブルは lib/products.ts 経由で既にテナント対応済み
   const products = await getAllProducts();
   return NextResponse.json({ products });
 }
@@ -20,6 +23,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const body = await req.json();
   const {
     code, title, drug_name, dosage, duration_months, quantity, price,
@@ -69,6 +73,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const body = await req.json();
   const { id, ...updates } = body;
 
@@ -99,6 +104,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 

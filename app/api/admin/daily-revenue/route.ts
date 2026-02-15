@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,6 +35,8 @@ export async function GET(req: NextRequest) {
 
     // JSTで計算
     const jstOffset = 9 * 60 * 60 * 1000;
+    const tenantId = resolveTenantId(req);
+
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
 
@@ -44,14 +47,17 @@ export async function GET(req: NextRequest) {
     let allSquareOrders: { id: string; amount: number; paid_at: string }[] = [];
     let page = 0;
     while (true) {
-      const { data: squareOrders, error: squareError } = await supabase
-        .from("orders")
-        .select("id, amount, paid_at")
-        .eq("payment_method", "credit_card")
-        .gte("paid_at", startISO)
-        .lt("paid_at", endISO)
-        .not("paid_at", "is", null)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data: squareOrders, error: squareError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, amount, paid_at")
+          .eq("payment_method", "credit_card")
+          .gte("paid_at", startISO)
+          .lt("paid_at", endISO)
+          .not("paid_at", "is", null)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+        tenantId
+      );
 
       if (squareError) {
         console.error("[daily-revenue] Square query error:", squareError);
@@ -67,14 +73,17 @@ export async function GET(req: NextRequest) {
     let allBankOrders: { id: string; amount: number; created_at: string }[] = [];
     page = 0;
     while (true) {
-      const { data: bankOrders, error: bankError } = await supabase
-        .from("orders")
-        .select("id, amount, created_at")
-        .eq("payment_method", "bank_transfer")
-        .in("status", ["pending_confirmation", "confirmed"])
-        .gte("created_at", startISO)
-        .lt("created_at", endISO)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data: bankOrders, error: bankError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, amount, created_at")
+          .eq("payment_method", "bank_transfer")
+          .in("status", ["pending_confirmation", "confirmed"])
+          .gte("created_at", startISO)
+          .lt("created_at", endISO)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+        tenantId
+      );
 
       if (bankError) {
         console.error("[daily-revenue] Bank query error:", bankError);
@@ -90,13 +99,16 @@ export async function GET(req: NextRequest) {
     let allRefundedOrders: { id: string; refunded_amount: number | null; amount: number; refunded_at: string }[] = [];
     page = 0;
     while (true) {
-      const { data: refundedOrders, error: refundError } = await supabase
-        .from("orders")
-        .select("id, refunded_amount, amount, refunded_at")
-        .eq("refund_status", "COMPLETED")
-        .gte("refunded_at", startISO)
-        .lt("refunded_at", endISO)
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      const { data: refundedOrders, error: refundError } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, refunded_amount, amount, refunded_at")
+          .eq("refund_status", "COMPLETED")
+          .gte("refunded_at", startISO)
+          .lt("refunded_at", endISO)
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+        tenantId
+      );
 
       if (refundError) {
         console.error("[daily-revenue] Refund query error:", refundError);

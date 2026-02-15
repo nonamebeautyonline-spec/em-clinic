@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,11 +40,16 @@ export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabaseAdmin
-    .from("broadcasts")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("broadcasts")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ broadcasts: data });
@@ -54,18 +60,20 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { name, filter_rules, message, scheduled_at } = await req.json();
   if (!message?.trim()) {
     return NextResponse.json({ error: "メッセージは必須です" }, { status: 400 });
   }
 
-  // 対象患者を取得
-  const targets = await resolveTargets(filter_rules || {});
+  // 対象患者を取得（テナントIDを渡してフィルタリング）
+  const targets = await resolveTargets(filter_rules || {}, tenantId);
 
   // 配信レコード作成
   const { data: broadcast, error: insertError } = await supabaseAdmin
     .from("broadcasts")
     .insert({
+      ...tenantPayload(tenantId),
       name: name || `配信 ${new Date().toLocaleDateString("ja-JP")}`,
       filter_rules: filter_rules || {},
       message_content: message,
@@ -88,14 +96,17 @@ export async function POST(req: NextRequest) {
   const targetPatientIds = targets.map(t => t.patient_id);
   const nextReservationMap = new Map<string, { date: string; time: string }>();
   if (targetPatientIds.length > 0) {
-    const { data: reservations } = await supabaseAdmin
-      .from("reservations")
-      .select("patient_id, reserved_date, reserved_time")
-      .in("patient_id", targetPatientIds)
-      .neq("status", "canceled")
-      .gte("reserved_date", new Date().toISOString().split("T")[0])
-      .order("reserved_date", { ascending: true })
-      .order("reserved_time", { ascending: true });
+    const { data: reservations } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .select("patient_id, reserved_date, reserved_time")
+        .in("patient_id", targetPatientIds)
+        .neq("status", "canceled")
+        .gte("reserved_date", new Date().toISOString().split("T")[0])
+        .order("reserved_date", { ascending: true })
+        .order("reserved_time", { ascending: true }),
+      tenantId
+    );
 
     for (const r of reservations || []) {
       if (!nextReservationMap.has(r.patient_id)) {
@@ -118,6 +129,7 @@ export async function POST(req: NextRequest) {
     if (!target.line_id) {
       noUidCount++;
       await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
         patient_id: target.patient_id,
         message_type: "broadcast",
         content: message,
@@ -137,12 +149,13 @@ export async function POST(req: NextRequest) {
       .replace(/\{next_reservation_time\}/g, nextRes?.time || "");
 
     try {
-      const res = await pushMessage(target.line_id, [{ type: "text", text: resolvedMsg }]);
+      const res = await pushMessage(target.line_id, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
       const status = res?.ok ? "sent" : "failed";
       if (status === "sent") sentCount++;
       else failedCount++;
 
       await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
         patient_id: target.patient_id,
         line_uid: target.line_id,
         message_type: "broadcast",
@@ -154,6 +167,7 @@ export async function POST(req: NextRequest) {
     } catch {
       failedCount++;
       await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
         patient_id: target.patient_id,
         line_uid: target.line_id,
         message_type: "broadcast",
@@ -166,13 +180,16 @@ export async function POST(req: NextRequest) {
   }
 
   // 配信レコード更新
-  await supabaseAdmin.from("broadcasts").update({
-    status: "sent",
-    sent_at: new Date().toISOString(),
-    sent_count: sentCount,
-    failed_count: failedCount,
-    no_uid_count: noUidCount,
-  }).eq("id", broadcast.id);
+  await withTenant(
+    supabaseAdmin.from("broadcasts").update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      sent_count: sentCount,
+      failed_count: failedCount,
+      no_uid_count: noUidCount,
+    }).eq("id", broadcast.id),
+    tenantId
+  );
 
   return NextResponse.json({
     ok: true,
@@ -184,35 +201,59 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// フィルタルールに基づいて対象患者を解決
-export async function resolveTargets(rules: FilterRules) {
-  // intakeから全患者を取得（fetchAllで1000行制限を回避）
-  const intakeRes = await fetchAll(
-    () => supabaseAdmin.from("intake").select("patient_id, patient_name, line_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
-  );
+// フィルタルールに基づいて対象患者を解決（テナントフィルタ付き）
+export async function resolveTargets(rules: FilterRules, tenantId: string | null = null) {
+  // patients テーブルから patient_name, line_id を取得（intake の冗長カラムを使わない）
+  const [intakeRes, patientsRes] = await Promise.all([
+    fetchAll(
+      () => withTenant(
+        supabaseAdmin.from("intake").select("patient_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
+        tenantId
+      ),
+    ),
+    fetchAll(
+      () => withTenant(
+        supabaseAdmin.from("patients").select("patient_id, name, line_id"),
+        tenantId
+      ),
+    ),
+  ]);
 
-  const allPatients = intakeRes.data;
-  if (!allPatients || allPatients.length === 0) {
+  const allIntake = intakeRes.data;
+  if (!allIntake || allIntake.length === 0) {
     console.log("[resolveTargets] intake returned 0 rows");
     return [];
   }
 
+  // patients テーブルの name, line_id をマッピング
+  const pMap = new Map<string, { name: string; line_id: string | null }>();
+  for (const p of patientsRes.data || []) {
+    if (p.patient_id) {
+      pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || null });
+    }
+  }
+
   // patient_idでユニーク化（最新レコード優先）
   const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
-  for (const p of allPatients) {
-    if (!patientMap.has(p.patient_id)) {
-      patientMap.set(p.patient_id, p);
+  for (const row of allIntake) {
+    if (!patientMap.has(row.patient_id)) {
+      const pt = pMap.get(row.patient_id);
+      patientMap.set(row.patient_id, {
+        patient_id: row.patient_id,
+        patient_name: pt?.name || "",
+        line_id: pt?.line_id || null,
+      });
     }
   }
 
   let targets = Array.from(patientMap.values());
-  console.log(`[resolveTargets] intake: ${allPatients.length} rows → ${targets.length} unique patients`);
+  console.log(`[resolveTargets] intake: ${allIntake.length} rows → ${targets.length} unique patients`);
 
   // 絞り込み条件
   if (rules.include?.conditions?.length) {
     for (const cond of rules.include.conditions) {
       const before = targets.length;
-      targets = await applyCondition(targets, cond, true);
+      targets = await applyCondition(targets, cond, true, tenantId);
       console.log(`[resolveTargets] include ${cond.type}(${cond.tag_id || cond.values || ""}): ${before} → ${targets.length}`);
     }
   }
@@ -221,7 +262,7 @@ export async function resolveTargets(rules: FilterRules) {
   if (rules.exclude?.conditions?.length) {
     for (const cond of rules.exclude.conditions) {
       const before = targets.length;
-      targets = await applyCondition(targets, cond, false);
+      targets = await applyCondition(targets, cond, false, tenantId);
       console.log(`[resolveTargets] exclude ${cond.type}: ${before} → ${targets.length}`);
     }
   }
@@ -232,12 +273,16 @@ export async function resolveTargets(rules: FilterRules) {
 async function applyCondition(
   targets: { patient_id: string; patient_name: string; line_id: string | null }[],
   condition: FilterCondition,
-  isInclude: boolean
+  isInclude: boolean,
+  tenantId: string | null = null
 ) {
   switch (condition.type) {
     case "tag": {
       const { data: tagged } = await fetchAll(
-        () => supabaseAdmin.from("patient_tags").select("patient_id").eq("tag_id", condition.tag_id!)
+        () => withTenant(
+          supabaseAdmin.from("patient_tags").select("patient_id").eq("tag_id", condition.tag_id!),
+          tenantId
+        )
       );
       const taggedSet = new Set((tagged || []).map(t => t.patient_id));
       console.log(`[applyCondition] tag_id=${condition.tag_id}, tagged patients:`, Array.from(taggedSet));
@@ -256,7 +301,10 @@ async function applyCondition(
 
     case "mark": {
       const { data: marks } = await fetchAll(
-        () => supabaseAdmin.from("patient_marks").select("patient_id, mark").in("mark", condition.values || [])
+        () => withTenant(
+          supabaseAdmin.from("patient_marks").select("patient_id, mark").in("mark", condition.values || []),
+          tenantId
+        )
       );
       const markedSet = new Set((marks || []).map(m => m.patient_id));
 
@@ -266,7 +314,10 @@ async function applyCondition(
 
     case "field": {
       const { data: fieldVals } = await fetchAll(
-        () => supabaseAdmin.from("friend_field_values").select("patient_id, value").eq("field_id", condition.field_id!)
+        () => withTenant(
+          supabaseAdmin.from("friend_field_values").select("patient_id, value").eq("field_id", condition.field_id!),
+          tenantId
+        )
       );
 
       const matchSet = new Set<string>();

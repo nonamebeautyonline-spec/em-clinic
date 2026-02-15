@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -25,17 +26,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tenantId = resolveTenantId(req);
+
     console.log(`[ManualConfirm] Processing order: ${order_id}`);
 
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 対象の注文を取得
-    const { data: order, error: fetchError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, status, payment_method")
-      .eq("id", order_id)
-      .single();
+    const { data: order, error: fetchError } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount, status, payment_method")
+        .eq("id", order_id),
+      tenantId
+    ).single();
 
     if (fetchError || !order) {
       console.error(`[ManualConfirm] Order not found: ${order_id}`);
@@ -61,10 +66,13 @@ export async function POST(req: NextRequest) {
     }
 
     // payment_idを採番（bt_XXX形式）
-    const { data: allBtOrders } = await supabase
-      .from("orders")
-      .select("id")
-      .like("id", "bt_%");
+    const { data: allBtOrders } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id")
+        .like("id", "bt_%"),
+      tenantId
+    );
 
     let maxNum = 0;
     if (allBtOrders && allBtOrders.length > 0) {
@@ -83,18 +91,21 @@ export async function POST(req: NextRequest) {
 
     // 更新
     const now = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from("orders")
-      .update({
-        status: "confirmed",
-        id: nextBtId,
-        paid_at: now,
-        payment_status: "COMPLETED",
-        updated_at: now,
-        // メモがあれば notes に追記
-        ...(memo ? { notes: `手動確認: ${memo}` } : {}),
-      })
-      .eq("id", order_id);
+    const { error: updateError } = await withTenant(
+      supabase
+        .from("orders")
+        .update({
+          status: "confirmed",
+          id: nextBtId,
+          paid_at: now,
+          payment_status: "COMPLETED",
+          updated_at: now,
+          // メモがあれば notes に追記
+          ...(memo ? { notes: `手動確認: ${memo}` } : {}),
+        })
+        .eq("id", order_id),
+      tenantId
+    );
 
     if (updateError) {
       console.error(`[ManualConfirm] Update error:`, updateError);

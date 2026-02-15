@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json();
     const { order_id } = body;
@@ -29,16 +32,19 @@ export async function POST(req: NextRequest) {
     // - tracking_number を NULL
     // - shipping_date を NULL
     // - shipping_list_created_at を今日（発送リストに追加）
-    const { data, error } = await supabase
-      .from("orders")
-      .update({
-        tracking_number: null,
-        shipping_date: null,
-        shipping_list_created_at: now,
-        updated_at: now,
-      })
-      .eq("id", order_id)
-      .select("id, tracking_number, shipping_date, shipping_list_created_at");
+    const { data, error } = await withTenant(
+      supabase
+        .from("orders")
+        .update({
+          tracking_number: null,
+          shipping_date: null,
+          shipping_list_created_at: now,
+          updated_at: now,
+        })
+        .eq("id", order_id)
+        .select("id, tracking_number, shipping_date, shipping_list_created_at"),
+      tenantId
+    );
 
     if (error) {
       console.error("[RecreateLabel] Error:", error);

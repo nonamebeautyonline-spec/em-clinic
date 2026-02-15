@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const MAX_PINS = 15;
 
@@ -11,9 +12,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("admin_users")
-    .select("pinned_patients");
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("admin_users")
+      .select("pinned_patients"),
+    tenantId
+  );
 
   if (error) {
     return NextResponse.json({ pins: [] });
@@ -41,19 +47,27 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   const body = await req.json().catch(() => ({}));
   const pins = Array.isArray(body.pins) ? body.pins.slice(0, MAX_PINS) : [];
 
   // 全ユーザーに同じピンを書き込む（フィルタなしで全行更新）
-  const { data: users } = await supabaseAdmin
-    .from("admin_users")
-    .select("id");
+  const { data: users } = await withTenant(
+    supabaseAdmin
+      .from("admin_users")
+      .select("id"),
+    tenantId
+  );
 
   for (const u of users || []) {
-    const { error } = await supabaseAdmin
-      .from("admin_users")
-      .update({ pinned_patients: pins })
-      .eq("id", u.id);
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("admin_users")
+        .update({ pinned_patients: pins })
+        .eq("id", u.id),
+      tenantId
+    );
     if (error) {
       console.error("[admin/pins] update error for", u.id, error);
     }

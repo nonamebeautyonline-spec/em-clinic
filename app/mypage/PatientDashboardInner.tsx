@@ -62,7 +62,7 @@ interface OrdersFlags {
 
 interface ReorderItem {
   id: string;
-  gas_row_number?: number | null; // ★ GAS行番号（決済時に使用）
+  reorder_number?: number | null; // ★ 再処方番号（決済時に使用）
   timestamp: string; // ISO or "yyyy/MM/dd HH:mm:ss"
 
   // 互換（GASはsnake_case、フロントはcamelCaseが混在し得る）
@@ -526,7 +526,7 @@ if (typeof window !== "undefined") {
           const label = PRODUCT_LABELS[code] || code || "マンジャロ";
           return {
             id: String(r.id ?? ""),
-            gas_row_number: r.gas_row_number != null ? Number(r.gas_row_number) : null,
+            reorder_number: r.reorder_number != null ? Number(r.reorder_number) : null,
 timestamp: String(r.timestamp ?? r.createdAt ?? ""),
             product_code: code,
             productCode: code,
@@ -1271,15 +1271,15 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           alert("再処方の決済情報（product_code）が見つかりません。管理者にお問い合わせください。");
           return;
         }
-        // ★ gas_row_number を使用（webhookがgas_row_numberで更新するため）
-        // フォールバック: gas_row_number がない場合は id を使用（キャッシュ対応）
-        const gasRowNum = displayReorder.gas_row_number ?? displayReorder.id;
-        if (!gasRowNum) {
+        // ★ reorder_number を使用（webhookがreorder_numberで更新するため）
+        // フォールバック: reorder_number がない場合は id を使用（キャッシュ対応）
+        const reorderNum = displayReorder.reorder_number ?? displayReorder.id;
+        if (!reorderNum) {
           alert("再処方の識別子が見つかりません。管理者にお問い合わせください。");
           return;
         }
         const code = encodeURIComponent(raw);
-        const reorderId = encodeURIComponent(String(gasRowNum));
+        const reorderId = encodeURIComponent(String(reorderNum));
         router.push(`/mypage/purchase/confirm?code=${code}&mode=reorder&reorder_id=${reorderId}`);
       }}
       className="px-4 py-1.5 rounded-full bg-emerald-500 text-white font-semibold shadow-sm"

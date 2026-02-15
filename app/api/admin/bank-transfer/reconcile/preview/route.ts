@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -100,15 +101,20 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Parsed ${transfers.length} transfers from CSV`);
 
+    const tenantId = resolveTenantId(req);
+
     // Supabase接続
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // pending_confirmationの注文を取得
-    const { data: pendingOrdersWithNames, error: fetchNamesError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, amount, account_name, shipping_name")
-      .eq("status", "pending_confirmation")
-      .eq("payment_method", "bank_transfer");
+    const { data: pendingOrdersWithNames, error: fetchNamesError } = await withTenant(
+      supabase
+        .from("orders")
+        .select("id, patient_id, product_code, amount, account_name, shipping_name")
+        .eq("status", "pending_confirmation")
+        .eq("payment_method", "bank_transfer"),
+      tenantId
+    );
 
     if (fetchNamesError) {
       console.error("[Preview] Fetch names error:", fetchNamesError);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,6 +10,8 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     // クエリパラメータ: include_all=true で全件取得、デフォルトはpendingのみ
     const searchParams = req.nextUrl.searchParams;
@@ -24,7 +27,7 @@ export async function GET(req: NextRequest) {
       query = query.eq("status", "pending");
     }
 
-    const { data: reordersData, error: reordersError } = await query;
+    const { data: reordersData, error: reordersError } = await withTenant(query, tenantId);
 
     if (reordersError) {
       console.error("Reorders fetch error:", reordersError);
@@ -34,24 +37,47 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 患者名とLステップIDを取得するために、patient_idのリストを作成
+    // 患者名を取得するために、patient_idのリストを作成
     const patientIds = [...new Set((reordersData || []).map((r) => r.patient_id))];
 
-    // intakeテーブルから患者名とanswerer_id（Lステップ用）を取得
+    // patientsテーブルから患者名を取得
     let patientInfoMap: Record<string, { name: string; lstep_uid: string }> = {};
     if (patientIds.length > 0) {
-      const { data: intakeData, error: intakeError } = await supabaseAdmin
-        .from("intake")
-        .select("patient_id, patient_name, answerer_id")
-        .in("patient_id", patientIds);
+      const { data: pData } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id, name")
+          .in("patient_id", patientIds),
+        tenantId
+      );
 
-      if (!intakeError && intakeData) {
-        patientInfoMap = Object.fromEntries(
-          intakeData.map((p) => [p.patient_id, {
-            name: p.patient_name || "-",
-            lstep_uid: p.answerer_id || ""
-          }])
-        );
+      // intakeからanswerer_id（Lステップ用）を取得
+      const { data: intakeData } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .select("patient_id, answerer_id")
+          .in("patient_id", patientIds)
+          .not("answerer_id", "is", null),
+        tenantId
+      );
+
+      const nameMap = new Map<string, string>();
+      for (const p of pData || []) {
+        nameMap.set(p.patient_id, p.name || "-");
+      }
+
+      const lstepMap = new Map<string, string>();
+      for (const i of intakeData || []) {
+        if (!lstepMap.has(i.patient_id)) {
+          lstepMap.set(i.patient_id, i.answerer_id || "");
+        }
+      }
+
+      for (const pid of patientIds) {
+        patientInfoMap[pid] = {
+          name: nameMap.get(pid) || "-",
+          lstep_uid: lstepMap.get(pid) || "",
+        };
       }
     }
 
@@ -64,7 +90,7 @@ export async function GET(req: NextRequest) {
 
       const patientInfo = patientInfoMap[r.patient_id] || { name: "-", lstep_uid: "" };
       return {
-        id: String(r.gas_row_number), // フロントエンドはidをgas_row_numberとして使用
+        id: String(r.reorder_number), // フロントエンドはidをreorder_numberとして使用
         timestamp: formatTimestamp(r.timestamp),
         patient_id: r.patient_id,
         patient_name: patientInfo.name,

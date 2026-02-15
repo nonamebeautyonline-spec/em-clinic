@@ -1,11 +1,13 @@
 // lib/line-push.ts
 // LINE Messaging API Push/Multicast 共通関数
 
+import { getSettingOrEnv } from "@/lib/settings";
+
 const LINE_API = "https://api.line.me/v2/bot/message";
 
-// ランタイムで都度読み込み（ビルド時固定を防ぐ）
-function getToken() {
-  return process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
+// DB優先でトークンを取得（なければ環境変数にフォールバック）
+async function getToken(tenantId?: string) {
+  return (await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId)) || "";
 }
 
 type LineMessage = {
@@ -24,8 +26,8 @@ type LineMessage = {
 /**
  * 1人にPush送信
  */
-export async function pushMessage(lineUserId: string, messages: LineMessage[]) {
-  const token = getToken();
+export async function pushMessage(lineUserId: string, messages: LineMessage[], tenantId?: string) {
+  const token = await getToken(tenantId);
   if (!token || !lineUserId) {
     console.warn("[LINE Push] Missing token or lineUserId");
     return null;
@@ -51,8 +53,8 @@ export async function pushMessage(lineUserId: string, messages: LineMessage[]) {
 /**
  * 複数人にMulticast送信（最大500人/回）
  */
-export async function multicastMessage(lineUserIds: string[], messages: LineMessage[]) {
-  const token = getToken();
+export async function multicastMessage(lineUserIds: string[], messages: LineMessage[], tenantId?: string) {
+  const token = await getToken(tenantId);
   if (!token || lineUserIds.length === 0) {
     console.warn("[LINE Multicast] Missing token or empty recipients");
     return null;

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // テンプレート一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabaseAdmin
-    .from("message_templates")
-    .select("*")
-    .order("updated_at", { ascending: false });
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin.from("message_templates").select("*").order("updated_at", { ascending: false }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ templates: data });
@@ -20,6 +23,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const { name, content, message_type, category, flex_content } = await req.json();
   if (!name?.trim()) {
@@ -33,6 +38,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("message_templates")
     .insert({
+      ...tenantPayload(tenantId),
       name: name.trim(),
       content: content?.trim() || "",
       message_type: message_type || "text",

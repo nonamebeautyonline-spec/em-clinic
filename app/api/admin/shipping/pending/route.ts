@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getProductNamesMap } from "@/lib/products";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,7 +12,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ★ 商品名マップをDBから取得
+    const tenantId = resolveTenantId(req);
+
+    // ★ 商品名マップをDBから取得（productsテーブルは既にテナント対応済み）
     const PRODUCT_NAMES = await getProductNamesMap();
 
     // カットオフ時刻: 昨日の14時（JST）
@@ -43,37 +41,21 @@ export async function GET(req: NextRequest) {
     const tomorrowStartISO = tomorrowStart.toISOString();
 
     // ★ ordersテーブルから未発送の注文を取得
-    const { data: ordersConfirmed, error: ordersConfirmedError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
-      .is("shipping_date", null)
-      .eq("status", "confirmed")
-      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
-      .gte("paid_at", cutoffISO)
-      .order("paid_at", { ascending: false })
-      .limit(100000);
+    const { data: ordersConfirmed, error: ordersConfirmedError } = await withTenant(
+      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("paid_at", cutoffISO).order("paid_at", { ascending: false }).limit(100000),
+      tenantId
+    );
 
-    const { data: ordersPending, error: ordersPendingError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
-      .is("shipping_date", null)
-      .eq("status", "pending_confirmation")
-      .eq("payment_method", "bank_transfer")
-      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
-      .gte("created_at", cutoffISO)
-      .order("created_at", { ascending: false })
-      .limit(100000);
+    const { data: ordersPending, error: ordersPendingError } = await withTenant(
+      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).eq("status", "pending_confirmation").eq("payment_method", "bank_transfer").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(100000),
+      tenantId
+    );
 
     // ★ 本日手動で発送リストに追加された注文（発送漏れ対応）
-    const { data: ordersManuallyAdded, error: ordersManuallyAddedError } = await supabase
-      .from("orders")
-      .select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at")
-      .is("shipping_date", null)
-      .or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)")
-      .gte("shipping_list_created_at", todayStartISO)
-      .lt("shipping_list_created_at", tomorrowStartISO)
-      .order("shipping_list_created_at", { ascending: false })
-      .limit(100000);
+    const { data: ordersManuallyAdded, error: ordersManuallyAddedError } = await withTenant(
+      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("shipping_list_created_at", todayStartISO).lt("shipping_list_created_at", tomorrowStartISO).order("shipping_list_created_at", { ascending: false }).limit(100000),
+      tenantId
+    );
 
     const ordersError = ordersConfirmedError || ordersPendingError || ordersManuallyAddedError;
 
@@ -105,20 +87,31 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
 
-    // ★ 患者名とLステップIDだけintakeから取得
+    // ★ 患者名をpatientsテーブルから取得、LステップIDはintakeから取得
     const patientInfoMap: Record<string, { name: string; lstep_id: string }> = {};
 
     if (patientIds.length > 0) {
-      const { data: patients } = await supabase
-        .from("intake")
-        .select("patient_id, patient_name, answerer_id")
-        .in("patient_id", patientIds)
-        .limit(100000);
+      const { data: pData } = await withTenant(
+        supabaseAdmin.from("patients").select("patient_id, name").in("patient_id", patientIds),
+        tenantId
+      );
 
-      (patients || []).forEach((p: any) => {
+      const { data: intakeData } = await withTenant(
+        supabaseAdmin.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds).not("answerer_id", "is", null).limit(100000),
+        tenantId
+      );
+
+      const lstepMap = new Map<string, string>();
+      for (const i of intakeData || []) {
+        if (!lstepMap.has(i.patient_id)) {
+          lstepMap.set(i.patient_id, i.answerer_id || "");
+        }
+      }
+
+      (pData || []).forEach((p: any) => {
         patientInfoMap[p.patient_id] = {
-          name: p.patient_name || "",
-          lstep_id: p.answerer_id || "",
+          name: p.name || "",
+          lstep_id: lstepMap.get(p.patient_id) || "",
         };
       });
     }
@@ -126,11 +119,10 @@ export async function GET(req: NextRequest) {
     // 購入回数を計算（各患者の注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allOrders } = await supabase
-        .from("orders")
-        .select("patient_id")
-        .in("patient_id", patientIds)
-        .limit(100000);
+      const { data: allOrders } = await withTenant(
+        supabaseAdmin.from("orders").select("patient_id").in("patient_id", patientIds).limit(100000),
+        tenantId
+      );
 
       // 患者IDごとにカウント
       (allOrders || []).forEach((order: any) => {

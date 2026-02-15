@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // タグ一覧取得（各タグの患者数付き）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: tagDefs, error } = await supabaseAdmin
-    .from("tag_definitions")
-    .select("*")
-    .order("created_at", { ascending: true });
+  const tenantId = resolveTenantId(req);
+
+  const { data: tagDefs, error } = await withTenant(
+    supabaseAdmin
+      .from("tag_definitions")
+      .select("*")
+      .order("created_at", { ascending: true }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -19,10 +25,13 @@ export async function GET(req: NextRequest) {
   const PAGE = 1000;
   let from = 0;
   while (true) {
-    const { data: batch } = await supabaseAdmin
-      .from("patient_tags")
-      .select("tag_id")
-      .range(from, from + PAGE - 1);
+    const { data: batch } = await withTenant(
+      supabaseAdmin
+        .from("patient_tags")
+        .select("tag_id")
+        .range(from, from + PAGE - 1),
+      tenantId
+    );
     if (!batch || batch.length === 0) break;
     allPT.push(...batch);
     if (batch.length < PAGE) break;
@@ -47,12 +56,14 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { name, color, description, is_auto, auto_rule } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
 
   const { data, error } = await supabaseAdmin
     .from("tag_definitions")
-    .insert({ name: name.trim(), color: color || "#6B7280", description, is_auto: is_auto || false, auto_rule })
+    .insert({ ...tenantPayload(tenantId), name: name.trim(), color: color || "#6B7280", description, is_auto: is_auto || false, auto_rule })
     .select()
     .single();
 

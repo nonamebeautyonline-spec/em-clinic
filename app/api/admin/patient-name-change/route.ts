@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
+
+    const tenantId = resolveTenantId(req);
 
     const body = await req.json().catch(() => ({}));
     const patientId = (body.patient_id || "").trim();
@@ -25,11 +28,14 @@ export async function POST(req: NextRequest) {
     const results: Record<string, string> = {};
 
     // 1. 現在の answerers データ取得（変更前の記録用）
-    const { data: currentAnswerer } = await supabaseAdmin
-      .from("answerers")
-      .select("name, name_kana")
-      .eq("patient_id", patientId)
-      .maybeSingle();
+    const { data: currentAnswerer } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("name, name_kana")
+        .eq("patient_id", patientId)
+        .maybeSingle(),
+      tenantId
+    );
 
     const previous = {
       name: currentAnswerer?.name || "",
@@ -38,30 +44,27 @@ export async function POST(req: NextRequest) {
 
     // 2. answerers.name, answerers.name_kana を更新
     if (currentAnswerer) {
-      const { error: answererErr } = await supabaseAdmin
-        .from("answerers")
-        .update({ name: newName, name_kana: newNameKana })
-        .eq("patient_id", patientId);
+      const { error: answererErr } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .update({ name: newName, name_kana: newNameKana })
+          .eq("patient_id", patientId),
+        tenantId
+      );
       results.answerers = answererErr ? `error: ${answererErr.message}` : "ok";
     } else {
       results.answerers = "skipped (no record)";
     }
 
-    // 3. intake.patient_name を全レコード更新
-    const { error: intakeNameErr, count: intakeNameCount } = await supabaseAdmin
-      .from("intake")
-      .update({ patient_name: newName })
-      .eq("patient_id", patientId);
-    results.intake_patient_name = intakeNameErr
-      ? `error: ${intakeNameErr.message}`
-      : `ok (${intakeNameCount ?? "?"} rows)`;
-
-    // 4. intake.answers JSONB の氏名・カナキーを全レコード更新
+    // 3. intake.answers JSONB の氏名・カナキーを全レコード更新
     //    Supabase JS は jsonb_set 非対応のため、fetch→merge→update by id
-    const { data: intakeRows } = await supabaseAdmin
-      .from("intake")
-      .select("id, answers")
-      .eq("patient_id", patientId);
+    const { data: intakeRows } = await withTenant(
+      supabaseAdmin
+        .from("intake")
+        .select("id, answers")
+        .eq("patient_id", patientId),
+      tenantId
+    );
 
     let answersUpdated = 0;
     let answersErrors = 0;
@@ -75,10 +78,13 @@ export async function POST(req: NextRequest) {
         name_kana: newNameKana,
       };
 
-      const { error } = await supabaseAdmin
-        .from("intake")
-        .update({ answers: updatedAnswers })
-        .eq("id", row.id);
+      const { error } = await withTenant(
+        supabaseAdmin
+          .from("intake")
+          .update({ answers: updatedAnswers })
+          .eq("id", row.id),
+        tenantId
+      );
 
       if (error) answersErrors++;
       else answersUpdated++;
@@ -88,10 +94,13 @@ export async function POST(req: NextRequest) {
       : `ok (${answersUpdated} rows)`;
 
     // 5. reservations.patient_name を全レコード更新
-    const { error: reservErr, count: reservCount } = await supabaseAdmin
-      .from("reservations")
-      .update({ patient_name: newName })
-      .eq("patient_id", patientId);
+    const { error: reservErr, count: reservCount } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .update({ patient_name: newName })
+        .eq("patient_id", patientId),
+      tenantId
+    );
     results.reservations = reservErr
       ? `error: ${reservErr.message}`
       : `ok (${reservCount ?? "?"} rows)`;

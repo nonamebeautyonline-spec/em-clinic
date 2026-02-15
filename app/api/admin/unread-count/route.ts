@@ -2,15 +2,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   // 1. 既読タイムスタンプ一括取得
-  const { data: chatReads } = await supabaseAdmin
-    .from("chat_reads")
-    .select("patient_id, read_at");
+  const { data: chatReads } = await withTenant(
+    supabaseAdmin
+      .from("chat_reads")
+      .select("patient_id, read_at"),
+    tenantId
+  );
 
   const reads: Record<string, string> = {};
   for (const row of chatReads || []) {
@@ -23,13 +29,16 @@ export async function GET(req: NextRequest) {
   let offset = 0;
   const pageSize = 5000;
   for (;;) {
-    const { data, error } = await supabaseAdmin
-      .from("message_log")
-      .select("patient_id, sent_at")
-      .eq("direction", "incoming")
-      .neq("message_type", "event")
-      .order("sent_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("message_log")
+        .select("patient_id, sent_at")
+        .eq("direction", "incoming")
+        .neq("message_type", "event")
+        .order("sent_at", { ascending: false })
+        .range(offset, offset + pageSize - 1),
+      tenantId
+    );
     if (error || !data || data.length === 0) break;
     allMsgs.push(...data);
     if (data.length < pageSize) break;

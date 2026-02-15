@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,8 @@ const APP_BASE_URL = process.env.APP_BASE_URL || "https://app.noname-beauty.jp";
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantId(req);
+
     const body = await req.json();
     const { email } = body;
 
@@ -25,11 +28,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ユーザー存在チェック
-    const { data: user } = await supabase
-      .from("admin_users")
-      .select("id, email, name, is_active")
-      .eq("email", email)
-      .single();
+    const { data: user } = await withTenant(
+      supabase
+        .from("admin_users")
+        .select("id, email, name, is_active")
+        .eq("email", email)
+        .single(),
+      tenantId
+    );
 
     // ユーザーが存在しない場合も同じレスポンス（セキュリティ）
     if (!user || !user.is_active) {
@@ -40,11 +46,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 既存のトークンを無効化（古いものを削除）
-    await supabase
-      .from("password_reset_tokens")
-      .delete()
-      .eq("admin_user_id", user.id)
-      .is("used_at", null);
+    await withTenant(
+      supabase
+        .from("password_reset_tokens")
+        .delete()
+        .eq("admin_user_id", user.id)
+        .is("used_at", null),
+      tenantId
+    );
 
     // 新しいリセットトークン生成（1時間有効）
     const resetToken = randomBytes(32).toString("hex");
@@ -53,6 +62,7 @@ export async function POST(req: NextRequest) {
     const { error: tokenError } = await supabase
       .from("password_reset_tokens")
       .insert({
+        ...tenantPayload(tenantId),
         admin_user_id: user.id,
         token: resetToken,
         expires_at: expiresAt.toISOString(),

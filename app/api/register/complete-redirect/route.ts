@@ -2,18 +2,20 @@
 // patient_id cookie が古い場合に正しい値に再設定してマイページへリダイレクト
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
+  const tenantId = resolveTenantId(req);
   const pid = req.nextUrl.searchParams.get("pid");
   if (!pid) {
     return NextResponse.redirect(new URL("/register", req.url));
   }
 
   // pid が実在するか確認
-  const { data: intake } = await supabaseAdmin
+  const { data: intake } = await withTenant(supabaseAdmin
     .from("intake")
     .select("patient_id")
-    .eq("patient_id", pid)
+    .eq("patient_id", pid), tenantId)
     .limit(1)
     .maybeSingle();
 

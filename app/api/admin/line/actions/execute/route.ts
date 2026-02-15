@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
@@ -18,16 +19,19 @@ export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { action_id, patient_id } = await req.json();
   if (!action_id) return NextResponse.json({ error: "アクションIDは必須です" }, { status: 400 });
   if (!patient_id) return NextResponse.json({ error: "患者IDは必須です" }, { status: 400 });
 
   // アクション取得
-  const { data: action, error: actionError } = await supabaseAdmin
-    .from("actions")
-    .select("*")
-    .eq("id", action_id)
-    .single();
+  const { data: action, error: actionError } = await withTenant(
+    supabaseAdmin
+      .from("actions")
+      .select("*")
+      .eq("id", action_id),
+    tenantId
+  ).single();
 
   if (actionError || !action) {
     return NextResponse.json({ error: "アクションが見つかりません" }, { status: 404 });
@@ -36,17 +40,17 @@ export async function POST(req: NextRequest) {
   const steps = action.steps as ActionStep[];
   const results: { step: number; type: string; success: boolean; detail?: string }[] = [];
 
-  // 患者のLINE UIDを取得（テキスト送信用）
-  const { data: intakeData } = await supabaseAdmin
-    .from("intake")
-    .select("line_id, patient_name")
-    .eq("patient_id", patient_id)
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // 患者の LINE UID・名前を patients テーブルから取得
+  const { data: patientData } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("name, line_id")
+      .eq("patient_id", patient_id),
+    tenantId
+  ).maybeSingle();
 
-  const lineUid = intakeData?.line_id;
-  const patientName = intakeData?.patient_name || "";
+  const lineUid = patientData?.line_id;
+  const patientName = patientData?.name || "";
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
@@ -65,6 +69,7 @@ export async function POST(req: NextRequest) {
           if (!lineUid) {
             // UID無しでもログは残す
             await supabaseAdmin.from("message_log").insert({
+              ...tenantPayload(tenantId),
               patient_id, line_uid: null, message_type: "individual",
               content: text, status: "no_uid", direction: "outgoing",
             });
@@ -83,6 +88,7 @@ export async function POST(req: NextRequest) {
 
           const status = pushRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
+            ...tenantPayload(tenantId),
             patient_id, line_uid: lineUid, message_type: "individual",
             content: text, status, direction: "outgoing",
           });
@@ -95,11 +101,13 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "テンプレート未指定" });
             break;
           }
-          const { data: tmpl } = await supabaseAdmin
-            .from("message_templates")
-            .select("content, message_type")
-            .eq("id", step.template_id)
-            .single();
+          const { data: tmpl } = await withTenant(
+            supabaseAdmin
+              .from("message_templates")
+              .select("content, message_type")
+              .eq("id", step.template_id),
+            tenantId
+          ).single();
 
           if (!tmpl) {
             results.push({ step: i, type: step.type, success: false, detail: "テンプレートが見つかりません" });
@@ -112,6 +120,7 @@ export async function POST(req: NextRequest) {
 
           if (!lineUid) {
             await supabaseAdmin.from("message_log").insert({
+              ...tenantPayload(tenantId),
               patient_id, line_uid: null, message_type: "individual",
               content: tmplText, status: "no_uid", direction: "outgoing",
             });
@@ -135,6 +144,7 @@ export async function POST(req: NextRequest) {
 
           const tmplStatus = tmplRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
+            ...tenantPayload(tenantId),
             patient_id, line_uid: lineUid, message_type: "individual",
             content: tmplText, status: tmplStatus, direction: "outgoing",
           });
@@ -149,7 +159,7 @@ export async function POST(req: NextRequest) {
           }
           const { error: tagErr } = await supabaseAdmin
             .from("patient_tags")
-            .upsert({ patient_id, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" });
+            .upsert({ ...tenantPayload(tenantId), patient_id, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" });
 
           results.push({ step: i, type: step.type, success: !tagErr, detail: tagErr?.message });
           break;
@@ -160,11 +170,14 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "タグ未指定" });
             break;
           }
-          const { error: rmErr } = await supabaseAdmin
-            .from("patient_tags")
-            .delete()
-            .eq("patient_id", patient_id)
-            .eq("tag_id", step.tag_id);
+          const { error: rmErr } = await withTenant(
+            supabaseAdmin
+              .from("patient_tags")
+              .delete()
+              .eq("patient_id", patient_id)
+              .eq("tag_id", step.tag_id),
+            tenantId
+          );
 
           results.push({ step: i, type: step.type, success: !rmErr, detail: rmErr?.message });
           break;
@@ -178,6 +191,7 @@ export async function POST(req: NextRequest) {
           const { error: markErr } = await supabaseAdmin
             .from("patient_marks")
             .upsert({
+              ...tenantPayload(tenantId),
               patient_id,
               mark: step.mark,
               note: step.note || null,
@@ -198,11 +212,13 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
             break;
           }
-          const { data: menuData } = await supabaseAdmin
-            .from("rich_menus")
-            .select("line_rich_menu_id, name")
-            .eq("id", Number(step.menu_id))
-            .maybeSingle();
+          const { data: menuData } = await withTenant(
+            supabaseAdmin
+              .from("rich_menus")
+              .select("line_rich_menu_id, name")
+              .eq("id", Number(step.menu_id)),
+            tenantId
+          ).maybeSingle();
 
           if (!menuData?.line_rich_menu_id) {
             results.push({ step: i, type: step.type, success: false, detail: "メニューが見つからないかLINE未登録です" });
@@ -238,19 +254,28 @@ export async function POST(req: NextRequest) {
         break;
       case "send_template":
         if (step.template_id) {
-          const { data: t } = await supabaseAdmin.from("message_templates").select("name").eq("id", step.template_id).maybeSingle();
+          const { data: t } = await withTenant(
+            supabaseAdmin.from("message_templates").select("name").eq("id", step.template_id),
+            tenantId
+          ).maybeSingle();
           actionDetails.push(`テンプレート[${t?.name || step.template_id}]を送信`);
         }
         break;
       case "tag_add":
         if (step.tag_id) {
-          const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+          const { data: t } = await withTenant(
+            supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id),
+            tenantId
+          ).maybeSingle();
           actionDetails.push(`タグ[${t?.name || step.tag_id}]を追加`);
         }
         break;
       case "tag_remove":
         if (step.tag_id) {
-          const { data: t } = await supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle();
+          const { data: t } = await withTenant(
+            supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id),
+            tenantId
+          ).maybeSingle();
           actionDetails.push(`タグ[${t?.name || step.tag_id}]を解除`);
         }
         break;
@@ -265,6 +290,7 @@ export async function POST(req: NextRequest) {
 
   if (actionDetails.length > 0) {
     await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
       patient_id,
       line_uid: lineUid || null,
       event_type: "system",

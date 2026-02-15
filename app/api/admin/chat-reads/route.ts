@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 // 既読タイムスタンプ一括取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabaseAdmin
-    .from("chat_reads")
-    .select("patient_id, read_at");
+  const tenantId = resolveTenantId(req);
+
+  const { data, error } = await withTenant(
+    supabaseAdmin
+      .from("chat_reads")
+      .select("patient_id, read_at"),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -26,13 +32,15 @@ export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
+
   const { patient_id } = await req.json();
   if (!patient_id) return NextResponse.json({ error: "patient_id is required" }, { status: 400 });
 
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin
     .from("chat_reads")
-    .upsert({ patient_id, read_at: now }, { onConflict: "patient_id" });
+    .upsert({ ...tenantPayload(tenantId), patient_id, read_at: now }, { onConflict: "patient_id" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

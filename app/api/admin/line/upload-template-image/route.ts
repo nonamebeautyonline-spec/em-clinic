@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId } from "@/lib/tenant";
 
 const BUCKET = "line-images";
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -15,6 +16,8 @@ async function ensureBucket() {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tenantId = resolveTenantId(req);
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

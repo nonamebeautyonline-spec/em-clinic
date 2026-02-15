@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -14,40 +15,27 @@ export async function GET(req: NextRequest) {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const tenantId = resolveTenantId(req);
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
     if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 
-    // patient_idからline_idを取得（複数レコード対応: 最新を優先）
-    const { data: patients } = await supabaseAdmin
-      .from("intake")
-      .select("line_id")
-      .eq("patient_id", patientId)
-      .not("line_id", "is", null)
-      .order("id", { ascending: false })
-      .limit(1);
-
-    // intakeにない場合はanswerersからフォールバック
-    let lineId = patients?.[0]?.line_id;
-    if (!lineId) {
-      const { data: answerer } = await supabaseAdmin
-        .from("answerers")
+    // patient_id から line_id を patients テーブルから取得
+    const { data: patientRow } = await withTenant(
+      supabaseAdmin
+        .from("patients")
         .select("line_id")
-        .eq("patient_id", patientId)
-        .not("line_id", "is", null)
-        .limit(1)
-        .maybeSingle();
-      lineId = answerer?.line_id;
-    }
+        .eq("patient_id", patientId),
+      tenantId
+    ).maybeSingle();
+
+    const lineId = patientRow?.line_id || null;
 
     if (!lineId || !LINE_ACCESS_TOKEN) {
       return NextResponse.json({ blocked: false, no_line_id: !lineId });
     }
 
     // LINE Profile APIでブロック確認
-    // 404の理由: ①ID不在 ②同意なし ③未フォロー ④ブロック
-    // このシステムではline_idはフォロー時にwebhookで保存されるため、
-    // 404 = 実質ブロック。ただし念のためmessage_logに過去の記録があるか確認する
     const profileRes = await fetch(`https://api.line.me/v2/bot/profile/${lineId}`, {
       headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
       cache: "no-store",
@@ -56,19 +44,21 @@ export async function GET(req: NextRequest) {
     const blocked = !profileRes.ok;
 
     if (blocked) {
-      // line_idがintake/answersにある = 一度はフォロー済み（Lステ移行含む）
       // 最新のイベントが既にブロックなら重複挿入しない
-      const { data: lastEvent } = await supabaseAdmin
-        .from("message_log")
-        .select("id, event_type")
-        .eq("patient_id", patientId)
-        .eq("message_type", "event")
-        .order("sent_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: lastEvent } = await withTenant(
+        supabaseAdmin
+          .from("message_log")
+          .select("id, event_type")
+          .eq("patient_id", patientId)
+          .eq("message_type", "event")
+          .order("sent_at", { ascending: false })
+          .limit(1),
+        tenantId
+      ).maybeSingle();
 
       if (!lastEvent || lastEvent.event_type !== "unfollow") {
         await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
           patient_id: patientId,
           line_uid: lineId,
           direction: "incoming",
