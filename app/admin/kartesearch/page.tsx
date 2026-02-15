@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import Link from "next/link";
 import { calcAge, formatDateJST } from "@/lib/patient-utils";
+
+const KarteImageSection = lazy(() => import("@/components/KarteImageSection"));
 
 type Candidate = {
   patientId: string;
@@ -314,6 +316,15 @@ export default function KarteSearchPage() {
                       >
                         カルテ詳細
                       </Link>
+                      {/* 経過写真 */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <Suspense fallback={<div className="text-[10px] text-gray-400 py-2">画像読み込み中...</div>}>
+                          <KarteImageSection
+                            patientId={patient.id}
+                            readOnly
+                          />
+                        </Suspense>
+                      </div>
                     </div>
                   </>
                 ) : (
