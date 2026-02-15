@@ -110,10 +110,6 @@ export async function POST(req: NextRequest) {
       const callStatus = intake?.call_status || ""; // 電話ステータス（不通など）
       const prescriptionMenu = row.prescription_menu || ""; // 処方メニュー
 
-      if (!lstepId) {
-        errors.push(`患者ID ${row.patient_id}: LステップIDがありません`);
-      }
-
       // リマインドメッセージを生成
       const timeStr = reservedTime ? reservedTime.slice(0, 5) : ""; // HH:MM
       const message = `本日${timeStr}にご予約いただいている${patientName}様へ。診療のお時間が近づいてまいりました。お待ちしております。`;

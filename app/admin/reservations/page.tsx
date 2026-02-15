@@ -94,11 +94,6 @@ export default function ReservationsPage() {
     }
   };
 
-  const getLStepUrl = (lstepUid?: string) => {
-    if (!lstepUid) return null;
-    return `https://manager.linestep.net/line/visual?member=${encodeURIComponent(lstepUid)}`;
-  };
-
   const formatTime = (timeString: string) => {
     // "HH:MM:SS"形式をそのまま表示（秒は省略）
     if (!timeString) return "";
@@ -302,7 +297,7 @@ export default function ReservationsPage() {
                     患者名
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                    LステップID
+                    PID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                     LINE UID
@@ -346,18 +341,14 @@ export default function ReservationsPage() {
                         {reminder.patient_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                        {reminder.lstep_id ? (
-                          <a
-                            href={getLStepUrl(reminder.lstep_id) || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-green-600 hover:text-green-700 hover:underline"
-                          >
-                            ✅ {reminder.lstep_id}
-                          </a>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
+                        <a
+                          href={`/admin/line/talk?pid=${reminder.patient_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          {reminder.patient_id}
+                        </a>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                         {reminder.line_uid ? (
@@ -410,16 +401,6 @@ export default function ReservationsPage() {
             </table>
           </div>
 
-          {reminderPreview.errors.length > 0 && (
-            <div className="px-6 py-4 bg-yellow-50 border-t border-yellow-200">
-              <h3 className="text-sm font-semibold text-yellow-900 mb-2">⚠️ 警告</h3>
-              <ul className="list-disc list-inside text-xs text-yellow-700 space-y-1">
-                {reminderPreview.errors.map((err, idx) => (
-                  <li key={idx}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           {/* LINE リマインド送信結果（インライン表示） */}
           {lineRemindResult && (
@@ -535,18 +516,6 @@ export default function ReservationsPage() {
                     </span>
                   )}
 
-                  {/* Lステップリンク */}
-                  {getLStepUrl(reservation.lstep_uid) && (
-                    <a
-                      href={getLStepUrl(reservation.lstep_uid)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
-                    >
-                      Lステップ
-                    </a>
-                  )}
-
                   {/* カルテ詳細ボタン */}
                   <button
                     onClick={() => setSelectedReservation(reservation)}
@@ -645,16 +614,6 @@ export default function ReservationsPage() {
                 >
                   患者詳細ページを開く
                 </a>
-                {selectedReservation.lstep_uid && (
-                  <a
-                    href={getLStepUrl(selectedReservation.lstep_uid)!}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    Lステップで開く
-                  </a>
-                )}
               </div>
             </div>
           </div>
