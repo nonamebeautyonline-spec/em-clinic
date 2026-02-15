@@ -4,7 +4,10 @@
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET または ADMIN_TOKEN 環境変数が未設定です");
+}
 
 /**
  * 管理者認証チェック（クッキーまたはBearerトークン）

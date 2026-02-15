@@ -3,8 +3,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 export async function POST(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await req.json();
     const id = body.id as string | number | undefined;

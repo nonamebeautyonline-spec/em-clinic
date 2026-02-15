@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 // ★ SERVICE_ROLE_KEYを使用してRLSをバイパス
 const supabaseAdmin = createClient(
@@ -12,7 +13,10 @@ function fail(code: string, status: number = 500) {
   return NextResponse.json({ ok: false, code }, { status });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await req.json().catch(() => ({}));
 

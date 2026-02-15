@@ -1,6 +1,7 @@
 // app/api/doctor/callstatus/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const GAS_URL = process.env.GAS_MYPAGE_URL;
 
@@ -32,7 +33,10 @@ function syncToGASBackground(payload: any) {
     });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await req.json();
     const reserveId = String(body.reserveId || "").trim();

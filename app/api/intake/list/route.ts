@@ -1,6 +1,7 @@
 // app/api/intake/list/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 const LIST_URL = process.env.GAS_INTAKE_LIST_URL as string;
 const USE_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -19,7 +20,10 @@ async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   return { data: all, error: null };
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     // クエリパラメータを取得
     const { searchParams } = new URL(req.url);

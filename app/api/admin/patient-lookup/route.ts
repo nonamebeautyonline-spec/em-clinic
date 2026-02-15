@@ -101,13 +101,23 @@ export async function GET(req: NextRequest) {
     } else if (searchType === "tracking") {
       // 追跡番号検索: ordersテーブルからpatient_idを取得
       const normalizedTracking = query.replace(/-/g, "");
-      const { data: orderData } = await supabaseAdmin
+      // まず原文で検索、なければハイフン除去版で検索（.or() にユーザー入力を直接渡さない）
+      let orderData = (await supabaseAdmin
         .from("orders")
         .select("patient_id")
-        .or(`tracking_number.eq.${query},tracking_number.eq.${normalizedTracking}`)
+        .eq("tracking_number", query)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle()).data;
+      if (!orderData && normalizedTracking !== query) {
+        orderData = (await supabaseAdmin
+          .from("orders")
+          .select("patient_id")
+          .eq("tracking_number", normalizedTracking)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()).data;
+      }
 
       if (orderData) {
         patientId = orderData.patient_id;

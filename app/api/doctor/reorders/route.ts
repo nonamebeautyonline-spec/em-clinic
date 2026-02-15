@@ -2,8 +2,12 @@
 // DB-first: 再処方一覧をDBから取得
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { verifyAdminAuth } from "@/lib/admin-auth";
 
 export async function GET(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { data, error } = await supabaseAdmin
       .from("reorders")

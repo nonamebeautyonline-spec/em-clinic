@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
       // 1) Flex発送通知送信
       try {
-        const flex = buildShippingFlex(p.tracking);
+        const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking);
         const result = await sendShippingNotification({
           patientId: p.patient_id,
           lineUid: p.line_id,
