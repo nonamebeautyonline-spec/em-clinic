@@ -34,6 +34,12 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   payment: [
     { key: "provider", label: "決済プロバイダー" },
   ],
+  mypage: [
+    { key: "config", label: "マイページ設定（JSON）" },
+  ],
+  flex: [
+    { key: "config", label: "FLEX通知設定（JSON）" },
+  ],
 };
 
 export async function GET(req: NextRequest) {

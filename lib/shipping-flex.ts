@@ -1,19 +1,11 @@
 // lib/shipping-flex.ts
 // 発送完了通知のLINE Flexメッセージビルダー
-// 配色: 予約通知と統一（LPベースのピンク & 白）
+// 配色・文言は管理画面から設定可能（tenant_settings経由）
 
 import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
-
-// テーマカラー（reservation-flex.ts と統一）
-const PINK = "#ec4899";       // pink-400 ヘッダー背景
-const PINK_DARK = "#be185d";  // pink-700 追跡番号テキスト
-const WHITE = "#ffffff";      // ヘッダーテキスト
-const GRAY = "#666666";       // 補足テキスト
-
-// 画像URL（public/images/）
-const TRUCK_IMAGE_URL = "https://app.noname-beauty.jp/images/truck-delivery.png";
-const PROGRESS_BAR_URL = "https://app.noname-beauty.jp/images/progress-bar.png";
+import { getFlexConfig } from "@/lib/flex-message/config";
+import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
 function formatTrackingNumber(num: string): string {
@@ -41,9 +33,13 @@ function carrierLabel(carrier: string): string {
 }
 
 /** 発送完了 Flex メッセージ */
-export function buildShippingFlex(
+export async function buildShippingFlex(
   trackingInfo: { number: string; carrier: string }[],
 ) {
+  let cfg = DEFAULT_FLEX_CONFIG;
+  try { cfg = await getFlexConfig(); } catch {}
+  const { colors, shipping } = cfg;
+
   const primary = trackingInfo[0];
   const formatted = formatTrackingNumber(primary.number);
   const label = carrierLabel(primary.carrier);
@@ -51,8 +47,8 @@ export function buildShippingFlex(
 
   // 追跡番号セクション
   const trackingContents: any[] = [
-    { type: "text", text: "追跡番号", size: "sm", color: GRAY, align: "center" },
-    { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: PINK_DARK, align: "center" },
+    { type: "text", text: "追跡番号", size: "sm", color: colors.bodyText, align: "center" },
+    { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: colors.accentColor, align: "center" },
   ];
 
   // 複数追跡番号がある場合
@@ -63,47 +59,44 @@ export function buildShippingFlex(
       size: "lg",
       weight: "bold",
       margin: "sm",
-      color: PINK_DARK,
+      color: colors.accentColor,
       align: "center",
     });
   }
 
-  // 配送ステータスビジュアル（ヤマト風：発送 🚚 お届け予定 + ゲージ）
+  // 配送ステータスビジュアル
   const progressSection = {
     type: "box",
     layout: "vertical",
     contents: [
-      // 発送 🚚 お届け予定（一行）
       {
         type: "box",
         layout: "horizontal",
         contents: [
-          { type: "text", text: "発送", size: "xs", color: GRAY, flex: 1, align: "start", gravity: "bottom" },
+          { type: "text", text: "発送", size: "xs", color: colors.bodyText, flex: 1, align: "start", gravity: "bottom" },
           {
             type: "image",
-            url: TRUCK_IMAGE_URL,
+            url: shipping.truckImageUrl,
             size: "full",
             aspectRatio: "3:2",
             aspectMode: "fit",
             flex: 1,
           },
-          { type: "text", text: "お届け予定", size: "xs", color: GRAY, flex: 1, align: "end", gravity: "bottom", wrap: true },
+          { type: "text", text: "お届け予定", size: "xs", color: colors.bodyText, flex: 1, align: "end", gravity: "bottom", wrap: true },
         ],
         alignItems: "flex-end",
         paddingStart: "12px",
         paddingEnd: "12px",
       },
-      // プログレスバー画像（横幅いっぱい）
       {
         type: "image",
-        url: PROGRESS_BAR_URL,
+        url: shipping.progressBarUrl,
         size: "full",
         aspectRatio: "20:2",
         aspectMode: "cover",
         margin: "xs",
       },
-      // キャリア名（中央配置・括弧付き）
-      { type: "text", text: `（${label}）`, size: "xs", color: GRAY, margin: "sm", align: "center" },
+      { type: "text", text: `（${label}）`, size: "xs", color: colors.bodyText, margin: "sm", align: "center" },
     ],
     backgroundColor: "#fdf2f8",
     cornerRadius: "8px",
@@ -115,47 +108,13 @@ export function buildShippingFlex(
 
   const bodyContents: any[] = [
     progressSection,
-    // 追跡番号
-    {
-      type: "box",
-      layout: "vertical",
-      contents: trackingContents,
-      margin: "lg",
-    },
+    { type: "box", layout: "vertical", contents: trackingContents, margin: "lg" },
     { type: "separator", margin: "md" },
-    {
-      type: "text",
-      text: "ヤマト運輸からの発送が開始されると日時指定が可能となります。",
-      size: "sm",
-      color: GRAY,
-      wrap: true,
-      margin: "md",
-    },
-    {
-      type: "text",
-      text: "日時指定を希望される場合はボタンより変更をしてください。",
-      size: "sm",
-      color: GRAY,
-      wrap: true,
-      margin: "sm",
-    },
+    { type: "text", text: shipping.deliveryNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" },
+    { type: "text", text: shipping.deliveryNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" },
     { type: "separator", margin: "md" },
-    {
-      type: "text",
-      text: "お届け後、マンジャロは冷蔵保管をするようにお願いいたします。",
-      size: "sm",
-      color: GRAY,
-      wrap: true,
-      margin: "md",
-    },
-    {
-      type: "text",
-      text: "冷凍保存を行うと薬液が凍結したり効果が下がってしまいますのでご注意ください。",
-      size: "sm",
-      color: GRAY,
-      wrap: true,
-      margin: "sm",
-    },
+    { type: "text", text: shipping.storageNotice1, size: "sm", color: colors.bodyText, wrap: true, margin: "md" },
+    { type: "text", text: shipping.storageNotice2, size: "sm", color: colors.bodyText, wrap: true, margin: "sm" },
   ];
 
   return {
@@ -167,9 +126,9 @@ export function buildShippingFlex(
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: "発送完了のお知らせ", weight: "bold", size: "lg", color: WHITE },
+          { type: "text", text: shipping.header, weight: "bold", size: "lg", color: colors.headerText },
         ],
-        backgroundColor: PINK,
+        backgroundColor: colors.headerBg,
         paddingAll: "16px",
       },
       body: {
@@ -185,18 +144,18 @@ export function buildShippingFlex(
           {
             type: "button",
             style: "primary",
-            color: PINK,
+            color: colors.buttonColor,
             action: {
               type: "uri",
-              label: "配送状況を確認",
+              label: shipping.buttonLabel,
               uri: trackingUrl,
             },
           },
           {
             type: "text",
-            text: "マイページからも確認が可能です",
+            text: shipping.footerNote,
             size: "xs",
-            color: GRAY,
+            color: colors.bodyText,
             align: "center",
             margin: "sm",
           },

@@ -346,6 +346,28 @@ const [editAddress, setEditAddress] = useState("");
 const [editShippingName, setEditShippingName] = useState("");
 const [addressSaving, setAddressSaving] = useState(false);
 
+// マイページ設定（管理者カスタマイズ）
+const [mpColors, setMpColors] = useState({ primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" });
+const [mpSections, setMpSections] = useState({ showIntakeStatus: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true });
+const [mpContent, setMpContent] = useState({ clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "https://lin.ee/BlKX38U", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" });
+const [mpLabels, setMpLabels] = useState({
+  intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
+  reserveButtonLabel: "予約に進む", purchaseButtonLabel: "マンジャロを購入する（初回）", reorderButtonLabel: "再処方を申請する",
+  reservationTitle: "次回のご予約", ordersTitle: "注文／申請・発送状況", historyTitle: "これまでの処方歴", supportTitle: "お困りの方へ",
+  noOrdersText: "現在、発送状況の確認が必要なお薬はありません。", noHistoryText: "まだ処方の履歴はありません。",
+  phoneNotice: "上記時間内に、090-からはじまる電話番号より携帯電話へお電話いたします。\n必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。\n前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。",
+  cancelNotice: "※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。",
+});
+
+useEffect(() => {
+  fetch("/api/mypage/settings").then(r => r.json()).then(d => {
+    if (d.config?.colors) setMpColors(d.config.colors);
+    if (d.config?.sections) setMpSections(d.config.sections);
+    if (d.config?.content) setMpContent(d.config.content);
+    if (d.config?.labels) setMpLabels(d.config.labels);
+  }).catch(() => {});
+}, []);
+
 const showToast = (msg: string) => {
   setToast(msg);
   setTimeout(() => setToast(null), 1200);
@@ -876,13 +898,13 @@ const orderHistoryToRender = showAllHistory ? orderHistoryAll : orderHistoryPrev
     showInitialPurchase && (ordersFlags?.canPurchaseCurrentCourse ?? true);
 
   const topSectionTitle = nextReservation
-    ? "次回のご予約"
+    ? mpLabels.reservationTitle
     : hasHistory
     ? "初回診察"
-    : "次回のご予約";
+    : mpLabels.reservationTitle;
 
 return (
-  <div className="min-h-screen bg-[#FFF8FB]">
+  <div className="min-h-screen" style={{ backgroundColor: mpColors.pageBg, '--mp-primary': mpColors.primary, '--mp-hover': mpColors.primaryHover, '--mp-light': mpColors.primaryLight, '--mp-text': mpColors.primaryText } as React.CSSProperties}>
     {/* 予約キャンセル完了トースト */}
     {toast && (
   <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
@@ -894,7 +916,7 @@ return (
 
     {showCancelSuccess && (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
+        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-base font-semibold" style={{ color: 'var(--mp-primary)' }}>
           ✓ 予約をキャンセルしました
         </div>
       </div>
@@ -929,8 +951,8 @@ return (
               className={
                 "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
                 (canceling
-                  ? "bg-pink-300 cursor-not-allowed"
-                  : "bg-pink-500 active:scale-[0.98]")
+                  ? "bg-[var(--mp-primary)] opacity-50 cursor-not-allowed"
+                  : "bg-[var(--mp-primary)] active:scale-[0.98]")
               }
             >
               {canceling ? "処理中…" : "キャンセルする"}
@@ -943,7 +965,7 @@ return (
     {/* 再処方キャンセル完了トースト */}
     {showReorderCancelSuccess && (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35">
-        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-pink-600 text-base font-semibold">
+        <div className="bg-white px-6 py-4 rounded-2xl shadow-lg text-base font-semibold" style={{ color: 'var(--mp-primary)' }}>
           ✓ 再処方申請をキャンセルしました
         </div>
       </div>
@@ -978,8 +1000,8 @@ return (
               className={
                 "flex-1 h-10 rounded-xl text-[13px] font-semibold text-white " +
                 (cancelingReorder
-                  ? "bg-pink-300 cursor-not-allowed"
-                  : "bg-pink-500 active:scale-[0.98]")
+                  ? "bg-[var(--mp-primary)] opacity-50 cursor-not-allowed"
+                  : "bg-[var(--mp-primary)] active:scale-[0.98]")
               }
             >
               {cancelingReorder ? "処理中…" : "キャンセルする"}
@@ -993,13 +1015,13 @@ return (
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image
-              src="/images/company-name-v2.png"
-              alt="clinic logo"
-              width={150}
-              height={40}
-              className="object-contain"
-            />
+            {mpContent.logoUrl ? (
+              <Image src={mpContent.logoUrl} alt="clinic logo" width={150} height={40} className="object-contain" />
+            ) : mpContent.clinicName ? (
+              <span className="text-lg font-bold" style={{ color: 'var(--mp-primary)' }}>{mpContent.clinicName}</span>
+            ) : (
+              <Image src="/images/company-name-v2.png" alt="clinic logo" width={150} height={40} className="object-contain" />
+            )}
           </div>
 
           <button className="flex items-center gap-3">
@@ -1017,6 +1039,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       </header>
 
       {/* 上部CTA */}
+      {mpSections.showIntakeStatus && (
       <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
 {/* 問診 */}
 {hasIntake === null ? (
@@ -1034,22 +1057,22 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       disabled
       className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
     >
-      問診はすでに完了しています
+      {mpLabels.intakeCompleteText}
     </button>
     <p className="mt-1 text-[11px] text-slate-500">
-      問診の入力は不要です。このまま予約にお進みください。
+      {mpLabels.intakeGuideText}
     </p>
   </>
 ) : (
   <>
     <Link
       href="/intake"
-      className="block w-full rounded-xl bg-pink-500 text-white text-center py-3 text-base font-semibold shadow-sm hover:bg-pink-600 transition"
+      className="block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
     >
-      問診に進む
+      {mpLabels.intakeButtonLabel}
     </Link>
     <p className="mt-1 text-[11px] text-slate-500">
-      ※ 問診の入力が終わると、診察予約画面に進みます。
+      {mpLabels.intakeNoteText}
     </p>
   </>
 )}
@@ -1067,10 +1090,10 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
     "block w-full rounded-xl text-center py-3 text-base font-semibold border " +
     (!canReserve
       ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-      : "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition")
+      : "bg-white text-[var(--mp-primary)] border-[var(--mp-primary)] hover:bg-[var(--mp-light)] transition")
   }
 >
-  予約に進む
+  {mpLabels.reserveButtonLabel}
 </button>
 
 {/* ★ NG患者バナー */}
@@ -1096,18 +1119,20 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             className={
               "mt-3 block w-full rounded-xl text-center py-3 text-base font-semibold " +
               (canPurchaseInitial
-                ? "bg-pink-500 text-white border border-pink-500 hover:bg-pink-600 transition"
+                ? "bg-[var(--mp-primary)] text-white border border-[var(--mp-primary)] hover:bg-[var(--mp-hover)] transition"
                 : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed")
             }
           >
-            マンジャロを購入する（初回）
+            {mpLabels.purchaseButtonLabel}
           </button>
         )}
       </div>
+      )}
 
       {/* 本文 */}
       <main className="mx-auto max-w-4xl px-4 py-4 space-y-4 md:py-6">
         {/* 初回診察／次回予約ブロック */}
+        {mpSections.showReservation && (
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
@@ -1118,6 +1143,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${reservationStatusBadgeClass(
                   nextReservation.status
                 )}`}
+              style={nextReservation.status === "scheduled" ? { backgroundColor: 'var(--mp-light)', color: 'var(--mp-primary)' } : undefined}
               >
                 {reservationStatusLabel(nextReservation.status)}
               </span>
@@ -1137,10 +1163,8 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
     </div>
 
     {/* ★ 電話案内文言 */}
-<p className="mt-2 text-xs text-slate-600 leading-relaxed">
-  上記時間内に、<b>090-からはじまる電話番号</b>より携帯電話へお電話いたします。<br />
-  必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。<br />
-  前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。
+<p className="mt-2 text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+  {mpLabels.phoneNotice}
 </p>
 
 
@@ -1150,7 +1174,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       <button
         type="button"
         onClick={handleChangeReservation}
-        className="flex-1 inline-flex items-center justify-center rounded-xl border border-pink-300 bg-white px-3 py-2 text-sm text-pink-600 hover:bg-pink-50 transition"
+        className="flex-1 inline-flex items-center justify-center rounded-xl border border-[var(--mp-primary)] bg-white px-3 py-2 text-sm text-[var(--mp-primary)] hover:bg-[var(--mp-light)] transition"
       >
         日時を変更する
       </button>
@@ -1159,14 +1183,14 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       <button
         type="button"
         onClick={() => setShowCancelConfirm(true)}
-        className="flex-1 inline-flex items-center justify-center rounded-xl bg-pink-500 px-3 py-2 text-sm text-white hover:bg-pink-600 transition"
+        className="flex-1 inline-flex items-center justify-center rounded-xl bg-[var(--mp-primary)] px-3 py-2 text-sm text-white hover:bg-[var(--mp-hover)] transition"
       >
         予約をキャンセルする
       </button>
     </div>
 
     <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">
-      ※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。
+      {mpLabels.cancelNotice}
     </p>
   </>
           ) : lastHistory ? (
@@ -1193,19 +1217,21 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             </div>
           )}
         </section>
+        )}
 
         {/* 注文／申請・発送状況 */}
+        {mpSections.showOrders && (
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              注文／申請・発送状況
+              {mpLabels.ordersTitle}
             </h2>
           </div>
 
           {/* 再処方申請カード（pending or confirmed を表示、NG患者は非表示） */}
           {displayReorder && !isNG && (
-            <div className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 px-4 py-3">
-              <div className="text-xs font-semibold text-pink-700 mb-1">
+            <div className="mb-3 rounded-2xl border border-[var(--mp-primary)] bg-[var(--mp-light)] px-4 py-3">
+              <div className="text-xs font-semibold text-[var(--mp-text)] mb-1">
                 {displayReorderStatus === "pending"
                   ? "再処方申請中"
                   : "再処方申請が許可されました"}
@@ -1279,7 +1305,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           {/* 通常の注文・発送状況 */}
           {activeOrders.length === 0 ? (
             <div className="text-sm text-slate-600">
-              現在、発送状況の確認が必要なお薬はありません。
+              {mpLabels.noOrdersText}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1342,7 +1368,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
           href={buildTrackingUrl("japanpost", order.trackingNumber)}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-pink-600 underline"
+          className="text-[var(--mp-primary)] underline"
         >
           {order.trackingNumber}
         </a>
@@ -1351,7 +1377,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
 <button
   type="button"
   onClick={() => handleCopyTrackingIfYamato(order)}
-  className="inline-flex items-center gap-1 text-pink-600 underline"
+  className="inline-flex items-center gap-1 text-[var(--mp-primary)] underline"
   title="タップでコピー"
 >
   <span>{order.trackingNumber}</span>
@@ -1373,7 +1399,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
   <div className="mt-2">
     {editingAddressOrderId === order.id ? (
       /* 編集フォーム */
-      <div className="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2.5 space-y-2">
+      <div className="rounded-xl border border-[var(--mp-primary)] bg-[var(--mp-light)] px-3 py-2.5 space-y-2">
         <label className="block">
           <span className="text-[13px] text-slate-600">配送先名義</span>
           <input
@@ -1408,7 +1434,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
             type="button"
             disabled={addressSaving}
             onClick={() => handleSaveAddress(order.id)}
-            className="px-5 py-2 rounded-full bg-pink-500 text-white text-[13px] font-semibold disabled:opacity-50"
+            className="px-5 py-2 rounded-full bg-[var(--mp-primary)] text-white text-[13px] font-semibold disabled:opacity-50"
           >
             {addressSaving ? "保存中…" : "保存"}
           </button>
@@ -1452,7 +1478,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
                   setEditAddress(order.address || "");
                   setEditingAddressOrderId(order.id);
                 }}
-                className="mt-1.5 px-5 py-2 rounded-full border border-pink-200 bg-white text-pink-600 text-[13px] font-semibold"
+                className="mt-1.5 px-5 py-2 rounded-full border border-[var(--mp-primary)] bg-white text-[var(--mp-primary)] text-[13px] font-semibold"
               >
                 届け先を変更
               </button>
@@ -1498,11 +1524,11 @@ onClick={() => handleOpenTracking(order)}
       className={
         "w-full rounded-xl text-center py-3 text-base font-semibold border " +
         (ordersFlags?.canApplyReorder && !displayReorder
-          ? "bg-white text-pink-600 border-pink-300 hover:bg-pink-50 transition"
+          ? "bg-white text-[var(--mp-primary)] border-[var(--mp-primary)] hover:bg-[var(--mp-light)] transition"
           : "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed")
       }
     >
-      再処方を申請する
+      {mpLabels.reorderButtonLabel}
     </button>
 
     {displayReorder ? (
@@ -1522,12 +1548,14 @@ onClick={() => handleOpenTracking(order)}
 )}
 
         </section>
+        )}
 
         {/* 処方歴 */}
+        {mpSections.showHistory && (
         <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-800">
-              これまでの処方歴
+              {mpLabels.historyTitle}
             </h2>
 {hasMoreOrderHistory && !showAllHistory && (
   <button
@@ -1544,7 +1572,7 @@ onClick={() => handleOpenTracking(order)}
 
           {orderHistoryToRender.length === 0 ? (
             <div className="text-sm text-slate-600">
-              まだ処方の履歴はありません。
+              {mpLabels.noHistoryText}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1597,30 +1625,33 @@ onClick={() => handleOpenTracking(order)}
             </div>
           )}
         </section>
+        )}
 
 {/* サポート */}
+{mpSections.showSupport && (
 <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
   <h2 className="text-sm font-semibold text-slate-800 mb-2">
-    お困りの方へ
+    {mpLabels.supportTitle}
   </h2>
 
   <p className="text-sm text-slate-600 mb-3">
-    予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。
+    {mpContent.supportMessage}
   </p>
 
   <a
-    href="https://lin.ee/BlKX38U"
+    href={mpContent.supportUrl}
     target="_blank"
     rel="noopener noreferrer"
-    className="inline-flex items-center justify-center rounded-xl bg-pink-500 px-4 py-2 text-sm font-medium text-white hover:bg-pink-600 transition"
+    className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-white transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
   >
-    LINEで問い合わせる
+    {mpContent.supportButtonLabel}
   </a>
 
   <p className="mt-2 text-[11px] text-slate-500">
-    ※ 診察中・夜間など、返信までお時間をいただく場合があります。
+    {mpContent.supportNote}
   </p>
 </section>
+)}
 
       </main>
     </div>

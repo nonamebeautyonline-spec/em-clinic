@@ -1,15 +1,13 @@
 // lib/reservation-flex.ts
 // 予約操作時のLINE Flexメッセージビルダー + 送信関数
-// 配色: LPベースのショッキングピンク & 白
+// 配色・文言は管理画面から設定可能（tenant_settings経由）
 
 import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
+import { getFlexConfig } from "@/lib/flex-message/config";
+import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
 
-// LP/マイページ テーマカラー
-const PINK = "#ec4899";       // pink-400 ヘッダー背景・強調色
-const PINK_DARK = "#be185d";  // pink-700 日時テキスト
-const WHITE = "#ffffff";      // ヘッダーテキスト
-const GRAY = "#666666";       // 補足テキスト
+// デフォルト色（DB未設定時のフォールバック）
 const GRAY_LIGHT = "#999999"; // 取り消し線テキスト
 
 // "2026-02-15" + "14:00:00" → "2/15(土) 14:00〜14:15"
@@ -30,8 +28,12 @@ function formatDateTime(dateStr: string, timeStr: string): string {
 }
 
 /** 予約確定 Flex */
-export function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
+export async function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
   const formatted = formatDateTime(dateStr, timeStr);
+  let cfg = DEFAULT_FLEX_CONFIG;
+  try { cfg = await getFlexConfig(); } catch {}
+  const { colors, reservation } = cfg;
+
   return {
     type: "flex" as const,
     altText: `【予約確定】${formatted} のご予約を承りました`,
@@ -41,9 +43,9 @@ export function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: "予約が確定しました", weight: "bold", size: "lg", color: WHITE },
+          { type: "text", text: reservation.createdHeader, weight: "bold", size: "lg", color: colors.headerText },
         ],
-        backgroundColor: PINK,
+        backgroundColor: colors.headerBg,
         paddingAll: "16px",
       },
       body: {
@@ -54,24 +56,24 @@ export function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
             type: "box",
             layout: "vertical",
             contents: [
-              { type: "text", text: "予約日時", size: "sm", color: GRAY },
-              { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: PINK_DARK },
+              { type: "text", text: "予約日時", size: "sm", color: colors.bodyText },
+              { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: colors.accentColor },
             ],
           },
           { type: "separator", margin: "md" },
           {
             type: "text",
-            text: "診療は予約時間枠の間に「090-」から始まる番号よりお電話いたします。",
+            text: reservation.createdPhoneNotice,
             size: "sm",
-            color: GRAY,
+            color: colors.bodyText,
             wrap: true,
             margin: "md",
           },
           {
             type: "text",
-            text: "変更・キャンセルはマイページからお手続きください。",
+            text: reservation.createdNote,
             size: "sm",
-            color: GRAY,
+            color: colors.bodyText,
             wrap: true,
             margin: "sm",
           },
@@ -83,7 +85,7 @@ export function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
 }
 
 /** 予約変更 Flex（旧日時→新日時） */
-export function buildReservationChangedFlex(
+export async function buildReservationChangedFlex(
   oldDateStr: string,
   oldTimeStr: string,
   newDateStr: string,
@@ -91,6 +93,10 @@ export function buildReservationChangedFlex(
 ) {
   const oldFormatted = formatDateTime(oldDateStr, oldTimeStr);
   const newFormatted = formatDateTime(newDateStr, newTimeStr);
+  let cfg = DEFAULT_FLEX_CONFIG;
+  try { cfg = await getFlexConfig(); } catch {}
+  const { colors, reservation } = cfg;
+
   return {
     type: "flex" as const,
     altText: `【予約変更】新しい日時: ${newFormatted}`,
@@ -100,9 +106,9 @@ export function buildReservationChangedFlex(
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: "予約日時が変更されました", weight: "bold", size: "lg", color: WHITE },
+          { type: "text", text: reservation.changedHeader, weight: "bold", size: "lg", color: colors.headerText },
         ],
-        backgroundColor: PINK,
+        backgroundColor: colors.headerBg,
         paddingAll: "16px",
       },
       body: {
@@ -124,7 +130,7 @@ export function buildReservationChangedFlex(
                 text: `→ ${newFormatted}`,
                 size: "lg",
                 weight: "bold",
-                color: PINK_DARK,
+                color: colors.accentColor,
                 margin: "sm",
               },
             ],
@@ -133,9 +139,9 @@ export function buildReservationChangedFlex(
           { type: "separator", margin: "md" },
           {
             type: "text",
-            text: "診療は予約時間枠の間に「090-」から始まる番号よりお電話いたします。",
+            text: reservation.changedPhoneNotice,
             size: "sm",
-            color: GRAY,
+            color: colors.bodyText,
             wrap: true,
             margin: "md",
           },
@@ -147,8 +153,12 @@ export function buildReservationChangedFlex(
 }
 
 /** 予約キャンセル Flex */
-export function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
+export async function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
   const formatted = formatDateTime(dateStr, timeStr);
+  let cfg = DEFAULT_FLEX_CONFIG;
+  try { cfg = await getFlexConfig(); } catch {}
+  const { colors, reservation } = cfg;
+
   return {
     type: "flex" as const,
     altText: `【予約キャンセル】${formatted} の予約をキャンセルしました`,
@@ -158,9 +168,9 @@ export function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: "予約がキャンセルされました", weight: "bold", size: "lg", color: WHITE },
+          { type: "text", text: reservation.canceledHeader, weight: "bold", size: "lg", color: colors.headerText },
         ],
-        backgroundColor: PINK,
+        backgroundColor: colors.headerBg,
         paddingAll: "16px",
       },
       body: {
@@ -171,7 +181,7 @@ export function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
             type: "box",
             layout: "vertical",
             contents: [
-              { type: "text", text: "キャンセルされた予約", size: "sm", color: GRAY },
+              { type: "text", text: "キャンセルされた予約", size: "sm", color: colors.bodyText },
               {
                 type: "text",
                 text: formatted,
@@ -186,9 +196,9 @@ export function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
           { type: "separator", margin: "md" },
           {
             type: "text",
-            text: "再度ご予約を希望される場合は、マイページから新しい日時をお選びください。",
+            text: reservation.canceledNote,
             size: "sm",
-            color: GRAY,
+            color: colors.bodyText,
             wrap: true,
             margin: "md",
           },
