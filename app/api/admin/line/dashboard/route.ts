@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
-
-const LINE_TOKEN = process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN;
+import { getSettingOrEnv } from "@/lib/settings";
 
 async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
@@ -20,12 +19,12 @@ async function fetchAll(buildQuery: () => any, pageSize = 5000) {
 }
 
 // 特定日のフォロワー統計を取得
-async function fetchFollowerStats(dateStr: string) {
-  if (!LINE_TOKEN) return null;
+async function fetchFollowerStats(dateStr: string, token: string) {
+  if (!token) return null;
   try {
     const res = await fetch(
       `https://api.line.me/v2/bot/insight/followers?date=${dateStr}`,
-      { headers: { Authorization: `Bearer ${LINE_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -46,6 +45,7 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
+  const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
   // 1. フォロワー統計（昨日 + 過去7日分を並列取得）
   const dates: string[] = [];
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     dates.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
   }
 
-  const dailyResults = await Promise.all(dates.map(d => fetchFollowerStats(d)));
+  const dailyResults = await Promise.all(dates.map(d => fetchFollowerStats(d, lineToken)));
   const dailyStats = dailyResults.filter(Boolean) as {
     date: string; followers: number; targetedReaches: number; blocks: number;
   }[];

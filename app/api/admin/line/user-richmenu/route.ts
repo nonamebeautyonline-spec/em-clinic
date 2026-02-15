@@ -2,19 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
-const LINE_ACCESS_TOKEN =
-  process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
-
 // LINE APIからリッチメニュー詳細を取得
-async function fetchLineRichMenuDetail(richMenuId: string) {
-  if (!LINE_ACCESS_TOKEN) return null;
+async function fetchLineRichMenuDetail(richMenuId: string, token: string) {
+  if (!token) return null;
   try {
     const res = await fetch(`https://api.line.me/v2/bot/richmenu/${richMenuId}`, {
-      headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
+      headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
     if (!res.ok) return null;
@@ -25,7 +22,7 @@ async function fetchLineRichMenuDetail(richMenuId: string) {
 }
 
 // DBまたはLINE APIからメニュー情報を構築
-async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId: string | null) {
+async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId: string | null, token: string) {
   // まずDBを確認
   const { data: dbMenu } = await withTenant(
     supabaseAdmin.from("rich_menus").select("id, name, image_url, line_rich_menu_id").eq("line_rich_menu_id", richMenuId),
@@ -43,7 +40,7 @@ async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId:
   }
 
   // DBになければLINE APIから名前を取得、画像はプロキシURLを使用
-  const detail = await fetchLineRichMenuDetail(richMenuId);
+  const detail = await fetchLineRichMenuDetail(richMenuId, token);
   return {
     line_rich_menu_id: richMenuId,
     name: detail?.name || (isDefault ? "デフォルトメニュー" : "リッチメニュー"),
@@ -59,6 +56,7 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const tenantId = resolveTenantId(req);
+    const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
@@ -98,14 +96,14 @@ export async function GET(req: NextRequest) {
       const defaultMenuId = defaultData.richMenuId;
       if (!defaultMenuId) return NextResponse.json({ menu: null });
 
-      const menu = await resolveRichMenu(defaultMenuId, true, tenantId);
+      const menu = await resolveRichMenu(defaultMenuId, true, tenantId, LINE_ACCESS_TOKEN);
       return NextResponse.json({ menu });
     }
 
     const lineData = await lineRes.json();
     const richMenuId = lineData.richMenuId;
 
-    const menu = await resolveRichMenu(richMenuId, false, tenantId);
+    const menu = await resolveRichMenu(richMenuId, false, tenantId, LINE_ACCESS_TOKEN);
     return NextResponse.json({ menu });
   } catch (e: any) {
     console.error("[User RichMenu GET] Unhandled error:", e?.message || e);
@@ -119,6 +117,7 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
+  const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
   const { patient_id, rich_menu_id } = await req.json();
   if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });

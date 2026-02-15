@@ -10,14 +10,9 @@
 export function resolveTenantId(request?: Request | { headers?: Headers }): string | null {
   if (!request?.headers) return null;
 
-  // middleware.ts が JWT の tenantId を x-tenant-id ヘッダーに設定済み
+  // proxy.ts が JWT or サブドメインから解決した tenant_id を x-tenant-id ヘッダーに設定済み
   const headerTenantId = request.headers.get("x-tenant-id");
   if (headerTenantId) return headerTenantId;
-
-  // TODO: サブドメインからテナントIDを解決
-  // const host = request.headers.get("host") || "";
-  // const slug = host.split(".")[0];
-  // return lookupTenantBySlug(slug);
 
   return null;
 }

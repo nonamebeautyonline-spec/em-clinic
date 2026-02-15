@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 const LINE_API = "https://api.line.me/v2/bot/richmenu/bulk/link";
-
-function getToken() {
-  return process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
-}
 
 // 複数患者にリッチメニューを一括割り当て
 export async function POST(req: NextRequest) {
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "LINE連携済みのユーザーがいません", linked: 0, no_uid: patient_ids.length }, { status: 400 });
     }
 
-    const token = getToken();
+    const token = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     let linked = 0;
     let failed = 0;
 

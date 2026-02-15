@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 // 本日発送患者を取得（共通）
 async function getTodayShippedPatients(tenantId: string | null) {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
     ).maybeSingle();
     const rxMenuId = rxMenu?.line_rich_menu_id || null;
 
-    const lineToken = process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
+    const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
     for (const p of patients) {
       if (!p.line_id) {

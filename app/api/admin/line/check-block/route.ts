@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
-
-const LINE_ACCESS_TOKEN =
-  process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 
 // 患者のLINEブロック状態を確認し、未記録ならmessage_logに記録
 export async function GET(req: NextRequest) {
@@ -16,6 +13,7 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const tenantId = resolveTenantId(req);
+    const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
     if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });

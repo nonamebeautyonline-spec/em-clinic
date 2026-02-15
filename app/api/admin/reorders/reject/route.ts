@@ -4,21 +4,19 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
-const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
-const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
-
-async function pushToGroup(text: string) {
-  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) return;
+async function pushToGroup(text: string, token: string, groupId: string) {
+  if (!token || !groupId) return;
   try {
     await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        to: LINE_ADMIN_GROUP_ID,
+        to: groupId,
         messages: [{ type: "text", text }],
       }),
       cache: "no-store",
@@ -37,6 +35,8 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = resolveTenantId(req);
+    const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
+    const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
     const body = await req.json();
     const { id } = body; // id = reorder_number
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     // LINE通知（管理画面から却下）
-    pushToGroup(`【再処方】却下しました（管理画面）\n申請ID: ${id}`).catch(() => {});
+    pushToGroup(`【再処方】却下しました（管理画面）\n申請ID: ${id}`, lineToken, lineGroupId).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (error) {

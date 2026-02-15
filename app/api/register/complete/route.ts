@@ -4,14 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
-
-const LINE_ACCESS_TOKEN =
-  process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
+    const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const { phone: rawPhone } = (await req.json().catch(() => ({}))) as { phone?: string };
     if (!rawPhone) {
       return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });

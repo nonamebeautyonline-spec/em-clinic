@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
-
-const LINE_ACCESS_TOKEN =
-  process.env.LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN ||
-  process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
 
 // LINE Profile APIからプロフィール取得・更新
 export async function POST(req: NextRequest) {
@@ -15,6 +12,7 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
+  const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
   const { patient_id } = await req.json();
   if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
 

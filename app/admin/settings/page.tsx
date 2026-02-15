@@ -8,9 +8,10 @@ import LineSection from "./_components/LineSection";
 import MypageSection from "./_components/MypageSection";
 import FlexSection from "./_components/FlexSection";
 import AccountSection from "./_components/AccountSection";
+import SmsSection from "./_components/SmsSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
-export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment";
+export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
 
 export interface SettingItem {
   key: string;
@@ -183,7 +184,7 @@ export default function SettingsPage() {
   }, []);
 
   // 基本設定系セクションでローディング中
-  const isBasicSection = activeSection === "general" || activeSection === "payment" || activeSection === "line";
+  const isBasicSection = activeSection === "general" || activeSection === "payment" || activeSection === "line" || activeSection === "sms";
   if (loading && isBasicSection) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
@@ -231,6 +232,7 @@ export default function SettingsPage() {
             {activeSection === "general" && <GeneralSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "payment" && <PaymentSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "line" && <LineSection settings={settings} onSaved={handleSaved} />}
+            {activeSection === "sms" && <SmsSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
             {activeSection === "flex" && <FlexSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}

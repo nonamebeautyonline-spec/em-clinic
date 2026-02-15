@@ -4,13 +4,11 @@ import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
-
-const LINE_NOTIFY_CHANNEL_ACCESS_TOKEN = process.env.LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || "";
-const LINE_ADMIN_GROUP_ID = process.env.LINE_ADMIN_GROUP_ID || "";
+import { getSettingOrEnv } from "@/lib/settings";
 
 // LINE通知送信
-async function pushToAdminGroup(text: string) {
-  if (!LINE_NOTIFY_CHANNEL_ACCESS_TOKEN || !LINE_ADMIN_GROUP_ID) {
+async function pushToAdminGroup(text: string, token: string, groupId: string) {
+  if (!token || !groupId) {
     console.log("[reorder/cancel] LINE notification skipped (missing config)");
     return;
   }
@@ -20,10 +18,10 @@ async function pushToAdminGroup(text: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_NOTIFY_CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        to: LINE_ADMIN_GROUP_ID,
+        to: groupId,
         messages: [{ type: "text", text }],
       }),
       cache: "no-store",
@@ -52,6 +50,8 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = resolveTenantId(req);
+    const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
+    const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
     // ★ リクエストボディから reorder_id を取得
     const body = await req.json().catch(() => ({} as any));
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 ※ このLINE botでの操作は不要です`;
 
       // 非同期で送信（レスポンスは待たない）
-      pushToAdminGroup(notifyText).catch(() => {});
+      pushToAdminGroup(notifyText, lineToken, lineGroupId).catch(() => {});
     }
 
     // ★ キャッシュ削除
