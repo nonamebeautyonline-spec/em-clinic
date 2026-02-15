@@ -25,13 +25,13 @@ export function resolveTenantId(request?: Request | { headers?: Headers }): stri
 /**
  * クエリにテナントフィルターを追加
  * - tenantId が非null: .eq("tenant_id", tenantId)
- * - tenantId が null: .is("tenant_id", null)
+ * - tenantId が null: フィルターなし（シングルテナント互換）
  */
 export function withTenant<T>(query: T, tenantId: string | null): T {
   if (tenantId) {
     return (query as any).eq("tenant_id", tenantId);
   }
-  return (query as any).is("tenant_id", null);
+  return query;
 }
 
 /**
