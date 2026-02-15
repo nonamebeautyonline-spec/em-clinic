@@ -471,6 +471,14 @@ export default function CreateShippingListPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      // CSV出力成功 → 出力対象をグレーアウト（ラベル作成済み）
+      const exportedIds = new Set(allPaymentIds);
+      setItems((prev) =>
+        prev.map((item) =>
+          exportedIds.has(item.id) ? { ...item, isListCreated: true } : item
+        )
+      );
     } catch (err) {
       console.error("Export error:", err);
       setError(err instanceof Error ? err.message : "CSVエクスポートに失敗しました");
