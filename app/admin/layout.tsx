@@ -279,13 +279,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin"}
           />
           <MenuItem
-            href="/admin/analytics"
-            icon="📈"
-            label="売上分析"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/analytics"}
-          />
-          <MenuItem
             href="/admin/accounting"
             icon="💹"
             label="売上管理"
