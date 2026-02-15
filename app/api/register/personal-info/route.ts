@@ -70,12 +70,13 @@ export async function POST(req: NextRequest) {
 
     // 3) 新規患者 → patient_id を自動発行（既存最大値 + 1）
     if (!patientId) {
-      // LINE_*プレフィックスの仮IDを除外して数値IDのみ取得
-      // patient_idはテキスト型のため、LINE_*が降順ソートで先頭に来てしまう問題を回避
+      // 非数値プレフィックスの仮IDを除外して数値IDのみ取得
+      // patient_idはテキスト型のため、LINE_*/TEST_FLOW_*が降順ソートで先頭に来てしまう問題を回避
       const { data: maxRow } = await supabaseAdmin
         .from("answerers")
         .select("patient_id")
         .not("patient_id", "like", "LINE_%")
+        .not("patient_id", "like", "TEST_%")
         .order("patient_id", { ascending: false })
         .limit(10);
 
