@@ -45,9 +45,9 @@ function Inner() {
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error("verify/send failed:", res.status, text);
-        throw new Error("認証コードの送信に失敗しました。時間をおいて再度お試しください。");
+        const body = await res.json().catch(() => null);
+        console.error("verify/send failed:", res.status, body);
+        throw new Error(body?.error || "認証コードの送信に失敗しました。時間をおいて再度お試しください。");
       }
 
       const data = await res.json();
