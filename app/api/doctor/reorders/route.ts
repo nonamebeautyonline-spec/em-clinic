@@ -28,11 +28,25 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // 患者名を取得
+    const patientIds = [...new Set((data || []).map((r) => r.patient_id).filter(Boolean))];
+    const { data: patients } = patientIds.length > 0
+      ? await withTenant(
+          supabaseAdmin.from("patients").select("patient_id, name, line_display_name").in("patient_id", patientIds),
+          tenantId
+        )
+      : { data: [] };
+    const nameMap = new Map<string, string>();
+    for (const p of patients || []) {
+      nameMap.set(p.patient_id, p.name || p.line_display_name || "");
+    }
+
     // レスポンス形式に変換
     const reorders = (data || []).map((r) => ({
       id: r.reorder_number, // UIはreorder_numberを使用
       dbId: r.id,
       patient_id: r.patient_id,
+      patient_name: nameMap.get(r.patient_id) || "",
       product_code: r.product_code,
       status: r.status,
       timestamp: r.created_at,
