@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
-import { resolveTenantId } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("products")
     .insert({
+      ...tenantPayload(tenantId),
       code,
       title,
       drug_name: drug_name || "マンジャロ",
@@ -48,7 +49,6 @@ export async function POST(req: NextRequest) {
       category: category || "injection",
       sort_order: sort_order || 0,
       is_active: true,
-      tenant_id: null,
       image_url: image_url || null,
       stock_quantity: stock_quantity ?? null,
       discount_price: discount_price ?? null,
@@ -83,12 +83,9 @@ export async function PUT(req: NextRequest) {
 
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabaseAdmin
-    .from("products")
-    .update(updates)
-    .eq("id", id)
-    .select()
-    .single();
+  const { data, error } = await withTenant(
+    supabaseAdmin.from("products").update(updates), tenantId
+  ).eq("id", id).select().single();
 
   if (error) {
     console.error("[products API] update error:", error.message);
@@ -113,10 +110,9 @@ export async function DELETE(req: NextRequest) {
   }
 
   // 物理削除ではなく無効化
-  const { error } = await supabaseAdmin
-    .from("products")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await withTenant(
+    supabaseAdmin.from("products").update({ is_active: false, updated_at: new Date().toISOString() }), tenantId
+  ).eq("id", id);
 
   if (error) {
     console.error("[products API] deactivate error:", error.message);

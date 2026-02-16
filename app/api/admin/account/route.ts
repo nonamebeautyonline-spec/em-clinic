@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 import bcrypt from "bcryptjs";
 
 /**
@@ -19,6 +20,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ユーザー情報を取得できません" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   try {
     const { currentPassword, newPassword } = await req.json();
 
@@ -31,11 +34,9 @@ export async function PUT(req: NextRequest) {
     }
 
     // 現在のパスワードハッシュを取得
-    const { data: user, error: fetchError } = await supabaseAdmin
-      .from("admin_users")
-      .select("password_hash")
-      .eq("id", userId)
-      .single();
+    const { data: user, error: fetchError } = await withTenant(
+      supabaseAdmin.from("admin_users").select("password_hash"), tenantId
+    ).eq("id", userId).single();
 
     if (fetchError || !user) {
       return NextResponse.json({ ok: false, error: "ユーザーが見つかりません" }, { status: 404 });
@@ -49,10 +50,9 @@ export async function PUT(req: NextRequest) {
 
     // 新しいパスワードをハッシュ化して更新
     const newHash = await bcrypt.hash(newPassword, 10);
-    const { error: updateError } = await supabaseAdmin
-      .from("admin_users")
-      .update({ password_hash: newHash })
-      .eq("id", userId);
+    const { error: updateError } = await withTenant(
+      supabaseAdmin.from("admin_users").update({ password_hash: newHash }), tenantId
+    ).eq("id", userId);
 
     if (updateError) {
       console.error("[Account] パスワード更新エラー:", updateError);
@@ -80,6 +80,8 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ユーザー情報を取得できません" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
+
   try {
     const { newEmail, password } = await req.json();
 
@@ -94,11 +96,9 @@ export async function PATCH(req: NextRequest) {
     }
 
     // パスワード検証
-    const { data: user, error: fetchError } = await supabaseAdmin
-      .from("admin_users")
-      .select("password_hash, tenant_id")
-      .eq("id", userId)
-      .single();
+    const { data: user, error: fetchError } = await withTenant(
+      supabaseAdmin.from("admin_users").select("password_hash, tenant_id"), tenantId
+    ).eq("id", userId).single();
 
     if (fetchError || !user) {
       return NextResponse.json({ ok: false, error: "ユーザーが見つかりません" }, { status: 404 });
@@ -110,29 +110,17 @@ export async function PATCH(req: NextRequest) {
     }
 
     // 同じテナント内でメールアドレスの重複チェック
-    const dupQuery = supabaseAdmin
-      .from("admin_users")
-      .select("id")
-      .eq("email", newEmail)
-      .neq("id", userId);
-
-    // テナントが設定されている場合はテナント内で重複チェック
-    if (user.tenant_id) {
-      dupQuery.eq("tenant_id", user.tenant_id);
-    } else {
-      dupQuery.is("tenant_id", null);
-    }
-
-    const { data: existing } = await dupQuery.maybeSingle();
+    const { data: existing } = await withTenant(
+      supabaseAdmin.from("admin_users").select("id"), tenantId
+    ).eq("email", newEmail).neq("id", userId).maybeSingle();
     if (existing) {
       return NextResponse.json({ ok: false, error: "このメールアドレスは既に使用されています" }, { status: 409 });
     }
 
     // メールアドレス更新
-    const { error: updateError } = await supabaseAdmin
-      .from("admin_users")
-      .update({ email: newEmail })
-      .eq("id", userId);
+    const { error: updateError } = await withTenant(
+      supabaseAdmin.from("admin_users").update({ email: newEmail }), tenantId
+    ).eq("id", userId);
 
     if (updateError) {
       console.error("[Account] メール更新エラー:", updateError);

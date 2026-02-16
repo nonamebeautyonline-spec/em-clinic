@@ -111,8 +111,9 @@ async function getPatientInfoFromSupabase(
       withTenant(supabaseAdmin
         .from("intake")
         .select("patient_id, status, answers")
-        .eq("patient_id", patientId), tenantId)
-        .order("created_at", { ascending: true })
+        .eq("patient_id", patientId)
+        .not("answers", "is", null), tenantId)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);

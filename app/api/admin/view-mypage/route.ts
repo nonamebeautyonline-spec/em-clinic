@@ -93,13 +93,14 @@ async function getPatientInfoFromSupabase(
       tenantId
     ).maybeSingle();
 
-    // intakeから status, answers を取得（問診本体）
+    // intakeから status, answers を取得（問診本体、answers が null の空レコードを除外）
     const { data: intake } = await withTenant(
       supabaseAdmin
         .from("intake")
         .select("patient_id, status, answers")
         .eq("patient_id", patientId)
-        .order("created_at", { ascending: true })
+        .not("answers", "is", null)
+        .order("created_at", { ascending: false })
         .limit(1),
       tenantId
     ).maybeSingle();
