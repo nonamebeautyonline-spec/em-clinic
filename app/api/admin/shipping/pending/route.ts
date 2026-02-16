@@ -17,46 +17,27 @@ export async function GET(req: NextRequest) {
     // ★ 商品名マップをDBから取得（productsテーブルは既にテナント対応済み）
     const PRODUCT_NAMES = await getProductNamesMap();
 
-    // カットオフ時刻: 昨日の14時（JST）
-    const now = new Date();
-    const jstOffset = 9 * 60 * 60 * 1000; // UTC+9
-    const jstNow = new Date(now.getTime() + jstOffset);
-    const yesterday = new Date(jstNow);
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    // 昨日の14時（JST）= 昨日の05:00（UTC）
-    const cutoffTime = new Date(Date.UTC(
-      yesterday.getUTCFullYear(),
-      yesterday.getUTCMonth(),
-      yesterday.getUTCDate(),
-      5, 0, 0
-    ));
-    const cutoffISO = cutoffTime.toISOString();
+    const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at";
 
-    // ★ ordersテーブルから未発送の注文を取得
+    // ★ 全ての未発送confirmed注文（カットオフなし・発送漏れも自動検出）
     const { data: ordersConfirmed, error: ordersConfirmedError } = await withTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("paid_at", cutoffISO).order("paid_at", { ascending: false }).limit(100000),
+      supabaseAdmin.from("orders").select(selectCols).is("shipping_date", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").order("paid_at", { ascending: false }).limit(100000),
       tenantId
     );
 
+    // ★ 振込確認待ち注文
     const { data: ordersPending, error: ordersPendingError } = await withTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).eq("status", "pending_confirmation").eq("payment_method", "bank_transfer").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("created_at", cutoffISO).order("created_at", { ascending: false }).limit(100000),
+      supabaseAdmin.from("orders").select(selectCols).is("shipping_date", null).eq("status", "pending_confirmation").eq("payment_method", "bank_transfer").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").order("created_at", { ascending: false }).limit(100000),
       tenantId
     );
 
-    // ★ 発送漏れ注文（カットオフ前に決済された未発送・ラベル未作成の注文を自動検出）
-    const { data: ordersOverdue, error: ordersOverdueError } = await withTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).is("tracking_number", null).is("shipping_list_created_at", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").lt("paid_at", cutoffISO).order("paid_at", { ascending: false }).limit(100),
-      tenantId
-    );
+    const ordersError = ordersConfirmedError || ordersPendingError;
 
-    const ordersError = ordersConfirmedError || ordersPendingError || ordersOverdueError;
-
-    // ★ confirmed と pending と手動追加を時間順にマージ（新しい順）
-    // 重複を除去するためにSetを使用
+    // ★ confirmed と pending を時間順にマージ（新しい順）
     const orderIds = new Set<string>();
     const allOrders: any[] = [];
 
-    for (const order of [...(ordersConfirmed || []), ...(ordersPending || []), ...(ordersOverdue || [])]) {
+    for (const order of [...(ordersConfirmed || []), ...(ordersPending || [])]) {
       if (!orderIds.has(order.id)) {
         orderIds.add(order.id);
         allOrders.push(order);

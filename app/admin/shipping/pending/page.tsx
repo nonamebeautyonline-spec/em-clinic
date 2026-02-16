@@ -36,7 +36,6 @@ export default function ShippingPendingPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [mergeableGroups, setMergeableGroups] = useState<MergeableGroup[]>([]);
   const [error, setError] = useState("");
-  const [cutoffTime, setCutoffTime] = useState<string>("");
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
 
   // 今日の日付（発送日）
@@ -56,23 +55,6 @@ export default function ShippingPendingPage() {
     setError("");
 
     try {
-      // 前回締め切り時刻を計算（昨日の15時）
-      const now = new Date();
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(15, 0, 0, 0);
-
-      // 表示用の締め切り時刻文字列
-      const cutoffStr = yesterday.toLocaleString("ja-JP", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      setCutoffTime(cutoffStr);
-
       const res = await fetch("/api/admin/shipping/pending", {
         credentials: "include",
       });
@@ -152,15 +134,7 @@ export default function ShippingPendingPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">{shippingDate} 発送予定</h1>
         <p className="text-slate-600 text-sm mt-1">
-          本日発送予定の注文一覧（追跡番号未付与）
-        </p>
-        {cutoffTime && (
-          <p className="text-slate-500 text-xs mt-1">
-            📅 表示範囲: {cutoffTime} 以降に決済された注文
-          </p>
-        )}
-        <p className="text-slate-500 text-xs mt-1">
-          ℹ️ 追跡番号を付与すると発送リストから自動的に削除されます
+          未発送・未返金の注文一覧
         </p>
       </div>
 
