@@ -1,4 +1,4 @@
-// proxy.ts — Basic認証 + JWTテナント解決 + サブドメイン解決
+// middleware.ts — proxy.ts統合 + CSRF検証（Double Submit Cookie パターン）
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
@@ -35,16 +35,51 @@ async function resolveSlugToTenantId(slug: string): Promise<string | null> {
 // サブドメインとして無視するホスト名プレフィックス
 const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127"]);
 
-export async function proxy(req: NextRequest) {
+// CSRF検証を除外するパス
+const CSRF_EXEMPT_PREFIXES = [
+  "/api/line/webhook",
+  "/api/square/webhook",
+  "/api/gmo/webhook",
+  "/api/cron/",
+  "/api/health",
+  "/api/admin/login",
+  "/api/admin/logout",
+  "/api/line/login",
+  "/api/line/callback",
+  "/api/verify/",
+  "/api/csrf-token",
+];
+
+// フォーム送信（外部ユーザーがアクセス）も除外
+const CSRF_EXEMPT_PATTERNS = [
+  /^\/api\/forms\/[^/]+\/submit$/,
+  /^\/api\/forms\/[^/]+\/upload$/,
+  /^\/api\/bank-transfer\//,
+  /^\/api\/intake$/,
+  /^\/api\/checkout$/,
+  /^\/api\/reorder\//,
+  /^\/api\/reservations$/,
+  /^\/api\/mypage/,
+  /^\/api\/profile$/,
+  /^\/api\/register\//,
+  /^\/api\/repair$/,
+];
+
+function isCsrfExempt(pathname: string): boolean {
+  if (CSRF_EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  if (CSRF_EXEMPT_PATTERNS.some((p) => p.test(pathname))) return true;
+  return false;
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // /doctor 配下のBasic認証
+  // === /doctor 配下のBasic認証 ===
   if (pathname.startsWith("/doctor")) {
     const basicAuth = req.headers.get("authorization");
     const user = process.env.DR_BASIC_USER;
     const pass = process.env.DR_BASIC_PASS;
 
-    // env未設定なら開発用に素通し
     if (user && pass) {
       if (basicAuth) {
         const authValue = basicAuth.split(" ")[1];
@@ -64,6 +99,25 @@ export async function proxy(req: NextRequest) {
     }
   }
 
+  // === CSRF検証（POST/PUT/PATCH/DELETE） ===
+  const method = req.method;
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
+    pathname.startsWith("/api/") &&
+    !isCsrfExempt(pathname)
+  ) {
+    const csrfHeader = req.headers.get("x-csrf-token");
+    const csrfCookie = req.cookies.get("csrf_token")?.value;
+
+    if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+      return NextResponse.json(
+        { ok: false, error: "CSRF token mismatch" },
+        { status: 403 },
+      );
+    }
+  }
+
+  // === テナントID解決 ===
   let tenantId: string | null = null;
 
   // 1. admin_session Cookie から tenantId を抽出
@@ -81,12 +135,12 @@ export async function proxy(req: NextRequest) {
   // 2. JWTにテナントIDがなければサブドメインから解決
   if (!tenantId) {
     const host = req.headers.get("host") || "";
-    const slug = host.split(".")[0].split(":")[0]; // ポート番号を除去
+    const slug = host.split(".")[0].split(":")[0];
     if (slug && !RESERVED_SLUGS.has(slug) && host.includes(".")) {
       try {
         tenantId = await resolveSlugToTenantId(slug);
       } catch (e) {
-        console.error("[proxy] subdomain resolve error:", e);
+        console.error("[middleware] subdomain resolve error:", e);
       }
     }
   }

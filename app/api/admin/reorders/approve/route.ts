@@ -8,6 +8,7 @@ import { formatProductCode } from "@/lib/patient-utils";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 async function pushToGroup(text: string, token: string, groupId: string) {
   if (!token || !groupId) return;
@@ -191,6 +192,7 @@ export async function POST(req: NextRequest) {
       tenantId
     );
 
+    logAudit(req, "reorder.approve", "reorder", String(id), { patient_id: reorderData.patient_id });
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {
     console.error("API error:", error);

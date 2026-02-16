@@ -4,6 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
+import { parseBody } from "@/lib/validations/helpers";
+import { adminLoginSchema } from "@/lib/validations/admin-login";
+import { logAudit } from "@/lib/audit";
+import { createSession } from "@/lib/session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,14 +23,28 @@ const SESSION_DURATION_SECONDS = 24 * 60 * 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { email, password, token } = body;
+    // Zodバリデーション
+    const parsed = await parseBody(req, adminLoginSchema);
+    if (parsed.error) return parsed.error;
+    const { email, password, token } = parsed.data;
 
-    // 必須チェック
-    if (!email || !password || !token) {
+    // レート制限チェック（メール単位: 5回/30分、IP単位: 15回/10分）
+    const ip = getClientIp(req);
+    const emailNorm = email.toLowerCase().trim();
+    const [emailLimit, ipLimit] = await Promise.all([
+      checkRateLimit(`login:email:${emailNorm}`, 5, 1800),
+      checkRateLimit(`login:ip:${ip}`, 15, 600),
+    ]);
+    if (emailLimit.limited) {
       return NextResponse.json(
-        { ok: false, error: "メール、パスワード、トークンすべて必要です" },
-        { status: 400 }
+        { ok: false, error: "ログイン試行回数が上限に達しました。しばらくお待ちください。" },
+        { status: 429 }
+      );
+    }
+    if (ipLimit.limited) {
+      return NextResponse.json(
+        { ok: false, error: "このIPからのログイン試行が制限されています。しばらくお待ちください。" },
+        { status: 429 }
       );
     }
 
@@ -72,6 +91,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ログイン成功 → レート制限カウントをリセット + 監査ログ
+    await resetRateLimit(`login:email:${emailNorm}`);
+    logAudit(req, "admin.login.success", "admin_user", user.id, { email: user.email });
+
     // JWTトークン生成
     const secret = new TextEncoder().encode(JWT_SECRET);
     const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
@@ -87,6 +110,16 @@ export async function POST(req: NextRequest) {
       .setIssuedAt()
       .setExpirationTime(expiresAt)
       .sign(secret);
+
+    // サーバー側セッション作成（同時セッション制限: 最大3）
+    createSession({
+      adminUserId: user.id,
+      tenantId: user.tenant_id || null,
+      jwt,
+      expiresAt,
+      ipAddress: ip,
+      userAgent: req.headers.get("user-agent"),
+    }).catch((err) => console.error("[Admin Login] Session create error:", err));
 
     // レスポンス
     const response = NextResponse.json({

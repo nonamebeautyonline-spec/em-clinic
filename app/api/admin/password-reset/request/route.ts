@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,17 @@ export async function POST(req: NextRequest) {
         { ok: false, error: "メールアドレスが必要です" },
         { status: 400 }
       );
+    }
+
+    // レート制限: 同一メール 10分に1回
+    const emailNorm = email.toLowerCase().trim();
+    const limit = await checkRateLimit(`pw-reset:${emailNorm}`, 1, 600);
+    if (limit.limited) {
+      // セキュリティ上、制限時も同じ成功メッセージを返す
+      return NextResponse.json({
+        ok: true,
+        message: "登録されているメールアドレスの場合、リセット用のメールを送信しました",
+      });
     }
 
     // ユーザー存在チェック

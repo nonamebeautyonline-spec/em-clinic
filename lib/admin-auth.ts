@@ -3,6 +3,7 @@
 
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { validateSession } from "@/lib/session";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
 if (!JWT_SECRET) {
@@ -15,12 +16,19 @@ if (!JWT_SECRET) {
  * @returns 認証成功時 true
  */
 export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
-  // 1. クッキーベースのセッション認証（新方式）
+  // 1. クッキーベースのセッション認証（JWT + サーバー側セッション検証）
   const sessionCookie = request.cookies.get("admin_session")?.value;
   if (sessionCookie) {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
       await jwtVerify(sessionCookie, secret);
+      // サーバー側セッション存在チェック（admin_sessionsテーブル未作成時はスキップ）
+      try {
+        const isValid = await validateSession(sessionCookie);
+        if (!isValid) return false;
+      } catch {
+        // admin_sessionsテーブル未作成時はJWT検証のみで認証成功
+      }
       return true;
     } catch {
       // クッキー無効、次の方式を試す

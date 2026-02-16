@@ -40,6 +40,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
+  { href: "/admin/inventory", icon: "📋", label: "在庫管理" },
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
@@ -90,6 +91,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (res.ok) {
           const data = await res.json();
           if (data.ok) {
+            // CSRFトークン初期化（管理画面用）
+            fetch("/api/csrf-token", { credentials: "include" }).catch(() => {});
             setIsAuthenticated(true);
             setLoading(false);
             return;
@@ -390,6 +393,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="配送設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/settings"}
+          />
+          <MenuItem
+            href="/admin/inventory"
+            icon="📋"
+            label="在庫管理"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/inventory"}
           />
 
           <MenuSection label="患者管理" isOpen={isSidebarOpen} />

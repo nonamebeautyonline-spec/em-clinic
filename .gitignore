@@ -44,3 +44,9 @@ next-env.d.ts
 gas/**/.clasp.json
 gas/**/.claspignore
 .env*.local
+
+# バックアップ（平文SQL、機密データ含む可能性）
+/backup/
+
+# IDEファイル
+.idea/

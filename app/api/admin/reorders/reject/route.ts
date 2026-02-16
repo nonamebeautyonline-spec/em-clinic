@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 async function pushToGroup(text: string, token: string, groupId: string) {
   if (!token || !groupId) return;
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
     // LINE通知（管理画面から却下）
     pushToGroup(`【再処方】却下しました（管理画面）\n申請ID: ${id}`, lineToken, lineGroupId).catch(() => {});
 
+    logAudit(req, "reorder.reject", "reorder", String(id));
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("API error:", error);
