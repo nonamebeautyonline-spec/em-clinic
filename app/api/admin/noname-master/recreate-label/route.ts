@@ -31,14 +31,14 @@ export async function POST(req: NextRequest) {
     // 注文を更新:
     // - tracking_number を NULL
     // - shipping_date を NULL
-    // - shipping_list_created_at を今日（発送リストに追加）
+    // - shipping_list_created_at を NULL（pending画面でチェック可能に戻す）
     const { data, error } = await withTenant(
       supabase
         .from("orders")
         .update({
           tracking_number: null,
           shipping_date: null,
-          shipping_list_created_at: now,
+          shipping_list_created_at: null,
           updated_at: now,
         })
         .eq("id", order_id)

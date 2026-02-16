@@ -32,14 +32,6 @@ export async function GET(req: NextRequest) {
     ));
     const cutoffISO = cutoffTime.toISOString();
 
-    // 本日の範囲（shipping_list_created_atが今日のものを含める用）
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartISO = todayStart.toISOString();
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-    const tomorrowStartISO = tomorrowStart.toISOString();
-
     // ★ ordersテーブルから未発送の注文を取得
     const { data: ordersConfirmed, error: ordersConfirmedError } = await withTenant(
       supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("paid_at", cutoffISO).order("paid_at", { ascending: false }).limit(100000),
@@ -51,20 +43,20 @@ export async function GET(req: NextRequest) {
       tenantId
     );
 
-    // ★ 本日手動で発送リストに追加された注文（発送漏れ対応）
-    const { data: ordersManuallyAdded, error: ordersManuallyAddedError } = await withTenant(
-      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").gte("shipping_list_created_at", todayStartISO).lt("shipping_list_created_at", tomorrowStartISO).order("shipping_list_created_at", { ascending: false }).limit(100000),
+    // ★ 発送漏れ注文（カットオフ前に決済された未発送・ラベル未作成の注文を自動検出）
+    const { data: ordersOverdue, error: ordersOverdueError } = await withTenant(
+      supabaseAdmin.from("orders").select("id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at").is("shipping_date", null).is("tracking_number", null).is("shipping_list_created_at", null).eq("status", "confirmed").or("refund_status.is.null,refund_status.not.in.(COMPLETED,PENDING)").lt("paid_at", cutoffISO).order("paid_at", { ascending: false }).limit(100),
       tenantId
     );
 
-    const ordersError = ordersConfirmedError || ordersPendingError || ordersManuallyAddedError;
+    const ordersError = ordersConfirmedError || ordersPendingError || ordersOverdueError;
 
     // ★ confirmed と pending と手動追加を時間順にマージ（新しい順）
     // 重複を除去するためにSetを使用
     const orderIds = new Set<string>();
     const allOrders: any[] = [];
 
-    for (const order of [...(ordersConfirmed || []), ...(ordersPending || []), ...(ordersManuallyAdded || [])]) {
+    for (const order of [...(ordersConfirmed || []), ...(ordersPending || []), ...(ordersOverdue || [])]) {
       if (!orderIds.has(order.id)) {
         orderIds.add(order.id);
         allOrders.push(order);
