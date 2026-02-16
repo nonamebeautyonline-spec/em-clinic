@@ -91,8 +91,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (res.ok) {
           const data = await res.json();
           if (data.ok) {
-            // CSRFトークン初期化（管理画面用）
-            fetch("/api/csrf-token", { credentials: "include" }).catch(() => {});
+            // CSRFトークン初期化 + fetch自動付与（管理画面用）
+            fetch("/api/csrf-token", { credentials: "include" })
+              .then((r) => r.ok ? r.json() : null)
+              .then((d) => {
+                if (!d?.csrfToken) return;
+                // 二重登録防止
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if ((window as any).__csrfPatched) return;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (window as any).__csrfPatched = true;
+                // 全fetchにCSRFヘッダーを自動付与
+                const origFetch = window.fetch;
+                window.fetch = function (input, init) {
+                  const method = (init?.method || "GET").toUpperCase();
+                  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+                    const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+                    // 同一オリジンのAPIリクエストのみ
+                    if (url.startsWith("/api/") || url.startsWith(location.origin + "/api/")) {
+                      // Cookieからトークン読み取り
+                      const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+                      if (match) {
+                        const headers = new Headers(init?.headers);
+                        if (!headers.has("x-csrf-token")) {
+                          headers.set("x-csrf-token", match[1]);
+                        }
+                        init = { ...init, headers };
+                      }
+                    }
+                  }
+                  return origFetch.call(this, input, init);
+                };
+              })
+              .catch(() => {});
             setIsAuthenticated(true);
             setLoading(false);
             return;

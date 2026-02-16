@@ -61,11 +61,14 @@ export async function createSession(params: {
 export async function validateSession(jwt: string): Promise<boolean> {
   const tokenHash = hashToken(jwt);
 
-  const { data: session } = await supabase
+  const { data: session, error } = await supabase
     .from("admin_sessions")
     .select("id, last_activity, expires_at")
     .eq("token_hash", tokenHash)
     .maybeSingle();
+
+  // テーブル未作成等のDBエラー → throwして呼び出し元のcatchで処理
+  if (error) throw error;
 
   if (!session) return false;
 
