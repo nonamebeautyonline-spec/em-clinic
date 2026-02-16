@@ -134,19 +134,57 @@ async function getLineDisplayName(lineUid: string, accessToken: string): Promise
 }
 
 // ===== LINE UIDから patient_id を逆引き（patients テーブルを使用）=====
+// 同じ line_id を持つ LINE_ 仮レコードと正規患者が共存する場合、正規患者を優先
 async function findPatientByLineUid(lineUid: string, tenantId: string | null) {
   const { data } = await withTenant(
     supabaseAdmin
       .from("patients")
       .select("patient_id, name")
-      .eq("line_id", lineUid)
-      .limit(1)
-      .maybeSingle(),
+      .eq("line_id", lineUid),
     tenantId
   );
-  if (!data) return null;
-  // 既存コードとの互換性のため patient_name プロパティも返す
-  return { patient_id: data.patient_id, patient_name: data.name || "" };
+  if (!data || data.length === 0) return null;
+
+  // 正規患者（LINE_ 以外）を優先
+  const proper = data.find(p => !p.patient_id.startsWith("LINE_"));
+  const fakes = data.filter(p => p.patient_id.startsWith("LINE_"));
+
+  // 正規患者が見つかり、LINE_ 仮レコードも残っている場合は自動クリーンアップ（非ブロッキング）
+  if (proper && fakes.length > 0) {
+    mergeFakePatients(proper.patient_id, fakes.map(f => f.patient_id), tenantId).catch(err => {
+      console.error("[webhook] LINE_ cleanup error:", err);
+    });
+  }
+
+  const chosen = proper || data[0];
+  return { patient_id: chosen.patient_id, patient_name: chosen.name || "" };
+}
+
+// ===== LINE_ 仮レコードを正規患者に統合して削除 =====
+async function mergeFakePatients(properPatientId: string, fakeIds: string[], tenantId: string | null) {
+  for (const fakeId of fakeIds) {
+    console.log(`[webhook] Merging fake patient ${fakeId} -> ${properPatientId}`);
+
+    // 関連テーブルの patient_id を正規に付け替え
+    const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+    await Promise.all(
+      migrateTables.map(async (table) => {
+        const { error } = await withTenant(
+          supabaseAdmin
+            .from(table)
+            .update({ patient_id: properPatientId })
+            .eq("patient_id", fakeId),
+          tenantId
+        );
+        if (error) console.error(`[webhook] Migration ${table} failed:`, error.message);
+      })
+    );
+
+    // 仮レコード削除（intake → patients の順）
+    await withTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
+    await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
+    console.log(`[webhook] Fake patient ${fakeId} merged and deleted`);
+  }
 }
 
 // ===== LINE UIDから患者を検索、なければ自動作成 =====

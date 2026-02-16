@@ -204,9 +204,9 @@ export async function POST(req: NextRequest) {
     await invalidateDashboardCache(patientId);
 
     // ★ LINE_仮レコードが残っていたら統合して削除
+    // line_id で直接検索し、同じ line_id を持つ LINE_ 患者を全てクリーンアップ
     if (!patientId.startsWith("LINE_")) {
       try {
-        // patients テーブルから line_id を取得
         const { data: currentPatient } = await withTenant(
           supabaseAdmin
             .from("patients")
@@ -218,19 +218,21 @@ export async function POST(req: NextRequest) {
 
         const resolvedLineId = currentPatient?.line_id;
         if (resolvedLineId) {
-          const fakeId = `LINE_${resolvedLineId.slice(-8)}`;
-          const { data: fakeRecord } = await withTenant(
+          // line_id が同じ LINE_ 患者を全て検索
+          const { data: fakePatients } = await withTenant(
             supabaseAdmin
-              .from("intake")
+              .from("patients")
               .select("patient_id")
-              .eq("patient_id", fakeId)
-              .maybeSingle(),
+              .eq("line_id", resolvedLineId)
+              .like("patient_id", "LINE_%"),
             tenantId
           );
 
-          if (fakeRecord) {
+          for (const fake of fakePatients || []) {
+            const fakeId = fake.patient_id;
             console.log(`[Intake] Merging fake record ${fakeId} -> ${patientId}`);
-            // message_log, patient_tags, patient_marks, friend_field_values を移行
+
+            // 関連テーブルの patient_id を正規に付け替え
             const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
             await Promise.all(
               migrateTables.map(async (table) => {
@@ -244,6 +246,7 @@ export async function POST(req: NextRequest) {
                 if (error) console.error(`[Intake] Migration ${table} failed:`, error.message);
               })
             );
+
             // ピン留めのIDも移行（admin_users.pinned_patients JSONB配列）
             try {
               const { data: admins } = await withTenant(
@@ -269,7 +272,8 @@ export async function POST(req: NextRequest) {
             } catch (e: any) {
               console.error("[Intake] Pin migration error:", e.message);
             }
-            // 仮レコード削除
+
+            // 仮レコード削除（intake → patients の順）
             await withTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
             await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
             console.log(`[Intake] Fake record ${fakeId} merged and deleted`);
