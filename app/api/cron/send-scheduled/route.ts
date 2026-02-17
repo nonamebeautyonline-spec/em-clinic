@@ -68,7 +68,17 @@ export async function GET(req: NextRequest) {
         .replace(/\{name\}/g, patient?.name || "")
         .replace(/\{patient_id\}/g, msg.patient_id);
 
-      const res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
+      // flex_json がある場合はFLEXメッセージ、なければテキスト
+      let res;
+      if (msg.flex_json) {
+        res = await pushMessage(msg.line_uid, [{
+          type: "flex",
+          altText: resolvedMsg,
+          contents: msg.flex_json,
+        }], tenantId ?? undefined);
+      } else {
+        res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
+      }
 
       if (res?.ok) {
         await withTenant(
@@ -86,6 +96,7 @@ export async function GET(req: NextRequest) {
           line_uid: msg.line_uid,
           message_type: "scheduled",
           content: resolvedMsg,
+          flex_json: msg.flex_json || null,
           status: "sent",
           direction: "outgoing",
         });

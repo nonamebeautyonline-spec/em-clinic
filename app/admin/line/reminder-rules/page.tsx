@@ -6,17 +6,22 @@ import { useState, useEffect, useCallback } from "react";
 interface ReminderRule {
   id: number;
   name: string;
-  timing_type: "before_hours" | "before_days";
+  timing_type: "before_hours" | "before_days" | "fixed_time";
   timing_value: number;
   message_template: string;
   is_enabled: boolean;
   sent_count: number;
   created_at: string;
+  send_hour?: number;
+  send_minute?: number;
+  target_day_offset?: number;
+  message_format?: "text" | "flex";
 }
 
 const TIMING_TYPES = [
   { value: "before_hours", label: "時間前" },
   { value: "before_days", label: "日前" },
+  { value: "fixed_time", label: "固定時刻" },
 ];
 
 const TEMPLATE_VARS = [
@@ -34,6 +39,97 @@ const DEFAULT_TEMPLATE = `{name}様
 
 ご来院をお待ちしております。
 変更・キャンセルはお早めにご連絡ください。`;
+
+const DEFAULT_MORNING_TEMPLATE = `{name}様
+
+本日、診療のご予約がございます。
+
+予約日時：{date} {time}
+
+詳細につきましてはマイページよりご確認ください。
+
+診療は、予約時間枠の間に「090-」から始まる番号よりお電話いたします。
+知らない番号からの着信を受け取れない設定になっている場合は、
+事前にご連絡いただけますと幸いです。
+
+なお、診療時間にご連絡なくご対応いただけなかった場合、
+次回以降のご予約が取りづらくなる可能性がございます。
+
+キャンセルや予約内容の変更をご希望の場合は、
+必ず事前にマイページよりお手続きをお願いいたします。
+
+本日もどうぞよろしくお願いいたします。`;
+
+/* ---------- ヘルパー ---------- */
+
+/** 固定時刻ルールのタイミング表示文字列 */
+function getTimingLabel(rule: ReminderRule): string {
+  if (rule.timing_type !== "fixed_time") {
+    return `予約の ${rule.timing_value}${rule.timing_type === "before_hours" ? "時間" : "日"}前`;
+  }
+  const hh = String(rule.send_hour ?? 0).padStart(2, "0");
+  const mm = String(rule.send_minute ?? 0).padStart(2, "0");
+  const dayLabel = rule.target_day_offset === 0 ? "当日" : "前日";
+  return `${dayLabel} ${hh}:${mm}`;
+}
+
+/** アイコン表示テキスト */
+function getIconText(rule: ReminderRule): string {
+  if (rule.timing_type !== "fixed_time") {
+    return `${rule.timing_value}${rule.timing_type === "before_hours" ? "h" : "d"}`;
+  }
+  const hh = String(rule.send_hour ?? 0).padStart(2, "0");
+  const mm = String(rule.send_minute ?? 0).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** FLEXプレビュー（モーダル内） */
+function FlexPreview() {
+  const sampleDate = "2/18(火) 10:00〜10:15";
+  return (
+    <div className="mt-3 bg-gray-50/80 rounded-xl border border-gray-200 overflow-hidden max-w-[280px]">
+      {/* ヘッダー */}
+      <div className="bg-[#E75A7C] px-4 py-3">
+        <span className="text-white font-bold text-sm">明日のご予約</span>
+      </div>
+      {/* ボディ */}
+      <div className="px-4 py-3 bg-white">
+        <div className="text-[10px] text-gray-500 mb-0.5">予約日時</div>
+        <div className="text-base font-bold text-[#E75A7C] mb-2">{sampleDate}</div>
+        <div className="border-t border-gray-100 pt-2">
+          <p className="text-[10px] text-gray-500 leading-relaxed">
+            明日のご予約がございます。<br />
+            変更・キャンセルをご希望の場合は、マイページよりお手続きをお願いいたします。
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** FLEXミニプレビュー（ルール一覧カード内） */
+function FlexPreviewMini() {
+  return (
+    <div className="bg-gray-50/80 rounded-lg p-3 border border-gray-100/50">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#E75A7C] text-white rounded">FLEX</span>
+        <span className="text-[11px] text-gray-600 font-medium">明日のご予約リマインド</span>
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <div className="w-16 h-10 bg-white rounded border border-gray-200 flex flex-col overflow-hidden">
+          <div className="bg-[#E75A7C] h-2.5 flex items-center px-1">
+            <span className="text-white text-[4px]">明日のご予約</span>
+          </div>
+          <div className="px-1 py-0.5 flex-1">
+            <div className="text-[4px] text-gray-400">予約日時</div>
+            <div className="text-[5px] font-bold text-[#E75A7C]">2/18 10:00</div>
+          </div>
+        </div>
+        <span className="text-[10px] text-gray-400">予約日時 + 案内メッセージ</span>
+      </div>
+    </div>
+  );
+}
 
 /* ---------- メインページ ---------- */
 export default function ReminderRulesPage() {
@@ -61,7 +157,14 @@ export default function ReminderRulesPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleCreate = () => {
-    setEditRule({ name: "", timing_type: "before_hours", timing_value: 24, message_template: DEFAULT_TEMPLATE, is_enabled: true });
+    setEditRule({
+      name: "",
+      timing_type: "before_hours",
+      timing_value: 24,
+      message_template: DEFAULT_TEMPLATE,
+      is_enabled: true,
+      message_format: "text",
+    });
     setShowModal(true);
   };
 
@@ -110,9 +213,39 @@ export default function ReminderRulesPage() {
     loadData();
   };
 
+  /** タイミングタイプ変更時のデフォルト値設定 */
+  const handleTimingTypeChange = (newType: string) => {
+    if (!editRule) return;
+    if (newType === "fixed_time") {
+      setEditRule({
+        ...editRule,
+        timing_type: "fixed_time" as const,
+        send_hour: editRule.send_hour ?? 19,
+        send_minute: editRule.send_minute ?? 0,
+        target_day_offset: editRule.target_day_offset ?? 1,
+        message_format: editRule.message_format || "flex",
+        message_template: editRule.message_template || "",
+      });
+    } else {
+      setEditRule({
+        ...editRule,
+        timing_type: newType as "before_hours" | "before_days",
+        message_format: "text",
+        message_template: editRule.message_template || DEFAULT_TEMPLATE,
+      });
+    }
+  };
+
   const closeModal = () => { setShowModal(false); setEditRule(null); };
   const totalSent = rules.reduce((sum, r) => sum + r.sent_count, 0);
   const activeCount = rules.filter(r => r.is_enabled).length;
+
+  // 保存ボタンの無効化条件
+  const isSaveDisabled = (() => {
+    if (saving || !editRule?.name?.trim()) return true;
+    if (editRule?.timing_type === "fixed_time" && editRule?.message_format === "flex") return false;
+    return !editRule?.message_template?.trim();
+  })();
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -129,7 +262,7 @@ export default function ReminderRulesPage() {
                 </div>
                 予約リマインド
               </h1>
-              <p className="text-sm text-gray-400 mt-1">予約のN時間前/N日前にLINEで自動通知。無断キャンセルを防止します。</p>
+              <p className="text-sm text-gray-400 mt-1">予約の自動通知。固定時刻やFLEXメッセージにも対応しています。</p>
             </div>
             <button
               onClick={handleCreate}
@@ -195,11 +328,13 @@ export default function ReminderRulesPage() {
                     {/* タイミングアイコン */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                       rule.is_enabled
-                        ? "bg-gradient-to-br from-sky-500 to-blue-600"
+                        ? rule.timing_type === "fixed_time"
+                          ? "bg-gradient-to-br from-orange-500 to-amber-600"
+                          : "bg-gradient-to-br from-sky-500 to-blue-600"
                         : "bg-gray-200"
                     }`}>
-                      <span className="text-white text-xs font-bold">
-                        {rule.timing_value}{rule.timing_type === "before_hours" ? "h" : "d"}
+                      <span className="text-white text-[10px] font-bold leading-tight text-center">
+                        {getIconText(rule as ReminderRule)}
                       </span>
                     </div>
 
@@ -211,14 +346,23 @@ export default function ReminderRulesPage() {
                             停止中
                           </span>
                         )}
+                        {rule.message_format === "flex" && (
+                          <span className="shrink-0 px-2 py-0.5 text-[10px] bg-[#E75A7C] text-white rounded-full font-medium">
+                            FLEX
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 text-[11px] mb-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 text-sky-700 rounded-full font-medium">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
+                          rule.timing_type === "fixed_time"
+                            ? "bg-orange-50 text-orange-700"
+                            : "bg-sky-50 text-sky-700"
+                        }`}>
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          予約の {rule.timing_value}{rule.timing_type === "before_hours" ? "時間" : "日"}前
+                          {getTimingLabel(rule as ReminderRule)}
                         </span>
                         <span className="text-gray-400">
                           送信実績: <span className="text-gray-600 font-medium">{rule.sent_count}件</span>
@@ -226,16 +370,20 @@ export default function ReminderRulesPage() {
                       </div>
 
                       {/* メッセージプレビュー */}
-                      <div className="bg-gray-50/80 rounded-lg p-3 text-[11px] text-gray-500 whitespace-pre-wrap line-clamp-2 leading-relaxed border border-gray-100/50">
-                        {rule.message_template}
-                      </div>
+                      {rule.message_format === "flex" ? (
+                        <FlexPreviewMini />
+                      ) : (
+                        <div className="bg-gray-50/80 rounded-lg p-3 text-[11px] text-gray-500 whitespace-pre-wrap line-clamp-2 leading-relaxed border border-gray-100/50">
+                          {rule.message_template}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* 操作 */}
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => handleEdit(rule)}
+                      onClick={() => handleEdit(rule as ReminderRule)}
                       className="px-3 py-1.5 text-xs font-medium text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                     >
                       編集
@@ -249,7 +397,7 @@ export default function ReminderRulesPage() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleToggle(rule)}
+                      onClick={() => handleToggle(rule as ReminderRule)}
                       className={`w-10 h-5 rounded-full relative transition-colors ${
                         rule.is_enabled ? "bg-[#06C755]" : "bg-gray-300"
                       }`}
@@ -298,57 +446,187 @@ export default function ReminderRulesPage() {
                   type="text"
                   value={editRule.name || ""}
                   onChange={e => setEditRule({ ...editRule, name: e.target.value })}
-                  placeholder="例: 予約24時間前リマインド"
+                  placeholder="例: 前日リマインド（FLEX）"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
                   autoFocus
                 />
               </div>
 
-              {/* タイミング */}
+              {/* タイミングタイプ選択（3ボタン） */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">送信タイミング</label>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">予約の</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={editRule.timing_value ?? 24}
-                    onChange={e => setEditRule({ ...editRule, timing_value: parseInt(e.target.value) || 1 })}
-                    className="w-20 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
-                  />
-                  <select
-                    value={editRule.timing_type || "before_hours"}
-                    onChange={e => setEditRule({ ...editRule, timing_type: e.target.value as ReminderRule["timing_type"] })}
-                    className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
-                  >
-                    {TIMING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* メッセージテンプレート */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">メッセージ</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {TEMPLATE_VARS.map(v => (
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">タイミングタイプ</label>
+                <div className="flex gap-2">
+                  {TIMING_TYPES.map(t => (
                     <button
-                      key={v.var}
+                      key={t.value}
                       type="button"
-                      onClick={() => setEditRule({ ...editRule, message_template: (editRule.message_template || "") + v.var })}
-                      className="px-2.5 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 rounded-lg hover:bg-sky-100 transition-colors"
+                      onClick={() => handleTimingTypeChange(t.value)}
+                      className={`flex-1 px-3 py-2 text-sm font-medium rounded-xl border transition-all ${
+                        editRule.timing_type === t.value
+                          ? t.value === "fixed_time"
+                            ? "bg-orange-50 border-orange-300 text-orange-700"
+                            : "bg-sky-50 border-sky-300 text-sky-700"
+                          : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                      }`}
                     >
-                      {v.var} <span className="text-sky-400">({v.desc})</span>
+                      {t.label}
                     </button>
                   ))}
                 </div>
-                <textarea
-                  value={editRule.message_template || ""}
-                  onChange={e => setEditRule({ ...editRule, message_template: e.target.value })}
-                  rows={8}
-                  placeholder="リマインドメッセージを入力..."
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all resize-none"
-                />
               </div>
+
+              {/* 条件分岐UI: 固定時刻 vs 相対時間 */}
+              {editRule.timing_type === "fixed_time" ? (
+                <>
+                  {/* 送信時刻 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">送信時刻</label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={editRule.send_hour ?? 19}
+                        onChange={e => setEditRule({ ...editRule, send_hour: parseInt(e.target.value) })}
+                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>{String(i).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                      <span className="text-gray-500 font-medium">:</span>
+                      <select
+                        value={editRule.send_minute ?? 0}
+                        onChange={e => setEditRule({ ...editRule, send_minute: parseInt(e.target.value) })}
+                        className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
+                      >
+                        {[0, 15, 30, 45].map(m => (
+                          <option key={m} value={m}>{String(m).padStart(2, "0")}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 対象予約 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">対象予約</label>
+                    <select
+                      value={editRule.target_day_offset ?? 1}
+                      onChange={e => setEditRule({ ...editRule, target_day_offset: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
+                    >
+                      <option value={1}>翌日の予約（前日送信）</option>
+                      <option value={0}>当日の予約</option>
+                    </select>
+                  </div>
+
+                  {/* メッセージ形式 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">メッセージ形式</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newTemplate = editRule.message_template ||
+                            (editRule.target_day_offset === 0 ? DEFAULT_MORNING_TEMPLATE : DEFAULT_TEMPLATE);
+                          setEditRule({ ...editRule, message_format: "text", message_template: newTemplate });
+                        }}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-xl border transition-all ${
+                          editRule.message_format !== "flex"
+                            ? "bg-sky-50 border-sky-300 text-sky-700"
+                            : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                        }`}
+                      >
+                        テキスト
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditRule({ ...editRule, message_format: "flex" })}
+                        className={`flex-1 px-3 py-2 text-sm font-medium rounded-xl border transition-all ${
+                          editRule.message_format === "flex"
+                            ? "bg-[#E75A7C]/10 border-[#E75A7C]/40 text-[#E75A7C]"
+                            : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                        }`}
+                      >
+                        FLEX
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* FLEX: プレビュー表示 / テキスト: テンプレートエディタ */}
+                  {editRule.message_format === "flex" ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">FLEXプレビュー</label>
+                      <p className="text-xs text-gray-400 mb-1">予約日時を自動で差し込んだFLEXメッセージが送信されます</p>
+                      <FlexPreview />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">メッセージ</label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {TEMPLATE_VARS.map(v => (
+                          <button
+                            key={v.var}
+                            type="button"
+                            onClick={() => setEditRule({ ...editRule, message_template: (editRule.message_template || "") + v.var })}
+                            className="px-2.5 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 rounded-lg hover:bg-sky-100 transition-colors"
+                          >
+                            {v.var} <span className="text-sky-400">({v.desc})</span>
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={editRule.message_template || ""}
+                        onChange={e => setEditRule({ ...editRule, message_template: e.target.value })}
+                        rows={8}
+                        placeholder="リマインドメッセージを入力..."
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all resize-none"
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* 既存: 相対タイミング */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">送信タイミング</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">予約の</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editRule.timing_value ?? 24}
+                        onChange={e => setEditRule({ ...editRule, timing_value: parseInt(e.target.value) || 1 })}
+                        className="w-20 px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all"
+                      />
+                      <span className="text-sm text-gray-600">
+                        {editRule.timing_type === "before_hours" ? "時間前" : "日前"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* メッセージテンプレート */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">メッセージ</label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {TEMPLATE_VARS.map(v => (
+                        <button
+                          key={v.var}
+                          type="button"
+                          onClick={() => setEditRule({ ...editRule, message_template: (editRule.message_template || "") + v.var })}
+                          className="px-2.5 py-1 text-[11px] font-medium bg-sky-50 text-sky-700 rounded-lg hover:bg-sky-100 transition-colors"
+                        >
+                          {v.var} <span className="text-sky-400">({v.desc})</span>
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={editRule.message_template || ""}
+                      onChange={e => setEditRule({ ...editRule, message_template: e.target.value })}
+                      rows={8}
+                      placeholder="リマインドメッセージを入力..."
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400 bg-gray-50/50 transition-all resize-none"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
@@ -357,7 +635,7 @@ export default function ReminderRulesPage() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || !editRule.name?.trim() || !editRule.message_template?.trim()}
+                disabled={isSaveDisabled}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 text-white rounded-xl hover:from-sky-600 hover:to-blue-700 disabled:opacity-40 text-sm font-medium shadow-lg shadow-sky-500/25 transition-all"
               >
                 {saving ? (

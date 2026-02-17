@@ -210,6 +210,55 @@ export async function buildReservationCanceledFlex(dateStr: string, timeStr: str
   };
 }
 
+/** 前日リマインド Flex（簡潔版） */
+export async function buildReminderFlex(dateStr: string, timeStr: string) {
+  const formatted = formatDateTime(dateStr, timeStr);
+  let cfg = DEFAULT_FLEX_CONFIG;
+  try { cfg = await getFlexConfig(); } catch {}
+  const { colors } = cfg;
+
+  return {
+    type: "flex" as const,
+    altText: `【明日のご予約】${formatted}`,
+    contents: {
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          { type: "text", text: "明日のご予約", weight: "bold", size: "lg", color: colors.headerText },
+        ],
+        backgroundColor: colors.headerBg,
+        paddingAll: "16px",
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              { type: "text", text: "予約日時", size: "sm", color: colors.bodyText },
+              { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: colors.accentColor },
+            ],
+          },
+          { type: "separator", margin: "md" },
+          {
+            type: "text",
+            text: "明日のご予約がございます。\n変更・キャンセルをご希望の場合は、マイページよりお手続きをお願いいたします。",
+            size: "sm",
+            color: colors.bodyText,
+            wrap: true,
+            margin: "md",
+          },
+        ],
+        paddingAll: "16px",
+      },
+    },
+  };
+}
+
 /** LINE送信 + message_log 記録 */
 export async function sendReservationNotification(params: {
   patientId: string;

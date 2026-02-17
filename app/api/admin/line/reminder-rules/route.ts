@@ -45,10 +45,27 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
   const body = await req.json();
-  const { name, timing_type, timing_value, message_template, is_enabled } = body;
+  const { name, timing_type, timing_value, message_template, is_enabled,
+          send_hour, send_minute, target_day_offset, message_format } = body;
 
   if (!name?.trim()) return NextResponse.json({ error: "ルール名は必須です" }, { status: 400 });
-  if (!message_template?.trim()) return NextResponse.json({ error: "メッセージは必須です" }, { status: 400 });
+
+  // テンプレートバリデーション（FLEX時は不要）
+  if (timing_type === "fixed_time" && message_format === "flex") {
+    // FLEXはテンプレート不要
+  } else if (!message_template?.trim()) {
+    return NextResponse.json({ error: "メッセージは必須です" }, { status: 400 });
+  }
+
+  // fixed_time バリデーション
+  if (timing_type === "fixed_time") {
+    if (send_hour == null || send_hour < 0 || send_hour > 23) {
+      return NextResponse.json({ error: "送信時刻（時）は0〜23で指定してください" }, { status: 400 });
+    }
+    if (send_minute != null && (send_minute < 0 || send_minute > 59)) {
+      return NextResponse.json({ error: "送信時刻（分）は0〜59で指定してください" }, { status: 400 });
+    }
+  }
 
   const { data, error } = await supabaseAdmin
     .from("reminder_rules")
@@ -57,8 +74,12 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       timing_type: timing_type || "before_hours",
       timing_value: timing_value ?? 24,
-      message_template: message_template.trim(),
+      message_template: (message_template || "").trim(),
       is_enabled: is_enabled !== false,
+      send_hour: timing_type === "fixed_time" ? send_hour : null,
+      send_minute: timing_type === "fixed_time" ? (send_minute ?? 0) : null,
+      target_day_offset: timing_type === "fixed_time" ? (target_day_offset ?? 1) : null,
+      message_format: message_format || "text",
     })
     .select()
     .single();
@@ -74,7 +95,8 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
   const body = await req.json();
-  const { id, name, timing_type, timing_value, message_template, is_enabled } = body;
+  const { id, name, timing_type, timing_value, message_template, is_enabled,
+          send_hour, send_minute, target_day_offset, message_format } = body;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 
@@ -85,8 +107,12 @@ export async function PUT(req: NextRequest) {
         name: name?.trim() || "",
         timing_type: timing_type || "before_hours",
         timing_value: timing_value ?? 24,
-        message_template: message_template?.trim() || "",
+        message_template: (message_template || "").trim(),
         is_enabled: is_enabled !== false,
+        send_hour: timing_type === "fixed_time" ? send_hour : null,
+        send_minute: timing_type === "fixed_time" ? (send_minute ?? 0) : null,
+        target_day_offset: timing_type === "fixed_time" ? (target_day_offset ?? 1) : null,
+        message_format: message_format || "text",
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
