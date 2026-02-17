@@ -73,7 +73,7 @@ export const DEFAULT_INTAKE_FIELDS: IntakeFormField[] = [
     label: "GLP-1/GIP製剤（マンジャロ、リベルサス、オゼンピックなど）の使用歴があればご記入ください",
     required: false,
     placeholder:
-      "例）マンジャロ5mg 使用中／オゼンピック0.5mg 2025年10月まで など",
+      "例）マンジャロ7.5mg 使用中／オゼンピック1mg 2024年8月まで など",
     sort_order: 3,
   },
   {
@@ -122,7 +122,7 @@ export const DEFAULT_INTAKE_FIELDS: IntakeFormField[] = [
     label: "今回のお申し込みは何を見てされましたか？",
     required: true,
     options: [
-      { label: "X（旧Twitter）", value: "twitter" },
+      { label: "Twitter", value: "twitter" },
       { label: "Instagram", value: "instagram" },
       { label: "ホームページ", value: "homepage" },
       { label: "検索サイト", value: "search" },
