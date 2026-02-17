@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   async headers() {
@@ -34,7 +35,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
-              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://api.squareup.com https://*.upstash.io",
+              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://api.squareup.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io",
               "frame-src 'self' https://js.squareup.com https://sandbox.web.squarecdn.com",
               "base-uri 'self'",
               "form-action 'self'",
@@ -46,4 +47,20 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // ソースマップをSentryにアップロード（ビルド時）
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // クライアントバンドルからソースマップを非公開
+  hideSourceMaps: true,
+
+  // 自動インストルメンテーション
+  autoInstrumentServerFunctions: true,
+  autoInstrumentMiddleware: true,
+  autoInstrumentAppDirectory: true,
+
+  // SENTRY_AUTH_TOKEN 未設定時はソースマップアップロードをスキップ
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  disableLogger: true,
+});

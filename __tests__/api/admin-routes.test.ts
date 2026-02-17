@@ -415,10 +415,13 @@ describe("患者管理bulk操作: 基本要件", () => {
 // ===================================================================
 describe("Cron: テナント対応", () => {
   const cronRoutes = findRouteFiles("app/api/cron");
+  // テナント横断チェックのためテナント対応不要なcronルート
+  const CRON_TENANT_EXEMPT = ["health-report"];
 
   it("supabaseAdminを使うcronルートはテナント対応している", () => {
     const violations: string[] = [];
     for (const route of cronRoutes) {
+      if (CRON_TENANT_EXEMPT.some((e) => route.includes(e))) continue;
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
         const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");

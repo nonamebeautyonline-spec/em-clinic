@@ -1,50 +1,63 @@
 // app/api/health/route.ts
-// 環境変数とSupabase接続をチェックするヘルスチェックAPI
+// ヘルスチェックAPI（UptimeRobot等の死活監視用）
+// 正常時: 200 / 異常時: 503
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { redis } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+interface CheckResult {
+  status: "ok" | "error";
+  latencyMs?: number;
+  error?: string;
+}
+
 export async function GET() {
-  const tenantId = resolveTenantId();
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const checks: Record<string, CheckResult> = {};
 
-  const health = {
-    timestamp: new Date().toISOString(),
-    env: {
-      supabaseUrl: supabaseUrl ? supabaseUrl.substring(0, 30) + "..." : "❌ MISSING",
-      supabaseAnonKey: supabaseAnonKey ? supabaseAnonKey.substring(0, 15) + "..." : "❌ MISSING",
-    },
-    supabase: {
-      connection: "未テスト",
-      error: null as string | null,
-    },
-  };
-
-  // Supabase接続テスト
+  // Supabase 接続チェック
+  const dbStart = Date.now();
   try {
-    const { data, error } = await withTenant(
-      supabaseAdmin
-        .from("intake")
-        .select("patient_id")
-        .limit(1),
-      tenantId
-    );
+    const { error } = await supabaseAdmin
+      .from("intake")
+      .select("id")
+      .limit(1);
 
     if (error) {
-      health.supabase.connection = "❌ エラー";
-      health.supabase.error = error.message;
+      checks.supabase = { status: "error", error: error.message };
     } else {
-      health.supabase.connection = "✅ 成功";
+      checks.supabase = { status: "ok", latencyMs: Date.now() - dbStart };
     }
-  } catch (e: any) {
-    health.supabase.connection = "❌ 例外";
-    health.supabase.error = e.message || String(e);
+  } catch (e: unknown) {
+    checks.supabase = {
+      status: "error",
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 
-  return NextResponse.json(health, { status: 200 });
+  // Redis 接続チェック
+  const redisStart = Date.now();
+  try {
+    await redis.ping();
+    checks.redis = { status: "ok", latencyMs: Date.now() - redisStart };
+  } catch (e: unknown) {
+    checks.redis = {
+      status: "error",
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  const allOk = Object.values(checks).every((c) => c.status === "ok");
+
+  return NextResponse.json(
+    {
+      status: allOk ? "healthy" : "unhealthy",
+      timestamp: new Date().toISOString(),
+      checks,
+    },
+    { status: allOk ? 200 : 503 },
+  );
 }

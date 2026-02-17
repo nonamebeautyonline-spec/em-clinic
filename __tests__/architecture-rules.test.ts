@@ -151,6 +151,7 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
   const TENANT_EXEMPT_ROUTES = new Set([
     "app/api/csrf-token/route.ts",
     "app/api/health/route.ts",
+    "app/api/cron/health-report/route.ts",
   ]);
 
   function findRouteFiles(dir: string): string[] {
