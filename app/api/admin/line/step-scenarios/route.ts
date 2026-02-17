@@ -78,6 +78,13 @@ export async function POST(req: NextRequest) {
       tag_id: s.tag_id || null,
       mark: s.mark || null,
       menu_id: s.menu_id || null,
+      // 条件分岐カラム
+      condition_rules: s.condition_rules || [],
+      branch_true_step: s.branch_true_step ?? null,
+      branch_false_step: s.branch_false_step ?? null,
+      exit_condition_rules: s.exit_condition_rules || [],
+      exit_action: s.exit_action || "exit",
+      exit_jump_to: s.exit_jump_to ?? null,
     }));
 
     const { error: stepError } = await supabaseAdmin
@@ -142,6 +149,13 @@ export async function PUT(req: NextRequest) {
         tag_id: s.tag_id || null,
         mark: s.mark || null,
         menu_id: s.menu_id || null,
+        // 条件分岐カラム
+        condition_rules: s.condition_rules || [],
+        branch_true_step: s.branch_true_step ?? null,
+        branch_false_step: s.branch_false_step ?? null,
+        exit_condition_rules: s.exit_condition_rules || [],
+        exit_action: s.exit_action || "exit",
+        exit_jump_to: s.exit_jump_to ?? null,
       }));
 
       await supabaseAdmin.from("step_items").insert(stepRows);

@@ -6,6 +6,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
           .eq("reorder_number", reorderNumber),
         tenantId
       );
+    }
+
+    // リッチメニュー自動切替（fire-and-forget）
+    if (reorderData.patient_id) {
+      evaluateMenuRules(reorderData.patient_id, tenantId ?? undefined).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, lineNotify }, { status: 200 });

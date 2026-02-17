@@ -5,7 +5,8 @@ import { useState } from "react";
 // ── 型定義 ──────────────────────────────────────────────
 
 export interface ConditionRule {
-  type: "tag" | "mark" | "name" | "registered_date" | "field";
+  type: "tag" | "mark" | "name" | "registered_date" | "field"
+    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count";
   // タグ条件
   tag_ids?: number[];
   tag_match?: "any_include" | "all_include" | "any_exclude" | "all_exclude";
@@ -23,6 +24,11 @@ export interface ConditionRule {
   field_id?: number;
   field_operator?: "=" | "!=" | ">" | ">=" | "<" | "<=" | "contains";
   field_value?: string;
+  // 行動データ条件（来院回数・購入金額・最終来院日・再処方回数）
+  behavior_operator?: string;
+  behavior_value?: string;
+  behavior_value_end?: string;
+  behavior_date_range?: string;
 }
 
 export interface StepCondition {
@@ -71,6 +77,10 @@ const CONDITION_TYPES: { type: ConditionRule["type"]; label: string }[] = [
   { type: "name", label: "名前" },
   { type: "registered_date", label: "友だち登録日" },
   { type: "field", label: "友だち情報" },
+  { type: "visit_count", label: "来院回数" },
+  { type: "purchase_amount", label: "購入金額" },
+  { type: "last_visit", label: "最終来院日" },
+  { type: "reorder_count", label: "再処方回数" },
 ];
 
 // ── 条件ON/OFFトグル（ステップ横に表示） ────────────────
@@ -174,6 +184,19 @@ export function ConditionSummary({
     if (rule.type === "field") {
       parts.push("友だち情報");
     }
+    if (rule.type === "visit_count") {
+      parts.push(`来院回数${rule.behavior_operator || ">="}${rule.behavior_value || "0"}回`);
+    }
+    if (rule.type === "purchase_amount") {
+      parts.push(`購入金額${rule.behavior_operator || ">="}${rule.behavior_value || "0"}円`);
+    }
+    if (rule.type === "last_visit") {
+      const op = rule.behavior_operator === "within_days" ? "以内" : "以上前";
+      parts.push(`最終来院${rule.behavior_value || "30"}日${op}`);
+    }
+    if (rule.type === "reorder_count") {
+      parts.push(`再処方${rule.behavior_operator || ">="}${rule.behavior_value || "0"}回`);
+    }
   }
 
   const summary = parts.length > 0 ? `実行条件: ${parts.join(" and ")}` : "実行条件あり";
@@ -242,6 +265,15 @@ export function ConditionBuilderModal({
       newRule.field_id = fields?.[0]?.id;
       newRule.field_operator = "=";
       newRule.field_value = "";
+    }
+    if (type === "visit_count" || type === "purchase_amount" || type === "reorder_count") {
+      newRule.behavior_operator = ">=";
+      newRule.behavior_value = "1";
+      newRule.behavior_date_range = "all";
+    }
+    if (type === "last_visit") {
+      newRule.behavior_operator = "within_days";
+      newRule.behavior_value = "30";
     }
     setRules(prev => [...prev, newRule]);
   };
@@ -338,6 +370,47 @@ export function ConditionBuilderModal({
                   <FieldConditionEditor
                     rule={rule}
                     fields={fields}
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 来院回数条件 */}
+                {rule.type === "visit_count" && (
+                  <NumericBehaviorEditor
+                    label="来院回数"
+                    unit="回"
+                    rule={rule}
+                    showDateRange
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 購入金額条件 */}
+                {rule.type === "purchase_amount" && (
+                  <NumericBehaviorEditor
+                    label="購入金額"
+                    unit="円"
+                    rule={rule}
+                    showDateRange
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 最終来院日条件 */}
+                {rule.type === "last_visit" && (
+                  <LastVisitEditor
+                    rule={rule}
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 再処方回数条件 */}
+                {rule.type === "reorder_count" && (
+                  <NumericBehaviorEditor
+                    label="再処方回数"
+                    unit="回"
+                    rule={rule}
+                    showDateRange={false}
                     onUpdate={(updates) => updateRule(i, updates)}
                   />
                 )}
@@ -646,6 +719,131 @@ function FieldConditionEditor({
           placeholder="値を入力"
           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
         />
+      </div>
+    </div>
+  );
+}
+
+// ── 数値系行動データ条件エディタ（来院回数・購入金額・再処方回数共通） ──
+
+const NUMERIC_OPERATORS = [
+  { value: ">=", label: "以上" },
+  { value: ">", label: "より多い" },
+  { value: "=", label: "と等しい" },
+  { value: "<=", label: "以下" },
+  { value: "<", label: "より少ない" },
+  { value: "between", label: "範囲" },
+];
+
+const DATE_RANGE_OPTIONS = [
+  { value: "all", label: "全期間" },
+  { value: "30d", label: "過去30日" },
+  { value: "90d", label: "過去90日" },
+  { value: "180d", label: "過去180日" },
+  { value: "1y", label: "過去1年" },
+];
+
+function NumericBehaviorEditor({
+  label,
+  unit,
+  rule,
+  showDateRange,
+  onUpdate,
+}: {
+  label: string;
+  unit: string;
+  rule: ConditionRule;
+  showDateRange: boolean;
+  onUpdate: (updates: Partial<ConditionRule>) => void;
+}) {
+  return (
+    <div className="pl-8">
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <select
+            value={rule.behavior_operator || ">="}
+            onChange={(e) => onUpdate({ behavior_operator: e.target.value })}
+            className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+          >
+            {NUMERIC_OPERATORS.map(op => (
+              <option key={op.value} value={op.value}>{op.label}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            value={rule.behavior_value || ""}
+            onChange={(e) => onUpdate({ behavior_value: e.target.value })}
+            placeholder="値"
+            min="0"
+            className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+          />
+          {rule.behavior_operator === "between" && (
+            <>
+              <span className="text-xs text-gray-400">〜</span>
+              <input
+                type="number"
+                value={rule.behavior_value_end || ""}
+                onChange={(e) => onUpdate({ behavior_value_end: e.target.value })}
+                placeholder="上限"
+                min="0"
+                className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+              />
+            </>
+          )}
+          <span className="text-xs text-gray-500">{unit}</span>
+        </div>
+        {showDateRange && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">集計期間:</span>
+            <select
+              value={rule.behavior_date_range || "all"}
+              onChange={(e) => onUpdate({ behavior_date_range: e.target.value })}
+              className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+            >
+              {DATE_RANGE_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 最終来院日条件エディタ ──────────────────────────────────
+
+function LastVisitEditor({
+  rule,
+  onUpdate,
+}: {
+  rule: ConditionRule;
+  onUpdate: (updates: Partial<ConditionRule>) => void;
+}) {
+  return (
+    <div className="pl-8">
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">最終来院日</span>
+      <div className="mt-3 flex items-center gap-2">
+        <select
+          value={rule.behavior_operator || "within_days"}
+          onChange={(e) => onUpdate({ behavior_operator: e.target.value })}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+        >
+          <option value="within_days">日以内</option>
+          <option value="before_days">日以上前</option>
+        </select>
+        <input
+          type="number"
+          value={rule.behavior_value || ""}
+          onChange={(e) => onUpdate({ behavior_value: e.target.value })}
+          placeholder="日数"
+          min="1"
+          className="w-24 px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
+        />
+        <span className="text-xs text-gray-500">
+          {rule.behavior_operator === "within_days" ? "日以内に来院あり" : "日以上来院なし"}
+        </span>
       </div>
     </div>
   );

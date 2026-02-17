@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  ComposedChart, LineChart, BarChart, AreaChart,
+  Line, Bar, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer
+} from "recharts";
 
 interface DailyStats {
   date: string;
@@ -20,11 +25,36 @@ interface RecentMessage {
   sent_at: string;
 }
 
+interface ChartData {
+  period: number;
+  followerTrend: { date: string; followers: number; diff: number }[];
+  deliveryStats: { date: string; sent: number }[];
+  clickStats: { date: string; clicks: number; uniqueClicks: number }[];
+  blockStats: { date: string; blocks: number; followers: number; blockRate: number }[];
+}
+
+interface BroadcastStat {
+  id: number;
+  name: string;
+  status: string;
+  totalTargets: number;
+  sentCount: number;
+  failedCount: number;
+  noUidCount: number;
+  deliveryRate: number;
+  totalClicks: number;
+  uniqueClicks: number;
+  clickRate: number;
+  sentAt: string;
+}
+
 interface DashboardData {
   stats: { followers: number; targetedReaches: number; blocks: number };
   monthlySent: number;
   dailyStats: DailyStats[];
   recentMessages: RecentMessage[];
+  chartData?: ChartData;
+  broadcastStats?: BroadcastStat[];
 }
 
 const TYPE_CONFIG: Record<string, { text: string; icon: string }> = {
@@ -44,14 +74,29 @@ const STATUS_CONFIG: Record<string, { text: string; bg: string; textColor: strin
   canceled: { text: "キャンセル", bg: "bg-amber-50", textColor: "text-amber-700", dot: "bg-amber-500" },
 };
 
+const PERIOD_OPTIONS = [
+  { value: 7, label: "7日" },
+  { value: 30, label: "30日" },
+  { value: 90, label: "90日" },
+];
+
+// 日付フォーマット: "2026-02-15" → "2/15"
+function fmtDate(s: string) {
+  const d = new Date(s);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export default function LineDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState(7);
+  const [activeTab, setActiveTab] = useState<"charts" | "table" | "broadcasts">("charts");
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
-        const res = await fetch("/api/admin/line/dashboard", { credentials: "include" });
+        const res = await fetch(`/api/admin/line/dashboard?period=${period}`, { credentials: "include" });
         const json = await res.json();
         setData(json);
       } catch {
@@ -60,7 +105,7 @@ export default function LineDashboardPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [period]);
 
   const formatDate = (s: string) => {
     const d = new Date(s);
@@ -72,7 +117,7 @@ export default function LineDashboardPage() {
     return `${d.getMonth() + 1}/${d.getDate()}（${["日", "月", "火", "水", "木", "金", "土"][d.getDay()]}）`;
   };
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex items-center justify-center py-32">
         <div className="flex flex-col items-center gap-3">
@@ -101,7 +146,6 @@ export default function LineDashboardPage() {
 
       {/* 統計カード */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {/* 有効友だち数 */}
         <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -114,7 +158,6 @@ export default function LineDashboardPage() {
           </div>
         </div>
 
-        {/* ターゲットリーチ */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -127,7 +170,6 @@ export default function LineDashboardPage() {
           </div>
         </div>
 
-        {/* ブロック */}
         <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-rose-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -140,7 +182,6 @@ export default function LineDashboardPage() {
           </div>
         </div>
 
-        {/* 今月の配信数 */}
         <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl p-5 text-white shadow-lg shadow-violet-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -154,102 +195,305 @@ export default function LineDashboardPage() {
         </div>
       </div>
 
-      {/* 下段: 友だち数推移 + 最新メッセージ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 友だち数推移 */}
+      {/* タブ切替 + 期間選択 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {([
+            { key: "charts" as const, label: "グラフ" },
+            { key: "broadcasts" as const, label: "配信別分析" },
+            { key: "table" as const, label: "詳細" },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeTab === tab.key
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === "charts" && (
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            {PERIOD_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  period === opt.value
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* グラフタブ */}
+      {activeTab === "charts" && (
+        <div className="space-y-6">
+          {data.chartData && data.chartData.followerTrend.length > 0 ? (
+            <>
+              {/* 友だち増減推移 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <h2 className="text-sm font-bold text-gray-800 mb-1">友だち数推移</h2>
+                <p className="text-xs text-gray-400 mb-4">有効友だち数と日次増減</p>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={data.chartData.followerTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      labelFormatter={(v) => `${v}`}
+                      formatter={(value: any, name: any) => {
+                        if (name === "followers") return [Number(value).toLocaleString(), "友だち数"];
+                        return [Number(value) > 0 ? `+${value}` : value, "増減"];
+                      }}
+                    />
+                    <Legend formatter={(v) => v === "followers" ? "友だち数" : "日次増減"} />
+                    <Line yAxisId="left" type="monotone" dataKey="followers" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                    <Bar yAxisId="right" dataKey="diff" fill="#6ee7b7" radius={[2, 2, 0, 0]} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* 配信数 + クリック率 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                  <h2 className="text-sm font-bold text-gray-800 mb-1">配信数</h2>
+                  <p className="text-xs text-gray-400 mb-4">日別のメッセージ送信数</p>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={data.chartData.deliveryStats}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        labelFormatter={(v) => `${v}`}
+                        formatter={(value: any) => [Number(value).toLocaleString(), "送信数"]}
+                      />
+                      <Bar dataKey="sent" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                  <h2 className="text-sm font-bold text-gray-800 mb-1">クリック数</h2>
+                  <p className="text-xs text-gray-400 mb-4">計測リンクのクリック数推移</p>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={data.chartData.clickStats}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        labelFormatter={(v) => `${v}`}
+                        formatter={(value: any, name: any) => [
+                          Number(value).toLocaleString(),
+                          name === "clicks" ? "総クリック" : "ユニーク",
+                        ]}
+                      />
+                      <Legend formatter={(v) => v === "clicks" ? "総クリック" : "ユニーク"} />
+                      <Line type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="uniqueClicks" stroke="#93c5fd" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 4" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* ブロック率 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <h2 className="text-sm font-bold text-gray-800 mb-1">ブロック推移</h2>
+                <p className="text-xs text-gray-400 mb-4">日別ブロック数とブロック率</p>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={data.chartData.blockStats}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      labelFormatter={(v) => `${v}`}
+                      formatter={(value: any, name: any) => {
+                        if (name === "blocks") return [value, "ブロック数"];
+                        return [`${value}%`, "ブロック率"];
+                      }}
+                    />
+                    <Legend formatter={(v) => v === "blocks" ? "ブロック数" : "ブロック率(%)"} />
+                    <Area type="monotone" dataKey="blocks" stroke="#f43f5e" fill="#fecdd3" strokeWidth={2} />
+                    <Line type="monotone" dataKey="blockRate" stroke="#fb7185" strokeWidth={1} dot={{ r: 2 }} strokeDasharray="4 4" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+              <p className="text-sm text-gray-400 mb-2">チャートデータがありません</p>
+              <p className="text-xs text-gray-300">日次統計の収集が開始されるとグラフが表示されます</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 配信別分析タブ */}
+      {activeTab === "broadcasts" && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-800">友だち数推移</h2>
-            <p className="text-xs text-gray-400 mt-0.5">過去7日間の推移</p>
+            <h2 className="text-sm font-bold text-gray-800">配信別分析</h2>
+            <p className="text-xs text-gray-400 mt-0.5">直近20件の一斉配信の成果</p>
           </div>
-          {data.dailyStats.length === 0 ? (
+          {(!data.broadcastStats || data.broadcastStats.length === 0) ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-sm text-gray-400">統計データがありません</p>
+              <p className="text-sm text-gray-400">配信データがありません</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">日付</th>
-                    <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">有効友だち</th>
-                    <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">増減</th>
-                    <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">配信名</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">対象</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">送信</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">到達率</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">クリック</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">CTR</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">日時</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {data.dailyStats.map((day, i) => {
-                    const prev = data.dailyStats[i + 1];
-                    const diff = prev ? day.followers - prev.followers : null;
-                    return (
-                      <tr key={day.date} className="hover:bg-gray-50/50">
-                        <td className="px-5 py-3 text-gray-700 whitespace-nowrap">{formatDateShort(day.date)}</td>
-                        <td className="px-5 py-3 text-right font-medium text-gray-900">{day.followers.toLocaleString()}</td>
-                        <td className="px-5 py-3 text-right">
-                          {diff !== null ? (
-                            <span className={`text-xs font-medium ${diff > 0 ? "text-emerald-600" : diff < 0 ? "text-red-500" : "text-gray-400"}`}>
-                              {diff > 0 ? `+${diff}` : diff === 0 ? "±0" : String(diff)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3 text-right text-gray-500">{day.blocks.toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
+                  {data.broadcastStats.map(b => (
+                    <tr key={b.id} className="hover:bg-gray-50/50">
+                      <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">{b.name}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">{b.totalTargets}</td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">{b.sentCount}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`text-xs font-medium ${b.deliveryRate >= 90 ? "text-emerald-600" : b.deliveryRate >= 70 ? "text-amber-600" : "text-red-500"}`}>
+                          {b.deliveryRate}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {b.uniqueClicks > 0 ? `${b.uniqueClicks} / ${b.totalClicks}` : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {b.clickRate > 0 ? (
+                          <span className="text-xs font-medium text-blue-600">{b.clickRate}%</span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-400 whitespace-nowrap">
+                        {formatDate(b.sentAt)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </div>
+      )}
 
-        {/* 最新送信メッセージ */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-gray-800">最新送信メッセージ</h2>
-              <p className="text-xs text-gray-400 mt-0.5">直近の送信履歴</p>
+      {/* 詳細タブ（既存のテーブル表示） */}
+      {activeTab === "table" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 友だち数推移テーブル */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-bold text-gray-800">友だち数推移</h2>
+              <p className="text-xs text-gray-400 mt-0.5">過去7日間の推移</p>
             </div>
-            <Link
-              href="/admin/line/messages"
-              className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-            >
-              すべて見る →
-            </Link>
+            {data.dailyStats.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm text-gray-400">統計データがありません</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">日付</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">有効友だち</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">増減</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {data.dailyStats.map((day, i) => {
+                      const prev = data.dailyStats[i + 1];
+                      const diff = prev ? day.followers - prev.followers : null;
+                      return (
+                        <tr key={day.date} className="hover:bg-gray-50/50">
+                          <td className="px-5 py-3 text-gray-700 whitespace-nowrap">{formatDateShort(day.date)}</td>
+                          <td className="px-5 py-3 text-right font-medium text-gray-900">{day.followers.toLocaleString()}</td>
+                          <td className="px-5 py-3 text-right">
+                            {diff !== null ? (
+                              <span className={`text-xs font-medium ${diff > 0 ? "text-emerald-600" : diff < 0 ? "text-red-500" : "text-gray-400"}`}>
+                                {diff > 0 ? `+${diff}` : diff === 0 ? "±0" : String(diff)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-300">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right text-gray-500">{day.blocks.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          {data.recentMessages.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <p className="text-sm text-gray-400">送信履歴がありません</p>
+
+          {/* 最新送信メッセージ */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-gray-800">最新送信メッセージ</h2>
+                <p className="text-xs text-gray-400 mt-0.5">直近の送信履歴</p>
+              </div>
+              <Link
+                href="/admin/line/messages"
+                className="text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+              >
+                すべて見る →
+              </Link>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-50">
-              {data.recentMessages.map((msg) => {
-                const tp = TYPE_CONFIG[msg.message_type] || { text: msg.message_type, icon: "💬" };
-                const st = STATUS_CONFIG[msg.status] || { text: msg.status, bg: "bg-gray-100", textColor: "text-gray-600", dot: "bg-gray-400" };
-                return (
-                  <div key={msg.id} className="px-5 py-3 hover:bg-gray-50/50 transition-colors">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs text-gray-500">{tp.icon} {tp.text}</span>
-                          <span className="text-[11px] text-gray-400">{formatDate(msg.sent_at)}</span>
-                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${st.bg} ${st.textColor}`}>
-                            <span className={`w-1 h-1 rounded-full ${st.dot}`} />
-                            {st.text}
-                          </span>
+            {data.recentMessages.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm text-gray-400">送信履歴がありません</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {data.recentMessages.map((msg) => {
+                  const tp = TYPE_CONFIG[msg.message_type] || { text: msg.message_type, icon: "💬" };
+                  const st = STATUS_CONFIG[msg.status] || { text: msg.status, bg: "bg-gray-100", textColor: "text-gray-600", dot: "bg-gray-400" };
+                  return (
+                    <div key={msg.id} className="px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-xs text-gray-500">{tp.icon} {tp.text}</span>
+                            <span className="text-[11px] text-gray-400">{formatDate(msg.sent_at)}</span>
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${st.bg} ${st.textColor}`}>
+                              <span className={`w-1 h-1 rounded-full ${st.dot}`} />
+                              {st.text}
+                            </span>
+                          </div>
+                          <p className="text-xs font-medium text-gray-700 mb-0.5">{msg.patient_name}</p>
+                          <p className="text-xs text-gray-500 truncate">{msg.content}</p>
                         </div>
-                        <p className="text-xs font-medium text-gray-700 mb-0.5">{msg.patient_name}</p>
-                        <p className="text-xs text-gray-500 truncate">{msg.content}</p>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

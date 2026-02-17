@@ -215,6 +215,184 @@ describe("IntakeFormUpdateSchema", () => {
   });
 });
 
+// ---------- adminLoginSchema: 境界値テスト ----------
+describe("adminLoginSchema — 境界値", () => {
+  it("email 255文字超 → エラー", () => {
+    const result = adminLoginSchema.safeParse({
+      email: "a".repeat(250) + "@b.com",
+      password: "pw",
+      token: "tk",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("password 200文字超 → エラー", () => {
+    const result = adminLoginSchema.safeParse({
+      email: "admin@example.com",
+      password: "a".repeat(201),
+      token: "tk",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("token 200文字超 → エラー", () => {
+    const result = adminLoginSchema.safeParse({
+      email: "admin@example.com",
+      password: "pw",
+      token: "a".repeat(201),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("フィールド欠損 → エラー", () => {
+    expect(adminLoginSchema.safeParse({ email: "a@b.com" }).success).toBe(false);
+    expect(adminLoginSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+// ---------- checkoutSchema: 詳細テスト ----------
+describe("checkoutSchema — 詳細", () => {
+  it("productCode 100文字超 → エラー", () => {
+    const result = checkoutSchema.safeParse({ productCode: "a".repeat(101), mode: "current" });
+    expect(result.success).toBe(false);
+  });
+
+  it("mode: current/first/reorder の3種", () => {
+    for (const mode of ["current", "first", "reorder"]) {
+      expect(checkoutSchema.safeParse({ productCode: "X", mode }).success).toBe(true);
+    }
+  });
+
+  it("mode 欠損 → エラー", () => {
+    expect(checkoutSchema.safeParse({ productCode: "X" }).success).toBe(false);
+  });
+
+  it("productCode 欠損 → エラー", () => {
+    expect(checkoutSchema.safeParse({ mode: "current" }).success).toBe(false);
+  });
+});
+
+// ---------- reorderApplySchema: 詳細テスト ----------
+describe("reorderApplySchema — 詳細", () => {
+  it("productCode 100文字超 → エラー", () => {
+    expect(reorderApplySchema.safeParse({ productCode: "a".repeat(101) }).success).toBe(false);
+  });
+
+  it("patientId はオプション", () => {
+    const result = reorderApplySchema.safeParse({ productCode: "MJL_5mg_1m", patientId: "p-abc" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.patientId).toBe("p-abc");
+  });
+
+  it("フィールド欠損 → エラー", () => {
+    expect(reorderApplySchema.safeParse({}).success).toBe(false);
+  });
+});
+
+// ---------- IntakeFormUpdateSchema: 詳細テスト ----------
+describe("IntakeFormUpdateSchema — 詳細", () => {
+  const validField = {
+    id: "field-1",
+    type: "text" as const,
+    label: "お名前",
+    required: true,
+    sort_order: 0,
+  };
+
+  const validSettings = {
+    step_by_step: true,
+    header_title: "問診票",
+  };
+
+  it("field.type が 6種類全て対応", () => {
+    const types = ["text", "textarea", "radio", "dropdown", "checkbox", "heading"] as const;
+    for (const type of types) {
+      const result = IntakeFormUpdateSchema.safeParse({
+        fields: [{ ...validField, type }],
+        settings: validSettings,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it("field.label 空文字 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [{ ...validField, label: "" }],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("options の label 空文字 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [{
+        ...validField,
+        type: "radio",
+        options: [{ label: "", value: "x" }],
+      }],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("options の value 空文字 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [{
+        ...validField,
+        type: "radio",
+        options: [{ label: "はい", value: "" }],
+      }],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("sort_order が負の数 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [{ ...validField, sort_order: -1 }],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("sort_order が小数 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [{ ...validField, sort_order: 1.5 }],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("name 200文字超 → エラー", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      name: "a".repeat(201),
+      fields: [validField],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("settings.ng_block オプション", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [validField],
+      settings: {
+        ...validSettings,
+        ng_block_title: "NGタイトル",
+        ng_block_message: "受付不可メッセージ",
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fields 空配列 → 成功", () => {
+    const result = IntakeFormUpdateSchema.safeParse({
+      fields: [],
+      settings: validSettings,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 // ---------- parseBody ----------
 describe("parseBody", () => {
   it("正常なリクエストで {data} を返す", async () => {

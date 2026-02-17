@@ -2,15 +2,24 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSetting, setSetting, getSettingOrEnv } from "@/lib/settings";
 import { withTenant } from "@/lib/tenant";
+import {
+  getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
+  matchBehaviorCondition,
+} from "@/lib/behavior-filters";
 
 export interface MenuRuleCondition {
-  type: "tag" | "mark" | "field";
+  type: "tag" | "mark" | "field" | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count";
   tag_ids?: number[];
   tag_match?: "any" | "all"; // any=いずれか, all=すべて
   mark_values?: string[];
   field_id?: number;
   field_operator?: string; // "=" | "!=" | "contains" | ">" | "<"
   field_value?: string;
+  // 行動データ条件
+  behavior_operator?: string;
+  behavior_value?: string;
+  behavior_value_end?: string;
+  behavior_date_range?: string;
 }
 
 export interface MenuAutoRule {
@@ -60,9 +69,36 @@ export async function evaluateMenuRules(patientId: string, tenantId?: string): P
   const patientMark = markRes.data?.mark || "none";
   const fieldMap = new Map((fieldsRes.data || []).map(f => [f.field_id, f.value]));
 
+  // 行動データ条件があるかチェックし、必要なら一括取得
+  const hasBehavior = activeRules.some(r =>
+    r.conditions.some(c => ["visit_count", "purchase_amount", "last_visit", "reorder_count"].includes(c.type))
+  );
+
+  let behaviorData: {
+    visitCount: number;
+    purchaseAmount: number;
+    lastVisit: string | null;
+    reorderCount: number;
+  } | null = null;
+
+  if (hasBehavior) {
+    const [vc, pa, lv, rc] = await Promise.all([
+      getVisitCounts([patientId], undefined, tid),
+      getPurchaseAmounts([patientId], undefined, tid),
+      getLastVisitDates([patientId], tid),
+      getReorderCounts([patientId], tid),
+    ]);
+    behaviorData = {
+      visitCount: vc.get(patientId) || 0,
+      purchaseAmount: pa.get(patientId) || 0,
+      lastVisit: lv.get(patientId) || null,
+      reorderCount: rc.get(patientId) || 0,
+    };
+  }
+
   // ルールを優先順に評価
   for (const rule of activeRules) {
-    if (matchesRule(rule, patientTagIds, patientMark, fieldMap)) {
+    if (matchesRule(rule, patientTagIds, patientMark, fieldMap, behaviorData)) {
       await assignMenu(lineId, rule.target_menu_id, tenantId);
       return;
     }
@@ -75,10 +111,11 @@ function matchesRule(
   tagIds: Set<number>,
   mark: string,
   fields: Map<number, string>,
+  behavior: { visitCount: number; purchaseAmount: number; lastVisit: string | null; reorderCount: number } | null,
 ): boolean {
   if (rule.conditions.length === 0) return false;
 
-  const results = rule.conditions.map(c => matchesCondition(c, tagIds, mark, fields));
+  const results = rule.conditions.map(c => matchesCondition(c, tagIds, mark, fields, behavior));
   return rule.conditionOperator === "OR"
     ? results.some(Boolean)
     : results.every(Boolean);
@@ -90,6 +127,7 @@ function matchesCondition(
   tagIds: Set<number>,
   mark: string,
   fields: Map<number, string>,
+  behavior: { visitCount: number; purchaseAmount: number; lastVisit: string | null; reorderCount: number } | null,
 ): boolean {
   switch (cond.type) {
     case "tag": {
@@ -105,6 +143,23 @@ function matchesCondition(
     case "field": {
       const val = fields.get(cond.field_id || 0) || "";
       return matchFieldValue(val, cond.field_operator || "=", cond.field_value || "");
+    }
+    case "visit_count": {
+      if (!behavior) return false;
+      return matchBehaviorCondition(behavior.visitCount, cond.behavior_operator || ">=", cond.behavior_value || "0", cond.behavior_value_end);
+    }
+    case "purchase_amount": {
+      if (!behavior) return false;
+      return matchBehaviorCondition(behavior.purchaseAmount, cond.behavior_operator || ">=", cond.behavior_value || "0", cond.behavior_value_end);
+    }
+    case "last_visit": {
+      if (!behavior) return false;
+      if (!behavior.lastVisit) return false;
+      return matchBehaviorCondition(behavior.lastVisit, cond.behavior_operator || "within_days", cond.behavior_value || "30");
+    }
+    case "reorder_count": {
+      if (!behavior) return false;
+      return matchBehaviorCondition(behavior.reorderCount, cond.behavior_operator || ">=", cond.behavior_value || "0", cond.behavior_value_end);
     }
     default:
       return false;

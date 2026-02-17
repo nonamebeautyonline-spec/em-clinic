@@ -14,6 +14,7 @@ const MAIN_TABS = [
   { href: "/admin/line/step-scenarios", label: "ステップ配信" },
   { href: "/admin/line/flex-builder", label: "Flexビルダー" },
   { href: "/admin/line/ab-test", label: "A/Bテスト" },
+  { href: "/admin/line/coupons", label: "クーポン" },
 ];
 
 // 2行目: 設定・管理系
@@ -29,6 +30,8 @@ const SUB_TABS = [
   { href: "/admin/line/messages", label: "送信履歴" },
   { href: "/admin/line/click-analytics", label: "クリック分析" },
   { href: "/admin/line/menu-rules", label: "メニュー自動切替" },
+  { href: "/admin/line/reminder-rules", label: "リマインド" },
+  { href: "/admin/line/nps", label: "NPS" },
   { href: "/admin/line/column-settings", label: "表示設定" },
 ];
 

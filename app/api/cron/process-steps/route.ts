@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
-import { calculateNextSendAt } from "@/lib/step-enrollment";
+import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export const runtime = "nodejs";
@@ -66,6 +66,53 @@ export async function GET() {
         if (!step) {
           // ステップが見つからない → 完了扱い
           await markCompleted(enrollment, tenantId);
+          continue;
+        }
+
+        // 離脱条件チェック（ステップ実行前）
+        const exitRules = step.exit_condition_rules;
+        if (exitRules && Array.isArray(exitRules) && exitRules.length > 0) {
+          const exitMatch = await evaluateStepConditions(exitRules, enrollment.patient_id, tenantId);
+          if (exitMatch) {
+            const exitAction = step.exit_action || "exit";
+            if (exitAction === "exit") {
+              await withTenant(
+                supabaseAdmin
+                  .from("step_enrollments")
+                  .update({ status: "exited", exited_at: now, exit_reason: "condition_failed", next_send_at: null })
+                  .eq("id", enrollment.id),
+                tenantId
+              );
+              processed++;
+              continue;
+            } else if (exitAction === "skip") {
+              await advanceToNextStep(enrollment, tenantId);
+              processed++;
+              continue;
+            } else if (exitAction === "jump" && step.exit_jump_to != null) {
+              await jumpToStep(enrollment.id, step.exit_jump_to, enrollment.scenario_id, tenantId);
+              processed++;
+              continue;
+            }
+          }
+        }
+
+        // 条件分岐ステップの処理
+        if (step.step_type === "condition") {
+          const condRules = step.condition_rules;
+          if (condRules && Array.isArray(condRules) && condRules.length > 0) {
+            const match = await evaluateStepConditions(condRules, enrollment.patient_id, tenantId);
+            if (match && step.branch_true_step != null) {
+              await jumpToStep(enrollment.id, step.branch_true_step, enrollment.scenario_id, tenantId);
+            } else if (!match && step.branch_false_step != null) {
+              await jumpToStep(enrollment.id, step.branch_false_step, enrollment.scenario_id, tenantId);
+            } else {
+              await advanceToNextStep(enrollment, tenantId);
+            }
+          } else {
+            await advanceToNextStep(enrollment, tenantId);
+          }
+          processed++;
           continue;
         }
 

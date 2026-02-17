@@ -9,6 +9,7 @@ import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 async function pushToGroup(text: string, token: string, groupId: string) {
   if (!token || !groupId) return;
@@ -193,6 +194,10 @@ export async function POST(req: NextRequest) {
     );
 
     logAudit(req, "reorder.approve", "reorder", String(id), { patient_id: reorderData.patient_id });
+
+    // リッチメニュー自動切替（fire-and-forget）
+    evaluateMenuRules(reorderData.patient_id, tenantId ?? undefined).catch(() => {});
+
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {
     console.error("API error:", error);

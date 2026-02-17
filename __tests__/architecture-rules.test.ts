@@ -141,3 +141,129 @@ describe("テナント分離: supabaseAdmin直接クエリにwithTenant適用", 
     expect(src).toContain("resolveTenantId");
   });
 });
+
+// ===================================================================
+// マルチテナント: withTenant/resolveTenantId 全ルート監査
+// supabaseAdmin で DB 操作する全ルートがテナント分離対応であること
+// ===================================================================
+describe("テナント分離: 全APIルートの withTenant 適用監査", () => {
+  // テナント対応不要なルート（DB操作なし or テナント概念なし）
+  const TENANT_EXEMPT_ROUTES = new Set([
+    "app/api/csrf-token/route.ts",
+    "app/api/health/route.ts",
+  ]);
+
+  function findRouteFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findRouteFiles(full));
+      } else if (entry.name === "route.ts") {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  it("supabaseAdmin をインポートしている全ルートが withTenant or resolveTenantId を使用している", () => {
+    const apiDir = path.resolve(process.cwd(), "app/api");
+    const routes = findRouteFiles(apiDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const relativePath = path.relative(process.cwd(), routePath);
+      if (TENANT_EXEMPT_ROUTES.has(relativePath)) continue;
+
+      const src = fs.readFileSync(routePath, "utf-8");
+      if (src.includes("supabaseAdmin")) {
+        const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");
+        if (!hasTenant) {
+          violations.push(relativePath);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+// ===================================================================
+// supabaseAdmin 使用監査:
+// 重要ルートが anon key を誤って使わないこと
+// ===================================================================
+describe("supabaseAdmin: 重要ルートの使用確認", () => {
+  const CRITICAL_ROUTES = [
+    "app/api/intake/route.ts",
+    "app/api/checkout/route.ts",
+    "app/api/reorder/apply/route.ts",
+    "app/api/bank-transfer/shipping/route.ts",
+    "app/api/admin/reorders/approve/route.ts",
+    "app/api/admin/patientbundle/route.ts",
+  ];
+
+  for (const route of CRITICAL_ROUTES) {
+    it(`${route} は supabaseAdmin を使っている`, () => {
+      const src = readFile(route);
+      expect(src).toContain("supabaseAdmin");
+    });
+  }
+});
+
+// ===================================================================
+// 電話番号正規化: normalizeJPPhone 適用監査
+// 電話番号を保存するルートが正規化を適用していること
+// ===================================================================
+describe("normalizeJPPhone: 電話番号保存ルートの正規化適用", () => {
+  const PHONE_ROUTES = [
+    { file: "app/api/intake/route.ts", description: "intake保存" },
+    { file: "app/api/square/webhook/route.ts", description: "Square決済webhook" },
+    { file: "app/api/bank-transfer/shipping/route.ts", description: "銀行振込配送" },
+    { file: "app/api/admin/patientbundle/route.ts", description: "patientbundle表示" },
+  ];
+
+  for (const { file, description } of PHONE_ROUTES) {
+    it(`${description}（${file}）で normalizeJPPhone をインポートしている`, () => {
+      const src = readFile(file);
+      expect(src).toContain("normalizeJPPhone");
+    });
+  }
+});
+
+// ===================================================================
+// intake upsert 禁止: 全ルートで intake に upsert していないこと
+// ===================================================================
+describe("intake upsert禁止: 全ルート監査", () => {
+  function findRouteFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findRouteFiles(full));
+      } else if (entry.name === "route.ts") {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  it("全ルートで intake テーブルに upsert していない", () => {
+    const apiDir = path.resolve(process.cwd(), "app/api");
+    const routes = findRouteFiles(apiDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const src = fs.readFileSync(routePath, "utf-8");
+      // intake テーブルに対する upsert を検出
+      if (src.match(/\.from\(\s*["']intake["']\s*\)[\s\S]{0,200}\.upsert\(/)) {
+        violations.push(path.relative(process.cwd(), routePath));
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});

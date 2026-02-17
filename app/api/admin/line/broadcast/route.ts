@@ -3,6 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import {
+  getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
+  matchBehaviorCondition
+} from "@/lib/behavior-filters";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,6 +32,9 @@ interface FilterCondition {
   field_id?: number;
   operator?: string;
   value?: string;
+  // 行動データフィルタ用
+  value_end?: string;
+  date_range?: string;
 }
 
 interface FilterRules {
@@ -334,6 +341,58 @@ async function applyCondition(
     case "has_line_uid": {
       if (isInclude) return targets.filter(t => !!t.line_id);
       return targets.filter(t => !t.line_id);
+    }
+
+    case "visit_count": {
+      const pids = targets.map(t => t.patient_id);
+      const counts = await getVisitCounts(pids, condition.date_range, tenantId);
+      const matchSet = new Set<string>();
+      for (const [pid, count] of counts) {
+        if (matchBehaviorCondition(count, condition.operator || ">=", condition.value || "0", condition.value_end)) {
+          matchSet.add(pid);
+        }
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "purchase_amount": {
+      const pids = targets.map(t => t.patient_id);
+      const amounts = await getPurchaseAmounts(pids, condition.date_range, tenantId);
+      const matchSet = new Set<string>();
+      for (const [pid, amount] of amounts) {
+        if (matchBehaviorCondition(amount, condition.operator || ">=", condition.value || "0", condition.value_end)) {
+          matchSet.add(pid);
+        }
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "last_visit": {
+      const pids = targets.map(t => t.patient_id);
+      const dates = await getLastVisitDates(pids, tenantId);
+      const matchSet = new Set<string>();
+      for (const [pid, date] of dates) {
+        if (date && matchBehaviorCondition(date, condition.operator || "within_days", condition.value || "30")) {
+          matchSet.add(pid);
+        }
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "reorder_count": {
+      const pids = targets.map(t => t.patient_id);
+      const counts = await getReorderCounts(pids, tenantId);
+      const matchSet = new Set<string>();
+      for (const [pid, count] of counts) {
+        if (matchBehaviorCondition(count, condition.operator || ">=", condition.value || "0", condition.value_end)) {
+          matchSet.add(pid);
+        }
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
     }
 
     default:

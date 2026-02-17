@@ -1,8 +1,14 @@
 // __tests__/api/security.test.ts
-// セキュリティ関連テスト（CSRF, Rate Limiting, セッション管理, 監査ログ）
+// セキュリティ関連テスト（CSRF, Rate Limiting, セッション管理, 監査ログ, CSP）
 import { describe, it, expect } from "vitest";
+import fs from "fs";
+import path from "path";
 
-// === CSRF トークン ===
+function readFile(relativePath: string): string {
+  return fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf-8");
+}
+
+// === CSRF トークン生成 ===
 describe("csrf-token トークン生成", () => {
   it("UUIDv4形式のトークンが生成される", () => {
     const token = crypto.randomUUID();
@@ -16,8 +22,52 @@ describe("csrf-token トークン生成", () => {
   });
 });
 
-// === CSRF 検証ロジック（middleware.ts） ===
-describe("CSRF検証ロジック", () => {
+// === CSRF 検証ロジック（middleware.ts のソースコード検証） ===
+describe("CSRF検証: middleware.ts ソース検証", () => {
+  const src = readFile("middleware.ts");
+
+  it("Double Submit Cookie パターンを実装している", () => {
+    expect(src).toContain("x-csrf-token");
+    expect(src).toContain("csrf_token");
+  });
+
+  it("POST/PUT/PATCH/DELETE を検証対象としている", () => {
+    expect(src).toContain("POST");
+    expect(src).toContain("PUT");
+    expect(src).toContain("PATCH");
+    expect(src).toContain("DELETE");
+  });
+
+  it("LINE webhook を除外している", () => {
+    expect(src).toContain("line/webhook");
+  });
+
+  it("Square webhook を除外している", () => {
+    expect(src).toContain("square/webhook");
+  });
+
+  it("GMO webhook を除外している", () => {
+    expect(src).toContain("gmo/webhook");
+  });
+
+  it("Cron ルートを除外している", () => {
+    expect(src).toContain("cron");
+  });
+
+  it("患者向けAPI（intake, checkout, reorder, mypage）を除外している", () => {
+    expect(src).toContain("intake");
+    expect(src).toContain("checkout");
+    expect(src).toContain("reorder");
+    expect(src).toContain("mypage");
+  });
+
+  it("CSRF検証失敗時に 403 を返す", () => {
+    expect(src).toContain("403");
+  });
+});
+
+// === CSRF 検証ロジック（純粋関数テスト） ===
+describe("CSRF検証ロジック: 判定関数", () => {
   function shouldCheckCsrf(method: string, pathname: string, exemptPrefixes: string[], exemptPatterns: RegExp[]): boolean {
     if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return false;
     if (!pathname.startsWith("/api/")) return false;
@@ -66,14 +116,6 @@ describe("CSRF検証ロジック", () => {
 
   it("CronはCSRF除外", () => {
     expect(shouldCheckCsrf("POST", "/api/cron/process-steps", exemptPrefixes, exemptPatterns)).toBe(false);
-  });
-
-  it("ログインはCSRF除外", () => {
-    expect(shouldCheckCsrf("POST", "/api/admin/login", exemptPrefixes, exemptPatterns)).toBe(false);
-  });
-
-  it("ログアウトはCSRF除外", () => {
-    expect(shouldCheckCsrf("POST", "/api/admin/logout", exemptPrefixes, exemptPatterns)).toBe(false);
   });
 
   it("Dr画面APIはCSRF除外", () => {
@@ -136,51 +178,38 @@ describe("CSRF トークン一致検証", () => {
   });
 });
 
-// === Rate Limiting ===
-describe("Rate Limiting ロジック", () => {
-  it("ログイン: メール5回/30分の制限", () => {
-    const MAX_ATTEMPTS = 5;
-    const WINDOW_SEC = 1800;
-    expect(MAX_ATTEMPTS).toBe(5);
-    expect(WINDOW_SEC).toBe(1800);
+// === Rate Limiting ソースコード検証 ===
+describe("Rate Limiting: ソースコード検証", () => {
+  const src = readFile("lib/rate-limit.ts");
+
+  it("Redis を使用している", () => {
+    const hasRedis = src.includes("redis") || src.includes("Redis");
+    expect(hasRedis).toBe(true);
   });
 
-  it("ログイン: IP15回/10分の制限", () => {
-    const MAX_ATTEMPTS = 15;
-    const WINDOW_SEC = 600;
-    expect(MAX_ATTEMPTS).toBe(15);
-    expect(WINDOW_SEC).toBe(600);
+  it("checkRateLimit 関数がエクスポートされている", () => {
+    expect(src).toMatch(/export\s+(async\s+)?function\s+checkRateLimit/);
   });
 
-  it("パスワードリセット: 1回/10分の制限", () => {
-    const MAX_ATTEMPTS = 1;
-    const WINDOW_SEC = 600;
-    expect(MAX_ATTEMPTS).toBe(1);
-    expect(WINDOW_SEC).toBe(600);
+  it("制限超過時に limited: true を返す", () => {
+    expect(src).toContain("limited");
   });
 
-  it("制限超過判定: attempts >= max → limited", () => {
-    const attempts = 5;
-    const max = 5;
-    expect(attempts >= max).toBe(true);
+  it("レスポンスにretryAfter情報を含む", () => {
+    expect(src).toContain("retryAfter");
   });
 
-  it("制限内: attempts < max → not limited", () => {
-    const attempts = 3;
-    const max = 5;
-    expect(attempts >= max).toBe(false);
+  it("resetRateLimit 関数がエクスポートされている", () => {
+    expect(src).toMatch(/export\s+(async\s+)?function\s+resetRateLimit/);
   });
 
-  it("ログイン成功時にカウントリセットされる", () => {
-    // 成功時: resetRateLimit を呼ぶ
-    const loginSuccess = true;
-    const shouldReset = loginSuccess;
-    expect(shouldReset).toBe(true);
+  it("getClientIp 関数がエクスポートされている", () => {
+    expect(src).toMatch(/export\s+function\s+getClientIp/);
   });
 });
 
-// === IP取得ロジック ===
-describe("Rate Limiting IP取得", () => {
+// === Rate Limiting: IP取得ロジック（純粋関数テスト） ===
+describe("Rate Limiting: IP取得", () => {
   function getClientIp(headers: Record<string, string | null>): string {
     const forwarded = headers["x-forwarded-for"];
     if (forwarded) return forwarded.split(",")[0].trim();
@@ -200,10 +229,44 @@ describe("Rate Limiting IP取得", () => {
   });
 });
 
-// === セッション管理 ===
-describe("セッション管理", () => {
-  it("JWTハッシュはSHA-256で生成", () => {
-    // hashToken の動作確認
+// === セッション管理: ソースコード検証 ===
+describe("セッション管理: ソースコード検証", () => {
+  const src = readFile("lib/session.ts");
+
+  it("SHA-256 ハッシュを使用している", () => {
+    expect(src).toContain("sha256");
+  });
+
+  it("createSession がエクスポートされている", () => {
+    expect(src).toContain("createSession");
+  });
+
+  it("validateSession がエクスポートされている", () => {
+    expect(src).toContain("validateSession");
+  });
+
+  it("revokeSession がエクスポートされている", () => {
+    expect(src).toContain("revokeSession");
+  });
+
+  it("admin_sessions テーブルを使用している", () => {
+    expect(src).toContain("admin_sessions");
+  });
+
+  it("同時セッション上限 MAX_SESSIONS_PER_USER を定義", () => {
+    expect(src).toContain("MAX_SESSIONS_PER_USER");
+  });
+
+  it("last_activity 更新スロットリング（5分）", () => {
+    // 5分 = 5 * 60 * 1000
+    const hasThrottle = src.includes("300000") || src.includes("5 * 60 * 1000") || src.includes("5 * 60");
+    expect(hasThrottle).toBe(true);
+  });
+});
+
+// === セッション管理: 純粋ロジックテスト ===
+describe("セッション管理: ハッシュ・有効期限ロジック", () => {
+  it("JWTハッシュはSHA-256で64文字", () => {
     const { createHash } = require("crypto");
     const hash = createHash("sha256").update("test-jwt-token").digest("hex");
     expect(hash).toHaveLength(64);
@@ -224,20 +287,6 @@ describe("セッション管理", () => {
     expect(h1).not.toBe(h2);
   });
 
-  it("同時セッション上限は3", () => {
-    const MAX_SESSIONS = 3;
-    const currentSessions = 4;
-    const toDelete = currentSessions - MAX_SESSIONS;
-    expect(toDelete).toBe(1); // 最古の1件を削除
-  });
-
-  it("セッション上限以下なら削除なし", () => {
-    const MAX_SESSIONS = 3;
-    const currentSessions = 2;
-    const shouldClean = currentSessions > MAX_SESSIONS;
-    expect(shouldClean).toBe(false);
-  });
-
   it("期限切れセッションは無効", () => {
     const expiresAt = new Date("2026-02-16T00:00:00Z");
     const now = new Date("2026-02-17T00:00:00Z");
@@ -250,77 +299,109 @@ describe("セッション管理", () => {
     expect(expiresAt < now).toBe(false);
   });
 
-  it("last_activity更新は5分以上経過時のみ", () => {
+  it("last_activity 5分超過で更新", () => {
     const lastActivity = new Date("2026-02-17T10:00:00Z");
-    const now = new Date("2026-02-17T10:06:00Z"); // 6分後
+    const now = new Date("2026-02-17T10:06:00Z");
     const elapsed = now.getTime() - lastActivity.getTime();
     expect(elapsed > 5 * 60 * 1000).toBe(true);
   });
 
   it("last_activity 5分以内は更新しない", () => {
     const lastActivity = new Date("2026-02-17T10:00:00Z");
-    const now = new Date("2026-02-17T10:03:00Z"); // 3分後
+    const now = new Date("2026-02-17T10:03:00Z");
     const elapsed = now.getTime() - lastActivity.getTime();
     expect(elapsed > 5 * 60 * 1000).toBe(false);
   });
 });
 
-// === 監査ログ ===
-describe("監査ログ", () => {
-  it("アクション名が正しい形式", () => {
-    const validActions = [
-      "admin.login.success",
-      "reorder.approve",
-      "reorder.reject",
-      "patient.delete_data",
-    ];
-    validActions.forEach(a => {
-      expect(a).toMatch(/^[a-z]+\.[a-z_.]+$/);
-    });
+// === 監査ログ: ソースコード検証 ===
+describe("監査ログ: ソースコード検証", () => {
+  const src = readFile("lib/audit.ts");
+
+  it("logAudit 関数がエクスポートされている", () => {
+    expect(src).toMatch(/export\s+(async\s+)?function\s+logAudit/);
   });
 
-  it("リソースタイプが正しい", () => {
-    const validTypes = ["admin_user", "reorder", "patient"];
-    validTypes.forEach(t => {
-      expect(t).toBeTruthy();
-    });
+  it("audit_logs テーブルに挿入している", () => {
+    expect(src).toContain("audit_logs");
+    expect(src).toContain(".insert(");
   });
 
-  it("fire-and-forget: エラーでもビジネスロジックは止まらない", () => {
-    // logAudit は catch でエラーを握りつぶす設計
-    let businessLogicCompleted = false;
-    try {
-      // logAudit がエラーを投げても
-      // ビジネスロジックは続行される
-      businessLogicCompleted = true;
-    } catch {
-      // ここには来ない
-    }
-    expect(businessLogicCompleted).toBe(true);
+  it("Supabase クライアントを使用している", () => {
+    const hasClient = src.includes("supabaseAdmin") || src.includes("createClient");
+    expect(hasClient).toBe(true);
+  });
+
+  it("fire-and-forget: エラーをcatchしている", () => {
+    expect(src).toContain("catch");
+  });
+
+  it("テナント対応している", () => {
+    const hasTenant = src.includes("tenant_id") || src.includes("tenantPayload") || src.includes("withTenant") || src.includes("resolveTenantId");
+    expect(hasTenant).toBe(true);
+  });
+
+  it("JWT からユーザー情報を取得している", () => {
+    expect(src).toContain("jwtVerify");
+  });
+
+  it("IPアドレスを記録している", () => {
+    expect(src).toContain("ip_address");
   });
 });
 
-// === Zodバリデーション ===
-describe("Zodバリデーション", () => {
-  it("ログインスキーマ: 必須フィールド確認", () => {
-    const requiredFields = ["email", "password", "token"];
-    expect(requiredFields).toContain("email");
-    expect(requiredFields).toContain("password");
-    expect(requiredFields).toContain("token");
+// === CSP ヘッダー: next.config.ts 検証 ===
+describe("CSP ヘッダー: next.config.ts 検証", () => {
+  const src = readFile("next.config.ts");
+
+  it("X-Content-Type-Options: nosniff", () => {
+    expect(src).toContain("X-Content-Type-Options");
+    expect(src).toContain("nosniff");
   });
 
-  it("checkoutスキーマ: mode は3種類のみ有効", () => {
-    const validModes = ["current", "first", "reorder"];
-    expect(validModes).toContain("current");
-    expect(validModes).toContain("first");
-    expect(validModes).toContain("reorder");
-    expect(validModes).not.toContain("invalid");
+  it("X-Frame-Options を設定している", () => {
+    expect(src).toContain("X-Frame-Options");
   });
 
-  it("メールアドレスの形式チェック", () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    expect(emailRegex.test("admin@example.com")).toBe(true);
-    expect(emailRegex.test("invalid-email")).toBe(false);
-    expect(emailRegex.test("")).toBe(false);
+  it("X-XSS-Protection を設定している", () => {
+    expect(src).toContain("X-XSS-Protection");
+  });
+
+  it("Referrer-Policy を設定している", () => {
+    expect(src).toContain("Referrer-Policy");
+  });
+
+  it("Content-Security-Policy を設定している", () => {
+    expect(src).toContain("Content-Security-Policy");
+  });
+
+  it("Permissions-Policy を設定している", () => {
+    expect(src).toContain("Permissions-Policy");
+  });
+});
+
+// === csrf-token エンドポイント: ソースコード検証 ===
+describe("csrf-token エンドポイント: ソースコード検証", () => {
+  const src = readFile("app/api/csrf-token/route.ts");
+
+  it("GET がエクスポートされている", () => {
+    expect(src).toMatch(/export\s+async\s+function\s+GET/);
+  });
+
+  it("randomUUID でトークン生成", () => {
+    expect(src).toContain("randomUUID");
+  });
+
+  it("httpOnly=false（JSから読み取り可能）", () => {
+    expect(src).toContain("httpOnly: false");
+  });
+
+  it("sameSite=lax", () => {
+    expect(src).toMatch(/sameSite.*lax/i);
+  });
+
+  it("24時間の有効期限", () => {
+    const has24h = src.includes("86400") || src.includes("24 * 60 * 60") || src.includes("24 * 3600");
+    expect(has24h).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 export const runtime = "nodejs";
 
@@ -208,6 +209,9 @@ export async function POST(req: Request) {
 
         // キャッシュ削除
         await invalidateDashboardCache(patientId);
+
+        // リッチメニュー自動切替（fire-and-forget）
+        evaluateMenuRules(patientId, tenantId ?? undefined).catch(() => {});
       }
 
       return new NextResponse("ok", { status: 200 });

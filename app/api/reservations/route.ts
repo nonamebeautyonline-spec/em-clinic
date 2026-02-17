@@ -9,6 +9,7 @@ import {
   sendReservationNotification,
 } from "@/lib/reservation-flex";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -668,6 +669,11 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           console.error("[reservations] LINE notification error:", err);
         }
+      }
+
+      // リッチメニュー自動切替（fire-and-forget）
+      if (pid) {
+        evaluateMenuRules(pid, tenantId ?? undefined).catch(() => {});
       }
 
       return NextResponse.json({
