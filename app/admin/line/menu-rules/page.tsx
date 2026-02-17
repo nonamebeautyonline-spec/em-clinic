@@ -146,146 +146,187 @@ export default function MenuRulesPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#06C755] border-t-transparent" />
-      </div>
-    );
-  }
+  const activeCount = rules.filter(r => r.enabled).length;
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+    <div className="min-h-full bg-gray-50/50">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">メニュー自動切替</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            タグ・マーク・友だち情報の条件に応じてリッチメニューを自動で切り替えます
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleSyncAll}
-            disabled={syncing}
-            className="px-4 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-          >
-            {syncing ? (
-              <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            )}
-            全員に適用
-          </button>
-          <button
-            onClick={() => { setEditRule(null); setShowEditor(true); }}
-            className="px-4 py-2 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b04a] rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            ルール追加
-          </button>
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-.293.707l-5.414 5.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L4.293 7.707A1 1 0 014 7V5z" />
+                  </svg>
+                </div>
+                メニュー自動切替
+              </h1>
+              <p className="text-sm text-gray-400 mt-1">タグ・マーク・友だち情報の条件に応じてリッチメニューを自動で切り替えます</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSyncAll}
+                disabled={syncing}
+                className="px-4 py-2.5 text-sm font-medium text-teal-600 bg-white border border-teal-200 rounded-xl hover:bg-teal-50 transition-all duration-200 flex items-center gap-1.5"
+              >
+                {syncing ? (
+                  <div className="w-3.5 h-3.5 border-2 border-teal-300 border-t-teal-600 rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                全員に適用
+              </button>
+              <button
+                onClick={() => { setEditRule(null); setShowEditor(true); }}
+                className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-xl text-sm font-medium hover:from-teal-600 hover:to-cyan-700 shadow-lg shadow-teal-500/25 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                ルール追加
+              </button>
+            </div>
+          </div>
+
+          {/* サマリーカード */}
+          {rules.length > 0 && (
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-4 border border-teal-100/50">
+                <div className="text-2xl font-bold text-teal-700">{rules.length}</div>
+                <div className="text-xs text-teal-500 mt-0.5">ルール数</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100/50">
+                <div className="text-2xl font-bold text-green-700">{activeCount}</div>
+                <div className="text-xs text-green-500 mt-0.5">有効</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-4 border border-blue-100/50">
+                <div className="text-2xl font-bold text-blue-700">{menus.filter(m => m.is_active).length}</div>
+                <div className="text-xs text-blue-500 mt-0.5">アクティブメニュー</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ルール一覧 */}
-      {rules.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-.293.707l-5.414 5.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L4.293 7.707A1 1 0 014 7V5z" />
-            </svg>
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-teal-200 border-t-teal-500 rounded-full animate-spin" />
+              <span className="text-sm text-gray-400">読み込み中...</span>
+            </div>
           </div>
-          <p className="text-sm text-gray-500">ルールがありません</p>
-          <p className="text-xs text-gray-400 mt-1">条件に応じたメニュー自動切替ルールを追加してください</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {rules.sort((a, b) => a.priority - b.priority).map((rule, idx) => (
-            <div
-              key={rule.id}
-              className={`bg-white rounded-xl border p-4 transition-all ${
-                rule.enabled ? "border-gray-200" : "border-gray-100 opacity-60"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                {/* 優先順位 */}
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500">
-                  {idx + 1}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  {/* ルール名 + メニュー */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-bold text-gray-900">{rule.name}</span>
-                    <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                    <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg">
-                      {getMenuName(rule.target_menu_id)}
-                    </span>
+        ) : rules.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-16 h-16 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-.293.707l-5.414 5.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L4.293 7.707A1 1 0 014 7V5z" />
+              </svg>
+            </div>
+            <p className="text-gray-400 text-sm">ルールがありません</p>
+            <p className="text-gray-300 text-xs mt-1">条件に応じたメニュー自動切替ルールを追加してください</p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {rules.sort((a, b) => a.priority - b.priority).map((rule, idx) => (
+              <div
+                key={rule.id}
+                className={`bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all duration-200 group ${
+                  !rule.enabled ? "opacity-60" : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* 優先順位 */}
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                    rule.enabled
+                      ? "bg-gradient-to-br from-teal-500 to-cyan-600 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}>
+                    {idx + 1}
                   </div>
-                  {/* 条件 */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {rule.conditions.map((c, ci) => (
-                      <span key={ci} className="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-600 rounded-md border border-gray-100">
-                        {describeCondition(c)}
-                        {ci < rule.conditions.length - 1 && (
-                          <span className="ml-1 text-gray-400">{rule.conditionOperator}</span>
-                        )}
+
+                  <div className="flex-1 min-w-0">
+                    {/* ルール名 + メニュー */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[15px] font-semibold text-gray-900">{rule.name}</span>
+                      <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                      <span className="text-xs font-medium text-teal-700 bg-gradient-to-r from-teal-50 to-cyan-50 px-2 py-0.5 rounded-lg border border-teal-100/50">
+                        {getMenuName(rule.target_menu_id)}
                       </span>
-                    ))}
+                    </div>
+                    {/* 条件 */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {rule.conditions.map((c, ci) => (
+                        <span key={ci} className="text-[11px] px-2 py-0.5 bg-gray-50/80 text-gray-600 rounded-md border border-gray-100">
+                          {describeCondition(c)}
+                          {ci < rule.conditions.length - 1 && (
+                            <span className="ml-1 text-gray-400">{rule.conditionOperator}</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* 操作 */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => { setEditRule(rule); setShowEditor(true); }}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(rule.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleToggle(rule)}
-                    className={`w-10 h-5 rounded-full relative transition-colors ${
-                      rule.enabled ? "bg-[#06C755]" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-                      style={{ left: 2, transform: rule.enabled ? "translateX(20px)" : "translateX(0)" }}
-                    />
-                  </button>
+                  {/* 操作 */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => { setEditRule(rule); setShowEditor(true); }}
+                      className="px-3 py-1.5 text-xs font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      編集
+                    </button>
+                    <button
+                      onClick={() => handleDelete(rule.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleToggle(rule)}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${
+                        rule.enabled ? "bg-[#06C755]" : "bg-gray-300"
+                      }`}
+                      title={rule.enabled ? "停止する" : "有効にする"}
+                    >
+                      <span
+                        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          rule.enabled ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {/* 説明 */}
-      <div className="mt-8 bg-blue-50 rounded-xl p-4 border border-blue-100">
-        <h3 className="text-xs font-bold text-blue-700 mb-2">使い方</h3>
-        <ul className="text-xs text-blue-600 space-y-1">
-          <li>- ルールは優先順位の高い順（番号が小さい順）に評価されます</li>
-          <li>- 最初にマッチしたルールのメニューが適用されます</li>
-          <li>- タグ・マーク・友だち情報の変更時、予約・決済・再処方承認時に自動で評価されます</li>
-          <li>- 「全員に適用」で既存の全LINE連携済みユーザーに一括適用できます</li>
-        </ul>
+        {/* 説明 */}
+        {rules.length > 0 && (
+          <div className="mt-8 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl p-4 border border-teal-100/50">
+            <h3 className="text-xs font-bold text-teal-700 mb-2 flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              使い方
+            </h3>
+            <ul className="text-xs text-teal-600 space-y-1">
+              <li>- ルールは優先順位の高い順（番号が小さい順）に評価されます</li>
+              <li>- 最初にマッチしたルールのメニューが適用されます</li>
+              <li>- タグ・マーク・友だち情報の変更時、予約・決済・再処方承認時に自動で評価されます</li>
+              <li>- 「全員に適用」で既存の全LINE連携済みユーザーに一括適用できます</li>
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* 編集モーダル */}
@@ -364,10 +405,24 @@ function RuleEditor({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">{rule ? "ルール編集" : "ルール追加"}</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-.293.707l-5.414 5.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L4.293 7.707A1 1 0 014 7V5z" />
+                </svg>
+              </div>
+              {rule ? "ルール編集" : "ルール追加"}
+            </h2>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-4">
@@ -379,7 +434,7 @@ function RuleEditor({
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="例: VIPタグ → VIP専用メニュー"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-300"
             />
           </div>
 
@@ -390,7 +445,7 @@ function RuleEditor({
               type="number"
               value={priority}
               onChange={e => setPriority(Number(e.target.value))}
-              className="w-20 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30"
+              className="w-20 px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-300"
             />
           </div>
 
@@ -402,7 +457,7 @@ function RuleEditor({
                 <select
                   value={condOp}
                   onChange={e => setCondOp(e.target.value as "AND" | "OR")}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
+                  className="text-xs border border-gray-200/75 rounded-xl bg-gray-50/50 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
                 >
                   <option value="AND">すべて満たす (AND)</option>
                   <option value="OR">いずれか満たす (OR)</option>
@@ -412,22 +467,22 @@ function RuleEditor({
 
             <div className="space-y-2">
               {conditions.map((c, i) => (
-                <div key={i} className="flex items-start gap-2 bg-gray-50 rounded-lg p-3">
+                <div key={i} className="flex items-start gap-2 bg-gray-50/80 rounded-xl p-3 border border-gray-100">
                   <div className="flex-1 space-y-2">
                     {c.type === "tag" && (
                       <>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 w-12">タグ</span>
+                          <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg">タグ</span>
                           <select
                             value={c.tag_match}
                             onChange={e => updateCondition(i, { tag_match: e.target.value as "any" | "all" })}
-                            className="text-xs border border-gray-200 rounded px-2 py-1"
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                           >
                             <option value="any">いずれかを持つ</option>
                             <option value="all">すべてを持つ</option>
                           </select>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 ml-14">
+                        <div className="flex flex-wrap gap-1.5 ml-0.5">
                           {tags.map(t => (
                             <label key={t.id} className="flex items-center gap-1 text-xs cursor-pointer">
                               <input
@@ -439,7 +494,7 @@ function RuleEditor({
                                     tag_ids: e.target.checked ? [...ids, t.id] : ids.filter(id => id !== t.id),
                                   });
                                 }}
-                                className="w-3 h-3 rounded border-gray-300 text-green-500 focus:ring-green-500/30"
+                                className="w-3 h-3 rounded border-gray-300 text-teal-500 focus:ring-teal-500/30"
                               />
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: t.color + "22", color: t.color }}>
                                 {t.name}
@@ -451,7 +506,7 @@ function RuleEditor({
                     )}
                     {c.type === "mark" && (
                       <div>
-                        <span className="text-xs text-gray-500 mb-1 block">マーク（いずれか一致）</span>
+                        <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg mb-1.5 inline-block">マーク（いずれか一致）</span>
                         <div className="flex flex-wrap gap-1.5">
                           {marks.map(m => (
                             <label key={m.value} className="flex items-center gap-1 text-xs cursor-pointer">
@@ -464,7 +519,7 @@ function RuleEditor({
                                     mark_values: e.target.checked ? [...vals, m.value] : vals.filter(v => v !== m.value),
                                   });
                                 }}
-                                className="w-3 h-3 rounded border-gray-300 text-green-500 focus:ring-green-500/30"
+                                className="w-3 h-3 rounded border-gray-300 text-teal-500 focus:ring-teal-500/30"
                               />
                               <span className="text-[10px] font-medium" style={{ color: m.color }}>{m.label}</span>
                             </label>
@@ -474,18 +529,18 @@ function RuleEditor({
                     )}
                     {c.type === "field" && (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-gray-500">フィールド</span>
+                        <span className="text-xs font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg">フィールド</span>
                         <select
                           value={c.field_id}
                           onChange={e => updateCondition(i, { field_id: Number(e.target.value) })}
-                          className="text-xs border border-gray-200 rounded px-2 py-1"
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                         >
                           {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                         </select>
                         <select
                           value={c.field_operator}
                           onChange={e => updateCondition(i, { field_operator: e.target.value })}
-                          className="text-xs border border-gray-200 rounded px-2 py-1"
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                         >
                           <option value="=">=</option>
                           <option value="!=">!=</option>
@@ -498,20 +553,20 @@ function RuleEditor({
                           value={c.field_value || ""}
                           onChange={e => updateCondition(i, { field_value: e.target.value })}
                           placeholder="値"
-                          className="text-xs border border-gray-200 rounded px-2 py-1 w-24"
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-24"
                         />
                       </div>
                     )}
                     {(c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded">
+                          <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">
                             {c.type === "visit_count" ? "来院回数" : c.type === "purchase_amount" ? "購入金額" : "再処方回数"}
                           </span>
                           <select
                             value={c.behavior_operator || ">="}
                             onChange={e => updateCondition(i, { behavior_operator: e.target.value })}
-                            className="text-xs border border-gray-200 rounded px-2 py-1"
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                           >
                             <option value=">=">以上</option>
                             <option value="<=">以下</option>
@@ -523,7 +578,7 @@ function RuleEditor({
                             value={c.behavior_value || ""}
                             onChange={e => updateCondition(i, { behavior_value: e.target.value })}
                             placeholder={c.type === "purchase_amount" ? "金額(円)" : "回数"}
-                            className="text-xs border border-gray-200 rounded px-2 py-1 w-24"
+                            className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-24"
                           />
                           {c.behavior_operator === "between" && (
                             <>
@@ -533,7 +588,7 @@ function RuleEditor({
                                 value={c.behavior_value_end || ""}
                                 onChange={e => updateCondition(i, { behavior_value_end: e.target.value })}
                                 placeholder={c.type === "purchase_amount" ? "金額(円)" : "回数"}
-                                className="text-xs border border-gray-200 rounded px-2 py-1 w-24"
+                                className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-24"
                               />
                             </>
                           )}
@@ -544,7 +599,7 @@ function RuleEditor({
                             <select
                               value={c.behavior_date_range || "all"}
                               onChange={e => updateCondition(i, { behavior_date_range: e.target.value })}
-                              className="text-xs border border-gray-200 rounded px-2 py-1"
+                              className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                             >
                               <option value="all">全期間</option>
                               <option value="30d">過去30日</option>
@@ -558,11 +613,11 @@ function RuleEditor({
                     )}
                     {c.type === "last_visit" && (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded">最終来院</span>
+                        <span className="text-xs font-medium text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">最終来院</span>
                         <select
                           value={c.behavior_operator || "within_days"}
                           onChange={e => updateCondition(i, { behavior_operator: e.target.value })}
-                          className="text-xs border border-gray-200 rounded px-2 py-1"
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1"
                         >
                           <option value="within_days">N日以内</option>
                           <option value="more_than_days">N日以上前</option>
@@ -572,13 +627,13 @@ function RuleEditor({
                           value={c.behavior_value || ""}
                           onChange={e => updateCondition(i, { behavior_value: e.target.value })}
                           placeholder="日数"
-                          className="text-xs border border-gray-200 rounded px-2 py-1 w-20"
+                          className="text-xs border border-gray-200/75 rounded-lg bg-white px-2 py-1 w-20"
                         />
                         <span className="text-xs text-gray-500">日</span>
                       </div>
                     )}
                   </div>
-                  <button onClick={() => removeCondition(i)} className="p-1 text-gray-400 hover:text-red-500">
+                  <button onClick={() => removeCondition(i)} className="p-1 text-gray-400 hover:text-red-500 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -587,7 +642,7 @@ function RuleEditor({
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-3">
               <button onClick={() => addCondition("tag")} className="px-3 py-1.5 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
                 + タグ条件
               </button>
@@ -620,7 +675,7 @@ function RuleEditor({
             <select
               value={menuId}
               onChange={e => setMenuId(Number(e.target.value))}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-300"
             >
               {menus.filter(m => m.is_active).map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
@@ -633,14 +688,14 @@ function RuleEditor({
         <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
           >
             キャンセル
           </button>
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || !menuId}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#06C755] hover:bg-[#05b04a] disabled:bg-gray-300 rounded-lg transition-colors"
+            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-300 rounded-xl shadow-lg shadow-teal-500/25 transition-all duration-200"
           >
             保存
           </button>

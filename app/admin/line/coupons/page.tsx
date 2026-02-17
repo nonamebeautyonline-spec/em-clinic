@@ -53,51 +53,87 @@ export default function CouponsPage() {
     setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, is_active: !c.is_active } : c));
   };
 
+  const totalIssued = coupons.reduce((sum, c) => sum + c.issued_count, 0);
+  const totalUsed = coupons.reduce((sum, c) => sum + c.used_count, 0);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#06C755] border-t-transparent" />
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+          <span className="text-sm text-gray-400">読み込み中...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    <div className="min-h-full bg-gray-50/50">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">クーポン管理</h1>
-          <p className="text-sm text-gray-500 mt-1">LINE限定クーポンの作成・配布・利用状況を管理します</p>
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                  </svg>
+                </div>
+                クーポン管理
+              </h1>
+              <p className="text-sm text-gray-400 mt-1">LINE限定クーポンの作成・配布・利用状況を管理します</p>
+            </div>
+            <button
+              onClick={() => { setEditCoupon(null); setShowEditor(true); }}
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              クーポン作成
+            </button>
+          </div>
+
+          {/* サマリーカード */}
+          {coupons.length > 0 && (
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100/50">
+                <div className="text-2xl font-bold text-amber-700">{coupons.length}</div>
+                <div className="text-xs text-amber-500 mt-0.5">クーポン数</div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl p-4 border border-blue-100/50">
+                <div className="text-2xl font-bold text-blue-700">{totalIssued}</div>
+                <div className="text-xs text-blue-500 mt-0.5">総配布数</div>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100/50">
+                <div className="text-2xl font-bold text-green-700">{totalUsed}</div>
+                <div className="text-xs text-green-500 mt-0.5">総利用数</div>
+              </div>
+            </div>
+          )}
         </div>
-        <button
-          onClick={() => { setEditCoupon(null); setShowEditor(true); }}
-          className="px-4 py-2 text-xs font-medium text-white bg-[#06C755] hover:bg-[#05b04a] rounded-lg transition-colors flex items-center gap-1.5"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          クーポン作成
-        </button>
       </div>
 
       {/* クーポン一覧 */}
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
       {coupons.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <div className="w-16 h-16 bg-orange-50 rounded-full mx-auto flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
             </svg>
           </div>
-          <p className="text-sm text-gray-500">クーポンがありません</p>
-          <p className="text-xs text-gray-400 mt-1">LINE友だちに配布するクーポンを作成しましょう</p>
+          <p className="text-gray-400 text-sm">クーポンがありません</p>
+          <p className="text-gray-300 text-xs mt-1">LINE友だちに配布するクーポンを作成しましょう</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {coupons.map(coupon => (
             <div
               key={coupon.id}
-              className={`bg-white rounded-xl border p-4 transition-all ${
-                coupon.is_active ? "border-gray-200" : "border-gray-100 opacity-60"
+              className={`bg-white rounded-xl border p-4 hover:shadow-md transition-all duration-200 group ${
+                coupon.is_active ? "border-gray-100 hover:border-gray-200" : "border-gray-100 opacity-60"
               }`}
             >
               {/* 上段: 名前 + 割引 */}
@@ -136,9 +172,9 @@ export default function CouponsPage() {
                       : "未配布"}
                   </span>
                 </div>
-                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-orange-400 rounded-full transition-all"
+                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all"
                     style={{ width: `${coupon.issued_count > 0 ? Math.round((coupon.used_count / coupon.issued_count) * 100) : 0}%` }}
                   />
                 </div>
@@ -219,6 +255,7 @@ export default function CouponsPage() {
           onDone={() => { setShowDistribute(null); load(); }}
         />
       )}
+      </div>
     </div>
   );
 }
@@ -251,10 +288,24 @@ function CouponEditor({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">{coupon ? "クーポン編集" : "クーポン作成"}</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                </svg>
+              </div>
+              {coupon ? "クーポン編集" : "クーポン作成"}
+            </h2>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="p-5 space-y-4">
@@ -266,7 +317,7 @@ function CouponEditor({
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="例: 初回限定1000円OFF"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
             />
           </div>
 
@@ -279,11 +330,11 @@ function CouponEditor({
                 value={code}
                 onChange={e => setCode(e.target.value.toUpperCase())}
                 placeholder="例: WELCOME2026"
-                className="flex-1 px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="flex-1 px-3 py-2 text-sm font-mono border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
               />
               <button
                 onClick={generateCode}
-                className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                className="px-3 py-2 text-xs font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors whitespace-nowrap"
               >
                 自動生成
               </button>
@@ -297,7 +348,7 @@ function CouponEditor({
               <select
                 value={discountType}
                 onChange={e => setDiscountType(e.target.value as "fixed" | "percent")}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
               >
                 <option value="fixed">固定額 (円)</option>
                 <option value="percent">割引率 (%)</option>
@@ -312,7 +363,7 @@ function CouponEditor({
                 value={discountValue || ""}
                 onChange={e => setDiscountValue(Number(e.target.value))}
                 placeholder={discountType === "fixed" ? "1000" : "10"}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
               />
             </div>
           </div>
@@ -325,7 +376,7 @@ function CouponEditor({
               value={minPurchase || ""}
               onChange={e => setMinPurchase(Number(e.target.value))}
               placeholder="0"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
             />
           </div>
 
@@ -338,7 +389,7 @@ function CouponEditor({
                 value={maxUses}
                 onChange={e => setMaxUses(e.target.value)}
                 placeholder="無制限"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
               />
             </div>
             <div>
@@ -348,7 +399,7 @@ function CouponEditor({
                 value={maxUsesPerPatient}
                 onChange={e => setMaxUsesPerPatient(Number(e.target.value))}
                 min={1}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
               />
             </div>
           </div>
@@ -360,7 +411,7 @@ function CouponEditor({
               type="date"
               value={validUntil}
               onChange={e => setValidUntil(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
             />
           </div>
 
@@ -372,7 +423,7 @@ function CouponEditor({
               onChange={e => setDescription(e.target.value)}
               rows={2}
               placeholder="管理用のメモ"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300 resize-none"
             />
           </div>
         </div>
@@ -393,7 +444,7 @@ function CouponEditor({
               description,
             })}
             disabled={!name.trim() || !code.trim() || !discountValue}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#06C755] hover:bg-[#05b04a] disabled:bg-gray-300 rounded-lg transition-colors"
+            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-300 rounded-xl shadow-lg shadow-amber-500/25 transition-all duration-200"
           >
             保存
           </button>
@@ -445,11 +496,25 @@ function DistributeModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">クーポン配布</h2>
-          <p className="text-xs text-gray-500 mt-1">「{coupon.name}」を全対象者に配布します</p>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </div>
+              クーポン配布
+            </h2>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1 ml-8">「{coupon.name}」を全対象者に配布</p>
         </div>
 
         <div className="p-5 space-y-4">
@@ -465,12 +530,12 @@ function DistributeModal({
                   onChange={e => setMessage(e.target.value)}
                   rows={4}
                   placeholder={defaultMsg}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/30 resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300 resize-none"
                 />
               </div>
 
-              <div className="bg-orange-50 rounded-lg p-3">
-                <p className="text-xs text-orange-700">
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-3 border border-amber-100/50">
+                <p className="text-xs text-amber-700">
                   LINE連携済みの全ユーザーに配布されます。既に配布済みのユーザーにはスキップされます。
                 </p>
               </div>
@@ -492,7 +557,7 @@ function DistributeModal({
 
         <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
           {result ? (
-            <button onClick={onDone} className="px-4 py-2 text-sm font-medium text-white bg-[#06C755] hover:bg-[#05b04a] rounded-lg transition-colors">
+            <button onClick={onDone} className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 rounded-xl shadow-lg shadow-amber-500/25 transition-all duration-200">
               閉じる
             </button>
           ) : (
@@ -503,7 +568,7 @@ function DistributeModal({
               <button
                 onClick={handleDistribute}
                 disabled={sending}
-                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 rounded-lg transition-colors flex items-center gap-1.5"
+                className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-300 rounded-xl shadow-lg shadow-amber-500/25 transition-all duration-200 flex items-center gap-1.5"
               >
                 {sending ? (
                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
