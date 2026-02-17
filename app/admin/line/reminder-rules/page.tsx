@@ -18,6 +18,18 @@ interface ReminderRule {
   message_format?: "text" | "flex";
 }
 
+interface SendLog {
+  rule_id: number;
+  rule_name: string;
+  date: string;
+  total: number;
+  sent: number;
+  failed: number;
+  scheduled: number;
+  message_format: string;
+  send_time: string;
+}
+
 const TIMING_TYPES = [
   { value: "before_hours", label: "時間前" },
   { value: "before_days", label: "日前" },
@@ -138,6 +150,8 @@ export default function ReminderRulesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editRule, setEditRule] = useState<Partial<ReminderRule> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -154,7 +168,22 @@ export default function ReminderRulesPage() {
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  const loadLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const res = await fetch("/api/admin/line/reminder-rules/logs", { credentials: "include" });
+      if (res.ok) {
+        const d = await res.json();
+        setSendLogs(d.logs || []);
+      }
+    } catch (e) {
+      console.error("ログ取得エラー:", e);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); loadLogs(); }, [loadData, loadLogs]);
 
   const handleCreate = () => {
     setEditRule({
@@ -414,6 +443,106 @@ export default function ReminderRulesPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* 送信履歴 */}
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pb-8">
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h2 className="text-sm font-bold text-gray-900">送信履歴</h2>
+            <span className="text-[11px] text-gray-400">直近30日</span>
+          </div>
+
+          {logsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-6 h-6 border-2 border-violet-200 border-t-violet-500 rounded-full animate-spin" />
+            </div>
+          ) : sendLogs.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400">送信履歴はまだありません</p>
+              <p className="text-xs text-gray-300 mt-1">リマインドが送信されるとここに記録されます</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {/* 日付ごとにグルーピング */}
+              {(() => {
+                const grouped = new Map<string, SendLog[]>();
+                for (const log of sendLogs) {
+                  const list = grouped.get(log.date) || [];
+                  list.push(log);
+                  grouped.set(log.date, list);
+                }
+                return [...grouped.entries()].map(([date, logs]) => {
+                  const d = new Date(date + "T00:00:00+09:00");
+                  const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
+                  const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${dow})`;
+                  const totalForDay = logs.reduce((s, l) => s + l.total, 0);
+
+                  return (
+                    <div key={date} className="px-5 py-3">
+                      {/* 日付ヘッダー */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-gray-700">{dateLabel}</span>
+                        <span className="text-[10px] text-gray-400">{date}</span>
+                        <span className="ml-auto text-[11px] text-gray-500">
+                          計 <span className="font-semibold text-gray-700">{totalForDay}件</span> 送信
+                        </span>
+                      </div>
+
+                      {/* 各ルールの送信結果 */}
+                      <div className="space-y-1.5">
+                        {logs.map((log, i) => (
+                          <div key={`${log.rule_id}-${i}`} className="flex items-center gap-3 pl-3 py-1.5 rounded-lg bg-gray-50/60">
+                            {/* 送信時刻 */}
+                            <span className="text-xs font-mono font-semibold text-gray-600 w-12 shrink-0">
+                              {log.send_time}
+                            </span>
+
+                            {/* ルール名 + 形式バッジ */}
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <span className="text-[12px] text-gray-700 truncate">{log.rule_name}</span>
+                              {log.message_format === "flex" && (
+                                <span className="shrink-0 px-1.5 py-0.5 text-[8px] font-bold bg-[#E75A7C] text-white rounded">FLEX</span>
+                              )}
+                            </div>
+
+                            {/* 送信結果 */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {log.sent > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                  <span className="text-green-700 font-medium">{log.sent}</span>
+                                </span>
+                              )}
+                              {log.failed > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                  <span className="text-red-600 font-medium">{log.failed}</span>
+                                </span>
+                              )}
+                              {log.scheduled > 0 && (
+                                <span className="inline-flex items-center gap-0.5 text-[11px]">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                                  <span className="text-yellow-700 font-medium">{log.scheduled}</span>
+                                </span>
+                              )}
+                              <span className="text-[11px] text-gray-400 w-8 text-right">{log.total}人</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 作成/編集モーダル */}
