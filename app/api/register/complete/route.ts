@@ -87,7 +87,20 @@ export async function POST(req: NextRequest) {
     // ステップ3: 電話番号 + line_user_id を紐付け更新
     // ============================================================
 
-    // answerers テーブルに電話番号を保存（select→insert/update パターン）
+    // 重複PID検出: 同一電話番号で別の患者が既に存在するか確認
+    const { data: dupByPhone } = await withTenant(supabaseAdmin
+      .from("patients")
+      .select("patient_id, name")
+      .eq("tel", phone)
+      .neq("patient_id", pid), tenantId)
+      .limit(5);
+
+    if (dupByPhone && dupByPhone.length > 0) {
+      const dupInfo = dupByPhone.map(d => `${d.patient_id}(${d.name || "名前なし"})`).join(", ");
+      console.warn(`[register/complete] 重複PID検出: ${pid} と同一電話番号の患者あり → ${dupInfo}`);
+    }
+
+    // patients テーブルに電話番号を保存（select→insert/update パターン）
     const { data: existingAnswerer } = await withTenant(supabaseAdmin
       .from("patients")
       .select("patient_id")
@@ -102,7 +115,7 @@ export async function POST(req: NextRequest) {
           ...(lineUserId ? { line_id: lineUserId } : {}),
         })
         .eq("patient_id", pid), tenantId);
-      if (error) console.error("[register/complete] Answerers update error:", error.message);
+      if (error) console.error("[register/complete] Patients update error:", error.message);
     } else {
       const { error } = await supabaseAdmin
         .from("patients")
@@ -112,7 +125,7 @@ export async function POST(req: NextRequest) {
           ...(lineUserId ? { line_id: lineUserId } : {}),
           ...tenantPayload(tenantId),
         });
-      if (error) console.error("[register/complete] Answerers insert error:", error.message);
+      if (error) console.error("[register/complete] Patients insert error:", error.message);
     }
 
     // intake テーブルにプロフィール情報を保存（line_id は patients が正）
