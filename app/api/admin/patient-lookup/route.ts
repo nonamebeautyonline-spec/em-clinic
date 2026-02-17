@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
           .maybeSingle(),
         tenantId
       ),
-      // 最新予約をreservationsから取得
+      // 最新予約をreservationsから取得（キャンセル済みは除外）
       withTenant(
         supabaseAdmin
           .from("reservations")
@@ -220,6 +220,7 @@ export async function GET(req: NextRequest) {
           .eq("patient_id", patientId)
           .not("reserved_date", "is", null)
           .not("reserved_time", "is", null)
+          .neq("status", "canceled")
           .order("reserved_date", { ascending: false })
           .order("reserved_time", { ascending: false })
           .limit(1)
