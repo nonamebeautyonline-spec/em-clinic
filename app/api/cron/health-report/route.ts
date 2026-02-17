@@ -1,13 +1,11 @@
 // app/api/cron/health-report/route.ts
 // 日次ヘルスレポート（Supabase・Redis接続 + データ整合性チェック）
-// 異常時にSentryアラートを送信
+// 異常時にLINE通知を送信
 
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { redis } from "@/lib/redis";
-import { logger } from "@/lib/logger";
 import { getSettingOrEnv } from "@/lib/settings";
-import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = "force-dynamic";
 
@@ -89,8 +87,7 @@ export async function GET(req: NextRequest) {
   // 結果判定
   if (issues.length > 0) {
     const message = `[ヘルスレポート] ${issues.length}件の問題を検出:\n${issues.join("\n")}`;
-    logger.warn(message, { route: "cron/health-report", action: "health_check" });
-    Sentry.captureMessage(message, { level: "warning" });
+    console.warn(message);
 
     // LINE通知（再処方通知と同じグループに送信）
     try {
@@ -113,7 +110,7 @@ export async function GET(req: NextRequest) {
       console.error("[health-report] LINE通知エラー:", e);
     }
   } else {
-    logger.info("日次ヘルスチェック: 全項目正常", { route: "cron/health-report" });
+    console.log("日次ヘルスチェック: 全項目正常");
   }
 
   return NextResponse.json({
