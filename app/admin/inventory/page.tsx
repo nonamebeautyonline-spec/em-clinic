@@ -50,8 +50,11 @@ const TRANSITION_BOX_MAP: Record<string, Record<string, number>> = {
   transition_3: { "7.5mg": 1, "10mg": 1 },
 };
 
-// EM用の追加梱包アイテム（productsテーブルにない用量）
+// EM用の追加梱包アイテム（productsテーブルで非活性の用量）
 const EXTRA_EM_PACKAGED = [
+  { item_key: "em_10mg_1m", label: "10mg 1ヶ月（2箱）", dosage: "10mg", duration: 1, boxesPerSet: 2 },
+  { item_key: "em_10mg_2m", label: "10mg 2ヶ月（4箱）", dosage: "10mg", duration: 2, boxesPerSet: 4 },
+  { item_key: "em_10mg_3m", label: "10mg 3ヶ月（6箱）", dosage: "10mg", duration: 3, boxesPerSet: 6 },
   { item_key: "em_12.5mg_1m", label: "12.5mg 1ヶ月（2箱）", dosage: "12.5mg", duration: 1, boxesPerSet: 2 },
   { item_key: "em_12.5mg_2m", label: "12.5mg 2ヶ月（4箱）", dosage: "12.5mg", duration: 2, boxesPerSet: 4 },
   { item_key: "em_12.5mg_3m", label: "12.5mg 3ヶ月（6箱）", dosage: "12.5mg", duration: 3, boxesPerSet: 6 },
@@ -653,49 +656,53 @@ export default function InventoryLedgerPage() {
               </div>
             ))}
 
-            {/* 12.5mg 梱包済み（EMタブのみ） */}
-            {isEMTab && (
-              <>
-                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 border-t">
-                  <span className="text-xs font-semibold text-slate-600">マンジャロ 12.5mg</span>
+            {/* 10mg/12.5mg 梱包済み（EMタブのみ） */}
+            {isEMTab && ["10mg", "12.5mg"].map((dose) => {
+              const items = EXTRA_EM_PACKAGED.filter(e => e.dosage === dose);
+              if (items.length === 0) return null;
+              return (
+                <div key={dose}>
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 border-t">
+                    <span className="text-xs font-semibold text-slate-600">マンジャロ {dose}</span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {items.map((item) => {
+                      const storeEdits = pkgEdits[activeTab] || {};
+                      const v = storeEdits[item.item_key];
+                      const boxCount = v?.box_count ?? 0;
+                      return (
+                        <div key={item.item_key} className="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50">
+                          <div className="w-36 min-w-0">
+                            <span className="text-sm font-medium text-slate-700">{item.duration}ヶ月（{item.boxesPerSet}箱）</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-slate-500">在庫</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={boxCount}
+                              onFocus={selectOnFocus}
+                              onChange={(e) => updatePkg(item.item_key, "box_count", parseInt(e.target.value) || 0)}
+                              className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
+                            <span className="text-xs text-slate-400">セット</span>
+                          </div>
+                          <div className="flex-1 min-w-[100px]">
+                            <input
+                              type="text"
+                              placeholder="メモ"
+                              value={v?.note ?? ""}
+                              onChange={(e) => updatePkg(item.item_key, "note", e.target.value)}
+                              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {EXTRA_EM_PACKAGED.map((item) => {
-                    const storeEdits = pkgEdits[activeTab] || {};
-                    const v = storeEdits[item.item_key];
-                    const boxCount = v?.box_count ?? 0;
-                    return (
-                      <div key={item.item_key} className="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50">
-                        <div className="w-36 min-w-0">
-                          <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500">在庫</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={boxCount}
-                            onFocus={selectOnFocus}
-                            onChange={(e) => updatePkg(item.item_key, "box_count", parseInt(e.target.value) || 0)}
-                            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
-                          <span className="text-xs text-slate-400">セット</span>
-                        </div>
-                        <div className="flex-1 min-w-[100px]">
-                          <input
-                            type="text"
-                            placeholder="メモ"
-                            value={v?.note ?? ""}
-                            onChange={(e) => updatePkg(item.item_key, "note", e.target.value)}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+              );
+            })}
 
             {/* 移行プラン（EMタブのみ） */}
             {isEMTab && (
