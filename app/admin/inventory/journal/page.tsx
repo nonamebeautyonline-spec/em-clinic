@@ -78,6 +78,10 @@ export default function InventoryJournalPage() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const isInitialLoad = useRef(true);
 
+  // のなめ自動入力
+  const [autoFillBase, setAutoFillBase] = useState<Record<string, number>>({});
+  const [autoFillLoading, setAutoFillLoading] = useState(false);
+
   // 箱在庫（共有）— 入荷・EM発送・のなめ発送
   const [boxEdits, setBoxEdits] = useState<ValMap>({});
   const [boxOriginal, setBoxOriginal] = useState<ValMap>({});
@@ -270,6 +274,40 @@ export default function InventoryJournalPage() {
     }));
   };
 
+  // のなめ発送自動入力
+  const handleAutoFill = async () => {
+    setAutoFillLoading(true);
+    try {
+      const res = await fetch(`/api/admin/inventory/shipping-summary?date=${selectedDate}`, { credentials: "include" });
+      if (!res.ok) throw new Error("取得失敗");
+      const data = await res.json();
+      const summary: Record<string, number> = data.summary || {};
+
+      // ベース値を記録（表示用）
+      const base: Record<string, number> = {};
+      const newEdits = { ...boxEdits };
+
+      for (const item of NONAME_SHIP_ITEMS) {
+        const boxes = summary[item.dosage] || 0;
+        base[item.item_key] = boxes;
+        newEdits[item.item_key] = {
+          box_count: newEdits[item.item_key]?.box_count ?? 0,
+          shipped_count: boxes,
+          received_count: newEdits[item.item_key]?.received_count ?? 0,
+          note: newEdits[item.item_key]?.note ?? "",
+        };
+      }
+
+      setAutoFillBase(base);
+      setBoxEdits(newEdits);
+      setMessage(`発送データ取得完了（${data.orderCount}件）`);
+    } catch {
+      setMessage("発送データの取得に失敗しました");
+    } finally {
+      setAutoFillLoading(false);
+    }
+  };
+
   const hasChanges = JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal);
 
   // 入荷合計
@@ -413,11 +451,26 @@ export default function InventoryJournalPage() {
                 <h2 className="font-semibold text-purple-900">のなめ発送</h2>
                 <p className="text-xs text-purple-600 mt-0.5">用量別の発送箱数（1箱 = 2本）</p>
               </div>
-              <span className="text-xs text-purple-600 font-medium">合計 {nonameShippedTotal}箱</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-purple-600 font-medium">合計 {nonameShippedTotal}箱</span>
+                <button
+                  onClick={handleAutoFill}
+                  disabled={autoFillLoading}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    autoFillLoading
+                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      : "bg-purple-600 text-white hover:bg-purple-700"
+                  }`}
+                >
+                  {autoFillLoading ? "取得中..." : "発送データ自動入力"}
+                </button>
+              </div>
             </div>
             <div className="divide-y divide-slate-100">
               {NONAME_SHIP_ITEMS.map((item) => {
                 const shipped = boxEdits[item.item_key]?.shipped_count ?? 0;
+                const base = autoFillBase[item.item_key];
+                const extra = base !== undefined ? shipped - base : undefined;
                 return (
                   <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
                     <div className="w-24">
@@ -435,6 +488,11 @@ export default function InventoryJournalPage() {
                       <span className="text-xs text-slate-400">箱</span>
                     </div>
                     <span className="text-xs text-slate-500">= {shipped * 2}本</span>
+                    {base !== undefined && (
+                      <span className="text-xs text-purple-500">
+                        （発送データ: {base}箱{extra && extra > 0 ? ` + 追加: ${extra}箱` : ""})
+                      </span>
+                    )}
                   </div>
                 );
               })}
