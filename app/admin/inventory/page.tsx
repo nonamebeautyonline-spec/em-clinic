@@ -42,6 +42,21 @@ const TRANSITION_ITEMS = [
   { item_key: "transition_3", label: "移行プラン③", desc: "7.5mg×1箱 + 10mg×1箱" },
 ];
 
+// 移行プランの用量別箱数内訳（サマリー計算用）
+const TRANSITION_BOX_MAP: Record<string, Record<string, number>> = {
+  transition_1: { "2.5mg": 1, "5mg": 1 },
+  transition_1x2: { "2.5mg": 2, "5mg": 2 },
+  transition_2: { "5mg": 1, "7.5mg": 1 },
+  transition_3: { "7.5mg": 1, "10mg": 1 },
+};
+
+// EM用の追加梱包アイテム（productsテーブルにない用量）
+const EXTRA_EM_PACKAGED = [
+  { item_key: "em_12.5mg_1m", label: "12.5mg 1ヶ月（2箱）", dosage: "12.5mg", duration: 1, boxesPerSet: 2 },
+  { item_key: "em_12.5mg_2m", label: "12.5mg 2ヶ月（4箱）", dosage: "12.5mg", duration: 2, boxesPerSet: 4 },
+  { item_key: "em_12.5mg_3m", label: "12.5mg 3ヶ月（6箱）", dosage: "12.5mg", duration: 3, boxesPerSet: 6 },
+];
+
 // のなめで使用する用量（2.5-7.5mgのみ）
 const NONAME_DOSAGES = ["2.5mg", "5mg", "7.5mg"];
 
@@ -189,6 +204,17 @@ export default function InventoryLedgerPage() {
       }
 
       if (locIsEM) {
+        for (const ex of EXTRA_EM_PACKAGED) {
+          allPkgEntries.push({
+            item_key: ex.item_key,
+            section: "packaged",
+            location: loc,
+            box_count: storeEdits[ex.item_key]?.box_count ?? 0,
+            shipped_count: storeEdits[ex.item_key]?.shipped_count ?? 0,
+            received_count: storeEdits[ex.item_key]?.received_count ?? 0,
+            note: storeEdits[ex.item_key]?.note ?? "",
+          });
+        }
         for (const t of TRANSITION_ITEMS) {
           allPkgEntries.push({
             item_key: t.item_key,
@@ -323,30 +349,74 @@ export default function InventoryLedgerPage() {
   const DOSAGES = ["2.5mg", "5mg", "7.5mg", "10mg", "12.5mg"];
 
   const historyMatrix = useMemo(() => {
+    // 全日付を収集（box以外のセクションも含む）
     const dateSet = new Set<string>();
     for (const log of historyLogs) {
-      if (log.section === "box") dateSet.add(log.logged_date);
+      dateSet.add(log.logged_date);
     }
     const dates = Array.from(dateSet).sort().reverse();
 
-    const matrix: Array<{ date: string; cells: Record<string, { boxCount: number; shipped: number; received: number }> }> = [];
-    for (const date of dates) {
-      const cells: Record<string, { boxCount: number; shipped: number; received: number }> = {};
-      for (const dose of DOSAGES) {
-        cells[dose] = { boxCount: 0, shipped: 0, received: 0 };
+    // 商品IDから用量・箱数換算マップ
+    const productMap: Record<string, { dosage: string; boxesPerSet: number }> = {};
+    for (const p of products) {
+      if (p.dosage) {
+        productMap[p.id] = { dosage: p.dosage, boxesPerSet: (p.quantity ?? 4) / 2 };
       }
+    }
+
+    const matrix: Array<{ date: string; cells: Record<string, { boxCount: number; received: number; shipped: number; total: number }> }> = [];
+    for (const date of dates) {
+      const cells: Record<string, { boxCount: number; received: number; shipped: number; total: number }> = {};
+      for (const dose of DOSAGES) {
+        cells[dose] = { boxCount: 0, received: 0, shipped: 0, total: 0 };
+      }
+
       for (const log of historyLogs) {
-        if (log.logged_date === date && log.section === "box") {
+        if (log.logged_date !== date) continue;
+
+        if (log.section === "box") {
+          // 箱在庫セクション
           const dose = log.item_key.replace("box_", "");
           if (cells[dose]) {
-            cells[dose] = { boxCount: log.box_count, shipped: log.shipped_count, received: log.received_count ?? 0 };
+            cells[dose].boxCount += log.box_count;
+            cells[dose].received += log.received_count ?? 0;
+            cells[dose].shipped += log.shipped_count;
+          }
+        } else if (log.section === "packaged") {
+          // 梱包済み商品 → 箱数換算
+          const pm = productMap[log.item_key];
+          if (pm && cells[pm.dosage]) {
+            cells[pm.dosage].boxCount += log.box_count * pm.boxesPerSet;
+            cells[pm.dosage].shipped += log.shipped_count * pm.boxesPerSet;
+          }
+          // 12.5mg 追加アイテム
+          const ex = EXTRA_EM_PACKAGED.find(e => e.item_key === log.item_key);
+          if (ex && cells[ex.dosage]) {
+            cells[ex.dosage].boxCount += log.box_count * ex.boxesPerSet;
+            cells[ex.dosage].shipped += log.shipped_count * ex.boxesPerSet;
+          }
+          // 移行プラン → 用量別箱数換算
+          const tb = TRANSITION_BOX_MAP[log.item_key];
+          if (tb) {
+            for (const [dose, boxes] of Object.entries(tb)) {
+              if (cells[dose]) {
+                cells[dose].boxCount += log.box_count * boxes;
+                cells[dose].shipped += log.shipped_count * boxes;
+              }
+            }
           }
         }
       }
+
+      // 合計 = 今ある箱数 + 入荷 - 発送
+      for (const dose of DOSAGES) {
+        cells[dose].total = cells[dose].boxCount + cells[dose].received - cells[dose].shipped;
+      }
+
       matrix.push({ date, cells });
     }
     return matrix;
-  }, [historyLogs]);
+  }, [historyLogs, products]);
 
   const tabClass = (name: string) =>
     `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -405,18 +475,54 @@ export default function InventoryLedgerPage() {
           {/* ===== 各用量の総箱数サマリー ===== */}
           <div className="grid grid-cols-5 gap-3">
             {BOX_ITEMS.map((item) => {
-              const count = boxEdits[item.item_key]?.box_count ?? 0;
+              const dosage = item.label;
+              // 1. 薬剤箱在庫（共有ストック）
+              const rawBoxes = boxEdits[item.item_key]?.box_count ?? 0;
+              // 2. 梱包済みセットに含まれる箱数（全店舗合計）
+              let pkgBoxes = 0;
+              for (const loc of locations) {
+                const storeEdits = pkgEdits[loc] || {};
+                // 商品の梱包済みセット
+                for (const p of products) {
+                  if (p.dosage === dosage) {
+                    const sets = storeEdits[p.id]?.box_count ?? 0;
+                    const boxesPerSet = (p.quantity ?? 4) / 2;
+                    pkgBoxes += sets * boxesPerSet;
+                  }
+                }
+                // 12.5mg等の追加梱包アイテム
+                for (const ex of EXTRA_EM_PACKAGED) {
+                  if (ex.dosage === dosage) {
+                    const sets = storeEdits[ex.item_key]?.box_count ?? 0;
+                    pkgBoxes += sets * ex.boxesPerSet;
+                  }
+                }
+                // 移行プランの箱数
+                for (const t of TRANSITION_ITEMS) {
+                  const breakdown = TRANSITION_BOX_MAP[t.item_key];
+                  if (breakdown?.[dosage]) {
+                    const sets = storeEdits[t.item_key]?.box_count ?? 0;
+                    pkgBoxes += sets * breakdown[dosage];
+                  }
+                }
+              }
+              const total = rawBoxes + pkgBoxes;
               return (
                 <div key={item.item_key} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-                  <div className="text-xs text-slate-500 mb-1">{item.label}</div>
+                  <div className="text-xs text-slate-500 mb-1">{dosage}</div>
                   <div className={`text-2xl font-bold ${
-                    count <= 0 ? "text-red-600"
-                      : count <= 3 ? "text-amber-600"
+                    total <= 0 ? "text-red-600"
+                      : total <= 5 ? "text-amber-600"
                         : "text-slate-900"
                   }`}>
-                    {count}<span className="text-sm font-normal text-slate-400 ml-0.5">箱</span>
+                    {total}<span className="text-sm font-normal text-slate-400 ml-0.5">箱</span>
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5">{count * item.units}本</div>
+                  <div className="text-xs text-slate-400 mt-0.5">{total * item.units}本</div>
+                  {pkgBoxes > 0 && (
+                    <div className="text-[10px] text-blue-500 mt-1">
+                      未梱包{rawBoxes} + 梱包済{pkgBoxes}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -547,6 +653,50 @@ export default function InventoryLedgerPage() {
               </div>
             ))}
 
+            {/* 12.5mg 梱包済み（EMタブのみ） */}
+            {isEMTab && (
+              <>
+                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 border-t">
+                  <span className="text-xs font-semibold text-slate-600">マンジャロ 12.5mg</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {EXTRA_EM_PACKAGED.map((item) => {
+                    const storeEdits = pkgEdits[activeTab] || {};
+                    const v = storeEdits[item.item_key];
+                    const boxCount = v?.box_count ?? 0;
+                    return (
+                      <div key={item.item_key} className="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50">
+                        <div className="w-36 min-w-0">
+                          <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500">在庫</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={boxCount}
+                            onFocus={selectOnFocus}
+                            onChange={(e) => updatePkg(item.item_key, "box_count", parseInt(e.target.value) || 0)}
+                            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          />
+                          <span className="text-xs text-slate-400">セット</span>
+                        </div>
+                        <div className="flex-1 min-w-[100px]">
+                          <input
+                            type="text"
+                            placeholder="メモ"
+                            value={v?.note ?? ""}
+                            onChange={(e) => updatePkg(item.item_key, "note", e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
             {/* 移行プラン（EMタブのみ） */}
             {isEMTab && (
               <>
@@ -597,7 +747,7 @@ export default function InventoryLedgerPage() {
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
               <h2 className="font-semibold text-slate-700">在庫推移</h2>
-              <p className="text-xs text-slate-500 mt-0.5">箱在庫の日次推移</p>
+              <p className="text-xs text-slate-500 mt-0.5">箱在庫 + 梱包済み（箱換算）の合計推移</p>
             </div>
             {historyMatrix.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-slate-400">まだデータがありません</div>
@@ -606,7 +756,7 @@ export default function InventoryLedgerPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left">
-                      <th className="px-4 py-2 text-slate-500 font-medium sticky left-0 bg-white">日付</th>
+                      <th className="px-4 py-2 text-slate-500 font-medium sticky left-0 bg-white z-10">日付</th>
                       {DOSAGES.map((d) => (
                         <th key={d} className="px-3 py-2 text-slate-500 font-medium text-center">{d}</th>
                       ))}
@@ -619,7 +769,7 @@ export default function InventoryLedgerPage() {
                       const isToday = row.date === todayStr();
                       return (
                         <tr key={row.date} className={`border-b border-slate-100 ${isToday ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
-                          <td className={`px-4 py-2 font-medium sticky left-0 ${isToday ? "bg-blue-50/50 text-blue-700" : "bg-white text-slate-700"}`}>
+                          <td className={`px-4 py-2 font-medium sticky left-0 z-10 ${isToday ? "bg-blue-50/50 text-blue-700" : "bg-white text-slate-700"}`}>
                             {label}
                           </td>
                           {DOSAGES.map((dose) => {
@@ -628,22 +778,29 @@ export default function InventoryLedgerPage() {
                             return (
                               <td key={dose} className="px-3 py-2 text-center">
                                 {hasData ? (
-                                  <div>
-                                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                                      cell.boxCount <= 0 ? "bg-red-100 text-red-700"
-                                        : cell.boxCount <= 3 ? "bg-amber-100 text-amber-700"
-                                          : "bg-emerald-100 text-emerald-700"
-                                    }`}>
-                                      {cell.boxCount}箱
-                                    </span>
-                                    <div className="text-[10px] text-slate-400 mt-0.5">
-                                      {cell.boxCount * 2}本
+                                  <div className="space-y-0.5">
+                                    <div className="text-[10px] text-slate-400">
+                                      在庫 <span className="font-medium text-slate-600">{cell.boxCount}</span>
                                     </div>
                                     {cell.received > 0 && (
-                                      <div className="text-[10px] text-green-600 font-medium mt-0.5">
-                                        +{cell.received}箱入荷
+                                      <div className="text-[10px] text-green-600">
+                                        入荷 <span className="font-medium">+{cell.received}</span>
                                       </div>
                                     )}
+                                    {cell.shipped > 0 && (
+                                      <div className="text-[10px] text-orange-600">
+                                        発送 <span className="font-medium">-{cell.shipped}</span>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                                        cell.total <= 0 ? "bg-red-100 text-red-700"
+                                          : cell.total <= 5 ? "bg-amber-100 text-amber-700"
+                                            : "bg-emerald-100 text-emerald-700"
+                                      }`}>
+                                        {cell.total}箱
+                                      </span>
+                                    </div>
                                   </div>
                                 ) : (
                                   <span className="text-slate-300">-</span>
