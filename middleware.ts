@@ -76,6 +76,11 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
+  // === のなめビューティー患者LP（noname-beautyドメインのみ） ===
+  if (pathname === "/" && host.includes("noname-beauty")) {
+    return NextResponse.rewrite(new URL("/noname-lp.html", req.url));
+  }
+
   // === 旧ドメインからの移行 ===
   if (host.includes("noname-beauty.jp")) {
     const newUrl = new URL(req.url);
