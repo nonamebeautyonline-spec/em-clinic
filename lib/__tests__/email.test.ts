@@ -16,7 +16,7 @@ describe("sendPasswordResetEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.RESEND_API_KEY = "re_test_key";
-    process.env.RESEND_FROM_EMAIL = "test@noname-beauty.jp";
+    process.env.RESEND_FROM_EMAIL = "test@l-ope.jp";
   });
 
   it("成功 → { success: true }", async () => {
