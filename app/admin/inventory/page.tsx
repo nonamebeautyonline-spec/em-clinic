@@ -402,6 +402,26 @@ export default function InventoryLedgerPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {/* ===== 各用量の総箱数サマリー ===== */}
+          <div className="grid grid-cols-5 gap-3">
+            {BOX_ITEMS.map((item) => {
+              const count = boxEdits[item.item_key]?.box_count ?? 0;
+              return (
+                <div key={item.item_key} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                  <div className="text-xs text-slate-500 mb-1">{item.label}</div>
+                  <div className={`text-2xl font-bold ${
+                    count <= 0 ? "text-red-600"
+                      : count <= 3 ? "text-amber-600"
+                        : "text-slate-900"
+                  }`}>
+                    {count}<span className="text-sm font-normal text-slate-400 ml-0.5">箱</span>
+                  </div>
+                  <div className="text-xs text-slate-400 mt-0.5">{count * item.units}本</div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* ===== 箱在庫（共有ストック） ===== */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
