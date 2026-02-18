@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
 
   // 並列でデータ取得（左カラム表示に必要な最小限のみ）
   // tags/fieldsは患者選択時に別APIで取得するためここでは不要
+  // message_log は RPC関数で患者ごとの最新メッセージのみ取得（全件取得を廃止）
   const [intakeRes, patientsRes, marksRes, lastMsgRes] = await Promise.all([
     fetchAll(
       () => withTenant(
@@ -47,12 +48,10 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
     ),
-    fetchAll(
-      () => withTenant(
-        supabaseAdmin.from("message_log").select("patient_id, content, sent_at, message_type, event_type, direction").order("sent_at", { ascending: false }),
-        tenantId
-      ),
-    ),
+    // RPC: 患者ごとの最新メッセージ（4カテゴリ × 患者数 ≈ 2,500行）
+    supabaseAdmin.rpc("get_friends_last_messages", {
+      p_tenant_id: tenantId || null,
+    }),
   ]);
 
   if (intakeRes.error) {
@@ -89,15 +88,44 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // intakeに存在しない患者をmessage_logから補完（intakeが消失したケース対応）
+  // マークをマッピング
+  const markMap = new Map<string, string>();
+  for (const row of marksRes.data || []) {
+    markMap.set(row.patient_id, row.mark);
+  }
+
+  // RPC結果をカテゴリ別にマッピング
+  const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
+  const lastTemplateMap = new Map<string, { content: string; sent_at: string }>();
+  const lastEventMap = new Map<string, { content: string; sent_at: string }>();
+  const lastIncomingMap = new Map<string, string>();
   const msgPatientIds = new Set<string>();
+
   for (const row of lastMsgRes.data || []) {
-    if (row.patient_id && !patientMap.has(row.patient_id)) {
-      msgPatientIds.add(row.patient_id);
+    if (!row.patient_id) continue;
+    msgPatientIds.add(row.patient_id);
+
+    switch (row.category) {
+      case "incoming_any":
+        lastIncomingMap.set(row.patient_id, row.sent_at);
+        break;
+      case "incoming_msg":
+        lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
+        break;
+      case "template": {
+        const name = row.content?.match(/^【.+?】/)?.[0] || row.content;
+        lastTemplateMap.set(row.patient_id, { content: name, sent_at: row.sent_at });
+        break;
+      }
+      case "event":
+        lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
+        break;
     }
   }
-  if (msgPatientIds.size > 0) {
-    for (const pid of msgPatientIds) {
+
+  // intakeに存在しない患者をmessage_logから補完（intakeが消失したケース対応）
+  for (const pid of msgPatientIds) {
+    if (!patientMap.has(pid)) {
       const pt = patientsMap.get(pid);
       patientMap.set(pid, {
         patient_id: pid,
@@ -106,41 +134,6 @@ export async function GET(req: NextRequest) {
         line_display_name: null,
         line_picture_url: null,
       });
-    }
-  }
-
-  // マークをマッピング
-  const markMap = new Map<string, string>();
-  for (const row of marksRes.data || []) {
-    markMap.set(row.patient_id, row.mark);
-  }
-
-  // 最新メッセージをマッピング
-  const lastMessages = lastMsgRes.data || [];
-
-  // 左カラム表示用: 顧客メッセージ > テンプレ名 > フォロー/ブロック
-  const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
-  const lastTemplateMap = new Map<string, { content: string; sent_at: string }>();
-  const lastEventMap = new Map<string, { content: string; sent_at: string }>();
-  const lastIncomingMap = new Map<string, string>();
-  for (const row of lastMessages || []) {
-    if (!row.patient_id) continue;
-    // ソート用: 顧客からのメッセージ・アクション（incoming）の最新時刻のみ
-    if (!lastIncomingMap.has(row.patient_id) && row.direction !== "outgoing") {
-      lastIncomingMap.set(row.patient_id, row.sent_at);
-    }
-    // 表示用①: 顧客が送信したメッセージ（incoming かつ イベント以外）
-    if (!lastMsgMap.has(row.patient_id) && row.direction === "incoming" && row.message_type !== "event") {
-      lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
-    }
-    // 表示用②: 送信テンプレ名（outgoing の【テンプレ名】形式）
-    if (!lastTemplateMap.has(row.patient_id) && row.direction === "outgoing" && /^【.+?】/.test(row.content || "")) {
-      const name = row.content.match(/^【.+?】/)?.[0] || row.content;
-      lastTemplateMap.set(row.patient_id, { content: name, sent_at: row.sent_at });
-    }
-    // 表示用③: フォロー/ブロックイベントのみ（systemイベントは除外）
-    if (!lastEventMap.has(row.patient_id) && row.direction === "incoming" && row.message_type === "event" && row.event_type !== "system") {
-      lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
     }
   }
 

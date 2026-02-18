@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -247,6 +247,41 @@ const MAX_PINS = 15;
 const DISPLAY_BATCH = 50;
 const MSG_BATCH = 25;
 
+// コンポーネント外のユーティリティ関数（参照安定化）
+function formatTimeUtil(s: string) {
+  const d = new Date(s);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function formatDateShortUtil(s: string) {
+  const d = new Date(s);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return formatTimeUtil(s);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return "昨日";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+function formatDateUtil(s: string) {
+  const d = new Date(s);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return "今日";
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return "昨日";
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+function sortByLatestUtil(a: Friend, b: Friend) {
+  const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : (a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0);
+  const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
+  return tb - ta;
+}
+function getMarkColorUtil(markOptions: MarkOption[], mark: string) {
+  return markOptions.find(m => m.value === mark)?.color || "#06B6D4";
+}
+function getMarkLabelUtil(markOptions: MarkOption[], mark: string) {
+  return markOptions.find(m => m.value === mark)?.label || "未対応";
+}
+
 // 右カラム表示セクション定義
 const RIGHT_COLUMN_SECTIONS = [
   { key: "personal", label: "個人情報" },
@@ -309,6 +344,7 @@ export default function TalkPage() {
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const selectAbortRef = useRef<AbortController | null>(null);
 
   // アクション実行
   const [showActionPicker, setShowActionPicker] = useState(false);
@@ -406,14 +442,14 @@ export default function TalkPage() {
     }).catch(() => {});
   };
 
-  const togglePin = (patientId: string) => {
+  const togglePin = useCallback((patientId: string) => {
     if (pinnedIds.includes(patientId)) {
-      savePins(pinnedIds.filter(id => id !== patientId));
+      savePins(pinnedIds.filter((id: string) => id !== patientId));
     } else {
       if (pinnedIds.length >= MAX_PINS) return;
       savePins([...pinnedIds, patientId]);
     }
-  };
+  }, [pinnedIds]);
 
   // 友達一覧を取得
   const fetchFriends = useCallback(async () => {
@@ -480,13 +516,17 @@ export default function TalkPage() {
     setPullDistance(0);
   }, [pullDistance, fetchFriends]);
 
-  // 左カラム無限スクロール
+  // 左カラム無限スクロール（デバウンス: 150ms）
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleListScroll = useCallback(() => {
-    const el = listRef.current;
-    if (!el) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-      setDisplayCount(prev => prev + DISPLAY_BATCH);
-    }
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      const el = listRef.current;
+      if (!el) return;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
+        setDisplayCount(prev => prev + DISPLAY_BATCH);
+      }
+    }, 150);
   }, []);
 
   // 検索変更時にdisplayCountリセット
@@ -519,6 +559,11 @@ export default function TalkPage() {
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
+    // 前のリクエストをキャンセル
+    selectAbortRef.current?.abort();
+    const ac = new AbortController();
+    selectAbortRef.current = ac;
+
     // URLに患者IDを反映（ブラウザ履歴は置換）
     const url = new URL(window.location.href);
     url.searchParams.set("pid", friend.patient_id);
@@ -543,13 +588,15 @@ export default function TalkPage() {
 
     shouldScrollToBottom.current = true;
 
-    const [logRes, tagsRes, markRes, fieldsRes, detailRes] = await Promise.all([
-      fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=${MSG_BATCH}`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/tags`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/mark`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/fields`, { credentials: "include" }),
-      fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(friend.patient_id)}&type=id`, { credentials: "include" }),
-    ]);
+    // バンドルAPI: 5つのAPIを1リクエストに統合
+    let bundleData;
+    try {
+      const res = await fetch(`/api/admin/patients/${encodeURIComponent(friend.patient_id)}/talk-bundle`, { credentials: "include", signal: ac.signal });
+      bundleData = await res.json();
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      throw e;
+    }
 
     // リッチメニュー・ブロック確認はLINE API呼び出しがあるため別途非同期で取得
     if (friend.line_id) {
@@ -584,28 +631,24 @@ export default function TalkPage() {
         .catch(() => {});
     }
 
-    const [logData, tagsData, markData, fieldsData, detailData] = await Promise.all([
-      logRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(), detailRes.json(),
-    ]);
-
     // staleガード: レスポンス到着時に既に別患者を選択していたら破棄
     if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
 
-    if (logData.messages) {
-      const reversed = [...logData.messages].reverse();
+    if (bundleData.messages) {
+      const reversed = [...bundleData.messages].reverse();
       setMessages(reversed);
-      setHasMoreMessages(logData.messages.length === MSG_BATCH);
+      setHasMoreMessages(!!bundleData.hasMore);
     }
-    if (tagsData.tags) setPatientTags(tagsData.tags);
-    if (markData.mark) {
-      setPatientMark(markData.mark.mark || "none");
-      setMarkNote(markData.mark.note || "");
+    if (bundleData.tags) setPatientTags(bundleData.tags);
+    if (bundleData.mark) {
+      setPatientMark(bundleData.mark.mark || "none");
+      setMarkNote(bundleData.mark.note || "");
     } else {
       setPatientMark("none");
       setMarkNote("");
     }
-    if (fieldsData.fields) setPatientFields(fieldsData.fields);
-    if (detailData.found) setPatientDetail(detailData);
+    if (bundleData.fields) setPatientFields(bundleData.fields);
+    if (bundleData.detail?.found) setPatientDetail(bundleData.detail);
 
     setMessagesLoading(false);
     setMobileView("message");
@@ -1052,29 +1095,8 @@ export default function TalkPage() {
     setShowMenuPicker(false);
   };
 
-  // ユーティリティ
-  const formatTime = (s: string) => {
-    const d = new Date(s);
-    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
-  const formatDate = (s: string) => {
-    const d = new Date(s);
-    const today = new Date();
-    if (d.toDateString() === today.toDateString()) return "今日";
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return "昨日";
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-  };
-  const formatDateShort = (s: string) => {
-    const d = new Date(s);
-    const today = new Date();
-    if (d.toDateString() === today.toDateString()) return formatTime(s);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return "昨日";
-    return `${d.getMonth() + 1}/${d.getDate()}`;
-  };
+  // ユーティリティ（外部関数のエイリアス）
+  const formatDateShort = formatDateShortUtil;
   const shouldShowDate = (i: number) => {
     if (i === 0) return true;
     return new Date(messages[i - 1].sent_at).toDateString() !== new Date(messages[i].sent_at).toDateString();
@@ -1091,8 +1113,8 @@ export default function TalkPage() {
     } catch { return null; }
   };
 
-  // 検索フィルタ（patient_idがないレコードは除外）
-  const filteredFriends = friends.filter(f => {
+  // 検索フィルタ（メモ化: friends/検索条件が変わった時だけ再計算）
+  const filteredFriends = useMemo(() => friends.filter(f => {
     if (!f.patient_id) return false;
     if (searchId && !f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
     if (searchName) {
@@ -1101,14 +1123,9 @@ export default function TalkPage() {
       if (!name.includes(q)) return false;
     }
     return true;
-  });
+  }), [friends, searchId, searchName]);
 
-  const sortByLatest = (a: Friend, b: Friend) => {
-    const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : (a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0);
-    const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
-    return tb - ta;
-  };
-  const unreadCount = filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length;
+  const unreadCount = useMemo(() => filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length, [filteredFriends, readTimestamps]);
   // 孤立ピン自動マイグレーション（LINE_* → 正規patient_id）& クリーンアップ
   const allPatientIds = useMemo(() => new Set(friends.map(f => f.patient_id)), [friends]);
   useEffect(() => {
@@ -1147,13 +1164,13 @@ export default function TalkPage() {
     }
   }, [friends.length, pinnedIds.length]);
 
-  const pinnedFriends = filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatest);
-  const unpinnedFriends = filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatest);
-  const visibleUnpinned = unpinnedFriends.slice(0, displayCount);
+  const pinnedFriends = useMemo(() => filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds]);
+  const unpinnedFriends = useMemo(() => filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds]);
+  const visibleUnpinned = useMemo(() => unpinnedFriends.slice(0, displayCount), [unpinnedFriends, displayCount]);
   const hasMore = unpinnedFriends.length > displayCount;
 
-  const getMarkColor = (mark: string) => markOptions.find(m => m.value === mark)?.color || "#06B6D4";
-  const getMarkLabel = (mark: string) => markOptions.find(m => m.value === mark)?.label || "未対応";
+  const getMarkColor = useCallback((mark: string) => getMarkColorUtil(markOptions, mark), [markOptions]);
+  const getMarkLabel = useCallback((mark: string) => getMarkLabelUtil(markOptions, mark), [markOptions]);
   const currentMark = markOptions.find(m => m.value === patientMark) || markOptions[0];
 
   const assignedTagIds = patientTags.map(t => t.tag_id);
@@ -1463,104 +1480,18 @@ export default function TalkPage() {
                     const isIncoming = m.direction === "incoming";
                     const showAvatar = isIncoming && !isSystem && (i === 0 || messages[i - 1]?.direction !== "incoming" || messages[i - 1]?.message_type === "event" || messages[i - 1]?.event_type === "system");
                     return (
-                    <div key={m.id}>
-                      {shouldShowDate(i) && (
-                        <div className="flex justify-center my-3">
-                          <span className="bg-gray-400/60 text-white text-[10px] px-3 py-0.5 rounded-full font-medium">{formatDate(m.sent_at)}</span>
-                        </div>
-                      )}
-                      {isSystem ? (
-                        /* システムイベント: 中央寄せ・グレーボックス */
-                        <div className="flex justify-center my-1">
-                          <div className="max-w-[80%] bg-white/80 border border-gray-200 rounded-lg px-4 py-2 text-center">
-                            <div className="text-[10px] text-gray-400 mb-0.5">{formatTime(m.sent_at)}</div>
-                            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: "anywhere" }}>{
-                              m.content?.startsWith("{") ? "メニュー操作" : m.content
-                            }</div>
-                          </div>
-                        </div>
-                      ) : isIncoming ? (
-                        /* 受信メッセージ: 左寄せ・白バブル + アバター */
-                        <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
-                          {showAvatar ? (
-                            selectedPatient?.line_picture_url ? (
-                              <img src={selectedPatient.line_picture_url} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-                                {selectedPatient?.patient_name?.charAt(0) || "?"}
-                              </div>
-                            )
-                          ) : (
-                            <div className="w-9 flex-shrink-0" />
-                          )}
-                          <div className="max-w-[65%]">
-                            {showAvatar && (
-                              <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{selectedPatient?.line_display_name || selectedPatient?.patient_name || ""}</div>
-                            )}
-                            <div className="flex items-end gap-1.5">
-                              {isStickerContent(m.content) ? (
-                                <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
-                              ) : isImageUrl(m.content) ? (
-                                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
-                                  <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
-                                </div>
-                              ) : (
-                                <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
-                                  {linkifyContent(m.content)}
-                                </div>
-                              )}
-                              <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTime(m.sent_at)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        /* 送信メッセージ: 右寄せ・緑バブル */
-                        <div className="flex justify-end items-end gap-1.5">
-                          <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
-                            {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">送信失敗</span>}
-                            <span className="text-[9px] text-gray-400">{formatTime(m.sent_at)}</span>
-                          </div>
-                          <div className="max-w-[65%]">
-                            {(() => {
-                              /* flex_json がある場合はLINE風にFlex Bubble描画 */
-                              if (m.flex_json) return renderFlexBubble(m.flex_json);
-                              /* flex_json がない場合はフォールバック（旧形式カード） */
-                              const mt = m.message_type || "";
-                              const isReservation = mt.startsWith("reservation_");
-                              const isShipping = mt === "shipping_notify";
-                              const isFlexType = mt === "flex";
-                              const isLegacyFlex = mt === "individual" && /^\[.+\]$/.test((m.content || "").trim());
-                              if (isReservation || isShipping || isFlexType || isLegacyFlex) {
-                                const isCanceled = mt === "reservation_canceled";
-                                const isChanged = mt === "reservation_changed";
-                                const label = isReservation
-                                  ? (isCanceled ? "予約キャンセル" : isChanged ? "予約変更" : "予約確定")
-                                  : isShipping ? "発送通知" : "Flex";
-                                const headerBg = isCanceled ? "#888" : isShipping ? "#4CAF50" : "#E91E8C";
-                                const bodyText = (m.content || "").replace(/^\[/, "").replace(/\]$/, "").replace(/^【[^】]+】\s*/, "");
-                                return (
-                                  <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 min-w-[200px]">
-                                    <div className="px-3 py-2 text-white text-xs font-bold" style={{ backgroundColor: headerBg }}>{label}</div>
-                                    <div className="bg-white px-3 py-2.5">
-                                      <div className={"text-[13px] font-semibold leading-relaxed " + (isCanceled ? "text-gray-400 line-through" : "text-gray-900")}>{bodyText}</div>
-                                    </div>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })() || (isStickerContent(m.content) ? (
-                              <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
-                            ) : isImageUrl(m.content) ? (
-                              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => setLightboxUrl(extractImageUrl(m.content))}>
-                                <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
-                              </div>
-                            ) : (
-                              <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{linkifyContent(m.content)}</div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      <MessageItem
+                        key={m.id}
+                        m={m}
+                        showDate={shouldShowDate(i)}
+                        isSystem={isSystem}
+                        isIncoming={isIncoming}
+                        showAvatar={showAvatar}
+                        patientPictureUrl={selectedPatient?.line_picture_url || null}
+                        patientName={selectedPatient?.patient_name || ""}
+                        patientDisplayName={selectedPatient?.line_display_name || selectedPatient?.patient_name || ""}
+                        onImageClick={setLightboxUrl}
+                      />
                     );
                   })}
                   <div ref={messagesEndRef} />
@@ -2290,8 +2221,117 @@ export default function TalkPage() {
   );
 }
 
-// 友達リストアイテム（メモ化のためコンポーネント分離）
-function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin, readTimestamp }: {
+// メッセージアイテム（React.memo でプロップ変更時のみ再描画）
+const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncoming, showAvatar, patientPictureUrl, patientName, patientDisplayName, onImageClick }: {
+  m: MessageLog;
+  showDate: boolean;
+  isSystem: boolean;
+  isIncoming: boolean;
+  showAvatar: boolean;
+  patientPictureUrl: string | null;
+  patientName: string;
+  patientDisplayName: string;
+  onImageClick: (url: string) => void;
+}) {
+  return (
+    <div>
+      {showDate && (
+        <div className="flex justify-center my-3">
+          <span className="bg-gray-400/60 text-white text-[10px] px-3 py-0.5 rounded-full font-medium">{formatDateUtil(m.sent_at)}</span>
+        </div>
+      )}
+      {isSystem ? (
+        <div className="flex justify-center my-1">
+          <div className="max-w-[80%] bg-white/80 border border-gray-200 rounded-lg px-4 py-2 text-center">
+            <div className="text-[10px] text-gray-400 mb-0.5">{formatTimeUtil(m.sent_at)}</div>
+            <div className="text-[11px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words" style={{ overflowWrap: "anywhere" }}>{
+              m.content?.startsWith("{") ? "メニュー操作" : m.content
+            }</div>
+          </div>
+        </div>
+      ) : isIncoming ? (
+        <div className="flex justify-start items-start gap-2" style={{ marginLeft: 0 }}>
+          {showAvatar ? (
+            patientPictureUrl ? (
+              <img src={patientPictureUrl} alt="" className="w-9 h-9 rounded-full flex-shrink-0 shadow-sm object-cover" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
+                {patientName?.charAt(0) || "?"}
+              </div>
+            )
+          ) : (
+            <div className="w-9 flex-shrink-0" />
+          )}
+          <div className="max-w-[65%]">
+            {showAvatar && (
+              <div className="text-[10px] text-gray-500 mb-0.5 ml-1 font-medium">{patientDisplayName}</div>
+            )}
+            <div className="flex items-end gap-1.5">
+              {isStickerContent(m.content) ? (
+                <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+              ) : isImageUrl(m.content) ? (
+                <div className="relative rounded-2xl rounded-tl-sm overflow-hidden shadow-sm border border-gray-100 cursor-pointer" onClick={() => onImageClick(extractImageUrl(m.content))}>
+                  <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+                </div>
+              ) : (
+                <div className="relative bg-white text-gray-900 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm border border-gray-100" style={{ overflowWrap: "anywhere" }}>
+                  {linkifyContent(m.content)}
+                </div>
+              )}
+              <span className="text-[9px] text-gray-400 flex-shrink-0 pb-0.5">{formatTimeUtil(m.sent_at)}</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-end items-end gap-1.5">
+          <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
+            {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">送信失敗</span>}
+            <span className="text-[9px] text-gray-400">{formatTimeUtil(m.sent_at)}</span>
+          </div>
+          <div className="max-w-[65%]">
+            {(() => {
+              if (m.flex_json) return renderFlexBubble(m.flex_json);
+              const mt = m.message_type || "";
+              const isReservation = mt.startsWith("reservation_");
+              const isShipping = mt === "shipping_notify";
+              const isFlexType = mt === "flex";
+              const isLegacyFlex = mt === "individual" && /^\[.+\]$/.test((m.content || "").trim());
+              if (isReservation || isShipping || isFlexType || isLegacyFlex) {
+                const isCanceled = mt === "reservation_canceled";
+                const isChanged = mt === "reservation_changed";
+                const label = isReservation
+                  ? (isCanceled ? "予約キャンセル" : isChanged ? "予約変更" : "予約確定")
+                  : isShipping ? "発送通知" : "Flex";
+                const headerBg = isCanceled ? "#888" : isShipping ? "#4CAF50" : "#E91E8C";
+                const bodyText = (m.content || "").replace(/^\[/, "").replace(/\]$/, "").replace(/^【[^】]+】\s*/, "");
+                return (
+                  <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 min-w-[200px]">
+                    <div className="px-3 py-2 text-white text-xs font-bold" style={{ backgroundColor: headerBg }}>{label}</div>
+                    <div className="bg-white px-3 py-2.5">
+                      <div className={"text-[13px] font-semibold leading-relaxed " + (isCanceled ? "text-gray-400 line-through" : "text-gray-900")}>{bodyText}</div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })() || (isStickerContent(m.content) ? (
+              <img src={getStickerImageUrl(m.content)!} alt="スタンプ" className="w-[120px] h-[120px] object-contain" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).insertAdjacentText("afterend", "[スタンプ]"); }} />
+            ) : isImageUrl(m.content) ? (
+              <div className="rounded-2xl rounded-tr-sm overflow-hidden shadow-sm cursor-pointer" onClick={() => onImageClick(extractImageUrl(m.content))}>
+                <img src={extractImageUrl(m.content)} alt="画像" className="max-w-full max-h-60 object-contain bg-gray-50" loading="lazy" />
+              </div>
+            ) : (
+              <div className="bg-[#8CE62C] text-gray-900 rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap break-words shadow-sm" style={{ overflowWrap: "anywhere" }}>{linkifyContent(m.content)}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// 友達リストアイテム（React.memo でプロップ変更時のみ再描画）
+const FriendItem = memo(function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkColor, getMarkLabel, formatDateShort, canPin, readTimestamp }: {
   f: Friend; isPinned: boolean; isSelected: boolean;
   onSelect: (f: Friend) => void; onTogglePin: (id: string) => void;
   getMarkColor: (mark: string) => string; getMarkLabel: (mark: string) => string; formatDateShort: (s: string) => string;
@@ -2361,4 +2401,4 @@ function FriendItem({ f, isPinned, isSelected, onSelect, onTogglePin, getMarkCol
       </div>
     </div>
   );
-}
+});
