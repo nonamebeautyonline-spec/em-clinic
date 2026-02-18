@@ -76,12 +76,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
-  // === のなめビューティー患者LP（noname-beautyドメインのみ） ===
-  if (pathname === "/" && host.includes("noname-beauty")) {
-    return NextResponse.rewrite(new URL("/noname-lp.html", req.url));
-  }
-
-  // === 旧ドメインからの移行 ===
+  // === 旧ドメインからの移行（LP rewriteより先に判定） ===
   if (host.includes("noname-beauty.jp")) {
     const newUrl = new URL(req.url);
     newUrl.host = "noname-beauty.l-ope.jp";
@@ -91,6 +86,11 @@ export async function middleware(req: NextRequest) {
     }
     // ブラウザアクセスは 301 リダイレクト
     return NextResponse.redirect(newUrl, 301);
+  }
+
+  // === のなめビューティー患者LP（noname-beauty.l-ope.jpのみ） ===
+  if (pathname === "/" && host.includes("noname-beauty")) {
+    return NextResponse.rewrite(new URL("/noname-lp.html", req.url));
   }
 
   // === /doctor 配下のBasic認証 ===
