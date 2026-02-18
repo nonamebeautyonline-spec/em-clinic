@@ -52,15 +52,21 @@ export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
 
-  // クライアントバンドルからソースマップを非公開
-  hideSourceMaps: true,
+  // ソースマップ設定
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
 
-  // 自動インストルメンテーション
-  autoInstrumentServerFunctions: true,
-  autoInstrumentMiddleware: true,
-  autoInstrumentAppDirectory: true,
+  // webpack自動インストルメンテーション
+  webpack: {
+    autoInstrumentServerFunctions: true,
+    autoInstrumentMiddleware: true,
+    autoInstrumentAppDirectory: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 
   // SENTRY_AUTH_TOKEN 未設定時はソースマップアップロードをスキップ
   silent: !process.env.SENTRY_AUTH_TOKEN,
-  disableLogger: true,
 });

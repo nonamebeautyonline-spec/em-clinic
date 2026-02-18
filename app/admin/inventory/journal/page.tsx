@@ -58,7 +58,7 @@ function todayStr() {
 // number input のフォーカス時全選択（先頭0問題を解消）
 const selectOnFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
-export default function InventoryLedgerPage() {
+export default function InventoryJournalPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [locations, setLocations] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,18 +69,16 @@ export default function InventoryLedgerPage() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const isInitialLoad = useRef(true);
 
-  // 箱在庫（共有）
+  // 箱在庫（共有）— 入荷とEM発送を管理
   const [boxEdits, setBoxEdits] = useState<ValMap>({});
   const [boxOriginal, setBoxOriginal] = useState<ValMap>({});
 
-  // 梱包済み在庫（店舗別）
+  // 梱包済み在庫（店舗別）— 発送を管理
   const [pkgEdits, setPkgEdits] = useState<Record<string, ValMap>>({});
   const [pkgOriginal, setPkgOriginal] = useState<Record<string, ValMap>>({});
 
-  // 梱包済みの店舗サブタブ
+  // 店舗サブタブ
   const [activeTab, setActiveTab] = useState("");
-  // 履歴データ（サマリーマトリクス用）
-  const [historyLogs, setHistoryLogs] = useState<LogEntry[]>([]);
 
   const isEMTab = activeTab.includes("EM");
 
@@ -89,16 +87,7 @@ export default function InventoryLedgerPage() {
     setLoading(true);
     setMessage("");
     try {
-      const d = new Date(selectedDate);
-      const from = new Date(d);
-      from.setDate(from.getDate() - 13);
-      const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
-
-      const [res, histRes] = await Promise.all([
-        fetch(`/api/admin/inventory?date=${selectedDate}`, { credentials: "include" }),
-        fetch(`/api/admin/inventory?from=${fromStr}&to=${selectedDate}`, { credentials: "include" }),
-      ]);
-
+      const res = await fetch(`/api/admin/inventory?date=${selectedDate}`, { credentials: "include" });
       if (!res.ok) throw new Error("取得失敗");
       const data = await res.json();
       setProducts(data.products || []);
@@ -107,11 +96,6 @@ export default function InventoryLedgerPage() {
       setLocations(locs);
       if (!activeTab || !locs.includes(activeTab)) {
         setActiveTab(locs[0]);
-      }
-
-      if (histRes.ok) {
-        const histData = await histRes.json();
-        setHistoryLogs(histData.logs || []);
       }
 
       // ログを振り分け
@@ -148,7 +132,7 @@ export default function InventoryLedgerPage() {
     }
   }, [locations, activeTab]);
 
-  // エントリ組み立て（台帳は box_count のみ編集、shipped_count/received_count は元値を保持）
+  // エントリ組み立て（仕訳は shipped_count/received_count を編集、box_count は元値を保持）
   const buildEntries = useCallback(() => {
     const boxEntries = BOX_ITEMS.map((b) => ({
       item_key: b.item_key,
@@ -230,13 +214,15 @@ export default function InventoryLedgerPage() {
     }
   };
 
-  // 箱在庫の自動保存（1.5秒デバウンス）
+  // 自動保存（1.5秒デバウンス）
   useEffect(() => {
     if (isInitialLoad.current) {
       isInitialLoad.current = false;
       return;
     }
-    if (JSON.stringify(boxEdits) === JSON.stringify(boxOriginal)) return;
+    const boxChanged = JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal);
+    const pkgChanged = JSON.stringify(pkgEdits) !== JSON.stringify(pkgOriginal);
+    if (!boxChanged && !pkgChanged) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
@@ -254,24 +240,15 @@ export default function InventoryLedgerPage() {
           setAutoSaveStatus("saved");
           setBoxOriginal(boxEdits);
           setPkgOriginal(pkgEdits);
-          const d = new Date(selectedDate);
-          const from = new Date(d);
-          from.setDate(from.getDate() - 13);
-          const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
-          const histRes = await fetch(`/api/admin/inventory?from=${fromStr}&to=${selectedDate}`, { credentials: "include" });
-          if (histRes.ok) {
-            const histData = await histRes.json();
-            setHistoryLogs(histData.logs || []);
-          }
           setTimeout(() => setAutoSaveStatus(""), 2000);
         }
       } catch { /* サイレント失敗 */ }
     }, 1500);
 
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [boxEdits]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [boxEdits, pkgEdits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 箱在庫の値更新（台帳では box_count のみ編集）
+  // 箱在庫の値更新（仕訳では received_count と shipped_count を編集）
   const updateBox = (key: string, field: keyof Val, value: number | string) => {
     setBoxEdits((prev) => ({
       ...prev,
@@ -300,13 +277,9 @@ export default function InventoryLedgerPage() {
     JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal) ||
     JSON.stringify(pkgEdits) !== JSON.stringify(pkgOriginal);
 
-  // 梱包済み商品を drug_name+dosage でグルーピング
-  // のなめタブでは 2.5-7.5mg のみ表示
-  const grouped = useMemo(() => {
-    const filtered = isEMTab
-      ? products
-      : products.filter((p) => NONAME_DOSAGES.includes(p.dosage ?? ""));
-
+  // のなめ発送: 用量(2.5-7.5mg) × 月数(1-3ヶ月) でグルーピング
+  const nonameGrouped = useMemo(() => {
+    const filtered = products.filter((p) => NONAME_DOSAGES.includes(p.dosage ?? ""));
     return filtered.reduce(
       (acc, p) => {
         const key = `${p.drug_name}_${p.dosage ?? ""}`;
@@ -317,36 +290,19 @@ export default function InventoryLedgerPage() {
       },
       {} as Record<string, { drug_name: string; dosage: string | null; items: Product[] }>
     );
-  }, [products, isEMTab]);
+  }, [products]);
 
-  // 在庫サマリー: 日付×用量マトリクス（過去14日分）
-  const DOSAGES = ["2.5mg", "5mg", "7.5mg", "10mg", "12.5mg"];
+  // EM発送: 全用量で本数記録
+  const emShippedTotal = useMemo(() =>
+    BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.shipped_count ?? 0), 0),
+    [boxEdits]
+  );
 
-  const historyMatrix = useMemo(() => {
-    const dateSet = new Set<string>();
-    for (const log of historyLogs) {
-      if (log.section === "box") dateSet.add(log.logged_date);
-    }
-    const dates = Array.from(dateSet).sort().reverse();
-
-    const matrix: Array<{ date: string; cells: Record<string, { boxCount: number; shipped: number; received: number }> }> = [];
-    for (const date of dates) {
-      const cells: Record<string, { boxCount: number; shipped: number; received: number }> = {};
-      for (const dose of DOSAGES) {
-        cells[dose] = { boxCount: 0, shipped: 0, received: 0 };
-      }
-      for (const log of historyLogs) {
-        if (log.logged_date === date && log.section === "box") {
-          const dose = log.item_key.replace("box_", "");
-          if (cells[dose]) {
-            cells[dose] = { boxCount: log.box_count, shipped: log.shipped_count, received: log.received_count ?? 0 };
-          }
-        }
-      }
-      matrix.push({ date, cells });
-    }
-    return matrix;
-  }, [historyLogs]);
+  // 入荷合計
+  const receivedTotal = useMemo(() =>
+    BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.received_count ?? 0), 0),
+    [boxEdits]
+  );
 
   const tabClass = (name: string) =>
     `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -356,8 +312,8 @@ export default function InventoryLedgerPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-slate-900">在庫台帳</h1>
-        <p className="text-slate-500 text-sm mt-1">在庫の実数管理</p>
+        <h1 className="text-2xl font-bold text-slate-900">仕訳</h1>
+        <p className="text-slate-500 text-sm mt-1">日々の入荷・発送管理</p>
       </div>
 
       {/* 日付 + 保存 */}
@@ -372,11 +328,18 @@ export default function InventoryLedgerPage() {
           />
         </div>
         <div className="flex-1" />
+        {autoSaveStatus && (
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+            autoSaveStatus === "saving" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"
+          }`}>
+            {autoSaveStatus === "saving" ? "保存中..." : "保存済み"}
+          </span>
+        )}
         <a
-          href="/admin/inventory/journal"
+          href="/admin/inventory"
           className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 border border-slate-300 hover:bg-slate-50 transition-colors"
         >
-          仕訳ページへ
+          台帳ページへ
         </a>
         <button
           onClick={handleSave}
@@ -402,35 +365,20 @@ export default function InventoryLedgerPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* ===== 箱在庫（共有ストック） ===== */}
+          {/* ===== 入荷（箱単位） ===== */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between">
+            <div className="bg-green-50 px-4 py-3 border-b border-green-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-blue-900">薬剤箱在庫</h2>
-                <p className="text-xs text-blue-600 mt-0.5">1箱 = 2本 / 現在の実数</p>
+                <h2 className="font-semibold text-green-900">入荷</h2>
+                <p className="text-xs text-green-600 mt-0.5">箱単位（1箱 = 2本）</p>
               </div>
-              <div className="flex items-center gap-3">
-                {autoSaveStatus && (
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    autoSaveStatus === "saving" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"
-                  }`}>
-                    {autoSaveStatus === "saving" ? "保存中..." : "保存済み"}
-                  </span>
-                )}
-                <div className="text-right">
-                  <span className="text-lg font-bold text-blue-900">
-                    {BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.box_count ?? 0), 0)}箱
-                  </span>
-                  <span className="text-xs text-blue-600 ml-1">
-                    ({BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.box_count ?? 0) * item.units, 0)}本)
-                  </span>
-                </div>
-              </div>
+              <span className="text-xs text-green-600 font-medium">
+                合計 {receivedTotal}箱
+              </span>
             </div>
             <div className="divide-y divide-slate-100">
               {BOX_ITEMS.map((item) => {
-                const v = boxEdits[item.item_key];
-                const count = v?.box_count ?? 0;
+                const received = boxEdits[item.item_key]?.received_count ?? 0;
                 return (
                   <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
                     <div className="w-24">
@@ -440,22 +388,49 @@ export default function InventoryLedgerPage() {
                       <input
                         type="number"
                         min={0}
-                        value={count}
+                        value={received}
                         onFocus={selectOnFocus}
-                        onChange={(e) => updateBox(item.item_key, "box_count", parseInt(e.target.value) || 0)}
-                        className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center font-semibold [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        onChange={(e) => updateBox(item.item_key, "received_count", parseInt(e.target.value) || 0)}
+                        className="w-20 border border-green-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
                       <span className="text-xs text-slate-400">箱</span>
                     </div>
-                    <span className="text-xs text-slate-500">= {count * item.units}本</span>
-                    <div className="flex-1">
+                    <span className="text-xs text-slate-500">= {received * item.units}本</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ===== EM発送（用量別・本数） ===== */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-orange-50 px-4 py-3 border-b border-orange-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-orange-900">EM発送</h2>
+                <p className="text-xs text-orange-600 mt-0.5">用量別の発送本数</p>
+              </div>
+              <span className="text-xs text-orange-400">
+                合計 {emShippedTotal}本
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {BOX_ITEMS.map((item) => {
+                const shipped = boxEdits[item.item_key]?.shipped_count ?? 0;
+                return (
+                  <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
+                    <div className="w-24">
+                      <span className="text-sm font-semibold text-slate-800">{item.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <input
-                        type="text"
-                        placeholder="メモ"
-                        value={v?.note ?? ""}
-                        onChange={(e) => updateBox(item.item_key, "note", e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
+                        type="number"
+                        min={0}
+                        value={shipped}
+                        onFocus={selectOnFocus}
+                        onChange={(e) => updateBox(item.item_key, "shipped_count", parseInt(e.target.value) || 0)}
+                        className="w-20 border border-orange-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
+                      <span className="text-xs text-slate-400">本</span>
                     </div>
                   </div>
                 );
@@ -463,15 +438,15 @@ export default function InventoryLedgerPage() {
             </div>
           </div>
 
-          {/* ===== 梱包済み在庫（店舗別サブタブ） ===== */}
+          {/* ===== のなめ・梱包済み発送（店舗別） ===== */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-100 flex items-center justify-between">
+            <div className="bg-purple-50 px-4 py-3 border-b border-purple-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-emerald-900">梱包済み在庫</h2>
-                <p className="text-xs text-emerald-600 mt-0.5">発送準備完了セット（店舗別）</p>
+                <h2 className="font-semibold text-purple-900">梱包済み発送</h2>
+                <p className="text-xs text-purple-600 mt-0.5">店舗別の発送記録</p>
               </div>
               {locations.length > 1 && (
-                <div className="flex gap-1 bg-emerald-100/60 rounded-lg p-1">
+                <div className="flex gap-1 bg-purple-100/60 rounded-lg p-1">
                   {locations.map((loc) => (
                     <button key={loc} onClick={() => setActiveTab(loc)} className={tabClass(loc)}>
                       {loc}
@@ -481,162 +456,137 @@ export default function InventoryLedgerPage() {
               )}
             </div>
 
-            {Object.entries(grouped).map(([key, group]) => (
-              <div key={key}>
+            {/* のなめ発送: 2.5-7.5mg × 1-3ヶ月 */}
+            {!isEMTab && (
+              <>
                 <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                  <span className="text-xs font-semibold text-slate-600">{group.drug_name} {group.dosage}</span>
+                  <span className="text-xs font-semibold text-slate-600">のなめ発送（用量 × 月数）</span>
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {group.items.map((product) => {
-                    const storeEdits = pkgEdits[activeTab] || {};
-                    const v = storeEdits[product.id];
-                    const boxCount = v?.box_count ?? 0;
-                    const boxesPerSet = (product.quantity ?? 4) / 2;
-                    return (
-                      <div key={product.id} className="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50">
-                        <div className="w-36 min-w-0">
-                          <span className="text-sm font-medium text-slate-700">
-                            {product.duration_months}ヶ月（{boxesPerSet}箱）
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500">在庫</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={boxCount}
-                            onFocus={selectOnFocus}
-                            onChange={(e) => updatePkg(product.id, "box_count", parseInt(e.target.value) || 0)}
-                            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
-                          <span className="text-xs text-slate-400">セット</span>
-                        </div>
-                        <div className="flex-1 min-w-[100px]">
-                          <input
-                            type="text"
-                            placeholder="メモ"
-                            value={v?.note ?? ""}
-                            onChange={(e) => updatePkg(product.id, "note", e.target.value)}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                {Object.entries(nonameGrouped).map(([key, group]) => (
+                  <div key={key}>
+                    <div className="bg-slate-50/50 px-4 py-1.5 border-b border-slate-100">
+                      <span className="text-xs font-medium text-slate-500">{group.drug_name} {group.dosage}</span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {group.items.map((product) => {
+                        const storeEdits = pkgEdits[activeTab] || {};
+                        const v = storeEdits[product.id];
+                        const shipped = v?.shipped_count ?? 0;
+                        return (
+                          <div key={product.id} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
+                            <div className="w-36 min-w-0">
+                              <span className="text-sm font-medium text-slate-700">
+                                {product.dosage} {product.duration_months}ヶ月分
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-slate-500">発送</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={shipped}
+                                onChange={(e) => updatePkg(product.id, "shipped_count", parseInt(e.target.value) || 0)}
+                                onFocus={selectOnFocus}
+                                className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              />
+                              <span className="text-xs text-slate-400">セット</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
 
-            {/* 移行プラン（EMタブのみ） */}
+            {/* EM梱包済み発送: 全用量 × 月数 */}
             {isEMTab && (
               <>
+                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                  <span className="text-xs font-semibold text-slate-600">梱包済み発送（用量 × 月数）</span>
+                </div>
+                {(() => {
+                  const emGrouped = products.reduce(
+                    (acc, p) => {
+                      const key = `${p.drug_name}_${p.dosage ?? ""}`;
+                      if (!acc[key]) acc[key] = { drug_name: p.drug_name, dosage: p.dosage, items: [] };
+                      acc[key].items.push(p);
+                      acc[key].items.sort((a, b) => (a.duration_months ?? 0) - (b.duration_months ?? 0));
+                      return acc;
+                    },
+                    {} as Record<string, { drug_name: string; dosage: string | null; items: Product[] }>
+                  );
+
+                  return Object.entries(emGrouped).map(([key, group]) => (
+                    <div key={key}>
+                      <div className="bg-slate-50/50 px-4 py-1.5 border-b border-slate-100">
+                        <span className="text-xs font-medium text-slate-500">{group.drug_name} {group.dosage}</span>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {group.items.map((product) => {
+                          const storeEdits = pkgEdits[activeTab] || {};
+                          const v = storeEdits[product.id];
+                          const shipped = v?.shipped_count ?? 0;
+                          return (
+                            <div key={product.id} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
+                              <div className="w-36 min-w-0">
+                                <span className="text-sm font-medium text-slate-700">
+                                  {product.dosage} {product.duration_months}ヶ月分
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-slate-500">発送</label>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={shipped}
+                                  onChange={(e) => updatePkg(product.id, "shipped_count", parseInt(e.target.value) || 0)}
+                                  onFocus={selectOnFocus}
+                                className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                />
+                                <span className="text-xs text-slate-400">セット</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
+
+                {/* 移行プラン発送（EM専用） */}
                 <div className="bg-amber-50 px-4 py-2 border-b border-amber-100 border-t">
-                  <span className="text-xs font-semibold text-amber-700">移行プラン（EM用）</span>
+                  <span className="text-xs font-semibold text-amber-700">移行プラン発送（EM用）</span>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {TRANSITION_ITEMS.map((item) => {
                     const storeEdits = pkgEdits[activeTab] || {};
                     const v = storeEdits[item.item_key];
-                    const boxCount = v?.box_count ?? 0;
+                    const shipped = v?.shipped_count ?? 0;
                     return (
-                      <div key={item.item_key} className="px-4 py-3 flex flex-wrap items-center gap-4 hover:bg-slate-50">
+                      <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
                         <div className="w-36 min-w-0">
                           <span className="text-sm font-medium text-slate-700">{item.label}</span>
                           <span className="text-xs text-slate-400 ml-1">({item.desc})</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500">在庫</label>
+                          <label className="text-xs text-slate-500">発送</label>
                           <input
                             type="number"
                             min={0}
-                            value={boxCount}
+                            value={shipped}
                             onFocus={selectOnFocus}
-                            onChange={(e) => updatePkg(item.item_key, "box_count", parseInt(e.target.value) || 0)}
-                            className="w-20 border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            onChange={(e) => updatePkg(item.item_key, "shipped_count", parseInt(e.target.value) || 0)}
+                            className="w-20 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                           <span className="text-xs text-slate-400">セット</span>
-                        </div>
-                        <div className="flex-1 min-w-[100px]">
-                          <input
-                            type="text"
-                            placeholder="メモ"
-                            value={v?.note ?? ""}
-                            onChange={(e) => updatePkg(item.item_key, "note", e.target.value)}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-600 placeholder:text-slate-300"
-                          />
                         </div>
                       </div>
                     );
                   })}
                 </div>
               </>
-            )}
-          </div>
-
-          {/* ===== 在庫推移（日次×用量マトリクス） ===== */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-              <h2 className="font-semibold text-slate-700">在庫推移</h2>
-              <p className="text-xs text-slate-500 mt-0.5">箱在庫の日次推移</p>
-            </div>
-            {historyMatrix.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400">まだデータがありません</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left">
-                      <th className="px-4 py-2 text-slate-500 font-medium sticky left-0 bg-white">日付</th>
-                      {DOSAGES.map((d) => (
-                        <th key={d} className="px-3 py-2 text-slate-500 font-medium text-center">{d}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyMatrix.map((row) => {
-                      const dateObj = new Date(row.date + "T00:00:00");
-                      const label = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-                      const isToday = row.date === todayStr();
-                      return (
-                        <tr key={row.date} className={`border-b border-slate-100 ${isToday ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
-                          <td className={`px-4 py-2 font-medium sticky left-0 ${isToday ? "bg-blue-50/50 text-blue-700" : "bg-white text-slate-700"}`}>
-                            {label}
-                          </td>
-                          {DOSAGES.map((dose) => {
-                            const cell = row.cells[dose];
-                            const hasData = cell.boxCount > 0 || cell.shipped > 0 || cell.received > 0;
-                            return (
-                              <td key={dose} className="px-3 py-2 text-center">
-                                {hasData ? (
-                                  <div>
-                                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                                      cell.boxCount <= 0 ? "bg-red-100 text-red-700"
-                                        : cell.boxCount <= 3 ? "bg-amber-100 text-amber-700"
-                                          : "bg-emerald-100 text-emerald-700"
-                                    }`}>
-                                      {cell.boxCount}箱
-                                    </span>
-                                    <div className="text-[10px] text-slate-400 mt-0.5">
-                                      {cell.boxCount * 2}本
-                                    </div>
-                                    {cell.received > 0 && (
-                                      <div className="text-[10px] text-green-600 font-medium mt-0.5">
-                                        +{cell.received}箱入荷
-                                      </div>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-300">-</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
         </div>
