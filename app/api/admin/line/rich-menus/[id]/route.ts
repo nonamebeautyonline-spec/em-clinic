@@ -105,7 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ menu: data });
     }
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
+    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "";
     const syncLog: string[] = [];
 
     // Step 1: LINE APIに新メニュー作成

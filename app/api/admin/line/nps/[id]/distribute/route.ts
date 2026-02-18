@@ -37,7 +37,7 @@ export async function POST(
   }
 
   // 回答URL（テナントごとのベースURL）
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://app.noname-beauty.jp";
+  const baseUrl = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
   let sent = 0;
 
   for (const target of withLineId) {

@@ -1,8 +1,8 @@
 // lib/email.ts
 import { Resend } from "resend";
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@noname-beauty.jp";
-const APP_NAME = "のなめビューティー 管理画面";
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@l-ope.jp";
+const APP_NAME = process.env.APP_NAME || "Lオペ for CLINIC";
 
 // 遅延初期化（ビルド時エラー回避）
 function getResend(): Resend | null {
@@ -27,7 +27,7 @@ export async function sendPasswordResetEmail(
     const { error } = await resend.emails.send({
       from: `${APP_NAME} <${FROM_EMAIL}>`,
       to: [to],
-      subject: "【のなめビューティー】パスワードリセット",
+      subject: `【${APP_NAME}】パスワードリセット`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1e293b;">パスワードリセット</h2>
@@ -76,7 +76,7 @@ export async function sendWelcomeEmail(
     const { error } = await resend.emails.send({
       from: `${APP_NAME} <${FROM_EMAIL}>`,
       to: [to],
-      subject: "【のなめビューティー】管理者アカウント作成",
+      subject: `【${APP_NAME}】管理者アカウント作成`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1e293b;">管理者アカウントが作成されました</h2>

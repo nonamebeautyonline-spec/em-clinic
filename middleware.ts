@@ -33,7 +33,7 @@ async function resolveSlugToTenantId(slug: string): Promise<string | null> {
 }
 
 // サブドメインとして無視するホスト名プレフィックス
-const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127"]);
+const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127", "l-ope"]);
 
 // CSRF検証を除外するパス
 const CSRF_EXEMPT_PREFIXES = [
@@ -74,6 +74,24 @@ function isCsrfExempt(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const host = req.headers.get("host") || "";
+
+  // === l-ope.jp ベアドメイン → LP ===
+  if (pathname === "/" && /^l-ope\.jp(:\d+)?$/.test(host)) {
+    return NextResponse.rewrite(new URL("/lp", req.url));
+  }
+
+  // === 旧ドメインからの移行 ===
+  if (host.includes("noname-beauty.jp")) {
+    const newUrl = new URL(req.url);
+    newUrl.host = "noname-beauty.l-ope.jp";
+    // API（webhook等）は rewrite（外部サービスは301を追わないため）
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.rewrite(newUrl);
+    }
+    // ブラウザアクセスは 301 リダイレクト
+    return NextResponse.redirect(newUrl, 301);
+  }
 
   // === /doctor 配下のBasic認証 ===
   if (pathname.startsWith("/doctor")) {
@@ -157,5 +175,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*", "/admin/:path*", "/doctor/:path*"],
+  matcher: ["/", "/api/:path*", "/admin/:path*", "/doctor/:path*"],
 };

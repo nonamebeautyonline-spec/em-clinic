@@ -29,7 +29,7 @@ describe("sendPasswordResetEmail", () => {
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ["user@example.com"],
-        subject: "【のなめビューティー】パスワードリセット",
+        subject: "【Lオペ for CLINIC】パスワードリセット",
       }),
     );
   });
@@ -103,7 +103,7 @@ describe("sendWelcomeEmail", () => {
     expect(mockSend).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ["admin@example.com"],
-        subject: "【のなめビューティー】管理者アカウント作成",
+        subject: "【Lオペ for CLINIC】管理者アカウント作成",
       }),
     );
   });

@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     // 2. 画像がある場合、LINE API登録をバックグラウンドで実行
     if (image_url) {
-      const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || "";
+      const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "";
       after(async () => {
         try {
           const lineRichMenuId = await createLineRichMenu(data, origin, tenantId ?? undefined);

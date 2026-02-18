@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
-              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://api.squareup.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io",
+              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://api.squareup.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io https://*.l-ope.jp",
               "frame-src 'self' https://js.squareup.com https://sandbox.web.squarecdn.com",
               "base-uri 'self'",
               "form-action 'self'",

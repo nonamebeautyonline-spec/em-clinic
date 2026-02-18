@@ -41,7 +41,7 @@ function createMockRequest(options: {
   cookies?: Record<string, string>;
   headers?: Record<string, string>;
 } = {}): NextRequest {
-  const url = "https://admin.noname-beauty.jp/api/admin/test";
+  const url = "https://noname-beauty.l-ope.jp/api/admin/test";
   const headers = new Headers(options.headers || {});
 
   // NextRequestのcookies.get()が動作するようCookieヘッダーで渡す

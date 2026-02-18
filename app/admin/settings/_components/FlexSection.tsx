@@ -65,8 +65,8 @@ const DEFAULT_CONFIG: FlexMessageConfig = {
     storageNotice2: "冷凍保存を行うと薬液が凍結したり効果が下がってしまいますのでご注意ください。",
     buttonLabel: "配送状況を確認",
     footerNote: "マイページからも確認が可能です",
-    truckImageUrl: "https://app.noname-beauty.jp/images/truck-delivery.png",
-    progressBarUrl: "https://app.noname-beauty.jp/images/progress-bar.png",
+    truckImageUrl: "https://noname-beauty.l-ope.jp/images/truck-delivery.png",
+    progressBarUrl: "https://noname-beauty.l-ope.jp/images/progress-bar.png",
   },
 };
 

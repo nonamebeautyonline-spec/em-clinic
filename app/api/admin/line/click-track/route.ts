@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // 計測用URLを生成
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.noname-beauty.jp";
+  const baseUrl = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
   const trackingUrl = `${baseUrl}/r/${trackingCode}`;
 
   return NextResponse.json({ link: data, tracking_url: trackingUrl });
