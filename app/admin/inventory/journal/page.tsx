@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface Product {
   id: string;
@@ -34,26 +34,26 @@ const BOX_ITEMS = [
   { item_key: "box_12.5mg", label: "12.5mg", units: 2 },
 ];
 
-// 移行プラン（EM専用）
+// のなめ発送アイテム（箱単位、2.5-7.5mgのみ）
+const NONAME_SHIP_ITEMS = [
+  { item_key: "noname_ship_2.5mg", label: "2.5mg", dosage: "2.5mg" },
+  { item_key: "noname_ship_5mg", label: "5mg", dosage: "5mg" },
+  { item_key: "noname_ship_7.5mg", label: "7.5mg", dosage: "7.5mg" },
+];
+
+// 移行プラン（EM専用）— buildEntries用
 const TRANSITION_ITEMS = [
-  { item_key: "transition_1", label: "移行プラン①", desc: "2.5mg×1箱 + 5mg×1箱" },
-  { item_key: "transition_1x2", label: "移行プラン①×2", desc: "2.5mg×2箱 + 5mg×2箱" },
-  { item_key: "transition_2", label: "移行プラン②", desc: "5mg×1箱 + 7.5mg×1箱" },
-  { item_key: "transition_3", label: "移行プラン③", desc: "7.5mg×1箱 + 10mg×1箱" },
+  { item_key: "transition_1" },
+  { item_key: "transition_1x2" },
+  { item_key: "transition_2" },
+  { item_key: "transition_3" },
 ];
 
-// EM用の追加梱包アイテム（productsテーブルで非活性の用量）
+// EM用の追加梱包アイテム — buildEntries用
 const EXTRA_EM_PACKAGED = [
-  { item_key: "em_10mg_1m", label: "10mg 1ヶ月（2箱）", dosage: "10mg", duration: 1, boxesPerSet: 2 },
-  { item_key: "em_10mg_2m", label: "10mg 2ヶ月（4箱）", dosage: "10mg", duration: 2, boxesPerSet: 4 },
-  { item_key: "em_10mg_3m", label: "10mg 3ヶ月（6箱）", dosage: "10mg", duration: 3, boxesPerSet: 6 },
-  { item_key: "em_12.5mg_1m", label: "12.5mg 1ヶ月（2箱）", dosage: "12.5mg", duration: 1, boxesPerSet: 2 },
-  { item_key: "em_12.5mg_2m", label: "12.5mg 2ヶ月（4箱）", dosage: "12.5mg", duration: 2, boxesPerSet: 4 },
-  { item_key: "em_12.5mg_3m", label: "12.5mg 3ヶ月（6箱）", dosage: "12.5mg", duration: 3, boxesPerSet: 6 },
+  { item_key: "em_10mg_1m" }, { item_key: "em_10mg_2m" }, { item_key: "em_10mg_3m" },
+  { item_key: "em_12.5mg_1m" }, { item_key: "em_12.5mg_2m" }, { item_key: "em_12.5mg_3m" },
 ];
-
-// のなめで使用する用量（2.5-7.5mgのみ）
-const NONAME_DOSAGES = ["2.5mg", "5mg", "7.5mg"];
 
 const SHARED_LOCATION = "共有";
 
@@ -65,7 +65,6 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// number input のフォーカス時全選択（先頭0問題を解消）
 const selectOnFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select();
 
 export default function InventoryJournalPage() {
@@ -79,18 +78,13 @@ export default function InventoryJournalPage() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const isInitialLoad = useRef(true);
 
-  // 箱在庫（共有）— 入荷とEM発送を管理
+  // 箱在庫（共有）— 入荷・EM発送・のなめ発送
   const [boxEdits, setBoxEdits] = useState<ValMap>({});
   const [boxOriginal, setBoxOriginal] = useState<ValMap>({});
 
-  // 梱包済み在庫（店舗別）— 発送を管理
+  // 梱包済み在庫（店舗別）— UIには出さないがデータ保持用
   const [pkgEdits, setPkgEdits] = useState<Record<string, ValMap>>({});
   const [pkgOriginal, setPkgOriginal] = useState<Record<string, ValMap>>({});
-
-  // 店舗サブタブ
-  const [activeTab, setActiveTab] = useState("");
-
-  const isEMTab = activeTab.includes("EM");
 
   // データ取得
   const fetchData = useCallback(async () => {
@@ -104,11 +98,7 @@ export default function InventoryJournalPage() {
 
       const locs: string[] = data.locations || ["本院"];
       setLocations(locs);
-      if (!activeTab || !locs.includes(activeTab)) {
-        setActiveTab(locs[0]);
-      }
 
-      // ログを振り分け
       const logs: LogEntry[] = data.logs || [];
       const bMap: ValMap = {};
       const pMap: Record<string, ValMap> = {};
@@ -132,18 +122,13 @@ export default function InventoryJournalPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    if (locations.length > 0 && !locations.includes(activeTab)) {
-      setActiveTab(locations[0]);
-    }
-  }, [locations, activeTab]);
-
-  // エントリ組み立て（仕訳は shipped_count/received_count を編集、box_count は元値を保持）
+  // エントリ組み立て（仕訳の入力 + 台帳のpackagedデータを保持）
   const buildEntries = useCallback(() => {
+    // box セクション（入荷・EM発送）
     const boxEntries = BOX_ITEMS.map((b) => ({
       item_key: b.item_key,
       section: "box",
@@ -154,6 +139,18 @@ export default function InventoryJournalPage() {
       note: boxEdits[b.item_key]?.note ?? "",
     }));
 
+    // のなめ発送アイテム
+    const nonameEntries = NONAME_SHIP_ITEMS.map((n) => ({
+      item_key: n.item_key,
+      section: "box",
+      location: SHARED_LOCATION,
+      box_count: 0,
+      shipped_count: boxEdits[n.item_key]?.shipped_count ?? 0,
+      received_count: 0,
+      note: "",
+    }));
+
+    // packaged セクション（台帳データを保持）
     const allPkgEntries: Array<{
       item_key: string;
       section: string;
@@ -208,7 +205,7 @@ export default function InventoryJournalPage() {
       }
     }
 
-    return [...boxEntries, ...allPkgEntries];
+    return [...boxEntries, ...nonameEntries, ...allPkgEntries];
   }, [boxEdits, pkgEdits, locations, products]);
 
   // 保存（手動）
@@ -223,7 +220,6 @@ export default function InventoryJournalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date: selectedDate, entries }),
       });
-
       if (!res.ok) throw new Error();
       const data = await res.json();
       setMessage(`${data.saved}件保存しました`);
@@ -241,9 +237,7 @@ export default function InventoryJournalPage() {
       isInitialLoad.current = false;
       return;
     }
-    const boxChanged = JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal);
-    const pkgChanged = JSON.stringify(pkgEdits) !== JSON.stringify(pkgOriginal);
-    if (!boxChanged && !pkgChanged) return;
+    if (JSON.stringify(boxEdits) === JSON.stringify(boxOriginal)) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
 
@@ -267,9 +261,8 @@ export default function InventoryJournalPage() {
     }, 1500);
 
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
-  }, [boxEdits, pkgEdits]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [boxEdits]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 箱在庫の値更新（仕訳では received_count と shipped_count を編集）
   const updateBox = (key: string, field: keyof Val, value: number | string) => {
     setBoxEdits((prev) => ({
       ...prev,
@@ -277,61 +270,19 @@ export default function InventoryJournalPage() {
     }));
   };
 
-  // 梱包済みの値更新
-  const updatePkg = (key: string, field: keyof Val, value: number | string) => {
-    setPkgEdits((prev) => ({
-      ...prev,
-      [activeTab]: {
-        ...prev[activeTab],
-        [key]: {
-          box_count: prev[activeTab]?.[key]?.box_count ?? 0,
-          shipped_count: prev[activeTab]?.[key]?.shipped_count ?? 0,
-          received_count: prev[activeTab]?.[key]?.received_count ?? 0,
-          note: prev[activeTab]?.[key]?.note ?? "",
-          [field]: value,
-        },
-      },
-    }));
-  };
-
-  const hasChanges =
-    JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal) ||
-    JSON.stringify(pkgEdits) !== JSON.stringify(pkgOriginal);
-
-  // のなめ発送: 用量(2.5-7.5mg) × 月数(1-3ヶ月) でグルーピング
-  const nonameGrouped = useMemo(() => {
-    const filtered = products.filter((p) => NONAME_DOSAGES.includes(p.dosage ?? ""));
-    return filtered.reduce(
-      (acc, p) => {
-        const key = `${p.drug_name}_${p.dosage ?? ""}`;
-        if (!acc[key]) acc[key] = { drug_name: p.drug_name, dosage: p.dosage, items: [] };
-        acc[key].items.push(p);
-        acc[key].items.sort((a, b) => (a.duration_months ?? 0) - (b.duration_months ?? 0));
-        return acc;
-      },
-      {} as Record<string, { drug_name: string; dosage: string | null; items: Product[] }>
-    );
-  }, [products]);
-
-  // EM発送: 全用量で本数記録
-  const emShippedTotal = useMemo(() =>
-    BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.shipped_count ?? 0), 0),
-    [boxEdits]
-  );
+  const hasChanges = JSON.stringify(boxEdits) !== JSON.stringify(boxOriginal);
 
   // 入荷合計
-  const receivedTotal = useMemo(() =>
-    BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.received_count ?? 0), 0),
-    [boxEdits]
-  );
+  const receivedTotal = BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.received_count ?? 0), 0);
 
-  const tabClass = (name: string) =>
-    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-      activeTab === name ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
-    }`;
+  // EM発送合計（本数）
+  const emShippedTotal = BOX_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.shipped_count ?? 0), 0);
+
+  // のなめ発送合計（箱数）
+  const nonameShippedTotal = NONAME_SHIP_ITEMS.reduce((sum, item) => sum + (boxEdits[item.item_key]?.shipped_count ?? 0), 0);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-slate-900">仕訳</h1>
         <p className="text-slate-500 text-sm mt-1">日々の入荷・発送管理</p>
@@ -393,9 +344,7 @@ export default function InventoryJournalPage() {
                 <h2 className="font-semibold text-green-900">入荷</h2>
                 <p className="text-xs text-green-600 mt-0.5">箱単位（1箱 = 2本）</p>
               </div>
-              <span className="text-xs text-green-600 font-medium">
-                合計 {receivedTotal}箱
-              </span>
+              <span className="text-xs text-green-600 font-medium">合計 {receivedTotal}箱</span>
             </div>
             <div className="divide-y divide-slate-100">
               {BOX_ITEMS.map((item) => {
@@ -423,16 +372,14 @@ export default function InventoryJournalPage() {
             </div>
           </div>
 
-          {/* ===== EM発送（用量別・本数） ===== */}
+          {/* ===== EM発送（本数単位） ===== */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-orange-50 px-4 py-3 border-b border-orange-100 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-orange-900">EM発送</h2>
                 <p className="text-xs text-orange-600 mt-0.5">用量別の発送本数</p>
               </div>
-              <span className="text-xs text-orange-400">
-                合計 {emShippedTotal}本
-              </span>
+              <span className="text-xs text-orange-600 font-medium">合計 {emShippedTotal}本</span>
             </div>
             <div className="divide-y divide-slate-100">
               {BOX_ITEMS.map((item) => {
@@ -459,195 +406,39 @@ export default function InventoryJournalPage() {
             </div>
           </div>
 
-          {/* ===== のなめ・梱包済み発送（店舗別） ===== */}
+          {/* ===== のなめ発送（箱単位） ===== */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-purple-50 px-4 py-3 border-b border-purple-100 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-purple-900">梱包済み発送</h2>
-                <p className="text-xs text-purple-600 mt-0.5">店舗別の発送記録</p>
+                <h2 className="font-semibold text-purple-900">のなめ発送</h2>
+                <p className="text-xs text-purple-600 mt-0.5">用量別の発送箱数（1箱 = 2本）</p>
               </div>
-              {locations.length > 1 && (
-                <div className="flex gap-1 bg-purple-100/60 rounded-lg p-1">
-                  {locations.map((loc) => (
-                    <button key={loc} onClick={() => setActiveTab(loc)} className={tabClass(loc)}>
-                      {loc}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <span className="text-xs text-purple-600 font-medium">合計 {nonameShippedTotal}箱</span>
             </div>
-
-            {/* のなめ発送: 2.5-7.5mg × 1-3ヶ月 */}
-            {!isEMTab && (
-              <>
-                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                  <span className="text-xs font-semibold text-slate-600">のなめ発送（用量 × 月数）</span>
-                </div>
-                {Object.entries(nonameGrouped).map(([key, group]) => (
-                  <div key={key}>
-                    <div className="bg-slate-50/50 px-4 py-1.5 border-b border-slate-100">
-                      <span className="text-xs font-medium text-slate-500">{group.drug_name} {group.dosage}</span>
+            <div className="divide-y divide-slate-100">
+              {NONAME_SHIP_ITEMS.map((item) => {
+                const shipped = boxEdits[item.item_key]?.shipped_count ?? 0;
+                return (
+                  <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
+                    <div className="w-24">
+                      <span className="text-sm font-semibold text-slate-800">{item.label}</span>
                     </div>
-                    <div className="divide-y divide-slate-100">
-                      {group.items.map((product) => {
-                        const storeEdits = pkgEdits[activeTab] || {};
-                        const v = storeEdits[product.id];
-                        const shipped = v?.shipped_count ?? 0;
-                        return (
-                          <div key={product.id} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
-                            <div className="w-36 min-w-0">
-                              <span className="text-sm font-medium text-slate-700">
-                                {product.dosage} {product.duration_months}ヶ月分
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs text-slate-500">発送</label>
-                              <input
-                                type="number"
-                                min={0}
-                                value={shipped}
-                                onChange={(e) => updatePkg(product.id, "shipped_count", parseInt(e.target.value) || 0)}
-                                onFocus={selectOnFocus}
-                                className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                              />
-                              <span className="text-xs text-slate-400">セット</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={shipped}
+                        onFocus={selectOnFocus}
+                        onChange={(e) => updateBox(item.item_key, "shipped_count", parseInt(e.target.value) || 0)}
+                        className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <span className="text-xs text-slate-400">箱</span>
                     </div>
+                    <span className="text-xs text-slate-500">= {shipped * 2}本</span>
                   </div>
-                ))}
-              </>
-            )}
-
-            {/* EM梱包済み発送: 全用量 × 月数 */}
-            {isEMTab && (
-              <>
-                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                  <span className="text-xs font-semibold text-slate-600">梱包済み発送（用量 × 月数）</span>
-                </div>
-                {(() => {
-                  const emGrouped = products.reduce(
-                    (acc, p) => {
-                      const key = `${p.drug_name}_${p.dosage ?? ""}`;
-                      if (!acc[key]) acc[key] = { drug_name: p.drug_name, dosage: p.dosage, items: [] };
-                      acc[key].items.push(p);
-                      acc[key].items.sort((a, b) => (a.duration_months ?? 0) - (b.duration_months ?? 0));
-                      return acc;
-                    },
-                    {} as Record<string, { drug_name: string; dosage: string | null; items: Product[] }>
-                  );
-
-                  return Object.entries(emGrouped).map(([key, group]) => (
-                    <div key={key}>
-                      <div className="bg-slate-50/50 px-4 py-1.5 border-b border-slate-100">
-                        <span className="text-xs font-medium text-slate-500">{group.drug_name} {group.dosage}</span>
-                      </div>
-                      <div className="divide-y divide-slate-100">
-                        {group.items.map((product) => {
-                          const storeEdits = pkgEdits[activeTab] || {};
-                          const v = storeEdits[product.id];
-                          const shipped = v?.shipped_count ?? 0;
-                          return (
-                            <div key={product.id} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
-                              <div className="w-36 min-w-0">
-                                <span className="text-sm font-medium text-slate-700">
-                                  {product.dosage} {product.duration_months}ヶ月分
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs text-slate-500">発送</label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={shipped}
-                                  onChange={(e) => updatePkg(product.id, "shipped_count", parseInt(e.target.value) || 0)}
-                                  onFocus={selectOnFocus}
-                                className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                />
-                                <span className="text-xs text-slate-400">セット</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ));
-                })()}
-
-                {/* 10mg/12.5mg発送（EM専用） */}
-                {["10mg", "12.5mg"].map((dose) => {
-                  const items = EXTRA_EM_PACKAGED.filter(e => e.dosage === dose);
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={dose}>
-                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 border-t">
-                        <span className="text-xs font-semibold text-slate-600">{dose} 発送</span>
-                      </div>
-                      <div className="divide-y divide-slate-100">
-                        {items.map((item) => {
-                          const storeEdits = pkgEdits[activeTab] || {};
-                          const v = storeEdits[item.item_key];
-                          const shipped = v?.shipped_count ?? 0;
-                          return (
-                            <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
-                              <div className="w-36 min-w-0">
-                                <span className="text-sm font-medium text-slate-700">{item.duration}ヶ月（{item.boxesPerSet}箱）</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs text-slate-500">発送</label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={shipped}
-                                  onFocus={selectOnFocus}
-                                  onChange={(e) => updatePkg(item.item_key, "shipped_count", parseInt(e.target.value) || 0)}
-                                  className="w-20 border border-purple-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                />
-                                <span className="text-xs text-slate-400">セット</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* 移行プラン発送（EM専用） */}
-                <div className="bg-amber-50 px-4 py-2 border-b border-amber-100 border-t">
-                  <span className="text-xs font-semibold text-amber-700">移行プラン発送（EM用）</span>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {TRANSITION_ITEMS.map((item) => {
-                    const storeEdits = pkgEdits[activeTab] || {};
-                    const v = storeEdits[item.item_key];
-                    const shipped = v?.shipped_count ?? 0;
-                    return (
-                      <div key={item.item_key} className="px-4 py-3 flex items-center gap-4 hover:bg-slate-50">
-                        <div className="w-36 min-w-0">
-                          <span className="text-sm font-medium text-slate-700">{item.label}</span>
-                          <span className="text-xs text-slate-400 ml-1">({item.desc})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-slate-500">発送</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={shipped}
-                            onFocus={selectOnFocus}
-                            onChange={(e) => updatePkg(item.item_key, "shipped_count", parseInt(e.target.value) || 0)}
-                            className="w-20 border border-amber-300 rounded-lg px-3 py-1.5 text-sm text-center [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          />
-                          <span className="text-xs text-slate-400">セット</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

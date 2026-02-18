@@ -232,7 +232,19 @@ export default function InventoryLedgerPage() {
       }
     }
 
-    return [...boxEntries, ...allPkgEntries];
+    // のなめ発送アイテム（仕訳ページのデータを保持）
+    const nonameShipKeys = ["noname_ship_2.5mg", "noname_ship_5mg", "noname_ship_7.5mg"];
+    const nonameEntries = nonameShipKeys.map((key) => ({
+      item_key: key,
+      section: "box",
+      location: SHARED_LOCATION,
+      box_count: 0,
+      shipped_count: boxEdits[key]?.shipped_count ?? 0,
+      received_count: 0,
+      note: "",
+    }));
+
+    return [...boxEntries, ...nonameEntries, ...allPkgEntries];
   }, [boxEdits, pkgEdits, locations, products]);
 
   // 保存（手動）
@@ -384,6 +396,11 @@ export default function InventoryLedgerPage() {
             cells[dose].boxCount += log.box_count;
             cells[dose].received += log.received_count ?? 0;
             cells[dose].shipped += log.shipped_count;
+          }
+          // のなめ発送（noname_ship_* → 箱単位を本数に変換して加算）
+          const nonameDose = log.item_key.replace("noname_ship_", "");
+          if (nonameDose !== log.item_key && cells[nonameDose]) {
+            cells[nonameDose].shipped += log.shipped_count * 2;
           }
         } else if (log.section === "packaged") {
           // 梱包済み商品 → 箱数換算
