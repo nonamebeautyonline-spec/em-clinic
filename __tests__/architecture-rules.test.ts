@@ -177,6 +177,8 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     for (const routePath of routes) {
       const relativePath = path.relative(process.cwd(), routePath);
       if (TENANT_EXEMPT_ROUTES.has(relativePath)) continue;
+      // プラットフォーム管理ルートはテナント横断のため除外
+      if (relativePath.includes("admin/platform/")) continue;
 
       const src = fs.readFileSync(routePath, "utf-8");
       if (src.includes("supabaseAdmin")) {

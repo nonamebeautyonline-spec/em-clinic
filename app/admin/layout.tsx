@@ -28,6 +28,16 @@ function LogoMark({ compact }: { compact?: boolean }) {
   );
 }
 
+// プラットフォーム管理メニュー
+const PLATFORM_MENU_ITEMS = [
+  { href: "/admin/platform", icon: "📊", label: "ダッシュボード" },
+  { href: "/admin/platform/tenants", icon: "🏥", label: "テナント管理" },
+  { href: "/admin/platform/members", icon: "👥", label: "メンバー管理" },
+  { href: "/admin/platform/billing", icon: "💳", label: "契約・請求" },
+  { href: "/admin/platform/audit", icon: "🔍", label: "監査ログ" },
+  { href: "/admin/platform/system", icon: "⚙️", label: "システム設定" },
+];
+
 // スマホ用メニュー項目（必要な機能のみ）
 const MOBILE_MENU_ITEMS = [
   { href: "/admin/accounting", icon: "💹", label: "売上管理" },
@@ -58,6 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
@@ -125,6 +136,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 };
               })
               .catch(() => {});
+            setPlatformRole(data.user?.platformRole || "tenant_admin");
             setIsAuthenticated(true);
             setLoading(false);
             return;
@@ -306,6 +318,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* ナビゲーションメニュー */}
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
+          {/* プラットフォーム管理への切替リンク */}
+          {platformRole === "platform_admin" && !pathname?.startsWith("/admin/platform") && (
+            <div className="px-3 mb-3">
+              <Link
+                href="/admin/platform"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border border-violet-500/30 text-violet-300 hover:from-violet-600/30 hover:to-indigo-600/30 transition-all text-xs font-medium"
+              >
+                <span>🌐</span>
+                {isSidebarOpen && <span>プラットフォーム管理</span>}
+              </Link>
+            </div>
+          )}
+          {/* プラットフォーム管理モード */}
+          {pathname?.startsWith("/admin/platform") ? (
+            <>
+              <div className="px-3 mb-3">
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-xs font-medium"
+                >
+                  <span>←</span>
+                  {isSidebarOpen && <span>テナント管理に戻る</span>}
+                </Link>
+              </div>
+              {isSidebarOpen && (
+                <div className="px-4 mb-2">
+                  <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Platform</span>
+                </div>
+              )}
+              {PLATFORM_MENU_ITEMS.map((item) => (
+                <MenuItem
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  isOpen={isSidebarOpen}
+                  isActive={item.href === "/admin/platform" ? pathname === "/admin/platform" : pathname?.startsWith(item.href)}
+                />
+              ))}
+            </>
+          ) : (
+          <>
           <MenuItem
             href="/admin"
             icon="📊"
@@ -488,6 +542,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/settings"}
           />
+          </>
+          )}
         </nav>
 
         {/* ログアウト */}

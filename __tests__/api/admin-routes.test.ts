@@ -204,12 +204,16 @@ describe("admin配下全ルート: 認証チェック", () => {
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
   const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address"];
 
+  // プラットフォーム管理ルート（verifyPlatformAdmin で独自認証）
+  const PLATFORM_ROUTES = ["platform"];
+
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];
 
     for (const route of adminRoutes) {
       const isExempt = AUTH_EXEMPT.some((exempt) => route.includes(exempt));
-      if (isExempt) continue;
+      const isPlatform = PLATFORM_ROUTES.some((p) => route.includes(`/admin/${p}`));
+      if (isExempt || isPlatform) continue;
 
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (!src.includes("verifyAdminAuth")) {
@@ -219,15 +223,32 @@ describe("admin配下全ルート: 認証チェック", () => {
 
     expect(violations).toEqual([]);
   });
+
+  it("プラットフォームルートが verifyPlatformAdmin を呼んでいる", () => {
+    const violations: string[] = [];
+    for (const route of adminRoutes) {
+      const isPlatform = route.includes("/admin/platform/");
+      if (!isPlatform) continue;
+
+      const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
+      if (!src.includes("verifyPlatformAdmin")) {
+        violations.push(route);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
 });
 
 describe("admin配下全ルート: テナント分離", () => {
   const adminRoutes = findRouteFiles("app/api/admin");
 
-  it("supabaseAdmin を使用している admin ルートはテナント対応している", () => {
+  it("supabaseAdmin を使用している admin ルートはテナント対応している（プラットフォーム管理を除く）", () => {
     const violations: string[] = [];
 
     for (const route of adminRoutes) {
+      // プラットフォーム管理ルートはテナント横断のため除外
+      if (route.includes("/admin/platform/")) continue;
+
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
         const hasTenant = src.includes("withTenant") || src.includes("resolveTenantId") || src.includes("tenantPayload");

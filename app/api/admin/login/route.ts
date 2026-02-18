@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const { data: user, error: userError } = await withTenant(
       supabase
         .from("admin_users")
-        .select("id, email, name, password_hash, is_active, tenant_id")
+        .select("id, email, name, password_hash, is_active, tenant_id, platform_role")
         .eq("email", email),
       tenantId
     ).single();
@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       name: user.name,
       tenantId: user.tenant_id || null,
+      platformRole: user.platform_role || "tenant_admin",
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
