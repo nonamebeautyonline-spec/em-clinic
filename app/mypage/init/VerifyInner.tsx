@@ -157,7 +157,7 @@ function Inner() {
       </header>
 
       <main className="mx-auto max-w-md px-4 pt-8 pb-10">
-        <h1 className="text-xl font-semibold text-slate-900">初回登録（電話番号認証）</h1>
+        <h1 className="text-xl font-semibold text-slate-900">電話番号認証</h1>
         <p className="mt-2 text-sm text-slate-600 leading-relaxed">
           LINEログイン連携ありがとうございます。
           <br />
