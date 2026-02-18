@@ -88,11 +88,6 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(newUrl, 301);
   }
 
-  // === のなめビューティー患者LP（noname-beauty.l-ope.jpのみ） ===
-  if (pathname === "/" && host.includes("noname-beauty")) {
-    return NextResponse.rewrite(new URL("/noname-lp.html", req.url));
-  }
-
   // === /doctor 配下のBasic認証 ===
   if (pathname.startsWith("/doctor")) {
     const basicAuth = req.headers.get("authorization");
