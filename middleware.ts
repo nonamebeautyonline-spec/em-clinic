@@ -76,11 +76,6 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
-  // === l-ope.jp ベアドメイン → LP ===
-  if (pathname === "/" && /^l-ope\.jp(:\d+)?$/.test(host)) {
-    return NextResponse.rewrite(new URL("/lp", req.url));
-  }
-
   // === 旧ドメインからの移行 ===
   if (host.includes("noname-beauty.jp")) {
     const newUrl = new URL(req.url);
