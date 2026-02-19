@@ -90,6 +90,7 @@ export default function TenantDetailPage() {
     contactPhone: "",
     address: "",
     notes: "",
+    logoUrl: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -130,6 +131,7 @@ export default function TenantDetailPage() {
           contactPhone: data.tenant.contact_phone || "",
           address: data.tenant.address || "",
           notes: data.tenant.notes || "",
+          logoUrl: data.tenant.logo_url || "",
         });
       }
     } catch (err) {
@@ -243,6 +245,8 @@ export default function TenantDetailPage() {
         payload.address = editForm.address || null;
       if (editForm.notes !== (tenant?.notes || ""))
         payload.notes = editForm.notes || null;
+      if (editForm.logoUrl !== (tenant?.logo_url || ""))
+        payload.logoUrl = editForm.logoUrl || null;
 
       if (Object.keys(payload).length === 0) {
         showToast("変更はありません");
@@ -898,6 +902,31 @@ export default function TenantDetailPage() {
                     }
                     className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    ロゴURL
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="url"
+                      value={editForm.logoUrl}
+                      onChange={(e) =>
+                        setEditForm((p) => ({ ...p, logoUrl: e.target.value }))
+                      }
+                      placeholder="https://example.com/logo.png"
+                      className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {editForm.logoUrl && (
+                      <img
+                        src={editForm.logoUrl}
+                        alt="ロゴプレビュー"
+                        className="h-10 w-10 object-contain rounded border border-slate-200"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">ログイン画面に表示されるロゴ画像</p>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">
