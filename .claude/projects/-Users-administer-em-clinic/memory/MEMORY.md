@@ -46,6 +46,59 @@
 - **統合API**: `app/api/admin/merge-patients/route.ts`（ただし上記追加テーブルの一部は未対応）
 - **データ移行時の必須事項**: `patients.tel` を必ず含めること（tel=null → 電話番号マッチング不能 → 重複PID発生の原因）
 
+## patients プロフィール欠損バックフィル（2026-02-18 対応済み）
+- **原因**: GAS→DB移行時に intake.answers の個人情報（カナ・性別・生年月日）が patients テーブルに転記されなかった
+- **影響範囲**:
+  - name_kana=null: 2,817人（全4,116人中68%）
+  - sex=null: 789人
+  - birthday=null: 789人
+- **内訳**:
+  - 1月の患者（~2,032人）: GAS移行時の転記漏れ → intake.answers から復元
+  - 2/15 のLINE友だち一括取り込み（~724人）: 問診未完了のため正常にnull
+  - 2月その他: 問診保存時に反映済みで問題なし
+- **対応**: `scripts/backfill-patients-profile.cjs` で intake.answers → patients に穴埋め
+  - name_kana: 2,583人復元
+  - sex: 556人復元
+  - birthday: 556人復元
+  - 既存データは上書きせず null のみ埋める
+  - エラー0件
+- **残り null（233〜234人）**: LINE一括取り込みの問診未完了者。問診入力時に自動で入る
+- **補足**: patient-lookup API にフォールバックロジックあり（`answers?.カナ || answerer?.name_kana`）ため表示上は問題なかったが、patients テーブルをマスターとするDB正規化の一環としてバックフィル実施
+
+## Supabase CLI マイグレーション適用方法
+- `supabase db push` は順序問題で失敗しやすい（既存マイグレーションとの順序不整合）
+- **確実な方法**: Management API で直接 SQL 実行:
+  ```bash
+  TOKEN_RAW=$(security find-generic-password -s "Supabase CLI" -w)
+  TOKEN=$(echo "$TOKEN_RAW" | sed 's/go-keyring-base64://' | base64 -d)
+  SQL=$(cat supabase/migrations/XXXX.sql)
+  curl -s -X POST "https://api.supabase.com/v1/projects/fzfkgemtaxsrocbucmza/database/query" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --arg q "$SQL" '{query: $q}')"
+  ```
+- トークンは macOS Keychain に保存（`security find-generic-password -s "Supabase CLI" -w`）
+- Base64 プレフィックス `go-keyring-base64:` を除去してデコードが必要
+- 成功時は `[]` が返る。エラー時は `{"message": "..."}` 形式
+- **PostgreSQL注意**: `DISTINCT ON` + `ORDER BY` を `UNION ALL` で使う場合、各 SELECT を `()` で囲む
+
+## LINE webhook name=displayName インシデント（2026-02-19 修正）
+- **原因**: `webhook/route.ts` の `findOrCreatePatient` が `name: displayName` で patients レコードを作成していた
+- **影響**:
+  - LINE友だち追加時に `patients.name` = LINEディスプレイネーム（ニックネーム等）がセットされる
+  - 個人情報フォーム（`register/personal-info`）が正常に動作すれば上書きされるが、LINE_仮ID患者の一部で上書きされず残存
+  - mypage ガード `!answerer?.name` を通過してしまう（name がnullではないため）
+- **修正**:
+  - `webhook/route.ts`: `name: displayName` の行を削除（`line_display_name` に別途保存済み）
+  - `mypage/page.tsx`, `mypage/init/page.tsx`: LINE_プレフィックスガード追加
+  - `register/personal-info/route.ts`: LINE_→数値ID移行テーブルに reservations/orders/reorders 追加
+- **データ修正**: name=displayName だった7名を intake.answers の本名で復元
+- **教訓**: patients.name の変更前に必ず intake の氏名データを確認すること。安易に null リセットしない
+
+## 個別トーク未読フィルターバグ（2026-02-19 修正）
+- **原因**: 未読カウントは `filteredFriends`（全件）から算出、フィルター表示は `visibleUnpinned`（ページネーション後）から絞っていた
+- **修正**: 未読フィルター有効時は `unpinnedFriends`（全件）を使用、「さらに表示」ボタンを非表示に
+
 ## DB Query Rules
 - **Supabaseのデフォルトは1000行制限**: `.select()` で全件取得する場合は必ず `.limit(100000)` 等を明示すること
 - 大量データを取得する場合はページネーション（`.range(from, to)`）を使用する
