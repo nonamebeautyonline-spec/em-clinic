@@ -12,6 +12,8 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+  const [tenantName, setTenantName] = useState<string | null>(null);
+  const [tenantLogo, setTenantLogo] = useState<string | null>(null);
 
   useEffect(() => {
     // セッションチェック
@@ -39,6 +41,15 @@ export default function AdminLoginPage() {
     };
 
     checkSession();
+
+    // テナント情報取得
+    fetch("/api/admin/tenant-info")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.name) setTenantName(d.name);
+        if (d.logo_url) setTenantLogo(d.logo_url);
+      })
+      .catch(() => {});
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -86,7 +97,12 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-slate-800 rounded-lg shadow-xl p-8 w-full max-w-md border border-slate-700">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white mb-2">管理画面</h1>
+          {tenantLogo && (
+            <img src={tenantLogo} alt="" className="h-12 mx-auto mb-4 object-contain" />
+          )}
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {tenantName ?? "管理画面"}
+          </h1>
           <p className="text-slate-400 text-sm">認証が必要です</p>
         </div>
 
