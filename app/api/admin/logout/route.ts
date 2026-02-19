@@ -14,7 +14,17 @@ export async function POST(req: NextRequest) {
   const response = NextResponse.json({ ok: true });
 
   // Cookieを削除（maxAge=0で即時削除）
-  response.cookies.set({
+  // ログイン時に domain: ".l-ope.jp" で発行しているため、同じdomainを指定しないと削除できない
+  const cookieOptions: {
+    name: string;
+    value: string;
+    httpOnly: boolean;
+    secure: boolean;
+    sameSite: "lax";
+    path: string;
+    maxAge: number;
+    domain?: string;
+  } = {
     name: "admin_session",
     value: "",
     httpOnly: true,
@@ -22,7 +32,13 @@ export async function POST(req: NextRequest) {
     sameSite: "lax",
     path: "/",
     maxAge: 0,
-  });
+  };
+
+  if (process.env.NODE_ENV === "production") {
+    cookieOptions.domain = ".l-ope.jp";
+  }
+
+  response.cookies.set(cookieOptions);
 
   return response;
 }
