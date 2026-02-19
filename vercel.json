@@ -33,11 +33,11 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/generate-reminders",
+      "path": "/api/cron/generate-reminders?offset=0",
       "schedule": "30 23 * * *"
     },
     {
-      "path": "/api/cron/generate-reminders",
+      "path": "/api/cron/generate-reminders?offset=1",
       "schedule": "0 10 * * *"
     },
     {

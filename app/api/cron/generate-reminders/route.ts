@@ -16,12 +16,22 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const { data: rules, error: rulesError } = await supabaseAdmin
+    // ?offset=0（当日）or ?offset=1（前日）でルールを絞り込み
+    const offsetParam = req.nextUrl.searchParams.get("offset");
+    const targetOffset = offsetParam != null ? Number(offsetParam) : null;
+
+    let query = supabaseAdmin
       .from("reminder_rules")
       .select("*")
       .eq("is_enabled", true);
+
+    if (targetOffset != null) {
+      query = query.eq("target_day_offset", targetOffset);
+    }
+
+    const { data: rules, error: rulesError } = await query;
 
     if (rulesError) {
       console.error("[reminders] rules query error:", rulesError.message);
