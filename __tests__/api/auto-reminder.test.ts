@@ -347,9 +347,9 @@ describe("generate-reminders: 直接LINE送信", () => {
     vi.restoreAllMocks();
   });
 
-  it("送信時刻から30分超過後は送信しない", async () => {
-    // 19:35 JST = UTC 10:35（19:00ルールの送信ウィンドウ外）
-    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:35:00Z").getTime());
+  it("送信時刻から15分超過後は送信しない", async () => {
+    // 19:20 JST = UTC 10:20（19:00ルールの送信ウィンドウ外）
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:20:00Z").getTime());
 
     const { supabaseAdmin } = await import("@/lib/supabase");
 

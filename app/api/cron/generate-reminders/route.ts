@@ -59,12 +59,11 @@ export async function GET(_req: NextRequest) {
 async function processFixedTimeRule(rule: any, tenantId: string | null): Promise<number> {
   if (rule.send_hour == null) return 0;
 
-  // 送信時刻の前後30分以内のみ実行（8:30設定なら 8:30〜8:59 に実行）
-  // それ以降は送らない（送信後に入った予約に誤送信しないため）
+  // 送信時刻から15分以内のみ実行（cron間隔=15分、送信後の新規予約に誤送信しない）
   const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const nowMinutes = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
   const sendMinutes = rule.send_hour * 60 + (rule.send_minute ?? 0);
-  if (nowMinutes < sendMinutes || nowMinutes >= sendMinutes + 30) return 0;
+  if (nowMinutes < sendMinutes || nowMinutes >= sendMinutes + 15) return 0;
 
   const jstToday = getJSTToday();
   const targetDate = rule.target_day_offset === 0 ? jstToday : addOneDay(jstToday);
