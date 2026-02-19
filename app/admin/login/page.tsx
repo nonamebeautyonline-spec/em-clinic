@@ -6,9 +6,8 @@ import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [adminToken, setAdminToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
@@ -42,7 +41,7 @@ export default function AdminLoginPage() {
 
     checkSession();
 
-    // テナント情報取得
+    // テナント情報取得（テナントURLの場合のみブランディング表示）
     fetch("/api/admin/tenant-info")
       .then((r) => r.json())
       .then((d) => {
@@ -63,9 +62,8 @@ export default function AdminLoginPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          email,
+          username: username.toUpperCase().trim(),
           password,
-          token: adminToken,
         }),
       });
 
@@ -74,6 +72,12 @@ export default function AdminLoginPage() {
       if (!res.ok || !data.ok) {
         setError(data.error || "認証に失敗しました");
         setLoading(false);
+        return;
+      }
+
+      // 共有URLからのログイン → テナントサブドメインにリダイレクト
+      if (data.redirectUrl) {
+        window.location.href = data.redirectUrl;
         return;
       }
 
@@ -101,24 +105,26 @@ export default function AdminLoginPage() {
             <img src={tenantLogo} alt="" className="h-12 mx-auto mb-4 object-contain" />
           )}
           <h1 className="text-2xl font-bold text-white mb-2">
-            {tenantName ?? "管理画面"}
+            {tenantName ?? "Lオペ for CLINIC"}
           </h1>
-          <p className="text-slate-400 text-sm">認証が必要です</p>
+          <p className="text-slate-400 text-sm">管理画面ログイン</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-              メールアドレス
+            <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
+              ユーザーID
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="LP-XXXXX"
               required
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoCapitalize="characters"
+              autoComplete="username"
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
             />
           </div>
 
@@ -133,21 +139,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="パスワード"
               required
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="adminToken" className="block text-sm font-medium text-slate-300 mb-2">
-              管理者トークン
-            </label>
-            <input
-              id="adminToken"
-              type="password"
-              value={adminToken}
-              onChange={(e) => setAdminToken(e.target.value)}
-              placeholder="ADMIN_TOKEN"
-              required
+              autoComplete="current-password"
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>

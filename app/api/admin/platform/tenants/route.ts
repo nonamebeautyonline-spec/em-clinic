@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { createTenantSchema } from "@/lib/validations/platform-tenant";
+import { generateUsername } from "@/lib/username";
 
 /**
  * GET: テナント一覧取得
@@ -262,19 +263,21 @@ export async function POST(req: NextRequest) {
 
     const tenantId = tenant.id;
 
-    // 2. 初期管理者ユーザー作成（bcryptハッシュ）
+    // 2. 初期管理者ユーザー作成（bcryptハッシュ + ユーザーID自動生成）
     const passwordHash = await bcrypt.hash(data.adminPassword, 12);
+    const username = await generateUsername();
     const { data: adminUser, error: adminUserErr } = await supabaseAdmin
       .from("admin_users")
       .insert({
         tenant_id: tenantId,
         name: data.adminName,
         email: data.adminEmail,
+        username,
         password_hash: passwordHash,
         platform_role: "tenant_admin",
         is_active: true,
       })
-      .select("id")
+      .select("id, username")
       .single();
 
     if (adminUserErr || !adminUser) {
@@ -350,6 +353,7 @@ export async function POST(req: NextRequest) {
           name: data.name,
           slug: data.slug,
         },
+        adminUsername: adminUser.username,
       },
       { status: 201 },
     );

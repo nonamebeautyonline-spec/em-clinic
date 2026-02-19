@@ -6,6 +6,7 @@ import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { generateUsername } from "@/lib/username";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   const { data: users, error } = await withTenant(
     supabase
       .from("admin_users")
-      .select("id, email, name, is_active, created_at, updated_at")
+      .select("id, email, name, username, is_active, created_at, updated_at")
       .order("created_at", { ascending: true }),
     tenantId
   );
@@ -82,17 +83,19 @@ export async function POST(req: NextRequest) {
     // 仮パスワード（ランダム）で作成（後でリセット）
     const tempPasswordHash = randomBytes(32).toString("hex");
 
-    // ユーザー作成
+    // ユーザー作成（ユーザーID自動生成）
+    const username = await generateUsername();
     const { data: newUser, error: insertError } = await supabase
       .from("admin_users")
       .insert({
         ...tenantPayload(tenantId),
         email,
         name,
+        username,
         password_hash: tempPasswordHash, // 仮（セットアップ前）
         is_active: true,
       })
-      .select("id, email, name")
+      .select("id, email, name, username")
       .single();
 
     if (insertError) {

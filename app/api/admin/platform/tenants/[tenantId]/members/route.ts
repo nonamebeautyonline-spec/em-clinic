@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { addMemberSchema } from "@/lib/validations/platform-tenant";
+import { generateUsername } from "@/lib/username";
 
 interface RouteContext {
   params: Promise<{ tenantId: string }>;
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
           id,
           name,
           email,
+          username,
           platform_role,
           is_active,
           last_login_at,
@@ -131,19 +133,21 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       );
     }
 
-    // admin_users 作成
+    // admin_users 作成（ユーザーID自動生成）
     const passwordHash = await bcrypt.hash(data.password, 12);
+    const username = await generateUsername();
     const { data: newUser, error: userErr } = await supabaseAdmin
       .from("admin_users")
       .insert({
         tenant_id: tenantId,
         name: data.name,
         email: data.email,
+        username,
         password_hash: passwordHash,
         platform_role: "tenant_admin",
         is_active: true,
       })
-      .select("id")
+      .select("id, username")
       .single();
 
     if (userErr || !newUser) {
@@ -199,6 +203,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
             id: newUser.id,
             name: data.name,
             email: data.email,
+            username: newUser.username,
             is_active: true,
           },
         },

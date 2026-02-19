@@ -12,34 +12,31 @@ import { parseBody } from "@/lib/validations/helpers";
 describe("adminLoginSchema", () => {
   it("正常入力でパスする", () => {
     const result = adminLoginSchema.safeParse({
-      email: "admin@example.com",
+      username: "LP-A3K7N",
       password: "secret123",
-      token: "totp-token",
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.email).toBe("admin@example.com");
+      expect(result.data.username).toBe("LP-A3K7N");
     }
   });
 
-  it("メールアドレス不正でエラー", () => {
+  it("ユーザーID空でエラー", () => {
     const result = adminLoginSchema.safeParse({
-      email: "not-an-email",
+      username: "",
       password: "secret123",
-      token: "totp-token",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
       const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("メールアドレスの形式が不正です");
+      expect(msgs).toContain("ユーザーIDは必須です");
     }
   });
 
   it("パスワード空でエラー", () => {
     const result = adminLoginSchema.safeParse({
-      email: "admin@example.com",
+      username: "LP-A3K7N",
       password: "",
-      token: "totp-token",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -48,29 +45,15 @@ describe("adminLoginSchema", () => {
     }
   });
 
-  it("トークン空でエラー", () => {
-    const result = adminLoginSchema.safeParse({
-      email: "admin@example.com",
-      password: "secret123",
-      token: "",
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("トークンは必須です");
-    }
-  });
-
   it("全て空で複数エラー", () => {
     const result = adminLoginSchema.safeParse({
-      email: "",
+      username: "",
       password: "",
-      token: "",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      // email(形式不正) + password(必須) + token(必須) = 3件以上
-      expect(result.error.issues.length).toBeGreaterThanOrEqual(3);
+      // username(必須) + password(必須) = 2件
+      expect(result.error.issues.length).toBeGreaterThanOrEqual(2);
     }
   });
 });
@@ -217,35 +200,24 @@ describe("IntakeFormUpdateSchema", () => {
 
 // ---------- adminLoginSchema: 境界値テスト ----------
 describe("adminLoginSchema — 境界値", () => {
-  it("email 255文字超 → エラー", () => {
+  it("username 50文字超 → エラー", () => {
     const result = adminLoginSchema.safeParse({
-      email: "a".repeat(250) + "@b.com",
+      username: "a".repeat(51),
       password: "pw",
-      token: "tk",
     });
     expect(result.success).toBe(false);
   });
 
   it("password 200文字超 → エラー", () => {
     const result = adminLoginSchema.safeParse({
-      email: "admin@example.com",
+      username: "LP-A3K7N",
       password: "a".repeat(201),
-      token: "tk",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("token 200文字超 → エラー", () => {
-    const result = adminLoginSchema.safeParse({
-      email: "admin@example.com",
-      password: "pw",
-      token: "a".repeat(201),
     });
     expect(result.success).toBe(false);
   });
 
   it("フィールド欠損 → エラー", () => {
-    expect(adminLoginSchema.safeParse({ email: "a@b.com" }).success).toBe(false);
+    expect(adminLoginSchema.safeParse({ username: "LP-A3K7N" }).success).toBe(false);
     expect(adminLoginSchema.safeParse({}).success).toBe(false);
   });
 });
@@ -396,7 +368,7 @@ describe("IntakeFormUpdateSchema — 詳細", () => {
 // ---------- parseBody ----------
 describe("parseBody", () => {
   it("正常なリクエストで {data} を返す", async () => {
-    const body = { email: "test@example.com", password: "pass", token: "tok" };
+    const body = { username: "LP-A3K7N", password: "pass" };
     const req = new NextRequest("http://localhost/api/test", {
       method: "POST",
       body: JSON.stringify(body),
@@ -408,7 +380,7 @@ describe("parseBody", () => {
   });
 
   it("Zodバリデーションエラーで {error: 400レスポンス} を返す", async () => {
-    const body = { email: "bad", password: "", token: "" };
+    const body = { username: "", password: "" };
     const req = new NextRequest("http://localhost/api/test", {
       method: "POST",
       body: JSON.stringify(body),
