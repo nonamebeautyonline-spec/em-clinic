@@ -133,6 +133,19 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // === /platform 配下のアクセス制限（admin サブドメインのみ許可） ===
+  if (pathname.startsWith("/platform") || pathname.startsWith("/api/platform")) {
+    const slug = bareHost.split(".")[0].split(":")[0];
+    // admin サブドメインまたはローカル開発環境のみ許可
+    const isAllowed = slug === "admin" || slug === "localhost" || slug === "127";
+    if (!isAllowed) {
+      return NextResponse.json(
+        { ok: false, error: "Platform management is only accessible from admin subdomain" },
+        { status: 403 },
+      );
+    }
+  }
+
   // === CSRF検証（POST/PUT/PATCH/DELETE） ===
   const method = req.method;
   if (

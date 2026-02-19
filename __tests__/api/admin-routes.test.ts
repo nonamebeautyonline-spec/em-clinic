@@ -204,16 +204,12 @@ describe("admin配下全ルート: 認証チェック", () => {
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
   const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info"];
 
-  // プラットフォーム管理ルート（verifyPlatformAdmin で独自認証）
-  const PLATFORM_ROUTES = ["platform"];
-
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];
 
     for (const route of adminRoutes) {
       const isExempt = AUTH_EXEMPT.some((exempt) => route.includes(exempt));
-      const isPlatform = PLATFORM_ROUTES.some((p) => route.includes(`/admin/${p}`));
-      if (isExempt || isPlatform) continue;
+      if (isExempt) continue;
 
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (!src.includes("verifyAdminAuth")) {
@@ -223,13 +219,14 @@ describe("admin配下全ルート: 認証チェック", () => {
 
     expect(violations).toEqual([]);
   });
+});
+
+describe("platform配下全ルート: 認証チェック", () => {
+  const platformRoutes = findRouteFiles("app/api/platform");
 
   it("プラットフォームルートが verifyPlatformAdmin を呼んでいる", () => {
     const violations: string[] = [];
-    for (const route of adminRoutes) {
-      const isPlatform = route.includes("/admin/platform/");
-      if (!isPlatform) continue;
-
+    for (const route of platformRoutes) {
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (!src.includes("verifyPlatformAdmin")) {
         violations.push(route);
@@ -246,8 +243,6 @@ describe("admin配下全ルート: テナント分離", () => {
     const violations: string[] = [];
 
     for (const route of adminRoutes) {
-      // プラットフォーム管理ルートはテナント横断のため除外
-      if (route.includes("/admin/platform/")) continue;
 
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
