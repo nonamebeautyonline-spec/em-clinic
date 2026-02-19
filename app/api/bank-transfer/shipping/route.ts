@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     const tempOrderId = `bt_pending_${Date.now()}`;
 
     // ★ 商品価格と商品名をDBから取得
-    const PRODUCT_PRICES = await getProductPricesMap();
-    const PRODUCT_NAMES = await getProductNamesMap();
+    const PRODUCT_PRICES = await getProductPricesMap(tenantId ?? undefined);
+    const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
     const amount = PRODUCT_PRICES[productCode] || 0;
     const productName = PRODUCT_NAMES[productCode] || productCode;
 

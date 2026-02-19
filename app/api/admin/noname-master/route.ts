@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
 
     // ★ 商品名マップをDBから取得
-    const PRODUCT_NAMES = await getProductNamesMap();
+    const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
 
     // クエリパラメータ: limit, offset, filter
     const searchParams = req.nextUrl.searchParams;

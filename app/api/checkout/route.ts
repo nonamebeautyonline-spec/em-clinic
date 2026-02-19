@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ★ DB から商品取得（フォールバック付き）
-    const product = await getProductByCode(productCode);
+    const product = await getProductByCode(productCode, tenantId ?? undefined);
     if (!product) {
       return NextResponse.json(
         { error: "Invalid productCode." },
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     const redirectUrl = `${APP_BASE_URL}/mypage/purchase/complete?code=${product.code}`;
 
     // ★ 決済プロバイダー経由でチェックアウトリンク作成
-    const provider = await getPaymentProvider();
+    const provider = await getPaymentProvider(tenantId ?? undefined);
     const result = await provider.createCheckoutLink({
       productTitle: product.title,
       price: product.price,

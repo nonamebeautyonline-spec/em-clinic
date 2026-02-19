@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
 
     // ★ 商品名マップをDBから取得（productsテーブルは既にテナント対応済み）
-    const PRODUCT_NAMES = await getProductNamesMap();
+    const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
 
     const selectCols = "id, patient_id, product_code, payment_method, paid_at, shipping_date, tracking_number, amount, status, shipping_name, postal_code, address, phone, email, created_at, shipping_list_created_at";
 

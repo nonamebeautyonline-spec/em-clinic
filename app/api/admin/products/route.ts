@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
   // productsテーブルは lib/products.ts 経由で既にテナント対応済み
-  const products = await getAllProducts();
+  const products = await getAllProducts(tenantId ?? undefined);
   return NextResponse.json({ products });
 }
 
