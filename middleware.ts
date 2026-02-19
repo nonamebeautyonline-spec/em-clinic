@@ -44,6 +44,7 @@ const CSRF_EXEMPT_PREFIXES = [
   "/api/health",
   "/api/admin/login",
   "/api/admin/logout",
+  "/api/platform/login",
   "/api/line/login",
   "/api/line/callback",
   "/api/verify/",

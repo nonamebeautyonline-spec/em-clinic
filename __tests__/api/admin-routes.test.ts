@@ -223,16 +223,28 @@ describe("admin配下全ルート: 認証チェック", () => {
 
 describe("platform配下全ルート: 認証チェック", () => {
   const platformRoutes = findRouteFiles("app/api/platform");
+  // ログインルートは verifyPlatformAdmin ではなくパスワード認証を行う
+  const AUTH_EXEMPT = ["login"];
 
-  it("プラットフォームルートが verifyPlatformAdmin を呼んでいる", () => {
+  it("プラットフォームルートが verifyPlatformAdmin を呼んでいる（ログイン除外）", () => {
     const violations: string[] = [];
     for (const route of platformRoutes) {
+      const isExempt = AUTH_EXEMPT.some((exempt) => route.includes(exempt));
+      if (isExempt) continue;
+
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (!src.includes("verifyPlatformAdmin")) {
         violations.push(route);
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it("プラットフォームログインルートが platform_admin ロール検証を行っている", () => {
+    const loginRoute = platformRoutes.find((r) => r.includes("/login/"));
+    expect(loginRoute).toBeDefined();
+    const src = fs.readFileSync(path.resolve(process.cwd(), loginRoute!), "utf-8");
+    expect(src).toContain("platform_admin");
   });
 });
 

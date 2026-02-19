@@ -41,7 +41,8 @@ export default function PlatformLoginPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/admin/login", {
+      // プラットフォーム専用ログインAPI（platform_admin のみ認証可）
+      const res = await fetch("/api/platform/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -59,24 +60,7 @@ export default function PlatformLoginPage() {
         return;
       }
 
-      // ログイン成功後、セッションを再確認してplatform_adminかチェック
-      const sessionRes = await fetch("/api/admin/session", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (sessionRes.ok) {
-        const sessionData = await sessionRes.json();
-        if (sessionData.ok && sessionData.user?.platformRole === "platform_admin") {
-          router.push("/platform");
-          return;
-        }
-      }
-
-      // platform_admin でない場合
-      setError("プラットフォーム管理者権限がありません");
-      // セッションCookieを削除
-      await fetch("/api/admin/logout", { method: "POST", credentials: "include" }).catch(() => {});
+      router.push("/platform");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
