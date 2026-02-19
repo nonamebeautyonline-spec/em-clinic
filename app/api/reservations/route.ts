@@ -597,6 +597,7 @@ export async function POST(req: NextRequest) {
           p_reserved_date: date,
           p_reserved_time: time,
           p_doctor_id: "dr_default",
+          p_tenant_id: tenantId,
         }
       );
 
@@ -837,6 +838,7 @@ export async function POST(req: NextRequest) {
           p_new_date: newDate,
           p_new_time: newTime,
           p_doctor_id: "dr_default",
+          p_tenant_id: tenantId,
         }
       );
 
