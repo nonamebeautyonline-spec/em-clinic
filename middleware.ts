@@ -76,8 +76,13 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
-  // === 旧ドメインからの移行（LP rewriteより先に判定） ===
-  if (host.includes("noname-beauty.jp")) {
+  // === 旧サブドメインからの移行（ベアドメインはのなめLP用にスルー） ===
+  const bareHost = host.replace(/:\d+$/, "");
+  if (
+    host.includes("noname-beauty.jp") &&
+    bareHost !== "noname-beauty.jp" &&
+    bareHost !== "www.noname-beauty.jp"
+  ) {
     const newUrl = new URL(req.url);
     newUrl.host = "noname-beauty.l-ope.jp";
     // API（webhook等）は rewrite（外部サービスは301を追わないため）
@@ -94,6 +99,13 @@ export async function middleware(req: NextRequest) {
     }
     // ブラウザアクセスは 301 リダイレクト
     return NextResponse.redirect(newUrl, 301);
+  }
+
+  // === noname-beauty.jp ベアドメイン → のなめLP表示 ===
+  if (bareHost === "noname-beauty.jp" || bareHost === "www.noname-beauty.jp") {
+    if (pathname === "/" || pathname === "") {
+      return NextResponse.rewrite(new URL("/noname-lp.html", req.url));
+    }
   }
 
   // === /doctor 配下のBasic認証 ===
