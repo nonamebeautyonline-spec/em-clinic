@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // メニューごとの表示人数を計算
-    // 1. LINE連携済み患者の総数
+    // 1. LINE連携済み患者の総数（patients テーブルの line_id で判定）
     const { count: totalLine } = await withTenant(
-      supabaseAdmin.from("intake").select("patient_id", { count: "exact", head: true }).not("line_id", "is", null),
+      supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true }).not("line_id", "is", null).not("patient_id", "like", "LINE_%"),
       tenantId
     );
 
@@ -41,13 +41,13 @@ export async function GET(req: NextRequest) {
       offset += 5000;
     }
 
-    // 3. 注文患者のうちLINE連携済みの人数
+    // 3. 注文患者のうちLINE連携済みの人数（patients テーブルで判定）
     let rxCount = 0;
     const pidArr = [...orderPids];
     for (let i = 0; i < pidArr.length; i += 100) {
       const chunk = pidArr.slice(i, i + 100);
       const { count } = await withTenant(
-        supabaseAdmin.from("intake").select("patient_id", { count: "exact", head: true }).in("patient_id", chunk).not("line_id", "is", null),
+        supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true }).in("patient_id", chunk).not("line_id", "is", null),
         tenantId
       );
       rxCount += count || 0;
