@@ -245,13 +245,14 @@ describe("RESERVED_SLUGS — 予約語の網羅性", () => {
 // middleware.ts の matcher 設定
 // ===================================================================
 describe("middleware matcher 設定", () => {
-  it("middleware.ts にAPI・admin・doctor パスの matcher がある", () => {
+  it("middleware.ts に全パス対応の catch-all matcher がある", () => {
     const src = fs.readFileSync(
       path.resolve(process.cwd(), "middleware.ts"),
       "utf-8",
     );
-    expect(src).toContain("/api/:path*");
-    expect(src).toContain("/admin/:path*");
-    expect(src).toContain("/doctor/:path*");
+    // 静的ファイル除外の catch-all パターン
+    expect(src).toContain("_next/static");
+    expect(src).toContain("_next/image");
+    expect(src).toContain("matcher");
   });
 });
