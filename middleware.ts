@@ -82,6 +82,14 @@ export async function middleware(req: NextRequest) {
     newUrl.host = "noname-beauty.l-ope.jp";
     // API（webhook等）は rewrite（外部サービスは301を追わないため）
     if (pathname.startsWith("/api/")) {
+      // リライト先のサブドメインからテナントIDを解決してヘッダーに設定
+      const rewriteSlug = newUrl.host.split(".")[0];
+      const rewriteTenantId = await resolveSlugToTenantId(rewriteSlug);
+      if (rewriteTenantId) {
+        const headers = new Headers(req.headers);
+        headers.set("x-tenant-id", rewriteTenantId);
+        return NextResponse.rewrite(newUrl, { request: { headers } });
+      }
       return NextResponse.rewrite(newUrl);
     }
     // ブラウザアクセスは 301 リダイレクト
