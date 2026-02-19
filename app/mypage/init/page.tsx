@@ -39,6 +39,11 @@ export default async function MypageInitPage() {
     }
   }
 
+  // LINE_仮IDのまま個人情報フォーム未提出 → 個人情報フォームへ
+  if (patientId?.startsWith("LINE_")) {
+    redirect("/register");
+  }
+
   // 個人情報未入力 → 個人情報フォームへ
   if (patientId) {
     const { data: answerer } = await withTenant(

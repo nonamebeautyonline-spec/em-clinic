@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
     // 4) LINE_仮IDがある場合、全テーブルの patient_id を実IDに統合更新
     if (oldLinePatientId && patientId) {
       console.log("[register/personal-info] Migrating", oldLinePatientId, "->", patientId);
-      const allTables = ["intake", "patients", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
+      const allTables = ["intake", "patients", "reservations", "orders", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
       await Promise.all(
         allTables.map(async (table) => {
           const { error } = await withTenant(supabaseAdmin

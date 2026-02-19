@@ -213,7 +213,6 @@ async function findOrCreatePatient(lineUid: string, tenantId: string | null, acc
       .insert({
         ...tenantPayload(tenantId),
         patient_id: patientId,
-        name: displayName,
         line_id: lineUid,
         line_display_name: profile.displayName || null,
         line_picture_url: profile.pictureUrl || null,
