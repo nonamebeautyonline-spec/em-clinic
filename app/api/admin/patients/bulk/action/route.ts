@@ -142,9 +142,12 @@ export async function POST(req: NextRequest) {
 
           case "tag_add": {
             if (!step.tag_id) break;
-            const { error } = await supabaseAdmin
-              .from("patient_tags")
-              .upsert({ ...tenantPayload(tenantId), patient_id: pid, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" });
+            const { error } = await withTenant(
+              supabaseAdmin
+                .from("patient_tags")
+                .upsert({ ...tenantPayload(tenantId), patient_id: pid, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" }),
+              tenantId
+            );
             if (error) allStepsOk = false;
             break;
           }
@@ -165,16 +168,19 @@ export async function POST(req: NextRequest) {
 
           case "mark_change": {
             if (!step.mark) break;
-            const { error } = await supabaseAdmin
-              .from("patient_marks")
-              .upsert({
-                ...tenantPayload(tenantId),
-                patient_id: pid,
-                mark: step.mark,
-                note: step.note || null,
-                updated_by: "action",
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "patient_id" });
+            const { error } = await withTenant(
+              supabaseAdmin
+                .from("patient_marks")
+                .upsert({
+                  ...tenantPayload(tenantId),
+                  patient_id: pid,
+                  mark: step.mark,
+                  note: step.note || null,
+                  updated_by: "action",
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: "patient_id" }),
+              tenantId
+            );
             if (error) allStepsOk = false;
             break;
           }

@@ -42,9 +42,12 @@ export async function POST(req: NextRequest) {
       updated_at: now,
       updated_by: "admin",
     }));
-    const { error } = await supabaseAdmin
-      .from("patient_marks")
-      .upsert(rows, { onConflict: "patient_id" });
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("patient_marks")
+        .upsert(rows, { onConflict: "patient_id" }),
+      tenantId
+    );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
   // メニュー自動切替ルール評価（非同期・失敗無視）

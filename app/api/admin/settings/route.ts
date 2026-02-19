@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, getSettingsByCategory, type SettingCategory } from "@/lib/settings";
 import { maskValue } from "@/lib/crypto";
+import { resolveTenantId } from "@/lib/tenant";
 
 // 管理可能な設定キーの定義
 const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string; envFallback?: string }[]> = {
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category") as SettingCategory | null;
 
@@ -67,7 +69,7 @@ export async function GET(req: NextRequest) {
     const entries = [];
 
     for (const def of defs) {
-      const dbValue = await getSetting(cat, def.key);
+      const dbValue = await getSetting(cat, def.key, tenantId ?? undefined);
       if (dbValue) {
         entries.push({
           key: def.key,
@@ -104,6 +106,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = resolveTenantId(req);
   const body = await req.json();
   const { category, key, value } = body as { category: SettingCategory; key: string; value: string };
 
@@ -117,7 +120,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "不正な設定キーです" }, { status: 400 });
   }
 
-  const success = await setSetting(category, key, value);
+  const success = await setSetting(category, key, value, tenantId ?? undefined);
   if (!success) {
     return NextResponse.json({ error: "設定の保存に失敗しました" }, { status: 500 });
   }

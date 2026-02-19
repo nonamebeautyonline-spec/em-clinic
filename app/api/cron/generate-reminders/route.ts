@@ -235,7 +235,7 @@ async function handleFixedTimeRule(
 
     if (rule.message_format === "flex") {
       // FLEXメッセージ生成
-      const flex = await buildReminderFlex(reservation.reserved_date, reservation.reserved_time);
+      const flex = await buildReminderFlex(reservation.reserved_date, reservation.reserved_time, tenantId ?? undefined);
       flexJson = flex.contents;
       messageContent = flex.altText;
     } else {

@@ -29,10 +29,10 @@ function formatDateTime(dateStr: string, timeStr: string): string {
 }
 
 /** 予約確定 Flex */
-export async function buildReservationCreatedFlex(dateStr: string, timeStr: string) {
+export async function buildReservationCreatedFlex(dateStr: string, timeStr: string, tenantId?: string) {
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
-  try { cfg = await getFlexConfig(); } catch {}
+  try { cfg = await getFlexConfig(tenantId); } catch {}
   const { colors, reservation } = cfg;
 
   return {
@@ -91,11 +91,12 @@ export async function buildReservationChangedFlex(
   oldTimeStr: string,
   newDateStr: string,
   newTimeStr: string,
+  tenantId?: string,
 ) {
   const oldFormatted = formatDateTime(oldDateStr, oldTimeStr);
   const newFormatted = formatDateTime(newDateStr, newTimeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
-  try { cfg = await getFlexConfig(); } catch {}
+  try { cfg = await getFlexConfig(tenantId); } catch {}
   const { colors, reservation } = cfg;
 
   return {
@@ -154,10 +155,10 @@ export async function buildReservationChangedFlex(
 }
 
 /** 予約キャンセル Flex */
-export async function buildReservationCanceledFlex(dateStr: string, timeStr: string) {
+export async function buildReservationCanceledFlex(dateStr: string, timeStr: string, tenantId?: string) {
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
-  try { cfg = await getFlexConfig(); } catch {}
+  try { cfg = await getFlexConfig(tenantId); } catch {}
   const { colors, reservation } = cfg;
 
   return {
@@ -211,10 +212,10 @@ export async function buildReservationCanceledFlex(dateStr: string, timeStr: str
 }
 
 /** 前日リマインド Flex（簡潔版） */
-export async function buildReminderFlex(dateStr: string, timeStr: string) {
+export async function buildReminderFlex(dateStr: string, timeStr: string, tenantId?: string) {
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
-  try { cfg = await getFlexConfig(); } catch {}
+  try { cfg = await getFlexConfig(tenantId); } catch {}
   const { colors } = cfg;
 
   return {

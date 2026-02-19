@@ -659,7 +659,7 @@ export async function POST(req: NextRequest) {
       const lineId = patientRes.data?.line_id;
       if (lineId && date && time) {
         try {
-          const flex = await buildReservationCreatedFlex(date, time);
+          const flex = await buildReservationCreatedFlex(date, time, tenantId ?? undefined);
           await sendReservationNotification({
             patientId: pid,
             lineUid: lineId,
@@ -781,7 +781,7 @@ export async function POST(req: NextRequest) {
       const cancelTime = cancelResvInfo?.data?.reserved_time;
       if (cancelLineId && cancelDate && cancelTime) {
         try {
-          const flex = await buildReservationCanceledFlex(cancelDate, cancelTime);
+          const flex = await buildReservationCanceledFlex(cancelDate, cancelTime, tenantId ?? undefined);
           await sendReservationNotification({
             patientId: pid,
             lineUid: cancelLineId,
@@ -885,6 +885,7 @@ export async function POST(req: NextRequest) {
             prevResvInfo?.reserved_time || newTime,
             newDate,
             newTime,
+            tenantId ?? undefined,
           );
           await sendReservationNotification({
             patientId: pid,

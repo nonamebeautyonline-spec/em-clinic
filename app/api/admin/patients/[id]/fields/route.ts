@@ -44,9 +44,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabaseAdmin
-    .from("friend_field_values")
-    .upsert(upserts, { onConflict: "patient_id,field_id" });
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("friend_field_values")
+      .upsert(upserts, { onConflict: "patient_id,field_id" }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   // メニュー自動切替ルール評価（非同期・失敗無視）

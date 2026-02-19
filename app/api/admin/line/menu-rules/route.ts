@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rules = await loadMenuRules();
+  const tenantId = resolveTenantId(req);
+  const rules = await loadMenuRules(tenantId ?? undefined);
   return NextResponse.json({ rules });
 }
 
@@ -24,13 +25,14 @@ export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const body = await req.json();
   const { rule } = body as { rule: Partial<MenuAutoRule> };
   if (!rule?.name || !rule?.target_menu_id) {
     return NextResponse.json({ error: "名前と対象メニューは必須です" }, { status: 400 });
   }
 
-  const rules = await loadMenuRules();
+  const rules = await loadMenuRules(tenantId ?? undefined);
 
   if (rule.id) {
     // 更新
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
     rules.push(newRule);
   }
 
-  const saved = await saveMenuRules(rules);
+  const saved = await saveMenuRules(rules, tenantId ?? undefined);
   if (!saved) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
   return NextResponse.json({ ok: true, rules });
 }
@@ -62,13 +64,14 @@ export async function DELETE(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "idは必須です" }, { status: 400 });
 
-  const rules = await loadMenuRules();
+  const rules = await loadMenuRules(tenantId ?? undefined);
   const filtered = rules.filter(r => r.id !== id);
-  await saveMenuRules(filtered);
+  await saveMenuRules(filtered, tenantId ?? undefined);
   return NextResponse.json({ ok: true });
 }
 

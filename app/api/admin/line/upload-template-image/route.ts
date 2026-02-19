@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
   await ensureBucket();
 
   const ext = file.name.split(".").pop() || "jpg";
-  const fileName = `templates/${Date.now()}.${ext}`;
+  const tenantPrefix = tenantId ? `${tenantId}/` : "";
+  const fileName = `templates/${tenantPrefix}${Date.now()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error: uploadError } = await supabaseAdmin.storage

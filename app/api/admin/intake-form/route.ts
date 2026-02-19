@@ -65,15 +65,18 @@ export async function PUT(req: NextRequest) {
 
   if (existing) {
     // UPDATE
-    const { error } = await supabaseAdmin
-      .from("intake_form_definitions")
-      .update({
-        ...(name ? { name } : {}),
-        fields,
-        settings,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("intake_form_definitions")
+        .update({
+          ...(name ? { name } : {}),
+          fields,
+          settings,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id),
+      tenantId,
+    );
 
     if (error)
       return NextResponse.json({ error: error.message }, { status: 500 });

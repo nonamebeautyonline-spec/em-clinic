@@ -36,20 +36,20 @@ export interface MenuAutoRule {
 const SETTING_KEY = "menu_auto_rules";
 
 /** ルール一覧を取得 */
-export async function loadMenuRules(): Promise<MenuAutoRule[]> {
-  const raw = await getSetting("line", SETTING_KEY);
+export async function loadMenuRules(tenantId?: string): Promise<MenuAutoRule[]> {
+  const raw = await getSetting("line", SETTING_KEY, tenantId);
   if (!raw) return [];
   try { return JSON.parse(raw); } catch { return []; }
 }
 
 /** ルール一覧を保存 */
-export async function saveMenuRules(rules: MenuAutoRule[]): Promise<boolean> {
-  return setSetting("line", SETTING_KEY, JSON.stringify(rules));
+export async function saveMenuRules(rules: MenuAutoRule[], tenantId?: string): Promise<boolean> {
+  return setSetting("line", SETTING_KEY, JSON.stringify(rules), tenantId);
 }
 
 /** 患者1人に対してルールを評価し、マッチしたらメニューを切り替える */
 export async function evaluateMenuRules(patientId: string, tenantId?: string): Promise<void> {
-  const rules = await loadMenuRules();
+  const rules = await loadMenuRules(tenantId);
   const activeRules = rules.filter(r => r.enabled).sort((a, b) => a.priority - b.priority);
   if (activeRules.length === 0) return;
 

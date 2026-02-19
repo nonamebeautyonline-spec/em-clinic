@@ -36,9 +36,10 @@ function carrierLabel(carrier: string): string {
 /** 発送完了 Flex メッセージ */
 export async function buildShippingFlex(
   trackingInfo: { number: string; carrier: string }[],
+  tenantId?: string,
 ) {
   let cfg = DEFAULT_FLEX_CONFIG;
-  try { cfg = await getFlexConfig(); } catch {}
+  try { cfg = await getFlexConfig(tenantId); } catch {}
   const { colors, shipping } = cfg;
 
   const primary = trackingInfo[0];

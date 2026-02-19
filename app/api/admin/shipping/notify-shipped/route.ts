@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
 // 本日発送患者を取得（共通）
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 
       // 1) Flex発送通知送信
       try {
-        const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking);
+        const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking, tenantId ?? undefined);
         const result = await sendShippingNotification({
           patientId: p.patient_id,
           lineUid: p.line_id,
@@ -139,15 +139,19 @@ export async function POST(req: NextRequest) {
           ).maybeSingle();
 
           if (!current || current.mark !== rxMarkValue) {
-            await supabaseAdmin
-              .from("patient_marks")
-              .upsert({
-                patient_id: p.patient_id,
-                mark: rxMarkValue,
-                note: null,
-                updated_at: new Date().toISOString(),
-                updated_by: "system:notify-shipped",
-              }, { onConflict: "patient_id" });
+            await withTenant(
+              supabaseAdmin
+                .from("patient_marks")
+                .upsert({
+                  ...tenantPayload(tenantId),
+                  patient_id: p.patient_id,
+                  mark: rxMarkValue,
+                  note: null,
+                  updated_at: new Date().toISOString(),
+                  updated_by: "system:notify-shipped",
+                }, { onConflict: "patient_id" }),
+              tenantId
+            );
             markUpdated++;
           }
         } catch (e) {

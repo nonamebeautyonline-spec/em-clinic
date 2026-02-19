@@ -46,16 +46,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!markDef) return NextResponse.json({ error: "Invalid mark" }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
-    .from("patient_marks")
-    .upsert({
-      ...tenantPayload(tenantId),
-      patient_id: id,
-      mark,
-      note: note || null,
-      updated_at: new Date().toISOString(),
-      updated_by: "admin",
-    }, { onConflict: "patient_id" });
+  const { error } = await withTenant(
+    supabaseAdmin
+      .from("patient_marks")
+      .upsert({
+        ...tenantPayload(tenantId),
+        patient_id: id,
+        mark,
+        note: note || null,
+        updated_at: new Date().toISOString(),
+        updated_by: "admin",
+      }, { onConflict: "patient_id" }),
+    tenantId
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   // メニュー自動切替ルール評価（非同期・失敗無視）

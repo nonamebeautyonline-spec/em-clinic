@@ -159,9 +159,12 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "タグ未指定" });
             break;
           }
-          const { error: tagErr } = await supabaseAdmin
-            .from("patient_tags")
-            .upsert({ ...tenantPayload(tenantId), patient_id, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" });
+          const { error: tagErr } = await withTenant(
+            supabaseAdmin
+              .from("patient_tags")
+              .upsert({ ...tenantPayload(tenantId), patient_id, tag_id: step.tag_id, assigned_by: "action" }, { onConflict: "patient_id,tag_id" }),
+            tenantId
+          );
 
           results.push({ step: i, type: step.type, success: !tagErr, detail: tagErr?.message });
           break;
@@ -190,16 +193,19 @@ export async function POST(req: NextRequest) {
             results.push({ step: i, type: step.type, success: false, detail: "マーク未指定" });
             break;
           }
-          const { error: markErr } = await supabaseAdmin
-            .from("patient_marks")
-            .upsert({
-              ...tenantPayload(tenantId),
-              patient_id,
-              mark: step.mark,
-              note: step.note || null,
-              updated_by: "action",
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "patient_id" });
+          const { error: markErr } = await withTenant(
+            supabaseAdmin
+              .from("patient_marks")
+              .upsert({
+                ...tenantPayload(tenantId),
+                patient_id,
+                mark: step.mark,
+                note: step.note || null,
+                updated_by: "action",
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "patient_id" }),
+            tenantId
+          );
 
           results.push({ step: i, type: step.type, success: !markErr, detail: markErr?.message });
           break;

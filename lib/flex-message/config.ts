@@ -6,8 +6,8 @@ const CATEGORY = "flex" as any;
 const SETTING_KEY = "config";
 
 /** DB からFLEX設定を取得（なければデフォルト） */
-export async function getFlexConfig(): Promise<FlexMessageConfig> {
-  const raw = await getSetting(CATEGORY, SETTING_KEY);
+export async function getFlexConfig(tenantId?: string): Promise<FlexMessageConfig> {
+  const raw = await getSetting(CATEGORY, SETTING_KEY, tenantId);
   if (!raw) return DEFAULT_FLEX_CONFIG;
   try {
     const parsed = JSON.parse(raw);
@@ -24,8 +24,8 @@ export async function getFlexConfig(): Promise<FlexMessageConfig> {
 }
 
 /** DB にFLEX設定を保存 */
-export async function setFlexConfig(config: Partial<FlexMessageConfig>): Promise<boolean> {
-  const current = await getFlexConfig();
+export async function setFlexConfig(config: Partial<FlexMessageConfig>, tenantId?: string): Promise<boolean> {
+  const current = await getFlexConfig(tenantId);
   const merged: FlexMessageConfig = {
     ...current,
     ...config,
@@ -33,5 +33,5 @@ export async function setFlexConfig(config: Partial<FlexMessageConfig>): Promise
     reservation: { ...current.reservation, ...(config.reservation || {}) },
     shipping: { ...current.shipping, ...(config.shipping || {}) },
   };
-  return setSetting(CATEGORY, SETTING_KEY, JSON.stringify(merged));
+  return setSetting(CATEGORY, SETTING_KEY, JSON.stringify(merged), tenantId);
 }
