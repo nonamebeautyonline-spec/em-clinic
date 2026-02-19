@@ -34,6 +34,9 @@ function LogoMark({ compact }: { compact?: boolean }) {
   );
 }
 
+// 認証不要のパス
+const PUBLIC_PATHS = ["/platform/login"];
+
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,6 +49,12 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
+    // ログインページは認証不要
+    if (PUBLIC_PATHS.includes(pathname)) {
+      setLoading(false);
+      return;
+    }
+
     if (isAuthenticated) return;
 
     const checkSession = async () => {
@@ -97,7 +106,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
       }
 
       // 認証失敗またはplatform_adminでない → ログインへ
-      router.push("/admin/login");
+      router.push("/platform/login");
     };
 
     checkSession();
@@ -138,8 +147,13 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
       // ログアウトエラーは無視
     }
     setIsAuthenticated(false);
-    router.push("/admin/login");
+    router.push("/platform/login");
   };
+
+  // ログインページはそのまま表示
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return <>{children}</>;
+  }
 
   // 認証チェック中
   if (loading || !isAuthenticated) {
