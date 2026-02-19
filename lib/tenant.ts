@@ -4,13 +4,16 @@
 /**
  * リクエストからテナントIDを解決する
  * 1. middleware.ts が JWT から抽出した x-tenant-id ヘッダー（管理画面）
- * 2. 将来: サブドメイン → tenant_id 解決
+ * 2. サブドメイン → middleware で slug 解決 → x-tenant-id ヘッダー
  * 3. フォールバック: null（シングルテナント互換）
+ *
+ * サーバーコンポーネントでは `await headers()` の結果を渡す:
+ *   const h = await headers();
+ *   const tenantId = resolveTenantId({ headers: h });
  */
 export function resolveTenantId(request?: Request | { headers?: Headers }): string | null {
   if (!request?.headers) return null;
 
-  // proxy.ts が JWT or サブドメインから解決した tenant_id を x-tenant-id ヘッダーに設定済み
   const headerTenantId = request.headers.get("x-tenant-id");
   if (headerTenantId) return headerTenantId;
 

@@ -1,5 +1,5 @@
 // app/mypage/page.tsx
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -16,8 +16,9 @@ export default async function MyPagePage() {
     redirect("/api/line/login");
   }
 
-  // テナントID解決
-  const tenantId = resolveTenantId();
+  // テナントID解決（middleware が設定した x-tenant-id ヘッダーを取得）
+  const headerStore = await headers();
+  const tenantId = resolveTenantId({ headers: headerStore as unknown as Headers });
 
   // 個人情報・電話番号の登録状態をチェック
   let patientId = cookieStore.get("__Host-patient_id")?.value
@@ -66,22 +67,41 @@ export default async function MyPagePage() {
     }
   }
 
-  if (patientId) {
-    const { data: answerer } = await withTenant(
+  // ★ patient_id cookie がない場合 → line_user_id で patients を検索
+  if (!patientId) {
+    const { data: byLine } = await withTenant(
       supabaseAdmin
         .from("patients")
-        .select("name, tel")
-        .eq("patient_id", patientId),
+        .select("patient_id")
+        .eq("line_id", lineUserId)
+        .not("patient_id", "like", "LINE_%")
+        .limit(1),
       tenantId
     ).maybeSingle();
-    // 個人情報未入力 → 個人情報フォームへ
-    if (!answerer?.name) {
+
+    if (byLine?.patient_id) {
+      patientId = byLine.patient_id;
+      console.log(`[mypage] No cookie, resolved to ${patientId} via line_uid`);
+    } else {
+      // patients が無い → 新規登録へ
       redirect("/register");
     }
-    // 電話番号未登録 → SMS認証画面へ
-    if (!answerer?.tel) {
-      redirect("/mypage/init");
-    }
+  }
+
+  const { data: answerer } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("name, tel")
+      .eq("patient_id", patientId),
+    tenantId
+  ).maybeSingle();
+  // 個人情報未入力 → 個人情報フォームへ
+  if (!answerer?.name) {
+    redirect("/register");
+  }
+  // 電話番号未登録 → SMS認証画面へ
+  if (!answerer?.tel) {
+    redirect("/mypage/init");
   }
 
   return (

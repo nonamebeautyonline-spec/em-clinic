@@ -60,34 +60,34 @@ export async function GET(req: NextRequest) {
   const lineUserId = payload.sub as string;
 
   // ★ LINE UIDでDB照合 → 既知の患者ならSMS認証スキップ
+  // patients テーブルの line_id で検索（intake に line_id カラムは存在しない）
   let patientId: string | null = null;
 
   const { data } = await withTenant(
     supabaseAdmin
-      .from("intake")
-      .select("patient_id")
+      .from("patients")
+      .select("patient_id, tel")
       .eq("line_id", lineUserId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .not("patient_id", "like", "LINE_%"),
     tenantId
-  );
+  ).limit(1).maybeSingle();
 
   if (data?.patient_id) {
     patientId = data.patient_id;
-    console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match)`);
+    console.log(`[LINE callback] Known patient: ${patientId} (LINE UID match, tel=${data.tel ? "set" : "null"})`);
   }
 
   // returnUrlが指定されている場合はそちらへリダイレクト
-  // 既知の患者 → /mypage へ直接（SMS不要）
-  // 未知 → /mypage/init へ（SMS認証で初回紐付け）
+  // 既知の患者（名前+電話番号あり）→ /mypage へ直接
+  // 既知だが電話番号未登録 → /mypage（サーバーコンポーネントが /mypage/init にリダイレクト）
+  // 未知 → /register へ（個人情報フォーム）
   let redirectUrl: string;
   if (returnUrl && returnUrl.startsWith("/")) {
     redirectUrl = `${appBaseUrl}${returnUrl}`;
   } else {
     redirectUrl = patientId
       ? `${appBaseUrl}/mypage`
-      : `${appBaseUrl}/mypage/init`;
+      : `${appBaseUrl}/register`;
   }
 
   const res = NextResponse.redirect(redirectUrl);

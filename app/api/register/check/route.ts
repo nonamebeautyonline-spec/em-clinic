@@ -15,31 +15,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ registered: false, needsLineLogin: true });
   }
 
-  // line_idで intake を検索 → 正式IDの患者が存在するか
-  const { data: intake } = await withTenant(supabaseAdmin
-    .from("intake")
-    .select("patient_id")
+  // patients テーブルの line_id で検索（intake に line_id カラムは存在しない）
+  const { data: patient } = await withTenant(supabaseAdmin
+    .from("patients")
+    .select("patient_id, name, tel")
     .eq("line_id", lineUserId)
     .not("patient_id", "like", "LINE_%"), tenantId)
     .limit(1)
     .maybeSingle();
 
-  if (!intake?.patient_id) {
+  if (!patient?.patient_id || !patient.name) {
     return NextResponse.json({ registered: false });
   }
 
-  // answerers に名前・電話番号が入っているか確認
-  const { data: answerer } = await withTenant(supabaseAdmin
-    .from("patients")
-    .select("name, tel")
-    .eq("patient_id", intake.patient_id), tenantId)
-    .maybeSingle();
-
-  if (answerer?.name) {
-    // 個人情報は提出済み → 電話認証も完了しているか？
-    const verifyComplete = !!answerer.tel;
-    return NextResponse.json({ registered: true, verifyComplete });
-  }
-
-  return NextResponse.json({ registered: false });
+  // 個人情報は提出済み → 電話認証も完了しているか？
+  const verifyComplete = !!patient.tel;
+  return NextResponse.json({ registered: true, verifyComplete });
 }

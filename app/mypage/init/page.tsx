@@ -1,5 +1,5 @@
 // app/mypage/init/page.tsx
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -14,12 +14,32 @@ export default async function MypageInitPage() {
     redirect("/api/line/login");
   }
 
-  // テナントID解決
-  const tenantId = resolveTenantId();
+  // テナントID解決（middleware が設定した x-tenant-id ヘッダーを取得）
+  const headerStore = await headers();
+  const tenantId = resolveTenantId({ headers: headerStore as unknown as Headers });
+
+  // cookie または line_user_id で患者IDを取得
+  let patientId = cookieStore.get("__Host-patient_id")?.value
+    || cookieStore.get("patient_id")?.value;
+
+  // cookie がない場合は line_user_id で検索
+  if (!patientId && lineUserId) {
+    const { data: byLine } = await withTenant(
+      supabaseAdmin
+        .from("patients")
+        .select("patient_id")
+        .eq("line_id", lineUserId)
+        .not("patient_id", "like", "LINE_%")
+        .limit(1),
+      tenantId
+    ).maybeSingle();
+
+    if (byLine?.patient_id) {
+      patientId = byLine.patient_id;
+    }
+  }
 
   // 個人情報未入力 → 個人情報フォームへ
-  const patientId = cookieStore.get("__Host-patient_id")?.value
-    || cookieStore.get("patient_id")?.value;
   if (patientId) {
     const { data: answerer } = await withTenant(
       supabaseAdmin
@@ -31,6 +51,9 @@ export default async function MypageInitPage() {
     if (!answerer?.name) {
       redirect("/register");
     }
+  } else {
+    // 患者レコードが見つからない → 新規登録へ
+    redirect("/register");
   }
 
   return <VerifyInner />;
