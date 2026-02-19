@@ -182,7 +182,7 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue(null),
   withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn().mockReturnValue({}),
+  tenantPayload: vi.fn((id: string | null) => ({ tenant_id: id || null })),
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
@@ -227,31 +227,31 @@ describe("lib/reservation-flex.ts - buildReminderFlex", () => {
   });
 });
 
-// --- generate-reminders 固定時刻ルール テスト ---
+// --- リマインド送信cron テスト ---
 
-describe("generate-reminders: 固定時刻ルール", () => {
+describe("generate-reminders: 直接LINE送信", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("固定時刻ルールでスケジュールメッセージが生成される", async () => {
-    // ウィンドウ内に時刻をセット（19:00 JST = UTC 10:00）
-    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:00:00Z").getTime());
+  it("送信時刻到来でLINE送信 → 履歴記録される", async () => {
+    // 19:05 JST = UTC 10:05（19:00ルールの送信時刻を過ぎている）
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:05:00Z").getTime());
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     const { withTenant } = await import("@/lib/tenant");
+    const { pushMessage } = await import("@/lib/line-push");
 
     const mockRule = {
       id: 1,
-      name: "前日リマインド",
       timing_type: "fixed_time",
-      timing_value: 0,
-      message_template: "",
       is_enabled: true,
       send_hour: 19,
       send_minute: 0,
       target_day_offset: 1,
       message_format: "flex",
+      message_template: "",
+      tenant_id: "tenant-1",
     };
 
     const mockReservation = {
@@ -262,94 +262,87 @@ describe("generate-reminders: 固定時刻ルール", () => {
       reserved_time: "10:00:00",
     };
 
-    // withTenantのモック: 呼び出し順序に応じた結果を返す
+    // withTenantモック: reservations → sent_log → patients
     let queryCount = 0;
     (withTenant as any).mockImplementation(() => {
       queryCount++;
-      if (queryCount === 1) {
-        // rules取得
-        return { data: [mockRule], error: null };
-      }
-      if (queryCount === 2) {
-        // reservations取得
-        return { data: [mockReservation], error: null };
-      }
-      if (queryCount === 3) {
-        // sent_log確認
-        return { data: [], error: null };
-      }
-      if (queryCount === 4) {
-        // patients取得
-        return { data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U001" }], error: null };
-      }
+      if (queryCount === 1) return { data: [mockReservation], error: null };
+      if (queryCount === 2) return { data: [], error: null };
+      if (queryCount === 3) return { data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U001" }], error: null };
       return { data: null, error: null };
     });
 
-    // supabaseAdmin.from のモック（scheduled_messages, reminder_sent_log INSERT用）
-    const insertedMessages: any[] = [];
+    const inserted: any[] = [];
     (supabaseAdmin.from as any).mockImplementation((table: string) => {
-      const chain = createChainMock({ data: { id: 99 }, error: null });
-      if (table === "scheduled_messages" || table === "reminder_sent_log") {
+      if (table === "reminder_rules") {
+        return createChainMock({ data: [mockRule], error: null });
+      }
+      const chain = createChainMock({ data: null, error: null });
+      if (table === "reminder_sent_log" || table === "message_log") {
         chain.insert = vi.fn().mockImplementation((payload: any) => {
-          insertedMessages.push({ table, payload });
-          return {
-            select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { id: 99 }, error: null }),
-            }),
-          };
+          inserted.push({ table, payload });
+          return { data: null, error: null };
         });
       }
       return chain;
     });
 
+    (pushMessage as any).mockResolvedValue({ ok: true });
+
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
-    const response = await GET();
+    const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
     const body = await response.json();
 
     expect(body.ok).toBe(true);
-    expect(body.generated).toBeGreaterThanOrEqual(1);
+    expect(body.sent).toBe(1);
 
-    // scheduled_messages にINSERTされたことを確認
-    const scheduledInsert = insertedMessages.find(m => m.table === "scheduled_messages");
-    expect(scheduledInsert).toBeTruthy();
-    expect(scheduledInsert.payload.patient_id).toBe("P001");
-    expect(scheduledInsert.payload.line_uid).toBe("U001");
-    expect(scheduledInsert.payload.message_type).toBe("reminder");
-    expect(scheduledInsert.payload.flex_json).toBeTruthy();
+    // pushMessage が呼ばれたことを確認
+    expect(pushMessage).toHaveBeenCalledWith("U001", expect.any(Array), "tenant-1");
+    const lineMsg = (pushMessage as any).mock.calls[0][1][0];
+    expect(lineMsg.type).toBe("flex");
 
-    // reminder_sent_log にもINSERTされたことを確認
-    const logInsert = insertedMessages.find(m => m.table === "reminder_sent_log");
+    // reminder_sent_log に記録
+    const logInsert = inserted.find(m => m.table === "reminder_sent_log");
     expect(logInsert).toBeTruthy();
     expect(logInsert.payload.rule_id).toBe(1);
-    expect(logInsert.payload.reservation_id).toBe(100);
+    expect(logInsert.payload.tenant_id).toBe("tenant-1");
 
     vi.restoreAllMocks();
   });
 
-  it("ウィンドウ外の時刻では生成されない", async () => {
-    // 18:00 JST = UTC 09:00（19:00ルールのウィンドウ外）
+  it("送信時刻前なら送信しない", async () => {
+    // 18:00 JST = UTC 09:00（19:00ルールの送信時刻前）
     vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T09:00:00Z").getTime());
 
-    const { withTenant } = await import("@/lib/tenant");
-    (withTenant as any).mockImplementation(() => ({
-      data: [{
-        id: 1,
-        timing_type: "fixed_time",
-        is_enabled: true,
-        send_hour: 19,
-        send_minute: 0,
-        target_day_offset: 1,
-        message_format: "flex",
-      }],
-      error: null,
-    }));
+    const { supabaseAdmin } = await import("@/lib/supabase");
 
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === "reminder_rules") {
+        return createChainMock({
+          data: [{
+            id: 1,
+            timing_type: "fixed_time",
+            is_enabled: true,
+            send_hour: 19,
+            send_minute: 0,
+            target_day_offset: 1,
+            message_format: "flex",
+            tenant_id: "tenant-1",
+          }],
+          error: null,
+        });
+      }
+      return createChainMock();
+    });
+
+    const { pushMessage } = await import("@/lib/line-push");
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
-    const response = await GET();
+    const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
     const body = await response.json();
 
     expect(body.ok).toBe(true);
-    expect(body.generated).toBe(0);
+    expect(body.sent).toBe(0);
+    expect(pushMessage).not.toHaveBeenCalled();
 
     vi.restoreAllMocks();
   });
@@ -365,7 +358,6 @@ describe("send-scheduled: FLEX送信対応", () => {
   it("flex_json がある場合はFLEXメッセージとして送信する", async () => {
     const { pushMessage } = await import("@/lib/line-push");
     const { supabaseAdmin } = await import("@/lib/supabase");
-    const { withTenant } = await import("@/lib/tenant");
 
     const mockFlexJson = {
       type: "bubble",
@@ -381,25 +373,18 @@ describe("send-scheduled: FLEX送信対応", () => {
       message_type: "reminder",
       flex_json: mockFlexJson,
       status: "scheduled",
+      tenant_id: "tenant-1",
     };
 
-    // withTenantのモック
-    let queryCount = 0;
-    (withTenant as any).mockImplementation(() => {
-      queryCount++;
-      if (queryCount === 1) {
-        // メッセージ取得
-        return { data: [mockMsg], error: null };
-      }
-      // update（statusをsentに更新）
-      return { data: null, error: null };
-    });
-
-    // supabaseAdmin.fromモック（patients, message_log用）
+    // supabaseAdmin.fromモック（全クエリが直接supabaseAdminを使う）
     (supabaseAdmin.from as any).mockImplementation((table: string) => {
-      if (table === "patients") {
-        const chain = createChainMock({ data: { name: "テスト太郎" }, error: null });
+      if (table === "scheduled_messages") {
+        const chain = createChainMock({ data: [mockMsg], error: null });
+        chain.update = vi.fn().mockReturnValue(createChainMock({ data: null, error: null }));
         return chain;
+      }
+      if (table === "patients") {
+        return createChainMock({ data: { name: "テスト太郎" }, error: null });
       }
       if (table === "message_log") {
         return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
@@ -424,6 +409,8 @@ describe("send-scheduled: FLEX送信対応", () => {
     const messages = pushArgs[1];
     expect(messages[0].type).toBe("flex");
     expect(messages[0].contents).toEqual(mockFlexJson);
+    // tenant_idがメッセージのものを使っていることを確認
+    expect(pushArgs[2]).toBe("tenant-1");
 
     vi.restoreAllMocks();
   });
@@ -431,7 +418,6 @@ describe("send-scheduled: FLEX送信対応", () => {
   it("flex_json がない場合はテキストメッセージとして送信する", async () => {
     const { pushMessage } = await import("@/lib/line-push");
     const { supabaseAdmin } = await import("@/lib/supabase");
-    const { withTenant } = await import("@/lib/tenant");
 
     const mockMsg = {
       id: 2,
@@ -441,16 +427,15 @@ describe("send-scheduled: FLEX送信対応", () => {
       message_type: "reminder",
       flex_json: null,
       status: "scheduled",
+      tenant_id: "tenant-2",
     };
 
-    let queryCount = 0;
-    (withTenant as any).mockImplementation(() => {
-      queryCount++;
-      if (queryCount === 1) return { data: [mockMsg], error: null };
-      return { data: null, error: null };
-    });
-
     (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === "scheduled_messages") {
+        const chain = createChainMock({ data: [mockMsg], error: null });
+        chain.update = vi.fn().mockReturnValue(createChainMock({ data: null, error: null }));
+        return chain;
+      }
       if (table === "patients") {
         return createChainMock({ data: { name: "テスト花子" }, error: null });
       }
@@ -476,6 +461,8 @@ describe("send-scheduled: FLEX送信対応", () => {
     const pushArgs = (pushMessage as any).mock.calls[0];
     const messages = pushArgs[1];
     expect(messages[0].type).toBe("text");
+    // tenant_idがメッセージのものを使っていることを確認
+    expect(pushArgs[2]).toBe("tenant-2");
 
     vi.restoreAllMocks();
   });

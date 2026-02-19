@@ -1,10 +1,11 @@
-// app/api/cron/generate-reminders/route.ts — 予約リマインド生成Cron（15分間隔）
+// app/api/cron/generate-reminders/route.ts — リマインド送信Cron（15分間隔）
+// ルールの送信時刻が到来していたら直接LINE送信 → 履歴記録
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { withTenant, tenantPayload } from "@/lib/tenant";
+import { pushMessage } from "@/lib/line-push";
 import { buildReminderFlex } from "@/lib/reservation-flex";
 import {
-  isInSendWindow,
   getJSTToday,
   addOneDay,
   formatReservationTime,
@@ -15,171 +16,101 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    const tenantId = resolveTenantId(req);
-    const now = new Date();
-
-    // 有効なリマインドルールを取得
-    const { data: rules, error: rulesError } = await withTenant(
-      supabaseAdmin
-        .from("reminder_rules")
-        .select("*")
-        .eq("is_enabled", true),
-      tenantId
-    );
+    const { data: rules, error: rulesError } = await supabaseAdmin
+      .from("reminder_rules")
+      .select("*")
+      .eq("is_enabled", true);
 
     if (rulesError) {
-      console.error("[generate-reminders] rules query error:", rulesError.message);
+      console.error("[reminders] rules query error:", rulesError.message);
       return NextResponse.json({ error: rulesError.message }, { status: 500 });
     }
 
     if (!rules || rules.length === 0) {
-      return NextResponse.json({ ok: true, generated: 0 });
+      return NextResponse.json({ ok: true, sent: 0 });
     }
 
-    let totalGenerated = 0;
+    let totalSent = 0;
 
     for (const rule of rules) {
+      const tenantId: string | null = rule.tenant_id || null;
       try {
-        // ★ 固定時刻ルール（fixed_time）
         if (rule.timing_type === "fixed_time") {
-          totalGenerated += await handleFixedTimeRule(rule, tenantId);
-          continue;
-        }
-
-        // ★ 既存ロジック（before_hours / before_days）— 変更なし
-        const reminderMs = rule.timing_type === "before_days"
-          ? rule.timing_value * 24 * 60 * 60 * 1000
-          : rule.timing_value * 60 * 60 * 1000;
-
-        const windowStart = new Date(now.getTime() + reminderMs);
-        const windowEnd = new Date(now.getTime() + reminderMs + 15 * 60 * 1000);
-
-        const startDate = windowStart.toISOString().split("T")[0];
-        const endDate = windowEnd.toISOString().split("T")[0];
-
-        let query = withTenant(
-          supabaseAdmin
-            .from("reservations")
-            .select("id, patient_id, patient_name, reserved_date, reserved_time, status")
-            .neq("status", "canceled")
-            .gte("reserved_date", startDate)
-            .lte("reserved_date", endDate),
-          tenantId
-        );
-
-        const { data: reservations } = await query;
-
-        if (!reservations || reservations.length === 0) continue;
-
-        const targetReservations = reservations.filter((r) => {
-          const resDateTime = new Date(`${r.reserved_date}T${r.reserved_time}`);
-          return resDateTime >= windowStart && resDateTime < windowEnd;
-        });
-
-        if (targetReservations.length === 0) continue;
-
-        const reservationIds = targetReservations.map((r) => r.id);
-        const { data: sentLogs } = await withTenant(
-          supabaseAdmin
-            .from("reminder_sent_log")
-            .select("reservation_id")
-            .eq("rule_id", rule.id)
-            .in("reservation_id", reservationIds),
-          tenantId
-        );
-
-        const sentSet = new Set((sentLogs || []).map((l: any) => l.reservation_id));
-        const newReservations = targetReservations.filter((r) => !sentSet.has(r.id));
-
-        if (newReservations.length === 0) continue;
-
-        const patientIds = [...new Set(newReservations.map((r) => r.patient_id))];
-        const { data: patients } = await withTenant(
-          supabaseAdmin
-            .from("patients")
-            .select("patient_id, name, line_id")
-            .in("patient_id", patientIds),
-          tenantId
-        );
-
-        const patientMap = new Map<string, { name: string; line_id: string | null }>();
-        for (const p of patients || []) {
-          patientMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || null });
-        }
-
-        for (const reservation of newReservations) {
-          const patient = patientMap.get(reservation.patient_id);
-          if (!patient?.line_id) continue;
-
-          const dateStr = formatDateJP(reservation.reserved_date);
-          const timeStr = reservation.reserved_time?.substring(0, 5) || "";
-
-          const messageContent = rule.message_template
-            .replace(/\{name\}/g, patient.name || reservation.patient_name || "")
-            .replace(/\{date\}/g, dateStr)
-            .replace(/\{time\}/g, timeStr)
-            .replace(/\{patient_id\}/g, reservation.patient_id);
-
-          const reservationTime = new Date(`${reservation.reserved_date}T${reservation.reserved_time}`);
-          const sendAt = new Date(reservationTime.getTime() - reminderMs);
-
-          const { data: scheduledMsg } = await supabaseAdmin
-            .from("scheduled_messages")
-            .insert({
-              ...tenantPayload(tenantId),
-              patient_id: reservation.patient_id,
-              line_uid: patient.line_id,
-              message_content: messageContent,
-              message_type: "reminder",
-              scheduled_at: sendAt.toISOString(),
-              status: "scheduled",
-              created_by: `reminder_rule_${rule.id}`,
-            })
-            .select("id")
-            .single();
-
-          await supabaseAdmin
-            .from("reminder_sent_log")
-            .insert({
-              ...tenantPayload(tenantId),
-              rule_id: rule.id,
-              reservation_id: reservation.id,
-              scheduled_message_id: scheduledMsg?.id || null,
-            });
-
-          totalGenerated++;
+          totalSent += await processFixedTimeRule(rule, tenantId);
+        } else {
+          totalSent += await processRelativeRule(rule, tenantId);
         }
       } catch (e: any) {
-        console.error(`[generate-reminders] error for rule=${rule.id}:`, e.message);
+        console.error(`[reminders] error rule=${rule.id}:`, e.message);
       }
     }
 
-    console.log(`[generate-reminders] generated=${totalGenerated}`);
-    return NextResponse.json({ ok: true, generated: totalGenerated });
+    if (totalSent > 0) console.log(`[reminders] sent=${totalSent}`);
+    return NextResponse.json({ ok: true, sent: totalSent });
   } catch (e: any) {
-    console.error("[generate-reminders] cron error:", e);
+    console.error("[reminders] cron error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-// ★ 固定時刻ルール処理
-async function handleFixedTimeRule(
-  rule: any,
-  tenantId: string | null,
-): Promise<number> {
-  // 送信時刻ウィンドウ判定（JST基準）
+// ── 固定時刻ルール ──────────────────────────
+async function processFixedTimeRule(rule: any, tenantId: string | null): Promise<number> {
   if (rule.send_hour == null) return 0;
-  if (!isInSendWindow(rule.send_hour, rule.send_minute ?? 0)) return 0;
 
-  // 対象日の算出（JST基準）
+  // 送信時刻が到来しているか判定
+  const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const nowMinutes = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
+  const sendMinutes = rule.send_hour * 60 + (rule.send_minute ?? 0);
+  if (nowMinutes < sendMinutes) return 0; // まだ送信時刻前
+
   const jstToday = getJSTToday();
-  const targetDate = rule.target_day_offset === 0
-    ? jstToday
-    : addOneDay(jstToday);
+  const targetDate = rule.target_day_offset === 0 ? jstToday : addOneDay(jstToday);
 
-  // 対象予約を取得
+  return await sendReminders(rule, tenantId, targetDate);
+}
+
+// ── 相対時間ルール（before_hours / before_days）──────
+async function processRelativeRule(rule: any, tenantId: string | null): Promise<number> {
+  const now = Date.now();
+  const reminderMs = rule.timing_type === "before_days"
+    ? rule.timing_value * 24 * 60 * 60 * 1000
+    : rule.timing_value * 60 * 60 * 1000;
+
+  // reminderMs 先〜+24h の予約を対象
+  const windowStart = new Date(now + reminderMs);
+  const windowEnd = new Date(now + reminderMs + 24 * 60 * 60 * 1000);
+  const startDate = windowStart.toISOString().split("T")[0];
+  const endDate = windowEnd.toISOString().split("T")[0];
+
+  const { data: reservations } = await withTenant(
+    supabaseAdmin
+      .from("reservations")
+      .select("id, patient_id, patient_name, reserved_date, reserved_time")
+      .neq("status", "canceled")
+      .gte("reserved_date", startDate)
+      .lte("reserved_date", endDate),
+    tenantId
+  );
+
+  if (!reservations?.length) return 0;
+
+  // 送信時刻が到来済みの予約だけフィルタ
+  const nowDate = new Date(now);
+  const targetReservations = reservations.filter((r) => {
+    const resTime = new Date(`${r.reserved_date}T${r.reserved_time}+09:00`);
+    const sendAt = new Date(resTime.getTime() - reminderMs);
+    return sendAt <= nowDate;
+  });
+
+  if (!targetReservations.length) return 0;
+
+  return await sendForReservations(rule, tenantId, targetReservations);
+}
+
+// ── 共通: 対象日の予約を取得 → 未送信分を送信 ──────
+async function sendReminders(rule: any, tenantId: string | null, targetDate: string): Promise<number> {
   const { data: reservations } = await withTenant(
     supabaseAdmin
       .from("reservations")
@@ -189,8 +120,13 @@ async function handleFixedTimeRule(
     tenantId
   );
 
-  if (!reservations || reservations.length === 0) return 0;
+  if (!reservations?.length) return 0;
 
+  return await sendForReservations(rule, tenantId, reservations);
+}
+
+// ── 共通: 予約リストに対してLINE送信 ──────────────
+async function sendForReservations(rule: any, tenantId: string | null, reservations: any[]): Promise<number> {
   // 送信済みチェック
   const reservationIds = reservations.map((r: any) => r.id);
   const { data: sentLogs } = await withTenant(
@@ -201,14 +137,12 @@ async function handleFixedTimeRule(
       .in("reservation_id", reservationIds),
     tenantId
   );
-
   const sentSet = new Set((sentLogs || []).map((l: any) => l.reservation_id));
-  const newReservations = reservations.filter((r: any) => !sentSet.has(r.id));
+  const unsent = reservations.filter((r: any) => !sentSet.has(r.id));
+  if (!unsent.length) return 0;
 
-  if (newReservations.length === 0) return 0;
-
-  // 患者のLINE UIDを取得
-  const patientIds = [...new Set(newReservations.map((r: any) => r.patient_id))];
+  // 患者のLINE UID取得
+  const patientIds = [...new Set(unsent.map((r: any) => r.patient_id))];
   const { data: patients } = await withTenant(
     supabaseAdmin
       .from("patients")
@@ -216,79 +150,68 @@ async function handleFixedTimeRule(
       .in("patient_id", patientIds),
     tenantId
   );
-
   const patientMap = new Map<string, { name: string; line_id: string | null }>();
   for (const p of patients || []) {
     patientMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || null });
   }
 
-  // scheduled_at は現在時刻（即時送信）
-  const scheduledAt = new Date().toISOString();
-  let generated = 0;
+  let sent = 0;
 
-  for (const reservation of newReservations) {
+  for (const reservation of unsent) {
     const patient = patientMap.get(reservation.patient_id);
     if (!patient?.line_id) continue;
 
-    let messageContent: string;
-    let flexJson: any = null;
-
+    // メッセージ生成
+    let messages: any[];
     if (rule.message_format === "flex") {
-      // FLEXメッセージ生成
       const flex = await buildReminderFlex(reservation.reserved_date, reservation.reserved_time, tenantId ?? undefined);
-      flexJson = flex.contents;
-      messageContent = flex.altText;
+      messages = [{ type: "flex", altText: flex.altText, contents: flex.contents }];
     } else {
-      // テキストメッセージ: テンプレート変数を置換
       const dateStr = formatDateJP(reservation.reserved_date);
       const timeStr = reservation.reserved_time?.substring(0, 5) || "";
       const formattedTime = formatReservationTime(reservation.reserved_date, reservation.reserved_time);
-
-      messageContent = (rule.message_template || buildReminderMessage(formattedTime))
+      const text = (rule.message_template || buildReminderMessage(formattedTime))
         .replace(/\{name\}/g, patient.name || reservation.patient_name || "")
         .replace(/\{date\}/g, dateStr)
         .replace(/\{time\}/g, timeStr)
         .replace(/\{patient_id\}/g, reservation.patient_id);
+      messages = [{ type: "text", text }];
     }
 
-    // scheduled_messages にINSERT
-    const { data: scheduledMsg } = await supabaseAdmin
-      .from("scheduled_messages")
-      .insert({
-        ...tenantPayload(tenantId),
-        patient_id: reservation.patient_id,
-        line_uid: patient.line_id,
-        message_content: messageContent,
-        message_type: "reminder",
-        scheduled_at: scheduledAt,
-        status: "scheduled",
-        created_by: `reminder_rule_${rule.id}`,
-        flex_json: flexJson,
-      })
-      .select("id")
-      .single();
+    // LINE送信
+    const res = await pushMessage(patient.line_id, messages, tenantId ?? undefined);
+    const ok = res?.ok ?? false;
 
-    // 送信ログに記録（二重送信防止）
+    // 履歴記録（成功・失敗問わず sent_log に入れて二重送信を防止）
     await supabaseAdmin
       .from("reminder_sent_log")
       .insert({
         ...tenantPayload(tenantId),
         rule_id: rule.id,
         reservation_id: reservation.id,
-        scheduled_message_id: scheduledMsg?.id || null,
       });
 
-    generated++;
+    if (ok) {
+      // メッセージログ
+      await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
+        patient_id: reservation.patient_id,
+        line_uid: patient.line_id,
+        message_type: "reminder",
+        content: messages[0].type === "text" ? messages[0].text : messages[0].altText,
+        flex_json: messages[0].type === "flex" ? messages[0].contents : null,
+        status: "sent",
+        direction: "outgoing",
+      });
+      sent++;
+    } else {
+      console.error(`[reminders] LINE送信失敗 rule=${rule.id} reservation=${reservation.id}`);
+    }
   }
 
-  if (generated > 0) {
-    console.log(`[generate-reminders] fixed_time rule=${rule.id} (${rule.send_hour}:${String(rule.send_minute ?? 0).padStart(2, "0")}): generated=${generated}`);
-  }
-
-  return generated;
+  return sent;
 }
 
-/** 日本語日付フォーマット */
 function formatDateJP(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00+09:00");
   const y = d.getFullYear();
