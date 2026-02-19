@@ -227,15 +227,14 @@ describe("lib/reservation-flex.ts - buildReminderFlex", () => {
   });
 });
 
-// --- リマインド送信cron テスト ---
+// --- generate-reminders cron テスト ---
 
-describe("generate-reminders: 直接LINE送信", () => {
+describe("generate-reminders: LINE送信", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("送信時刻到来でLINE送信 → 履歴記録される", async () => {
-    // 19:05 JST = UTC 10:05（19:00ルールの送信時刻を過ぎている）
+  it("対象予約にLINE送信 → sent_log・message_logに記録", async () => {
     vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:05:00Z").getTime());
 
     const { supabaseAdmin } = await import("@/lib/supabase");
@@ -246,8 +245,6 @@ describe("generate-reminders: 直接LINE送信", () => {
       id: 1,
       timing_type: "fixed_time",
       is_enabled: true,
-      send_hour: 19,
-      send_minute: 0,
       target_day_offset: 1,
       message_format: "flex",
       message_template: "",
@@ -296,12 +293,10 @@ describe("generate-reminders: 直接LINE送信", () => {
     expect(body.ok).toBe(true);
     expect(body.sent).toBe(1);
 
-    // pushMessage が呼ばれたことを確認
     expect(pushMessage).toHaveBeenCalledWith("U001", expect.any(Array), "tenant-1");
     const lineMsg = (pushMessage as any).mock.calls[0][1][0];
     expect(lineMsg.type).toBe("flex");
 
-    // reminder_sent_log に記録
     const logInsert = inserted.find(m => m.table === "reminder_sent_log");
     expect(logInsert).toBeTruthy();
     expect(logInsert.payload.rule_id).toBe(1);
@@ -310,69 +305,38 @@ describe("generate-reminders: 直接LINE送信", () => {
     vi.restoreAllMocks();
   });
 
-  it("送信時刻前なら送信しない", async () => {
-    // 18:00 JST = UTC 09:00（19:00ルールの送信時刻前）
-    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T09:00:00Z").getTime());
+  it("送信済みの予約はスキップされる", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:05:00Z").getTime());
 
     const { supabaseAdmin } = await import("@/lib/supabase");
+    const { withTenant } = await import("@/lib/tenant");
+    const { pushMessage } = await import("@/lib/line-push");
+
+    const mockRule = {
+      id: 1,
+      timing_type: "fixed_time",
+      is_enabled: true,
+      target_day_offset: 1,
+      message_format: "flex",
+      tenant_id: "tenant-1",
+    };
+
+    // withTenantモック: reservations → sent_log（既に送信済み）
+    let queryCount = 0;
+    (withTenant as any).mockImplementation(() => {
+      queryCount++;
+      if (queryCount === 1) return { data: [{ id: 100, patient_id: "P001", reserved_date: "2026-02-18", reserved_time: "10:00:00" }], error: null };
+      if (queryCount === 2) return { data: [{ reservation_id: 100 }], error: null }; // 送信済み
+      return { data: null, error: null };
+    });
 
     (supabaseAdmin.from as any).mockImplementation((table: string) => {
       if (table === "reminder_rules") {
-        return createChainMock({
-          data: [{
-            id: 1,
-            timing_type: "fixed_time",
-            is_enabled: true,
-            send_hour: 19,
-            send_minute: 0,
-            target_day_offset: 1,
-            message_format: "flex",
-            tenant_id: "tenant-1",
-          }],
-          error: null,
-        });
+        return createChainMock({ data: [mockRule], error: null });
       }
-      return createChainMock();
+      return createChainMock({ data: null, error: null });
     });
 
-    const { pushMessage } = await import("@/lib/line-push");
-    const { GET } = await import("@/app/api/cron/generate-reminders/route");
-    const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
-    const body = await response.json();
-
-    expect(body.ok).toBe(true);
-    expect(body.sent).toBe(0);
-    expect(pushMessage).not.toHaveBeenCalled();
-
-    vi.restoreAllMocks();
-  });
-
-  it("送信時刻から15分超過後は送信しない", async () => {
-    // 19:20 JST = UTC 10:20（19:00ルールの送信ウィンドウ外）
-    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:20:00Z").getTime());
-
-    const { supabaseAdmin } = await import("@/lib/supabase");
-
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
-      if (table === "reminder_rules") {
-        return createChainMock({
-          data: [{
-            id: 1,
-            timing_type: "fixed_time",
-            is_enabled: true,
-            send_hour: 19,
-            send_minute: 0,
-            target_day_offset: 1,
-            message_format: "flex",
-            tenant_id: "tenant-1",
-          }],
-          error: null,
-        });
-      }
-      return createChainMock();
-    });
-
-    const { pushMessage } = await import("@/lib/line-push");
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
     const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
     const body = await response.json();

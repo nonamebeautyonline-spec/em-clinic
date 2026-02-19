@@ -1,5 +1,5 @@
-// app/api/cron/generate-reminders/route.ts — リマインド送信Cron（15分間隔）
-// ルールの送信時刻が到来していたら直接LINE送信 → 履歴記録
+// app/api/cron/generate-reminders/route.ts
+// vercel.jsonで送信時刻にcron設定 → 呼ばれたら即送信
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
@@ -37,11 +37,8 @@ export async function GET(_req: NextRequest) {
     for (const rule of rules) {
       const tenantId: string | null = rule.tenant_id || null;
       try {
-        if (rule.timing_type === "fixed_time") {
-          totalSent += await processFixedTimeRule(rule, tenantId);
-        } else {
-          totalSent += await processRelativeRule(rule, tenantId);
-        }
+        const targetDate = getTargetDate(rule);
+        totalSent += await sendReminders(rule, tenantId, targetDate);
       } catch (e: any) {
         console.error(`[reminders] error rule=${rule.id}:`, e.message);
       }
@@ -55,61 +52,13 @@ export async function GET(_req: NextRequest) {
   }
 }
 
-// ── 固定時刻ルール ──────────────────────────
-async function processFixedTimeRule(rule: any, tenantId: string | null): Promise<number> {
-  if (rule.send_hour == null) return 0;
-
-  // 送信時刻から15分以内のみ実行（cron間隔=15分、送信後の新規予約に誤送信しない）
-  const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const nowMinutes = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
-  const sendMinutes = rule.send_hour * 60 + (rule.send_minute ?? 0);
-  if (nowMinutes < sendMinutes || nowMinutes >= sendMinutes + 15) return 0;
-
-  const jstToday = getJSTToday();
-  const targetDate = rule.target_day_offset === 0 ? jstToday : addOneDay(jstToday);
-
-  return await sendReminders(rule, tenantId, targetDate);
+/** ルールの target_day_offset から対象日を算出 */
+function getTargetDate(rule: any): string {
+  const today = getJSTToday();
+  return rule.target_day_offset === 0 ? today : addOneDay(today);
 }
 
-// ── 相対時間ルール（before_hours / before_days）──────
-async function processRelativeRule(rule: any, tenantId: string | null): Promise<number> {
-  const now = Date.now();
-  const reminderMs = rule.timing_type === "before_days"
-    ? rule.timing_value * 24 * 60 * 60 * 1000
-    : rule.timing_value * 60 * 60 * 1000;
-
-  // reminderMs 先〜+24h の予約を対象
-  const windowStart = new Date(now + reminderMs);
-  const windowEnd = new Date(now + reminderMs + 24 * 60 * 60 * 1000);
-  const startDate = windowStart.toISOString().split("T")[0];
-  const endDate = windowEnd.toISOString().split("T")[0];
-
-  const { data: reservations } = await withTenant(
-    supabaseAdmin
-      .from("reservations")
-      .select("id, patient_id, patient_name, reserved_date, reserved_time")
-      .neq("status", "canceled")
-      .gte("reserved_date", startDate)
-      .lte("reserved_date", endDate),
-    tenantId
-  );
-
-  if (!reservations?.length) return 0;
-
-  // 送信時刻が到来済みの予約だけフィルタ
-  const nowDate = new Date(now);
-  const targetReservations = reservations.filter((r) => {
-    const resTime = new Date(`${r.reserved_date}T${r.reserved_time}+09:00`);
-    const sendAt = new Date(resTime.getTime() - reminderMs);
-    return sendAt <= nowDate;
-  });
-
-  if (!targetReservations.length) return 0;
-
-  return await sendForReservations(rule, tenantId, targetReservations);
-}
-
-// ── 共通: 対象日の予約を取得 → 未送信分を送信 ──────
+/** 対象日の予約を取得 → 未送信分を送信 */
 async function sendReminders(rule: any, tenantId: string | null, targetDate: string): Promise<number> {
   const { data: reservations } = await withTenant(
     supabaseAdmin
@@ -122,11 +71,6 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
 
   if (!reservations?.length) return 0;
 
-  return await sendForReservations(rule, tenantId, reservations);
-}
-
-// ── 共通: 予約リストに対してLINE送信 ──────────────
-async function sendForReservations(rule: any, tenantId: string | null, reservations: any[]): Promise<number> {
   // 送信済みチェック
   const reservationIds = reservations.map((r: any) => r.id);
   const { data: sentLogs } = await withTenant(
@@ -192,7 +136,6 @@ async function sendForReservations(rule: any, tenantId: string | null, reservati
       });
 
     if (ok) {
-      // メッセージログ
       await supabaseAdmin.from("message_log").insert({
         ...tenantPayload(tenantId),
         patient_id: reservation.patient_id,
