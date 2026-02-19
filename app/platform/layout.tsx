@@ -180,15 +180,6 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto py-4">
-              <div className="px-3 mb-3">
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-xs font-medium"
-                >
-                  <span>←</span>
-                  <span>テナント管理に戻る</span>
-                </Link>
-              </div>
               {PLATFORM_MENU_ITEMS.map((item) => (
                 <Link
                   key={item.href}
@@ -236,15 +227,6 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         </div>
 
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
-          <div className="px-3 mb-3">
-            <Link
-              href="/admin"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-xs font-medium"
-            >
-              <span>←</span>
-              {isSidebarOpen && <span>テナント管理に戻る</span>}
-            </Link>
-          </div>
           {isSidebarOpen && (
             <div className="px-4 mb-2">
               <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Platform</span>
