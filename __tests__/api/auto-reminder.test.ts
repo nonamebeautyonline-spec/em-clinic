@@ -346,6 +346,43 @@ describe("generate-reminders: 直接LINE送信", () => {
 
     vi.restoreAllMocks();
   });
+
+  it("送信時刻から30分超過後は送信しない", async () => {
+    // 19:35 JST = UTC 10:35（19:00ルールの送信ウィンドウ外）
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-02-17T10:35:00Z").getTime());
+
+    const { supabaseAdmin } = await import("@/lib/supabase");
+
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === "reminder_rules") {
+        return createChainMock({
+          data: [{
+            id: 1,
+            timing_type: "fixed_time",
+            is_enabled: true,
+            send_hour: 19,
+            send_minute: 0,
+            target_day_offset: 1,
+            message_format: "flex",
+            tenant_id: "tenant-1",
+          }],
+          error: null,
+        });
+      }
+      return createChainMock();
+    });
+
+    const { pushMessage } = await import("@/lib/line-push");
+    const { GET } = await import("@/app/api/cron/generate-reminders/route");
+    const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
+    const body = await response.json();
+
+    expect(body.ok).toBe(true);
+    expect(body.sent).toBe(0);
+    expect(pushMessage).not.toHaveBeenCalled();
+
+    vi.restoreAllMocks();
+  });
 });
 
 // --- send-scheduled FLEX送信対応テスト ---
