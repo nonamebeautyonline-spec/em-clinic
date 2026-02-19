@@ -1383,7 +1383,7 @@ export default function TalkPage() {
                   readTimestamp={readTimestamps[f.patient_id]}
                 />
               ))}
-              {visibleUnpinned.filter(f => {
+              {(showUnreadOnly ? unpinnedFriends : visibleUnpinned).filter(f => {
                 if (!showUnreadOnly) return true;
                 return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
               }).map(f => (
@@ -1395,7 +1395,7 @@ export default function TalkPage() {
                   readTimestamp={readTimestamps[f.patient_id]}
                 />
               ))}
-              {hasMore && (
+              {hasMore && !showUnreadOnly && (
                 <div className="px-3 py-3 text-center">
                   <button
                     onClick={() => setDisplayCount(prev => prev + DISPLAY_BATCH)}
