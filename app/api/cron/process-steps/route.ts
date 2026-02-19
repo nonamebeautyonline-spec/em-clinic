@@ -1,5 +1,5 @@
 // app/api/cron/process-steps/route.ts — ステップ配信 Cron（5分間隔で実行）
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
@@ -9,9 +9,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId();
+    const tenantId = resolveTenantId(req);
     const now = new Date().toISOString();
 
     // 送信予定時刻が過ぎたアクティブな enrollment を取得（最大50件）

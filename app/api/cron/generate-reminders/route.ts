@@ -1,5 +1,5 @@
 // app/api/cron/generate-reminders/route.ts — 予約リマインド生成Cron（15分間隔）
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { buildReminderFlex } from "@/lib/reservation-flex";
@@ -15,9 +15,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId();
+    const tenantId = resolveTenantId(req);
     const now = new Date();
 
     // 有効なリマインドルールを取得

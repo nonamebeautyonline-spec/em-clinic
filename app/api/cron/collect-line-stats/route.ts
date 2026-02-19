@@ -1,5 +1,5 @@
 // app/api/cron/collect-line-stats/route.ts — 日次LINE統計収集Cron
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -29,9 +29,9 @@ async function fetchFollowerStats(dateStr: string, token: string) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const tenantId = resolveTenantId();
+    const tenantId = resolveTenantId(req);
     const lineToken = await getSettingOrEnv(
       "line", "channel_access_token",
       "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN",
