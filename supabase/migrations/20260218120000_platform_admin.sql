@@ -31,8 +31,11 @@ CREATE INDEX IF NOT EXISTS idx_tenant_plans_tenant ON tenant_plans(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_tenant_plans_status ON tenant_plans(status);
 
 ALTER TABLE tenant_plans ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only_tenant_plans" ON tenant_plans
-  FOR ALL USING (current_setting('role') = 'service_role');
+DO $$ BEGIN
+  CREATE POLICY "service_role_only_tenant_plans" ON tenant_plans
+    FOR ALL USING (current_setting('role') = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 4. 請求書テーブル
 CREATE TABLE IF NOT EXISTS billing_invoices (
@@ -54,8 +57,11 @@ CREATE INDEX IF NOT EXISTS idx_billing_invoices_status ON billing_invoices(statu
 CREATE INDEX IF NOT EXISTS idx_billing_invoices_created ON billing_invoices(created_at DESC);
 
 ALTER TABLE billing_invoices ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only_billing_invoices" ON billing_invoices
-  FOR ALL USING (current_setting('role') = 'service_role');
+DO $$ BEGIN
+  CREATE POLICY "service_role_only_billing_invoices" ON billing_invoices
+    FOR ALL USING (current_setting('role') = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 5. プラットフォーム設定テーブル
 CREATE TABLE IF NOT EXISTS platform_settings (
@@ -69,8 +75,11 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 );
 
 ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only_platform_settings" ON platform_settings
-  FOR ALL USING (current_setting('role') = 'service_role');
+DO $$ BEGIN
+  CREATE POLICY "service_role_only_platform_settings" ON platform_settings
+    FOR ALL USING (current_setting('role') = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 初期設定データ
 INSERT INTO platform_settings (key, value, description) VALUES

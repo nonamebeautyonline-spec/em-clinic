@@ -43,4 +43,4 @@ INSERT INTO products (code, title, drug_name, dosage, duration_months, quantity,
   ('MJL_10mg_1m', 'マンジャロ 10mg 1ヶ月', 'マンジャロ', '10mg', 1, 4, 35000, 10, 'injection'),
   ('MJL_10mg_2m', 'マンジャロ 10mg 2ヶ月', 'マンジャロ', '10mg', 2, 8, 70000, 11, 'injection'),
   ('MJL_10mg_3m', 'マンジャロ 10mg 3ヶ月', 'マンジャロ', '10mg', 3, 12, 105000, 12, 'injection')
-ON CONFLICT (tenant_id, code) DO NOTHING;
+ON CONFLICT DO NOTHING;

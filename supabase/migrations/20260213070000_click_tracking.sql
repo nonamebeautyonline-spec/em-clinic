@@ -25,5 +25,11 @@ CREATE INDEX IF NOT EXISTS idx_click_events_link_id ON click_tracking_events(lin
 ALTER TABLE click_tracking_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE click_tracking_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "service_role_click_links" ON click_tracking_links FOR ALL USING (auth.role() = 'service_role');
-CREATE POLICY "service_role_click_events" ON click_tracking_events FOR ALL USING (auth.role() = 'service_role');
+DO $$ BEGIN
+  CREATE POLICY "service_role_click_links" ON click_tracking_links FOR ALL USING (auth.role() = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  CREATE POLICY "service_role_click_events" ON click_tracking_events FOR ALL USING (auth.role() = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

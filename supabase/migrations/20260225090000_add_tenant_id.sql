@@ -22,8 +22,12 @@ DECLARE
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY tables LOOP
-    EXECUTE format('ALTER TABLE IF EXISTS %I ADD COLUMN IF NOT EXISTS tenant_id UUID', t);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_tenant ON %I(tenant_id)',
-                   replace(t, '.', '_'), t);
+    BEGIN
+      EXECUTE format('ALTER TABLE IF EXISTS %I ADD COLUMN IF NOT EXISTS tenant_id UUID', t);
+      EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_tenant ON %I(tenant_id)',
+                     replace(t, '.', '_'), t);
+    EXCEPTION WHEN undefined_table THEN
+      NULL;
+    END;
   END LOOP;
 END $$;
