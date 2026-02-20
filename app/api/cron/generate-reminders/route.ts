@@ -16,6 +16,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+const BATCH_SIZE = 10;
+
 export async function GET(req: NextRequest) {
   try {
     // ?offset=0（当日）or ?offset=1（前日）でルールを絞り込み
@@ -68,7 +70,7 @@ function getTargetDate(rule: any): string {
   return rule.target_day_offset === 0 ? today : addOneDay(today);
 }
 
-/** 対象日の予約を取得 → 未送信分を送信 */
+/** 対象日の予約を取得 → 未送信分を並列送信 */
 async function sendReminders(rule: any, tenantId: string | null, targetDate: string): Promise<number> {
   const { data: reservations } = await withTenant(
     supabaseAdmin
@@ -109,13 +111,12 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
     patientMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || null });
   }
 
-  let sent = 0;
-
+  // 送信対象を事前にメッセージ付きで準備
+  const tasks: { reservation: any; patient: any; messages: any[] }[] = [];
   for (const reservation of unsent) {
     const patient = patientMap.get(reservation.patient_id);
     if (!patient?.line_id) continue;
 
-    // メッセージ生成
     let messages: any[];
     if (rule.message_format === "flex") {
       const flex = await buildReminderFlex(reservation.reserved_date, reservation.reserved_time, tenantId ?? undefined);
@@ -131,35 +132,54 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
         .replace(/\{patient_id\}/g, reservation.patient_id);
       messages = [{ type: "text", text }];
     }
+    tasks.push({ reservation, patient, messages });
+  }
 
-    // LINE送信
-    const res = await pushMessage(patient.line_id, messages, tenantId ?? undefined);
-    const ok = res?.ok ?? false;
+  // BATCH_SIZE件ずつ並列送信
+  let sent = 0;
+  for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+    const batch = tasks.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async ({ reservation, patient, messages }) => {
+        try {
+          const res = await pushMessage(patient.line_id, messages, tenantId ?? undefined);
+          const ok = res?.ok ?? false;
 
-    // 履歴記録（成功・失敗問わず sent_log に入れて二重送信を防止）
-    await supabaseAdmin
-      .from("reminder_sent_log")
-      .insert({
-        ...tenantPayload(tenantId),
-        rule_id: rule.id,
-        reservation_id: reservation.id,
-      });
+          // sent_log（二重送信防止）とmessage_log を並列insert
+          const inserts: Promise<any>[] = [
+            supabaseAdmin.from("reminder_sent_log").insert({
+              ...tenantPayload(tenantId),
+              rule_id: rule.id,
+              reservation_id: reservation.id,
+            }),
+          ];
+          if (ok) {
+            inserts.push(
+              supabaseAdmin.from("message_log").insert({
+                ...tenantPayload(tenantId),
+                patient_id: reservation.patient_id,
+                line_uid: patient.line_id,
+                message_type: "reminder",
+                content: messages[0].type === "text" ? messages[0].text : messages[0].altText,
+                flex_json: messages[0].type === "flex" ? messages[0].contents : null,
+                status: "sent",
+                direction: "outgoing",
+              }),
+            );
+          }
+          await Promise.all(inserts);
 
-    if (ok) {
-      await supabaseAdmin.from("message_log").insert({
-        ...tenantPayload(tenantId),
-        patient_id: reservation.patient_id,
-        line_uid: patient.line_id,
-        message_type: "reminder",
-        content: messages[0].type === "text" ? messages[0].text : messages[0].altText,
-        flex_json: messages[0].type === "flex" ? messages[0].contents : null,
-        status: "sent",
-        direction: "outgoing",
-      });
-      sent++;
-    } else {
-      console.error(`[reminders] LINE送信失敗 rule=${rule.id} reservation=${reservation.id}`);
-    }
+          if (!ok) {
+            console.error(`[reminders] LINE送信失敗 rule=${rule.id} reservation=${reservation.id}`);
+          }
+          return ok ? 1 : 0;
+        } catch (e: any) {
+          console.error(`[reminders] error reservation=${reservation.id}:`, e.message);
+          return 0;
+        }
+      }),
+    );
+    sent += results.reduce((a, b) => a + b, 0);
   }
 
   return sent;
