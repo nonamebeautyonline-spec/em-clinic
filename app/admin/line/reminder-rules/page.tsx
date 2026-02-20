@@ -478,9 +478,10 @@ export default function ReminderRulesPage() {
                   grouped.set(log.date, list);
                 }
                 return [...grouped.entries()].map(([date, logs]) => {
-                  const d = new Date(date + "T00:00:00+09:00");
-                  const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
-                  const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${dow})`;
+                  const [yy, mm, dd] = date.split("-").map(Number);
+                  const dt = new Date(Date.UTC(yy, mm - 1, dd));
+                  const dow = ["日", "月", "火", "水", "木", "金", "土"][dt.getUTCDay()];
+                  const dateLabel = `${mm}/${dd}(${dow})`;
                   const totalForDay = logs.reduce((s, l) => s + l.total, 0);
 
                   return (

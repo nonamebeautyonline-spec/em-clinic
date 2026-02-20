@@ -59,7 +59,9 @@ export async function GET(req: NextRequest) {
   const grouped = new Map<string, { rule_id: number; rule_name: string; date: string; total: number; sent: number; failed: number; scheduled: number; message_format: string; send_time: string }>();
 
   for (const log of logs) {
-    const dateStr = log.created_at.split("T")[0]; // YYYY-MM-DD
+    // UTC→JST変換して日付を取得（cronは日本時間基準で動くため）
+    const jst = new Date(new Date(log.created_at).getTime() + 9 * 60 * 60 * 1000);
+    const dateStr = jst.toISOString().split("T")[0];
     const key = `${log.rule_id}_${dateStr}`;
     const rule = ruleMap.get(log.rule_id);
     const status = log.scheduled_message_id ? (statusMap.get(log.scheduled_message_id) || "scheduled") : "unknown";
