@@ -129,7 +129,8 @@ export async function POST(req: NextRequest) {
           name_kana: name_kana.trim(),
           sex,
           birthday,
-          line_id: lineUserId || null,
+          // line_id は取得できた場合のみ更新（空文字で既存値を null に上書きしない）
+          ...(lineUserId ? { line_id: lineUserId } : {}),
         })
         .eq("patient_id", patientId), tenantId);
       if (error) console.error("[register/personal-info] Answerers update failed:", error.message);

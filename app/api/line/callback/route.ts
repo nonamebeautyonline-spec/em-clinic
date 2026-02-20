@@ -90,7 +90,15 @@ export async function GET(req: NextRequest) {
       : `${appBaseUrl}/register`;
   }
 
-  const res = NextResponse.redirect(redirectUrl);
+  // 302リダイレクト + Set-Cookie だとLINEアプリ内ブラウザでcookieが保存されないケースがある
+  // → 200 HTML を返し、ブラウザが確実にSet-Cookieを処理してからJSリダイレクト
+  const safeRedirectUrl = redirectUrl.replace(/[<>"'&]/g, "");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${safeRedirectUrl}"><title>リダイレクト中</title></head><body><p>リダイレクト中...</p><script>window.location.href="${safeRedirectUrl}";</script></body></html>`;
+
+  const res = new NextResponse(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
 
   // line_user_id cookie セット（30日）
   res.cookies.set("line_user_id", lineUserId, {

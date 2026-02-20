@@ -171,6 +171,15 @@ describe("register/personal-info: 個人情報登録詳細", () => {
     const src = readFile(file);
     expect(src).toContain('"patients"');
   });
+
+  it("line_id を null で上書きしない（空のlineUserIdで既存値を消さない）", () => {
+    if (!fileExists(file)) return;
+    const src = readFile(file);
+    // 既存患者のupdate時に line_id: lineUserId || null を使っていないこと
+    // 代わりにスプレッド構文で条件付きで含める
+    expect(src).not.toMatch(/\.update\(\{[^}]*line_id:\s*lineUserId\s*\|\|\s*null/);
+    expect(src).toContain("lineUserId ? { line_id: lineUserId } : {}");
+  });
 });
 
 describe("register/complete: 登録完了詳細", () => {
@@ -180,6 +189,39 @@ describe("register/complete: 登録完了詳細", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
     expect(src).toContain('"patients"');
+  });
+
+  it("電話番号重複時に自動マージ処理がある", () => {
+    if (!fileExists(file)) return;
+    const src = readFile(file);
+    expect(src).toContain("自動マージ開始");
+    // line_id=null の旧アカウントのみマージ対象
+    expect(src).toContain("dup.line_id");
+    // 5テーブルを移行
+    expect(src).toContain('"reservations"');
+    expect(src).toContain('"intake"');
+    expect(src).toContain('"orders"');
+    expect(src).toContain('"reorders"');
+    expect(src).toContain('"message_log"');
+  });
+
+  it("LINE連携済みの別アカウントはマージしない", () => {
+    if (!fileExists(file)) return;
+    const src = readFile(file);
+    // line_idがある場合はcontinueでスキップ
+    expect(src).toContain("if (dup.line_id) continue");
+  });
+
+  it("同一人物チェック（氏名またはカナ一致）を行う", () => {
+    if (!fileExists(file)) return;
+    const src = readFile(file);
+    // 名前不一致時はスキップ
+    expect(src).toContain("名前不一致のためマージスキップ");
+    // 空白を正規化して比較
+    expect(src).toContain('.replace(/\\s/g, "")');
+    // 氏名 or カナどちらかの一致でOK
+    expect(src).toContain("nameMatch");
+    expect(src).toContain("kanaMatch");
   });
 });
 

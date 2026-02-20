@@ -88,9 +88,10 @@ export async function POST(req: NextRequest) {
     // ============================================================
 
     // 重複PID検出: 同一電話番号で別の患者が既に存在するか確認
+    // → line_id=null かつ同一氏名の旧アカウントがあれば自動マージ（予約・intake・orders等を移行）
     const { data: dupByPhone } = await withTenant(supabaseAdmin
       .from("patients")
-      .select("patient_id, name")
+      .select("patient_id, name, name_kana, line_id")
       .eq("tel", phone)
       .neq("patient_id", pid), tenantId)
       .limit(5);
@@ -98,6 +99,45 @@ export async function POST(req: NextRequest) {
     if (dupByPhone && dupByPhone.length > 0) {
       const dupInfo = dupByPhone.map(d => `${d.patient_id}(${d.name || "名前なし"})`).join(", ");
       console.warn(`[register/complete] 重複PID検出: ${pid} と同一電話番号の患者あり → ${dupInfo}`);
+
+      // 現在の患者情報を取得（名前照合用）
+      const { data: currentPatient } = await withTenant(supabaseAdmin
+        .from("patients")
+        .select("name, name_kana")
+        .eq("patient_id", pid), tenantId)
+        .maybeSingle();
+
+      // line_id=null かつ同一人物の旧アカウントを自動マージ
+      for (const dup of dupByPhone) {
+        if (dup.line_id) continue; // LINE連携済みの別アカウントはスキップ（別人の可能性）
+
+        // 同一人物チェック: 氏名またはカナが一致する場合のみマージ
+        const nameMatch = currentPatient?.name && dup.name
+          && currentPatient.name.replace(/\s/g, "") === dup.name.replace(/\s/g, "");
+        const kanaMatch = currentPatient?.name_kana && dup.name_kana
+          && currentPatient.name_kana.replace(/\s/g, "") === dup.name_kana.replace(/\s/g, "");
+        if (!nameMatch && !kanaMatch) {
+          console.warn(`[register/complete] 名前不一致のためマージスキップ: ${dup.patient_id}(${dup.name}) vs ${pid}(${currentPatient?.name})`);
+          continue;
+        }
+
+        const oldPid = dup.patient_id;
+        console.log(`[register/complete] 自動マージ開始: ${oldPid}(${dup.name}) → ${pid}(${currentPatient?.name})`);
+        const tables = ["reservations", "intake", "orders", "reorders", "message_log"] as const;
+        for (const table of tables) {
+          const { data, error } = await withTenant(supabaseAdmin
+            .from(table)
+            .update({ patient_id: pid })
+            .eq("patient_id", oldPid), tenantId)
+            .select("id");
+          if (error) {
+            console.error(`[register/complete] マージエラー(${table}):`, error.message);
+          } else if (data && data.length > 0) {
+            console.log(`[register/complete] ${table}: ${data.length}件を ${oldPid} → ${pid} に移行`);
+          }
+        }
+        console.log(`[register/complete] 自動マージ完了: ${oldPid} → ${pid}`);
+      }
     }
 
     // patients テーブルに電話番号を保存（select→insert/update パターン）
