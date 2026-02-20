@@ -189,6 +189,9 @@ export async function processPendingAiReplies(): Promise<number> {
   return processed;
 }
 
+// デバッグ用: 最後の処理結果を保持
+export let lastProcessLog: string[] = [];
+
 /** AI返信のメイン処理（デバウンス後に呼ばれる） */
 async function processAiReply(
   lineUid: string,
@@ -196,21 +199,28 @@ async function processAiReply(
   patientName: string,
   tenantId: string | null
 ): Promise<void> {
+  const log: string[] = [];
+  lastProcessLog = log;
   const tid = tenantId ?? undefined;
 
   // 1. AI返信設定を取得
+  log.push("step1: settings取得");
   const { data: settings } = await withTenant(
     supabaseAdmin.from("ai_reply_settings").select("*").maybeSingle(),
     tenantId
   );
-  if (!settings?.is_enabled) return;
+  if (!settings?.is_enabled) { log.push("skip: settings無効"); return; }
+  log.push("step1: OK");
 
   // 2. APIキーを取得
+  log.push("step2: APIキー取得");
   const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
   if (!apiKey) {
+    log.push("skip: APIキー未設定");
     console.error("[AI Reply] ANTHROPIC_API_KEY 未設定");
     return;
   }
+  log.push(`step2: OK (key長=${apiKey.length})`);
 
   // 3. 既存のpendingドラフトをキャンセル（追加メッセージによる再生成）
   await withTenant(
@@ -250,9 +260,11 @@ async function processAiReply(
     .map(m => m.content);
 
   if (pendingMessages.length === 0) {
+    log.push("skip: 未返信メッセージなし");
     console.log(`[AI Reply] 未返信メッセージなし: ${patientId}`);
     return;
   }
+  log.push(`step5: pending=${pendingMessages.length}件`);
 
   // 会話コンテキスト（最後のoutgoingまで）
   const contextMessages = lastOutgoingIdx >= 0 ? sorted.slice(0, lastOutgoingIdx + 1) : [];
@@ -269,9 +281,10 @@ async function processAiReply(
   let inputTokens = 0;
   let outputTokens = 0;
 
+  log.push("step6: Claude API呼び出し");
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 500,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -281,16 +294,20 @@ async function processAiReply(
     outputTokens = response.usage.output_tokens;
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
+    log.push(`step6: レスポンス取得 (tokens: ${inputTokens}/${outputTokens})`);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("AIレスポンスにJSONが含まれていません");
     aiResult = JSON.parse(jsonMatch[0]);
+    log.push(`step6: category=${aiResult.category}, confidence=${aiResult.confidence}`);
   } catch (err) {
+    log.push(`error: Claude API失敗: ${err}`);
     console.error("[AI Reply] Claude API エラー:", err);
     return;
   }
 
   // 7. greeting/返信不要はスキップ
   if (aiResult.category === "greeting" || !aiResult.reply) {
+    log.push(`skip: category=${aiResult.category}, reason=${aiResult.reason}`);
     console.log(`[AI Reply] category=${aiResult.category}, スキップ: ${aiResult.reason}`);
     return;
   }

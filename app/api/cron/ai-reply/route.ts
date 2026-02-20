@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { processPendingAiReplies } from "@/lib/ai-reply";
+import { processPendingAiReplies, lastProcessLog } from "@/lib/ai-reply";
 import { redis } from "@/lib/redis";
 
 // Vercel Cron: AI返信デバウンス処理（毎分実行）
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
   }
 
   const processed = await processPendingAiReplies();
+  debug.processLog = lastProcessLog;
 
   return NextResponse.json({
     ok: true,
