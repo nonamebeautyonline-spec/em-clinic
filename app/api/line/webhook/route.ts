@@ -698,8 +698,11 @@ async function handleMessage(lineUid: string, message: any, tenantId: string | n
 
   // AI返信処理（テキスト・キーワード未マッチ時のみ、60秒デバウンス付き）
   if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
-    scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId)
-      .catch(err => console.error("[webhook] AI reply error:", err));
+    try {
+      await scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId);
+    } catch (err) {
+      console.error("[webhook] AI reply error:", err);
+    }
   }
 }
 
