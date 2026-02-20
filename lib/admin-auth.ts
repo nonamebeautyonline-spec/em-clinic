@@ -44,6 +44,19 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
     }
   }
 
+  // 3. Basic認証（Dr用）
+  if (authHeader?.startsWith("Basic ")) {
+    const drUser = process.env.DR_BASIC_USER;
+    const drPass = process.env.DR_BASIC_PASS;
+    if (drUser && drPass) {
+      const decoded = Buffer.from(authHeader.substring(6), "base64").toString();
+      const [u, p] = decoded.split(":");
+      if (u === drUser && p === drPass) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
