@@ -179,7 +179,7 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
         }
       }),
     );
-    sent += results.reduce((a, b) => a + b, 0);
+    sent += results.reduce<number>((a, b) => a + b, 0);
   }
 
   return sent;
