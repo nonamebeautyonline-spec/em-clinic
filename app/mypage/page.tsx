@@ -96,12 +96,12 @@ export default async function MyPagePage() {
   const { data: answerer } = await withTenant(
     supabaseAdmin
       .from("patients")
-      .select("name, tel")
+      .select("name, name_kana, tel")
       .eq("patient_id", patientId),
     tenantId
   ).maybeSingle();
-  // 個人情報未入力 → 個人情報フォームへ
-  if (!answerer?.name) {
+  // 個人情報未入力（氏名・カナ両方必須） → 個人情報フォームへ
+  if (!answerer?.name || !answerer?.name_kana) {
     redirect("/register");
   }
   // 電話番号未登録 → SMS認証画面へ

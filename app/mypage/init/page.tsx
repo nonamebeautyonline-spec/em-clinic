@@ -49,11 +49,12 @@ export default async function MypageInitPage() {
     const { data: answerer } = await withTenant(
       supabaseAdmin
         .from("patients")
-        .select("name")
+        .select("name, name_kana")
         .eq("patient_id", patientId),
       tenantId
     ).maybeSingle();
-    if (!answerer?.name) {
+    // 個人情報未入力（氏名・カナ両方必須） → 個人情報フォームへ
+    if (!answerer?.name || !answerer?.name_kana) {
       redirect("/register");
     }
   } else {
