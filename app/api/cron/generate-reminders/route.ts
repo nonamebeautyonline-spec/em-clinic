@@ -146,7 +146,7 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
           const ok = res?.ok ?? false;
 
           // sent_log（二重送信防止）とmessage_log を並列insert
-          const inserts: Promise<any>[] = [
+          const inserts: PromiseLike<any>[] = [
             supabaseAdmin.from("reminder_sent_log").insert({
               ...tenantPayload(tenantId),
               rule_id: rule.id,
