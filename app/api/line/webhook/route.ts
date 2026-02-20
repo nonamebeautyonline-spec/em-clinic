@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { scheduleAiReply, sendAiReply } from "@/lib/ai-reply";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -677,9 +678,10 @@ async function handleMessage(lineUid: string, message: any, tenantId: string | n
   });
 
   // キーワード自動応答チェック（テキストメッセージのみ）
+  let keywordMatched = false;
   if (message.type === "text" && message.text) {
     try {
-      await checkAndReplyKeyword(lineUid, patient, message.text, tenantId);
+      keywordMatched = await checkAndReplyKeyword(lineUid, patient, message.text, tenantId);
     } catch (e) {
       console.error("[webhook] keyword auto-reply error:", e);
     }
@@ -693,6 +695,12 @@ async function handleMessage(lineUid: string, message: any, tenantId: string | n
       }
     }
   }
+
+  // AI返信処理（テキスト・キーワード未マッチ時のみ、60秒デバウンス付き）
+  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
+    scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId)
+      .catch(err => console.error("[webhook] AI reply error:", err));
+  }
 }
 
 // =================================================================
@@ -703,7 +711,7 @@ async function checkAndReplyKeyword(
   patient: { patient_id: string; patient_name: string } | null,
   text: string,
   tenantId: string | null
-) {
+): Promise<boolean> {
   // 有効なルールを優先順位順に取得
   const { data: rules } = await withTenant(
     supabaseAdmin
@@ -715,7 +723,7 @@ async function checkAndReplyKeyword(
     tenantId
   );
 
-  if (!rules || rules.length === 0) return;
+  if (!rules || rules.length === 0) return false;
 
   for (const rule of rules) {
     let matched = false;
@@ -793,8 +801,9 @@ async function checkAndReplyKeyword(
     }
 
     // 最初にマッチしたルールのみ実行（複数マッチは行わない）
-    return;
+    return true;
   }
+  return false;
 }
 
 // 条件ルール評価（タグベース）
@@ -1143,6 +1152,16 @@ async function executeRichMenuActions(
 // =================================================================
 async function handleAdminPostback(groupId: string, dataStr: string, tenantId: string | null, notifyToken: string) {
   const q = parseQueryString(dataStr);
+
+  // AI返信の承認/却下
+  const aiAction = q["ai_reply_action"];
+  const draftIdStr = q["draft_id"];
+  if (aiAction && draftIdStr) {
+    await handleAiReplyPostback(groupId, aiAction, Number(draftIdStr), tenantId, notifyToken);
+    return;
+  }
+
+  // 再処方の承認/却下
   const action = q["reorder_action"];
   const reorderId = q["reorder_id"];
 
@@ -1260,6 +1279,59 @@ async function handleAdminPostback(groupId: string, dataStr: string, tenantId: s
     `【再処方】${action === "approve" ? "承認しました" : "却下しました"}\n申請ID: ${reorderId}`,
     notifyToken
   );
+}
+
+// =================================================================
+// AI返信 承認/却下 postback処理
+// =================================================================
+async function handleAiReplyPostback(
+  groupId: string,
+  action: string,
+  draftId: number,
+  tenantId: string | null,
+  notifyToken: string
+) {
+  if (action !== "approve" && action !== "reject") return;
+  if (!Number.isFinite(draftId)) return;
+
+  const { data: draft, error } = await withTenant(
+    supabaseAdmin
+      .from("ai_reply_drafts")
+      .select("*")
+      .eq("id", draftId)
+      .single(),
+    tenantId
+  );
+
+  if (error || !draft) {
+    await pushToGroup(groupId, `【AI返信】処理失敗\n案件ID: ${draftId}\n原因: レコードが見つかりません`, notifyToken);
+    return;
+  }
+
+  if (draft.status !== "pending") {
+    await pushToGroup(groupId, `【AI返信】この案件は既に処理済みです (${draft.status})\n案件ID: ${draftId}`, notifyToken);
+    return;
+  }
+
+  // 失効チェック
+  if (draft.expires_at && new Date(draft.expires_at) < new Date()) {
+    await supabaseAdmin.from("ai_reply_drafts").update({ status: "expired" }).eq("id", draftId);
+    await pushToGroup(groupId, `【AI返信】この案件は有効期限切れです\n案件ID: ${draftId}`, notifyToken);
+    return;
+  }
+
+  if (action === "approve") {
+    await sendAiReply(draftId, draft.line_uid, draft.draft_reply, draft.patient_id, tenantId);
+    await supabaseAdmin.from("ai_reply_drafts")
+      .update({ status: "approved", approved_at: new Date().toISOString() })
+      .eq("id", draftId);
+    await pushToGroup(groupId, `【AI返信】承認・送信しました ✓\n案件ID: ${draftId}`, notifyToken);
+  } else {
+    await supabaseAdmin.from("ai_reply_drafts")
+      .update({ status: "rejected", rejected_at: new Date().toISOString() })
+      .eq("id", draftId);
+    await pushToGroup(groupId, `【AI返信】却下しました\n案件ID: ${draftId}`, notifyToken);
+  }
 }
 
 // =================================================================

@@ -27,6 +27,7 @@ const SUB_TABS = [
   { href: "/admin/line/friend-settings", label: "友達追加時設定" },
   { href: "/admin/line/friends/fields", label: "情報欄設定" },
   { href: "/admin/line/keyword-replies", label: "自動応答" },
+  { href: "/admin/line/ai-reply-settings", label: "AI返信" },
   { href: "/admin/line/messages", label: "送信履歴" },
   { href: "/admin/line/click-analytics", label: "クリック分析" },
   { href: "/admin/line/menu-rules", label: "メニュー自動切替" },

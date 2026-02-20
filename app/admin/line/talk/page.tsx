@@ -2289,6 +2289,9 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
             <span className="text-[9px] text-gray-400">{formatTimeUtil(m.sent_at)}</span>
           </div>
           <div className="max-w-[65%]">
+            {m.event_type === "ai_reply" && (
+              <div className="text-[9px] text-purple-500 mb-0.5 text-right mr-1 font-medium">AI返信</div>
+            )}
             {(() => {
               if (m.flex_json) return renderFlexBubble(m.flex_json);
               const mt = m.message_type || "";
