@@ -285,7 +285,7 @@ async function processAiReply(
   try {
     const response = await client.messages.create({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 500,
+      max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });
@@ -295,9 +295,12 @@ async function processAiReply(
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
     log.push(`step6: レスポンス取得 (tokens: ${inputTokens}/${outputTokens})`);
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    log.push(`step6: raw=${text.substring(0, 200)}`);
+    // マークダウンコードブロック内のJSON or 直接JSONを抽出
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    const jsonMatch = codeBlockMatch ? codeBlockMatch : text.match(/(\{[\s\S]*\})/);
     if (!jsonMatch) throw new Error("AIレスポンスにJSONが含まれていません");
-    aiResult = JSON.parse(jsonMatch[0]);
+    aiResult = JSON.parse(jsonMatch[1]);
     log.push(`step6: category=${aiResult.category}, confidence=${aiResult.confidence}`);
   } catch (err) {
     log.push(`error: Claude API失敗: ${err}`);
@@ -328,7 +331,7 @@ async function processAiReply(
       draft_reply: aiResult.reply,
       confidence: aiResult.confidence,
       status: settings.mode === "auto" ? "approved" : "pending",
-      model_used: "claude-sonnet-4-20250514",
+      model_used: "claude-sonnet-4-5-20250929",
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       expires_at: expiresAt.toISOString(),
