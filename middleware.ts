@@ -116,20 +116,23 @@ export async function middleware(req: NextRequest) {
     const pass = process.env.DR_BASIC_PASS;
 
     if (user && pass) {
+      const unauthorized = () =>
+        new NextResponse("Unauthorized", {
+          status: 401,
+          headers: {
+            "WWW-Authenticate": 'Basic realm="Doctor Console"',
+            "Content-Type": "text/plain; charset=utf-8",
+          },
+        });
+
       if (basicAuth) {
         const authValue = basicAuth.split(" ")[1];
         const [u, p] = Buffer.from(authValue, "base64").toString().split(":");
         if (u !== user || p !== pass) {
-          return new NextResponse("Auth required", {
-            status: 401,
-            headers: { "WWW-Authenticate": 'Basic realm="Doctor Console"' },
-          });
+          return unauthorized();
         }
       } else {
-        return new NextResponse("Auth required", {
-          status: 401,
-          headers: { "WWW-Authenticate": 'Basic realm="Doctor Console"' },
-        });
+        return unauthorized();
       }
     }
   }
