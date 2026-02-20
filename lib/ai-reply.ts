@@ -80,9 +80,19 @@ function buildUserMessage(
   return `${context}## 患者からの新しいメッセージ\n${msgs}`;
 }
 
+/** Redis に保存するデバウンス情報 */
+interface DebounceEntry {
+  lineUid: string;
+  patientId: string;
+  patientName: string;
+  tenantId: string | null;
+  ts: number; // タイムスタンプ（ms）
+}
+
 /**
- * AI返信をスケジュール（デバウンス付き）
- * メッセージが来るたびに呼ばれ、60秒間追加メッセージがなければAI処理を実行
+ * AI返信をスケジュール（Redis保存のみ、即return）
+ * webhookから呼ばれ、Redisにデバウンスマーカーを保存。
+ * 実際のAI処理は cron（/api/cron/ai-reply）が毎分実行する。
  */
 export async function scheduleAiReply(
   lineUid: string,
@@ -104,37 +114,79 @@ export async function scheduleAiReply(
     return;
   }
 
-  // Redisにデバウンスマーカーを書く（タイムスタンプ）
+  // Redisにデバウンス情報を保存（cronが後で取得する）
   const debounceKey = `ai_debounce:${patientId}`;
-  const now = Date.now().toString();
+  const entry: DebounceEntry = {
+    lineUid,
+    patientId,
+    patientName,
+    tenantId,
+    ts: Date.now(),
+  };
   try {
-    await redis.set(debounceKey, now, { ex: DEBOUNCE_SEC + 30 }); // TTL = 待機時間 + 余裕
+    await redis.set(debounceKey, JSON.stringify(entry), { ex: DEBOUNCE_SEC * 3 }); // TTL余裕を持たせる
+    // デバウンスキーの一覧管理用セットにも追加
+    await redis.sadd("ai_debounce_keys", patientId);
   } catch (e) {
     console.error("[AI Reply] Redis set error:", e);
     return;
   }
 
-  console.log(`[AI Reply] デバウンス開始: ${patientId}, ${DEBOUNCE_SEC}秒待機`);
+  console.log(`[AI Reply] デバウンス登録: ${patientId}（cronが${DEBOUNCE_SEC}秒後に処理）`);
+}
 
-  // 60秒待つ
-  await new Promise(resolve => setTimeout(resolve, DEBOUNCE_SEC * 1000));
+/**
+ * cronから呼ばれる: デバウンス期間が経過したエントリを処理
+ */
+export async function processPendingAiReplies(): Promise<number> {
+  let processed = 0;
 
-  // 待機後にRedisの値を確認（自分がセットした値と一致するか）
   try {
-    const current = await redis.get<string>(debounceKey);
-    if (current !== now) {
-      console.log(`[AI Reply] デバウンスキャンセル: ${patientId}（新しいメッセージが来た）`);
-      return;
+    // デバウンスキー一覧を取得
+    const patientIds = await redis.smembers("ai_debounce_keys");
+    if (!patientIds || patientIds.length === 0) return 0;
+
+    const now = Date.now();
+
+    for (const patientId of patientIds) {
+      const debounceKey = `ai_debounce:${patientId}`;
+      const raw = await redis.get<string>(debounceKey);
+      if (!raw) {
+        // キーが消えている（TTL切れ等）→ セットから除去
+        await redis.srem("ai_debounce_keys", patientId);
+        continue;
+      }
+
+      let entry: DebounceEntry;
+      try {
+        entry = typeof raw === "string" ? JSON.parse(raw) : raw as unknown as DebounceEntry;
+      } catch {
+        await redis.del(debounceKey);
+        await redis.srem("ai_debounce_keys", patientId);
+        continue;
+      }
+
+      // デバウンス期間（60秒）経過していなければスキップ
+      if (now - entry.ts < DEBOUNCE_SEC * 1000) continue;
+
+      // デバウンス通過 → マーカー削除してAI処理実行
+      await redis.del(debounceKey);
+      await redis.srem("ai_debounce_keys", patientId);
+
+      console.log(`[AI Reply] デバウンス通過: ${patientId}（${Math.round((now - entry.ts) / 1000)}秒経過）`);
+
+      try {
+        await processAiReply(entry.lineUid, entry.patientId, entry.patientName, entry.tenantId);
+        processed++;
+      } catch (err) {
+        console.error(`[AI Reply] 処理エラー: ${patientId}`, err);
+      }
     }
-    // マーカーを削除
-    await redis.del(debounceKey);
-  } catch (e) {
-    console.error("[AI Reply] Redis get error:", e);
-    return;
+  } catch (err) {
+    console.error("[AI Reply] cron処理エラー:", err);
   }
 
-  // デバウンス通過 → AI処理実行
-  await processAiReply(lineUid, patientId, patientName, tenantId);
+  return processed;
 }
 
 /** AI返信のメイン処理（デバウンス後に呼ばれる） */

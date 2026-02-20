@@ -17,9 +17,16 @@
     },
     "app/api/cron/generate-reminders/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/ai-reply/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [
+    {
+      "path": "/api/cron/ai-reply",
+      "schedule": "* * * * *"
+    },
     {
       "path": "/api/cron/send-scheduled",
       "schedule": "*/5 * * * *"
