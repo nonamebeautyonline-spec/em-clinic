@@ -186,10 +186,8 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
 }
 
 function formatDateJP(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00+09:00");
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
-  return `${y}年${m}月${day}日(${dow})`;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = ["日", "月", "火", "水", "木", "金", "土"][dt.getUTCDay()];
+  return `${y}年${m}月${d}日(${dow})`;
 }
