@@ -152,6 +152,9 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/csrf-token/route.ts",
     "app/api/health/route.ts",
     "app/api/cron/health-report/route.ts",
+    // 署名付きURL認証API（テナントIDはドラフトDBから取得）
+    "app/api/ai-reply/[draftId]/route.ts",
+    "app/api/ai-reply/[draftId]/reject/route.ts",
   ]);
 
   function findRouteFiles(dir: string): string[] {

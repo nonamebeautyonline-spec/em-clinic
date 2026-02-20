@@ -1,6 +1,7 @@
 // AI返信の承認Flex Message生成・管理グループ送信
 
 import { getSettingOrEnv } from "@/lib/settings";
+import { buildEditUrl } from "@/lib/ai-reply-sign";
 
 const CATEGORY_LABELS: Record<string, string> = {
   operational: "手続き系",
@@ -17,7 +18,8 @@ export async function sendApprovalFlexMessage(
   draftReply: string,
   confidence: number,
   category: string,
-  tenantId?: string
+  tenantId?: string,
+  origin?: string
 ): Promise<void> {
   const notifyToken = (await getSettingOrEnv(
     "line", "notify_channel_access_token",
@@ -124,7 +126,7 @@ export async function sendApprovalFlexMessage(
       },
       footer: {
         type: "box",
-        layout: "horizontal",
+        layout: "vertical",
         spacing: "sm",
         contents: [
           {
@@ -137,6 +139,16 @@ export async function sendApprovalFlexMessage(
               data: `ai_reply_action=approve&draft_id=${draftId}`,
             },
           },
+          ...(origin ? [{
+            type: "button" as const,
+            style: "primary" as const,
+            color: "#2563EB",
+            action: {
+              type: "uri" as const,
+              label: "修正する",
+              uri: buildEditUrl(draftId, origin),
+            },
+          }] : []),
           {
             type: "button",
             style: "secondary",

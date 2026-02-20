@@ -19,7 +19,7 @@ interface AiReplyResult {
 }
 
 // システムプロンプト構築
-function buildSystemPrompt(knowledgeBase: string, customInstructions: string): string {
+export function buildSystemPrompt(knowledgeBase: string, customInstructions: string): string {
   return `あなたはクリニックのLINEカスタマーサポートAIです。
 患者からのメッセージを分析し、適切な返信案を生成してください。
 
@@ -348,10 +348,14 @@ async function processAiReply(
   if (settings.mode === "auto") {
     await sendAiReply(draft.id, lineUid, aiResult.reply, patientId, tenantId);
   } else {
+    // origin: Vercelではホスト名から推定
+    const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : (process.env.NEXT_PUBLIC_BASE_URL || "https://noname-beauty.l-ope.jp");
     await sendApprovalFlexMessage(
       draft.id, patientId, patientName,
       originalMessage, aiResult.reply, aiResult.confidence,
-      aiResult.category, tid
+      aiResult.category, tid, origin
     );
   }
 }
