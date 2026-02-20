@@ -30,9 +30,11 @@ function Inner() {
       .finally(() => setChecking(false));
   }, []);
 
-  // フォーム入力
-  const [name, setName] = useState("");
-  const [nameKana, setNameKana] = useState("");
+  // フォーム入力（姓名分割）
+  const [sei, setSei] = useState("");
+  const [mei, setMei] = useState("");
+  const [seiKana, setSeiKana] = useState("");
+  const [meiKana, setMeiKana] = useState("");
   const [sex, setSex] = useState("");
   const [birthYear, setBirthYear] = useState("1990");
   const [birthMonth, setBirthMonth] = useState("01");
@@ -42,9 +44,12 @@ function Inner() {
 
   // バリデーション
   const validate = (): string | null => {
-    if (!name.trim()) return "氏名を入力してください。";
-    if (!nameKana.trim()) return "氏名(カナ)を入力してください。";
-    if (!/^[ァ-ヶー　\s]+$/.test(nameKana.trim())) return "氏名(カナ)はカタカナで入力してください。";
+    if (!sei.trim()) return "姓を入力してください。";
+    if (!mei.trim()) return "名を入力してください。";
+    if (!seiKana.trim()) return "セイ(カナ)を入力してください。";
+    if (!meiKana.trim()) return "メイ(カナ)を入力してください。";
+    const kana = `${seiKana.trim()}${meiKana.trim()}`;
+    if (!/^[ァ-ヶー]+$/.test(kana)) return "カナはカタカナで入力してください。";
     if (!sex) return "性別を選択してください。";
     const y = Number(birthYear), m = Number(birthMonth), d = Number(birthDay);
     if (!y || !m || !d || y < 1900 || y > new Date().getFullYear() || m < 1 || m > 12 || d < 1 || d > 31) {
@@ -65,8 +70,8 @@ function Inner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
-          name_kana: nameKana.trim(),
+          name: `${sei.trim()} ${mei.trim()}`,
+          name_kana: `${seiKana.trim()} ${meiKana.trim()}`,
           sex,
           birthday,
         }),
@@ -238,34 +243,52 @@ function Inner() {
 
         {/* 入力フォーム */}
         <div className="bg-white mt-2 px-6 py-6 space-y-6">
-          {/* 氏名 */}
+          {/* 氏名（姓・名） */}
           <div>
             <label className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-1.5">
               氏名
               <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold">必須</span>
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例）山田　太郎"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={sei}
+                onChange={(e) => setSei(e.target.value)}
+                placeholder="姓（例：山田）"
+                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+              />
+              <input
+                type="text"
+                value={mei}
+                onChange={(e) => setMei(e.target.value)}
+                placeholder="名（例：太郎）"
+                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+              />
+            </div>
           </div>
 
-          {/* 氏名（カナ） */}
+          {/* 氏名カナ（セイ・メイ） */}
           <div>
             <label className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-1.5">
               氏名(カナ)
               <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold">必須</span>
             </label>
-            <input
-              type="text"
-              value={nameKana}
-              onChange={(e) => setNameKana(e.target.value)}
-              placeholder="例）ヤマダ　タロウ"
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={seiKana}
+                onChange={(e) => setSeiKana(e.target.value)}
+                placeholder="セイ（例：ヤマダ）"
+                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+              />
+              <input
+                type="text"
+                value={meiKana}
+                onChange={(e) => setMeiKana(e.target.value)}
+                placeholder="メイ（例：タロウ）"
+                className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400/30 focus:border-pink-400 transition-all"
+              />
+            </div>
           </div>
 
           {/* 性別 */}
