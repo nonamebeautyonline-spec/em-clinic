@@ -78,8 +78,7 @@ export async function POST(req: NextRequest) {
         // ★ supabaseAdmin を使う（anon key だと RLS で読めず null になる）
         // ★ 複数 intake レコード対策: 問診本体（reserve_id あり）を優先取得
         //   カルテレコード（note が "再処方" 始まり）の方が created_at が古い場合があるため
-        // ★ tenant付き→tenant無しフォールバック: tenant_id不一致で重複INSERT防止
-        let intakeRows = (await withTenant(
+        const { data: intakeRows } = await withTenant(
           supabaseAdmin
             .from("intake")
             .select("id, answers, reserve_id, status, note")
@@ -87,22 +86,7 @@ export async function POST(req: NextRequest) {
             .order("created_at", { ascending: false })
             .limit(10),
           tenantId
-        )).data;
-        if ((!intakeRows || intakeRows.length === 0) && tenantId) {
-          const { data: fallback } = await supabaseAdmin
-            .from("intake")
-            .select("id, answers, reserve_id, status, note")
-            .eq("patient_id", patientId)
-            .order("created_at", { ascending: false })
-            .limit(10);
-          if (fallback && fallback.length > 0) {
-            intakeRows = fallback;
-            // tenant_id修復
-            await Promise.all(fallback.map(r =>
-              supabaseAdmin.from("intake").update({ tenant_id: tenantId }).eq("id", r.id)
-            ));
-          }
-        }
+        );
         const existingRecord = intakeRows?.find(r => r.reserve_id != null)
           ?? intakeRows?.find(r => !(r.note || "").startsWith("再処方"))
           ?? null;

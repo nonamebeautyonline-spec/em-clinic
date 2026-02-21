@@ -150,30 +150,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 6) intake の answers に個人情報をマージ（既存の問診・予約データはそのまま）
-    // ★ tenant付き→tenant無しフォールバック: tenant_id不一致で既存intakeが見つからず重複INSERTされる問題の防止
-    let existingIntake = (await withTenant(supabaseAdmin
+    const { data: existingIntake } = await withTenant(supabaseAdmin
       .from("intake")
       .select("id, answers")
       .eq("patient_id", patientId), tenantId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle()).data;
-    if (!existingIntake) {
-      const { data: fallback } = await supabaseAdmin
-        .from("intake")
-        .select("id, answers")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (fallback) {
-        existingIntake = fallback;
-        // tenant_id修復
-        if (tenantId) {
-          await supabaseAdmin.from("intake").update({ tenant_id: tenantId }).eq("id", fallback.id);
-        }
-      }
-    }
+      .maybeSingle();
 
     const personalAnswers = {
       氏名: name.trim(),

@@ -623,8 +623,7 @@ export async function POST(req: NextRequest) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
             // patient_idで最新1件を取得してid指定で更新
-            // ★ tenant付き→tenant無しフォールバック: tenant_id不一致で重複INSERT防止
-            let latestIntake = (await withTenant(
+            const { data: latestIntake } = await withTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
@@ -633,20 +632,7 @@ export async function POST(req: NextRequest) {
                 .limit(1)
                 .maybeSingle(),
               tenantId
-            )).data;
-            if (!latestIntake && tenantId) {
-              const { data: fallback } = await supabaseAdmin
-                .from("intake")
-                .select("id")
-                .eq("patient_id", pid)
-                .order("created_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              if (fallback) {
-                latestIntake = fallback;
-                await supabaseAdmin.from("intake").update({ tenant_id: tenantId }).eq("id", fallback.id);
-              }
-            }
+            );
             if (!latestIntake) {
               return { data: null, error: null };
             }
