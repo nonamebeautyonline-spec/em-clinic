@@ -622,8 +622,19 @@ export async function POST(req: NextRequest) {
       if (pid) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
-            // 最新のintakeレコードを1件取得してid指定で更新
-            const { data: latestIntake } = await withTenant(
+            // answerer_id がある（問診済み）intakeを優先、なければ最新を使用
+            const { data: intakeWithAnswerer } = await withTenant(
+              supabaseAdmin
+                .from("intake")
+                .select("id")
+                .eq("patient_id", pid)
+                .not("answerer_id", "is", null)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle(),
+              tenantId
+            );
+            const latestIntake = intakeWithAnswerer || (await withTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
@@ -632,7 +643,7 @@ export async function POST(req: NextRequest) {
                 .limit(1)
                 .maybeSingle(),
               tenantId
-            );
+            )).data;
             if (!latestIntake) {
               return { data: null, error: null };
             }

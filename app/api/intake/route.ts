@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
           const { data: byReserveId } = await withTenant(
             supabaseAdmin
               .from("intake")
-              .select("id")
+              .select("id, answers, reserve_id, status, note")
               .eq("reserve_id", intakePayload.reserve_id)
               .limit(1)
               .maybeSingle(),
