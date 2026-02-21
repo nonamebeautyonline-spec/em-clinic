@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { MERGE_TABLES } from "@/lib/merge-tables";
 
 export async function POST(req: NextRequest) {
   try {
@@ -87,6 +88,49 @@ export async function POST(req: NextRequest) {
     // ステップ3: 電話番号 + line_user_id を紐付け更新
     // ============================================================
 
+    // ============================================================
+    // LINE UID 重複検出: 同一LINE UIDで別の patient_id が存在するか確認
+    // → LINE_仮レコードは無条件で自動マージ（同一LINE UID = 同一人物確定）
+    // → 正規同士の重複は warn ログのみ（安全のため自動マージしない）
+    // ============================================================
+    if (lineUserId) {
+      const { data: dupByLine } = await withTenant(supabaseAdmin
+        .from("patients")
+        .select("patient_id, name, name_kana, line_id")
+        .eq("line_id", lineUserId)
+        .neq("patient_id", pid), tenantId)
+        .limit(5);
+
+      if (dupByLine && dupByLine.length > 0) {
+        const dupInfo = dupByLine.map(d => `${d.patient_id}(${d.name || "名前なし"})`).join(", ");
+        console.warn(`[register/complete] LINE UID重複検出: ${pid} と同一LINE UIDの患者あり → ${dupInfo}`);
+
+        for (const dup of dupByLine) {
+          if (!dup.patient_id.startsWith("LINE_")) {
+            // 正規レコード同士の重複は手動対応（安全のため自動マージしない）
+            console.warn(`[register/complete] 正規レコード重複: ${dup.patient_id} と ${pid} が同一LINE UID → 手動対応が必要`);
+            continue;
+          }
+
+          const oldPid = dup.patient_id;
+          console.log(`[register/complete] LINE_ 自動マージ開始: ${oldPid} → ${pid}`);
+          const tables = [...MERGE_TABLES, "intake"] as const;
+          for (const table of tables) {
+            const { error } = await withTenant(supabaseAdmin
+              .from(table)
+              .update({ patient_id: pid })
+              .eq("patient_id", oldPid), tenantId);
+            if (error && error.code !== "23505") {
+              console.error(`[register/complete] LINE_マージエラー(${table}):`, error.message);
+            }
+          }
+          // 仮レコード削除
+          await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", oldPid), tenantId);
+          console.log(`[register/complete] LINE_ 自動マージ完了: ${oldPid} → ${pid}`);
+        }
+      }
+    }
+
     // 重複PID検出: 同一電話番号で別の患者が既に存在するか確認
     // → line_id=null かつ同一氏名の旧アカウントがあれば自動マージ（予約・intake・orders等を移行）
     const { data: dupByPhone } = await withTenant(supabaseAdmin
@@ -123,14 +167,16 @@ export async function POST(req: NextRequest) {
 
         const oldPid = dup.patient_id;
         console.log(`[register/complete] 自動マージ開始: ${oldPid}(${dup.name}) → ${pid}(${currentPatient?.name})`);
-        const tables = ["reservations", "intake", "orders", "reorders", "message_log"] as const;
+        // MERGE_TABLES + intake で一元管理（intake は UPDATE で patient_id 付替え）
+        const tables = [...MERGE_TABLES, "intake"] as const;
         for (const table of tables) {
           const { data, error } = await withTenant(supabaseAdmin
             .from(table)
             .update({ patient_id: pid })
             .eq("patient_id", oldPid), tenantId)
             .select("id");
-          if (error) {
+          // patient_tags 等の UNIQUE 制約違反は無視（マージ先に同一レコードが既にある場合）
+          if (error && error.code !== "23505") {
             console.error(`[register/complete] マージエラー(${table}):`, error.message);
           } else if (data && data.length > 0) {
             console.log(`[register/complete] ${table}: ${data.length}件を ${oldPid} → ${pid} に移行`);

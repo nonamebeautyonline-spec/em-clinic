@@ -197,12 +197,9 @@ describe("register/complete: 登録完了詳細", () => {
     expect(src).toContain("自動マージ開始");
     // line_id=null の旧アカウントのみマージ対象
     expect(src).toContain("dup.line_id");
-    // 5テーブルを移行
-    expect(src).toContain('"reservations"');
+    // MERGE_TABLES + intake でマージ（一元管理）
+    expect(src).toContain("MERGE_TABLES");
     expect(src).toContain('"intake"');
-    expect(src).toContain('"orders"');
-    expect(src).toContain('"reorders"');
-    expect(src).toContain('"message_log"');
   });
 
   it("LINE連携済みの別アカウントはマージしない", () => {

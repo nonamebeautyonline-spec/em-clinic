@@ -4,6 +4,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { MERGE_TABLES } from "@/lib/merge-tables";
 
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
@@ -246,10 +247,9 @@ export async function POST(req: NextRequest) {
             const fakeId = fake.patient_id;
             console.log(`[Intake] Merging fake record ${fakeId} -> ${patientId}`);
 
-            // 関連テーブルの patient_id を正規に付け替え
-            const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+            // 関連テーブルの patient_id を正規に付け替え（MERGE_TABLES で一元管理）
             await Promise.all(
-              migrateTables.map(async (table) => {
+              MERGE_TABLES.map(async (table) => {
                 const { error } = await withTenant(
                   supabaseAdmin
                     .from(table)
@@ -257,7 +257,10 @@ export async function POST(req: NextRequest) {
                     .eq("patient_id", fakeId),
                   tenantId
                 );
-                if (error) console.error(`[Intake] Migration ${table} failed:`, error.message);
+                // patient_tags 等の UNIQUE 制約違反は無視
+                if (error && error.code !== "23505") {
+                  console.error(`[Intake] Migration ${table} failed:`, error.message);
+                }
               })
             );
 

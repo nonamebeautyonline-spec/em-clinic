@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { MERGE_TABLES } from "@/lib/merge-tables";
 
 /**
  * 個人情報フォーム保存API
@@ -70,43 +71,49 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3) 新規患者 → patient_id を自動発行（既存最大値 + 1）
+    // 3) 新規患者 → patient_id を自動発行（SEQUENCE → MAX+1 フォールバック）
     if (!patientId) {
-      // 非数値プレフィックスの仮IDを除外して数値IDのみ取得
-      // patient_idはテキスト型のため、LINE_*/TEST_*が降順ソートで先頭に来てしまう問題を回避
-      const { data: maxRow } = await withTenant(supabaseAdmin
-        .from("patients")
-        .select("patient_id")
-        .not("patient_id", "like", "LINE_%")
-        .not("patient_id", "like", "TEST_%"), tenantId)
-        .order("patient_id", { ascending: false })
-        .limit(10);
+      // SEQUENCE（next_patient_id RPC）で採番（レースコンディション防止）
+      const { data: seqId, error: seqError } = await supabaseAdmin.rpc("next_patient_id");
+      if (!seqError && seqId) {
+        patientId = seqId;
+        console.log("[register/personal-info] New patient_id (SEQUENCE):", patientId);
+      } else {
+        // フォールバック: 従来の MAX+1 方式
+        if (seqError) console.warn("[register/personal-info] SEQUENCE fallback:", seqError.message);
+        const { data: maxRow } = await withTenant(supabaseAdmin
+          .from("patients")
+          .select("patient_id")
+          .not("patient_id", "like", "LINE_%")
+          .not("patient_id", "like", "TEST_%"), tenantId)
+          .order("patient_id", { ascending: false })
+          .limit(10);
 
-      // 数値IDの最大値を取得
-      let maxNumericId = 10000;
-      if (maxRow) {
-        for (const row of maxRow) {
-          const num = Number(row.patient_id);
-          if (!isNaN(num) && num > maxNumericId) {
-            maxNumericId = num;
+        let maxNumericId = 10000;
+        if (maxRow) {
+          for (const row of maxRow) {
+            const num = Number(row.patient_id);
+            if (!isNaN(num) && num > maxNumericId) {
+              maxNumericId = num;
+            }
           }
         }
+        patientId = String(maxNumericId + 1);
+        console.log("[register/personal-info] New patient_id (MAX+1 fallback):", patientId);
       }
-      patientId = String(maxNumericId + 1);
-      console.log("[register/personal-info] New patient_id:", patientId);
     }
 
     // 4) LINE_仮IDがある場合、全テーブルの patient_id を実IDに統合更新
     if (oldLinePatientId && patientId) {
       console.log("[register/personal-info] Migrating", oldLinePatientId, "->", patientId);
-      const allTables = ["intake", "patients", "reservations", "orders", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
+      const allTables = ["intake", "patients", ...MERGE_TABLES] as const;
       await Promise.all(
         allTables.map(async (table) => {
           const { error } = await withTenant(supabaseAdmin
             .from(table)
             .update({ patient_id: patientId })
             .eq("patient_id", oldLinePatientId), tenantId);
-          if (error) {
+          if (error && error.code !== "23505") {
             console.error(`[register/personal-info] Migration ${table} failed:`, error.message);
           }
         })
@@ -146,7 +153,25 @@ export async function POST(req: NextRequest) {
           line_id: lineUserId || null,
           ...tenantPayload(tenantId),
         });
-      if (error) console.error("[register/personal-info] Answerers insert failed:", error.message);
+      if (error) {
+        if (error.code === "23505") {
+          // UNIQUE違反 → patient_id 衝突（レースコンディション）→ UPDATE にフォールバック
+          console.warn("[register/personal-info] UNIQUE violation on insert, falling back to update:", error.message);
+          const { error: updateErr } = await withTenant(supabaseAdmin
+            .from("patients")
+            .update({
+              name: name.trim(),
+              name_kana: name_kana.trim(),
+              sex,
+              birthday,
+              ...(lineUserId ? { line_id: lineUserId } : {}),
+            })
+            .eq("patient_id", patientId), tenantId);
+          if (updateErr) console.error("[register/personal-info] Fallback update failed:", updateErr.message);
+        } else {
+          console.error("[register/personal-info] Answerers insert failed:", error.message);
+        }
+      }
     }
 
     // 6) intake の answers に個人情報をマージ（既存の問診・予約データはそのまま）

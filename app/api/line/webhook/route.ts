@@ -5,6 +5,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply } from "@/lib/ai-reply";
 
@@ -166,10 +167,9 @@ async function mergeFakePatients(properPatientId: string, fakeIds: string[], ten
   for (const fakeId of fakeIds) {
     console.log(`[webhook] Merging fake patient ${fakeId} -> ${properPatientId}`);
 
-    // 関連テーブルの patient_id を正規に付け替え
-    const migrateTables = ["message_log", "patient_tags", "patient_marks", "friend_field_values"];
+    // 関連テーブルの patient_id を正規に付け替え（MERGE_TABLES で一元管理）
     await Promise.all(
-      migrateTables.map(async (table) => {
+      MERGE_TABLES.map(async (table) => {
         const { error } = await withTenant(
           supabaseAdmin
             .from(table)
@@ -177,7 +177,10 @@ async function mergeFakePatients(properPatientId: string, fakeIds: string[], ten
             .eq("patient_id", fakeId),
           tenantId
         );
-        if (error) console.error(`[webhook] Migration ${table} failed:`, error.message);
+        // patient_tags 等の UNIQUE 制約違反（正規側に同一レコードが既にある）は無視
+        if (error && error.code !== "23505") {
+          console.error(`[webhook] Migration ${table} failed:`, error.message);
+        }
       })
     );
 
@@ -189,19 +192,45 @@ async function mergeFakePatients(properPatientId: string, fakeIds: string[], ten
 }
 
 // ===== LINE UIDから患者を検索、なければ自動作成 =====
+// RPC → 従来ロジック → UNIQUE違反時再検索 の3段階フォールバック
 async function findOrCreatePatient(lineUid: string, tenantId: string | null, accessToken: string) {
+  // LINEプロフィール取得（RPC・フォールバック両方で使用）
+  const profile = await getLineProfile(lineUid, accessToken);
+
+  // ---- RPC でアトミックに検索・作成 ----
+  try {
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+      "find_or_create_patient",
+      {
+        p_line_uid: lineUid,
+        p_display_name: profile.displayName || null,
+        p_picture_url: profile.pictureUrl || null,
+        p_tenant_id: tenantId,
+      }
+    );
+
+    if (!rpcError && rpcResult?.ok) {
+      if (rpcResult.created) {
+        console.log(`[webhook] RPC created patient for ${lineUid} -> ${rpcResult.patient_id}`);
+      }
+      return { patient_id: rpcResult.patient_id as string, patient_name: (rpcResult.patient_name || "") as string };
+    }
+
+    if (rpcError) {
+      console.warn("[webhook] find_or_create_patient RPC failed, fallback:", rpcError.message);
+    }
+  } catch (e) {
+    console.warn("[webhook] find_or_create_patient RPC exception, fallback:", e);
+  }
+
+  // ---- フォールバック: 従来ロジック ----
   const existing = await findPatientByLineUid(lineUid, tenantId);
   if (existing) return existing;
 
-  // LINEプロフィール取得
-  const profile = await getLineProfile(lineUid, accessToken);
   const displayName = profile.displayName || `LINE_${lineUid.slice(-6)}`;
-
-  // patient_idを生成（LINE_で始まるUID末尾8文字）
   const patientId = `LINE_${lineUid.slice(-8)}`;
 
   // intake + patients の両方にレコードを作成
-  // ★ patient_name, line_id, line_display_name, line_picture_url は patients が正
   const [{ error: intakeErr }, { error: patientsErr }] = await Promise.all([
     supabaseAdmin
       .from("intake")
@@ -220,10 +249,17 @@ async function findOrCreatePatient(lineUid: string, tenantId: string | null, acc
       }),
   ]);
 
-  if (intakeErr) {
+  // UNIQUE違反（DB制約による重複防止）→ 再検索
+  if (patientsErr?.code === "23505") {
+    console.log("[webhook] UNIQUE violation on patients insert, re-querying:", lineUid);
+    const retry = await findPatientByLineUid(lineUid, tenantId);
+    if (retry) return retry;
+  }
+
+  if (intakeErr && intakeErr.code !== "23505") {
     console.error("[webhook] auto-create intake failed:", intakeErr.message);
   }
-  if (patientsErr) {
+  if (patientsErr && patientsErr.code !== "23505") {
     console.error("[webhook] auto-create patients failed:", patientsErr.message);
   }
   if (intakeErr && patientsErr) {
