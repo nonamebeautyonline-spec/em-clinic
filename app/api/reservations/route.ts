@@ -618,17 +618,31 @@ export async function POST(req: NextRequest) {
 
       console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
 
-      // intake テーブルに reserve_id を紐付け（日時は reservations が正）
+      // intake テーブルに reserve_id を紐付け（最新1件のみ。全件更新すると重複の原因）
       if (pid) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
+            // 最新のintakeレコードを1件取得してid指定で更新
+            const { data: latestIntake } = await withTenant(
+              supabaseAdmin
+                .from("intake")
+                .select("id")
+                .eq("patient_id", pid)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle(),
+              tenantId
+            );
+            if (!latestIntake) {
+              return { data: null, error: null };
+            }
             const result = await withTenant(
               supabaseAdmin
                 .from("intake")
                 .update({
                   reserve_id: reserveId,
                 })
-                .eq("patient_id", pid),
+                .eq("id", latestIntake.id),
               tenantId
             ).select();
 
