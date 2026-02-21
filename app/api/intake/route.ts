@@ -118,12 +118,26 @@ export async function POST(req: NextRequest) {
         };
 
         // ★ 既存レコードは id 指定で更新（複数レコードの全上書き防止）
-        const result = existingRecord
+        // ★ レースコンディション対策: insert直前に再チェック
+        let targetRecord = existingRecord;
+        if (!targetRecord && intakePayload.reserve_id) {
+          const { data: byReserveId } = await withTenant(
+            supabaseAdmin
+              .from("intake")
+              .select("id")
+              .eq("reserve_id", intakePayload.reserve_id)
+              .limit(1)
+              .maybeSingle(),
+            tenantId
+          );
+          if (byReserveId) targetRecord = byReserveId;
+        }
+        const result = targetRecord
           ? await withTenant(
               supabaseAdmin
                 .from("intake")
                 .update(intakePayload)
-                .eq("id", existingRecord.id),
+                .eq("id", targetRecord.id),
               tenantId
             )
           : await supabaseAdmin
