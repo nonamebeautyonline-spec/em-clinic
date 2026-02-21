@@ -622,19 +622,20 @@ export async function POST(req: NextRequest) {
       if (pid) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
-            // answerer_id がある（問診済み）intakeを優先、なければ最新を使用
-            const { data: intakeWithAnswerer } = await withTenant(
+            // reserve_idが未設定の（予約紐付け待ち）intakeを優先、なければ最新を使用
+            // ※ answerer_id優先はNG（予約時点ではまだ問診未記入が正常フロー）
+            const { data: pendingIntake } = await withTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
                 .eq("patient_id", pid)
-                .not("answerer_id", "is", null)
+                .is("reserve_id", null)
                 .order("created_at", { ascending: false })
                 .limit(1)
                 .maybeSingle(),
               tenantId
             );
-            const latestIntake = intakeWithAnswerer || (await withTenant(
+            const latestIntake = pendingIntake || (await withTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
