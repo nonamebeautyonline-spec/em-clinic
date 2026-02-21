@@ -1,10 +1,21 @@
 "use client";
 
 // app/platform/tenants/[tenantId]/page.tsx
-// テナント詳細ページ — 概要/メンバー/設定のタブ形式
+// テナント詳細ページ — 概要/メンバー/設定/分析のタブ形式
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
+import dynamic from "next/dynamic";
+
+// Rechartsコンポーネントを動的インポート（SSR回避）
+const AnalyticsChart = dynamic(() => import("./analytics-chart"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-80 bg-zinc-100 rounded-lg animate-pulse flex items-center justify-center">
+      <span className="text-sm text-zinc-400">グラフを読み込み中...</span>
+    </div>
+  ),
+});
 
 // --- 型定義 ---
 interface AdminUser {
@@ -30,7 +41,7 @@ interface TenantPlan {
   monthly_fee: number;
   setup_fee: number;
   started_at: string | null;
-  expires_at: string | null;
+  next_billing_at: string | null;
   created_at: string;
 }
 
@@ -58,7 +69,15 @@ interface TenantStats {
   lineFriendsCount: number;
 }
 
-type TabKey = "overview" | "members" | "settings";
+interface MonthlyAnalytics {
+  month: string;
+  patients: number;
+  revenue: number;
+  reservations: number;
+  lineFriends: number;
+}
+
+type TabKey = "overview" | "members" | "settings" | "analytics";
 
 export default function TenantDetailPage() {
   const router = useRouter();
@@ -106,6 +125,10 @@ export default function TenantDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // 分析タブ用
+  const [analyticsData, setAnalyticsData] = useState<MonthlyAnalytics[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // テナント詳細取得
   const fetchTenant = useCallback(async () => {
@@ -157,10 +180,36 @@ export default function TenantDetailPage() {
     }
   }, [tenantId]);
 
+  // 分析データ取得
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/platform/tenants/${tenantId}/analytics?months=6`,
+        { credentials: "include" },
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (json.ok) setAnalyticsData(json.monthly || []);
+      }
+    } catch {
+      // 分析データ取得失敗は無視
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [tenantId]);
+
   useEffect(() => {
     fetchTenant();
     fetchStats();
   }, [fetchTenant, fetchStats]);
+
+  // 分析タブ選択時にデータ取得
+  useEffect(() => {
+    if (activeTab === "analytics" && analyticsData.length === 0) {
+      fetchAnalytics();
+    }
+  }, [activeTab, analyticsData.length, fetchAnalytics]);
 
   // 金額フォーマット
   const formatCurrency = (amount: number) =>
@@ -380,6 +429,7 @@ export default function TenantDetailPage() {
     { key: "overview", label: "概要" },
     { key: "members", label: "メンバー" },
     { key: "settings", label: "設定" },
+    { key: "analytics", label: "分析" },
   ];
 
   // --- ローディング ---
@@ -1042,6 +1092,78 @@ export default function TenantDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ===== 分析タブ ===== */}
+        {activeTab === "analytics" && (
+          <div>
+            {analyticsLoading ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
+                      <div className="h-3 bg-zinc-200 rounded w-1/2 mb-2" />
+                      <div className="h-7 bg-zinc-200 rounded w-2/3" />
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
+                  <div className="h-80 bg-zinc-100 rounded" />
+                </div>
+              </div>
+            ) : analyticsData.length > 0 ? (
+              <div className="space-y-6">
+                {/* KPI前月比カード */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {(() => {
+                    const current = analyticsData[analyticsData.length - 1];
+                    const prev = analyticsData.length >= 2 ? analyticsData[analyticsData.length - 2] : null;
+                    const metrics = [
+                      { label: "患者数", current: current.patients, prev: prev?.patients ?? 0, unit: "人", color: "blue" as const },
+                      { label: "売上", current: current.revenue, prev: prev?.revenue ?? 0, unit: "円", isCurrency: true, color: "amber" as const },
+                      { label: "予約数", current: current.reservations, prev: prev?.reservations ?? 0, unit: "件", color: "emerald" as const },
+                      { label: "LINE友だち", current: current.lineFriends, prev: prev?.lineFriends ?? 0, unit: "人", color: "green" as const },
+                    ];
+                    return metrics.map((m) => {
+                      const diff = m.prev > 0 ? ((m.current - m.prev) / m.prev) * 100 : m.current > 0 ? 100 : 0;
+                      const colorMap = {
+                        blue: "border-l-blue-500",
+                        amber: "border-l-amber-500",
+                        emerald: "border-l-emerald-500",
+                        green: "border-l-green-500",
+                      };
+                      return (
+                        <div key={m.label} className={`bg-white rounded-lg shadow-sm border border-slate-200 border-l-4 ${colorMap[m.color]} p-5`}>
+                          <p className="text-sm text-zinc-500 mb-1">{m.label}</p>
+                          <div className="text-2xl font-bold text-zinc-900">
+                            {m.isCurrency
+                              ? `¥${m.current.toLocaleString()}`
+                              : m.current.toLocaleString()}
+                            {!m.isCurrency && <span className="text-sm text-zinc-400 ml-0.5">{m.unit}</span>}
+                          </div>
+                          {prev && (
+                            <div className={`text-xs mt-1 font-medium ${diff > 0 ? "text-green-600" : diff < 0 ? "text-red-600" : "text-zinc-400"}`}>
+                              {diff > 0 ? "+" : ""}{diff.toFixed(1)}% vs 前月
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* 月別推移グラフ */}
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                  <h2 className="text-base font-semibold text-zinc-900 mb-4">月別推移</h2>
+                  <AnalyticsChart data={analyticsData} />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-10 text-center">
+                <p className="text-sm text-zinc-400">分析データがありません</p>
+              </div>
+            )}
           </div>
         )}
       </div>

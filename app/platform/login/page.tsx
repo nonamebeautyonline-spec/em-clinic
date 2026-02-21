@@ -11,6 +11,11 @@ export default function PlatformLoginPage() {
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
 
+  // TOTP入力ステップ
+  const [pendingTotp, setPendingTotp] = useState(false);
+  const [pendingTotpToken, setPendingTotpToken] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -60,12 +65,62 @@ export default function PlatformLoginPage() {
         return;
       }
 
+      // 2FA/TOTP が有効な場合: TOTP入力ステップへ
+      if (data.pendingTotp) {
+        setPendingTotp(true);
+        setPendingTotpToken(data.pendingTotpToken);
+        setLoading(false);
+        return;
+      }
+
       router.push("/platform");
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }
+  };
+
+  // TOTP検証
+  const handleTotpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/platform/totp/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          pendingTotpToken,
+          token: totpCode,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setError(data.error || "認証コードの検証に失敗しました");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/platform");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ログインフォームに戻る
+  const handleBackToLogin = () => {
+    setPendingTotp(false);
+    setPendingTotpToken("");
+    setTotpCode("");
+    setError("");
+    setPassword("");
   };
 
   if (checking) {
@@ -91,66 +146,136 @@ export default function PlatformLoginPage() {
               Platform
             </span>
           </div>
-          <p className="text-slate-400 text-sm">プラットフォーム管理ログイン</p>
+          <p className="text-slate-400 text-sm">
+            {pendingTotp ? "2要素認証" : "プラットフォーム管理ログイン"}
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-              ユーザーID
-            </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="LP-XXXXX"
-              required
-              autoCapitalize="characters"
-              autoComplete="username"
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent uppercase"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-              パスワード
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="パスワード"
-              required
-              autoComplete="current-password"
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-            />
-          </div>
-
-          {error && (
-            <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg">
-              <p className="text-red-300 text-sm">{error}</p>
+        {pendingTotp ? (
+          /* TOTP入力ステップ */
+          <form onSubmit={handleTotpVerify} className="space-y-4">
+            <div className="text-center mb-4">
+              <p className="text-slate-300 text-sm">
+                認証アプリに表示されている6桁のコードを入力してください
+              </p>
+              <p className="text-slate-500 text-xs mt-1">
+                バックアップコード（8桁）も使用可能です
+              </p>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                認証中...
-              </span>
-            ) : (
-              "ログイン"
+            <div>
+              <label htmlFor="totp-code" className="block text-sm font-medium text-slate-300 mb-2">
+                認証コード
+              </label>
+              <input
+                id="totp-code"
+                type="text"
+                inputMode="numeric"
+                maxLength={8}
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                required
+                autoFocus
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white text-center text-xl tracking-[0.3em] placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent font-mono"
+              />
+            </div>
+
+            {error && (
+              <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg">
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-4 text-center">
+            <button
+              type="submit"
+              disabled={loading || totpCode.length < 6}
+              className="w-full py-3 px-4 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                  検証中...
+                </span>
+              ) : (
+                "認証"
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBackToLogin}
+              className="w-full py-2 text-sm text-slate-400 hover:text-slate-300 transition-colors"
+            >
+              ログインに戻る
+            </button>
+          </form>
+        ) : (
+          /* 通常のログインフォーム */
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
+                ユーザーID
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="LP-XXXXX"
+                required
+                autoCapitalize="characters"
+                autoComplete="username"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent uppercase"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                パスワード
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="パスワード"
+                required
+                autoComplete="current-password"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              />
+            </div>
+
+            {error && (
+              <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg">
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 bg-violet-600 text-white rounded-lg font-semibold hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                  認証中...
+                </span>
+              ) : (
+                "ログイン"
+              )}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-4 text-center space-y-2">
+          <a
+            href="/platform/password-reset"
+            className="block text-sm text-slate-400 hover:text-violet-400 transition-colors"
+          >
+            パスワードを忘れた方
+          </a>
           <p className="text-xs text-slate-500">
             セッションは24時間有効です
           </p>

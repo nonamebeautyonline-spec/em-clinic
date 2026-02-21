@@ -249,6 +249,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 9) Cookie設定 + レスポンス
+    if (!patientId) {
+      return NextResponse.json({ ok: false, error: "患者IDの取得に失敗しました" }, { status: 500 });
+    }
     const res = NextResponse.json({ ok: true, patient_id: patientId });
 
     res.cookies.set("__Host-patient_id", patientId, {

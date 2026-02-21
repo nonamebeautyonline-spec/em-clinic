@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
           monthly_fee,
           setup_fee,
           started_at,
-          expires_at,
+          next_billing_at,
           created_at
         )
       `,

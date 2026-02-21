@@ -1234,6 +1234,18 @@ function InvoicesTab({
                             取消
                           </button>
                         )}
+                        {/* PDFダウンロードボタン */}
+                        <button
+                          onClick={() =>
+                            window.open(
+                              `/api/platform/billing/invoices/${inv.id}/pdf`,
+                              "_blank",
+                            )
+                          }
+                          className="text-amber-600 hover:text-amber-800 text-sm font-medium"
+                        >
+                          PDF
+                        </button>
                       </div>
                     </td>
                   </tr>

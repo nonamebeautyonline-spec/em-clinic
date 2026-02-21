@@ -12,7 +12,7 @@ interface TenantPlan {
   monthly_fee: number;
   setup_fee: number;
   started_at: string | null;
-  expires_at: string | null;
+  next_billing_at: string | null;
 }
 
 interface Tenant {

@@ -1,8 +1,9 @@
-// lib/email.ts
+// lib/email.ts — Resend APIメール送信ラッパー
 import { Resend } from "resend";
 
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "noreply@l-ope.jp";
 const APP_NAME = process.env.APP_NAME || "Lオペ for CLINIC";
+const FROM_ADDRESS = `Lオペ <${FROM_EMAIL}>`;
 
 // 遅延初期化（ビルド時エラー回避）
 function getResend(): Resend | null {
@@ -12,6 +13,37 @@ function getResend(): Resend | null {
     return null;
   }
   return new Resend(apiKey);
+}
+
+/**
+ * 汎用メール送信（Resend API経由）
+ * エラー時はログ出力後に例外を投げる
+ */
+export async function sendEmail({
+  to,
+  subject,
+  html,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    throw new Error("メール設定が完了していません（RESEND_API_KEY未設定）");
+  }
+
+  const { error } = await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error("[email] Resend APIエラー:", error);
+    throw new Error(`メール送信に失敗しました: ${error.message}`);
+  }
 }
 
 export async function sendPasswordResetEmail(

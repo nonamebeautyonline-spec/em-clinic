@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
           monthly_fee,
           setup_fee,
           started_at,
-          expires_at
+          next_billing_at
         )
       `,
         { count: "exact" },

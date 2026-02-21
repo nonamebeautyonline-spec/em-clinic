@@ -1,14 +1,17 @@
 // app/api/platform/login/route.ts — プラットフォーム管理者専用ログイン
 // テナント管理者(tenant_admin)のIDでは認証不可
+// 2FA/TOTP対応: totp_enabled のユーザーは仮トークンを返し、TOTP検証後にJWT発行
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { checkRateLimit, resetRateLimit, getClientIp } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminLoginSchema } from "@/lib/validations/admin-login";
 import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
+import { redis } from "@/lib/redis";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +22,9 @@ const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallbac
 
 // セッション有効期限: 24時間
 const SESSION_DURATION_SECONDS = 24 * 60 * 60;
+
+// TOTP仮トークンの有効期限: 5分
+const TOTP_PENDING_TTL = 300;
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,10 +53,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // platform_admin ロールのユーザーのみ取得（テナント管理者は最初から除外）
+    // platform_admin ロールのユーザーのみ取得（TOTP関連カラムも含む）
     const { data: user, error: userError } = await supabase
       .from("admin_users")
-      .select("id, email, name, username, password_hash, is_active, tenant_id, platform_role")
+      .select("id, email, name, username, password_hash, is_active, tenant_id, platform_role, totp_enabled, totp_secret, totp_backup_codes")
       .eq("username", usernameNorm)
       .eq("platform_role", "platform_admin")
       .single();
@@ -79,8 +85,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ログイン成功 → レート制限カウントをリセット + 監査ログ
+    // ログイン成功 → レート制限カウントをリセット
     await resetRateLimit(`platform-login:user:${usernameNorm}`);
+
+    // === 2FA/TOTP 有効の場合: 仮トークンを返す ===
+    if (user.totp_enabled) {
+      const pendingTotpToken = crypto.randomBytes(32).toString("hex");
+
+      // Redisに仮トークン → userId のマッピングを保存（TTL: 5分）
+      try {
+        await redis.set(`totp-pending:${pendingTotpToken}`, user.id, {
+          ex: TOTP_PENDING_TTL,
+        });
+      } catch (redisErr) {
+        console.error("[Platform Login] Redis error (TOTP pending):", redisErr);
+        return NextResponse.json(
+          { ok: false, error: "サーバーエラー。しばらくお待ちください。" },
+          { status: 500 }
+        );
+      }
+
+      logAudit(req, "platform.login.totp_pending", "admin_user", user.id, {
+        username: user.username,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        pendingTotp: true,
+        pendingTotpToken,
+      });
+    }
+
+    // === TOTP 未設定の場合: 従来通りJWT発行 ===
     logAudit(req, "platform.login.success", "admin_user", user.id, { username: user.username });
 
     // JWTトークン生成

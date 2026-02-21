@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
@@ -10,13 +10,18 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform/tenants", icon: "🏥", label: "テナント管理" },
   { href: "/platform/members", icon: "👥", label: "メンバー管理" },
   { href: "/platform/billing", icon: "💳", label: "契約・請求" },
+  { href: "/platform/analytics", icon: "📈", label: "分析" },
+  { href: "/platform/health", icon: "💚", label: "システムヘルス" },
+  { href: "/platform/errors", icon: "⚠️", label: "エラーログ" },
+  { href: "/platform/alerts", icon: "🔔", label: "アラート" },
   { href: "/platform/audit", icon: "🔍", label: "監査ログ" },
   { href: "/platform/system", icon: "⚙️", label: "システム設定" },
+  { href: "/platform/settings", icon: "🔐", label: "アカウント設定" },
 ];
 
-// ロゴコンポーネント
+// ロゴコンポーネント（プラットフォーム管理: アンバー/オレンジ系でテナント管理のcyan/blueと差別化）
 function LogoMark({ compact }: { compact?: boolean }) {
-  const gradientClass = "bg-gradient-to-r from-violet-400 to-indigo-500 bg-clip-text text-transparent";
+  const gradientClass = "bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent";
   if (compact) {
     return (
       <span className={`text-lg font-black tracking-tight ${gradientClass}`} style={{ fontFamily: "'Inter', 'Helvetica Neue', sans-serif" }}>
@@ -35,7 +40,7 @@ function LogoMark({ compact }: { compact?: boolean }) {
 }
 
 // 認証不要のパス
-const PUBLIC_PATHS = ["/platform/login"];
+const PUBLIC_PATHS = ["/platform/login", "/platform/password-reset", "/platform/password-reset/confirm"];
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -49,8 +54,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const prevPathnameRef = useRef(pathname);
 
   useEffect(() => {
-    // ログインページは認証不要
-    if (PUBLIC_PATHS.includes(pathname)) {
+    // ログインページ・パスワードリセットは認証不要
+    if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
       setLoading(false);
       return;
     }
@@ -150,29 +155,29 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
     router.push("/platform/login");
   };
 
-  // ログインページはそのまま表示
-  if (PUBLIC_PATHS.includes(pathname)) {
+  // ログインページ・パスワードリセットはそのまま表示
+  if (PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + "/"))) {
     return <>{children}</>;
   }
 
   // 認証チェック中
   if (loading || !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-violet-600 border-t-transparent"></div>
-          <p className="mt-4 text-slate-600">読み込み中...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-amber-500 border-t-transparent"></div>
+          <p className="mt-4 text-zinc-400">読み込み中...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-dvh bg-slate-50 flex overflow-hidden">
+    <div className="h-dvh bg-zinc-100 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
+        className="md:hidden fixed top-4 left-4 z-40 p-2 bg-zinc-800 text-white rounded-lg shadow-lg"
         aria-label="メニューを開く"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,10 +189,10 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 text-white flex flex-col">
-            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-zinc-800 text-white flex flex-col">
+            <div className="p-4 border-b border-zinc-700 flex items-center justify-between">
               <LogoMark />
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-slate-800 rounded" aria-label="メニューを閉じる">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-zinc-700 rounded" aria-label="メニューを閉じる">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -200,9 +205,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
                   href={item.href}
                   scroll={false}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
+                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-zinc-700 transition-colors ${
                     (item.href === "/platform" ? pathname === "/platform" : pathname?.startsWith(item.href))
-                      ? "bg-slate-800 border-l-4 border-violet-500"
+                      ? "bg-zinc-700 border-l-4 border-amber-500"
                       : ""
                   }`}
                 >
@@ -211,8 +216,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
                 </Link>
               ))}
             </nav>
-            <div className="p-4 border-t border-slate-700">
-              <button onClick={handleLogout} className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm">
+            <div className="p-4 border-t border-zinc-700">
+              <button onClick={handleLogout} className="w-full py-2 px-4 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center justify-center gap-2 text-sm">
                 <span>ログアウト</span>
                 <span>🚪</span>
               </button>
@@ -221,20 +226,20 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         </div>
       )}
 
-      {/* PC用サイドバー */}
+      {/* PC用サイドバー — zinc-800 ベースでテナント管理(slate-900)と差別化 */}
       <aside
         className={`hidden md:flex ${
           isSidebarOpen ? "w-64" : "w-20"
-        } bg-slate-900 text-white transition-all duration-300 flex-col h-screen sticky top-0`}
+        } bg-zinc-800 text-white transition-all duration-300 flex-col h-screen sticky top-0`}
       >
-        <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div className="p-4 border-b border-zinc-700 flex items-center justify-between">
           {isSidebarOpen ? (
             <>
               <LogoMark />
-              <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-slate-800 rounded">◀</button>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-zinc-700 rounded">◀</button>
             </>
           ) : (
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-slate-800 rounded mx-auto">
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-zinc-700 rounded mx-auto">
               <LogoMark compact />
             </button>
           )}
@@ -243,7 +248,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
           {isSidebarOpen && (
             <div className="px-4 mb-2">
-              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Platform</span>
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Platform</span>
             </div>
           )}
           {PLATFORM_MENU_ITEMS.map((item) => (
@@ -251,9 +256,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               key={item.href}
               href={item.href}
               scroll={false}
-              className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
+              className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-zinc-700 transition-colors ${
                 (item.href === "/platform" ? pathname === "/platform" : pathname?.startsWith(item.href))
-                  ? "bg-slate-800 border-l-4 border-violet-500"
+                  ? "bg-zinc-700 border-l-4 border-amber-500"
                   : ""
               }`}
             >
@@ -263,8 +268,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-700">
-          <button onClick={handleLogout} className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm">
+        <div className="p-4 border-t border-zinc-700">
+          <button onClick={handleLogout} className="w-full py-2 px-4 bg-zinc-700 hover:bg-zinc-600 rounded flex items-center justify-center gap-2 text-sm">
             {isSidebarOpen && <span>ログアウト</span>}
             <span>🚪</span>
           </button>
@@ -276,8 +281,8 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
         {isPageTransitioning && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-50 flex items-start justify-center pt-20">
             <div className="bg-white rounded-xl shadow-lg px-6 py-4 flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-              <span className="text-sm text-slate-600">読み込み中...</span>
+              <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
+              <span className="text-sm text-zinc-600">読み込み中...</span>
             </div>
           </div>
         )}
