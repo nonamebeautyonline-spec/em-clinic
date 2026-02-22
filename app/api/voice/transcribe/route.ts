@@ -130,7 +130,7 @@ async function transcribeWithDeepgram(
   const { result, error: dgError } = await client.listen.prerecorded.transcribeFile(
     audioBuffer,
     {
-      model: "nova-3",
+      model: "nova-2",
       language: "ja",
       smart_format: true,
       punctuate: true,
