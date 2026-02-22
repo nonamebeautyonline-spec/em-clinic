@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
         role: payload.role,
         tenantId: (payload as any).tenantId || null,
         platformRole: (payload as any).platformRole || "tenant_admin",
+        tenantRole: (payload as any).tenantRole || "admin",
       },
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     });

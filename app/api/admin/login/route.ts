@@ -92,6 +92,20 @@ export async function POST(req: NextRequest) {
       userAgent: req.headers.get("user-agent"),
     }).catch((err) => console.error("[login-alert] Error:", err));
 
+    // テナントメンバーシップからロールを取得
+    let tenantRole: string = "admin";
+    if (user.tenant_id) {
+      const { data: membership } = await supabase
+        .from("tenant_members")
+        .select("role")
+        .eq("admin_user_id", user.id)
+        .eq("tenant_id", user.tenant_id)
+        .maybeSingle();
+      if (membership?.role) {
+        tenantRole = membership.role;
+      }
+    }
+
     // JWTトークン生成
     const secret = new TextEncoder().encode(JWT_SECRET);
     const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
@@ -104,6 +118,7 @@ export async function POST(req: NextRequest) {
       username: user.username,
       tenantId: user.tenant_id || null,
       platformRole: user.platform_role || "tenant_admin",
+      tenantRole,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()

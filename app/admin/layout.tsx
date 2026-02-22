@@ -62,6 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
+  const [tenantRole, setTenantRole] = useState<string>("admin");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
@@ -130,6 +131,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               })
               .catch(() => {});
             setPlatformRole(data.user?.platformRole || "tenant_admin");
+            setTenantRole(data.user?.tenantRole || "admin");
             setIsAuthenticated(true);
             setLoading(false);
             return;
@@ -254,6 +256,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </svg>
               </button>
             </div>
+            {tenantRole === "viewer" && (
+              <div className="mx-3 mt-3 px-3 py-2 bg-amber-500/20 border border-amber-500/40 rounded-lg text-center">
+                <span className="text-amber-300 text-xs font-semibold">閲覧専用モード</span>
+              </div>
+            )}
             {/* メニュー項目 */}
             <nav className="flex-1 overflow-y-auto py-4">
               {MOBILE_MENU_ITEMS.map((item) => (
@@ -310,6 +317,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
           )}
         </div>
+
+        {/* 閲覧専用バッジ */}
+        {tenantRole === "viewer" && (
+          <div className={`mx-3 mt-3 ${isSidebarOpen ? "px-3 py-2" : "px-1 py-1.5"} bg-amber-500/20 border border-amber-500/40 rounded-lg text-center`}>
+            <span className="text-amber-300 text-xs font-semibold">{isSidebarOpen ? "閲覧専用モード" : "RO"}</span>
+          </div>
+        )}
 
         {/* ナビゲーションメニュー */}
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">

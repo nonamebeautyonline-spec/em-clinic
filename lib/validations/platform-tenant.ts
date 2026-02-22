@@ -55,11 +55,11 @@ export const addMemberSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email().max(255),
   password: z.string().min(8).max(100),
-  role: z.enum(["admin", "owner"]).default("admin"),
+  role: z.enum(["admin", "owner", "viewer"]).default("admin"),
 });
 
 export const updateMemberRoleSchema = z.object({
-  role: z.enum(["admin", "owner"]),
+  role: z.enum(["admin", "owner", "viewer"]),
 });
 
 export type CreateTenantInput = z.infer<typeof createTenantSchema>;

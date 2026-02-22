@@ -115,6 +115,23 @@ export async function getAdminPlatformRole(request: NextRequest): Promise<string
   return "tenant_admin";
 }
 
+/**
+ * JWTからtenantRole（テナント内ロール）を取得
+ */
+export async function getAdminTenantRole(request: NextRequest): Promise<string> {
+  const sessionCookie = request.cookies.get("admin_session")?.value;
+  if (sessionCookie) {
+    try {
+      const secret = new TextEncoder().encode(JWT_SECRET);
+      const { payload } = await jwtVerify(sessionCookie, secret);
+      return (payload as { tenantRole?: string }).tenantRole || "admin";
+    } catch {
+      // クッキー無効
+    }
+  }
+  return "admin";
+}
+
 export async function getAdminToken(request: NextRequest): Promise<string | null> {
   // クッキーベースの認証が成功した場合、ADMIN_TOKENを返す
   const sessionCookie = request.cookies.get("admin_session")?.value;

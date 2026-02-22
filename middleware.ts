@@ -173,17 +173,37 @@ export async function middleware(req: NextRequest) {
 
   // === テナントID解決 ===
   let tenantId: string | null = null;
+  let tenantRole: string | null = null;
 
-  // 1. admin_session Cookie から tenantId を抽出
+  // 1. admin_session Cookie から tenantId / tenantRole を抽出
   const sessionCookie = req.cookies.get("admin_session")?.value;
   if (sessionCookie) {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
       const { payload } = await jwtVerify(sessionCookie, secret);
       tenantId = (payload as { tenantId?: string | null }).tenantId || null;
+      tenantRole = (payload as { tenantRole?: string | null }).tenantRole || null;
     } catch {
       // JWT 無効 — tenantId なしで続行
     }
+  }
+
+  // === viewer ロールの書き込みブロック ===
+  if (
+    tenantRole === "viewer" &&
+    ["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
+    pathname.startsWith("/api/admin/") &&
+    // viewer でも許可する操作
+    !pathname.startsWith("/api/admin/login") &&
+    !pathname.startsWith("/api/admin/logout") &&
+    !pathname.startsWith("/api/admin/session") &&
+    !pathname.startsWith("/api/admin/chat-reads") &&
+    !pathname.startsWith("/api/admin/account")
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "閲覧専用アカウントのため、この操作は実行できません" },
+      { status: 403 },
+    );
   }
 
   // 2. JWTにテナントIDがなければサブドメインから解決

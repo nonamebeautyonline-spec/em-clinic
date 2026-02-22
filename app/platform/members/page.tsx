@@ -458,6 +458,13 @@ function TenantRoleBadge({ role }: { role: string }) {
       </span>
     );
   }
+  if (role === "viewer") {
+    return (
+      <span className="inline-flex items-center px-2 py-1 text-xs rounded-full font-medium bg-amber-100 text-amber-700 border border-amber-200">
+        Viewer
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center px-2 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-200">
       {role}

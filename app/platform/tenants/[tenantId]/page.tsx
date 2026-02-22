@@ -96,7 +96,7 @@ export default function TenantDetailPage() {
     name: "",
     email: "",
     password: "",
-    role: "admin" as "admin" | "owner",
+    role: "admin" as "admin" | "owner" | "viewer",
   });
   const [memberSubmitting, setMemberSubmitting] = useState(false);
   const [memberError, setMemberError] = useState("");
@@ -249,6 +249,7 @@ export default function TenantDetailPage() {
     const labels: Record<string, string> = {
       owner: "オーナー",
       admin: "管理者",
+      viewer: "閲覧専用",
     };
     return labels[role] || role;
   };
@@ -741,13 +742,14 @@ export default function TenantDetailPage() {
                       onChange={(e) =>
                         setMemberForm((p) => ({
                           ...p,
-                          role: e.target.value as "admin" | "owner",
+                          role: e.target.value as "admin" | "owner" | "viewer",
                         }))
                       }
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="admin">管理者</option>
                       <option value="owner">オーナー</option>
+                      <option value="viewer">閲覧専用</option>
                     </select>
                   </div>
                 </div>
@@ -831,6 +833,7 @@ export default function TenantDetailPage() {
                               >
                                 <option value="admin">管理者</option>
                                 <option value="owner">オーナー</option>
+                                <option value="viewer">閲覧専用</option>
                               </select>
                             </td>
                             <td className="px-6 py-4">
