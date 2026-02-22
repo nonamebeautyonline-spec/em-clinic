@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface DashboardStats {
   reservations: {
@@ -54,6 +54,18 @@ interface DashboardStats {
 
 type TabType = "overview" | "reservations" | "revenue" | "patients";
 
+// SSE接続状態
+type SSEStatus = "connected" | "connecting" | "disconnected";
+
+// トースト通知の型
+interface ToastNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: "reservation" | "payment" | "patient";
+  timestamp: Date;
+}
+
 export default function EnhancedDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,9 +75,187 @@ export default function EnhancedDashboard() {
   const [endDate, setEndDate] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("overview");
 
+  // SSE関連のstate
+  const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // デバウンス用: SSEイベントで頻繁にloadStatsが呼ばれるのを防ぐ
+  const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedLoadStats = useCallback(() => {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(() => {
+      loadStats();
+    }, 3000);
+  }, []);
+
   useEffect(() => {
     loadStats();
   }, [dateRange, startDate, endDate]);
+
+  // SSE接続管理
+  useEffect(() => {
+    if (dateRange !== "today") {
+      disconnectSSE();
+      return;
+    }
+
+    connectSSE();
+
+    return () => {
+      disconnectSSE();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange]);
+
+  /**
+   * SSE接続を開始
+   */
+  const connectSSE = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    setSSEStatus("connecting");
+
+    const es = new EventSource("/api/admin/dashboard-sse", {
+      withCredentials: true,
+    });
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      setSSEStatus("connected");
+    };
+
+    // 予約更新イベント（デバウンス付きリロード）
+    es.addEventListener("reservation_update", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        debouncedLoadStats();
+
+        const diff = data.diff || 0;
+        const cancelDiff = data.cancelDiff || 0;
+        if (diff > 0) {
+          addToast({
+            title: "新しい予約",
+            message: `${diff}件の予約が追加されました`,
+            type: "reservation",
+          });
+        }
+        if (cancelDiff > 0) {
+          addToast({
+            title: "予約キャンセル",
+            message: `${cancelDiff}件の予約がキャンセルされました`,
+            type: "reservation",
+          });
+        }
+      } catch {
+        // パースエラーは無視
+      }
+    });
+
+    // 決済更新イベント
+    es.addEventListener("payment_update", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        debouncedLoadStats();
+
+        const diff = data.diff || 0;
+        if (diff > 0) {
+          addToast({
+            title: "決済完了",
+            message: `${diff}件の決済が完了しました`,
+            type: "payment",
+          });
+        }
+      } catch {
+        // パースエラーは無視
+      }
+    });
+
+    // 新規患者イベント
+    es.addEventListener("new_patient", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        debouncedLoadStats();
+
+        const diff = data.diff || 0;
+        if (diff > 0) {
+          addToast({
+            title: "新規患者",
+            message: `${diff}名の新規患者が登録されました`,
+            type: "patient",
+          });
+        }
+      } catch {
+        // パースエラーは無視
+      }
+    });
+
+    // ping（接続維持）
+    es.addEventListener("ping", () => {
+      setSSEStatus("connected");
+    });
+
+    // エラー・切断時の再接続
+    es.onerror = () => {
+      setSSEStatus("connecting");
+      es.close();
+      eventSourceRef.current = null;
+
+      reconnectTimerRef.current = setTimeout(() => {
+        connectSSE();
+      }, 3000);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * SSE切断
+   */
+  const disconnectSSE = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    setSSEStatus("disconnected");
+  }, []);
+
+  /**
+   * トースト通知を追加
+   */
+  const addToast = useCallback(
+    (toast: Omit<ToastNotification, "id" | "timestamp">) => {
+      const notification: ToastNotification = {
+        ...toast,
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        timestamp: new Date(),
+      };
+      setToasts((prev) => [...prev, notification]);
+
+      // 8秒後に自動削除
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== notification.id));
+      }, 8000);
+    },
+    [],
+  );
+
+  /**
+   * トースト通知を削除
+   */
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const loadStats = async () => {
     setLoading(true);
@@ -123,9 +313,15 @@ export default function EnhancedDashboard() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* ヘッダー */}
       <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">ダッシュボード</h1>
-          <p className="text-slate-500 text-sm mt-1">{getRangeLabelJa()}の運営指標</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">ダッシュボード</h1>
+            <p className="text-slate-500 text-sm mt-1">{getRangeLabelJa()}の運営指標</p>
+          </div>
+          {/* SSE接続状態インジケーター */}
+          {dateRange === "today" && (
+            <SSEStatusIndicator status={sseStatus} />
+          )}
         </div>
 
         {/* 日付選択 */}
@@ -429,9 +625,126 @@ export default function EnhancedDashboard() {
           )}
         </div>
       </div>
+
+      {/* トースト通知コンテナ */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
   );
 }
+
+// ─── SSE接続状態インジケーター ─────────────────────────────
+
+interface SSEStatusIndicatorProps {
+  status: SSEStatus;
+}
+
+function SSEStatusIndicator({ status }: SSEStatusIndicatorProps) {
+  const config = {
+    connected: {
+      dotClass: "bg-green-500",
+      label: "リアルタイム",
+      containerClass: "bg-green-50 text-green-700 border-green-200",
+    },
+    connecting: {
+      dotClass: "bg-yellow-500 animate-pulse",
+      label: "再接続中...",
+      containerClass: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    },
+    disconnected: {
+      dotClass: "bg-slate-400",
+      label: "オフライン",
+      containerClass: "bg-slate-50 text-slate-500 border-slate-200",
+    },
+  };
+
+  const { dotClass, label, containerClass } = config[status];
+
+  return (
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${containerClass}`}
+    >
+      <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} />
+      {label}
+    </div>
+  );
+}
+
+// ─── トースト通知 ─────────────────────────────────────────
+
+interface ToastContainerProps {
+  toasts: ToastNotification[];
+  onDismiss: (id: string) => void;
+}
+
+function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
+  if (toasts.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm">
+      {toasts.map((toast) => (
+        <Toast key={toast.id} toast={toast} onDismiss={onDismiss} />
+      ))}
+    </div>
+  );
+}
+
+interface ToastProps {
+  toast: ToastNotification;
+  onDismiss: (id: string) => void;
+}
+
+function Toast({ toast, onDismiss }: ToastProps) {
+  const iconMap = {
+    reservation: "📅",
+    payment: "💳",
+    patient: "👤",
+  };
+
+  const borderColorMap = {
+    reservation: "border-l-purple-500",
+    payment: "border-l-blue-500",
+    patient: "border-l-green-500",
+  };
+
+  const timeAgo = getTimeAgo(toast.timestamp);
+
+  return (
+    <div
+      className={`bg-white rounded-lg shadow-lg border border-slate-200 border-l-4 ${borderColorMap[toast.type]} p-4 animate-slide-in-right min-w-[280px]`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="text-lg mt-0.5">{iconMap[toast.type]}</span>
+          <div>
+            <div className="text-sm font-semibold text-slate-900">{toast.title}</div>
+            <div className="text-xs text-slate-600 mt-0.5">{toast.message}</div>
+            <div className="text-xs text-slate-400 mt-1">{timeAgo}</div>
+          </div>
+        </div>
+        <button
+          onClick={() => onDismiss(toast.id)}
+          className="text-slate-400 hover:text-slate-600 transition-colors text-lg leading-none"
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 経過時間を「〜秒前」「〜分前」の形式で返す
+ */
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return `${seconds}秒前`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}分前`;
+  return `${Math.floor(minutes / 60)}時間前`;
+}
+
+// ─── 既存のUI部品（変更なし） ──────────────────────────────
 
 interface KPICardProps {
   title: string;
