@@ -1555,7 +1555,7 @@ settings.mode に応じて分岐:
 
 | 項目 | 値 |
 |------|-----|
-| URL | `/d-64219f25f0e177ee/login` |
+| URL | `/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/login` |
 | ユーザーID | `DEMO-001` |
 | パスワード | `demo1234` |
 
@@ -1565,16 +1565,16 @@ settings.mode に応じて分岐:
 
 | ファイル | 内容 |
 |---------|------|
-| `app/d-64219f25f0e177ee/_data/mock.ts` | モックデータ（患者20人・メッセージ・予約・配信・発送） |
-| `app/d-64219f25f0e177ee/layout.tsx` | デモ用レイアウト（サイドバー・認証ガード・DEMO バッジ） |
-| `app/d-64219f25f0e177ee/login/page.tsx` | ログイン画面（localStorage認証） |
-| `app/d-64219f25f0e177ee/page.tsx` | ダッシュボード（KPI・グラフ・通知） |
-| `app/d-64219f25f0e177ee/talk/page.tsx` | LINEトーク（メッセージ送受信・テンプレート・自動返信） |
-| `app/d-64219f25f0e177ee/friends/page.tsx` | 友だち管理（検索・タグフィルタ・詳細パネル） |
-| `app/d-64219f25f0e177ee/broadcasts/page.tsx` | メッセージ配信（作成・LINEプレビュー・履歴） |
-| `app/d-64219f25f0e177ee/calendar/page.tsx` | 予約カレンダー（月間表示・予約一覧） |
-| `app/d-64219f25f0e177ee/karte/page.tsx` | Drカルテ（週間タブ・処方モーダル・定型文） |
-| `app/d-64219f25f0e177ee/shipping/page.tsx` | 発送管理（ステータス・追跡番号付与） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/_data/mock.ts` | モックデータ（患者20人・メッセージ・予約・配信・発送） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/layout.tsx` | デモ用レイアウト（サイドバー・認証ガード・DEMO バッジ） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/login/page.tsx` | ログイン画面（localStorage認証） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/page.tsx` | ダッシュボード（KPI・グラフ・通知） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/talk/page.tsx` | LINEトーク（メッセージ送受信・テンプレート・自動返信） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/friends/page.tsx` | 友だち管理（検索・タグフィルタ・詳細パネル） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/broadcasts/page.tsx` | メッセージ配信（作成・LINEプレビュー・履歴） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/calendar/page.tsx` | 予約カレンダー（月間表示・予約一覧） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/karte/page.tsx` | Drカルテ（週間タブ・処方モーダル・定型文） |
+| `app/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/shipping/page.tsx` | 発送管理（ステータス・追跡番号付与） |
 
 ### 21.3 認証方式
 

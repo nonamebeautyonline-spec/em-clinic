@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
-const BASE = "/d-64219f25f0e177ee";
+const BASE = "/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7";
 
 const DEMO_MENU_ITEMS = [
   { href: BASE, icon: "📊", label: "ダッシュボード" },
