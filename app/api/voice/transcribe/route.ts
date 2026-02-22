@@ -117,16 +117,20 @@ async function transcribeWithDeepgram(
 ): Promise<{ transcript: string; confidence: number }> {
   const client = getDeepgramClient();
 
+  console.log("[voice/transcribe] Deepgram開始: size=%d, mime=%s, keywords=%d件", audioBuffer.length, mimeType, keywords.length);
+
   const { result } = await client.listen.prerecorded.transcribeFile(audioBuffer, {
     model: "nova-3",
     language: "ja",
     smart_format: true,
     punctuate: true,
-    keywords,
+    keywords: keywords.length > 0 ? keywords : undefined,
   });
 
   const channel = result?.results?.channels?.[0];
   const alt = channel?.alternatives?.[0];
+
+  console.log("[voice/transcribe] Deepgram結果: transcript=%s, confidence=%s", alt?.transcript?.substring(0, 100) || "(空)", alt?.confidence ?? "N/A");
 
   return {
     transcript: alt?.transcript || "",
