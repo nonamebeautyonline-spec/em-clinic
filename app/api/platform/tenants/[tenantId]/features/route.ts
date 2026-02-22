@@ -130,11 +130,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   }
 
   // 監査ログ
-  logAudit({
-    action: "platform.feature_flag.update",
-    adminId: (admin as any).userId ?? "unknown",
-    details: { tenantId, feature, enabled },
-  });
+  logAudit(
+    req,
+    "platform.feature_flag.update",
+    "feature_flags",
+    feature,
+    { tenantId, enabled },
+  );
 
   // 更新後の状態を返す
   const updatedFeatures = await getEnabledFeatures(tenantId);

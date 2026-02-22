@@ -51,6 +51,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
     { key: "verify_sid", label: "Twilio Verify SID", envFallback: "TWILIO_VERIFY_SID" },
   ],
   dashboard: [],
+  feature_flags: [],
   ehr: [
     { key: "provider", label: "連携プロバイダー" },
     { key: "sync_direction", label: "同期方向" },
