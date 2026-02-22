@@ -177,6 +177,10 @@ export default function KartePage() {
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
 
+  // --- LINE通話フォーム ---
+  const [callFormSending, setCallFormSending] = useState(false);
+  const [callFormSentPatients, setCallFormSentPatients] = useState<Set<string>>(new Set());
+
   // === 本日の予約データ取得（reservations APIから直接） ===
   const fetchTodayData = useCallback(async () => {
     setTodayLoading(true);
@@ -367,6 +371,32 @@ export default function KartePage() {
     setShowTemplates(false);
   };
 
+
+  // === LINE通話フォーム送信 ===
+  const handleSendCallFormKarte = async () => {
+    if (!patient || callFormSending) return;
+    if (!confirm(`${patient.name} さんにLINE通話フォームを送信しますか？`)) return;
+    setCallFormSending(true);
+    try {
+      const res = await fetch("/api/doctor/send-call-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patientId: patient.id }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || "送信に失敗しました");
+        return;
+      }
+      setCallFormSentPatients((prev) => new Set(prev).add(patient.id));
+      alert("通話フォームを送信しました");
+    } catch {
+      alert("送信に失敗しました");
+    } finally {
+      setCallFormSending(false);
+    }
+  };
 
   const currentSearchMode = SEARCH_MODES.find(m => m.key === searchMode) || SEARCH_MODES[0];
 
@@ -767,6 +797,21 @@ export default function KartePage() {
                             </div>
                           )}
                         </div>
+                        {/* LINE通話フォーム送信 */}
+                        {patient.lineId && (
+                          <button
+                            type="button"
+                            disabled={callFormSending || callFormSentPatients.has(patient.id)}
+                            onClick={handleSendCallFormKarte}
+                            className={`block w-full text-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                              callFormSentPatients.has(patient.id)
+                                ? "bg-gray-300 text-white cursor-default"
+                                : "bg-teal-500 text-white hover:bg-teal-600"
+                            }`}
+                          >
+                            {callFormSending ? "送信中..." : callFormSentPatients.has(patient.id) ? "通話フォーム送信済み" : "LINE通話フォーム送信"}
+                          </button>
+                        )}
                         <Link
                           href={`/admin/patients/${encodeURIComponent(patient.id)}`}
                           className="block w-full text-center px-4 py-2.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"

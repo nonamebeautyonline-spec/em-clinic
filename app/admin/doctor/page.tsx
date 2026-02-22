@@ -110,6 +110,11 @@ export default function DoctorPage() {
   const [selectedMenu, setSelectedMenu] = useState<PrescriptionMenu>("");
   const [saving, setSaving] = useState(false);
 
+  // LINE通話フォーム送信
+  const [callFormSentIds, setCallFormSentIds] = useState<Set<string>>(new Set());
+  const [callFormConfirmTarget, setCallFormConfirmTarget] = useState<IntakeRow | null>(null);
+  const [sendingCallForm, setSendingCallForm] = useState(false);
+
   // カルテ textarea 用 ref（カーソル位置取得用）
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -461,6 +466,39 @@ closeModalAndRefresh();
     alert("不通の記録に失敗しました");
   }
 };
+
+  // LINE通話フォーム送信
+  const handleSendCallForm = async () => {
+    if (!callFormConfirmTarget || sendingCallForm) return;
+    const pid = pick(callFormConfirmTarget, ["patient_id", "Patient_ID", "patientId"]);
+    const reserveId = pickReserveId(callFormConfirmTarget);
+    if (!pid) {
+      alert("Patient IDが見つかりません");
+      return;
+    }
+    setSendingCallForm(true);
+    try {
+      const res = await fetch("/api/doctor/send-call-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patientId: pid, reserveId: reserveId || undefined }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || "送信に失敗しました");
+        return;
+      }
+      if (reserveId) updateRowLocal(reserveId, { call_status: "call_form_sent" });
+      setCallFormSentIds((prev) => new Set(prev).add(reserveId || pid));
+      alert("通話フォームを送信しました");
+    } catch {
+      alert("送信に失敗しました");
+    } finally {
+      setSendingCallForm(false);
+      setCallFormConfirmTarget(null);
+    }
+  };
 
   const NO_ANSWER_MESSAGE = `本日、診察予約のお時間に医師よりご連絡させていただきましたが、つながらず診察が完了しておりません💦
 
@@ -856,6 +894,7 @@ closeModalAndRefresh();
           const callStatus = pick(row, ["call_status"]);
 const isNoAnswer = callStatus === "no_answer" || callStatus === "no_answer_sent";
 const isNoAnswerMsgSent = callStatus === "no_answer_sent";
+const isCallFormSent = callStatus === "call_form_sent";
 
           const reserveId = pickReserveId(row);
           const isTelMismatch =
@@ -946,6 +985,30 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                     </button>
                   )}
 
+                  {/* LINE通話フォーム送信ボタン */}
+                  {patientId && (
+                    (callFormSentIds.has(reserveId || patientId) || isCallFormSent) ? (
+                      <div
+                        className="w-10 h-10 rounded-lg bg-gray-300 text-white font-bold shadow-md flex items-center justify-center text-[9px] leading-tight text-center"
+                        title="通話フォーム送信済み"
+                      >
+                        送信済
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCallFormConfirmTarget(row);
+                        }}
+                        className="w-10 h-10 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-bold shadow-md flex items-center justify-center text-[16px]"
+                        title="LINE通話フォームを送信"
+                      >
+                        📞
+                      </button>
+                    )
+                  )}
+
                   {/* 不通メッセージ送信ボタン */}
                   {patientId && (
                     (noAnswerSentIds.has(patientId) || isNoAnswerMsgSent) ? (
@@ -986,6 +1049,13 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                     {name || "氏名無し"}
                   </div>
                   {kana && <div className="text-xs text-slate-500 mt-0.5">{kana}</div>}
+                  {(() => {
+                    const telRaw = pick(row, ["tel", "phone", "電話番号", "TEL"]);
+                    const telDisp = formatTelDisplay(telRaw);
+                    return telDisp ? (
+                      <div className="text-xs text-slate-500 mt-0.5">TEL: {telDisp}</div>
+                    ) : null;
+                  })()}
                   <div className="text-xs text-slate-500 mt-1 space-x-2">
                     {sex && <span>{sex}</span>}
                     {birth && <span>{birth}</span>}
@@ -1088,19 +1158,23 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                 </h2>
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const lineId = pick(selected, ["line_id", "lineId", "LINE_ID"]);
-                    const lineTalkUrl = lineId ? `https://line.me/R/ti/p/${lineId}` : "";
+                    const rid = pickReserveId(selected);
+                    const pid = pick(selected, ["patient_id", "Patient_ID", "patientId"]);
+                    const cs = pick(selected, ["call_status"]);
+                    const isSent = callFormSentIds.has(rid || pid) || cs === "call_form_sent";
                     return (
-                      lineTalkUrl && (
-                        <a
-                          href={lineTalkUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 rounded-full bg-green-500 text-white text-[11px]"
-                        >
-                          LINEトーク（電話）
-                        </a>
-                      )
+                      <button
+                        type="button"
+                        disabled={isSent}
+                        onClick={() => setCallFormConfirmTarget(selected)}
+                        className={`inline-flex items-center px-3 py-1.5 rounded-full text-[11px] ${
+                          isSent
+                            ? "bg-gray-300 text-white cursor-default"
+                            : "bg-teal-500 hover:bg-teal-600 text-white"
+                        }`}
+                      >
+                        {isSent ? "通話フォーム送信済み" : "LINE通話フォーム送信"}
+                      </button>
                     );
                   })()}
 
@@ -1324,6 +1398,37 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                   この内容で処方する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LINE通話フォーム送信確認モーダル */}
+      {callFormConfirmTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-[90vw] p-6 space-y-4">
+            <h3 className="text-sm font-semibold">LINE通話フォーム送信確認</h3>
+            <p className="text-xs text-slate-600">
+              <span className="font-semibold">{pick(callFormConfirmTarget, ["name", "氏名", "お名前"])}</span> さんにLINE通話フォームを送信します。
+              患者がタップすると通話が開始されます。
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCallFormConfirmTarget(null)}
+                disabled={sendingCallForm}
+                className="px-4 py-1.5 rounded-full bg-slate-100 text-[11px] text-slate-700 disabled:opacity-60"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleSendCallForm}
+                disabled={sendingCallForm}
+                className="px-4 py-1.5 rounded-full bg-teal-500 text-[11px] text-white disabled:opacity-60"
+              >
+                {sendingCallForm ? "送信中…" : "送信する"}
+              </button>
             </div>
           </div>
         </div>

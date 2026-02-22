@@ -343,6 +343,7 @@ export default function TalkPage() {
   const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null);
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
+  const [lineCallUrl, setLineCallUrl] = useState("");
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectAbortRef = useRef<AbortController | null>(null);
 
@@ -385,6 +386,17 @@ export default function TalkPage() {
   const [readTimestamps, setReadTimestamps] = useState<Record<string, string>>({});
   // 未読のみ表示フィルタ
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+
+  // LINEコールURL取得（設定から）
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+        const data = await res.json();
+        if (data.settings?.line_call_url) setLineCallUrl(data.settings.line_call_url);
+      } catch {}
+    })();
+  }, []);
 
   // ピン留め初期化（DB）& 既読タイムスタンプ初期化（DB）& 右カラム表示設定
   useEffect(() => {
@@ -904,9 +916,13 @@ export default function TalkPage() {
     setExecutingAction(false);
   };
 
-  // 通話フォーム送信
+  // 通話フォーム送信（設定のLINEコールURLを使用）
   const handleSendCallForm = async () => {
     if (!selectedPatient || sendingCall) return;
+    if (!lineCallUrl) {
+      alert("LINEコールURLが未設定です。設定画面の「診察設定」からURLを登録してください。");
+      return;
+    }
     setSendingCall(true);
     setShowCallConfirm(false);
 
@@ -936,16 +952,16 @@ export default function TalkPage() {
                       layout: "vertical",
                       contents: [
                         {
-                          type: "image",
-                          url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png",
-                          size: "24px",
-                          aspectMode: "fit",
+                          type: "text",
+                          text: "\u{1F4DE}",
+                          size: "lg",
+                          align: "center",
                         },
                       ],
-                      width: "32px",
-                      height: "32px",
+                      width: "36px",
+                      height: "36px",
                       backgroundColor: "#EBF5FF",
-                      cornerRadius: "16px",
+                      cornerRadius: "18px",
                       justifyContent: "center",
                       alignItems: "center",
                     },
@@ -985,8 +1001,8 @@ export default function TalkPage() {
                   type: "button",
                   action: {
                     type: "uri",
-                    label: "通話する",
-                    uri: `https://line.me/R/oa/call/${process.env.NEXT_PUBLIC_LINE_OA_ID || "@noname-beauty"}?confirmation=true&from=call_url`,
+                    label: "通話を開始する",
+                    uri: lineCallUrl,
                   },
                   style: "primary",
                   color: "#06C755",
@@ -1523,12 +1539,19 @@ export default function TalkPage() {
                   </button>
                   <button
                     onClick={() => { setShowAttachPanel(false); setShowCallConfirm(true); }}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                    disabled={!lineCallUrl}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors group ${
+                      lineCallUrl
+                        ? "bg-gray-50 hover:bg-gray-100 border-gray-200"
+                        : "bg-gray-100 border-gray-200 opacity-50 cursor-not-allowed"
+                    }`}
                   >
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
                       <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                     </div>
-                    <span className="text-xs font-medium text-gray-700">通話フォーム</span>
+                    <span className="text-xs font-medium text-gray-700">
+                      {lineCallUrl ? "通話フォーム" : "通話フォーム（URL未設定）"}
+                    </span>
                   </button>
                   <button
                     onClick={openActionPicker}

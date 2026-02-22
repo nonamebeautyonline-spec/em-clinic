@@ -31,17 +31,19 @@ vi.mock("groq-sdk", () => ({
   }),
 }));
 
-// Supabase モック
+// Supabase モック（チェーン対応: .select().or() → await で { data, error } を返す）
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          data: mockSupabaseSelect(),
-          error: null,
-        })),
-      })),
-    })),
+    from: vi.fn(() => {
+      const chainable: Record<string, unknown> = {
+        select: vi.fn(() => chainable),
+        eq: vi.fn(() => chainable),
+        or: vi.fn(() => chainable),
+        then: (resolve: (v: { data: unknown; error: null }) => void) =>
+          resolve({ data: mockSupabaseSelect(), error: null }),
+      };
+      return chainable;
+    }),
   },
 }));
 

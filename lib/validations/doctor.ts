@@ -29,6 +29,14 @@ export const doctorReorderApproveSchema = z
   })
   .passthrough();
 
+/** 通話フォーム送信 POST /api/doctor/send-call-form */
+export const sendCallFormSchema = z
+  .object({
+    patientId: z.string().min(1, "patientIdは必須です"),
+    reserveId: z.string().optional(),
+  })
+  .passthrough();
+
 /** 再処方却下 POST /api/doctor/reorders/reject */
 export const doctorReorderRejectSchema = z
   .object({

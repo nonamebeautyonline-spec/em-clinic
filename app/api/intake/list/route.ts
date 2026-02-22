@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
           withTenant(
             supabaseAdmin
               .from("patients")
-              .select("patient_id, name, line_id")
+              .select("patient_id, name, line_id, tel")
               .in("patient_id", batch),
             tenantId
           )
@@ -168,6 +168,7 @@ export async function GET(req: NextRequest) {
         status: row.status || "",
         note: row.note || "",
         prescription_menu: res?.prescription_menu || "",
+        tel: pat?.tel || "",
         line_id: pat?.line_id || null,
         answerer_id: row.answerer_id,
         created_at: row.created_at,
