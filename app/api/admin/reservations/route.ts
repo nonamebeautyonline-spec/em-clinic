@@ -47,11 +47,11 @@ export async function GET(req: NextRequest) {
       const pMap2 = new Map<string, { name: string; kana: string; sex: string; birthday: string }>();
       if (pIds.length > 0) {
         const { data: pData } = await withTenant(
-          supabaseAdmin.from("patients").select("patient_id, name, kana, sex, birthday").in("patient_id", pIds),
+          supabaseAdmin.from("patients").select("patient_id, name, name_kana, sex, birthday").in("patient_id", pIds),
           tenantId
         );
         for (const p of pData || []) {
-          pMap2.set(p.patient_id, { name: p.name || "", kana: p.kana || "", sex: p.sex || "", birthday: p.birthday || "" });
+          pMap2.set(p.patient_id, { name: p.name || "", kana: p.name_kana || "", sex: p.sex || "", birthday: p.birthday || "" });
         }
       }
 
@@ -190,28 +190,28 @@ export async function GET(req: NextRequest) {
 
     // 患者IDリストからpatientsテーブルで名前・カナ・性別・生年月日・line_idを取得
     const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
-    const pMap = new Map<string, { name: string; kana: string; sex: string; birthday: string; line_id: string }>();
+    const pMap = new Map<string, { name: string; kana: string; sex: string; birthday: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .select("patient_id, name, kana, sex, birthday, line_id")
+          .select("patient_id, name, name_kana, tel, sex, birthday, line_id")
           .in("patient_id", patientIds),
         tenantId
       );
       for (const p of pData || []) {
-        pMap.set(p.patient_id, { name: p.name || "", kana: p.kana || "", sex: p.sex || "", birthday: p.birthday || "", line_id: p.line_id || "" });
+        pMap.set(p.patient_id, { name: p.name || "", kana: p.name_kana || "", sex: p.sex || "", birthday: p.birthday || "", line_id: p.line_id || "", tel: p.tel || "" });
       }
     }
 
     // intakeからcall_status, note, answerer_id, statusを取得（reserve_id で紐付け）
     const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
-    const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; phone: string; intake_status: string | null }>();
+    const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; intake_status: string | null }>();
     if (reserveIds.length > 0) {
       const { data: intakeData } = await withTenant(
         supabaseAdmin
           .from("intake")
-          .select("reserve_id, call_status, note, answerer_id, phone, status")
+          .select("reserve_id, call_status, note, answerer_id, status")
           .in("reserve_id", reserveIds),
         tenantId
       );
@@ -221,7 +221,6 @@ export async function GET(req: NextRequest) {
             call_status: row.call_status || "",
             note: row.note || "",
             answerer_id: row.answerer_id || "",
-            phone: row.phone || "",
             intake_status: row.status || null,
           });
         }
@@ -245,7 +244,7 @@ export async function GET(req: NextRequest) {
         reserved_date: row.reserved_date,
         reserved_time: row.reserved_time,
         status: row.status || "pending",
-        phone: intake?.phone || "",
+        phone: patient?.tel || "",
         lstep_uid: intake?.answerer_id || "",
         line_uid: patient?.line_id || "",
         call_status: intake?.call_status || "",

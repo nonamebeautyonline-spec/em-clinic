@@ -93,7 +93,7 @@ type ReservationItem = {
 
 /** 診察ステータスを判定 */
 function getExamStatus(item: ReservationItem): { label: string; color: string } {
-  if (item.call_status === "不通") {
+  if (item.call_status === "不通" || item.call_status === "no_answer" || item.call_status === "no_answer_sent" || item.call_status === "unreachable") {
     return { label: "不通", color: "bg-gray-100 text-gray-600 border-gray-300" };
   }
   if (item.intake_status === "OK") {

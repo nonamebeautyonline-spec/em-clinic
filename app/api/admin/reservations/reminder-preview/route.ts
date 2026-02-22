@@ -57,28 +57,29 @@ export async function POST(req: NextRequest) {
 
     // patientsテーブルからpatient_name, line_idを取得
     const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
-    const pMap = new Map<string, { name: string; line_id: string }>();
+    const pMap = new Map<string, { name: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .select("patient_id, name, line_id")
+          .select("patient_id, name, line_id, tel")
           .in("patient_id", patientIds),
         tenantId
       );
       for (const p of pData || []) {
-        pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+        pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "", tel: p.tel || "" });
       }
     }
 
-    // intakeからcall_status, phone, answerer_idを取得（reserve_id で紐付け）
+    // intakeからcall_status, answerer_idを取得（reserve_id で紐付け）
+    // ※ phone は patients.tel が正のため intake からは取得しない
     const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
-    const intakeMap = new Map<string, { call_status: string; phone: string; answerer_id: string }>();
+    const intakeMap = new Map<string, { call_status: string; answerer_id: string }>();
     if (reserveIds.length > 0) {
       const { data: intakeData } = await withTenant(
         supabaseAdmin
           .from("intake")
-          .select("reserve_id, call_status, phone, answerer_id")
+          .select("reserve_id, call_status, answerer_id")
           .in("reserve_id", reserveIds),
         tenantId
       );
@@ -86,7 +87,6 @@ export async function POST(req: NextRequest) {
         if (row.reserve_id && !intakeMap.has(row.reserve_id)) {
           intakeMap.set(row.reserve_id, {
             call_status: row.call_status || "",
-            phone: row.phone || "",
             answerer_id: row.answerer_id || "",
           });
         }
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       const lineUid = patient?.line_id || "";
       const patientName = patient?.name || "";
       const reservedTime = row.reserved_time || "";
-      const phone = intake?.phone || "";
+      const phone = patient?.tel || "";
       const doctorStatus = row.status || ""; // 前回診察ステータス（OK/NG）
       const callStatus = intake?.call_status || ""; // 電話ステータス（不通など）
       const prescriptionMenu = row.prescription_menu || ""; // 処方メニュー
