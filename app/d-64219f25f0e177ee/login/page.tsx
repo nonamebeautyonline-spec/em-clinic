@@ -16,7 +16,7 @@ export default function DemoLoginPage() {
   useEffect(() => {
     // 既にログイン済みならダッシュボードへ
     if (localStorage.getItem("demo_session") === "true") {
-      router.push("/demo");
+      router.push("/d-64219f25f0e177ee");
     }
   }, [router]);
 
@@ -30,7 +30,7 @@ export default function DemoLoginPage() {
       const normalizedUser = username.toUpperCase().trim();
       if (normalizedUser === DEMO_USER && password === DEMO_PASS) {
         localStorage.setItem("demo_session", "true");
-        router.push("/demo");
+        router.push("/d-64219f25f0e177ee");
       } else {
         setError("ユーザーIDまたはパスワードが正しくありません");
         setLoading(false);

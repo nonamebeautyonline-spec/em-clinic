@@ -26,6 +26,7 @@
 18. [Middleware](#18-middleware)
 19. [E2Eテスト](#19-e2eテスト)
 20. [テスト一覧](#20-テスト一覧)
+21. [デモ環境](#21-デモ環境)
 
 ---
 
@@ -1543,3 +1544,40 @@ settings.mode に応じて分岐:
 | `validations.test.ts` | Zodバリデーション |
 | `medical-refine.test.ts` | 医学用語補正 |
 | `feature-flags.test.ts` | 機能フラグ |
+
+---
+
+## 21. デモ環境
+
+契約検討中のクリニックに個別共有するインタラクティブデモ。全機能フロントエンド完結（API・DB接続不要）。
+
+### 21.1 アクセス情報
+
+| 項目 | 値 |
+|------|-----|
+| URL | `/d-64219f25f0e177ee/login` |
+| ユーザーID | `DEMO-001` |
+| パスワード | `demo1234` |
+
+※ URLは推測困難なハッシュ付きパス。契約希望者にのみ直接共有する。
+
+### 21.2 実装構成
+
+| ファイル | 内容 |
+|---------|------|
+| `app/d-64219f25f0e177ee/_data/mock.ts` | モックデータ（患者20人・メッセージ・予約・配信・発送） |
+| `app/d-64219f25f0e177ee/layout.tsx` | デモ用レイアウト（サイドバー・認証ガード・DEMO バッジ） |
+| `app/d-64219f25f0e177ee/login/page.tsx` | ログイン画面（localStorage認証） |
+| `app/d-64219f25f0e177ee/page.tsx` | ダッシュボード（KPI・グラフ・通知） |
+| `app/d-64219f25f0e177ee/talk/page.tsx` | LINEトーク（メッセージ送受信・テンプレート・自動返信） |
+| `app/d-64219f25f0e177ee/friends/page.tsx` | 友だち管理（検索・タグフィルタ・詳細パネル） |
+| `app/d-64219f25f0e177ee/broadcasts/page.tsx` | メッセージ配信（作成・LINEプレビュー・履歴） |
+| `app/d-64219f25f0e177ee/calendar/page.tsx` | 予約カレンダー（月間表示・予約一覧） |
+| `app/d-64219f25f0e177ee/karte/page.tsx` | Drカルテ（週間タブ・処方モーダル・定型文） |
+| `app/d-64219f25f0e177ee/shipping/page.tsx` | 発送管理（ステータス・追跡番号付与） |
+
+### 21.3 認証方式
+
+- `localStorage("demo_session")` で管理（API・DB不要）
+- ログイン成功時に `"true"` を保存、ログアウト時に削除
+- 未認証アクセスは自動的にログイン画面へリダイレクト

@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
+const BASE = "/d-64219f25f0e177ee";
+
 const DEMO_MENU_ITEMS = [
-  { href: "/demo", icon: "📊", label: "ダッシュボード" },
-  { href: "/demo/talk", icon: "💬", label: "LINEトーク" },
-  { href: "/demo/friends", icon: "👥", label: "友だち管理" },
-  { href: "/demo/broadcasts", icon: "📢", label: "メッセージ配信" },
-  { href: "/demo/calendar", icon: "📅", label: "予約カレンダー" },
-  { href: "/demo/karte", icon: "🩺", label: "Drカルテ" },
-  { href: "/demo/shipping", icon: "📦", label: "発送管理" },
+  { href: BASE, icon: "📊", label: "ダッシュボード" },
+  { href: `${BASE}/talk`, icon: "💬", label: "LINEトーク" },
+  { href: `${BASE}/friends`, icon: "👥", label: "友だち管理" },
+  { href: `${BASE}/broadcasts`, icon: "📢", label: "メッセージ配信" },
+  { href: `${BASE}/calendar`, icon: "📅", label: "予約カレンダー" },
+  { href: `${BASE}/karte`, icon: "🩺", label: "Drカルテ" },
+  { href: `${BASE}/shipping`, icon: "📦", label: "発送管理" },
 ];
 
 function LogoMark({ compact }: { compact?: boolean }) {
@@ -43,7 +45,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (pathname === "/demo/login") {
+    if (pathname === `${BASE}/login`) {
       setLoading(false);
       return;
     }
@@ -53,18 +55,18 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
       setIsAuthenticated(true);
       setLoading(false);
     } else {
-      router.push("/demo/login");
+      router.push(`${BASE}/login`);
     }
   }, [pathname, router]);
 
   const handleLogout = () => {
     localStorage.removeItem("demo_session");
     setIsAuthenticated(false);
-    router.push("/demo/login");
+    router.push(`${BASE}/login`);
   };
 
   // ログインページはレイアウトなし
-  if (pathname === "/demo/login") {
+  if (pathname === `${BASE}/login`) {
     return <>{children}</>;
   }
 
@@ -82,7 +84,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="h-dvh bg-slate-50 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン */}
-      {pathname !== "/demo/talk" && (
+      {pathname !== `${BASE}/talk` && (
         <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="md:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
@@ -114,7 +116,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
-                    pathname === item.href || (item.href !== "/demo" && pathname?.startsWith(item.href))
+                    pathname === item.href || (item.href !== BASE && pathname?.startsWith(item.href))
                       ? "bg-slate-800 border-l-4 border-blue-500"
                       : ""
                   }`}
@@ -153,8 +155,8 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
 
         <nav className="flex-1 overflow-y-auto py-4">
           {DEMO_MENU_ITEMS.map((item) => {
-            const isActive = item.href === "/demo"
-              ? pathname === "/demo"
+            const isActive = item.href === BASE
+              ? pathname === BASE
               : pathname === item.href || pathname?.startsWith(item.href + "/");
             return (
               <Link
@@ -180,7 +182,7 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
       </aside>
 
       {/* メインコンテンツ */}
-      <main className={`flex-1 min-h-0 relative ${pathname === "/demo/talk" ? "overflow-hidden" : "overflow-y-auto"}`}>
+      <main className={`flex-1 min-h-0 relative ${pathname === `${BASE}/talk` ? "overflow-hidden" : "overflow-y-auto"}`}>
         {children}
         {/* デモ注記バナー */}
         <div className="fixed bottom-0 left-0 right-0 bg-amber-500/90 text-white text-center text-xs py-1.5 z-30 backdrop-blur-sm">
