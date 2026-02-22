@@ -44,14 +44,14 @@ export async function GET(req: NextRequest) {
 
       // 患者情報を取得
       const pIds = [...new Set((createdReservations || []).map((r: any) => r.patient_id).filter(Boolean))];
-      const pMap2 = new Map<string, { name: string; line_id: string }>();
+      const pMap2 = new Map<string, { name: string; kana: string; sex: string; birthday: string }>();
       if (pIds.length > 0) {
         const { data: pData } = await withTenant(
-          supabaseAdmin.from("patients").select("patient_id, name, line_id").in("patient_id", pIds),
+          supabaseAdmin.from("patients").select("patient_id, name, kana, sex, birthday").in("patient_id", pIds),
           tenantId
         );
         for (const p of pData || []) {
-          pMap2.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+          pMap2.set(p.patient_id, { name: p.name || "", kana: p.kana || "", sex: p.sex || "", birthday: p.birthday || "" });
         }
       }
 
@@ -65,6 +65,9 @@ export async function GET(req: NextRequest) {
             reserve_id: r.reserve_id,
             patient_id: r.patient_id,
             patient_name: r.patient_name || patient?.name || "",
+            patient_kana: patient?.kana || "",
+            patient_sex: patient?.sex || "",
+            patient_birthday: patient?.birthday || "",
             reserved_date: r.reserved_date,
             reserved_time: r.reserved_time,
             status: r.status || "pending",
@@ -185,30 +188,30 @@ export async function GET(req: NextRequest) {
       }, { status: 500 });
     }
 
-    // 患者IDリストからpatientsテーブルで名前・line_idを取得
+    // 患者IDリストからpatientsテーブルで名前・カナ・性別・生年月日・line_idを取得
     const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
-    const pMap = new Map<string, { name: string; line_id: string }>();
+    const pMap = new Map<string, { name: string; kana: string; sex: string; birthday: string; line_id: string }>();
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .select("patient_id, name, line_id")
+          .select("patient_id, name, kana, sex, birthday, line_id")
           .in("patient_id", patientIds),
         tenantId
       );
       for (const p of pData || []) {
-        pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+        pMap.set(p.patient_id, { name: p.name || "", kana: p.kana || "", sex: p.sex || "", birthday: p.birthday || "", line_id: p.line_id || "" });
       }
     }
 
-    // intakeからcall_status, note, answerer_idを取得（reserve_id で紐付け）
+    // intakeからcall_status, note, answerer_id, statusを取得（reserve_id で紐付け）
     const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
-    const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; phone: string }>();
+    const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; phone: string; intake_status: string | null }>();
     if (reserveIds.length > 0) {
       const { data: intakeData } = await withTenant(
         supabaseAdmin
           .from("intake")
-          .select("reserve_id, call_status, note, answerer_id, phone")
+          .select("reserve_id, call_status, note, answerer_id, phone, status")
           .in("reserve_id", reserveIds),
         tenantId
       );
@@ -219,6 +222,7 @@ export async function GET(req: NextRequest) {
             note: row.note || "",
             answerer_id: row.answerer_id || "",
             phone: row.phone || "",
+            intake_status: row.status || null,
           });
         }
       }
@@ -235,6 +239,9 @@ export async function GET(req: NextRequest) {
         reserve_id: row.reserve_id,
         patient_id: row.patient_id,
         patient_name: row.patient_name || patient?.name || "",
+        patient_kana: patient?.kana || "",
+        patient_sex: patient?.sex || "",
+        patient_birthday: patient?.birthday || "",
         reserved_date: row.reserved_date,
         reserved_time: row.reserved_time,
         status: row.status || "pending",
@@ -242,6 +249,7 @@ export async function GET(req: NextRequest) {
         lstep_uid: intake?.answerer_id || "",
         line_uid: patient?.line_id || "",
         call_status: intake?.call_status || "",
+        intake_status: intake?.intake_status || null,
         note: intake?.note || "",
         prescription_menu: row.prescription_menu || "",
       };

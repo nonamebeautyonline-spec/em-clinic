@@ -77,15 +77,33 @@ type ReservationItem = {
   reserve_id: string;
   patient_id: string;
   patient_name: string;
+  patient_kana?: string;
+  patient_sex?: string;
+  patient_birthday?: string;
   reserved_date: string;
   reserved_time: string;
   status: string;
   phone?: string;
   prescription_menu: string;
   call_status?: string;
+  intake_status?: string | null;
   note?: string;
   created_at?: string;
 };
+
+/** 診察ステータスを判定 */
+function getExamStatus(item: ReservationItem): { label: string; color: string } {
+  if (item.call_status === "不通") {
+    return { label: "不通", color: "bg-gray-100 text-gray-600 border-gray-300" };
+  }
+  if (item.intake_status === "OK") {
+    return { label: "診察済", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  }
+  if (item.intake_status === "NG") {
+    return { label: "NG", color: "bg-rose-50 text-rose-700 border-rose-200" };
+  }
+  return { label: "診察前", color: "bg-amber-50 text-amber-700 border-amber-200" };
+}
 
 type ViewMode = "today" | "new" | "search";
 
@@ -487,7 +505,9 @@ export default function KartePage() {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約時間</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">来院者名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">氏名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">性別</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">生年月日</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">処方メニュー</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">ステータス</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">メモ</th>
@@ -496,7 +516,7 @@ export default function KartePage() {
                 <tbody className="divide-y divide-gray-100">
                   {todayLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                         <div className="flex items-center justify-center gap-2">
                           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -508,44 +528,52 @@ export default function KartePage() {
                     </tr>
                   ) : todayItems.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                         本日の予約はありません
                       </td>
                     </tr>
                   ) : (
-                    todayItems.map((item) => (
-                      <tr
-                        key={item.id}
-                        onClick={() => loadBundle(item.patient_id)}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap text-xs">
-                          {item.reserved_time || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
-                          {item.patient_name || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {item.prescription_menu || "-"}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {item.status === "confirmed" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">確定</span>
-                          ) : item.status === "canceled" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">キャンセル</span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">予約済</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {item.note ? (
-                            <span className="text-xs text-amber-600">あり</span>
-                          ) : (
-                            <span className="text-xs text-gray-300">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    todayItems.map((item) => {
+                      const examStatus = getExamStatus(item);
+                      return (
+                        <tr
+                          key={item.id}
+                          onClick={() => loadBundle(item.patient_id)}
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap text-xs">
+                            {item.reserved_time || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
+                            {item.patient_name || "-"}
+                            {item.patient_kana && (
+                              <span className="text-xs text-gray-400 ml-1">（{item.patient_kana}）</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            {item.patient_sex || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            {item.patient_birthday ? fmtBirth(item.patient_birthday) : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                            {item.prescription_menu || "-"}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${examStatus.color}`}>
+                              {examStatus.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {item.note ? (
+                              <span className="text-xs text-amber-600">あり</span>
+                            ) : (
+                              <span className="text-xs text-gray-300">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -560,7 +588,8 @@ export default function KartePage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">来院者名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">氏名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">性別</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約日</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約時間</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">処方メニュー</th>
@@ -577,7 +606,7 @@ export default function KartePage() {
                 <tbody className="divide-y divide-gray-100">
                   {newLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                         <div className="flex items-center justify-center gap-2">
                           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -589,7 +618,7 @@ export default function KartePage() {
                     </tr>
                   ) : newItems.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
                         本日入った予約はありません
                       </td>
                     </tr>
@@ -602,6 +631,12 @@ export default function KartePage() {
                       >
                         <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
                           {item.patient_name || "-"}
+                          {item.patient_kana && (
+                            <span className="text-xs text-gray-400 ml-1">（{item.patient_kana}）</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                          {item.patient_sex || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
                           {item.reserved_date || "-"}
