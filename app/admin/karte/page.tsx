@@ -1,28 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Link from "next/link";
 import { formatFullDateTimeJST, calcAge, formatDateJST } from "@/lib/patient-utils";
 
 const KarteImageSection = lazy(() => import("@/components/KarteImageSection"));
 
 // === 型定義 ===
-type KarteListItem = {
-  id: number;
-  patientId: string;
-  patientName: string;
-  tel: string;
-  sex: string;
-  birthday: string;
-  reservedDate: string;
-  reservedTime: string;
-  createdAt: string;
-  updatedAt: string;
-  status: string | null;
-  prescriptionMenu: string;
-  hasNote: boolean;
-};
-
 type Candidate = {
   patientId: string;
   name: string;
@@ -88,7 +72,22 @@ type KarteTemplate = {
   sort_order: number;
 };
 
-type ViewMode = "list" | "today" | "search";
+type ReservationItem = {
+  id: string | number;
+  reserve_id: string;
+  patient_id: string;
+  patient_name: string;
+  reserved_date: string;
+  reserved_time: string;
+  status: string;
+  phone?: string;
+  prescription_menu: string;
+  call_status?: string;
+  note?: string;
+  created_at?: string;
+};
+
+type ViewMode = "today" | "new" | "search";
 
 // === ユーティリティ ===
 function getTodayJST() {
@@ -127,18 +126,12 @@ export default function KartePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
 
   // --- 本日の予約モード ---
-  const [todayItems, setTodayItems] = useState<KarteListItem[]>([]);
+  const [todayItems, setTodayItems] = useState<ReservationItem[]>([]);
   const [todayLoading, setTodayLoading] = useState(true);
 
-  // --- 一覧モード ---
-  const [listItems, setListItems] = useState<KarteListItem[]>([]);
-  const [listTotal, setListTotal] = useState(0);
-  const [listPage, setListPage] = useState(1);
-  const [listLimit, setListLimit] = useState(100);
-  const [listLoading, setListLoading] = useState(true);
-  const [listQuery, setListQuery] = useState("");
-  const [filterDate, setFilterDate] = useState<string>("");
-  const listDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // --- 新規予約モード ---
+  const [newItems, setNewItems] = useState<ReservationItem[]>([]);
+  const [newLoading, setNewLoading] = useState(true);
 
   // --- 検索モード ---
   const [searchMode, setSearchMode] = useState<string>("name");
@@ -166,16 +159,13 @@ export default function KartePage() {
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // === 本日の予約データ取得 ===
+  // === 本日の予約データ取得（reservations APIから直接） ===
   const fetchTodayData = useCallback(async () => {
     setTodayLoading(true);
     try {
-      const params = new URLSearchParams({ page: "1", limit: "200", date: getTodayJST() });
-      const res = await fetch(`/api/admin/kartelist?${params}`);
+      const res = await fetch(`/api/admin/reservations?date=${getTodayJST()}`);
       const json = await res.json();
-      if (json.ok) {
-        setTodayItems(json.items || []);
-      }
+      setTodayItems(json.reservations || []);
     } catch (e) {
       console.error("本日予約取得エラー:", e);
     } finally {
@@ -189,40 +179,25 @@ export default function KartePage() {
     }
   }, [viewMode, fetchTodayData]);
 
-  // === 一覧データ取得 ===
-  const fetchListData = useCallback(async (p: number, l: number, q: string, date: string) => {
-    setListLoading(true);
+  // === 新規予約データ取得（本日作成された予約） ===
+  const fetchNewData = useCallback(async () => {
+    setNewLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(p), limit: String(l) });
-      if (q) params.set("q", q);
-      if (date) params.set("date", date);
-      const res = await fetch(`/api/admin/kartelist?${params}`);
+      const res = await fetch(`/api/admin/reservations?created_date=${getTodayJST()}`);
       const json = await res.json();
-      if (json.ok) {
-        setListItems(json.items || []);
-        setListTotal(json.total || 0);
-      }
+      setNewItems(json.reservations || []);
     } catch (e) {
-      console.error("カルテ一覧取得エラー:", e);
+      console.error("新規予約取得エラー:", e);
     } finally {
-      setListLoading(false);
+      setNewLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (viewMode === "list") {
-      fetchListData(listPage, listLimit, listQuery, filterDate);
+    if (viewMode === "new") {
+      fetchNewData();
     }
-  }, [viewMode, listPage, listLimit, filterDate, fetchListData]);
-
-  const handleListSearchChange = (val: string) => {
-    setListQuery(val);
-    if (listDebounceRef.current) clearTimeout(listDebounceRef.current);
-    listDebounceRef.current = setTimeout(() => {
-      setListPage(1);
-      fetchListData(1, listLimit, val, filterDate);
-    }, 300);
-  };
+  }, [viewMode, fetchNewData]);
 
   // === 検索モード ===
   const canSearch = useMemo(() => searchQ.trim().length >= 1, [searchQ]);
@@ -374,10 +349,6 @@ export default function KartePage() {
     setShowTemplates(false);
   };
 
-  // === ページネーション ===
-  const totalPages = Math.ceil(listTotal / listLimit);
-  const fromItem = listTotal === 0 ? 0 : (listPage - 1) * listLimit + 1;
-  const toItem = Math.min(listPage * listLimit, listTotal);
 
   const currentSearchMode = SEARCH_MODES.find(m => m.key === searchMode) || SEARCH_MODES[0];
 
@@ -415,12 +386,12 @@ export default function KartePage() {
                 本日の予約
               </button>
               <button
-                onClick={() => { setViewMode("list"); closeDetail(); }}
+                onClick={() => { setViewMode("new"); closeDetail(); }}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  viewMode === "new" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                一覧
+                新規予約
               </button>
               <button
                 onClick={() => { setViewMode("search"); closeDetail(); }}
@@ -447,47 +418,17 @@ export default function KartePage() {
             </div>
           )}
 
-          {/* 一覧モード: 検索バー + 日付フィルター */}
-          {viewMode === "list" && (
-            <div className="mt-4 flex items-center gap-3 flex-wrap">
-              <div className="relative flex-1 min-w-[200px] max-w-xl">
-                <input
-                  type="text"
-                  value={listQuery}
-                  onChange={(e) => handleListSearchChange(e.target.value)}
-                  placeholder="カルテ検索(本文・執筆者名・施術名・薬剤名で検索)"
-                  className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
-                />
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                {listQuery && (
-                  <button
-                    onClick={() => handleListSearchChange("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) => { setFilterDate(e.target.value); setListPage(1); }}
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
-                />
-                {filterDate && (
-                  <button
-                    onClick={() => { setFilterDate(""); setListPage(1); }}
-                    className="px-3 py-2 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
-                  >
-                    日付クリア
-                  </button>
-                )}
-              </div>
+          {/* 新規予約モード: 日付表示 */}
+          {viewMode === "new" && (
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-sm text-gray-600">{getTodayJST()} に入った予約</span>
+              <span className="text-xs text-gray-400">({newItems.length}件)</span>
+              <button
+                onClick={() => fetchNewData()}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                更新
+              </button>
             </div>
           )}
 
@@ -549,14 +490,13 @@ export default function KartePage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">来院者名</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">処方メニュー</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">ステータス</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">電話番号</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">メモ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {todayLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
                         <div className="flex items-center justify-center gap-2">
                           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -568,7 +508,7 @@ export default function KartePage() {
                     </tr>
                   ) : todayItems.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
                         本日の予約はありません
                       </td>
                     </tr>
@@ -576,32 +516,29 @@ export default function KartePage() {
                     todayItems.map((item) => (
                       <tr
                         key={item.id}
-                        onClick={() => loadBundle(item.patientId)}
+                        onClick={() => loadBundle(item.patient_id)}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                       >
                         <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap text-xs">
-                          {item.reservedTime || "-"}
+                          {item.reserved_time || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
-                          {item.patientName || "-"}
+                          {item.patient_name || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {item.prescriptionMenu || "-"}
+                          {item.prescription_menu || "-"}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {item.status === "OK" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">OK</span>
-                          ) : item.status === "NG" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">NG</span>
+                          {item.status === "confirmed" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">確定</span>
+                          ) : item.status === "canceled" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">キャンセル</span>
                           ) : (
-                            <span className="text-xs text-gray-400">-</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">予約済</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {formatTel(item.tel)}
-                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {item.hasNote ? (
+                          {item.note ? (
                             <span className="text-xs text-amber-600">あり</span>
                           ) : (
                             <span className="text-xs text-gray-300">-</span>
@@ -616,32 +553,31 @@ export default function KartePage() {
           </div>
         )}
 
-        {/* === 一覧モード: テーブル === */}
-        {viewMode === "list" && !selectedPatientId && (
+        {/* === 新規予約モード: テーブル === */}
+        {viewMode === "new" && !selectedPatientId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">カルテ番号</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">来院者名</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約日時</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約日</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約時間</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">処方メニュー</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       <span className="flex items-center gap-1">
-                        作成日時
+                        予約取得日時
                         <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </span>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">ステータス</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">電話番号</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {listLoading ? (
+                  {newLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
                         <div className="flex items-center justify-center gap-2">
                           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -651,42 +587,33 @@ export default function KartePage() {
                         </div>
                       </td>
                     </tr>
-                  ) : listItems.length === 0 ? (
+                  ) : newItems.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
-                        {listQuery ? "検索結果がありません" : filterDate ? `${filterDate} のカルテはありません` : "カルテデータがありません"}
+                      <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                        本日入った予約はありません
                       </td>
                     </tr>
                   ) : (
-                    listItems.map((item) => (
+                    newItems.map((item) => (
                       <tr
                         key={item.id}
-                        onClick={() => loadBundle(item.patientId)}
+                        onClick={() => loadBundle(item.patient_id)}
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                       >
-                        <td className="px-4 py-3 text-gray-600 font-mono text-xs whitespace-nowrap">
-                          {item.patientId || "-"}
-                        </td>
                         <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
-                          {item.patientName || "-"}
+                          {item.patient_name || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {item.reservedDate ? (item.reservedTime ? `${item.reservedDate} ${item.reservedTime}` : item.reservedDate) : "-"}
+                          {item.reserved_date || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {formatFullDateTimeJST(item.createdAt)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {item.status === "OK" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">OK</span>
-                          ) : item.status === "NG" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">NG</span>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
+                          {item.reserved_time || "-"}
                         </td>
                         <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {formatTel(item.tel)}
+                          {item.prescription_menu || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                          {item.created_at ? formatFullDateTimeJST(item.created_at) : "-"}
                         </td>
                       </tr>
                     ))
@@ -694,48 +621,6 @@ export default function KartePage() {
                 </tbody>
               </table>
             </div>
-
-            {/* ページネーション */}
-            {listTotal > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">ページあたりの行数:</span>
-                  <select
-                    value={listLimit}
-                    onChange={(e) => { setListLimit(Number(e.target.value)); setListPage(1); }}
-                    className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-red-400 outline-none"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">{fromItem}〜{toItem} / {listTotal}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setListPage(Math.max(1, listPage - 1))}
-                      disabled={listPage <= 1}
-                      className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setListPage(Math.min(totalPages, listPage + 1))}
-                      disabled={listPage >= totalPages}
-                      className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -797,7 +682,7 @@ export default function KartePage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              {viewMode === "list" ? "一覧に戻る" : "検索結果に戻る"}
+              {viewMode === "search" ? "検索結果に戻る" : viewMode === "new" ? "新規予約に戻る" : "本日の予約に戻る"}
             </button>
 
             <div className="flex flex-col lg:flex-row gap-5">

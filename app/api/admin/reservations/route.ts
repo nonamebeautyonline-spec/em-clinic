@@ -13,11 +13,67 @@ export async function GET(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    // クエリパラメータ取得: date=YYYY-MM-DD, month=YYYY-MM, or from=YYYY-MM-DD
+    // クエリパラメータ取得: date=YYYY-MM-DD, month=YYYY-MM, from=YYYY-MM-DD, created_date=YYYY-MM-DD
     const searchParams = req.nextUrl.searchParams;
     const dateParam = searchParams.get("date");
     const monthParam = searchParams.get("month"); // 月指定（YYYY-MM）
     const fromParam = searchParams.get("from"); // 以降の予約を全て取得（YYYY-MM-DD）
+    const createdDateParam = searchParams.get("created_date"); // 予約取得日で絞り込み（YYYY-MM-DD）
+
+    // created_date指定: その日に作成（取得）された予約を作成時刻順に表示
+    if (createdDateParam && /^\d{4}-\d{2}-\d{2}$/.test(createdDateParam)) {
+      const startOfDay = `${createdDateParam}T00:00:00+09:00`;
+      const endOfDay = `${createdDateParam}T23:59:59+09:00`;
+
+      const { data: createdReservations, error: createdError } = await withTenant(
+        supabaseAdmin
+          .from("reservations")
+          .select("*")
+          .gte("created_at", startOfDay)
+          .lte("created_at", endOfDay)
+          .neq("status", "canceled")
+          .order("created_at", { ascending: false })
+          .limit(200),
+        tenantId
+      );
+
+      if (createdError) {
+        console.error("Supabase reservations error:", createdError);
+        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+      }
+
+      // 患者情報を取得
+      const pIds = [...new Set((createdReservations || []).map((r: any) => r.patient_id).filter(Boolean))];
+      const pMap2 = new Map<string, { name: string; line_id: string }>();
+      if (pIds.length > 0) {
+        const { data: pData } = await withTenant(
+          supabaseAdmin.from("patients").select("patient_id, name, line_id").in("patient_id", pIds),
+          tenantId
+        );
+        for (const p of pData || []) {
+          pMap2.set(p.patient_id, { name: p.name || "", line_id: p.line_id || "" });
+        }
+      }
+
+      return NextResponse.json({
+        ok: true,
+        created_date: createdDateParam,
+        reservations: (createdReservations || []).map((r: any) => {
+          const patient = pMap2.get(r.patient_id);
+          return {
+            id: r.id || r.reserve_id,
+            reserve_id: r.reserve_id,
+            patient_id: r.patient_id,
+            patient_name: r.patient_name || patient?.name || "",
+            reserved_date: r.reserved_date,
+            reserved_time: r.reserved_time,
+            status: r.status || "pending",
+            prescription_menu: r.prescription_menu || "",
+            created_at: r.created_at || "",
+          };
+        }),
+      });
+    }
 
     // from指定がある場合は、その日以降の予約を全て取得
     if (fromParam) {
