@@ -104,7 +104,25 @@ export default function AccountingPage() {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-  const loadDailyData = useCallback(async (yearMonth: string) => {
+  // 日別データから選択日のサマリーを抽出するヘルパー
+  const extractDateSummary = useCallback((data: DailyData[], dateStr: string) => {
+    const dateData = data.find((d) => d.date === dateStr);
+    if (dateData) {
+      setTodaySummary({
+        totalSquare: dateData.square,
+        totalBank: dateData.bank,
+        totalRefund: dateData.refund,
+        totalNet: dateData.total,
+        squareCount: dateData.squareCount,
+        bankCount: dateData.bankCount,
+      });
+    } else {
+      setTodaySummary({ totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0, squareCount: 0, bankCount: 0 });
+    }
+  }, []);
+
+  // 月次データ取得（日別サマリーも同時に抽出して2重呼び出しを排除）
+  const loadDailyData = useCallback(async (yearMonth: string, dateStr: string) => {
     try {
       const res = await fetch(`/api/admin/daily-revenue?year_month=${yearMonth}`, {
         credentials: "include",
@@ -115,54 +133,18 @@ export default function AccountingPage() {
         if (json.ok) {
           setDailyData(json.data);
           setDailySummary(json.summary);
+          extractDateSummary(json.data, dateStr);
         }
       }
     } catch {
       // ignore
     }
-  }, []);
-
-  const loadSelectedDateData = useCallback(async (dateStr: string) => {
-    try {
-      const res = await fetch(`/api/admin/daily-revenue?year_month=${dateStr.slice(0, 7)}`, {
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        if (json.ok && json.data) {
-          const dateData = json.data.find((d: DailyData) => d.date === dateStr);
-          if (dateData) {
-            setTodaySummary({
-              totalSquare: dateData.square,
-              totalBank: dateData.bank,
-              totalRefund: dateData.refund,
-              totalNet: dateData.total,
-              squareCount: dateData.squareCount,
-              bankCount: dateData.bankCount,
-            });
-          } else {
-            setTodaySummary({
-              totalSquare: 0,
-              totalBank: 0,
-              totalRefund: 0,
-              totalNet: 0,
-              squareCount: 0,
-              bankCount: 0,
-            });
-          }
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  }, [extractDateSummary]);
 
   // 売上分析データ取得（月選択と連動）
   const loadAnalyticsData = useCallback(async (tab: AnalyticsTab, yearMonth: string) => {
     setAnalyticsLoading(true);
     const from = `${yearMonth}-01`;
-    // 月末日を算出
     const [y, m] = yearMonth.split("-").map(Number);
     const lastDay = new Date(y, m, 0).getDate();
     const to = `${yearMonth}-${String(lastDay).padStart(2, "0")}`;
@@ -191,15 +173,25 @@ export default function AccountingPage() {
     setAnalyticsLoading(false);
   }, []);
 
+  // 月変更時: daily-revenue + analytics を並列取得
   useEffect(() => {
-    loadDailyData(selectedMonth);
-  }, [selectedMonth, loadDailyData]);
+    loadDailyData(selectedMonth, selectedDate);
+    loadAnalyticsData(analyticsTab, selectedMonth);
+  }, [selectedMonth, loadDailyData, loadAnalyticsData, analyticsTab]);
 
+  // 日付変更時: 同月内ならキャッシュ済みのdailyDataから抽出（API呼び出し不要）
   useEffect(() => {
-    loadSelectedDateData(selectedDate);
-  }, [selectedDate, loadSelectedDateData]);
+    const dateMonth = selectedDate.slice(0, 7);
+    if (dateMonth === selectedMonth && dailyData.length > 0) {
+      extractDateSummary(dailyData, selectedDate);
+    } else if (dateMonth !== selectedMonth) {
+      // 別月の日付が選ばれた場合のみAPI呼び出し
+      loadDailyData(dateMonth, selectedDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
-  // 売上分析: タブまたは月が変わったらデータ取得
+  // 分析タブ変更時
   useEffect(() => {
     loadAnalyticsData(analyticsTab, selectedMonth);
   }, [analyticsTab, selectedMonth, loadAnalyticsData]);

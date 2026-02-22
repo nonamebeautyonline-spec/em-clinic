@@ -39,7 +39,7 @@ async function getDailyRevenue(from: string, to: string, tenantId: string | null
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await withTenant(query, tenantId);
+  const { data } = await withTenant(query.limit(10000), tenantId);
   if (!data) return NextResponse.json({ daily: [] });
 
   const map = new Map<string, { revenue: number; refunds: number; count: number }>();
@@ -73,7 +73,8 @@ async function getLTV(tenantId: string | null) {
     supabaseAdmin
       .from("orders")
       .select("patient_id, amount, paid_at, refund_status, refunded_amount")
-      .not("paid_at", "is", null),
+      .not("paid_at", "is", null)
+      .limit(50000),
     tenantId
   );
 
@@ -136,7 +137,8 @@ async function getCohort(tenantId: string | null) {
       .from("orders")
       .select("patient_id, paid_at")
       .not("paid_at", "is", null)
-      .order("paid_at", { ascending: true }),
+      .order("paid_at", { ascending: true })
+      .limit(50000),
     tenantId
   );
 
@@ -196,7 +198,7 @@ async function getProductBreakdown(from: string, to: string, tenantId: string | 
   if (from) query = query.gte("paid_at", from);
   if (to) query = query.lte("paid_at", to + "T23:59:59");
 
-  const { data } = await withTenant(query, tenantId);
+  const { data } = await withTenant(query.limit(10000), tenantId);
   if (!data) return NextResponse.json({ products: [] });
 
   const map = new Map<string, { revenue: number; count: number }>();

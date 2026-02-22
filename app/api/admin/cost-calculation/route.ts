@@ -79,14 +79,10 @@ export async function GET(req: NextRequest) {
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
 
-    // ページネーション対応（1000件制限回避）
-    const PAGE_SIZE = 1000;
-
-    // カード決済 - ページネーション対応
-    let allSquareOrders: { id: string; product_code: string | null; amount: number }[] = [];
-    let page = 0;
-    while (true) {
-      const { data: squareOrders, error: squareError } = await withTenant(
+    // 2クエリを並列実行（逐次ページネーション→並列に最適化）
+    const [squareResult, bankResult] = await Promise.all([
+      // カード決済
+      withTenant(
         supabase
           .from("orders")
           .select("id, product_code, amount")
@@ -94,25 +90,11 @@ export async function GET(req: NextRequest) {
           .gte("paid_at", startISO)
           .lt("paid_at", endISO)
           .not("paid_at", "is", null)
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+          .limit(10000),
         tenantId
-      );
-
-      if (squareError) {
-        console.error("[cost-calculation] Square query error:", squareError);
-        break;
-      }
-      if (!squareOrders || squareOrders.length === 0) break;
-      allSquareOrders = allSquareOrders.concat(squareOrders);
-      if (squareOrders.length < PAGE_SIZE) break;
-      page++;
-    }
-
-    // 銀行振込 - ページネーション対応
-    let allBankOrders: { id: string; product_code: string | null; amount: number }[] = [];
-    page = 0;
-    while (true) {
-      const { data: bankOrders, error: bankError } = await withTenant(
+      ),
+      // 銀行振込
+      withTenant(
         supabase
           .from("orders")
           .select("id, product_code, amount")
@@ -120,19 +102,13 @@ export async function GET(req: NextRequest) {
           .in("status", ["pending_confirmation", "confirmed"])
           .gte("created_at", startISO)
           .lt("created_at", endISO)
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1),
+          .limit(10000),
         tenantId
-      );
+      ),
+    ]);
 
-      if (bankError) {
-        console.error("[cost-calculation] Bank query error:", bankError);
-        break;
-      }
-      if (!bankOrders || bankOrders.length === 0) break;
-      allBankOrders = allBankOrders.concat(bankOrders);
-      if (bankOrders.length < PAGE_SIZE) break;
-      page++;
-    }
+    const allSquareOrders = squareResult.data || [];
+    const allBankOrders = bankResult.data || [];
 
     const allOrders = [...allSquareOrders, ...allBankOrders];
 
