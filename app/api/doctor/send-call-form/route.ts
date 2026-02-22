@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       content: "[通話フォーム]",
       flex_json: flex.contents,
       status,
-    }).then(() => {}).catch(() => {});
+    }).then(() => {}, () => {});
 
     // call_status 更新（reserveIdがある場合）
     if (reserveId) {
