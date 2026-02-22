@@ -29,12 +29,16 @@ const QUICK_TEXTS: { label: string; text: string }[] = [
   { label: "不通", text: "架電するも不通。" },
 ];
 
+type AiKarteState = "idle" | "recording" | "transcribing" | "generating" | "done";
+
 export default function DemoKartePage() {
   const [statusFilter, setStatusFilter] = useState<string>("全て");
   const [selectedReservation, setSelectedReservation] = useState<DemoReservation | null>(null);
   const [karteText, setKarteText] = useState("");
   const [selectedDose, setSelectedDose] = useState("マンジャロ 2.5mg");
   const [reservations, setReservations] = useState<DemoReservation[]>(DEMO_RESERVATIONS);
+  const [aiKarteState, setAiKarteState] = useState<AiKarteState>("idle");
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
 
   // 週間日付タブ
   const weekDates = useMemo(() => {
@@ -72,6 +76,30 @@ export default function DemoKartePage() {
       NG: dayRes.filter((r) => r.status === "NG").length,
     };
   }, [reservations, selectedDate]);
+
+  const startAiKarte = () => {
+    setAiKarteState("recording");
+    setRecordingSeconds(0);
+    let sec = 0;
+    const timer = setInterval(() => {
+      sec++;
+      setRecordingSeconds(sec);
+      if (sec >= 3) {
+        clearInterval(timer);
+        setAiKarteState("transcribing");
+        setTimeout(() => {
+          setAiKarteState("generating");
+          setTimeout(() => {
+            setAiKarteState("done");
+            setKarteText(
+              "S) 前回から体調変化なし。食欲低下は改善傾向。体重-2kg。\nO) バイタル安定。BMI 28.5。前回比-0.7。\nA) GLP-1による順調な体重減少。副作用なし。\nP) マンジャロ5mg 継続処方。次回1ヶ月後。"
+            );
+            setTimeout(() => setAiKarteState("idle"), 500);
+          }, 1500);
+        }, 1500);
+      }
+    }, 1000);
+  };
 
   const openKarte = (res: DemoReservation) => {
     setSelectedReservation(res);
@@ -268,6 +296,44 @@ export default function DemoKartePage() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-slate-600">カルテ</h3>
                 </div>
+
+                {/* AIカルテボタン */}
+                {aiKarteState === "idle" && (
+                  <button
+                    onClick={startAiKarte}
+                    className="mb-3 w-full py-2.5 px-4 border border-purple-300 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    AIカルテ
+                  </button>
+                )}
+                {aiKarteState === "recording" && (
+                  <div className="mb-3 w-full py-2.5 px-4 border border-red-300 bg-red-50 rounded-lg text-sm font-medium text-red-700 flex items-center justify-center gap-2">
+                    <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    録音中... 0:{String(3 - recordingSeconds).padStart(2, "0")}
+                  </div>
+                )}
+                {aiKarteState === "transcribing" && (
+                  <div className="mb-3 w-full py-2.5 px-4 border border-slate-200 bg-slate-50 rounded-lg text-sm font-medium text-slate-600 flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    文字起こし中...
+                  </div>
+                )}
+                {aiKarteState === "generating" && (
+                  <div className="mb-3 w-full py-2.5 px-4 border border-slate-200 bg-slate-50 rounded-lg text-sm font-medium text-slate-600 flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    カルテ生成中...
+                  </div>
+                )}
+
                 {/* 定型文ボタン */}
                 <div className="flex gap-1.5 mb-2 flex-wrap">
                   {QUICK_TEXTS.map((qt) => (

@@ -1555,7 +1555,7 @@ settings.mode に応じて分岐:
 
 | 項目 | 値 |
 |------|-----|
-| URL | `/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/login` |
+| URL | `https://l-ope.jp/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7/login` |
 | ユーザーID | `DEMO-001` |
 | パスワード | `demo1234` |
 

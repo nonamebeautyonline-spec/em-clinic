@@ -6,15 +6,52 @@ import Link from "next/link";
 
 const BASE = "/d-7a0ab13dc2fb7e342cb6794e10cda90582d4c73005982cd7";
 
-const DEMO_MENU_ITEMS = [
-  { href: BASE, icon: "📊", label: "ダッシュボード" },
-  { href: `${BASE}/talk`, icon: "💬", label: "LINEトーク" },
-  { href: `${BASE}/friends`, icon: "👥", label: "友だち管理" },
-  { href: `${BASE}/broadcasts`, icon: "📢", label: "メッセージ配信" },
-  { href: `${BASE}/calendar`, icon: "📅", label: "予約カレンダー" },
-  { href: `${BASE}/karte`, icon: "🩺", label: "Drカルテ" },
-  { href: `${BASE}/shipping`, icon: "📦", label: "発送管理" },
+// セクション分けされたメニュー構成
+const DEMO_MENU_SECTIONS = [
+  {
+    items: [
+      { href: BASE, icon: "\u{1F4CA}", label: "ダッシュボード" },
+    ],
+  },
+  {
+    title: "LINE管理",
+    items: [
+      { href: `${BASE}/talk`, icon: "\u{1F4AC}", label: "LINEトーク" },
+      { href: `${BASE}/friends`, icon: "\u{1F465}", label: "友だち管理" },
+      { href: `${BASE}/tags`, icon: "\u{1F3F7}\uFE0F", label: "タグ管理" },
+      { href: `${BASE}/templates`, icon: "\u{1F4DD}", label: "テンプレート" },
+      { href: `${BASE}/richmenu`, icon: "\u{1F4F1}", label: "リッチメニュー" },
+      { href: `${BASE}/broadcasts`, icon: "\u{1F4E2}", label: "メッセージ配信" },
+      { href: `${BASE}/keyword-replies`, icon: "\u{1F511}", label: "キーワード自動返信" },
+      { href: `${BASE}/ai-reply`, icon: "\u{1F916}", label: "AI返信設定" },
+    ],
+  },
+  {
+    title: "予約・診察",
+    items: [
+      { href: `${BASE}/calendar`, icon: "\u{1F4C5}", label: "予約カレンダー" },
+      { href: `${BASE}/karte`, icon: "\u{1FA7A}", label: "Drカルテ" },
+      { href: `${BASE}/reorders`, icon: "\u{1F48A}", label: "再処方管理" },
+    ],
+  },
+  {
+    title: "業務管理",
+    items: [
+      { href: `${BASE}/shipping`, icon: "\u{1F4E6}", label: "発送管理" },
+      { href: `${BASE}/analytics`, icon: "\u{1F4C8}", label: "分析" },
+    ],
+  },
+  {
+    title: "マスター",
+    items: [
+      { href: `${BASE}/products`, icon: "\u{1F6D2}", label: "商品管理" },
+      { href: `${BASE}/settings`, icon: "\u2699\uFE0F", label: "設定" },
+    ],
+  },
 ];
+
+// フラットなメニューアイテムリスト（モバイル用）
+const ALL_MENU_ITEMS = DEMO_MENU_SECTIONS.flatMap((s) => s.items);
 
 function LogoMark({ compact }: { compact?: boolean }) {
   const gradientClass = "bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent";
@@ -33,6 +70,45 @@ function LogoMark({ compact }: { compact?: boolean }) {
       <span className={`ml-1.5 text-[10px] font-semibold tracking-widest uppercase ${gradientClass}`}>for CLINIC</span>
       <span className="ml-2 text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded">DEMO</span>
     </div>
+  );
+}
+
+function isActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === BASE) return pathname === BASE;
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function SidebarNav({ pathname, isSidebarOpen, onItemClick }: { pathname: string | null; isSidebarOpen: boolean; onItemClick?: () => void }) {
+  return (
+    <>
+      {DEMO_MENU_SECTIONS.map((section, sIdx) => (
+        <div key={sIdx}>
+          {section.title && isSidebarOpen && (
+            <div className="px-4 pt-4 pb-1">
+              <span className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">{section.title}</span>
+            </div>
+          )}
+          {!isSidebarOpen && section.title && <div className="border-t border-slate-700 mx-3 my-2" />}
+          {section.items.map((item) => {
+            const active = isActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onItemClick}
+                className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
+                  active ? "bg-slate-800 border-l-4 border-blue-500" : ""
+                }`}
+              >
+                <span className="text-base">{item.icon}</span>
+                {isSidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -109,27 +185,13 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
                 </svg>
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto py-4">
-              {DEMO_MENU_ITEMS.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-colors ${
-                    pathname === item.href || (item.href !== BASE && pathname?.startsWith(item.href))
-                      ? "bg-slate-800 border-l-4 border-blue-500"
-                      : ""
-                  }`}
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  <span className="text-sm font-medium">{item.label}</span>
-                </Link>
-              ))}
+            <nav className="flex-1 overflow-y-auto py-2">
+              <SidebarNav pathname={pathname} isSidebarOpen={true} onItemClick={() => setIsMobileMenuOpen(false)} />
             </nav>
             <div className="p-4 border-t border-slate-700">
               <button onClick={handleLogout} className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm">
                 <span>ログアウト</span>
-                <span>🚪</span>
+                <span>{"\u{1F6AA}"}</span>
               </button>
             </div>
           </aside>
@@ -153,30 +215,14 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4">
-          {DEMO_MENU_ITEMS.map((item) => {
-            const isActive = item.href === BASE
-              ? pathname === BASE
-              : pathname === item.href || pathname?.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`w-full px-4 py-2 flex items-center gap-2.5 hover:bg-slate-800 transition-colors ${
-                  isActive ? "bg-slate-800 border-l-4 border-blue-500" : ""
-                }`}
-              >
-                <span className="text-base">{item.icon}</span>
-                {isSidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-2">
+          <SidebarNav pathname={pathname} isSidebarOpen={isSidebarOpen} />
         </nav>
 
         <div className="p-4 border-t border-slate-700">
           <button onClick={handleLogout} className="w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded flex items-center justify-center gap-2 text-sm">
             {isSidebarOpen && <span>ログアウト</span>}
-            <span>🚪</span>
+            <span>{"\u{1F6AA}"}</span>
           </button>
         </div>
       </aside>
