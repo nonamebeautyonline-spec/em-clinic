@@ -27,13 +27,18 @@ async function getKeywords(tenantId: string | null): Promise<string[]> {
     // Redis 障害時は無視
   }
 
-  // DB から取得
-  const { data } = await withTenant(
-    supabaseAdmin
-      .from("medical_vocabulary")
-      .select("term, boost_weight"),
-    tenantId
-  );
+  // DB から取得（テナント固有 + グローバル（tenant_id=null）の両方を取得）
+  let query = supabaseAdmin
+    .from("medical_vocabulary")
+    .select("term, boost_weight");
+
+  if (tenantId) {
+    // テナント固有 OR グローバル辞書
+    query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+  }
+  // tenantId が null の場合はフィルタなし（全件）
+
+  const { data } = await query;
 
   if (!data || data.length === 0) {
     // DB にデータがない場合はフォールバック用のデフォルトキーワード
@@ -67,12 +72,15 @@ async function getKeywords(tenantId: string | null): Promise<string[]> {
 
 /** LLM 補正用の辞書用語を取得（term + reading） */
 async function getVocabTerms(tenantId: string | null): Promise<VocabTerm[]> {
-  const { data } = await withTenant(
-    supabaseAdmin
-      .from("medical_vocabulary")
-      .select("term, reading"),
-    tenantId
-  );
+  let query = supabaseAdmin
+    .from("medical_vocabulary")
+    .select("term, reading");
+
+  if (tenantId) {
+    query = query.or(`tenant_id.eq.${tenantId},tenant_id.is.null`);
+  }
+
+  const { data } = await query;
   return (data as VocabTerm[]) || [];
 }
 
@@ -119,18 +127,35 @@ async function transcribeWithDeepgram(
 
   console.log("[voice/transcribe] Deepgram開始: size=%d, mime=%s, keywords=%d件", audioBuffer.length, mimeType, keywords.length);
 
-  const { result } = await client.listen.prerecorded.transcribeFile(audioBuffer, {
-    model: "nova-3",
-    language: "ja",
-    smart_format: true,
-    punctuate: true,
-    keywords: keywords.length > 0 ? keywords : undefined,
-  });
+  const { result, error: dgError } = await client.listen.prerecorded.transcribeFile(
+    audioBuffer,
+    {
+      model: "nova-2",
+      language: "ja",
+      smart_format: true,
+      punctuate: true,
+      keywords: keywords.length > 0 ? keywords : undefined,
+    }
+  );
+
+  if (dgError) {
+    console.error("[voice/transcribe] Deepgramエラー:", dgError);
+  }
 
   const channel = result?.results?.channels?.[0];
   const alt = channel?.alternatives?.[0];
 
-  console.log("[voice/transcribe] Deepgram結果: transcript=%s, confidence=%s", alt?.transcript?.substring(0, 100) || "(空)", alt?.confidence ?? "N/A");
+  console.log("[voice/transcribe] Deepgram結果: transcript=%s, confidence=%s, channels=%d, model_info=%s",
+    alt?.transcript?.substring(0, 100) || "(空)",
+    alt?.confidence ?? "N/A",
+    result?.results?.channels?.length ?? 0,
+    JSON.stringify(result?.metadata?.model_info || {}).substring(0, 200)
+  );
+
+  // 詳細ログ（空結果時のデバッグ用）
+  if (!alt?.transcript) {
+    console.log("[voice/transcribe] Deepgram詳細: metadata=%s", JSON.stringify(result?.metadata || {}).substring(0, 500));
+  }
 
   return {
     transcript: alt?.transcript || "",
