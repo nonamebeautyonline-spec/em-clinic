@@ -83,6 +83,40 @@ export async function setSetting(
   }
 }
 
+/** 複数カテゴリの全設定を一括取得（復号済み） */
+export async function getSettingsBulk(
+  categories: SettingCategory[],
+  tenantId?: string
+): Promise<Map<string, string>> {
+  try {
+    let query = supabaseAdmin
+      .from("tenant_settings")
+      .select("category, key, value")
+      .in("category", categories);
+
+    if (tenantId) {
+      query = query.eq("tenant_id", tenantId);
+    } else {
+      query = query.is("tenant_id", null);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return new Map();
+
+    const map = new Map<string, string>();
+    for (const row of data) {
+      try {
+        map.set(`${row.category}:${row.key}`, decrypt(row.value));
+      } catch {
+        map.set(`${row.category}:${row.key}`, row.value);
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 /** カテゴリ内の全設定を取得（キー一覧、値はマスク済み） */
 export async function getSettingsByCategory(
   category: SettingCategory,

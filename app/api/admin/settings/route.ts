@@ -1,7 +1,7 @@
 // app/api/admin/settings/route.ts — テナント設定 API
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { getSetting, setSetting, getSettingsByCategory, type SettingCategory } from "@/lib/settings";
+import { getSetting, setSetting, getSettingsBulk, type SettingCategory } from "@/lib/settings";
 import { maskValue } from "@/lib/crypto";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -83,41 +83,36 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category") as SettingCategory | null;
 
-  const result: Record<string, { key: string; label: string; maskedValue: string | null; source: "db" | "env" | "none" }[]> = {};
-
   const categories = category ? [category] : (Object.keys(SETTING_DEFINITIONS) as SettingCategory[]);
+
+  // 単一カテゴリで特定キーのみ必要な場合（consultation等）はフラット形式で返す
+  if (category) {
+    const bulk = await getSettingsBulk([category], tenantId ?? undefined);
+    const flat: Record<string, string> = {};
+    for (const [k, v] of bulk) {
+      const key = k.split(":")[1]; // "consultation:line_call_url" → "line_call_url"
+      flat[key] = v;
+    }
+    return NextResponse.json({ settings: flat });
+  }
+
+  // 全カテゴリ一括取得（1回のDBクエリ）
+  const bulk = await getSettingsBulk(categories, tenantId ?? undefined);
+
+  const result: Record<string, { key: string; label: string; maskedValue: string | null; source: "db" | "env" | "none" }[]> = {};
 
   for (const cat of categories) {
     const defs = SETTING_DEFINITIONS[cat] || [];
-    const entries = [];
-
-    for (const def of defs) {
-      const dbValue = await getSetting(cat, def.key, tenantId ?? undefined);
+    result[cat] = defs.map((def) => {
+      const dbValue = bulk.get(`${cat}:${def.key}`);
       if (dbValue) {
-        entries.push({
-          key: def.key,
-          label: def.label,
-          maskedValue: maskValue(dbValue),
-          source: "db" as const,
-        });
-      } else if (def.envFallback && process.env[def.envFallback]) {
-        entries.push({
-          key: def.key,
-          label: def.label,
-          maskedValue: maskValue(process.env[def.envFallback]!),
-          source: "env" as const,
-        });
-      } else {
-        entries.push({
-          key: def.key,
-          label: def.label,
-          maskedValue: null,
-          source: "none" as const,
-        });
+        return { key: def.key, label: def.label, maskedValue: maskValue(dbValue), source: "db" as const };
       }
-    }
-
-    result[cat] = entries;
+      if (def.envFallback && process.env[def.envFallback]) {
+        return { key: def.key, label: def.label, maskedValue: maskValue(process.env[def.envFallback]!), source: "env" as const };
+      }
+      return { key: def.key, label: def.label, maskedValue: null, source: "none" as const };
+    });
   }
 
   return NextResponse.json({ settings: result, definitions: SETTING_DEFINITIONS });
