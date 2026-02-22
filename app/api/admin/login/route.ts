@@ -9,6 +9,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { adminLoginSchema } from "@/lib/validations/admin-login";
 import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
+import { sendLoginAlertIfNewIp } from "@/lib/notifications/login-alert";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,9 +79,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ログイン成功 → レート制限カウントをリセット + 監査ログ
+    // ログイン成功 → レート制限カウントをリセット + 監査ログ + ログインアラート
     await resetRateLimit(`login:user:${usernameNorm}`);
     logAudit(req, "admin.login.success", "admin_user", user.id, { username: user.username });
+
+    // 新しいIPからのログイン時にメール通知（fire-and-forget）
+    sendLoginAlertIfNewIp({
+      adminUserId: user.id,
+      email: user.email,
+      name: user.name,
+      ipAddress: ip,
+      userAgent: req.headers.get("user-agent"),
+    }).catch((err) => console.error("[login-alert] Error:", err));
 
     // JWTトークン生成
     const secret = new TextEncoder().encode(JWT_SECRET);

@@ -718,7 +718,7 @@ em-clinic/
 | `password_reset_tokens` | パスワードリセットトークン |
 | `verify_codes` | 認証コード |
 | `chat_reads` | チャット既読管理 |
-| `tenants` | テナント定義 |
+| `tenants` | テナント定義（`industry`: clinic/salon/retail/other） |
 | `tenant_members` | テナントメンバー |
 | `tenant_settings` | テナント別設定（暗号化） |
 
@@ -794,6 +794,8 @@ doctors → 1:N → doctor_date_overrides
 | `lib/settings.ts` | テナント設定 | `getSetting()`, `getSettingOrEnv()`, `setSetting()` |
 | `lib/crypto.ts` | 暗号化 | `encrypt()`, `decrypt()`, `maskValue()` |
 | `lib/redis.ts` | Redisクライアント | `redis`, `invalidateDashboardCache()` |
+| `lib/feature-flags.ts` | 機能フラグ・業種定義 | `hasFeature()`, `getEnabledFeatures()`, `Industry`, `INDUSTRY_LABELS` |
+| `lib/notifications/login-alert.ts` | ログインアラート | `sendLoginAlertIfNewIp()` |
 
 ### 6.3 決済
 
@@ -977,7 +979,15 @@ doctors → 1:N → doctor_date_overrides
 - **同時セッション上限**: 3（最古を自動削除）
 - **last_activity**: 5分おきに更新
 
-### 8.6 その他
+### 8.6 ログインアラート
+
+- **実装**: `lib/notifications/login-alert.ts`
+- **トリガー**: ログイン成功時に過去30日のセッションIP一覧と比較
+- **通知条件**: 新しいIPアドレスからのログイン（初回ログインは除外）
+- **通知方法**: 管理者メールアドレスへメール送信（Resend API）
+- **方式**: Fire-and-forget（ログイン処理をブロックしない）
+
+### 8.7 その他
 
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`

@@ -170,3 +170,14 @@ export function getPlanFeatures(planName: string): Feature[] {
  */
 export const PLAN_NAMES = ["trial", "standard", "premium", "enterprise"] as const;
 export type PlanName = (typeof PLAN_NAMES)[number];
+
+/** 業種タイプ（将来的に業種別テナントグループに対応） */
+export type Industry = "clinic" | "salon" | "retail" | "other";
+
+/** 業種名→表示名マッピング */
+export const INDUSTRY_LABELS: Record<Industry, string> = {
+  clinic: "クリニック",
+  salon: "サロン",
+  retail: "小売",
+  other: "その他",
+};
