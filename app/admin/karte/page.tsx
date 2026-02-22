@@ -130,7 +130,7 @@ export default function KartePage() {
   const [listItems, setListItems] = useState<KarteListItem[]>([]);
   const [listTotal, setListTotal] = useState(0);
   const [listPage, setListPage] = useState(1);
-  const [listLimit, setListLimit] = useState(10);
+  const [listLimit, setListLimit] = useState(100);
   const [listLoading, setListLoading] = useState(true);
   const [listQuery, setListQuery] = useState("");
   const [filterDate, setFilterDate] = useState<string>(getTodayJST());
@@ -585,6 +585,7 @@ export default function KartePage() {
                     <option value={10}>10</option>
                     <option value={25}>25</option>
                     <option value={50}>50</option>
+                    <option value={100}>100</option>
                   </select>
                 </div>
                 <div className="flex items-center gap-3">

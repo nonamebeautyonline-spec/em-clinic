@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
 
     const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || "10")));
+    const limit = Math.min(200, Math.max(1, Number(req.nextUrl.searchParams.get("limit") || "100")));
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
     const date = req.nextUrl.searchParams.get("date"); // YYYY-MM-DD: その日に更新されたカルテのみ
 
@@ -183,6 +183,16 @@ export async function GET(req: NextRequest) {
         prescriptionMenu: resv?.prescription_menu || "",
         hasNote: !!row.note,
       };
+    });
+
+    // 予約日時の降順（新しい予約が上）でソート
+    items.sort((a, b) => {
+      const dateA = a.reservedDate || "0000-00-00";
+      const dateB = b.reservedDate || "0000-00-00";
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      const timeA = a.reservedTime || "00:00";
+      const timeB = b.reservedTime || "00:00";
+      return timeA.localeCompare(timeB);
     });
 
     return NextResponse.json({ ok: true, items, total, page, limit });
