@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { calcAge, formatBirthWithEra, formatDateJST } from "@/lib/patient-utils";
 import { VoiceRecordButton } from "@/components/voice-record-button";
+import { VoiceKarteButton } from "@/components/voice-karte-button";
 
 type Patient = {
   id: string;
@@ -267,6 +268,9 @@ export default function PatientDetailPage({
                 <VoiceRecordButton
                   onTranscribed={(text) => setNewKarteNote(prev => prev ? prev + "\n" + text : text)}
                 />
+                <VoiceKarteButton
+                  onKarteGenerated={(text) => setNewKarteNote(prev => prev ? prev + "\n" + text : text)}
+                />
                 <button
                   onClick={() => { setShowNewKarte(false); setNewKarteNote(""); }}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
@@ -392,6 +396,9 @@ export default function PatientDetailPage({
                     </button>
                     <VoiceRecordButton
                       onTranscribed={(text) => setNoteDraft(prev => prev ? prev + "\n" + text : text)}
+                    />
+                    <VoiceKarteButton
+                      onKarteGenerated={(text) => setNoteDraft(prev => prev ? prev + "\n" + text : text)}
                     />
                   </div>
                 </div>
