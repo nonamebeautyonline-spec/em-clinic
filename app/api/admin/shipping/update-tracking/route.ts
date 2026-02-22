@@ -4,6 +4,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateTrackingCsvSchema } from "@/lib/validations/shipping";
+import { invalidateDashboardCache } from "@/lib/redis";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
 
     const successUpdates: string[] = [];
     const errors: string[] = [];
+    const patientIds: string[] = [];
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
     // データ行を処理（ヘッダーをスキップ）
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
                 updated_at: new Date().toISOString(),
               })
               .eq("id", paymentId)
-              .select("id"),
+              .select("id, patient_id"),
             tenantId
           );
 
@@ -97,6 +99,9 @@ export async function POST(req: NextRequest) {
           }
 
           successUpdates.push(paymentId);
+          if (data[0]?.patient_id) {
+            patientIds.push(data[0].patient_id);
+          }
           console.log(`[UpdateTracking] ✅ Updated ${paymentId} with tracking ${trackingNumber}`);
         } catch (err) {
           console.error(`[UpdateTracking] Exception for ${paymentId}:`, err);
@@ -106,6 +111,19 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[UpdateTracking] Complete: ${successUpdates.length} success, ${errors.length} failed`);
+
+    // キャッシュ無効化
+    if (patientIds.length > 0) {
+      const uniquePatientIds = Array.from(new Set(patientIds));
+      console.log(`[UpdateTracking] Invalidating cache for ${uniquePatientIds.length} patients`);
+      await Promise.allSettled(
+        uniquePatientIds.map((pid) =>
+          invalidateDashboardCache(pid).catch((err) => {
+            console.error(`[UpdateTracking] Cache invalidation failed for ${pid}:`, err);
+          })
+        )
+      );
+    }
 
     return NextResponse.json({
       success: successUpdates.length,
