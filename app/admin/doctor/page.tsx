@@ -1288,6 +1288,8 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                   </button>
                   {/* 音声入力ボタン */}
                   <VoiceRecordButton onTranscribed={insertTemplateToNote} />
+                  {/* AIカルテ生成ボタン */}
+                  <VoiceKarteButton onKarteGenerated={insertTemplateToNote} />
                 </div>
 
                 <textarea
