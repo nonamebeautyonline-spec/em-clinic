@@ -20,11 +20,11 @@ export default defineConfig({
         "load-tests/**",
       ],
       thresholds: {
-        // 実測値(2026-02-22): Lines 15.9%, Branches 12%, Functions 18.59%
+        // 実測値(2026-02-22): Lines 16.51%, Branches 12.46%, Functions 20.26%
         // 段階的引き上げ: 現在値 → 25% → 40% → 70% → 90%
-        lines: 15,
-        branches: 11,
-        functions: 18,
+        lines: 16,
+        branches: 12,
+        functions: 20,
       },
     },
   },

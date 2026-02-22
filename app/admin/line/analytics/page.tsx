@@ -104,6 +104,58 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState<"csv" | "pdf" | null>(null);
+
+  // CSVダウンロード
+  const downloadCsv = () => {
+    if (!data?.broadcastStats?.length) return;
+    setDownloading("csv");
+    try {
+      const headers = ["配信名", "送信日時", "ターゲット数", "送信数", "失敗数", "到達率(%)", "ユニーククリック数", "CTR(%)", "推定注文数", "CVR(%)"];
+      const rows = data.broadcastStats.map((b) => [
+        `"${(b.name || "").replace(/"/g, '""')}"`,
+        b.sentAt,
+        b.totalTargets,
+        b.sentCount,
+        b.failedCount,
+        b.deliveryRate,
+        b.uniqueClicks,
+        b.clickRate,
+        b.orders,
+        b.cvr,
+      ].join(","));
+      const csv = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `line-analytics-${period}days.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  // PDFダウンロード
+  const downloadPdf = async () => {
+    setDownloading("pdf");
+    try {
+      const res = await fetch(`/api/admin/line/analytics/report?period=${period}`, { credentials: "include" });
+      if (!res.ok) throw new Error("PDF generation failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `line-analytics-${period}days.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[analytics] PDF download error:", e);
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const fetchData = useCallback(async (p: number) => {
     setLoading(true);
@@ -167,21 +219,41 @@ export default function AnalyticsPage() {
               <p className="text-sm text-gray-400 mt-1">配信パフォーマンスを可視化</p>
             </div>
 
-            {/* 期間切替 */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              {[7, 30, 90].map((p) => (
+            <div className="flex items-center gap-3">
+              {/* レポートダウンロード */}
+              <div className="flex items-center gap-1">
                 <button
-                  key={p}
-                  onClick={() => handlePeriodChange(p)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    period === p
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
+                  onClick={downloadCsv}
+                  disabled={downloading !== null || !data?.broadcastStats?.length}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {p}日
+                  {downloading === "csv" ? "..." : "CSV"}
                 </button>
-              ))}
+                <button
+                  onClick={downloadPdf}
+                  disabled={downloading !== null}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {downloading === "pdf" ? "..." : "PDF"}
+                </button>
+              </div>
+
+              {/* 期間切替 */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                {[7, 30, 90].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => handlePeriodChange(p)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      period === p
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {p}日
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

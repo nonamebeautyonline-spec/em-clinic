@@ -1,6 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface DashboardStats {
   reservations: {
@@ -127,9 +144,11 @@ export default function AdminDashboard() {
   const [showCustomize, setShowCustomize] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
 
-  // ドラッグ&ドロップ
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
+  // ドラッグ&ドロップ（@dnd-kit）
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   // レイアウト読み込み
   useEffect(() => {
@@ -211,16 +230,14 @@ export default function AdminDashboard() {
     saveLayout({ widgets: newWidgets });
   };
 
-  // ドラッグ&ドロップハンドラ
-  const handleDragStart = (index: number) => { dragItem.current = index; };
-  const handleDragEnter = (index: number) => { dragOverItem.current = index; };
-  const handleDragEnd = () => {
-    if (!layout || dragItem.current === null || dragOverItem.current === null) return;
-    const newWidgets = [...layout.widgets];
-    const [dragged] = newWidgets.splice(dragItem.current, 1);
-    newWidgets.splice(dragOverItem.current, 0, dragged);
-    dragItem.current = null;
-    dragOverItem.current = null;
+  // ドラッグ&ドロップハンドラ（@dnd-kit）
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !layout) return;
+    const oldIndex = layout.widgets.findIndex((w) => w.id === active.id);
+    const newIndex = layout.widgets.findIndex((w) => w.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newWidgets = arrayMove(layout.widgets, oldIndex, newIndex);
     saveLayout({ widgets: newWidgets });
   };
 
@@ -716,39 +733,15 @@ export default function AdminDashboard() {
           <p className="text-xs text-slate-500 mb-4">
             ドラッグ&ドロップで並び替え、チェックで表示/非表示を切り替え
           </p>
-          <div className="space-y-1">
-            {layout.widgets.map((w, i) => (
-              <div
-                key={w.id}
-                draggable
-                onDragStart={() => handleDragStart(i)}
-                onDragEnter={() => handleDragEnter(i)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => e.preventDefault()}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-grab active:cursor-grabbing select-none"
-              >
-                <span className="text-slate-400 text-sm">&#x2630;</span>
-                <label className="flex items-center gap-2 flex-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={w.visible}
-                    onChange={() => toggleWidget(w.id)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className={`text-sm ${w.visible ? "text-slate-900" : "text-slate-400 line-through"}`}>
-                    {WIDGET_LABELS[w.id]}
-                  </span>
-                </label>
-                <span className="text-xs text-slate-400">
-                  {getGroupForWidget(w.id) === "kpi_main" && "主要KPI"}
-                  {getGroupForWidget(w.id) === "kpi_conversion" && "転換率"}
-                  {getGroupForWidget(w.id) === "kpi_today" && "本日"}
-                  {getGroupForWidget(w.id) === "chart" && "グラフ"}
-                  {getGroupForWidget(w.id) === "detail" && "詳細"}
-                </span>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={layout.widgets.map((w) => w.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {layout.widgets.map((w) => (
+                  <SortableWidgetItem key={w.id} widget={w} onToggle={() => toggleWidget(w.id)} />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 
@@ -758,6 +751,51 @@ export default function AdminDashboard() {
 
       {/* ウィジェット描画 */}
       {renderWidgetGroups()}
+    </div>
+  );
+}
+
+// ドラッグ&ドロップ対応ウィジェット行
+function SortableWidgetItem({ widget, onToggle }: { widget: WidgetConfig; onToggle: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 select-none ${
+        isDragging ? "opacity-50 shadow-lg bg-blue-50" : ""
+      }`}
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="text-slate-400 text-sm cursor-grab active:cursor-grabbing"
+      >
+        &#x2630;
+      </span>
+      <label className="flex items-center gap-2 flex-1 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={widget.visible}
+          onChange={onToggle}
+          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span className={`text-sm ${widget.visible ? "text-slate-900" : "text-slate-400 line-through"}`}>
+          {WIDGET_LABELS[widget.id]}
+        </span>
+      </label>
+      <span className="text-xs text-slate-400">
+        {getGroupForWidget(widget.id) === "kpi_main" && "主要KPI"}
+        {getGroupForWidget(widget.id) === "kpi_conversion" && "転換率"}
+        {getGroupForWidget(widget.id) === "kpi_today" && "本日"}
+        {getGroupForWidget(widget.id) === "chart" && "グラフ"}
+        {getGroupForWidget(widget.id) === "detail" && "詳細"}
+      </span>
     </div>
   );
 }
