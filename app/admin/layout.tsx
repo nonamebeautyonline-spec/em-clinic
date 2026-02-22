@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
+import { FeaturesProvider, useFeatures } from "@/lib/hooks/use-features";
+import type { Feature } from "@/lib/feature-flags";
 
 // 認証不要のパス
 const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/setup"];
@@ -29,11 +31,11 @@ function LogoMark({ compact }: { compact?: boolean }) {
 }
 
 // スマホ用メニュー項目（必要な機能のみ）
-const MOBILE_MENU_ITEMS = [
+const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: Feature }[] = [
   { href: "/admin/accounting", icon: "💹", label: "売上管理" },
   { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
-  { href: "/admin/reorders", icon: "🔄", label: "再処方リスト" },
+  { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
   { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
   { href: "/admin/doctor", icon: "🩺", label: "Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
@@ -41,7 +43,7 @@ const MOBILE_MENU_ITEMS = [
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
   { href: "/admin/inventory", icon: "📦", label: "在庫" },
-  { href: "/admin/intake-form", icon: "📝", label: "問診設定" },
+  { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
   { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
@@ -214,6 +216,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
+    <FeaturesProvider>
     <div className="h-dvh bg-slate-50 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン（トークページでは非表示：専用タブナビを使用） */}
       {pathname !== "/admin/line/talk" && (
@@ -262,6 +265,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
                   onClick={() => setIsMobileMenuOpen(false)}
                   badge={item.href === "/admin/line/talk" ? unreadCount : undefined}
+                  feature={item.feature}
                 />
               ))}
             </nav>
@@ -359,6 +363,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="再処方リスト"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/reorders"}
+            feature="reorder"
           />
           <MenuItem
             href="/admin/schedule"
@@ -456,6 +461,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="問診設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/intake-form"}
+            feature="form_builder"
           />
           <MenuItem
             href="/admin/patient-data"
@@ -541,6 +547,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* 患者検索ウィジェット */}
       <PatientLookupWidget />
     </div>
+    </FeaturesProvider>
   );
 }
 
@@ -551,9 +558,13 @@ interface MenuItemProps {
   isOpen: boolean;
   isActive: boolean;
   badge?: number;
+  feature?: Feature;
 }
 
-function MenuItem({ href, icon, label, isOpen, isActive, badge }: MenuItemProps) {
+function MenuItem({ href, icon, label, isOpen, isActive, badge, feature }: MenuItemProps) {
+  const { hasFeature } = useFeatures();
+  if (feature && !hasFeature(feature)) return null;
+
   return (
     <Link
       href={href}
@@ -591,9 +602,13 @@ interface MobileMenuItemProps {
   isActive: boolean;
   onClick: () => void;
   badge?: number;
+  feature?: Feature;
 }
 
-function MobileMenuItem({ href, icon, label, isActive, onClick, badge }: MobileMenuItemProps) {
+function MobileMenuItem({ href, icon, label, isActive, onClick, badge, feature }: MobileMenuItemProps) {
+  const { hasFeature } = useFeatures();
+  if (feature && !hasFeature(feature)) return null;
+
   return (
     <Link
       href={href}

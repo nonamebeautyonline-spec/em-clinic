@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import dotenv from "dotenv";
+import path from "path";
+
+// E2Eテスト用環境変数を読み込み
+dotenv.config({ path: path.resolve(__dirname, "e2e/.env.test") });
 
 export default defineConfig({
   testDir: "./e2e",
@@ -13,8 +18,16 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/admin.json",
+      },
+      dependencies: ["setup"],
     },
   ],
   webServer: {
