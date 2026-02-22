@@ -305,7 +305,7 @@ function Features() {
       </div>
 
       {/* ── 機能一覧サマリー ── */}
-      <div className="mt-14 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-14 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { icon: "🖥️", name: "管理画面", desc: "19メニューを一画面に集約" },
           { icon: "💹", name: "売上管理", desc: "日別・月別KPIをリアルタイム表示" },
@@ -323,6 +323,10 @@ function Features() {
           { icon: "💳", name: "決済管理", desc: "クレカ決済・振込消込を一元化" },
           { icon: "📦", name: "配送管理", desc: "大手配送業者と連携し発送を効率化" },
           { icon: "📊", name: "ダッシュボード", desc: "経営KPIをリアルタイム可視化" },
+          { icon: "🎙️", name: "音声カルテ", desc: "診察音声からSOAPカルテを自動生成" },
+          { icon: "⏰", name: "自動リマインド", desc: "予約前日にLINE自動通知" },
+          { icon: "📊", name: "NPS調査", desc: "患者満足度をLINEで自動測定" },
+          { icon: "🎫", name: "クーポン配信", desc: "LINE限定クーポンを一括配信" },
         ].map((f) => (
           <div key={f.name} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-blue-300 hover:shadow-md">
             <span className="text-2xl">{f.icon}</span>
@@ -562,6 +566,59 @@ function Features() {
             </div>
           </MockWindow>
         </FeatureBlock>
+
+        {/* NPS調査 & クリック分析 (2カラムグリッド) */}
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div>
+            <h4 className="mb-2 text-lg font-extrabold text-slate-900">NPS（患者満足度調査）</h4>
+            <p className="mb-4 text-[13px] text-slate-500">LINEで患者満足度を自動調査。NPSスコア・月別推移・コメントを集約し、サービス改善に直結させます。</p>
+            <MockWindow title="NPS調査 — レポート">
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-700">全体NPSスコア</span>
+                  <span className="text-xl font-extrabold text-blue-600">+42</span>
+                </div>
+                <div className="mb-2 grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div className="rounded bg-emerald-50 p-1.5"><div className="text-slate-400">推奨者</div><div className="font-bold text-emerald-600">58%</div></div>
+                  <div className="rounded bg-amber-50 p-1.5"><div className="text-slate-400">中立者</div><div className="font-bold text-amber-600">26%</div></div>
+                  <div className="rounded bg-rose-50 p-1.5"><div className="text-slate-400">批判者</div><div className="font-bold text-rose-600">16%</div></div>
+                </div>
+                <div className="flex items-end gap-0.5" style={{ height: 36 }}>
+                  {[35, 38, 40, 42, 39, 45].map((h, i) => <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-400 to-sky-300" style={{ height: `${h * 1.5}%` }} />)}
+                </div>
+                <div className="mt-0.5 flex justify-between text-[9px] text-slate-300">{["9月", "10月", "11月", "12月", "1月", "2月"].map((m) => <span key={m}>{m}</span>)}</div>
+              </div>
+            </MockWindow>
+          </div>
+          <div>
+            <h4 className="mb-2 text-lg font-extrabold text-slate-900">クリック分析</h4>
+            <p className="mb-4 text-[13px] text-slate-500">配信メッセージ内のボタン・リンクのクリック率を可視化。どのCTAが効果的かデータで判断できます。</p>
+            <MockWindow title="配信分析 — クリック追跡">
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-700">再診促進キャンペーン</span>
+                  <span className="text-[10px] text-slate-400">配信: 245名</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: "予約ボタン", clicks: 89, rate: "36.3%" },
+                    { label: "料金ページ", clicks: 52, rate: "21.2%" },
+                    { label: "LINE問合せ", clicks: 31, rate: "12.7%" },
+                  ].map((c) => (
+                    <div key={c.label}>
+                      <div className="mb-0.5 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-600">{c.label}</span>
+                        <span className="font-bold text-blue-600">{c.rate}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-blue-400 to-sky-400" style={{ width: c.rate }} /></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-center text-[10px] text-slate-400">全体CTR: 70.2% / 予約CV: 36.3%</div>
+              </div>
+            </MockWindow>
+          </div>
+        </div>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* B-3. 問診 */}
@@ -837,7 +894,7 @@ function Features() {
         </FeatureWide>
 
         {/* AI自動返信 */}
-        <FeatureBlock title="AI自動返信" desc="OpenAI連携による自動返信。患者からの問い合わせに対してAIが返信文を自動生成。スタッフが確認・修正してから送信するフローで、品質を担保しつつ対応時間を大幅短縮します。" details={["AIが返信候補を自動生成", "修正指示→再生成のループ対応", "スタッフ確認後に送信（自動送信も可）"]} reverse>
+        <FeatureBlock title="AI自動返信" desc="AIが患者からの問い合わせに対して返信文を自動生成。スタッフが確認・修正してから送信するフローで、品質を担保しつつ対応時間を大幅短縮します。修正指示を出して再生成させることも可能です。" details={["AIが返信候補を自動生成", "修正指示→再生成のループ対応", "スタッフ確認後に送信（自動送信も可）"]} reverse>
           <MockWindow title="AI返信 — 返信候補">
             <div className="space-y-3">
               <div>
@@ -858,6 +915,34 @@ function Features() {
                 <button className="flex-1 rounded-lg border border-slate-200 py-2.5 text-[11px] font-semibold text-slate-500">修正指示</button>
                 <button className="flex-1 rounded-lg bg-blue-500 py-2.5 text-[11px] font-bold text-white">このまま送信</button>
                 <button className="rounded-lg border border-slate-200 px-4 py-2.5 text-[11px] text-slate-400">却下</button>
+              </div>
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* 音声カルテ自動生成 */}
+        <FeatureBlock title="音声カルテ自動生成" desc="診察中の会話を録音・文字起こしし、AIがSOAP形式のカルテを自動生成。薬剤名・症状名の自動抽出で、カルテ作成時間を大幅に短縮します。" details={["SOAP形式でカルテ自動生成", "医療用語・薬剤名の自動抽出", "診療科別の専門辞書に対応"]}>
+          <MockWindow title="音声カルテ — SOAP生成">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-lg bg-blue-50 px-3 py-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-[14px]">🎙️</span>
+                <div className="flex-1"><div className="text-[11px] font-semibold text-blue-700">音声文字起こし完了</div><div className="text-[10px] text-blue-500">診察時間: 5分32秒</div></div>
+                <span className="rounded-full bg-blue-500 px-2.5 py-0.5 text-[10px] font-bold text-white">生成済み</span>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3">
+                <div className="mb-2 text-[11px] font-bold text-slate-700">SOAPカルテ</div>
+                <div className="space-y-2 text-[11px]">
+                  <div><span className="mr-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">S</span><span className="text-slate-600">肌荒れが気になる。2週間前から赤みが出てきた。</span></div>
+                  <div><span className="mr-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">O</span><span className="text-slate-600">両頬に紅斑あり。乾燥傾向。</span></div>
+                  <div><span className="mr-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">A</span><span className="text-slate-600">接触性皮膚炎の疑い。</span></div>
+                  <div><span className="mr-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">P</span><span className="text-slate-600">外用薬を処方。2週間後に再診。</span></div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-semibold text-slate-400">抽出された医療用語</div>
+                <div className="flex flex-wrap gap-1">
+                  {["紅斑", "接触性皮膚炎", "外用薬"].map((t) => <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">{t}</span>)}
+                </div>
               </div>
             </div>
           </MockWindow>
@@ -1121,6 +1206,82 @@ function Features() {
           </MockWindow>
         </FeatureBlock>
 
+        {/* 自動リマインド */}
+        <FeatureBlock title="自動リマインド配信" desc="予約前日にLINEで自動リマインドを送信。電話によるリマインド業務をゼロに。送信タイミング（X時間前・X日前）やメッセージテンプレートを柔軟に設定できます。" details={["予約X時間前・X日前で設定可能", "テンプレート変数（氏名・日時）対応", "送信結果のリアルタイム追跡"]}>
+          <MockWindow title="LINE管理 — リマインドルール">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2.5">
+                <span className="text-[11px] font-semibold text-blue-700">前日リマインド（18:00送信）</span>
+                <span className="rounded-full bg-blue-500 px-2.5 py-0.5 text-[10px] font-bold text-white">有効</span>
+              </div>
+              <div className="rounded-lg border border-slate-200 p-3">
+                <div className="mb-1 text-[10px] font-semibold text-slate-400">メッセージテンプレート</div>
+                <div className="rounded bg-slate-50 p-2.5 text-[11px] text-slate-600">
+                  {"{name}"}様、明日 {"{date}"} {"{time}"} にご予約をいただいております。ご来院をお待ちしております。
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[{ l: "今月送信数", v: "487件", c: "text-blue-600" }, { l: "送信成功率", v: "98.2%", c: "text-emerald-600" }, { l: "キャンセル率", v: "-32%", c: "text-rose-500" }].map((s) => (
+                  <div key={s.l} className="rounded-lg bg-slate-50 p-2">
+                    <div className="text-[9px] text-slate-400">{s.l}</div>
+                    <div className={`text-[13px] font-bold ${s.c}`}>{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* キーワード自動返信 */}
+        <FeatureBlock title="キーワード自動返信" desc="患者が特定のキーワードを送信すると、設定したテンプレートで即座に自動返信。「予約」「料金」などのよくある質問への対応を24時間自動化します。" details={["完全一致・部分一致・正規表現対応", "テンプレートメッセージを即時返信", "営業時間外の自動対応に最適"]} reverse>
+          <MockWindow title="LINE管理 — キーワード返信">
+            <div className="space-y-2">
+              {[
+                { kw: "予約", match: "部分一致", reply: "ご予約はこちらから承ります → [予約ページURL]", active: true },
+                { kw: "料金", match: "部分一致", reply: "料金プランの詳細はこちら → [料金ページURL]", active: true },
+                { kw: "営業時間", match: "部分一致", reply: "診療時間: 平日 10:00〜19:00 / 土日祝休", active: true },
+              ].map((k) => (
+                <div key={k.kw} className="rounded-lg border border-slate-200 p-3">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-600">{k.kw}</span>
+                    <span className="text-[10px] text-slate-400">{k.match}</span>
+                    <span className="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">有効</span>
+                  </div>
+                  <div className="rounded bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-500">{k.reply}</div>
+                </div>
+              ))}
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* クーポン配信 */}
+        <FeatureBlock title="クーポン配信" desc="LINE限定クーポンを一括作成・セグメント配信。有効期限・利用回数の管理から利用実績の追跡まで、販促施策をワンストップで運用できます。" details={["有効期限・利用回数制限", "セグメント別の個別配信", "利用実績のリアルタイム追跡"]}>
+          <MockWindow title="LINE管理 — クーポン管理">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-700">配信中のクーポン</span>
+                <span className="rounded bg-blue-500 px-3 py-1 text-[10px] font-bold text-white">+ 新規作成</span>
+              </div>
+              {[
+                { name: "初回限定 20%OFF", exp: "2026/3/31", used: "34/100", status: "配信中", sc: "text-blue-600 bg-blue-50" },
+                { name: "再来院 ¥3,000引き", exp: "2026/3/15", used: "67/200", status: "配信中", sc: "text-blue-600 bg-blue-50" },
+                { name: "友だち紹介 10%OFF", exp: "2026/2/28", used: "12/50", status: "終了間近", sc: "text-amber-600 bg-amber-50" },
+              ].map((c) => (
+                <div key={c.name} className="rounded-lg border border-slate-100 p-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[12px] font-semibold text-slate-700">{c.name}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.sc}`}>{c.status}</span>
+                  </div>
+                  <div className="flex gap-4 text-[10px] text-slate-400">
+                    <span>有効期限: {c.exp}</span>
+                    <span>利用: {c.used}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* C-8. ノーコード構築 */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
@@ -1223,6 +1384,48 @@ function Features() {
                       <div><div className="text-[10px] font-semibold text-slate-700">{s.type}</div><div className="text-[10px] text-slate-400">{s.detail}</div></div>
                     </div>
                     {i < 4 && <div className="ml-5 flex h-3 items-center"><div className="h-full w-px bg-slate-200" /></div>}
+                  </div>
+                ))}
+              </div>
+            </MockWindow>
+          </div>
+        </div>
+
+        {/* Flex Messageビルダー & メニュー自動切替 (2カラムグリッド) */}
+        <div className="grid gap-8 lg:grid-cols-2">
+          <div>
+            <h4 className="mb-2 text-lg font-extrabold text-slate-900">Flex Messageビルダー</h4>
+            <p className="mb-4 text-[13px] text-slate-500">リッチなカード型メッセージをノーコードで作成。プリセットから選んですぐに配信可能。</p>
+            <MockWindow title="Flex Message — エディタ">
+              <div>
+                <div className="mb-2 text-[10px] font-semibold text-slate-500">プリセット選択</div>
+                <div className="grid grid-cols-3 gap-1.5 mb-3">
+                  {["ボタン型", "画像カード", "カルーセル"].map((t, i) => (
+                    <div key={t} className={`rounded-lg border p-2 text-center text-[10px] ${i === 0 ? "border-blue-300 bg-blue-50 font-semibold text-blue-700" : "border-slate-200 text-slate-500"}`}>{t}</div>
+                  ))}
+                </div>
+                <div className="rounded-lg border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-3">
+                  <div className="rounded bg-blue-500 px-3 py-2 text-center text-[11px] font-bold text-white">再診のご案内</div>
+                  <div className="mt-2 text-[10px] text-slate-500 text-center">前回のご来院から3ヶ月が経過しました。ご都合の良い日時をお選びください。</div>
+                  <div className="mt-2 rounded bg-blue-500 px-3 py-1.5 text-center text-[10px] font-bold text-white">予約する →</div>
+                </div>
+              </div>
+            </MockWindow>
+          </div>
+          <div>
+            <h4 className="mb-2 text-lg font-extrabold text-slate-900">リッチメニュー自動切替</h4>
+            <p className="mb-4 text-[13px] text-slate-500">患者の状態（タグ・マーク・来院回数等）に応じて、リッチメニューを自動で切り替え。初診・再診・VIPなど段階別のUXを実現。</p>
+            <MockWindow title="LINE管理 — メニュー切替ルール">
+              <div className="space-y-2">
+                {[
+                  { cond: 'タグ「初診」を含む', menu: "初診患者メニュー", priority: "1" },
+                  { cond: 'タグ「VIP」を含む', menu: "VIP専用メニュー", priority: "2" },
+                  { cond: "来院回数 ≥ 3回", menu: "リピーターメニュー", priority: "3" },
+                  { cond: "デフォルト", menu: "一般メニュー", priority: "—" },
+                ].map((r) => (
+                  <div key={r.cond} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-blue-50 text-[10px] font-bold text-blue-600">{r.priority}</span>
+                    <div className="flex-1"><div className="text-[11px] font-medium text-slate-700">{r.cond}</div><div className="text-[10px] text-slate-400">→ {r.menu}</div></div>
                   </div>
                 ))}
               </div>

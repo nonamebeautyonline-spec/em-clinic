@@ -37,7 +37,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
   { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
-  { href: "/admin/doctor", icon: "🩺", label: "Drカルテ" },
+  { href: "/admin/doctor", icon: "🩺", label: "簡易Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
@@ -375,7 +375,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/doctor"
             icon="🩺"
-            label="Drカルテ"
+            label="簡易Drカルテ"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/doctor"}
           />

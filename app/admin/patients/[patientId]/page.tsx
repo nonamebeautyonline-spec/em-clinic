@@ -3,6 +3,7 @@
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { calcAge, formatBirthWithEra, formatDateJST } from "@/lib/patient-utils";
+import { VoiceRecordButton } from "@/components/voice-record-button";
 
 type Patient = {
   id: string;
@@ -255,7 +256,7 @@ export default function PatientDetailPage({
                 placeholder="新規カルテ内容を入力..."
                 disabled={creatingKarte}
               />
-              <div className="flex gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2">
                 <button
                   onClick={handleCreateKarte}
                   disabled={creatingKarte || !newKarteNote.trim()}
@@ -263,6 +264,9 @@ export default function PatientDetailPage({
                 >
                   {creatingKarte ? "追加中..." : "追加"}
                 </button>
+                <VoiceRecordButton
+                  onTranscribed={(text) => setNewKarteNote(prev => prev ? prev + "\n" + text : text)}
+                />
                 <button
                   onClick={() => { setShowNewKarte(false); setNewKarteNote(""); }}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
@@ -386,6 +390,9 @@ export default function PatientDetailPage({
                     >
                       元に戻す
                     </button>
+                    <VoiceRecordButton
+                      onTranscribed={(text) => setNoteDraft(prev => prev ? prev + "\n" + text : text)}
+                    />
                   </div>
                 </div>
               </div>
