@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { tagCreateSchema } from "@/lib/validations/admin-operations";
 
 // タグ一覧取得（各タグの患者数付き）
 export async function GET(req: NextRequest) {
@@ -58,8 +60,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { name, color, description, is_auto, auto_rule } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, tagCreateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, color, description, is_auto, auto_rule } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("tag_definitions")

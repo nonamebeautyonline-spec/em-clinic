@@ -151,10 +151,12 @@ describe("doctor/reorders/approve: 承認ルート詳細", () => {
     expect(src).toContain("404");
   });
 
-  it("id 必須バリデーション", () => {
+  it("id 必須バリデーション（Zodスキーマ）", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("id required");
+    // Zod parseBody でバリデーション
+    expect(src).toContain("parseBody");
+    expect(src).toContain("doctorReorderApproveSchema");
   });
 });
 
@@ -223,10 +225,12 @@ describe("doctor/reorders: 一覧ルート詳細", () => {
 describe("doctor/update: カルテ更新ルート詳細", () => {
   const file = "app/api/doctor/update/route.ts";
 
-  it("reserveId 必須バリデーション", () => {
+  it("reserveId 必須バリデーション（Zodスキーマ）", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("MISSING_RESERVE_ID");
+    // Zod parseBody でバリデーション
+    expect(src).toContain("parseBody");
+    expect(src).toContain("doctorUpdateSchema");
   });
 
   it("intake テーブルから patient_id を取得", () => {
@@ -268,10 +272,12 @@ describe("doctor/update: カルテ更新ルート詳細", () => {
 describe("doctor/callstatus: コール状態更新ルート詳細", () => {
   const file = "app/api/doctor/callstatus/route.ts";
 
-  it("reserveId 必須バリデーション", () => {
+  it("reserveId 必須バリデーション（Zodスキーマ）", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("reserveId required");
+    // Zod parseBody でバリデーション
+    expect(src).toContain("parseBody");
+    expect(src).toContain("callStatusSchema");
   });
 
   it("intake テーブルの call_status を更新", () => {

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { executeActionSchema } from "@/lib/validations/line-management";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
@@ -22,9 +24,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
   const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
-  const { action_id, patient_id } = await req.json();
-  if (!action_id) return NextResponse.json({ error: "アクションIDは必須です" }, { status: 400 });
-  if (!patient_id) return NextResponse.json({ error: "患者IDは必須です" }, { status: 400 });
+  const parsed = await parseBody(req, executeActionSchema);
+  if ("error" in parsed) return parsed.error;
+  const { action_id, patient_id } = parsed.data;
 
   // アクション取得
   const { data: action, error: actionError } = await withTenant(

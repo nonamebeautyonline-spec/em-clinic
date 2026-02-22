@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { karteTemplateCreateSchema, karteTemplateUpdateSchema } from "@/lib/validations/admin-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -55,13 +57,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const body = await req.json().catch(() => null);
-  if (!body?.name || !body?.body) {
-    return NextResponse.json(
-      { error: "name と body は必須です" },
-      { status: 400 }
-    );
-  }
+  const parsed = await parseBody(req, karteTemplateCreateSchema);
+  if ("error" in parsed) return parsed.error;
+  const body = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("karte_templates")
@@ -89,10 +87,9 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const body = await req.json().catch(() => null);
-  if (!body?.id) {
-    return NextResponse.json({ error: "id は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, karteTemplateUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const body = parsed.data;
 
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),

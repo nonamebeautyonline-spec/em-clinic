@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { npsResponseSchema } from "@/lib/validations/nps";
 
 // 調査情報取得（回答ページ表示用）
 export async function GET(
@@ -34,12 +36,9 @@ export async function POST(
 ) {
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const body = await req.json();
-  const { score, comment, patient_id } = body;
-
-  if (score === undefined || score === null || score < 0 || score > 10) {
-    return NextResponse.json({ error: "スコアは0-10の範囲で指定してください" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, npsResponseSchema);
+  if ("error" in parsed) return parsed.error;
+  const { score, comment, patient_id } = parsed.data;
 
   // 調査の存在確認
   const { data: survey } = await withTenant(

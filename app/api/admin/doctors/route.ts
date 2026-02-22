@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { doctorUpsertSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -10,7 +12,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
+    const parsed = await parseBody(req, doctorUpsertSchema);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const doctor = body.doctor || body;
 
     const doctor_id = String(doctor.doctor_id || "").trim();

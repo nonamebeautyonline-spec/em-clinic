@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bankTransferManualConfirmSchema } from "@/lib/validations/admin-operations";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -16,15 +18,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { order_id, memo } = body;
-
-    if (!order_id) {
-      return NextResponse.json(
-        { error: "order_id is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, bankTransferManualConfirmSchema);
+    if ("error" in parsed) return parsed.error;
+    const { order_id, memo } = parsed.data;
 
     const tenantId = resolveTenantId(req);
 

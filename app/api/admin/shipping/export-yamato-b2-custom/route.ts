@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { jwtVerify } from "jose";
 
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { exportYamatoB2CustomSchema } from "@/lib/validations/shipping";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
@@ -58,13 +60,10 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const items: CustomShippingItem[] = body.items || [];
-    const allPaymentIds: string[] = body.all_payment_ids || items.map((item) => item.payment_id);
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "items required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, exportYamatoB2CustomSchema);
+    if ("error" in parsed) return parsed.error;
+    const items: CustomShippingItem[] = parsed.data.items;
+    const allPaymentIds: string[] = parsed.data.all_payment_ids || items.map((item) => item.payment_id);
 
     console.log(`[ExportYamatoB2Custom] Exporting ${items.length} items (marking ${allPaymentIds.length} orders)`);
 

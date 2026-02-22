@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { lstepTagCsvSchema } from "@/lib/validations/shipping";
 
 const TAG_ATTR_ID = "9217653"; // タグID（GASと同じ）
 
@@ -15,12 +17,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { lstepIds } = body as { lstepIds: string[] };
-
-    if (!lstepIds || !Array.isArray(lstepIds) || lstepIds.length === 0) {
-      return NextResponse.json({ error: "LステップIDリストが必要です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, lstepTagCsvSchema);
+    if ("error" in parsed) return parsed.error;
+    const { lstepIds } = parsed.data;
 
     // 重複除去と数値チェック
     const uniqueIds = Array.from(new Set(lstepIds))

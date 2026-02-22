@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createScheduleSchema } from "@/lib/validations/line-management";
 
 // 予約送信一覧
 export async function GET(req: NextRequest) {
@@ -26,10 +28,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { patient_id, message, scheduled_at } = await req.json();
-  if (!patient_id || !message?.trim() || !scheduled_at) {
-    return NextResponse.json({ error: "patient_id, message, scheduled_at は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, createScheduleSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_id, message, scheduled_at } = parsed.data;
 
   // LINE UIDを取得（patientsテーブルから）
   const { data: patient } = await withTenant(

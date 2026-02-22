@@ -8,6 +8,7 @@ import { shouldProcessWithAI } from "@/lib/ai-reply-filter";
 import { sendApprovalFlexMessage } from "@/lib/ai-reply-approval";
 import { pushMessage } from "@/lib/line-push";
 import { redis } from "@/lib/redis";
+import { rejectCategoryLabels, type RejectCategory } from "@/lib/validations/ai-reply";
 
 const DEBOUNCE_SEC = 60; // メッセージ待機時間（秒）
 
@@ -18,8 +19,38 @@ interface AiReplyResult {
   reason: string;
 }
 
+/** 却下パターン（buildSystemPromptに渡す用） */
+export interface RejectedDraftEntry {
+  original_message: string;
+  draft_reply: string | null;
+  reject_category: RejectCategory | null;
+  reject_reason: string | null;
+}
+
 // システムプロンプト構築
-export function buildSystemPrompt(knowledgeBase: string, customInstructions: string): string {
+export function buildSystemPrompt(
+  knowledgeBase: string,
+  customInstructions: string,
+  rejectedDrafts?: RejectedDraftEntry[]
+): string {
+  // 却下パターンセクション（末尾に追加）
+  let rejectedSection = "";
+  if (rejectedDrafts && rejectedDrafts.length > 0) {
+    const entries = rejectedDrafts.map((d) => {
+      const categoryLabel = d.reject_category
+        ? rejectCategoryLabels[d.reject_category]
+        : "理由なし";
+      const reasonText = d.reject_reason ? `（${d.reject_reason}）` : "";
+      return `- 元メッセージ: "${d.original_message}"\n  AI返信案: "${d.draft_reply || ""}"\n  却下理由: ${categoryLabel}${reasonText}`;
+    }).join("\n\n");
+
+    rejectedSection = `
+
+## 過去の却下された返信例（同じ間違いを避けてください）
+
+${entries}`;
+  }
+
   return `あなたはクリニックのLINEカスタマーサポートAIです。
 患者からのメッセージを分析し、適切な返信案を生成してください。
 
@@ -60,7 +91,7 @@ ${customInstructions || "- 丁寧で親しみやすい口調で回答してく�
   "confidence": 0.0~1.0,
   "reply": "返信テキスト（greetingの場合のみnull）",
   "reason": "判定理由（短文）"
-}`;
+}${rejectedSection}`;
 }
 
 // ユーザーメッセージ構築（直近の会話コンテキスト + 未返信メッセージ）
@@ -212,6 +243,24 @@ async function processAiReply(
   if (!settings?.is_enabled) { log.push("skip: settings無効"); return; }
   log.push("step1: OK");
 
+  // 1.5. 日次上限チェック
+  log.push("step1.5: 日次上限チェック");
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { count: todayCount } = await withTenant(
+    supabaseAdmin
+      .from("ai_reply_drafts")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString()),
+    tenantId
+  );
+  if ((todayCount || 0) >= (settings.daily_limit || 100)) {
+    log.push(`skip: 日次上限到達 ${todayCount}/${settings.daily_limit}`);
+    console.log(`[AI Reply] 日次上限到達: ${todayCount}/${settings.daily_limit}`);
+    return;
+  }
+  log.push(`step1.5: OK (${todayCount}/${settings.daily_limit})`);
+
   // 2. APIキーを取得
   log.push("step2: APIキー取得");
   const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
@@ -254,10 +303,11 @@ async function processAiReply(
       break;
     }
   }
-  const pendingMessages = sorted
+  const pendingMessagesWithTime = sorted
     .slice(lastOutgoingIdx + 1)
     .filter(m => m.direction === "incoming")
-    .map(m => m.content);
+    .map(m => ({ content: m.content, sent_at: m.sent_at as string }));
+  const pendingMessages = pendingMessagesWithTime.map(m => m.content);
 
   if (pendingMessages.length === 0) {
     log.push("skip: 未返信メッセージなし");
@@ -269,11 +319,25 @@ async function processAiReply(
   // 会話コンテキスト（最後のoutgoingまで）
   const contextMessages = lastOutgoingIdx >= 0 ? sorted.slice(0, lastOutgoingIdx + 1) : [];
 
+  // 5.5. 直近の却下パターンを取得（最新10件）
+  log.push("step5.5: 却下パターン取得");
+  const { data: rejectedDrafts } = await withTenant(
+    supabaseAdmin
+      .from("ai_reply_drafts")
+      .select("original_message, draft_reply, reject_category, reject_reason")
+      .eq("status", "rejected")
+      .order("rejected_at", { ascending: false })
+      .limit(10),
+    tenantId
+  );
+  log.push(`step5.5: ${rejectedDrafts?.length ?? 0}件の却下パターン`);
+
   // 6. Claude API呼び出し
   const client = new Anthropic({ apiKey });
   const systemPrompt = buildSystemPrompt(
     settings.knowledge_base || "",
-    settings.custom_instructions || ""
+    settings.custom_instructions || "",
+    (rejectedDrafts as RejectedDraftEntry[] | null) ?? undefined
   );
   const userMessage = buildUserMessage(pendingMessages, contextMessages);
 
@@ -355,7 +419,7 @@ async function processAiReply(
     await sendApprovalFlexMessage(
       draft.id, patientId, patientName,
       originalMessage, aiResult.reply, aiResult.confidence,
-      aiResult.category, tid, origin
+      aiResult.category, tid, origin, pendingMessagesWithTime
     );
   }
 }
@@ -394,5 +458,70 @@ export async function sendAiReply(
       content: replyText,
       status: "sent",
     });
+  }
+}
+
+/**
+ * スタッフがトーク画面から手動返信した場合の暗黙フィードバック処理
+ * - 同一患者の pending AI ドラフトを「暗黙の却下」として expired に更新
+ * - スタッフの手動返信を正解例としてナレッジベースに追記
+ * 使用箇所: app/api/admin/line/send/route.ts（個別メッセージ送信後）
+ */
+export async function handleImplicitAiFeedback(
+  patientId: string,
+  staffReply: string,
+  tenantId: string | null
+): Promise<void> {
+  try {
+    // 同一患者の pending ドラフトを取得
+    const { data: pendingDrafts } = await withTenant(
+      supabaseAdmin
+        .from("ai_reply_drafts")
+        .select("id, original_message, draft_reply")
+        .eq("patient_id", patientId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(5),
+      tenantId
+    );
+
+    if (!pendingDrafts || pendingDrafts.length === 0) return;
+
+    // pending ドラフトを expired（暗黙の却下）に更新
+    const draftIds = pendingDrafts.map((d: any) => d.id);
+    await supabaseAdmin
+      .from("ai_reply_drafts")
+      .update({
+        status: "expired",
+        reject_category: "other",
+        reject_reason: "スタッフが手動返信（暗黙の却下）",
+      })
+      .in("id", draftIds);
+
+    // 直近のドラフトの元メッセージ + スタッフ返信をナレッジに追記
+    const latestDraft = pendingDrafts[0];
+    if (latestDraft?.original_message && staffReply) {
+      const { data: settings } = await withTenant(
+        supabaseAdmin
+          .from("ai_reply_settings")
+          .select("id, knowledge_base")
+          .single(),
+        tenantId
+      );
+
+      if (settings) {
+        const addition = `\n\n### スタッフ手動返信例（自動追加）\nQ: ${latestDraft.original_message}\nA: ${staffReply}`;
+        const updatedKB = (settings.knowledge_base || "") + addition;
+        await supabaseAdmin
+          .from("ai_reply_settings")
+          .update({ knowledge_base: updatedKB, updated_at: new Date().toISOString() })
+          .eq("id", settings.id);
+      }
+    }
+
+    console.log(`[AI Reply] 暗黙フィードバック: patient=${patientId}, drafts=${draftIds.length}件をexpired化`);
+  } catch (err) {
+    // fire-and-forget: エラーがあっても送信処理を止めない
+    console.error("[AI Reply] 暗黙フィードバックエラー:", err);
   }
 }

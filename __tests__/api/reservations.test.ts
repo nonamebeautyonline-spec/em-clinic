@@ -804,7 +804,7 @@ describe("POST updateReservation", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("missing parameters");
+    expect(json.error).toBe("入力値が不正です");
   });
 });
 

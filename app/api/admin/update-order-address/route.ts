@@ -4,6 +4,8 @@ import { jwtVerify } from "jose";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateOrderAddressSchema } from "@/lib/validations/admin-operations";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -27,15 +29,12 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => ({} as any));
-    const orderId = (body.orderId ?? "").trim();
-    const rawPostal = (body.postalCode ?? "").trim();
-    const address = (body.address ?? "").trim();
-    const shippingName = (body.shippingName ?? "").trim();
-
-    if (!orderId) {
-      return NextResponse.json({ ok: false, error: "orderId は必須です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, updateOrderAddressSchema);
+    if ("error" in parsed) return parsed.error;
+    const orderId = parsed.data.orderId.trim();
+    const rawPostal = (parsed.data.postalCode ?? "").trim();
+    const address = (parsed.data.address ?? "").trim();
+    const shippingName = (parsed.data.shippingName ?? "").trim();
 
     const postalDigits = rawPostal.replace(/[^0-9]/g, "");
     if (postalDigits.length !== 7) {

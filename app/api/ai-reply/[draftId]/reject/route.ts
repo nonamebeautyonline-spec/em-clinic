@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
+import { parseBody } from "@/lib/validations/helpers";
+import { aiReplyRejectSchema } from "@/lib/validations/ai-reply";
 
 export async function POST(
   request: NextRequest,
@@ -14,8 +16,9 @@ export async function POST(
     return NextResponse.json({ error: "無効なID" }, { status: 400 });
   }
 
-  const body = await request.json();
-  const { sig, exp } = body as { sig: string; exp: number };
+  const parsed = await parseBody(request, aiReplyRejectSchema);
+  if ("error" in parsed) return parsed.error;
+  const { sig, exp, reason, reject_category } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
     return NextResponse.json({ error: "署名が無効または期限切れです" }, { status: 403 });
@@ -35,9 +38,17 @@ export async function POST(
     return NextResponse.json({ error: "このドラフトは既に処理済みです" }, { status: 400 });
   }
 
+  // 却下理由を含めて更新
+  const updatePayload: Record<string, unknown> = {
+    status: "rejected",
+    rejected_at: new Date().toISOString(),
+  };
+  if (reject_category) updatePayload.reject_category = reject_category;
+  if (reason) updatePayload.reject_reason = reason;
+
   await supabaseAdmin
     .from("ai_reply_drafts")
-    .update({ status: "rejected", rejected_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq("id", draftId);
 
   return NextResponse.json({ ok: true });

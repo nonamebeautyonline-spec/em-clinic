@@ -5,6 +5,8 @@ import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
+import { parseBody } from "@/lib/validations/helpers";
+import { intakeSchema } from "@/lib/validations/patient";
 
 // ★ Supabase書き込みリトライ機能
 async function retrySupabaseWrite<T>(
@@ -39,7 +41,9 @@ async function retrySupabaseWrite<T>(
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
-    const body = await req.json().catch(() => ({} as any));
+    const parsed = await parseBody(req, intakeSchema);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
 
     const patientId =
       req.cookies.get("__Host-patient_id")?.value ||
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
     const sex = body.sex || answersObj.性別 || answersObj.sex || "";
     const birth = body.birth || answersObj.生年月日 || answersObj.birth || "";
     const nameKana = body.name_kana || body.nameKana || answersObj.カナ || answersObj.name_kana || "";
-    const tel = normalizeJPPhone(body.tel || body.phone || answersObj.電話番号 || answersObj.tel || "");
+    const tel = normalizeJPPhone(String(body.tel || body.phone || answersObj.電話番号 || answersObj.tel || ""));
     const email = body.email || answersObj.メールアドレス || answersObj.email || "";
     const lineId = body.line_id || body.lineId || answersObj.line_id || "";
     const answererId = body.answerer_id || answersObj.answerer_id || null;

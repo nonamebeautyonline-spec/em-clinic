@@ -102,6 +102,16 @@ export default function TemplateManagementPage() {
   // Flex JSON直接編集
   const [flexJson, setFlexJson] = useState("");
   const [flexError, setFlexError] = useState("");
+  // 変数プレビュー用state
+  const [previewResult, setPreviewResult] = useState<string | null>(null);
+  const [previewVars, setPreviewVars] = useState<Record<string, string> | null>(null);
+  const [previewSource, setPreviewSource] = useState<"sample" | "patient" | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientCandidates, setPatientCandidates] = useState<{ id: string; name: string }[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null);
+  const [patientSearching, setPatientSearching] = useState(false);
+  const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = async () => {
     const [tRes, cRes] = await Promise.all([
@@ -121,6 +131,96 @@ export default function TemplateManagementPage() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  // 患者検索（デバウンス付き）
+  const searchPatients = async (query: string) => {
+    if (!query.trim()) {
+      setPatientCandidates([]);
+      return;
+    }
+    setPatientSearching(true);
+    try {
+      const res = await fetch(
+        `/api/admin/patient-lookup?q=${encodeURIComponent(query.trim())}&type=name`,
+        { credentials: "include" },
+      );
+      const data = await res.json();
+      if (data.candidates) {
+        setPatientCandidates(data.candidates);
+      } else if (data.found && data.patient) {
+        setPatientCandidates([{ id: data.patient.id, name: data.patient.name }]);
+      } else {
+        setPatientCandidates([]);
+      }
+    } catch {
+      setPatientCandidates([]);
+    } finally {
+      setPatientSearching(false);
+    }
+  };
+
+  // 患者検索入力のデバウンス
+  const handlePatientSearchChange = (value: string) => {
+    setPatientSearch(value);
+    if (patientSearchTimerRef.current) clearTimeout(patientSearchTimerRef.current);
+    patientSearchTimerRef.current = setTimeout(() => searchPatients(value), 400);
+  };
+
+  // テンプレートプレビューを取得
+  const fetchPreview = async (templateContent: string, patientId?: string) => {
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/api/admin/line/templates/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          template_content: templateContent,
+          patient_id: patientId,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPreviewResult(data.preview);
+        setPreviewVars(data.variables);
+        setPreviewSource(data.source);
+      } else {
+        setPreviewResult(null);
+        setPreviewVars(null);
+        setPreviewSource(null);
+      }
+    } catch {
+      setPreviewResult(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // プレビューモーダルを開く
+  const openPreviewModal = (t: Template) => {
+    setPreviewTemplate(t);
+    setPreviewResult(null);
+    setPreviewVars(null);
+    setPreviewSource(null);
+    setPatientSearch("");
+    setPatientCandidates([]);
+    setSelectedPatient(null);
+    // テキストテンプレートの場合、サンプルデータでプレビューを自動取得
+    if (t.message_type === "text" && t.content) {
+      fetchPreview(t.content);
+    }
+  };
+
+  // プレビューモーダルを閉じる
+  const closePreviewModal = () => {
+    setPreviewTemplate(null);
+    setPreviewResult(null);
+    setPreviewVars(null);
+    setPreviewSource(null);
+    setPatientSearch("");
+    setPatientCandidates([]);
+    setSelectedPatient(null);
+  };
 
   const filteredTemplates = selectedCategory === null
     ? templates
@@ -426,7 +526,7 @@ export default function TemplateManagementPage() {
                     {/* プレビュー */}
                     <div className="text-center">
                       <button
-                        onClick={() => setPreviewTemplate(t)}
+                        onClick={() => openPreviewModal(t)}
                         className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         プレビュー
@@ -934,29 +1034,169 @@ export default function TemplateManagementPage() {
         </div>
       )}
 
-      {/* プレビューモーダル */}
+      {/* プレビューモーダル（変数置換対応） */}
       {previewTemplate && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-bold text-gray-900 text-sm">プレビュー: {previewTemplate.name}</h2>
-              <button onClick={() => setPreviewTemplate(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closePreviewModal}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <h2 className="font-bold text-gray-900 text-sm">テンプレートプレビュー: {previewTemplate.name}</h2>
+              <button onClick={closePreviewModal} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            {/* LINE風プレビュー */}
-            <div className="p-6 bg-[#7494C0] min-h-[300px]">
-              {previewTemplate.message_type === "image" ? (
-                <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
-              ) : previewTemplate.message_type === "flex" && previewTemplate.flex_content ? (
-                <FlexPreviewSimple data={previewTemplate.flex_content} />
-              ) : (
-                <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
-                  <p className="text-sm whitespace-pre-wrap text-gray-800">{previewTemplate.content}</p>
+
+            <div className="overflow-y-auto flex-1">
+              {/* テキストテンプレートの場合のみ変数プレビュー機能を表示 */}
+              {previewTemplate.message_type === "text" && (
+                <div className="px-6 py-4 border-b border-gray-100 space-y-3">
+                  {/* 患者検索 */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">患者を選択（任意）</label>
+                    <div className="flex gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={patientSearch}
+                          onChange={(e) => handlePatientSearchChange(e.target.value)}
+                          placeholder="患者名で検索..."
+                          className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 bg-gray-50/50"
+                        />
+                        <svg className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        {/* 患者候補リスト */}
+                        {patientCandidates.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                            {patientCandidates.map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => {
+                                  setSelectedPatient(c);
+                                  setPatientSearch(c.name);
+                                  setPatientCandidates([]);
+                                  fetchPreview(previewTemplate.content, c.id);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 transition-colors flex items-center justify-between border-b border-gray-50 last:border-b-0"
+                              >
+                                <span className="text-gray-800">{c.name}</span>
+                                <span className="text-xs text-gray-400">{c.id}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {patientSearching && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 px-3 py-2">
+                            <span className="text-xs text-gray-400">検索中...</span>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedPatient(null);
+                          setPatientSearch("");
+                          setPatientCandidates([]);
+                          fetchPreview(previewTemplate.content);
+                        }}
+                        className="px-3 py-2 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap"
+                      >
+                        サンプル
+                      </button>
+                    </div>
+                    {selectedPatient && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
+                          選択中: {selectedPatient.name}（{selectedPatient.id}）
+                        </span>
+                        <button
+                          onClick={() => {
+                            setSelectedPatient(null);
+                            setPatientSearch("");
+                            fetchPreview(previewTemplate.content);
+                          }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 変数置換テーブル */}
+                  {previewVars && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 mb-1">
+                        変数の値
+                        <span className="ml-2 text-[10px] font-normal text-gray-400">
+                          {previewSource === "sample" ? "（サンプルデータ）" : "（実データ）"}
+                        </span>
+                      </p>
+                      <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
+                        <table className="w-full text-xs">
+                          <tbody>
+                            {Object.entries(previewVars).map(([key, val]) => (
+                              <tr key={key} className="border-b border-gray-100 last:border-b-0">
+                                <td className="px-3 py-1.5 font-mono text-blue-600 bg-blue-50/50 w-[180px]">{`{${key}}`}</td>
+                                <td className="px-3 py-1.5 text-gray-700">{val || <span className="text-gray-300">（空）</span>}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* 元テンプレート（テキストのみ・変数ハイライト表示） */}
+              {previewTemplate.message_type === "text" && (
+                <div className="px-6 py-3 border-b border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 mb-2">元テンプレート</p>
+                  <div className="bg-gray-50 rounded-lg px-3 py-2">
+                    <p className="text-sm whitespace-pre-wrap text-gray-700 leading-relaxed">
+                      <HighlightVariables text={previewTemplate.content} />
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* LINE風プレビュー */}
+              <div className="px-6 py-3">
+                <p className="text-xs font-medium text-gray-500 mb-2">
+                  {previewTemplate.message_type === "text" ? "プレビュー結果" : "プレビュー"}
+                </p>
+              </div>
+              <div className="px-6 pb-6">
+                <div className="bg-[#7494C0] rounded-xl p-4 min-h-[120px]">
+                  {previewLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </div>
+                  ) : previewTemplate.message_type === "image" ? (
+                    <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
+                  ) : previewTemplate.message_type === "flex" && previewTemplate.flex_content ? (
+                    <FlexPreviewSimple data={previewTemplate.flex_content} />
+                  ) : (
+                    <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
+                      <p className="text-sm whitespace-pre-wrap text-gray-800">
+                        {previewResult ?? previewTemplate.content}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-gray-100 flex-shrink-0">
+              <button
+                onClick={closePreviewModal}
+                className="w-full px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+              >
+                閉じる
+              </button>
             </div>
           </div>
         </div>
@@ -990,6 +1230,25 @@ export default function TemplateManagementPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- テンプレート変数ハイライト ---------- */
+function HighlightVariables({ text }: { text: string }) {
+  // {変数名} を色付きで表示するためにパーツに分割
+  const parts = text.split(/(\{[^}]+\})/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^\{[^}]+\}$/.test(part) ? (
+          <span key={i} className="bg-blue-100 text-blue-700 rounded px-0.5 font-mono text-xs">
+            {part}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
   );
 }
 

@@ -5,6 +5,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { reorderCancelSchema } from "@/lib/validations/reorder-cancel";
 
 // LINE通知送信
 async function pushToAdminGroup(text: string, token: string, groupId: string) {
@@ -54,15 +56,9 @@ export async function POST(req: NextRequest) {
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
     // ★ リクエストボディから reorder_id を取得
-    const body = await req.json().catch(() => ({} as any));
-    const reorderId = body.reorder_id as number | undefined;
-
-    if (!reorderId) {
-      return NextResponse.json(
-        { ok: false, error: "reorder_id_required", message: "キャンセル対象のIDが指定されていません" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, reorderCancelSchema);
+    if ("error" in parsed) return parsed.error;
+    const reorderId = parsed.data.reorder_id;
 
     // ★ 指定されたIDでレコードを取得（patient_idも確認してセキュリティ担保）
     let targetReorder: { id: number; reorder_number: number; status: string; product_code: string } | null = null;

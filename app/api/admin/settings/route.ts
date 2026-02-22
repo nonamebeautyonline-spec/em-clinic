@@ -4,6 +4,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, getSettingsByCategory, type SettingCategory } from "@/lib/settings";
 import { maskValue } from "@/lib/crypto";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
 
 // 管理可能な設定キーの定義
 const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string; envFallback?: string }[]> = {
@@ -107,12 +109,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { category, key, value } = body as { category: SettingCategory; key: string; value: string };
-
-  if (!category || !key || value === undefined) {
-    return NextResponse.json({ error: "category, key, value は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, settingsUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { category, key, value } = parsed.data as { category: SettingCategory; key: string; value: string };
 
   // 設定キーがホワイトリストに含まれるか確認
   const defs = SETTING_DEFINITIONS[category];

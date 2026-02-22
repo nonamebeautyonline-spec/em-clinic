@@ -6,6 +6,8 @@ import { verifyTOTP } from "@/lib/totp";
 import { decrypt } from "@/lib/crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
+import { parseBody } from "@/lib/validations/helpers";
+import { totpDisableSchema } from "@/lib/validations/platform";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,15 +20,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { token } = body as { token?: string };
-
-    if (!token) {
-      return NextResponse.json(
-        { ok: false, error: "確認コードは必須です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, totpDisableSchema);
+    if ("error" in parsed) return parsed.error;
+    const { token } = parsed.data;
 
     // 現在のシークレットをDBから取得
     const { data: user, error: fetchError } = await supabaseAdmin

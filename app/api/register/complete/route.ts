@@ -6,17 +6,17 @@ import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { MERGE_TABLES } from "@/lib/merge-tables";
+import { parseBody } from "@/lib/validations/helpers";
+import { registerCompleteSchema } from "@/lib/validations/register";
 
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
     const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
-    const { phone: rawPhone } = (await req.json().catch(() => ({}))) as { phone?: string };
-    if (!rawPhone) {
-      return NextResponse.json({ ok: false, error: "phone_required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, registerCompleteSchema);
+    if ("error" in parsed) return parsed.error;
     // +81形式 → 0始まり国内形式に正規化
-    const phone = normalizeJPPhone(rawPhone);
+    const phone = normalizeJPPhone(parsed.data.phone);
 
     const lineUserId = req.cookies.get("line_user_id")?.value || "";
     const cookiePatientId = req.cookies.get("__Host-patient_id")?.value

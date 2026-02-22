@@ -9,6 +9,88 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "その他",
 };
 
+/** 時刻付きメッセージ */
+export interface TimedMessage {
+  content: string;
+  sent_at: string;
+}
+
+/** 送信時刻ごとに仕切りを入れた患者メッセージのFlex要素を生成 */
+function buildPatientMessageContents(
+  timedMessages: TimedMessage[]
+): Array<Record<string, unknown>> {
+  if (timedMessages.length === 0) return [];
+
+  const contents: Array<Record<string, unknown>> = [];
+  let lastTimeLabel = "";
+  let totalChars = 0;
+  const MAX_CHARS = 300;
+
+  for (const msg of timedMessages) {
+    // 時刻ラベル生成（HH:mm 形式）
+    const timeLabel = formatTimeLabel(msg.sent_at);
+
+    // 前の時刻と異なる場合に仕切りを挿入
+    if (timeLabel !== lastTimeLabel) {
+      if (contents.length > 0) {
+        contents.push({ type: "separator", margin: "sm" });
+      }
+      contents.push({
+        type: "text",
+        text: `── ${timeLabel} ──`,
+        size: "xxs",
+        color: "#999999",
+        align: "center",
+        margin: contents.length > 0 ? "sm" : "none",
+      });
+      lastTimeLabel = timeLabel;
+    }
+
+    // 文字数上限チェック
+    const remaining = MAX_CHARS - totalChars;
+    if (remaining <= 0) {
+      contents.push({
+        type: "text",
+        text: "...",
+        size: "sm",
+        wrap: true,
+        margin: "xs",
+      });
+      break;
+    }
+
+    const text = msg.content.length > remaining
+      ? msg.content.slice(0, remaining) + "..."
+      : msg.content;
+    totalChars += msg.content.length;
+
+    contents.push({
+      type: "text",
+      text,
+      size: "sm",
+      wrap: true,
+      margin: "xs",
+    });
+  }
+
+  return contents;
+}
+
+/** sent_at文字列をHH:mm形式に変換 */
+function formatTimeLabel(sentAt: string): string {
+  try {
+    const d = new Date(sentAt);
+    if (isNaN(d.getTime())) return "";
+    // 日本時間 (UTC+9)
+    const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const hh = String(jst.getUTCHours()).padStart(2, "0");
+    const mm = String(jst.getUTCMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  } catch {
+    return "";
+  }
+}
+
 /** 管理グループにAI返信案の承認Flex Messageを送信 */
 export async function sendApprovalFlexMessage(
   draftId: number,
@@ -19,7 +101,8 @@ export async function sendApprovalFlexMessage(
   confidence: number,
   category: string,
   tenantId?: string,
-  origin?: string
+  origin?: string,
+  timedMessages?: TimedMessage[]
 ): Promise<void> {
   const notifyToken = (await getSettingOrEnv(
     "line", "notify_channel_access_token",
@@ -39,6 +122,19 @@ export async function sendApprovalFlexMessage(
   const stars = Math.round(confidence * 5);
   const confidenceStars = "★".repeat(stars) + "☆".repeat(5 - stars);
   const categoryLabel = CATEGORY_LABELS[category] || category;
+
+  // 患者メッセージ部分の生成（時刻付きデータがあれば仕切り入り、なければ従来通り）
+  const patientMsgContents = timedMessages && timedMessages.length > 0
+    ? buildPatientMessageContents(timedMessages)
+    : [{
+        type: "text",
+        text: originalMessage.length > 200
+          ? originalMessage.slice(0, 200) + "..."
+          : originalMessage,
+        size: "sm",
+        wrap: true,
+        margin: "sm",
+      }];
 
   const flexMessage = {
     type: "flex",
@@ -88,15 +184,7 @@ export async function sendApprovalFlexMessage(
             color: "#666666",
             margin: "md",
           },
-          {
-            type: "text",
-            text: originalMessage.length > 200
-              ? originalMessage.slice(0, 200) + "..."
-              : originalMessage,
-            size: "sm",
-            wrap: true,
-            margin: "sm",
-          },
+          ...patientMsgContents,
           { type: "separator", margin: "md" },
           {
             type: "text",

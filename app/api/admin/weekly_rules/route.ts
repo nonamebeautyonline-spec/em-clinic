@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { weeklyRulesSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -10,16 +12,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const { doctor_id, rules } = body;
-
-    if (!doctor_id) {
-      return NextResponse.json({ ok: false, error: "doctor_id required" }, { status: 400 });
-    }
-
-    if (!Array.isArray(rules)) {
-      return NextResponse.json({ ok: false, error: "rules must be array" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, weeklyRulesSchema);
+    if ("error" in parsed) return parsed.error;
+    const { doctor_id, rules } = parsed.data;
 
     const now = new Date().toISOString();
     const savedRules = [];

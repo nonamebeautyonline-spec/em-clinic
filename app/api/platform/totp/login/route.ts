@@ -10,6 +10,8 @@ import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
 import { getClientIp } from "@/lib/rate-limit";
 import { redis } from "@/lib/redis";
+import { parseBody } from "@/lib/validations/helpers";
+import { totpLoginSchema } from "@/lib/validations/platform";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,24 +25,9 @@ const SESSION_DURATION_SECONDS = 24 * 60 * 60;
 
 export async function POST(req: NextRequest) {
   try {
-    let body: { pendingTotpToken?: string; token?: string };
-    try {
-      body = await req.json();
-    } catch {
-      return NextResponse.json(
-        { ok: false, error: "リクエストの形式が不正です" },
-        { status: 400 }
-      );
-    }
-
-    const { pendingTotpToken, token } = body;
-
-    if (!pendingTotpToken || !token) {
-      return NextResponse.json(
-        { ok: false, error: "仮トークンと認証コードは必須です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, totpLoginSchema);
+    if ("error" in parsed) return parsed.error;
+    const { pendingTotpToken, token } = parsed.data;
 
     // Redisから仮トークンに紐づくuserIdを取得
     let userId: string | null = null;

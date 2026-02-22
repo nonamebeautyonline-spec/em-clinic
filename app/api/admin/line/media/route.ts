@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateMediaSchema } from "@/lib/validations/line-management";
 
 const BUCKET = "line-images";
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -131,10 +133,9 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { id, name, folder_id } = body;
-
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  const parsed = await parseBody(req, updateMediaSchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, name, folder_id } = parsed.data;
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (name !== undefined) updates.name = name;

@@ -3,6 +3,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { doctorUpdateSchema } from "@/lib/validations/doctor";
 
 // ★ SERVICE_ROLE_KEYを使用してRLSをバイパス
 const supabaseAdmin = createClient(
@@ -21,13 +23,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json().catch(() => ({}));
-
-    const { reserveId, status, note, prescriptionMenu } = body;
-
-    if (!reserveId) {
-      return fail("MISSING_RESERVE_ID", 400);
-    }
+    const parsed = await parseBody(req, doctorUpdateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { reserveId, status, note, prescriptionMenu } = parsed.data;
 
     console.log(`[doctor/update] Processing: reserveId=${reserveId}, status=${status}`);
 

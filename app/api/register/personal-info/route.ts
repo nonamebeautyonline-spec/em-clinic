@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
+import { parseBody } from "@/lib/validations/helpers";
+import { personalInfoSchema } from "@/lib/validations/patient";
 
 /**
  * 個人情報フォーム保存API
@@ -13,27 +15,9 @@ import { MERGE_TABLES } from "@/lib/merge-tables";
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
-    const body = await req.json().catch(() => ({} as any));
-    const { name, name_kana, sex, birthday } = body as {
-      name?: string;
-      name_kana?: string;
-      sex?: string;
-      birthday?: string;
-    };
-
-    // バリデーション
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "氏名は必須です" }, { status: 400 });
-    }
-    if (!name_kana?.trim()) {
-      return NextResponse.json({ error: "氏名(カナ)は必須です" }, { status: 400 });
-    }
-    if (!sex) {
-      return NextResponse.json({ error: "性別は必須です" }, { status: 400 });
-    }
-    if (!birthday) {
-      return NextResponse.json({ error: "生年月日は必須です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, personalInfoSchema);
+    if ("error" in parsed) return parsed.error;
+    const { name, name_kana, sex, birthday } = parsed.data;
 
     const lineUserId = req.cookies.get("line_user_id")?.value || "";
 

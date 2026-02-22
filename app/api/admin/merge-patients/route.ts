@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { mergePatientSchema } from "@/lib/validations/admin-operations";
 
 // 統合対象テーブル一覧（patient_id カラムを持つテーブル）
 const MERGE_TABLES = [
@@ -25,17 +27,10 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => ({}));
-    const oldPatientId = body.old_patient_id || "";
-    const newPatientId = body.new_patient_id || "";
-    const deleteNewIntake = !!body.delete_new_intake; // 統合先の予約/問診を先に削除
-
-    if (!oldPatientId || !newPatientId) {
-      return NextResponse.json(
-        { ok: false, error: "old_patient_id and new_patient_id required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, mergePatientSchema);
+    if ("error" in parsed) return parsed.error;
+    const { old_patient_id: oldPatientId, new_patient_id: newPatientId, delete_new_intake } = parsed.data;
+    const deleteNewIntake = !!delete_new_intake;
 
     if (oldPatientId === newPatientId) {
       return NextResponse.json(

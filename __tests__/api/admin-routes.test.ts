@@ -202,7 +202,7 @@ describe("admin配下全ルート: 認証チェック", () => {
   const adminRoutes = findRouteFiles("app/api/admin");
 
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
-  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info"];
+  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse"];
 
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];

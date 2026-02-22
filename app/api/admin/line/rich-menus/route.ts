@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, setDefaultRichMenu } from "@/lib/line-richmenu";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createRichMenuSchema } from "@/lib/validations/line-common";
 
 // リッチメニュー一覧（各メニューの表示人数付き）
 export async function GET(req: NextRequest) {
@@ -83,10 +85,10 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const tenantId = resolveTenantId(req);
-    const { name, chat_bar_text, selected, size_type, areas, image_url } = await req.json();
-    if (!name?.trim()) {
-      return NextResponse.json({ error: "タイトルは必須です" }, { status: 400 });
-    }
+
+    const parsed = await parseBody(req, createRichMenuSchema);
+    if ("error" in parsed) return parsed.error;
+    const { name, chat_bar_text, selected, size_type, areas, image_url } = parsed.data;
 
     // 1. DBに保存
     const { data, error } = await supabaseAdmin

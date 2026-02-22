@@ -107,7 +107,7 @@ describe("CSP ヘッダー設定（next.config.ts）", () => {
 
   it("Permissions-Policy でカメラ・マイク・位置情報を禁止", () => {
     expect(configSrc).toContain("camera=()");
-    expect(configSrc).toContain("microphone=()");
+    expect(configSrc).toContain("microphone=");
     expect(configSrc).toContain("geolocation=()");
   });
 

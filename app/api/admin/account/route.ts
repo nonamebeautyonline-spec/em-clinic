@@ -5,6 +5,8 @@ import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import bcrypt from "bcryptjs";
+import { parseBody } from "@/lib/validations/helpers";
+import { accountPasswordChangeSchema, accountEmailChangeSchema } from "@/lib/validations/admin-operations";
 
 /**
  * PUT: パスワード変更
@@ -23,15 +25,9 @@ export async function PUT(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const { currentPassword, newPassword } = await req.json();
-
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json({ ok: false, error: "現在のパスワードと新しいパスワードを入力してください" }, { status: 400 });
-    }
-
-    if (newPassword.length < 8) {
-      return NextResponse.json({ ok: false, error: "パスワードは8文字以上で入力してください" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, accountPasswordChangeSchema);
+    if ("error" in parsed) return parsed.error;
+    const { currentPassword, newPassword } = parsed.data;
 
     // 現在のパスワードハッシュを取得
     const { data: user, error: fetchError } = await withTenant(
@@ -83,17 +79,9 @@ export async function PATCH(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const { newEmail, password } = await req.json();
-
-    if (!newEmail || !password) {
-      return NextResponse.json({ ok: false, error: "新しいメールアドレスとパスワードを入力してください" }, { status: 400 });
-    }
-
-    // メールアドレスの形式チェック
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
-      return NextResponse.json({ ok: false, error: "有効なメールアドレスを入力してください" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, accountEmailChangeSchema);
+    if ("error" in parsed) return parsed.error;
+    const { newEmail, password } = parsed.data;
 
     // パスワード検証
     const { data: user, error: fetchError } = await withTenant(

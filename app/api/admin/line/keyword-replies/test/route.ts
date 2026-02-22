@@ -3,14 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { keywordTestSchema } from "@/lib/validations/line-management";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { text } = await req.json();
-  if (!text?.trim()) return NextResponse.json({ error: "テスト文字列は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, keywordTestSchema);
+  if ("error" in parsed) return parsed.error;
+  const { text } = parsed.data;
 
   // 有効なルールを優先順位順に取得
   const { data: rules, error } = await withTenant(

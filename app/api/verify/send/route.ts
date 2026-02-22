@@ -4,6 +4,8 @@ import twilio from "twilio";
 import { redis } from "@/lib/redis";
 import { getSettingOrEnv } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { verifySendSchema } from "@/lib/validations/patient";
 
 // レート制限: 同一電話番号は60秒に1回、同一IPは10分に5回
 async function checkRateLimit(phone: string, ip: string): Promise<string | null> {
@@ -37,13 +39,9 @@ async function checkRateLimit(phone: string, ip: string): Promise<string | null>
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone } = (await req.json()) as { phone?: string };
-    if (!phone) {
-      return NextResponse.json(
-        { error: "phone is required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, verifySendSchema);
+    if ("error" in parsed) return parsed.error;
+    const { phone } = parsed.data;
 
     // レート制限チェック
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()

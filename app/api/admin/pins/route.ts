@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { pinsUpdateSchema } from "@/lib/validations/admin-operations";
 
 const MAX_PINS = 15;
 
@@ -49,8 +51,9 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const body = await req.json().catch(() => ({}));
-  const pins = Array.isArray(body.pins) ? body.pins.slice(0, MAX_PINS) : [];
+  const parsed = await parseBody(req, pinsUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const pins = Array.isArray(parsed.data.pins) ? parsed.data.pins.slice(0, MAX_PINS) : [];
 
   // 全ユーザーに同じピンを書き込む（フィルタなしで全行更新）
   const { data: users } = await withTenant(

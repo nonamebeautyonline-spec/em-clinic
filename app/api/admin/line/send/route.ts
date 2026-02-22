@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { lineSendSchema } from "@/lib/validations/line-broadcast";
+import { handleImplicitAiFeedback } from "@/lib/ai-reply";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
@@ -11,9 +14,11 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { patient_id, message, message_type, flex, template_name } = await req.json();
-  if (!patient_id || (!message?.trim() && !flex)) {
-    return NextResponse.json({ error: "patient_id と message は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, lineSendSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_id, message, message_type, flex, template_name } = parsed.data;
+  if (!message?.trim() && !flex) {
+    return NextResponse.json({ error: "message または flex は必須です" }, { status: 400 });
   }
 
   // 患者の LINE UID・名前を patients テーブルから取得
@@ -37,7 +42,8 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    const res = await pushMessage(patient.line_id, [flex], tenantId ?? undefined);
+    const flexMsg = flex as any;
+    const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
     const status = res?.ok ? "sent" : "failed";
 
     await supabaseAdmin.from("message_log").insert({
@@ -45,8 +51,8 @@ export async function POST(req: NextRequest) {
       patient_id,
       line_uid: patient.line_id,
       message_type: "flex",
-      content: `[${flex.altText || "Flex Message"}]`,
-      flex_json: flex.contents,
+      content: `[${(flexMsg.altText as string) || "Flex Message"}]`,
+      flex_json: flexMsg.contents,
       status,
       direction: "outgoing",
     });
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
   ).maybeSingle();
 
   // テンプレート変数を置換
-  const resolvedMessage = message
+  const resolvedMessage = (message || "")
     .replace(/\{name\}/g, patient.name || "")
     .replace(/\{patient_id\}/g, patient_id)
     .replace(/\{send_date\}/g, new Date().toLocaleDateString("ja-JP"))
@@ -88,6 +94,11 @@ export async function POST(req: NextRequest) {
     status,
     direction: "outgoing",
   });
+
+  // スタッフ手動返信 → pending AIドラフトがあれば暗黙フィードバック（fire-and-forget）
+  if (status === "sent" && message_type !== "image") {
+    handleImplicitAiFeedback(patient_id, resolvedMessage, tenantId).catch(() => {});
+  }
 
   return NextResponse.json({ ok: status === "sent", status, patient_name: patient.name });
 }

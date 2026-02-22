@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { patientNoteSchema } from "@/lib/validations/admin-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,14 +15,11 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => null);
-    const patientId = (body?.patientId || "").trim();
-    const note = String(body?.note ?? "");
-    const intakeId = body?.intakeId ? Number(body.intakeId) : null;
-
-    if (!patientId) {
-      return NextResponse.json({ ok: false, message: "patientId_required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, patientNoteSchema);
+    if ("error" in parsed) return parsed.error;
+    const patientId = parsed.data.patientId.trim();
+    const note = String(parsed.data.note ?? "");
+    const intakeId = parsed.data.intakeId ? Number(parsed.data.intakeId) : null;
 
     // タイムスタンプ付与
     const now = new Date();

@@ -5,6 +5,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { formatReservationTime, buildReminderMessage } from "@/lib/auto-reminder";
+import { parseBody } from "@/lib/validations/helpers";
+import { sendReminderSchema } from "@/lib/validations/admin-operations";
 
 // 対象患者を取得（共通）
 async function getTargetPatients(date: string, tenantId: string | null) {
@@ -103,10 +105,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const { date, testOnly, patient_ids } = await req.json();
-    if (!date) {
-      return NextResponse.json({ error: "date required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, sendReminderSchema);
+    if ("error" in parsed) return parsed.error;
+    const { date, testOnly, patient_ids } = parsed.data;
 
     const targets = await getTargetPatients(date, tenantId);
 

@@ -2,7 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { encrypt, decrypt } from "@/lib/crypto";
 
-export type SettingCategory = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "mypage" | "flex" | "sms";
+export type SettingCategory = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "mypage" | "flex" | "sms" | "dashboard";
 
 /** DB から設定を取得（復号済み） */
 export async function getSetting(

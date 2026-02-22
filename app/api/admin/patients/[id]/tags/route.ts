@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { patientTagAddSchema } from "@/lib/validations/admin-operations";
 
 // 患者のタグ一覧取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +33,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { tag_id } = await req.json();
+  const parsed = await parseBody(req, patientTagAddSchema);
+  if ("error" in parsed) return parsed.error;
+  const { tag_id } = parsed.data;
 
   const { error } = await supabaseAdmin
     .from("patient_tags")

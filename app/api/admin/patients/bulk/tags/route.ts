@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bulkTagSchema } from "@/lib/validations/line-common";
 
 // 複数患者にタグを一括追加/削除
 export async function POST(req: NextRequest) {
@@ -10,11 +12,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { patient_ids, tag_id, action } = await req.json();
-
-  if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !tag_id || !["add", "remove"].includes(action)) {
-    return NextResponse.json({ error: "patient_ids, tag_id, action(add|remove) は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, bulkTagSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_ids, tag_id, action } = parsed.data;
 
   const BATCH_SIZE = 200;
 

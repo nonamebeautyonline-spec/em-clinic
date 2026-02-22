@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { karteEditSchema } from "@/lib/validations/admin-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -13,23 +15,11 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json(
-        { error: "リクエストボディが不正です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, karteEditSchema);
+    if ("error" in parsed) return parsed.error;
+    const { intakeId, note } = parsed.data;
 
     const tenantId = resolveTenantId(req);
-
-    const { intakeId, note } = body;
-    if (!intakeId) {
-      return NextResponse.json(
-        { error: "intakeId は必須です" },
-        { status: 400 }
-      );
-    }
 
     // ロック確認
     const { data: intake } = await withTenant(

@@ -50,3 +50,9 @@ gas/**/.claspignore
 
 # IDEファイル
 .idea/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

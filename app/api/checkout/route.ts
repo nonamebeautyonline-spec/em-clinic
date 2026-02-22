@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getProductByCode } from "@/lib/products";
 import { getPaymentProvider } from "@/lib/payment";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { checkoutSchema } from "@/lib/validations/checkout";
 
 type Mode = "current" | "first" | "reorder";
 
@@ -21,21 +23,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = (await req.json()) as {
-      productCode?: string;
-      mode?: Mode;
-      patientId?: string;
-      reorderId?: string | null;
-    };
-
-    const { productCode, mode, patientId, reorderId } = body;
-
-    if (!productCode) {
-      return NextResponse.json(
-        { error: "productCode is required." },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, checkoutSchema);
+    if ("error" in parsed) return parsed.error;
+    const { productCode, mode, patientId, reorderId } = parsed.data;
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     if (patientId) {

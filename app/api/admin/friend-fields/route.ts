@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { friendFieldCreateSchema } from "@/lib/validations/admin-operations";
 
 // 友達情報欄の定義一覧
 export async function GET(req: NextRequest) {
@@ -29,8 +31,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { name, field_type, options, sort_order } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, friendFieldCreateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, field_type, options, sort_order } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("friend_field_definitions")

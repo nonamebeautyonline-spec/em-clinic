@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { parseBody } from "@/lib/validations/helpers";
+import { addToShippingSchema } from "@/lib/validations/shipping";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +11,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { order_id } = body;
-
-    if (!order_id) {
-      return NextResponse.json({ error: "order_id is required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, addToShippingSchema);
+    if ("error" in parsed) return parsed.error;
+    const { order_id } = parsed.data;
 
     // DB更新なし: 発送漏れ注文はpending APIが自動検出する
     // shipping_list_created_atはCSV出力時のみ設定

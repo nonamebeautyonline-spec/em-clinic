@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { reminderPreviewSchema } from "@/lib/validations/admin-operations";
 
 interface ReminderData {
   lstep_id: string;
@@ -26,12 +28,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { date } = body;
-
-    if (!date) {
-      return NextResponse.json({ error: "日付が必要です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, reminderPreviewSchema);
+    if ("error" in parsed) return parsed.error;
+    const { date } = parsed.data;
 
     console.log(`[ReminderPreview] Fetching reservations for date: ${date}`);
 

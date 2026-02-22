@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import { VoiceRecordButton } from "@/components/voice-record-button";
+import { VoiceKarteButton } from "@/components/voice-karte-button";
 
 type IntakeRow = { [key: string]: any };
 
@@ -1284,6 +1286,8 @@ const isNoAnswerMsgSent = callStatus === "no_answer_sent";
                   >
                     不通
                   </button>
+                  {/* 音声入力ボタン */}
+                  <VoiceRecordButton onTranscribed={insertTemplateToNote} />
                 </div>
 
                 <textarea

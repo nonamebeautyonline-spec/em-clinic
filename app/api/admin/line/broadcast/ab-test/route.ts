@@ -5,6 +5,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTargets } from "../route";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { abTestSchema } from "@/lib/validations/line-broadcast";
 
 // A/Bテスト配信実行
 export async function POST(req: NextRequest) {
@@ -12,10 +14,9 @@ export async function POST(req: NextRequest) {
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { name, filter_rules, message_a, message_b, split_ratio } = await req.json();
-  if (!message_a?.trim() || !message_b?.trim()) {
-    return NextResponse.json({ error: "メッセージA・Bの両方が必要です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, abTestSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, filter_rules, message_a, message_b, split_ratio } = parsed.data as any;
 
   const ratio = Math.min(Math.max(split_ratio || 50, 10), 90); // 10〜90%
 

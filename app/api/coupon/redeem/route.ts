@@ -2,15 +2,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { couponRedeemSchema } from "@/lib/validations/coupon";
 
 export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { coupon_id, patient_id, order_id } = body;
 
-  if (!coupon_id || !patient_id) {
-    return NextResponse.json({ ok: false, error: "coupon_id と patient_id は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, couponRedeemSchema);
+  if ("error" in parsed) return parsed.error;
+  const { coupon_id, patient_id, order_id } = parsed.data;
 
   // 配布済み（issued）レコードがあれば used に更新
   const { data: issue } = await withTenant(

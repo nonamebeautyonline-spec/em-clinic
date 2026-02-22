@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { tagUpdateSchema } from "@/lib/validations/admin-operations";
 
 // ページネーション付き全件取得
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,7 +81,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { name, color, description } = await req.json();
+  const parsed = await parseBody(req, tagUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, color, description } = parsed.data;
 
   const { data, error } = await withTenant(
     supabaseAdmin

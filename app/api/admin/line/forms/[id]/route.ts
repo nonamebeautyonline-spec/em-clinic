@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateFormSchema } from "@/lib/validations/line-management";
 
 // フォーム詳細取得
 export async function GET(
@@ -36,7 +38,9 @@ export async function PUT(
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const body = await req.json();
+  const parsed = await parseBody(req, updateFormSchema);
+  if ("error" in parsed) return parsed.error;
+  const body = parsed.data;
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.name !== undefined) updates.name = body.name;

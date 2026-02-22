@@ -34,6 +34,9 @@ interface FilterCondition {
   field_id?: number;
   operator?: string;
   value?: string;
+  // 行動データフィルタ用（API送信形式）
+  value_end?: string;
+  date_range?: string;
 }
 
 interface Broadcast {
@@ -194,6 +197,23 @@ export default function BroadcastSendPage() {
       if (rule.type === "field") {
         return { type: "field", field_id: rule.field_id, operator: rule.field_operator, value: rule.field_value };
       }
+      // 行動データ条件: behavior_* → API用の operator/value/value_end/date_range に変換
+      if (rule.type === "visit_count" || rule.type === "purchase_amount" || rule.type === "reorder_count") {
+        return {
+          type: rule.type,
+          operator: rule.behavior_operator || ">=",
+          value: rule.behavior_value || "0",
+          value_end: rule.behavior_value_end,
+          date_range: rule.behavior_date_range || "all",
+        };
+      }
+      if (rule.type === "last_visit") {
+        return {
+          type: "last_visit",
+          operator: rule.behavior_operator || "within_days",
+          value: rule.behavior_value || "30",
+        };
+      }
       return { type: rule.type };
     });
 
@@ -202,7 +222,7 @@ export default function BroadcastSendPage() {
     setShowConditionModal(null);
   };
 
-  // FilterCondition → ConditionRule変換
+  // FilterCondition → ConditionRule変換（モーダル表示用に逆変換）
   const conditionsToRules = (conditions: FilterCondition[]): ConditionRule[] => {
     return conditions.map(c => {
       if (c.type === "tag") {
@@ -210,6 +230,23 @@ export default function BroadcastSendPage() {
       }
       if (c.type === "mark") {
         return { type: "mark" as const, mark_values: c.values || [], mark_match: (c.mark_match || "any_match") as ConditionRule["mark_match"] };
+      }
+      // 行動データ条件: API用の operator/value → behavior_* に逆変換
+      if (c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") {
+        return {
+          type: c.type as ConditionRule["type"],
+          behavior_operator: c.operator || ">=",
+          behavior_value: c.value || "0",
+          behavior_value_end: c.value_end,
+          behavior_date_range: c.date_range || "all",
+        };
+      }
+      if (c.type === "last_visit") {
+        return {
+          type: "last_visit" as const,
+          behavior_operator: c.operator || "within_days",
+          behavior_value: c.value || "30",
+        };
       }
       return { type: c.type as ConditionRule["type"] };
     });

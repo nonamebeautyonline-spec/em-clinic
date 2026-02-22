@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createActionSchema, updateActionSchema } from "@/lib/validations/line-management";
 
 // アクション一覧
 export async function GET(req: NextRequest) {
@@ -30,11 +32,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { name, folder_id, steps, repeat_enabled } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "アクション名は必須です" }, { status: 400 });
-  if (!steps || !Array.isArray(steps) || steps.length === 0) {
-    return NextResponse.json({ error: "少なくとも1つの動作を設定してください" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, createActionSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, folder_id, steps, repeat_enabled } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("actions")
@@ -58,9 +58,9 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { id, name, folder_id, steps, repeat_enabled } = await req.json();
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
-  if (!name?.trim()) return NextResponse.json({ error: "アクション名は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, updateActionSchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, name, folder_id, steps, repeat_enabled } = parsed.data;
 
   const { data, error } = await withTenant(
     supabaseAdmin

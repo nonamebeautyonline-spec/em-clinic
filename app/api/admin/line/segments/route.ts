@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { saveSegmentSchema } from "@/lib/validations/line-broadcast";
 
 export interface SavedSegment {
   id: string;
@@ -38,11 +40,9 @@ export async function POST(req: NextRequest) {
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { name, includeConditions, excludeConditions } = body;
-  if (!name || typeof name !== "string") {
-    return NextResponse.json({ error: "セグメント名は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, saveSegmentSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, includeConditions, excludeConditions } = parsed.data;
 
   const segments = await loadSegments(tenantId ?? undefined);
   const newSeg: SavedSegment = {

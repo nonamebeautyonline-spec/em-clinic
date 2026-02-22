@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { callStatusSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -11,16 +13,10 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const reserveId = String(body.reserveId || "").trim();
-    const callStatus = String(body.callStatus || "").trim(); // "no_answer" or ""
-
-    if (!reserveId) {
-      return NextResponse.json(
-        { ok: false, error: "reserveId required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, callStatusSchema);
+    if ("error" in parsed) return parsed.error;
+    const reserveId = parsed.data.reserveId.trim();
+    const callStatus = (parsed.data.callStatus || "").trim();
 
     const updatedAt = new Date().toISOString();
 

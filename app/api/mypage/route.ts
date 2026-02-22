@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { validateBody } from "@/lib/validations/helpers";
+import { mypageDashboardSchema } from "@/lib/validations/mypage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -346,8 +348,11 @@ export async function POST(_req: NextRequest) {
     // refreshパラメータを取得（決済完了後の強制リフレッシュ用）
     let forceRefresh = false;
     try {
-      const body = await _req.json().catch(() => ({}));
-      forceRefresh = body.refresh === true || body.refresh === "1";
+      const raw = await _req.json().catch(() => ({}));
+      const parsed = validateBody(raw, mypageDashboardSchema);
+      if (!("error" in parsed)) {
+        forceRefresh = parsed.data.refresh === true || parsed.data.refresh === "1";
+      }
     } catch {
       // bodyが空の場合は無視
     }

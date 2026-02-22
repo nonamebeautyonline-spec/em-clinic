@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { enrollPatient } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { enrollStepSchema } from "@/lib/validations/line-management";
 
 // 登録者一覧
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -52,11 +54,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const tenantId = resolveTenantId(req);
   const { id } = await params;
   const scenarioId = parseInt(id);
-  const { patient_ids } = await req.json();
-
-  if (!Array.isArray(patient_ids) || patient_ids.length === 0) {
-    return NextResponse.json({ error: "patient_ids は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, enrollStepSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_ids } = parsed.data;
 
   let enrolled = 0;
   for (const pid of patient_ids) {

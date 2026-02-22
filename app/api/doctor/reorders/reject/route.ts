@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { doctorReorderRejectSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -13,14 +15,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const id = body.id as string | number | undefined;
-    if (!id) {
-      return NextResponse.json(
-        { ok: false, error: "id required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, doctorReorderRejectSchema);
+    if ("error" in parsed) return parsed.error;
+    const { id } = parsed.data;
 
     const reorderNumber = Number(id);
 

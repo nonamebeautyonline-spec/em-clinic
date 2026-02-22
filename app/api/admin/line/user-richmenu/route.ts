@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { assignUserRichMenuSchema } from "@/lib/validations/line-management";
 
 export const dynamic = "force-dynamic";
 
@@ -119,9 +121,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
-  const { patient_id, rich_menu_id } = await req.json();
-  if (!patient_id) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
-  if (!rich_menu_id) return NextResponse.json({ error: "rich_menu_id required" }, { status: 400 });
+  const parsed = await parseBody(req, assignUserRichMenuSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_id, rich_menu_id } = parsed.data;
 
   // DBからline_rich_menu_idを取得
   const { data: menu } = await withTenant(

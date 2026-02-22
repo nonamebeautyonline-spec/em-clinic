@@ -6,6 +6,8 @@ import { verifyTOTP } from "@/lib/totp";
 import { encrypt } from "@/lib/crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
+import { parseBody } from "@/lib/validations/helpers";
+import { totpVerifySchema } from "@/lib/validations/platform";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,19 +20,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { secret, token, backupCodes } = body as {
-      secret?: string;
-      token?: string;
-      backupCodes?: string[];
-    };
-
-    if (!secret || !token) {
-      return NextResponse.json(
-        { ok: false, error: "シークレットとコードは必須です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, totpVerifySchema);
+    if ("error" in parsed) return parsed.error;
+    const { secret, token, backupCodes } = parsed.data;
 
     // TOTPコードを検証
     const isValid = verifyTOTP(secret, token);

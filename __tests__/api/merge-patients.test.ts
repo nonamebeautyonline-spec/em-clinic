@@ -110,7 +110,9 @@ describe("merge-patients API", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toContain("old_patient_id");
+    // Zodバリデーションエラー（details にフィールド名が含まれる）
+    expect(json.error).toBe("入力値が不正です");
+    expect(json.details.some((d: string) => d.includes("old_patient_id"))).toBe(true);
   });
 
   // 3. new_patient_id 未指定 → 400
@@ -120,7 +122,9 @@ describe("merge-patients API", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toContain("new_patient_id");
+    // Zodバリデーションエラー（details にフィールド名が含まれる）
+    expect(json.error).toBe("入力値が不正です");
+    expect(json.details.some((d: string) => d.includes("new_patient_id"))).toBe(true);
   });
 
   // 4. old === new → 400

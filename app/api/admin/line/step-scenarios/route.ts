@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { stepScenarioSchema } from "@/lib/validations/line-common";
 
 // シナリオ一覧
 export async function GET(req: NextRequest) {
@@ -39,10 +41,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const body = await req.json();
-  const { name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = body;
-
-  if (!name?.trim()) return NextResponse.json({ error: "シナリオ名は必須です" }, { status: 400 });
+  const parsed = await parseBody(req, stepScenarioSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = parsed.data;
 
   // シナリオ作成
   const { data: scenario, error } = await supabaseAdmin
@@ -106,8 +107,9 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const body = await req.json();
-  const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = body;
+  const parsed = await parseBody(req, stepScenarioSchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = parsed.data as any;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 

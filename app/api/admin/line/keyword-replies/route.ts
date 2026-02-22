@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { keywordReplySchema } from "@/lib/validations/line-common";
 
 // 一覧取得
 export async function GET(req: NextRequest) {
@@ -30,11 +32,10 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = body;
 
-  if (!name?.trim()) return NextResponse.json({ error: "ルール名は必須です" }, { status: 400 });
-  if (!keyword?.trim()) return NextResponse.json({ error: "キーワードは必須です" }, { status: 400 });
+  const parsed = await parseBody(req, keywordReplySchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = parsed.data;
 
   // 正規表現の妥当性チェック
   if (match_type === "regex") {
@@ -71,12 +72,12 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { id, name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = body;
+
+  const parsed = await parseBody(req, keywordReplySchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = parsed.data as any;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
-  if (!name?.trim()) return NextResponse.json({ error: "ルール名は必須です" }, { status: 400 });
-  if (!keyword?.trim()) return NextResponse.json({ error: "キーワードは必須です" }, { status: 400 });
 
   if (match_type === "regex") {
     try { new RegExp(keyword); } catch {

@@ -5,6 +5,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { logAudit } from "@/lib/audit";
+import { parseBody } from "@/lib/validations/helpers";
+import { deletePatientDataSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,12 +18,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { patient_id, delete_intake, delete_reservation } = body;
-
-    if (!patient_id) {
-      return NextResponse.json({ error: "patient_id required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, deletePatientDataSchema);
+    if ("error" in parsed) return parsed.error;
+    const { patient_id, delete_intake, delete_reservation } = parsed.data;
 
     const results: {
       reservation_canceled?: boolean;

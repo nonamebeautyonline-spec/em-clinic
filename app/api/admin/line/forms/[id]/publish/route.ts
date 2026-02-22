@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { publishFormSchema } from "@/lib/validations/line-management";
 
 // 公開/非公開切替
 export async function POST(
@@ -13,7 +15,9 @@ export async function POST(
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { is_published } = await req.json();
+  const parsed = await parseBody(req, publishFormSchema);
+  if ("error" in parsed) return parsed.error;
+  const { is_published } = parsed.data;
 
   const { data, error } = await withTenant(
     supabaseAdmin

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateLineUserIdSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,17 +16,10 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => ({}));
-    const patientId = body.patient_id || body.patientId || "";
-    const lineUserId = body.line_user_id !== undefined ? String(body.line_user_id) : null;
-
-    if (!patientId) {
-      return NextResponse.json({ ok: false, error: "patient_id required" }, { status: 400 });
-    }
-
-    if (lineUserId === null) {
-      return NextResponse.json({ ok: false, error: "line_user_id required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, updateLineUserIdSchema);
+    if ("error" in parsed) return parsed.error;
+    const patientId = parsed.data.patient_id || parsed.data.patientId || "";
+    const lineUserId = String(parsed.data.line_user_id);
 
     // ★ patients テーブルの line_id を更新（intake の line_id は不要）
     const updateValue = lineUserId === "" ? null : lineUserId;

@@ -6,6 +6,8 @@ import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { parseBody } from "@/lib/validations/helpers";
+import { adminPasswordResetRequestSchema } from "@/lib/validations/admin-operations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,15 +20,9 @@ export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { email } = body;
-
-    if (!email) {
-      return NextResponse.json(
-        { ok: false, error: "メールアドレスが必要です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, adminPasswordResetRequestSchema);
+    if ("error" in parsed) return parsed.error;
+    const { email } = parsed.data;
 
     // レート制限: 同一メール 10分に1回
     const emailNorm = email.toLowerCase().trim();

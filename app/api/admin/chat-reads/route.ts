@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { chatReadSchema } from "@/lib/validations/admin-operations";
 
 // 既読タイムスタンプ一括取得
 export async function GET(req: NextRequest) {
@@ -34,8 +36,9 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { patient_id } = await req.json();
-  if (!patient_id) return NextResponse.json({ error: "patient_id is required" }, { status: 400 });
+  const parsed = await parseBody(req, chatReadSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_id } = parsed.data;
 
   const now = new Date().toISOString();
   const { error } = await supabaseAdmin

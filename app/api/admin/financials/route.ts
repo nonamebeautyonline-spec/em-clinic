@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { financialsSchema } from "@/lib/validations/admin-operations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -106,15 +108,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { year_month, ...financialData } = body;
-
-    if (!year_month || !/^\d{4}-\d{2}$/.test(year_month)) {
-      return NextResponse.json(
-        { ok: false, error: "invalid_year_month", message: "year_month must be YYYY-MM format" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, financialsSchema);
+    if ("error" in parsed) return parsed.error;
+    const { year_month, ...financialData } = parsed.data;
 
     const { data, error } = await supabase
       .from("monthly_financials")

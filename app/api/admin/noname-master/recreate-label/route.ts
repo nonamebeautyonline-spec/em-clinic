@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { recreateLabelSchema } from "@/lib/validations/shipping";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,12 +20,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { order_id } = body;
-
-    if (!order_id) {
-      return NextResponse.json({ error: "order_id is required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, recreateLabelSchema);
+    if ("error" in parsed) return parsed.error;
+    const { order_id } = parsed.data;
 
     // 現在時刻
     const now = new Date().toISOString();

@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendAiReply } from "@/lib/ai-reply";
 import { withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { aiReplySendSchema } from "@/lib/validations/ai-reply";
 
 export async function POST(
   request: NextRequest,
@@ -17,8 +19,9 @@ export async function POST(
     return NextResponse.json({ error: "無効なID" }, { status: 400 });
   }
 
-  const body = await request.json();
-  const { sig, exp } = body as { sig: string; exp: number };
+  const parsed = await parseBody(request, aiReplySendSchema);
+  if ("error" in parsed) return parsed.error;
+  const { sig, exp } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
     return NextResponse.json({ error: "署名が無効または期限切れです" }, { status: 403 });

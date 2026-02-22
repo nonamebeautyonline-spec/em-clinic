@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createClickTrackSchema } from "@/lib/validations/line-management";
 
 // クリック計測リンク一覧（配信IDで絞り込み可）
 export async function GET(req: NextRequest) {
@@ -41,10 +43,9 @@ export async function POST(req: NextRequest) {
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { original_url, label, broadcast_id } = await req.json();
-  if (!original_url) {
-    return NextResponse.json({ error: "URLは必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, createClickTrackSchema);
+  if ("error" in parsed) return parsed.error;
+  const { original_url, label, broadcast_id } = parsed.data;
 
   const trackingCode = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 

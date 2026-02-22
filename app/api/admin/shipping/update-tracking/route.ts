@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateTrackingCsvSchema } from "@/lib/validations/shipping";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,12 +20,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { csvContent } = body;
-
-    if (!csvContent) {
-      return NextResponse.json({ error: "CSV content is required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, updateTrackingCsvSchema);
+    if ("error" in parsed) return parsed.error;
+    const { csvContent } = parsed.data;
 
     // CSVをパース（タブ区切り）
     const lines = csvContent.split("\n").filter((line: string) => line.trim());

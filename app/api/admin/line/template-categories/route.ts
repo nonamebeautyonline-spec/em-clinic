@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createTemplateCategorySchema } from "@/lib/validations/line-management";
 
 // テンプレートカテゴリ一覧
 export async function GET(req: NextRequest) {
@@ -26,10 +28,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { name } = await req.json();
-  if (!name?.trim()) {
-    return NextResponse.json({ error: "フォルダ名は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, createTemplateCategorySchema);
+  if ("error" in parsed) return parsed.error;
+  const { name } = parsed.data;
 
   const { data: maxRow } = await withTenant(
     supabaseAdmin.from("template_categories").select("sort_order").order("sort_order", { ascending: false }).limit(1),

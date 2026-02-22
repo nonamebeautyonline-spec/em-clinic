@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { setDefaultRichMenu } from "@/lib/line-richmenu";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateFriendSettingsSchema } from "@/lib/validations/line-management";
 
 // 友達追加時設定一覧
 export async function GET(req: NextRequest) {
@@ -29,10 +31,9 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { setting_key, setting_value, enabled } = await req.json();
-  if (!setting_key) {
-    return NextResponse.json({ error: "setting_keyは必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, updateFriendSettingsSchema);
+  if ("error" in parsed) return parsed.error;
+  const { setting_key, setting_value, enabled } = parsed.data as { setting_key: string; setting_value: any; enabled?: boolean };
 
   const { data, error } = await withTenant(
     supabaseAdmin

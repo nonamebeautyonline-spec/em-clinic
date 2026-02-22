@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createMarkSchema } from "@/lib/validations/line-common";
 
 // 対応マーク一覧（各マークの患者数付き）
 export async function GET(req: NextRequest) {
@@ -61,10 +63,10 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { label, color, icon } = await req.json();
-  if (!label?.trim()) {
-    return NextResponse.json({ error: "選択肢名は必須です" }, { status: 400 });
-  }
+
+  const parsed = await parseBody(req, createMarkSchema);
+  if ("error" in parsed) return parsed.error;
+  const { label, color, icon } = parsed.data;
 
   // value を label から自動生成（ユニーク）
   const value = `custom_${Date.now()}`;

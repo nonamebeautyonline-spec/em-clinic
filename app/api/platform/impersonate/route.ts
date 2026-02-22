@@ -7,6 +7,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
 import { SignJWT } from "jose";
 import { createSession } from "@/lib/session";
+import { parseBody } from "@/lib/validations/helpers";
+import { impersonateSchema } from "@/lib/validations/platform";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 const SESSION_DURATION_SECONDS = 2 * 60 * 60; // インパーソネーションは2時間
@@ -20,15 +22,9 @@ export async function POST(req: NextRequest) {
     );
 
   try {
-    const body = await req.json();
-    const { tenantId } = body;
-
-    if (!tenantId) {
-      return NextResponse.json(
-        { ok: false, error: "tenantIdは必須です" },
-        { status: 400 },
-      );
-    }
+    const parsed = await parseBody(req, impersonateSchema);
+    if ("error" in parsed) return parsed.error;
+    const { tenantId } = parsed.data;
 
     // テナント情報取得
     const { data: tenant, error: tenantErr } = await supabaseAdmin

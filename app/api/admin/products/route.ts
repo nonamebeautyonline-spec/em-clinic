@@ -4,6 +4,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admin-operations";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -24,16 +26,13 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
+  const parsed = await parseBody(req, productCreateSchema);
+  if ("error" in parsed) return parsed.error;
   const {
     code, title, drug_name, dosage, duration_months, quantity, price,
     category, sort_order, image_url, stock_quantity, discount_price,
     discount_until, description, parent_id,
-  } = body;
-
-  if (!code || !title || !price) {
-    return NextResponse.json({ error: "code, title, price は必須です" }, { status: 400 });
-  }
+  } = parsed.data;
 
   const { data, error } = await supabaseAdmin
     .from("products")
@@ -74,12 +73,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { id, ...updates } = body;
-
-  if (!id) {
-    return NextResponse.json({ error: "id は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, productUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, ...updates } = parsed.data;
 
   updates.updated_at = new Date().toISOString();
 

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { bulkMenuSchema } from "@/lib/validations/admin-operations";
 
 const LINE_API = "https://api.line.me/v2/bot/richmenu/bulk/link";
 
@@ -13,11 +15,9 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const tenantId = resolveTenantId(req);
-    const { patient_ids, rich_menu_id } = await req.json();
-
-    if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !rich_menu_id) {
-      return NextResponse.json({ error: "patient_ids と rich_menu_id は必須です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, bulkMenuSchema);
+    if ("error" in parsed) return parsed.error;
+    const { patient_ids, rich_menu_id } = parsed.data;
 
     // リッチメニューのLINE側IDを取得
     const { data: menu } = await withTenant(

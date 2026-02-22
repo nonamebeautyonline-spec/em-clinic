@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSetting } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { inventorySchema } from "@/lib/validations/admin-operations";
 
 const DEFAULT_LOCATIONS = ["本院"];
 
@@ -78,23 +80,11 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { date, entries } = body;
+  const parsed = await parseBody(req, inventorySchema);
+  if ("error" in parsed) return parsed.error;
+  const { date, entries } = parsed.data;
 
-  if (!date || !entries?.length) {
-    return NextResponse.json({ error: "date, entries は必須です" }, { status: 400 });
-  }
-
-  const rows = entries.map((e: {
-    item_key: string;
-    section: string;
-    location: string;
-    product_id?: string;
-    box_count: number;
-    shipped_count?: number;
-    received_count?: number;
-    note?: string;
-  }) => ({
+  const rows = entries.map((e) => ({
     ...tenantPayload(tenantId),
     product_id: e.product_id || null,
     item_key: e.item_key,

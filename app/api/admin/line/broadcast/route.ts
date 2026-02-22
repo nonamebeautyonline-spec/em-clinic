@@ -7,6 +7,8 @@ import {
   getVisitCounts, getPurchaseAmounts, getLastVisitDates, getReorderCounts,
   matchBehaviorCondition
 } from "@/lib/behavior-filters";
+import { parseBody } from "@/lib/validations/helpers";
+import { broadcastSchema } from "@/lib/validations/line-broadcast";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,10 +70,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { name, filter_rules, message, scheduled_at } = await req.json();
-  if (!message?.trim()) {
-    return NextResponse.json({ error: "メッセージは必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, broadcastSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, filter_rules, message, scheduled_at } = parsed.data;
 
   // 対象患者を取得（テナントIDを渡してフィルタリング）
   const targets = await resolveTargets(filter_rules || {}, tenantId);

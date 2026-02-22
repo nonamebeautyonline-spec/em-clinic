@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createTemplateSchema } from "@/lib/validations/line-common";
 
 // テンプレート一覧
 export async function GET(req: NextRequest) {
@@ -26,10 +28,10 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  const { name, content, message_type, category, flex_content } = await req.json();
-  if (!name?.trim()) {
-    return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, createTemplateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, content, message_type, category, flex_content } = parsed.data;
+
   // flex テンプレートはcontent不要、それ以外はcontent必須
   if (message_type !== "flex" && !content?.trim()) {
     return NextResponse.json({ error: "内容は必須です" }, { status: 400 });

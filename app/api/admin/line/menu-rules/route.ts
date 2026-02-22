@@ -9,6 +9,8 @@ import {
 } from "@/lib/menu-auto-rules";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { menuRuleSchema } from "@/lib/validations/line-management";
 
 // ルール一覧取得
 export async function GET(req: NextRequest) {
@@ -26,11 +28,9 @@ export async function POST(req: NextRequest) {
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { rule } = body as { rule: Partial<MenuAutoRule> };
-  if (!rule?.name || !rule?.target_menu_id) {
-    return NextResponse.json({ error: "名前と対象メニューは必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, menuRuleSchema);
+  if ("error" in parsed) return parsed.error;
+  const { rule } = parsed.data as unknown as { rule: Partial<MenuAutoRule> };
 
   const rules = await loadMenuRules(tenantId ?? undefined);
 
@@ -43,11 +43,11 @@ export async function POST(req: NextRequest) {
     // 新規作成
     const newRule: MenuAutoRule = {
       id: crypto.randomUUID(),
-      name: rule.name,
+      name: rule.name!,
       enabled: rule.enabled !== false,
       conditions: rule.conditions || [],
       conditionOperator: rule.conditionOperator || "AND",
-      target_menu_id: rule.target_menu_id,
+      target_menu_id: rule.target_menu_id!,
       priority: rule.priority ?? rules.length,
       created_at: new Date().toISOString(),
     };

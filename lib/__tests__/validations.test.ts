@@ -235,8 +235,8 @@ describe("checkoutSchema — 詳細", () => {
     }
   });
 
-  it("mode 欠損 → エラー", () => {
-    expect(checkoutSchema.safeParse({ productCode: "X" }).success).toBe(false);
+  it("mode 欠損 → OK（optional化済み）", () => {
+    expect(checkoutSchema.safeParse({ productCode: "X" }).success).toBe(true);
   });
 
   it("productCode 欠損 → エラー", () => {

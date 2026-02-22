@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bulkActionSchema } from "@/lib/validations/admin-operations";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change";
@@ -19,11 +21,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { patient_ids, action_id } = await req.json();
-
-  if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !action_id) {
-    return NextResponse.json({ error: "patient_ids と action_id は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, bulkActionSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_ids, action_id } = parsed.data;
 
   // アクション取得
   const { data: action } = await withTenant(

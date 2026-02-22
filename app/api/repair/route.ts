@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { repairSchema } from "@/lib/validations/repair";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,12 +20,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => ({} as Record<string, string>));
-    const { name_kana, sex, birth, tel } = body;
-
-    if (!name_kana || !sex || !birth || !tel) {
-      return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, repairSchema);
+    if ("error" in parsed) return parsed.error;
+    const { name_kana, sex, birth, tel } = parsed.data;
 
     // 1. intake.answers を更新（既存をマージ）
     const { data: intake } = await withTenant(

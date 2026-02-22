@@ -7,6 +7,8 @@ import { sendWelcomeEmail } from "@/lib/email";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { generateUsername } from "@/lib/username";
+import { parseBody } from "@/lib/validations/helpers";
+import { createAdminUserSchema } from "@/lib/validations/admin-operations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,15 +56,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const { email, name } = body;
-
-    if (!email || !name) {
-      return NextResponse.json(
-        { ok: false, error: "email と name が必要です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, createAdminUserSchema);
+    if ("error" in parsed) return parsed.error;
+    const { email, name } = parsed.data;
 
     // メールアドレス重複チェック
     const { data: existing } = await withTenant(

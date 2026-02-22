@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { patientMarkUpdateSchema } from "@/lib/validations/admin-operations";
 
 // 対応マーク取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +33,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { mark, note } = await req.json();
+  const parsed = await parseBody(req, patientMarkUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { mark, note } = parsed.data;
 
   // "none" は常に許可、それ以外は mark_definitions テーブルで検証
   if (mark !== "none") {

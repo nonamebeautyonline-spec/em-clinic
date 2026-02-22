@@ -10,6 +10,12 @@ import {
 } from "@/lib/reservation-flex";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { validateBody } from "@/lib/validations/helpers";
+import {
+  createReservationSchema,
+  cancelReservationSchema,
+  updateReservationSchema,
+} from "@/lib/validations/reservation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -472,9 +478,11 @@ export async function POST(req: NextRequest) {
 
     // ★ 予約作成
     if (type === "createReservation" || !type) {
-      const date = body.date || "";
-      const time = body.time || "";
-      const pid = body.patient_id || patientId;
+      const validated = validateBody(body, createReservationSchema);
+      if ("error" in validated) return validated.error;
+      const date = validated.data.date || "";
+      const time = validated.data.time || "";
+      const pid = validated.data.patient_id || patientId;
 
       // ★★ 翌月予約開放日チェック ★★
       if (date && !(await isDateBookable(date, tenantId))) {
@@ -699,8 +707,10 @@ export async function POST(req: NextRequest) {
 
     // ★ 予約キャンセル
     if (type === "cancelReservation") {
-      const reserveId = body.reserveId || body.reservationId || body.id || "";
-      const pid = body.patient_id || patientId;
+      const cancelValidated = validateBody(body, cancelReservationSchema);
+      if ("error" in cancelValidated) return cancelValidated.error;
+      const reserveId = cancelValidated.data.reserveId || cancelValidated.data.reservationId || cancelValidated.data.id || "";
+      const pid = cancelValidated.data.patient_id || patientId;
 
       if (!reserveId) {
         return NextResponse.json({ ok: false, error: "reserveId required" }, { status: 400 });
@@ -816,10 +826,12 @@ export async function POST(req: NextRequest) {
 
     // ★ 予約変更（日時のみ更新）
     if (type === "updateReservation") {
-      const reserveId = body.reserveId || body.reservationId || "";
-      const newDate = body.date || "";
-      const newTime = body.time || "";
-      const pid = body.patient_id || patientId;
+      const updateValidated = validateBody(body, updateReservationSchema);
+      if ("error" in updateValidated) return updateValidated.error;
+      const reserveId = updateValidated.data.reserveId || updateValidated.data.reservationId || "";
+      const newDate = updateValidated.data.date || "";
+      const newTime = updateValidated.data.time || "";
+      const pid = updateValidated.data.patient_id || patientId;
 
       if (!reserveId || !newDate || !newTime) {
         return NextResponse.json({ ok: false, error: "missing parameters" }, { status: 400 });

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bulkSendSchema } from "@/lib/validations/line-common";
 
 // 複数患者にテンプレートメッセージを一括送信
 export async function POST(req: NextRequest) {
@@ -10,11 +12,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { patient_ids, template_id } = await req.json();
-
-  if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !template_id) {
-    return NextResponse.json({ error: "patient_ids と template_id は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, bulkSendSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_ids, template_id } = parsed.data;
 
   // テンプレート取得
   const { data: tmpl } = await withTenant(

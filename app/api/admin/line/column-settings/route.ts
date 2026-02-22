@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateColumnSettingsSchema } from "@/lib/validations/line-management";
 
 // 表示設定取得
 export async function GET(req: NextRequest) {
@@ -24,10 +26,9 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { sections } = await req.json();
-  if (typeof sections !== "object" || sections === null) {
-    return NextResponse.json({ error: "sections は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, updateColumnSettingsSchema);
+  if ("error" in parsed) return parsed.error;
+  const { sections } = parsed.data;
 
   const ok = await setSetting("line", "right_column_sections", JSON.stringify(sections), tenantId ?? undefined);
   if (!ok) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });

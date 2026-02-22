@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu, bulkLinkRichMenu } from "@/lib/line-richmenu";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateRichMenuSchema } from "@/lib/validations/line-management";
 
 /**
  * メニュー名に基づいて、個別リンク対象のLINE user IDを取得
@@ -81,7 +83,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const tenantId = resolveTenantId(req);
     const { id } = await params;
-    const body = await req.json();
+    const parsed = await parseBody(req, updateRichMenuSchema);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const tag = `[RichMenu:${id}]`;
 
     // 1. 既存メニューを取得

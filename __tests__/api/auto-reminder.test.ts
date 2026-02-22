@@ -496,7 +496,8 @@ describe("reminder-rules API: 固定時刻ルール", () => {
     const response = await POST(req);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toContain("送信時刻");
+    expect(body.error).toBe("入力値が不正です");
+    expect(body.details).toBeDefined();
   });
 
   it("FLEXメッセージの場合、message_templateが空でもOK", async () => {
@@ -576,6 +577,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
     const response = await POST(req);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toContain("ルール名");
+    expect(body.error).toBe("入力値が不正です");
+    expect(body.details).toBeDefined();
   });
 });

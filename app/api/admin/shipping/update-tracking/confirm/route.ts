@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateTrackingConfirmSchema } from "@/lib/validations/shipping";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -27,12 +29,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { entries } = body as { entries: TrackingEntry[] };
-
-    if (!entries || !Array.isArray(entries)) {
-      return NextResponse.json({ error: "Entries data is required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, updateTrackingConfirmSchema);
+    if ("error" in parsed) return parsed.error;
+    const { entries } = parsed.data;
 
     const successUpdates: string[] = [];
     const errors: string[] = [];

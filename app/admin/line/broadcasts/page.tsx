@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import BroadcastCalendar from "../_components/BroadcastCalendar";
 
 interface Broadcast {
   id: number;
@@ -13,6 +14,7 @@ interface Broadcast {
   no_uid_count: number;
   created_at: string;
   sent_at: string | null;
+  scheduled_at?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { text: string; bg: string; text_color: string; dot: string }> = {
@@ -23,9 +25,12 @@ const STATUS_CONFIG: Record<string, { text: string; bg: string; text_color: stri
   failed: { text: "失敗", bg: "bg-red-50", text_color: "text-red-700", dot: "bg-red-500" },
 };
 
+type ViewMode = "list" | "calendar";
+
 export default function BroadcastsPage() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,6 +69,36 @@ export default function BroadcastsPage() {
               </h1>
               <p className="text-sm text-gray-400 mt-1">一斉配信の送信結果を確認</p>
             </div>
+
+            {/* リスト/カレンダー切り替えタブ */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "list"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                リスト
+              </button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  viewMode === "calendar"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                カレンダー
+              </button>
+            </div>
           </div>
 
           {/* サマリー */}
@@ -88,7 +123,7 @@ export default function BroadcastsPage() {
         </div>
       </div>
 
-      {/* 配信リスト */}
+      {/* コンテンツ */}
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -107,7 +142,11 @@ export default function BroadcastsPage() {
             <p className="text-gray-400 text-sm">配信履歴がまだありません</p>
             <p className="text-gray-300 text-xs mt-1">メッセージ送信ページから一斉配信を実行してください</p>
           </div>
+        ) : viewMode === "calendar" ? (
+          /* カレンダービュー */
+          <BroadcastCalendar broadcasts={broadcasts} statusConfig={STATUS_CONFIG} />
         ) : (
+          /* リストビュー */
           <div className="space-y-4">
             {broadcasts.map((b) => {
               const st = STATUS_CONFIG[b.status] || { text: b.status, bg: "bg-gray-50", text_color: "text-gray-600", dot: "bg-gray-400" };
@@ -128,6 +167,12 @@ export default function BroadcastsPage() {
                             <>
                               <span className="text-xs text-gray-300">→</span>
                               <span className="text-xs text-gray-400">送信: {formatDate(b.sent_at)}</span>
+                            </>
+                          )}
+                          {b.scheduled_at && !b.sent_at && (
+                            <>
+                              <span className="text-xs text-gray-300">→</span>
+                              <span className="text-xs text-blue-500">予約: {formatDate(b.scheduled_at)}</span>
                             </>
                           )}
                         </div>

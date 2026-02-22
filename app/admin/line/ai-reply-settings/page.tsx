@@ -45,6 +45,7 @@ LINEメニューの「予約する」ボタンから予約できます。
 
 export default function AiReplySettingsPage() {
   const [settings, setSettings] = useState<AiReplySettings>(DEFAULT_SETTINGS);
+  const [todayUsage, setTodayUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -55,6 +56,7 @@ export default function AiReplySettingsPage() {
       if (res.ok) {
         const data = await res.json();
         setSettings(data.settings);
+        setTodayUsage(data.todayUsage ?? 0);
       }
     } catch (e) {
       console.error("設定取得エラー:", e);
@@ -192,6 +194,41 @@ export default function AiReplySettingsPage() {
           rows={4}
           className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-y"
         />
+      </div>
+
+      {/* 本日の使用状況 */}
+      <div className="bg-white rounded-lg border p-4">
+        <h2 className="font-semibold text-gray-700 mb-2">本日の使用状況</h2>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm text-gray-600">
+            本日のAI返信: <span className="font-bold">{todayUsage}</span> / {settings.daily_limit}件
+          </span>
+          <span className="text-xs text-gray-400">
+            {settings.daily_limit > 0
+              ? `残り${Math.max(0, settings.daily_limit - todayUsage)}件`
+              : ""}
+          </span>
+        </div>
+        {(() => {
+          const pct = settings.daily_limit > 0
+            ? Math.min(100, Math.round((todayUsage / settings.daily_limit) * 100))
+            : 0;
+          const barColor =
+            pct >= 80 ? "bg-red-500" : pct >= 50 ? "bg-yellow-500" : "bg-green-500";
+          return (
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className={`${barColor} h-2.5 rounded-full transition-all`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          );
+        })()}
+        {todayUsage >= settings.daily_limit && settings.daily_limit > 0 && (
+          <p className="text-xs text-red-500 mt-1">
+            日次上限に達しました。本日はこれ以上AI返信が生成されません。
+          </p>
+        )}
       </div>
 
       {/* 詳細設定 */}

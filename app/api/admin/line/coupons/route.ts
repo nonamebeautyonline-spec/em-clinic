@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createCouponSchema } from "@/lib/validations/line-common";
 
 // クーポン一覧
 export async function GET(req: NextRequest) {
@@ -42,12 +44,10 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, description } = body;
 
-  if (!name?.trim()) return NextResponse.json({ error: "クーポン名は必須です" }, { status: 400 });
-  if (!code?.trim()) return NextResponse.json({ error: "クーポンコードは必須です" }, { status: 400 });
-  if (!discount_value || discount_value <= 0) return NextResponse.json({ error: "割引値は1以上を指定してください" }, { status: 400 });
+  const parsed = await parseBody(req, createCouponSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, description } = parsed.data;
 
   // コード重複チェック
   const { data: existing } = await withTenant(
@@ -87,8 +87,10 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description } = body;
+
+  const parsed = await parseBody(req, createCouponSchema);
+  if ("error" in parsed) return parsed.error;
+  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description } = parsed.data as any;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 

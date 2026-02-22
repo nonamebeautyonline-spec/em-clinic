@@ -6,6 +6,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { parseBody } from "@/lib/validations/helpers";
+import { reorderApplySchema } from "@/lib/validations/reorder";
 
 // LINE Flex Message（承認・却下ボタン付き）を送信
 async function sendReorderNotification(
@@ -201,11 +203,9 @@ export async function POST(req: NextRequest) {
     const LINE_NOTIFY_TOKEN = (await getSettingOrEnv("line", "notify_channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tid)) || "";
     const LINE_ADMIN_GROUP_ID = (await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tid)) || "";
 
-    const body = await req.json().catch(() => ({} as any));
-    const productCode = body.productCode as string | undefined;
-    if (!productCode) {
-      return NextResponse.json({ ok: false, error: "productCode_required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, reorderApplySchema);
+    if ("error" in parsed) return parsed.error;
+    const { productCode } = parsed.data;
 
     // ★ NG患者は再処方申請不可（statusがnullのレコードを除外）
     {

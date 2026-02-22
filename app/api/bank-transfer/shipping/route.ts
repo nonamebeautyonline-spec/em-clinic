@@ -6,21 +6,16 @@ import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { getProductNamesMap, getProductPricesMap } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bankTransferShippingSchema } from "@/lib/validations/payment";
 
 
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
-    const body = await req.json();
-    const { patientId, productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = body;
-
-    // バリデーション
-    if (!patientId || !productCode || !accountName || !shippingName || !phoneNumber || !email || !postalCode || !address) {
-      return NextResponse.json(
-        { error: "必須項目が不足しています" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, bankTransferShippingSchema);
+    if ("error" in parsed) return parsed.error;
+    const { patientId, productCode, mode, reorderId, accountName, shippingName, phoneNumber, email, postalCode, address } = parsed.data;
 
     // ★ NG患者は決済不可（statusがnullの再処方カルテを除外）
     {

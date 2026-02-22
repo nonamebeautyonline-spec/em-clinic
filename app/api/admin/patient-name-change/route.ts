@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { patientNameChangeSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,17 +15,11 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json().catch(() => ({}));
-    const patientId = (body.patient_id || "").trim();
-    const newName = (body.new_name || "").trim();
-    const newNameKana = (body.new_name_kana || "").trim();
-
-    if (!patientId || !newName) {
-      return NextResponse.json(
-        { ok: false, error: "patient_id and new_name are required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, patientNameChangeSchema);
+    if ("error" in parsed) return parsed.error;
+    const patientId = parsed.data.patient_id.trim();
+    const newName = parsed.data.new_name.trim();
+    const newNameKana = (parsed.data.new_name_kana || "").trim();
 
     const results: Record<string, string> = {};
 

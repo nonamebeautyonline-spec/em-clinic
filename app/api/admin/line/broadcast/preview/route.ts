@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { resolveTargets } from "../route";
+import { parseBody } from "@/lib/validations/helpers";
+import { broadcastPreviewSchema } from "@/lib/validations/line-broadcast";
 
 // フィルタ条件で対象者プレビュー
 export async function POST(req: NextRequest) {
@@ -9,7 +11,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { filter_rules } = await req.json();
+  const parsed = await parseBody(req, broadcastPreviewSchema);
+  if ("error" in parsed) return parsed.error;
+  const { filter_rules } = parsed.data;
 
   const targets = await resolveTargets(filter_rules || {}, tenantId);
 

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { nonameMasterUpdateTrackingSchema } from "@/lib/validations/shipping";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 
@@ -20,16 +22,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { order_id, tracking_number, update_only, shipping_date: customShippingDate } = body;
-
-    if (!order_id) {
-      return NextResponse.json({ error: "order_id is required" }, { status: 400 });
-    }
-
-    if (!tracking_number || tracking_number.trim() === "") {
-      return NextResponse.json({ error: "tracking_number is required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, nonameMasterUpdateTrackingSchema);
+    if ("error" in parsed) return parsed.error;
+    const { order_id, tracking_number, update_only, shipping_date: customShippingDate } = parsed.data;
 
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     // カスタム発送日が指定されていればそれを使用、なければ本日

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { formSubmitSchema } from "@/lib/validations/forms";
 
 /**
  * フォーム送信後のアクション実行
@@ -138,12 +140,9 @@ export async function POST(
     }
   }
 
-  const body = await req.json();
-  const { answers, line_user_id, respondent_name } = body as {
-    answers: Record<string, unknown>;
-    line_user_id?: string;
-    respondent_name?: string;
-  };
+  const parsed = await parseBody(req, formSubmitSchema);
+  if ("error" in parsed) return parsed.error;
+  const { answers, line_user_id, respondent_name } = parsed.data;
 
   // 1人あたりの回答数チェック
   if (settings.responses_per_person && line_user_id) {

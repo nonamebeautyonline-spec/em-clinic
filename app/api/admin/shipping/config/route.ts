@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { getShippingConfig, setShippingConfig } from "@/lib/shipping/config";
+import { parseBody } from "@/lib/validations/helpers";
+import { shippingConfigPutSchema } from "@/lib/validations/admin-operations";
 
 // 設定取得
 export async function GET(req: NextRequest) {
@@ -20,10 +22,9 @@ export async function PUT(req: NextRequest) {
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { config } = await req.json();
-  if (!config || typeof config !== "object") {
-    return NextResponse.json({ error: "configは必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, shippingConfigPutSchema);
+  if ("error" in parsed) return parsed.error;
+  const { config } = parsed.data;
 
   const saved = await setShippingConfig(config, tenantId ?? undefined);
   if (!saved) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });

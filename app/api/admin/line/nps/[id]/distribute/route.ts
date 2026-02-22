@@ -5,6 +5,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
+import { parseBody } from "@/lib/validations/helpers";
+import { distributeNpsSchema } from "@/lib/validations/line-management";
 
 export async function POST(
   req: NextRequest,
@@ -15,8 +17,9 @@ export async function POST(
 
   const tenantId = resolveTenantId(req);
   const { id: surveyId } = await params;
-  const body = await req.json();
-  const { filter_rules, message } = body;
+  const parsed = await parseBody(req, distributeNpsSchema);
+  if ("error" in parsed) return parsed.error;
+  const { filter_rules, message } = parsed.data;
 
   // 調査取得
   const { data: survey } = await withTenant(

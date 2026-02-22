@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { karteLockSchema } from "@/lib/validations/admin-operations";
 
 export const dynamic = "force-dynamic";
 
@@ -12,17 +14,11 @@ export async function POST(req: NextRequest) {
     if (!isAuthorized)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const body = await req.json().catch(() => null);
+    const parsed = await parseBody(req, karteLockSchema);
+    if ("error" in parsed) return parsed.error;
+    const { intakeId, action } = parsed.data;
+
     const tenantId = resolveTenantId(req);
-
-    if (!body?.intakeId) {
-      return NextResponse.json(
-        { error: "intakeId は必須です" },
-        { status: 400 }
-      );
-    }
-
-    const { intakeId, action } = body; // action: "lock" | "unlock"
 
     if (action === "unlock") {
       // ロック解除

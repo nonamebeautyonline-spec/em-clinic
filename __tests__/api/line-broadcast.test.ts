@@ -247,7 +247,8 @@ describe("LINE broadcast API ロジック", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("必須");
+    expect(json.error).toBe("入力値が不正です");
+    expect(json.details).toBeDefined();
   });
 
   it("認証NG → 401", async () => {

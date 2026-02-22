@@ -6,6 +6,8 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { logAudit } from "@/lib/audit";
+import { parseBody } from "@/lib/validations/helpers";
+import { adminReorderRejectSchema } from "@/lib/validations/admin-operations";
 
 async function pushToGroup(text: string, token: string, groupId: string) {
   if (!token || !groupId) return;
@@ -39,12 +41,9 @@ export async function POST(req: NextRequest) {
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_NOTIFY_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const lineGroupId = await getSettingOrEnv("line", "admin_group_id", "LINE_ADMIN_GROUP_ID", tenantId ?? undefined) || "";
 
-    const body = await req.json();
-    const { id } = body; // id = reorder_number
-
-    if (!id) {
-      return NextResponse.json({ error: "id required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, adminReorderRejectSchema);
+    if ("error" in parsed) return parsed.error;
+    const { id } = parsed.data; // id = reorder_number
 
     // まずpatient_idとstatusを取得
     const { data: reorderData, error: fetchError } = await withTenant(

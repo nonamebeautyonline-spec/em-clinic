@@ -7,6 +7,8 @@ import { pushMessage } from "@/lib/line-push";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { parseBody } from "@/lib/validations/helpers";
+import { doctorReorderApproveSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -15,14 +17,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const id = body.id as string | number | undefined;
-    if (!id) {
-      return NextResponse.json(
-        { ok: false, error: "id required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, doctorReorderApproveSchema);
+    if ("error" in parsed) return parsed.error;
+    const { id } = parsed.data;
 
     const reorderNumber = Number(id);
 

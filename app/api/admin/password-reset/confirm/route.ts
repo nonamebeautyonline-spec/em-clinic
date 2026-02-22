@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { adminPasswordResetConfirmSchema } from "@/lib/validations/admin-operations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,23 +82,9 @@ export async function GET(req: NextRequest) {
 // パスワード設定（POST）
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { token, password } = body;
-
-    if (!token || !password) {
-      return NextResponse.json(
-        { ok: false, error: "トークンとパスワードが必要です" },
-        { status: 400 }
-      );
-    }
-
-    // パスワード強度チェック
-    if (password.length < 8) {
-      return NextResponse.json(
-        { ok: false, error: "パスワードは8文字以上必要です" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, adminPasswordResetConfirmSchema);
+    if ("error" in parsed) return parsed.error;
+    const { token, password } = parsed.data;
 
     const tenantId = resolveTenantId(req);
 

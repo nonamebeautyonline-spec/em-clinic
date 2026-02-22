@@ -99,7 +99,8 @@ describe("カルテロック API (app/api/admin/karte-lock/route.ts)", () => {
     const res = await karteLockPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("intakeId");
+    expect(json.error).toBe("入力値が不正です");
+    expect(json.details).toBeDefined();
   });
 
   it("認証NG → 401", async () => {
@@ -152,7 +153,8 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("intakeId");
+    expect(json.error).toBe("入力値が不正です");
+    expect(json.details).toBeDefined();
   });
 
   it("カルテ不存在 → 404", async () => {
@@ -191,7 +193,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("リクエストボディ");
+    expect(json.error).toBe("リクエストの形式が不正です");
   });
 
   it("認証NG → 401", async () => {

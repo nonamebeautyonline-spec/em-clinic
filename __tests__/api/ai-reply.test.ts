@@ -146,3 +146,64 @@ describe("AI返信メイン処理", () => {
     expect(typeof mod.sendAiReply).toBe("function");
   });
 });
+
+describe("buildSystemPrompt 却下フィードバック", () => {
+  it("却下パターンなしでも正常に動作（後方互換性）", async () => {
+    const { buildSystemPrompt } = await import("@/lib/ai-reply");
+    const prompt = buildSystemPrompt("テスト知識", "テスト指示");
+    expect(prompt).toContain("テスト知識");
+    expect(prompt).toContain("テスト指示");
+    expect(prompt).not.toContain("過去の却下された返信例");
+  });
+
+  it("空配列でも却下セクションは追加されない", async () => {
+    const { buildSystemPrompt } = await import("@/lib/ai-reply");
+    const prompt = buildSystemPrompt("知識", "指示", []);
+    expect(prompt).not.toContain("過去の却下された返信例");
+  });
+
+  it("却下パターンがある場合、プロンプト末尾に追加される", async () => {
+    const { buildSystemPrompt } = await import("@/lib/ai-reply");
+    const prompt = buildSystemPrompt("知識", "指示", [
+      {
+        original_message: "予約したい",
+        draft_reply: "ご予約は電話で承ります",
+        reject_category: "inaccurate",
+        reject_reason: "LINEから予約できるのが正しい",
+      },
+      {
+        original_message: "薬の副作用は？",
+        draft_reply: "副作用はありません",
+        reject_category: "inappropriate",
+        reject_reason: null,
+      },
+    ]);
+    expect(prompt).toContain("過去の却下された返信例");
+    expect(prompt).toContain("予約したい");
+    expect(prompt).toContain("不正確");
+    expect(prompt).toContain("LINEから予約できるのが正しい");
+    expect(prompt).toContain("不適切な表現");
+  });
+
+  it("reject_categoryがnullの場合は「理由なし」と表示される", async () => {
+    const { buildSystemPrompt } = await import("@/lib/ai-reply");
+    const prompt = buildSystemPrompt("知識", "指示", [
+      {
+        original_message: "テスト",
+        draft_reply: "テスト返信",
+        reject_category: null,
+        reject_reason: null,
+      },
+    ]);
+    expect(prompt).toContain("理由なし");
+  });
+
+  it("全カテゴリの日本語ラベルが正しい", async () => {
+    const { rejectCategoryLabels } = await import("@/lib/validations/ai-reply");
+    expect(rejectCategoryLabels.inaccurate).toBe("不正確");
+    expect(rejectCategoryLabels.inappropriate).toBe("不適切な表現");
+    expect(rejectCategoryLabels.not_answering).toBe("質問に答えていない");
+    expect(rejectCategoryLabels.insufficient_info).toBe("情報不足");
+    expect(rejectCategoryLabels.other).toBe("その他");
+  });
+});

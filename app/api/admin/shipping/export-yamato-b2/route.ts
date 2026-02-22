@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { exportYamatoB2Schema } from "@/lib/validations/shipping";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,12 +21,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const orderIds = body.order_ids || [];
-
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
-      return NextResponse.json({ error: "order_ids required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, exportYamatoB2Schema);
+    if ("error" in parsed) return parsed.error;
+    const { order_ids: orderIds } = parsed.data;
 
     // ordersテーブルから注文情報を取得
     const { data: orders, error: ordersError } = await withTenant(

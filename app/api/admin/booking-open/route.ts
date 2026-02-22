@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bookingOpenSchema } from "@/lib/validations/admin-operations";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,12 +63,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const { month, memo } = body;
-
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return NextResponse.json({ error: "Invalid month format. Use YYYY-MM" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, bookingOpenSchema);
+    if ("error" in parsed) return parsed.error;
+    const { month, memo } = parsed.data;
 
     // upsert: 既存レコードがあれば更新、なければ挿入
     const { data, error } = await supabaseAdmin

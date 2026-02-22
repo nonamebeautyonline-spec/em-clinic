@@ -108,7 +108,8 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("code");
+      expect(json.error).toBe("入力値が不正です");
+      expect(json.details?.some((d: string) => d.includes("code"))).toBe(true);
     });
 
     it("title未指定 → 400", async () => {
@@ -119,7 +120,8 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("title");
+      expect(json.error).toBe("入力値が不正です");
+      expect(json.details?.some((d: string) => d.includes("title"))).toBe(true);
     });
 
     it("price未指定 → 400", async () => {
@@ -130,7 +132,8 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("price");
+      expect(json.error).toBe("入力値が不正です");
+      expect(json.details?.some((d: string) => d.includes("price"))).toBe(true);
     });
 
     it("認証NG → 401", async () => {
@@ -170,7 +173,8 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("id");
+      expect(json.error).toBe("入力値が不正です");
+      expect(json.details?.some((d: string) => d.includes("id"))).toBe(true);
     });
 
     it("認証NG → 401", async () => {

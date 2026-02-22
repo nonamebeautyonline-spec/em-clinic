@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { bulkMarkSchema } from "@/lib/validations/line-common";
 
 // 複数患者の対応マークを一括更新
 export async function POST(req: NextRequest) {
@@ -10,11 +12,9 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { patient_ids, mark } = await req.json();
-
-  if (!Array.isArray(patient_ids) || patient_ids.length === 0 || !mark) {
-    return NextResponse.json({ error: "patient_ids と mark は必須です" }, { status: 400 });
-  }
+  const parsed = await parseBody(req, bulkMarkSchema);
+  if ("error" in parsed) return parsed.error;
+  const { patient_ids, mark } = parsed.data;
 
   // mark_definitions で存在確認
   const { data: markDef } = await withTenant(

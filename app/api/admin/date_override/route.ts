@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { dateOverridePostSchema, dateOverrideDeleteSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -10,7 +12,9 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
+    const parsed = await parseBody(req, dateOverridePostSchema);
+    if ("error" in parsed) return parsed.error;
+    const body = parsed.data;
     const override = body.override || body;
 
     const doctor_id = String(override.doctor_id || "").trim();
@@ -87,18 +91,12 @@ export async function DELETE(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const body = await req.json();
-    const doctor_id = String(body.doctor_id || "").trim();
-    const date = String(body.date || "").trim();
-    const slot_name = body.slot_name ? String(body.slot_name).trim() : null;
-    const delete_all = body.delete_all === true; // その日の全スロットを削除
-
-    if (!doctor_id || !date) {
-      return NextResponse.json(
-        { ok: false, error: "doctor_id and date required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, dateOverrideDeleteSchema);
+    if ("error" in parsed) return parsed.error;
+    const doctor_id = parsed.data.doctor_id;
+    const date = parsed.data.date;
+    const slot_name = parsed.data.slot_name ? String(parsed.data.slot_name).trim() : null;
+    const delete_all = parsed.data.delete_all === true; // その日の全スロットを削除
 
     let query = supabaseAdmin
       .from("doctor_date_overrides")

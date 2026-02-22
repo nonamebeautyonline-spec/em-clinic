@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
 import { jwtVerify } from "jose";
 import { resolveTenantId, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { shippingShareSchema } from "@/lib/validations/shipping";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -46,12 +48,9 @@ export async function POST(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    const body = await req.json();
-    const { data } = body;
-
-    if (!data || !Array.isArray(data)) {
-      return NextResponse.json({ error: "無効なデータ" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, shippingShareSchema);
+    if ("error" in parsed) return parsed.error;
+    const { data } = parsed.data;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

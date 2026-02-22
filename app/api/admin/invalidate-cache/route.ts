@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { parseBody } from "@/lib/validations/helpers";
+import { invalidateCacheSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,12 +13,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const patientId = body.patient_id || body.patientId || "";
-
-    if (!patientId) {
-      return NextResponse.json({ ok: false, error: "patient_id required" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, invalidateCacheSchema);
+    if ("error" in parsed) return parsed.error;
+    const patientId = parsed.data.patient_id || parsed.data.patientId || "";
 
     // ★ Redis キャッシュ削除
     await invalidateDashboardCache(patientId);

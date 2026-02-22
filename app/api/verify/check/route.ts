@@ -3,20 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import twilio from "twilio";
 import { getSettingOrEnv } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { verifyCheckSchema } from "@/lib/validations/patient";
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code } = (await req.json()) as {
-      phone?: string;
-      code?: string;
-    };
-
-    if (!phone || !code) {
-      return NextResponse.json(
-        { error: "phone and code are required" },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseBody(req, verifyCheckSchema);
+    if ("error" in parsed) return parsed.error;
+    const { phone, code } = parsed.data;
 
     // テナント解決 → DB優先で Twilio クレデンシャル取得
     const tenantId = resolveTenantId(req);

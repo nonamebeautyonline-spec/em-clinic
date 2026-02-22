@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { nanoid } from "nanoid";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { createFormSchema } from "@/lib/validations/line-common";
 
 // フォーム一覧
 export async function GET(req: NextRequest) {
@@ -31,8 +33,10 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const { name, folder_id } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: "フォーム名は必須です" }, { status: 400 });
+
+  const parsed = await parseBody(req, createFormSchema);
+  if ("error" in parsed) return parsed.error;
+  const { name, folder_id } = parsed.data;
 
   const slug = nanoid(12);
 

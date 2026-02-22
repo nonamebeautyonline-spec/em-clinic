@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { patientFieldsUpdateSchema } from "@/lib/validations/admin-operations";
 
 // 患者の友達情報欄の値を取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -31,10 +33,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
-  const { values } = await req.json();
-  // values: [{ field_id: number, value: string }]
-
-  if (!Array.isArray(values)) return NextResponse.json({ error: "values is required" }, { status: 400 });
+  const parsed = await parseBody(req, patientFieldsUpdateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { values } = parsed.data;
 
   const upserts = values.map((v: { field_id: number; value: string }) => ({
     ...tenantPayload(tenantId),

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
+import { parseBody } from "@/lib/validations/helpers";
+import { reminderCsvSchema } from "@/lib/validations/admin-operations";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,12 +30,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { reminders, date } = body as { reminders: ReminderData[]; date: string };
-
-    if (!reminders || !Array.isArray(reminders) || reminders.length === 0) {
-      return NextResponse.json({ error: "リマインドデータが必要です" }, { status: 400 });
-    }
+    const parsed = await parseBody(req, reminderCsvSchema);
+    if ("error" in parsed) return parsed.error;
+    const { reminders, date } = parsed.data;
 
     console.log(`[ReminderCSV] Generating CSV for ${reminders.length} reminders`);
 

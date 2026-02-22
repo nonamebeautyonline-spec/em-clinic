@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateAiReplySettingsSchema } from "@/lib/validations/line-management";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,18 @@ export async function GET(req: NextRequest) {
     approval_timeout_hours: 24,
   };
 
-  return NextResponse.json({ settings });
+  // 本日のAI返信使用数を取得
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const { count: todayUsage } = await withTenant(
+    supabaseAdmin
+      .from("ai_reply_drafts")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayStart.toISOString()),
+    tenantId
+  );
+
+  return NextResponse.json({ settings, todayUsage: todayUsage || 0 });
 }
 
 // 設定更新（upsert）
@@ -43,8 +56,8 @@ export async function PUT(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const body = await req.json();
-
+  const parsed = await parseBody(req, updateAiReplySettingsSchema);
+  if ("error" in parsed) return parsed.error;
   const {
     is_enabled,
     mode,
@@ -53,7 +66,7 @@ export async function PUT(req: NextRequest) {
     min_message_length,
     daily_limit,
     approval_timeout_hours,
-  } = body;
+  } = parsed.data;
 
   // 既存設定を確認
   const { data: existing } = await withTenant(

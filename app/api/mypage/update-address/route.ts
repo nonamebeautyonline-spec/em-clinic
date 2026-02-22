@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { parseBody } from "@/lib/validations/helpers";
+import { updateAddressSchema } from "@/lib/validations/patient";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,20 +23,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json().catch(() => ({} as any));
-    const orderId = (body.orderId ?? "").trim();
-    const rawPostal = (body.postalCode ?? "").trim();
-    const address = (body.address ?? "").trim();
-    const shippingName = (body.shippingName ?? "").trim();
+    const parsed = await parseBody(req, updateAddressSchema);
+    if ("error" in parsed) return parsed.error;
+    const orderId = parsed.data.orderId.trim();
+    const rawPostal = parsed.data.postalCode.trim();
+    const address = parsed.data.address.trim();
+    const shippingName = (parsed.data.shippingName ?? "").trim();
 
-    // バリデーション
-    if (!orderId) {
-      return NextResponse.json(
-        { ok: false, error: "orderId は必須です" },
-        { status: 400 }
-      );
-    }
-
+    // 郵便番号の正規化（7桁チェック）
     const postalDigits = rawPostal.replace(/[^0-9]/g, "");
     if (postalDigits.length !== 7) {
       return NextResponse.json(
@@ -43,25 +39,6 @@ export async function POST(req: NextRequest) {
       );
     }
     const postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
-
-    if (!address) {
-      return NextResponse.json(
-        { ok: false, error: "住所を入力してください" },
-        { status: 400 }
-      );
-    }
-    if (address.length > 200) {
-      return NextResponse.json(
-        { ok: false, error: "住所は200文字以内で入力してください" },
-        { status: 400 }
-      );
-    }
-    if (shippingName && shippingName.length > 50) {
-      return NextResponse.json(
-        { ok: false, error: "名義は50文字以内で入力してください" },
-        { status: 400 }
-      );
-    }
 
     // 注文を取得して権限チェック
     const { data: order, error: fetchError } = await withTenant(supabaseAdmin

@@ -7,6 +7,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { buildSystemPrompt } from "@/lib/ai-reply";
+import { parseBody } from "@/lib/validations/helpers";
+import { aiReplyRegenerateSchema } from "@/lib/validations/ai-reply";
 
 export async function POST(
   request: NextRequest,
@@ -18,15 +20,12 @@ export async function POST(
     return NextResponse.json({ error: "無効なID" }, { status: 400 });
   }
 
-  const body = await request.json();
-  const { instruction, sig, exp } = body as { instruction: string; sig: string; exp: number };
+  const parsed = await parseBody(request, aiReplyRegenerateSchema);
+  if ("error" in parsed) return parsed.error;
+  const { instruction, sig, exp } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
     return NextResponse.json({ error: "署名が無効または期限切れです" }, { status: 403 });
-  }
-
-  if (!instruction?.trim()) {
-    return NextResponse.json({ error: "修正指示を入力してください" }, { status: 400 });
   }
 
   // ドラフト取得
