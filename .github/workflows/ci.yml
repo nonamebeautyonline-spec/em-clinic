@@ -31,7 +31,6 @@ jobs:
 
       - name: Run tests with coverage
         run: npx vitest run --coverage
-        continue-on-error: true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -42,6 +41,14 @@ jobs:
 
       - name: Security audit
         run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: ./coverage/coverage-summary.json
+          vite-config-path: ./vitest.config.ts
         continue-on-error: true
 
       - name: Build check

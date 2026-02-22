@@ -372,32 +372,52 @@ export async function GET(request: NextRequest) {
     }
     const products = Object.values(productSales).sort((a, b) => b.revenue - a.revenue);
 
-    // 日別新規/再処方データ
+    // 日別新規/再処方データ + 日別売上内訳（dailyBreakdown）
     const jstOffsetMs = 9 * 60 * 60 * 1000;
-    const dailyMap = new Map<string, { first: number; reorder: number }>();
+    const dailyMap = new Map<string, { first: number; reorder: number; square: number; bankTransfer: number; firstOrders: number; reorders: number }>();
+    const ensureDay = (dateStr: string) => {
+      if (!dailyMap.has(dateStr)) dailyMap.set(dateStr, { first: 0, reorder: 0, square: 0, bankTransfer: 0, firstOrders: 0, reorders: 0 });
+      return dailyMap.get(dateStr)!;
+    };
     for (const order of allSquareOrders) {
       const dateStr = order.paid_at
         ? new Date(new Date(order.paid_at).getTime() + jstOffsetMs).toISOString().split("T")[0]
         : null;
       if (!dateStr) continue;
-      if (!dailyMap.has(dateStr)) dailyMap.set(dateStr, { first: 0, reorder: 0 });
-      const day = dailyMap.get(dateStr)!;
-      if (order.patient_id && previousPatientSet.has(order.patient_id)) day.reorder++;
-      else day.first++;
+      const day = ensureDay(dateStr);
+      day.square += order.amount || 0;
+      if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+        day.reorder++;
+        day.reorders++;
+      } else {
+        day.first++;
+        day.firstOrders++;
+      }
     }
     for (const order of allBankTransferOrders) {
       const dateStr = order.created_at
         ? new Date(new Date(order.created_at).getTime() + jstOffsetMs).toISOString().split("T")[0]
         : null;
       if (!dateStr) continue;
-      if (!dailyMap.has(dateStr)) dailyMap.set(dateStr, { first: 0, reorder: 0 });
-      const day = dailyMap.get(dateStr)!;
-      if (order.patient_id && previousPatientSet.has(order.patient_id)) day.reorder++;
-      else day.first++;
+      const day = ensureDay(dateStr);
+      day.bankTransfer += order.amount || 0;
+      if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+        day.reorder++;
+        day.reorders++;
+      } else {
+        day.first++;
+        day.firstOrders++;
+      }
     }
-    const dailyOrders = [...dailyMap.entries()]
-      .map(([date, counts]) => ({ date, ...counts }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const dailyEntries = [...dailyMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const dailyOrders = dailyEntries.map(([date, counts]) => ({ date, first: counts.first, reorder: counts.reorder }));
+    const dailyBreakdown = dailyEntries.map(([date, counts]) => ({
+      date,
+      square: counts.square,
+      bankTransfer: counts.bankTransfer,
+      firstOrders: counts.firstOrders,
+      reorders: counts.reorders,
+    }));
 
     return NextResponse.json({
       reservations: {
@@ -446,6 +466,7 @@ export async function GET(request: NextRequest) {
         todayPaidCount,
       },
       dailyOrders,
+      dailyBreakdown,
     });
   } catch (error) {
     console.error("[dashboard-stats-enhanced] Error:", error);

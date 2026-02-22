@@ -1,6 +1,82 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+// recharts はクライアント専用のため dynamic import で SSR を回避
+const ChartWidget = dynamic(
+  () => import("./widgets/chart-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
+const SegmentWidget = dynamic(
+  () => import("./widgets/segment-widget"),
+  { ssr: false, loading: () => <SegmentWidgetSkeleton /> },
+);
+
+// ウィジェット読み込み中のスケルトン
+function ChartWidgetSkeleton() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
+      <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
+      <div className="h-64 bg-slate-100 rounded" />
+    </div>
+  );
+}
+
+function SegmentWidgetSkeleton() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
+      <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
+      <div className="h-48 bg-slate-100 rounded" />
+    </div>
+  );
+}
+
+// ウィジェット表示設定の型
+interface WidgetSettings {
+  revenueChart: boolean;   // 売上推移グラフ
+  orderChart: boolean;     // 新規vs再処方グラフ
+  segmentChart: boolean;   // セグメント分布
+}
+
+const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  revenueChart: true,
+  orderChart: true,
+  segmentChart: true,
+};
+
+const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
+
+/** localStorage からウィジェット設定を読み込む */
+function loadWidgetSettings(): WidgetSettings {
+  if (typeof window === "undefined") return DEFAULT_WIDGET_SETTINGS;
+  try {
+    const raw = localStorage.getItem(WIDGET_STORAGE_KEY);
+    if (!raw) return DEFAULT_WIDGET_SETTINGS;
+    return { ...DEFAULT_WIDGET_SETTINGS, ...JSON.parse(raw) };
+  } catch {
+    return DEFAULT_WIDGET_SETTINGS;
+  }
+}
+
+/** localStorage にウィジェット設定を保存する */
+function saveWidgetSettings(settings: WidgetSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // localStorage がフルの場合等は無視
+  }
+}
+
+// 日別売上データの型（API レスポンス）
+interface DailyBreakdown {
+  date: string;
+  square: number;
+  bankTransfer: number;
+  firstOrders: number;
+  reorders: number;
+}
 
 interface DashboardStats {
   reservations: {
@@ -50,6 +126,7 @@ interface DashboardStats {
     todayNewReservations: number;
     todayPaidCount: number;
   };
+  dailyBreakdown?: DailyBreakdown[];
 }
 
 type TabType = "overview" | "reservations" | "revenue" | "patients";
@@ -74,6 +151,38 @@ export default function EnhancedDashboard() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+
+  // ウィジェット表示設定
+  const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(DEFAULT_WIDGET_SETTINGS);
+  const [showWidgetMenu, setShowWidgetMenu] = useState(false);
+  const widgetMenuRef = useRef<HTMLDivElement>(null);
+
+  // 初期読み込み時に localStorage から復元
+  useEffect(() => {
+    setWidgetSettings(loadWidgetSettings());
+  }, []);
+
+  // ウィジェット設定の変更ハンドラ
+  const toggleWidget = useCallback((key: keyof WidgetSettings) => {
+    setWidgetSettings((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveWidgetSettings(next);
+      return next;
+    });
+  }, []);
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (widgetMenuRef.current && !widgetMenuRef.current.contains(e.target as Node)) {
+        setShowWidgetMenu(false);
+      }
+    };
+    if (showWidgetMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showWidgetMenu]);
 
   // SSE関連のstate
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
@@ -324,8 +433,61 @@ export default function EnhancedDashboard() {
           )}
         </div>
 
-        {/* 日付選択 */}
+        {/* 日付選択 + ウィジェット設定 */}
         <div className="flex items-center gap-3">
+          {/* ウィジェット表示設定ボタン */}
+          <div className="relative" ref={widgetMenuRef}>
+            <button
+              onClick={() => setShowWidgetMenu((prev) => !prev)}
+              className="p-2 bg-white border border-slate-300 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm"
+              aria-label="ウィジェット設定"
+              title="ウィジェット表示設定"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+
+            {/* ドロップダウンメニュー */}
+            {showWidgetMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2">
+                <div className="px-3 py-2 border-b border-slate-100">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    ウィジェット表示
+                  </span>
+                </div>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.revenueChart}
+                    onChange={() => toggleWidget("revenueChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">売上推移グラフ</span>
+                </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.orderChart}
+                    onChange={() => toggleWidget("orderChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">新規vs再処方グラフ</span>
+                </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.segmentChart}
+                    onChange={() => toggleWidget("segmentChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">セグメント分布</span>
+                </label>
+              </div>
+            )}
+          </div>
+
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
@@ -449,61 +611,74 @@ export default function EnhancedDashboard() {
 
         <div className="p-6">
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* 売上 */}
-              <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">売上</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div>
-                      <span className="text-sm font-medium text-blue-900">純売上</span>
-                      <div className="text-xs text-blue-600">返金後の金額</div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* 売上 */}
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 mb-4">売上</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div>
+                        <span className="text-sm font-medium text-blue-900">純売上</span>
+                        <div className="text-xs text-blue-600">返金後の金額</div>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-900">
+                        ¥{(stats?.revenue.total || 0).toLocaleString()}
+                      </span>
                     </div>
-                    <span className="text-2xl font-bold text-blue-900">
-                      ¥{(stats?.revenue.total || 0).toLocaleString()}
-                    </span>
+                    <StatRow label="総売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
+                    <StatRow label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
+                    <StatRow label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
+                    <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                      <span className="text-sm text-red-600">返金</span>
+                      <span className="text-sm font-bold text-red-600">
+                        -¥{(stats?.revenue.refunded || 0).toLocaleString()} ({stats?.revenue.refundCount || 0}件)
+                      </span>
+                    </div>
                   </div>
-                  <StatRow label="総売上" value={`¥${(stats?.revenue.gross || 0).toLocaleString()}`} />
-                  <StatRow label="カード決済" value={`¥${(stats?.revenue.square || 0).toLocaleString()}`} />
-                  <StatRow label="銀行振込" value={`¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`} />
-                  <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <span className="text-sm text-red-600">返金</span>
-                    <span className="text-sm font-bold text-red-600">
-                      -¥{(stats?.revenue.refunded || 0).toLocaleString()} ({stats?.revenue.refundCount || 0}件)
-                    </span>
+                </div>
+
+                {/* 銀行振込状況 */}
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 mb-4">銀行振込状況</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <span className="text-sm font-medium text-yellow-900">入金待ち</span>
+                      <span className="text-2xl font-bold text-yellow-900">
+                        {stats?.bankTransfer.pending || 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                      <span className="text-sm font-medium text-green-900">確認済み</span>
+                      <span className="text-2xl font-bold text-green-900">
+                        {stats?.bankTransfer.confirmed || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* クイック統計 */}
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 mb-4">その他統計</h3>
+                  <div className="space-y-3">
+                    <StatRow label="リピート率" value={`${stats?.patients.repeatRate || 0}%`} />
+                    <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
+                    <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
+                    <StatRow label="キャンセル率" value={`${stats?.reservations.cancelRate || 0}%`} />
                   </div>
                 </div>
               </div>
 
-              {/* 銀行振込状況 */}
-              <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">銀行振込状況</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <span className="text-sm font-medium text-yellow-900">入金待ち</span>
-                    <span className="text-2xl font-bold text-yellow-900">
-                      {stats?.bankTransfer.pending || 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                    <span className="text-sm font-medium text-green-900">確認済み</span>
-                    <span className="text-2xl font-bold text-green-900">
-                      {stats?.bankTransfer.confirmed || 0}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* クイック統計 */}
-              <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">その他統計</h3>
-                <div className="space-y-3">
-                  <StatRow label="リピート率" value={`${stats?.patients.repeatRate || 0}%`} />
-                  <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
-                  <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
-                  <StatRow label="キャンセル率" value={`${stats?.reservations.cancelRate || 0}%`} />
-                </div>
-              </div>
+              {/* 売上推移グラフ（ウィジェット設定で表示/非表示を切り替え） */}
+              {(widgetSettings.revenueChart || widgetSettings.orderChart) &&
+                stats?.dailyBreakdown &&
+                stats.dailyBreakdown.length > 0 && (
+                <ChartWidget
+                  dailyBreakdown={stats.dailyBreakdown}
+                  showRevenueChart={widgetSettings.revenueChart}
+                  showOrderChart={widgetSettings.orderChart}
+                />
+              )}
             </div>
           )}
 
@@ -592,34 +767,39 @@ export default function EnhancedDashboard() {
           )}
 
           {activeTab === "patients" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">患者統計</h3>
-                <div className="space-y-3">
-                  <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
-                  <StatRow label="アクティブ患者" value={`${stats?.patients.active || 0}人`} />
-                  <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
-                  <StatRow
-                    label="リピート率"
-                    value={`${stats?.patients.repeatRate || 0}%`}
-                    highlight="green"
-                  />
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 mb-4">患者統計</h3>
+                  <div className="space-y-3">
+                    <StatRow label="総患者数" value={`${stats?.patients.total || 0}人`} />
+                    <StatRow label="アクティブ患者" value={`${stats?.patients.active || 0}人`} />
+                    <StatRow label="新規患者" value={`${stats?.patients.new || 0}人`} />
+                    <StatRow
+                      label="リピート率"
+                      value={`${stats?.patients.repeatRate || 0}%`}
+                      highlight="green"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h3 className="text-md font-bold text-slate-900 mb-4">エンゲージメント</h3>
-                <div className="space-y-3">
-                  <StatRow label="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}人`} />
-                  <StatRow
-                    label="問診後の予約率"
-                    value={`${stats?.kpi.reservationRateAfterIntake || 0}%`}
-                  />
-                  <StatRow
-                    label="予約後の受診率"
-                    value={`${stats?.kpi.consultationCompletionRate || 0}%`}
-                  />
+                <div>
+                  <h3 className="text-md font-bold text-slate-900 mb-4">エンゲージメント</h3>
+                  <div className="space-y-3">
+                    <StatRow label="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}人`} />
+                    <StatRow
+                      label="問診後の予約率"
+                      value={`${stats?.kpi.reservationRateAfterIntake || 0}%`}
+                    />
+                    <StatRow
+                      label="予約後の受診率"
+                      value={`${stats?.kpi.consultationCompletionRate || 0}%`}
+                    />
+                  </div>
                 </div>
+
+                {/* セグメント分布（ウィジェット設定で表示/非表示を切り替え） */}
+                {widgetSettings.segmentChart && <SegmentWidget />}
               </div>
             </div>
           )}

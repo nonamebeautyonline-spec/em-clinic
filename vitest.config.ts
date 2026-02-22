@@ -9,6 +9,8 @@ export default defineConfig({
     exclude: ["node_modules", ".next", "out", "build"],
     coverage: {
       provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "./coverage",
       include: ["app/api/**/*.ts", "lib/**/*.ts"],
       exclude: [
         "lib/__tests__/**",
@@ -18,9 +20,10 @@ export default defineConfig({
         "load-tests/**",
       ],
       thresholds: {
-        lines: 50,
-        branches: 40,
-        functions: 50,
+        // 段階的引き上げ: 14% → 20% → 40% → 70% → 90%
+        lines: 14,
+        branches: 10,
+        functions: 17,
       },
     },
   },

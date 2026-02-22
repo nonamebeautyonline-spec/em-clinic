@@ -29,6 +29,15 @@ export default defineConfig({
       },
       dependencies: ["setup"],
     },
+    {
+      // 患者APIテスト（Cookie認証、管理者セッション不要）
+      name: "patient-api",
+      testMatch: /patient-flow\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: { cookies: [], origins: [] },
+      },
+    },
   ],
   webServer: {
     command: "npm run dev",
