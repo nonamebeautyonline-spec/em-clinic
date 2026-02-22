@@ -88,7 +88,7 @@ type KarteTemplate = {
   sort_order: number;
 };
 
-type ViewMode = "list" | "search";
+type ViewMode = "list" | "today" | "search";
 
 // === ユーティリティ ===
 function getTodayJST() {
@@ -124,7 +124,11 @@ const SEARCH_MODES = [
 
 // === メインコンポーネント ===
 export default function KartePage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("today");
+
+  // --- 本日の予約モード ---
+  const [todayItems, setTodayItems] = useState<KarteListItem[]>([]);
+  const [todayLoading, setTodayLoading] = useState(true);
 
   // --- 一覧モード ---
   const [listItems, setListItems] = useState<KarteListItem[]>([]);
@@ -133,7 +137,7 @@ export default function KartePage() {
   const [listLimit, setListLimit] = useState(100);
   const [listLoading, setListLoading] = useState(true);
   const [listQuery, setListQuery] = useState("");
-  const [filterDate, setFilterDate] = useState<string>(getTodayJST());
+  const [filterDate, setFilterDate] = useState<string>("");
   const listDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // --- 検索モード ---
@@ -161,6 +165,29 @@ export default function KartePage() {
   // --- テンプレート ---
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
+
+  // === 本日の予約データ取得 ===
+  const fetchTodayData = useCallback(async () => {
+    setTodayLoading(true);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "200", date: getTodayJST() });
+      const res = await fetch(`/api/admin/kartelist?${params}`);
+      const json = await res.json();
+      if (json.ok) {
+        setTodayItems(json.items || []);
+      }
+    } catch (e) {
+      console.error("本日予約取得エラー:", e);
+    } finally {
+      setTodayLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === "today") {
+      fetchTodayData();
+    }
+  }, [viewMode, fetchTodayData]);
 
   // === 一覧データ取得 ===
   const fetchListData = useCallback(async (p: number, l: number, q: string, date: string) => {
@@ -380,6 +407,14 @@ export default function KartePage() {
             <h1 className="text-xl font-bold text-gray-900">カルテ</h1>
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
               <button
+                onClick={() => { setViewMode("today"); closeDetail(); }}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                本日の予約
+              </button>
+              <button
                 onClick={() => { setViewMode("list"); closeDetail(); }}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   viewMode === "list" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
@@ -397,6 +432,20 @@ export default function KartePage() {
               </button>
             </div>
           </div>
+
+          {/* 本日の予約モード: 日付表示 */}
+          {viewMode === "today" && (
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-sm text-gray-600">{getTodayJST()} の予約患者</span>
+              <span className="text-xs text-gray-400">({todayItems.length}件)</span>
+              <button
+                onClick={() => fetchTodayData()}
+                className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                更新
+              </button>
+            </div>
+          )}
 
           {/* 一覧モード: 検索バー + 日付フィルター */}
           {viewMode === "list" && (
@@ -430,18 +479,14 @@ export default function KartePage() {
                   onChange={(e) => { setFilterDate(e.target.value); setListPage(1); }}
                   className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none transition"
                 />
-                <button
-                  onClick={() => { setFilterDate(getTodayJST()); setListPage(1); }}
-                  className={`px-3 py-2 text-xs rounded-lg border transition ${filterDate === getTodayJST() ? "bg-red-50 border-red-300 text-red-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-                >
-                  今日
-                </button>
-                <button
-                  onClick={() => { setFilterDate(""); setListPage(1); }}
-                  className={`px-3 py-2 text-xs rounded-lg border transition ${!filterDate ? "bg-red-50 border-red-300 text-red-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
-                >
-                  全件
-                </button>
+                {filterDate && (
+                  <button
+                    onClick={() => { setFilterDate(""); setListPage(1); }}
+                    className="px-3 py-2 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+                  >
+                    日付クリア
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -493,6 +538,84 @@ export default function KartePage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-5 space-y-5">
+        {/* === 本日の予約モード: テーブル === */}
+        {viewMode === "today" && !selectedPatientId && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約時間</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">来院者名</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">処方メニュー</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">ステータス</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">電話番号</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">メモ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {todayLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          読み込み中...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : todayItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+                        本日の予約はありません
+                      </td>
+                    </tr>
+                  ) : (
+                    todayItems.map((item) => (
+                      <tr
+                        key={item.id}
+                        onClick={() => loadBundle(item.patientId)}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <td className="px-4 py-3 text-gray-800 font-medium whitespace-nowrap text-xs">
+                          {item.reservedTime || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-900 font-medium whitespace-nowrap">
+                          {item.patientName || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                          {item.prescriptionMenu || "-"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {item.status === "OK" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">OK</span>
+                          ) : item.status === "NG" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200">NG</span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                          {formatTel(item.tel)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {item.hasNote ? (
+                            <span className="text-xs text-amber-600">あり</span>
+                          ) : (
+                            <span className="text-xs text-gray-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* === 一覧モード: テーブル === */}
         {viewMode === "list" && !selectedPatientId && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
