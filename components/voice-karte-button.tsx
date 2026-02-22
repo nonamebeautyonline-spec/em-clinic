@@ -52,7 +52,7 @@ export function VoiceKarteButton({ onKarteGenerated }: VoiceKarteButtonProps) {
   const { state, elapsed, audioLevel, error, startRecording, stopRecording, reset } =
     useVoiceRecorder({
       onTranscribed: handleTranscribed,
-      maxDuration: 300, // 5分
+      maxDurationSec: 300, // 5分
     });
 
   // カルテ生成中

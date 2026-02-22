@@ -144,7 +144,7 @@ async function transcribeWithGroq(
 
   // Groq の transcription API は File オブジェクトを要求
   const ext = mimeType.includes("webm") ? "webm" : mimeType.includes("mp4") ? "mp4" : "wav";
-  const file = new File([audioBuffer], `audio.${ext}`, { type: mimeType });
+  const file = new File([audioBuffer as BlobPart], `audio.${ext}`, { type: mimeType });
 
   const result = await client.audio.transcriptions.create({
     file,
@@ -156,7 +156,7 @@ async function transcribeWithGroq(
   return {
     transcript: result.text || "",
     // Groq は confidence を segments 内に持つ。全体平均を計算
-    confidence: calculateGroqConfidence(result),
+    confidence: calculateGroqConfidence(result as unknown as Record<string, unknown>),
   };
 }
 

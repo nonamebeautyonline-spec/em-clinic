@@ -1,6 +1,6 @@
 # Lオペ for CLINIC — アプリケーション仕様書
 
-> 最終更新: 2026-02-18
+> 最終更新: 2026-02-22（v2 — AI返信・名寄せ・E2E・プラットフォーム追記）
 
 ---
 
@@ -16,6 +16,16 @@
 8. [セキュリティ](#8-セキュリティ)
 9. [主要業務フロー](#9-主要業務フロー)
 10. [運用注意事項](#10-運用注意事項)
+11. [AI自動返信](#11-ai自動返信)
+12. [患者名寄せ（重複検出・統合）](#12-患者名寄せ重複検出統合)
+13. [音声カルテ自動生成](#13-音声カルテ自動生成)
+14. [フォローアップ自動配信](#14-フォローアップ自動配信)
+15. [Undo（操作取り消し）](#15-undo操作取り消し)
+16. [プラットフォーム管理](#16-プラットフォーム管理)
+17. [Cronジョブ](#17-cronジョブ)
+18. [Middleware](#18-middleware)
+19. [E2Eテスト](#19-e2eテスト)
+20. [テスト一覧](#20-テスト一覧)
 
 ---
 
@@ -29,6 +39,7 @@
 
 クリニック向けのオンライン診療・LINE運用を一元管理するプラットフォーム。
 患者の問診・予約・決済・配送・再処方の全フローをLINE上で完結させ、管理者向けにはトーク・友だち管理・タグ・リッチメニュー・ステップ配信・分析機能を提供する。
+AIによる音声カルテ自動生成・医学用語補正・自動返信機能も搭載し、診察業務の効率化を支援する。
 
 ### 技術スタック
 
@@ -41,6 +52,8 @@
 | 決済 | Square / GMO ペイメントゲートウェイ |
 | キャッシュ / レート制限 | Upstash Redis |
 | メール | Resend |
+| AI / LLM | Anthropic Claude API（カルテ生成・医学用語補正・AI返信） |
+| 音声認識 | Deepgram Nova-3（メイン）/ Groq Whisper-Turbo（フォールバック） |
 | エラー監視 | Sentry |
 | デプロイ | Vercel |
 
@@ -146,6 +159,7 @@ em-clinic/
 | `/admin/reset-password` | パスワードリセット |
 | `/admin/dashboard` | ダッシュボード詳細（売上・予約・配送統計） |
 | `/admin/settings` | 一般設定（クリニック名、営業時間等） |
+| `/admin/settings/voice` | AIカルテ設定（医療辞書管理） |
 | `/admin/analytics` | 分析・レポート |
 
 ### 3.4 管理画面 — 患者管理
@@ -158,6 +172,7 @@ em-clinic/
 | `/admin/line/friends/fields` | カスタムフィールド定義 |
 | `/admin/merge-patients` | 患者情報統合ツール |
 | `/admin/patient-data` | 患者データ削除（GDPR対応） |
+| `/admin/dedup-patients` | 患者名寄せ（重複候補検出・統合・無視管理） |
 
 ### 3.5 管理画面 — LINE管理（Lオペ）
 
@@ -189,6 +204,10 @@ em-clinic/
 | `/admin/line/actions` | カスタムアクション |
 | `/admin/line/column-settings` | 友だち一覧カラム設定 |
 | `/admin/line/friend-settings` | 友だち管理設定 |
+| `/admin/line/followup-rules` | フォローアップルール管理 |
+| `/admin/line/ai-reply-settings` | AI返信設定（モード・日次上限・知識ベース・カスタム指示） |
+| `/admin/line/ai-reply-stats` | AI返信統計ダッシュボード |
+| `/admin/line/analytics` | LINE配信分析（ブロードキャスト成功率・CVR等） |
 
 ### 3.6 管理画面 — 問診・カルテ
 
@@ -244,7 +263,30 @@ em-clinic/
 | `/admin/products` | 商品マスタ管理 |
 | `/admin/inventory` | 在庫管理 |
 
-### 3.11 公開ページ
+### 3.11 プラットフォーム管理画面
+
+| パス | 役割 |
+|------|------|
+| `/platform` | プラットフォーム統合ダッシュボード |
+| `/platform/login` | プラットフォームログイン |
+| `/platform/password-reset` | パスワードリセット申請 |
+| `/platform/password-reset/confirm` | リセット確認 |
+| `/platform/health` | ヘルスチェック・システムステータス |
+| `/platform/tenants` | テナント一覧・検索 |
+| `/platform/tenants/create` | 新規テナント作成ウィザード |
+| `/platform/tenants/[tenantId]` | テナント詳細・設定 |
+| `/platform/tenants/[tenantId]/analytics` | テナント別分析 |
+| `/platform/members` | プラットフォーム管理者一覧 |
+| `/platform/audit` | 監査ログ閲覧 |
+| `/platform/alerts` | システムアラート・通知 |
+| `/platform/errors` | エラー監視・ログ |
+| `/platform/analytics` | 全テナント横断分析 |
+| `/platform/billing` | 請求・サブスクリプション管理 |
+| `/platform/system` | システム設定・メンテナンス |
+| `/platform/settings` | プラットフォーム全体設定 |
+| `/platform/settings/sessions` | 全管理者セッション管理 |
+
+### 3.12 公開ページ
 
 | パス | 役割 |
 |------|------|
@@ -319,6 +361,9 @@ em-clinic/
 | `/api/admin/kartesearch` | POST | カルテ検索 |
 | `/api/admin/karte-templates` | GET/POST/PATCH/DELETE | カルテテンプレート |
 | `/api/doctor/karte-images` | POST | カルテ画像アップロード |
+| `/api/voice/transcribe` | POST | 音声文字起こし（Deepgram/Groq + Claude補正） |
+| `/api/voice/generate-karte` | POST | 音声からSOAP形式カルテ自動生成（Claude） |
+| `/api/admin/voice/vocabulary` | GET/POST/PUT/DELETE | 医療辞書CRUD（テナント別） |
 
 ### 4.6 再処方
 
@@ -391,6 +436,15 @@ em-clinic/
 | `/api/admin/line/media-folders` | GET/POST | メディアフォルダ |
 | `/api/admin/line/template-categories` | GET | テンプレートカテゴリ |
 | `/api/admin/line/upload-template-image` | POST | テンプレート画像アップロード |
+| `/api/admin/line/ai-reply-settings` | GET/PATCH | AI自動返信設定 |
+| `/api/admin/line/ai-reply-stats` | GET | AI返信統計 |
+| `/api/ai-reply/[draftId]/regenerate` | POST | AI返信の再生成 |
+| `/api/ai-reply/[draftId]` | GET | ドラフト詳細取得 |
+| `/api/ai-reply/[draftId]/reject` | POST | ドラフト却下 |
+| `/api/ai-reply/[draftId]/send` | POST | ドラフト手動送信 |
+| `/api/admin/line/followup-rules` | GET/POST | フォローアップルール管理 |
+| `/api/admin/line/followup-rules/[id]` | PATCH/DELETE | フォローアップルール詳細 |
+| `/api/admin/line/analytics` | GET | LINE配信分析 |
 
 ### 4.8 予約・スケジュール
 
@@ -426,6 +480,8 @@ em-clinic/
 | `/api/admin/patients/bulk/send` | POST | 一括メッセージ送信 |
 | `/api/admin/merge-patients` | POST | 患者統合 |
 | `/api/admin/delete-patient-data` | DELETE | 患者データ削除 |
+| `/api/admin/dedup-patients` | GET/POST | 名寄せ候補検出・無視管理 |
+| `/api/admin/dedup-patients/merge` | POST | 名寄せ統合実行 |
 | `/api/admin/friend-fields` | GET/POST | フィールド定義 |
 | `/api/admin/friend-fields/[id]` | PATCH/DELETE | フィールド詳細 |
 
@@ -498,19 +554,64 @@ em-clinic/
 
 ### 4.15 Cronジョブ
 
+| エンドポイント | メソッド | 頻度 | 役割 |
+|---------------|---------|------|------|
+| `/api/cron/ai-reply` | POST | **毎分** | AI返信デバウンス処理・Claude呼び出し |
+| `/api/cron/health-report` | POST | 日次 | ヘルスレポート |
+| `/api/cron/collect-line-stats` | POST | 日次 | LINE統計収集 |
+| `/api/cron/generate-reminders` | POST | 日次 | リマインダー生成 |
+| `/api/cron/send-scheduled` | POST | 日次 | スケジュール配信実行 |
+| `/api/cron/process-steps` | POST | 日次 | ステップシナリオ処理 |
+| `/api/cron/followup` | POST | 日次 | フォローアップメッセージ送信 |
+
+### 4.16 プラットフォーム管理
+
 | エンドポイント | メソッド | 役割 |
 |---------------|---------|------|
-| `/api/cron/health-report` | POST | ヘルスレポート |
-| `/api/cron/collect-line-stats` | POST | LINE統計収集 |
-| `/api/cron/generate-reminders` | POST | リマインダー生成 |
-| `/api/cron/send-scheduled` | POST | スケジュール配信実行 |
-| `/api/cron/process-steps` | POST | ステップシナリオ処理 |
+| `/api/platform/login` | POST | プラットフォームログイン |
+| `/api/platform/health` | GET | ヘルスチェック |
+| `/api/platform/sessions` | GET/POST | セッション一覧・削除 |
+| `/api/platform/sessions/[sessionId]` | DELETE | セッション削除 |
+| `/api/platform/members` | GET/POST | 管理者一覧・追加 |
+| `/api/platform/password-reset/request` | POST | リセット申請 |
+| `/api/platform/password-reset/reset` | POST | リセット実行 |
+| `/api/platform/totp/setup` | POST | TOTP設定開始 |
+| `/api/platform/totp/verify` | POST | TOTP検証 |
+| `/api/platform/totp/login` | POST | TOTPログイン |
+| `/api/platform/totp/disable` | POST | TOTP無効化 |
+| `/api/platform/tenants` | GET/POST | テナント一覧・作成 |
+| `/api/platform/tenants/[tenantId]` | GET/PATCH/DELETE | テナント詳細・更新・削除 |
+| `/api/platform/tenants/[tenantId]/members` | GET/POST | テナント管理者一覧・追加 |
+| `/api/platform/tenants/[tenantId]/members/[memberId]` | PATCH/DELETE | 管理者更新・削除 |
+| `/api/platform/tenants/[tenantId]/stats` | GET | テナント統計 |
+| `/api/platform/tenants/[tenantId]/status` | GET | テナント稼働状況 |
+| `/api/platform/tenants/[tenantId]/analytics` | GET | テナント分析 |
+| `/api/platform/tenants/[tenantId]/features` | GET | テナント機能フラグ |
+| `/api/platform/audit` | GET | 監査ログ |
+| `/api/platform/alerts` | GET/POST | アラート一覧・作成 |
+| `/api/platform/alerts/[alertId]/ack` | POST | アラート確認 |
+| `/api/platform/errors` | GET | エラーログ |
+| `/api/platform/analytics/financial` | GET | 財務分析 |
+| `/api/platform/analytics/churn` | GET | チャーン分析 |
+| `/api/platform/analytics/retention` | GET | リテンション分析 |
+| `/api/platform/analytics/feature-usage` | GET | 機能利用分析 |
+| `/api/platform/billing/plans` | GET/POST | プラン一覧・作成 |
+| `/api/platform/billing/plans/[tenantId]` | GET | テナントプラン取得 |
+| `/api/platform/billing/invoices` | GET | 請求書一覧 |
+| `/api/platform/billing/invoices/[invoiceId]` | GET | 請求書詳細 |
+| `/api/platform/billing/invoices/[invoiceId]/pdf` | GET | PDFダウンロード |
+| `/api/platform/system/settings` | GET/PATCH | システム設定 |
+| `/api/platform/system/maintenance` | POST | メンテナンスモード |
+| `/api/platform/impersonate` | POST | テナント切り替え（なりすまし） |
+| `/api/platform/impersonate/exit` | POST | なりすまし終了 |
+| `/api/platform/dashboard-stats` | GET | ダッシュボード統計 |
 
-### 4.16 ヘルスチェック
+### 4.17 Undo・その他
 
 | エンドポイント | メソッド | 役割 |
 |---------------|---------|------|
 | `/api/health` | GET | ヘルスチェック |
+| `/api/admin/undo` | GET/POST | Undo履歴取得・取り消し実行 |
 
 ---
 
@@ -620,7 +721,13 @@ em-clinic/
 | `tenant_members` | テナントメンバー |
 | `tenant_settings` | テナント別設定（暗号化） |
 
-### 5.10 その他
+### 5.10 AI・音声
+
+| テーブル | 用途 | 主要カラム |
+|---------|------|----------|
+| `medical_vocabulary` | 医療辞書（音声認識精度向上・テナント別） | `term`, `reading`, `category`(drug/symptom/procedure/anatomy/lab/general), `specialty`(common/beauty/internal等), `boost_weight`(1.0-3.0), `is_default` |
+
+### 5.11 その他
 
 | テーブル | 用途 |
 |---------|------|
@@ -628,7 +735,7 @@ em-clinic/
 | `inventory_logs` | 在庫ログ |
 | `monthly_financials` | 月次財務データ |
 
-### 5.11 ER関係図
+### 5.12 ER関係図
 
 ```
 patients（患者マスター）
@@ -658,7 +765,7 @@ doctors → 1:N → doctor_weekly_rules
 doctors → 1:N → doctor_date_overrides
 ```
 
-### 5.12 重要な設計制約
+### 5.13 重要な設計制約
 
 - **`intake.patient_id` にユニーク制約なし** — 同一患者に複数レコードを持つ設計。`upsert({ onConflict: "patient_id" })` は使用禁止（サイレント失敗）
 - **全テーブルに `tenant_id`** — マルチテナント対応（2026-02-25追加）、NULL はシングルテナント互換
@@ -722,7 +829,16 @@ doctors → 1:N → doctor_date_overrides
 | `lib/patient-utils.ts` | 患者フォーマッタ | `formatProductCode()`, `formatDateJST()`, `calcAge()` |
 | `lib/reorder-karte.ts` | 再処方カルテ | `buildKarteNote()`, `createReorderPaymentKarte()` |
 
-### 6.7 バリデーション
+### 6.7 AI・音声
+
+| ファイル | 役割 | 主要 export |
+|---------|------|------------|
+| `lib/voice/medical-refine.ts` | Claude APIによる医学用語自動補正 | `refineMedicalText()` |
+| `lib/voice/default-vocabulary.ts` | 診療科別デフォルト辞書データ | `COMMON`, `BEAUTY`, `INTERNAL`, `SURGERY` 等 |
+| `lib/voice/use-voice-recorder.ts` | 音声録音 React フック | `useVoiceRecorder()` |
+| `components/voice-karte-button.tsx` | AIカルテ生成ボタン（医師画面用） | `VoiceKarteButton` |
+
+### 6.8 バリデーション
 
 | ファイル | 役割 |
 |---------|------|
@@ -790,7 +906,37 @@ doctors → 1:N → doctor_date_overrides
 | パスワードリセットメール | `lib/email.ts` |
 | ウェルカムメール | `lib/email.ts` |
 
-### 7.7 Sentry
+### 7.7 Deepgram（音声認識）
+
+| 用途 | 実装箇所 |
+|------|---------|
+| 音声文字起こし（メインエンジン） | `app/api/voice/transcribe/route.ts` |
+
+- **モデル**: Nova-3
+- **機能**: Keyterm Prompting（医療辞書から動的キーワード生成）、confidence スコア判定
+- **依存**: `@deepgram/sdk`
+
+### 7.8 Groq（音声認識フォールバック）
+
+| 用途 | 実装箇所 |
+|------|---------|
+| 音声文字起こし（フォールバック） | `app/api/voice/transcribe/route.ts` |
+
+- **モデル**: Whisper-Turbo
+- **トリガー**: Deepgram の confidence が閾値未満の場合に自動切替
+- **依存**: `groq-sdk`
+
+### 7.9 Anthropic Claude API
+
+| 用途 | 実装箇所 | モデル |
+|------|---------|--------|
+| カルテ自動生成（SOAP形式） | `app/api/voice/generate-karte/route.ts` | claude-sonnet-4-5 |
+| 医学用語自動補正 | `lib/voice/medical-refine.ts` | claude-haiku-4-5 |
+| AI自動返信 | LINE AI返信機能 | — |
+
+- **依存**: `@anthropic-ai/sdk`
+
+### 7.10 Sentry
 
 - エラートラッキング: `lib/logger.ts` で自動送信
 - Next.js自動計測: `next.config.ts` で設定
@@ -937,6 +1083,27 @@ doctors → 1:N → doctor_date_overrides
    └── 次ステップへ進行 or 完了
 ```
 
+### 9.6 AIカルテ生成フロー
+
+```
+1. 医師が診察中にカルテ画面の音声入力ボタンを押下
+   ↓
+2. ブラウザ MediaRecorder で会話を録音（最大5分）
+   ↓
+3. 録音完了 → /api/voice/transcribe へ音声送信
+   ├── Deepgram Nova-3 で文字起こし
+   ├── confidence 不足時 → Groq Whisper-Turbo にフォールバック
+   └── ?refine=true → Claude Haiku で医学用語補正
+   ↓
+4. 文字起こし結果 → /api/voice/generate-karte へ送信
+   ├── Claude Sonnet でSOAP形式に構造化
+   └── { S（主訴）, O（所見）, A（評価）, P（計画）, summary, medications }
+   ↓
+5. 生成結果をカルテ入力欄に自動挿入
+   ↓
+6. 医師が確認・編集後、カルテ保存
+```
+
 ---
 
 ## 10. 運用注意事項
@@ -982,3 +1149,397 @@ doctors → 1:N → doctor_date_overrides
 |------|------|------|------|
 | 2026-02-08 | 23人のintakeデータ消失 | ユニーク制約ドロップ後に全 upsert が壊れた | upsert 禁止、select→insert/update パターンに統一 |
 | 2026-02-09 | 665件の answerer.name が null に | anon key で SELECT → RLS ブロック → null 上書き | 全 intake 処理で `supabaseAdmin` 必須化 |
+
+---
+
+## 11. AI自動返信
+
+### 11.1 アーキテクチャ
+
+デバウンス方式（Webhook → Redis → Cron処理）で動作する。
+
+```
+患者がLINEメッセージ送信
+  ↓
+webhook handleMessage → scheduleAiReply()
+  ↓
+Redis保存（ai_debounce:{patientId}、TTL 180秒）
+  ↓
+（60秒以内に追加メッセージ → デバウンス更新）
+  ↓
+Cron毎分実行 → processPendingAiReplies()
+  ↓
+Claude API呼び出し → draft_reply生成
+  ↓
+settings.mode に応じて分岐:
+  ├─ "pending" → 管理グループに承認Flex送信
+  └─ "auto"    → 直接LINE送信
+```
+
+### 11.2 主要ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| `lib/ai-reply.ts` | メイン処理：デバウンス・Claude API・返信案生成・暗黙フィードバック |
+| `lib/ai-reply-approval.ts` | 承認用Flex Message生成・管理グループ送信 |
+| `lib/ai-reply-filter.ts` | フィルタリング：短文・絵文字のみ・スキップパターン |
+| `lib/ai-reply-sign.ts` | HMAC署名による修正ページURL生成・検証 |
+| `app/api/cron/ai-reply/route.ts` | Vercel Cron（毎分実行） |
+
+### 11.3 フィルタリング（`shouldProcessWithAI()`）
+
+- テキストメッセージのみ処理
+- 5文字未満 → スキップ
+- 返信不要パターン（「了解」「ありがとう」等）→ スキップ
+- 絵文字のみ → スキップ
+
+### 11.4 処理ステップ
+
+1. **AI返信設定取得** — `ai_reply_settings` テーブルから
+2. **日次上限チェック** — `daily_limit`（デフォルト100）超過時は処理中止
+3. **会話コンテキスト取得** — 直近15件のメッセージログ
+4. **未返信メッセージ収集** — 最後のスタッフ返信以降のincoming
+5. **却下パターン取得** — `ai_reply_drafts`からstatus="rejected"の直近10件
+6. **Claude API呼び出し** — `claude-sonnet-4-5-20250929`
+7. **カテゴリ判定** — greeting なら返信不要で終了
+8. **ドラフト保存** — `ai_reply_drafts`テーブルへINSERT
+9. **送信/承認依頼** — mode に応じて分岐
+
+### 11.5 Claude API 出力形式
+
+```json
+{
+  "category": "operational | medical | greeting | other",
+  "confidence": 0.0 - 1.0,
+  "reply": "返信テキスト（greetingの場合はnull）",
+  "reason": "判定理由"
+}
+```
+
+### 11.6 承認Flex Message
+
+管理グループに送信される承認依頼Flex：
+- ヘッダー: 「AI返信案」+ カテゴリラベル（medical は赤色）
+- ボディ: 患者名、タイムスタンプ付きメッセージ一覧、AI返信案、信頼度（★表示）
+- フッター: [承認して送信] / [修正する]（署名付きURL）/ [却下]
+
+### 11.7 暗黙フィードバック（`handleImplicitAiFeedback()`）
+
+スタッフが手動返信した際の自動学習：
+1. 同一患者のpendingドラフトを `status="expired"` に更新
+2. スタッフ返信内容をナレッジベースに自動追記（`Q: 元メッセージ / A: スタッフ返信`）
+3. fire-and-forget で実行（失敗しても送信処理は続行）
+
+### 11.8 却下学習
+
+- 却下時のカテゴリ・理由を `ai_reply_drafts` に記録
+- 次回のシステムプロンプトに「過去の却下パターン」として直近10件を注入
+- 同じ間違いを繰り返さない仕組み
+
+---
+
+## 12. 患者名寄せ（重複検出・統合）
+
+### 12.1 主要ファイル
+
+| ファイル | 役割 |
+|---------|------|
+| `lib/patient-dedup.ts` | 検出アルゴリズム・統合処理（533行） |
+| `app/admin/dedup-patients/page.tsx` | 名寄せ管理画面 |
+| `lib/merge-tables.ts` | マージ対象テーブル定義 |
+
+### 12.2 検出アルゴリズム（3フェーズ）
+
+| フェーズ | 条件 | 類似度スコア |
+|---------|------|------------|
+| 1. 電話番号重複 | `normalizeJPPhone()` 後の完全一致 | 90-95% |
+| 2. 名前+生年月日 | レーベンシュタイン距離 ≤ 2 かつ birthday 一致 | 80% |
+| 3. カナ読み+性別 | name_kana + sex 完全一致 | 70% |
+
+### 12.3 保持推奨ロジック（`suggestKeep()`）
+
+優先順位: LINE連携有無 → 予約数 → 注文数 → 作成日（古い方）
+
+### 12.4 統合処理（`mergePatients()`）
+
+1. `MERGE_TABLES`（reservations, orders, reorders, message_log, patient_tags, patient_marks, friend_field_values）の `patient_id` を一括更新
+2. intake テーブルの `patient_id` を更新
+3. 統合元患者を `merged_into = keepId` で soft delete
+4. 重複キー制約（23505）発生時は重複分を削除してリトライ
+
+### 12.5 UI機能
+
+- 左右2カラムの患者比較表示
+- 確度バッジ色分け（95%以上=赤、90-95%=オレンジ、80-90%=黄、70-80%=グレー）
+- 「この候補を無視する」→ `dedup_ignored` テーブルに記録
+
+---
+
+## 13. 音声カルテ自動生成
+
+### 13.1 2段階STT（Speech-to-Text）
+
+```
+1. Deepgram Nova-3（メイン）
+   ├── Keyterm Prompting: medical_vocabulary から動的キーワード生成
+   ├── 最大100キーワード（重み順ソート、形式: "用語:重み"）
+   └── Redis キャッシュ: vocab:{tenantId}（TTL 5分）
+   ↓
+2. Groq Whisper-Large-v3-Turbo（フォールバック）
+   └── confidence < 閾値 or Deepgramエラー時に自動切替
+```
+
+### 13.2 医学用語補正（`refineMedicalText()`）
+
+- **モデル**: Claude Haiku
+- 医療辞書（用語+読み）を参照し、音が近い誤認識を修正
+- 元の文意・構造・句読点は保持
+- APIキー未設定 or 辞書空の場合は補正スキップ
+
+### 13.3 カルテ自動生成（SOAP形式）
+
+- **モデル**: Claude Sonnet
+- **入力**: transcript（音声認識結果）
+- **出力**: `{ S（主訴）, O（所見）, A（評価）, P（計画）, summary, medications }`
+- JSON抽出失敗時はフリーテキスト形式で返却
+
+### 13.4 医療辞書管理
+
+| カテゴリ | 例 |
+|---------|-----|
+| `drug`（薬剤） | マンジャロ、フィナステリド |
+| `symptom`（症状） | 嘔気、低血糖 |
+| `procedure`（処置） | 採血、注射 |
+| `anatomy`（解剖） | 前頭部、側頭部 |
+| `lab`（検査値） | 血圧、SpO2 |
+| `general`（その他） | バイタルサイン、副作用 |
+
+診療科別: common（共通）/ beauty（美容）/ internal（内科）/ surgery（外科）/ orthopedics（整形）/ dermatology（皮膚科）
+
+---
+
+## 14. フォローアップ自動配信
+
+### 14.1 テーブル
+
+- `followup_rules` — ルール定義（trigger_event, delay_days, message_template, flex_json）
+- `followup_logs` — 送信ログ（scheduled_at, sent_at, status: pending/sent/failed/skipped）
+
+### 14.2 処理フロー
+
+```
+1. 決済完了時 → scheduleFollowups()
+   各ルール毎に followup_log 作成（scheduled_at = now + delay_days + 10:00 JST）
+   ↓
+2. Cron日次実行 → processFollowups()
+   status=pending かつ scheduled_at<=now のログを最大50件処理
+   ↓
+3. テンプレート変数置換（{name}, {patient_id}, {send_date}）
+   → Flex Message or テキストで LINE送信
+   → message_log に記録、status=sent
+```
+
+---
+
+## 15. Undo（操作取り消し）
+
+### 15.1 テーブル
+
+`undo_history` — action_type(update/delete/insert), resource_type, resource_id, previous_data, current_data, admin_user_id, undone, expires_at(24時間)
+
+### 15.2 取り消し処理
+
+| 操作種別 | 取り消し動作 |
+|---------|------------|
+| `update` | previous_data で上書き UPDATE |
+| `delete` | previous_data を再 INSERT |
+| `insert` | 対象レコードを DELETE |
+
+- id/created_at/tenant_id は復元対象から除外
+- 有効期限: 24時間
+- 取り消し済みフラグ: `undone=true`
+
+---
+
+## 16. プラットフォーム管理
+
+### 16.1 アクセス制限
+
+- `admin.lope.jp` サブドメイン または localhost のみアクセス可能
+- 他テナントからは 403 Forbidden
+
+### 16.2 主要機能
+
+| 機能 | 説明 |
+|------|------|
+| テナント管理 | CRUD・ステータス確認・機能フラグ |
+| 請求管理 | プラン・請求書・PDF生成 |
+| 監査ログ | 全テナント横断の操作ログ |
+| 分析 | churn/retention/feature-usage/財務 |
+| アラート | システムアラート・確認 |
+| エラー監視 | エラーログ閲覧 |
+| メンバー管理 | プラットフォーム管理者 |
+| TOTP | 2要素認証（設定・検証・無効化） |
+| テナント切替 | impersonate（なりすまし）機能 |
+| メンテナンス | メンテナンスモード切替 |
+
+---
+
+## 17. Cronジョブ
+
+全Cronは `CRON_SECRET` 環境変数による Bearer トークン認証。
+
+| ジョブ | 頻度 | 処理内容 |
+|-------|------|---------|
+| `ai-reply` | **毎分** | Redisからデバウンス通過エントリを取得→Claude API→ドラフト生成 |
+| `followup` | 日次 | フォローアップルールに基づくLINEメッセージ自動送信 |
+| `generate-reminders` | 日次 | 予約リマインダー自動生成・LINE送信 |
+| `send-scheduled` | 日次 | 予約済みスケジュール配信の実行 |
+| `process-steps` | 日次 | ステップシナリオの進行管理・メッセージ送信 |
+| `collect-line-stats` | 日次 | LINE API経由で友だち数・ブロック数等を収集 |
+| `health-report` | 日次 | システムヘルスレポート生成 |
+
+---
+
+## 18. Middleware
+
+### 18.1 処理一覧（`middleware.ts`）
+
+| 処理 | 内容 |
+|------|------|
+| 旧サブドメイン移行 | `noname-beauty.jp/*` → `noname-beauty.l-ope.jp` へリダイレクト/rewrite |
+| Basic認証 | `/doctor` 配下で Basic認証ガード（`DR_BASIC_USER`/`DR_BASIC_PASS`） |
+| プラットフォーム制限 | `/platform` は `admin.lope.jp` または localhost のみ |
+| CSRF検証 | POST/PUT/PATCH/DELETE API で Double Submit Cookie 検証 |
+| テナントID解決 | JWT→サブドメインの順で tenantId を解決→ `x-tenant-id` ヘッダー設定 |
+
+### 18.2 CSRF除外パス
+
+- Webhook: `/api/line/webhook`, `/api/square/webhook`, `/api/gmo/webhook`
+- Cron: `/api/cron/*`
+- 認証: `/api/admin/login`, `/api/admin/logout`, `/api/platform/login`, `/api/platform/totp/*`
+- 患者向け: `/api/intake`, `/api/checkout`, `/api/reorder/*`, `/api/reservations`, `/api/mypage/*`, `/api/forms/*/submit`
+
+### 18.3 テナントID解決フロー
+
+```
+1. admin_session Cookie → JWT tenantId 抽出
+2. JWT に tenantId がなければ → サブドメインから resolveSlugToTenantId()
+3. slugCache（プロセス内メモリ、TTL 5分）で高速化
+4. 解決成功 → x-tenant-id ヘッダーを設定
+```
+
+予約slug（無視リスト）: `["app", "admin", "www", "localhost", "127", "l-ope"]`
+
+---
+
+## 19. E2Eテスト
+
+### 19.1 設定
+
+- **フレームワーク**: Playwright
+- **設定ファイル**: `playwright.config.ts`
+- **認証方式**: Storage State パターン（`e2e/.auth/admin.json`）
+- **環境変数**: `e2e/.env.test`（`E2E_ADMIN_USERNAME`, `E2E_ADMIN_PASSWORD`）
+- **ブラウザ**: Chromium
+
+### 19.2 テストシナリオ
+
+| ファイル | テスト内容 |
+|---------|----------|
+| `e2e/admin-auth.spec.ts` | ログインUI表示・正常ログイン・セッション永続化 |
+| `e2e/admin-patients.spec.ts` | 患者一覧ページ・検索フィルター・サイドバーナビ |
+| `e2e/admin-doctor.spec.ts` | Drカルテ画面表示・日付タブ切替・ステータスフィルター |
+| `e2e/admin-shipping.spec.ts` | 配送管理ページ・ステータス表示 |
+| `e2e/admin-reorders.spec.ts` | 再処方一覧・承認ボタン表示 |
+| `e2e/admin-broadcast.spec.ts` | ブロードキャスト送信フロー |
+
+---
+
+## 20. テスト一覧
+
+### 20.1 概要
+
+| 指標 | 数値 |
+|------|------|
+| Vitest テストファイル | 75ファイル |
+| Vitest テスト行数 | 18,694行 |
+| E2E テストファイル | 6ファイル |
+| テストフレームワーク | Vitest + Playwright |
+
+### 20.2 APIテスト（`__tests__/api/`）
+
+| ファイル | テスト対象 |
+|---------|----------|
+| `admin-auth.test.ts` | 管理画面ログイン・セッション |
+| `csrf-token.test.ts` | CSRFトークン生成・検証 |
+| `patient-dedup.test.ts` | 患者名寄せ・重複検出 |
+| `merge-patients.test.ts` | 患者統合API |
+| `dedup-patients.test.ts` | 名寄せページAPI |
+| `delete-patient-data.test.ts` | 患者データ削除 |
+| `intake.test.ts` / `intake-advanced.test.ts` | 問診CRUD |
+| `intake-form.test.ts` | 問診フォーム定義 |
+| `karte.test.ts` | カルテ基本操作 |
+| `doctor-routes.test.ts` | Drカルテ画面API |
+| `patient-bulk-karte.test.ts` | カルテ一括操作 |
+| `undo.test.ts` | Undo機能 |
+| `voice-transcribe.test.ts` | 音声文字起こし |
+| `voice-vocabulary.test.ts` | 医療辞書CRUD |
+| `voice-generate-karte.test.ts` | SOAPカルテ生成 |
+| `ai-reply.test.ts` | AI返信デバウンス・生成 |
+| `ai-reply-edit.test.ts` | AI返信修正ページ |
+| `line-webhook.test.ts` | LINE Webhook |
+| `line-friends.test.ts` | 友だち管理 |
+| `line-admin.test.ts` | LINE管理API |
+| `line-broadcast.test.ts` | ブロードキャスト |
+| `line-detailed.test.ts` | LINE詳細機能 |
+| `checkout.test.ts` / `checkout-advanced.test.ts` | 決済 |
+| `square-webhook.test.ts` | Square Webhook |
+| `gmo-webhook.test.ts` | GMO Webhook |
+| `reorder.test.ts` / `reorder-advanced.test.ts` | 再処方 |
+| `bank-transfer.test.ts` | 銀行振込 |
+| `shipping-routes.test.ts` / `shipping-advanced.test.ts` | 配送API |
+| `inventory.test.ts` | 在庫管理 |
+| `reservations.test.ts` | 予約API |
+| `schedule.test.ts` | スケジュール |
+| `auto-reminder.test.ts` | 自動リマインダー |
+| `mypage.test.ts` / `mypage-register.test.ts` | マイページ |
+| `form-submit.test.ts` | フォーム投稿 |
+| `products.test.ts` | 商品管理 |
+| `tags.test.ts` | タグ管理 |
+| `analytics-financials.test.ts` | 財務分析 |
+| `security.test.ts` | セキュリティ |
+| `middleware.test.ts` | Middleware |
+| `multi-tenant.test.ts` | マルチテナント |
+| `tenant-isolation.test.ts` | テナント分離検証（549行、静的解析ベース） |
+| `cron.test.ts` / `cron-advanced.test.ts` | Cron処理 |
+| `features.test.ts` | 機能フラグ |
+
+### 20.3 ライブラリテスト（`lib/__tests__/`）
+
+| ファイル | テスト対象 |
+|---------|----------|
+| `phone.test.ts` | 電話番号正規化 |
+| `reorder-karte.test.ts` | 再処方カルテ |
+| `tenant.test.ts` | テナント解決 |
+| `patient-utils.test.ts` | 患者ユーティリティ |
+| `step-enrollment.test.ts` | ステップ登録 |
+| `flex-message.test.ts` | Flex Message生成 |
+| `menu-auto-rules.test.ts` | メニュー自動ルール |
+| `line-richmenu.test.ts` | リッチメニュー |
+| `crypto.test.ts` | 暗号化 |
+| `payment-gmo.test.ts` / `payment-square.test.ts` | 決済ライブラリ |
+| `shipping-flex.test.ts` | 配送Flex Message |
+| `reservation-flex.test.ts` | 予約Flex Message |
+| `settings.test.ts` | 設定ライブラリ |
+| `line-push.test.ts` | LINE送信 |
+| `japanpost.test.ts` | 日本郵便API |
+| `session.test.ts` | セッション管理 |
+| `admin-auth.test.ts` | 管理者認証 |
+| `fetch-with-csrf.test.ts` | CSRF付きFetch |
+| `behavior-filters.test.ts` | 行動フィルター |
+| `audit.test.ts` | 監査ログ |
+| `email.test.ts` | メール送信 |
+| `validations.test.ts` | Zodバリデーション |
+| `medical-refine.test.ts` | 医学用語補正 |
+| `feature-flags.test.ts` | 機能フラグ |
