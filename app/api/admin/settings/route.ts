@@ -50,6 +50,22 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
     { key: "auth_token", label: "Twilio Auth Token", envFallback: "TWILIO_AUTH_TOKEN" },
     { key: "verify_sid", label: "Twilio Verify SID", envFallback: "TWILIO_VERIFY_SID" },
   ],
+  dashboard: [],
+  ehr: [
+    { key: "provider", label: "連携プロバイダー" },
+    { key: "sync_direction", label: "同期方向" },
+    { key: "auto_sync", label: "自動同期" },
+    { key: "orca_host", label: "ORCAホスト" },
+    { key: "orca_port", label: "ORCAポート" },
+    { key: "orca_user", label: "ORCAユーザー" },
+    { key: "orca_password", label: "ORCAパスワード" },
+    { key: "orca_is_web", label: "WebORCA" },
+    { key: "fhir_base_url", label: "FHIRサーバーURL" },
+    { key: "fhir_auth_type", label: "FHIR認証方式" },
+    { key: "fhir_token", label: "FHIRトークン" },
+    { key: "fhir_username", label: "FHIRユーザー名" },
+    { key: "fhir_password", label: "FHIRパスワード" },
+  ],
 };
 
 export async function GET(req: NextRequest) {

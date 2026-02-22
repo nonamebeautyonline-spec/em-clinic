@@ -1,7 +1,7 @@
 // 設定ページ左サイドナビゲーション
 "use client";
 
-export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "flex" | "account";
+export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "flex" | "ehr" | "account";
 
 const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
@@ -10,6 +10,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
   { key: "sms", label: "SMS認証", icon: "📱" },
   { key: "mypage", label: "マイページ", icon: "🎨" },
   { key: "flex", label: "LINE通知", icon: "📩" },
+  { key: "ehr", label: "カルテ連携", icon: "🏗" },
   { key: "account", label: "アカウント", icon: "👤" },
 ];
 

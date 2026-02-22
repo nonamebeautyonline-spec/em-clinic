@@ -9,6 +9,7 @@ import MypageSection from "./_components/MypageSection";
 import FlexSection from "./_components/FlexSection";
 import AccountSection from "./_components/AccountSection";
 import SmsSection from "./_components/SmsSection";
+import EhrSection from "./_components/EhrSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -235,6 +236,7 @@ export default function SettingsPage() {
             {activeSection === "sms" && <SmsSection settings={settings} onSaved={handleSaved} />}
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
             {activeSection === "flex" && <FlexSection onToast={handleToast} />}
+            {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>
