@@ -52,6 +52,10 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   ],
   dashboard: [],
   feature_flags: [],
+  consultation: [
+    { key: "type", label: "診察モード" },
+    { key: "line_call_url", label: "LINEコールURL" },
+  ],
   ehr: [
     { key: "provider", label: "連携プロバイダー" },
     { key: "sync_direction", label: "同期方向" },

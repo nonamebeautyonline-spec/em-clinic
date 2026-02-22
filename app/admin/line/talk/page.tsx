@@ -387,14 +387,21 @@ export default function TalkPage() {
   // 未読のみ表示フィルタ
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
-  // LINEコールURL取得（設定から）
+  // LINEコールURL取得（設定 → 環境変数フォールバック）
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
         const data = await res.json();
-        if (data.settings?.line_call_url) setLineCallUrl(data.settings.line_call_url);
+        if (data.settings?.line_call_url) {
+          setLineCallUrl(data.settings.line_call_url);
+          return;
+        }
       } catch {}
+      // 設定未登録の場合は環境変数をフォールバック
+      if (process.env.NEXT_PUBLIC_LINE_CALL_URL) {
+        setLineCallUrl(process.env.NEXT_PUBLIC_LINE_CALL_URL);
+      }
     })();
   }, []);
 
