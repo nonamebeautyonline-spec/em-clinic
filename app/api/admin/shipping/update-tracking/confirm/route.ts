@@ -48,13 +48,14 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        // ガード: shipping_status="pending" の場合のみ更新（二重発送防止）
         const { data, error } = await withTenant(
           supabase.from("orders").update({
             tracking_number: tracking_number,
             shipping_status: "shipped",
             shipping_date: today,
             updated_at: new Date().toISOString(),
-          }).eq("id", payment_id).select("id, patient_id"),
+          }).eq("id", payment_id).eq("shipping_status", "pending").select("id, patient_id"),
           tenantId
         );
 
@@ -65,6 +66,17 @@ export async function POST(req: NextRequest) {
         }
 
         if (!data || data.length === 0) {
+          // 更新0件: 注文が存在しないか、既に発送済み
+          const { data: existing } = await withTenant(
+            supabase.from("orders").select("id, shipping_status").eq("id", payment_id),
+            tenantId
+          );
+          if (existing && existing.length > 0 && existing[0].shipping_status === "shipped") {
+            // 既に発送済み → 冪等（成功扱い、スキップ）
+            console.log(`[UpdateTrackingConfirm] ⏭ ${payment_id} は既に発送済み（スキップ）`);
+            successUpdates.push(payment_id);
+            continue;
+          }
           console.warn(`[UpdateTrackingConfirm] No order found for ${payment_id}`);
           errors.push(`${payment_id}: 注文が見つかりません`);
           continue;

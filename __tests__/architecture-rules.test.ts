@@ -339,6 +339,24 @@ describe("禁止遷移ガード: orders.shipping_status は逆行しない", () 
   });
 });
 
+describe("禁止遷移ガード: shipping_status→shipped 更新は必ずガード付き", () => {
+  // shipping_status を "shipped" に更新するファイル
+  const SHIPPING_UPDATE_FILES = [
+    "app/api/admin/shipping/update-tracking/route.ts",
+    "app/api/admin/shipping/update-tracking/confirm/route.ts",
+  ];
+
+  for (const file of SHIPPING_UPDATE_FILES) {
+    it(`${file}: shipped更新に .eq("shipping_status", "pending") ガードがある`, () => {
+      const src = readFile(file);
+      // shipping_status: "shipped" の更新が存在すること（前提確認）
+      expect(src).toMatch(/shipping_status:\s*["']shipped["']/);
+      // .eq("shipping_status", "pending") ガードが存在すること
+      expect(src).toMatch(/\.eq\(\s*["']shipping_status["']\s*,\s*["']pending["']\s*\)/);
+    });
+  }
+});
+
 // 全ルートファイルを再帰取得するヘルパー（テスト間で共有）
 function findAllRouteFiles(dir: string): string[] {
   const results: string[] = [];
