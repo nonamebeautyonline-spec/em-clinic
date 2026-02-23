@@ -129,7 +129,7 @@ function Nav() {
     <nav className="fixed top-0 z-50 w-full border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-5">
         <a href="#" className="flex items-center gap-2.5">
-          <Image src="/images/l-ope-logo.png" alt="Lオペ" width={32} height={32} className="object-contain" />
+          <Image src="/images/l-ope-logo.png" alt="Lオペ" width={160} height={160} className="object-contain" />
           <span className="text-[15px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
         </a>
         <div className="hidden items-center gap-7 md:flex">
@@ -1939,7 +1939,7 @@ function Footer() {
     <footer className="bg-slate-900 px-5 py-10 text-slate-400">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col items-center justify-between gap-5 md:flex-row">
-          <div className="flex items-center gap-2 text-[14px] font-bold text-white"><Image src="/images/l-ope-logo.png" alt="Lオペ" width={28} height={28} className="object-contain" />Lオペ for CLINIC</div>
+          <div className="flex items-center gap-2 text-[14px] font-bold text-white"><Image src="/images/l-ope-logo.png" alt="Lオペ" width={140} height={140} className="object-contain" />Lオペ for CLINIC</div>
           <div className="flex flex-wrap justify-center gap-6 text-[12px]">
             {["機能", "強み", "活用シーン", "料金", "FAQ", "お問い合わせ"].map((l) => <a key={l} href={`#${l === "機能" ? "features" : l === "強み" ? "strengths" : l === "活用シーン" ? "usecases" : l === "料金" ? "pricing" : l === "FAQ" ? "faq" : "contact"}`} className="hover:text-white">{l}</a>)}
           </div>

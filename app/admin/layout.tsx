@@ -13,15 +13,19 @@ const PUBLIC_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-pa
 
 // ロゴコンポーネント
 function LogoMark({ compact }: { compact?: boolean }) {
+  const gradientClass = "bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent";
   if (compact) {
     return (
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={28} height={28} className="object-contain" />
+      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={112} height={112} className="object-contain" />
     );
   }
   return (
     <div className="flex items-center gap-2">
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={32} height={32} className="object-contain" />
-      <span className="text-[10px] font-semibold tracking-widest uppercase bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">for CLINIC</span>
+      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={128} height={128} className="object-contain" />
+      <div className="flex flex-col">
+        <span className={`text-xl font-black tracking-tight ${gradientClass}`}>Lオペ</span>
+        <span className={`text-[10px] font-semibold tracking-widest uppercase ${gradientClass}`}>for CLINIC</span>
+      </div>
     </div>
   );
 }
