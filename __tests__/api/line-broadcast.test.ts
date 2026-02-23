@@ -645,4 +645,406 @@ describe("resolveTargets", () => {
     const targets = await resolveTargets(rules, null);
     expect(targets).toHaveLength(1);
   });
+
+  it("重複patient_idは最新レコード優先でユニーク化される", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      // 同一patient_idが複数行（created_at降順で最新が先頭）
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: "Ubbb" },
+      ],
+    };
+
+    const targets = await resolveTargets({}, null);
+    // P001は1件にユニーク化
+    expect(targets).toHaveLength(2);
+    const ids = targets.map((t: { patient_id: string }) => t.patient_id);
+    expect(ids).toContain("P001");
+    expect(ids).toContain("P002");
+  });
+
+  it("除外条件: has_line_uid -> LINE UID持ちを除外", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: null },
+      ],
+    };
+
+    const rules = {
+      exclude: { conditions: [{ type: "has_line_uid" }] },
+    };
+
+    const targets = await resolveTargets(rules, null);
+    const ids = targets.map((t: { patient_id: string }) => t.patient_id);
+    // LINE UID持ちのP001が除外される
+    expect(ids).not.toContain("P001");
+    expect(ids).toContain("P002");
+  });
+
+  it("除外条件: タグnot_has -> タグを持たない患者を除外", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: "Ubbb" },
+      ],
+      patient_tags: [
+        { patient_id: "P001" },
+      ],
+    };
+
+    // exclude + not_has → タグを持たない患者(P002)を除外
+    const rules = {
+      exclude: { conditions: [{ type: "tag", tag_id: 1, match: "not_has" }] },
+    };
+
+    const targets = await resolveTargets(rules, null);
+    const ids = targets.map((t: { patient_id: string }) => t.patient_id);
+    expect(ids).toContain("P001");
+    // P002はタグを持たないので、not_has除外でP002が除外される
+    expect(ids).not.toContain("P002");
+  });
+
+  it("除外条件: markフィルタ -> マーク持ちを除外", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: "Ubbb" },
+      ],
+      patient_marks: [
+        { patient_id: "P001", mark: "important" },
+      ],
+    };
+
+    const rules = {
+      exclude: { conditions: [{ type: "mark", values: ["important"] }] },
+    };
+
+    const targets = await resolveTargets(rules, null);
+    const ids = targets.map((t: { patient_id: string }) => t.patient_id);
+    expect(ids).not.toContain("P001");
+    expect(ids).toContain("P002");
+  });
+
+  it("除外条件: fieldフィルタ -> フィールド条件にマッチする患者を除外", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: "Ubbb" },
+      ],
+      friend_field_values: [
+        { patient_id: "P001", value: "vip" },
+        { patient_id: "P002", value: "normal" },
+      ],
+    };
+
+    const rules = {
+      exclude: { conditions: [{ type: "field", field_id: 1, operator: "=", value: "vip" }] },
+    };
+
+    const targets = await resolveTargets(rules, null);
+    const ids = targets.map((t: { patient_id: string }) => t.patient_id);
+    expect(ids).not.toContain("P001");
+    expect(ids).toContain("P002");
+  });
+
+  it("patientsテーブルにpatient_idがnullの行があってもスキップされる", async () => {
+    const { resolveTargets } = await import("@/app/api/admin/line/broadcast/route");
+
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: null, name: "不正データ", line_id: null },
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+      ],
+    };
+
+    const targets = await resolveTargets({}, null);
+    expect(targets).toHaveLength(1);
+    expect(targets[0].patient_id).toBe("P001");
+  });
+});
+
+// ======================================
+// broadcast POST API: 即時送信の詳細テスト
+// ======================================
+describe("LINE broadcast POST API: 即時送信詳細", () => {
+  it("対象者にLINE UIDがない場合はno_uidとしてカウント", async () => {
+    // intake + patients のデータ（LINE UIDなし）
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: null },
+      ],
+    };
+    mockInsertData = { id: "broadcast_nouid" };
+    mockInsertError = null;
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "テスト配信" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.no_uid).toBe(1);
+    expect(json.sent).toBe(0);
+  });
+
+  it("pushMessage成功時はsent=1としてカウント", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+      ],
+    };
+    mockInsertData = { id: "broadcast_sent" };
+    mockInsertError = null;
+    mockPushMessage.mockResolvedValue({ ok: true });
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "配信テスト" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.sent).toBe(1);
+    expect(json.failed).toBe(0);
+    expect(mockPushMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("pushMessage失敗時はfailed=1としてカウント", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+      ],
+    };
+    mockInsertData = { id: "broadcast_fail" };
+    mockInsertError = null;
+    mockPushMessage.mockResolvedValue({ ok: false });
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "失敗テスト" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.sent).toBe(0);
+    expect(json.failed).toBe(1);
+  });
+
+  it("pushMessage例外時はfailed=1としてカウント", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+      ],
+    };
+    mockInsertData = { id: "broadcast_exception" };
+    mockInsertError = null;
+    mockPushMessage.mockRejectedValue(new Error("LINE API障害"));
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "例外テスト" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.sent).toBe(0);
+    expect(json.failed).toBe(1);
+  });
+
+  it("複数対象者: sent/failed/no_uidが正しく集計される", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+        { patient_id: "P002" },
+        { patient_id: "P003" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+        { patient_id: "P002", name: "患者B", line_id: null },
+        { patient_id: "P003", name: "患者C", line_id: "Uccc" },
+      ],
+    };
+    mockInsertData = { id: "broadcast_multi" };
+    mockInsertError = null;
+    // P001: 成功、P003: 失敗
+    mockPushMessage
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false });
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "複数対象テスト" }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.total).toBe(3);
+    expect(json.sent).toBe(1);
+    expect(json.failed).toBe(1);
+    expect(json.no_uid).toBe(1);
+  });
+
+  it("name未指定時はデフォルト名が使用される", async () => {
+    mockFetchAllData = [];
+    mockInsertData = { id: "broadcast_noname" };
+    mockInsertError = null;
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "名前なしテスト",
+        // name を指定しない
+      }),
+    });
+
+    const res = await POST(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    // broadcasts.insert が呼ばれ、デフォルト名が設定されたことを確認
+    expect(mockFrom).toHaveBeenCalledWith("broadcasts");
+  });
+
+  it("テンプレート変数 {name} が patient_name に置換される", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "山田太郎", line_id: "Uaaa" },
+      ],
+    };
+    mockInsertData = { id: "broadcast_template" };
+    mockInsertError = null;
+    mockPushMessage.mockResolvedValue({ ok: true });
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "こんにちは{name}さん",
+      }),
+    });
+
+    const res = await POST(req as never);
+    expect(res.status).toBe(200);
+
+    // pushMessage に渡されたメッセージを確認
+    expect(mockPushMessage).toHaveBeenCalledWith(
+      "Uaaa",
+      [{ type: "text", text: "こんにちは山田太郎さん" }],
+      undefined
+    );
+  });
+
+  it("予約日時差し込み: 次回予約がない場合は空文字で置換", async () => {
+    mockTableData = {
+      intake: [
+        { patient_id: "P001" },
+      ],
+      patients: [
+        { patient_id: "P001", name: "患者A", line_id: "Uaaa" },
+      ],
+      // reservations は mockTableData に設定しないので空
+    };
+    mockInsertData = { id: "broadcast_nores" };
+    mockInsertError = null;
+    mockPushMessage.mockResolvedValue({ ok: true });
+
+    const { POST } = await import("@/app/api/admin/line/broadcast/route");
+    const req = new Request("http://localhost/api/admin/line/broadcast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "次回予約: {next_reservation_date} {next_reservation_time}",
+      }),
+    });
+
+    const res = await POST(req as never);
+    expect(res.status).toBe(200);
+
+    // 予約がないので空文字に置換
+    expect(mockPushMessage).toHaveBeenCalledWith(
+      "Uaaa",
+      [{ type: "text", text: "次回予約:  " }],
+      undefined
+    );
+  });
 });

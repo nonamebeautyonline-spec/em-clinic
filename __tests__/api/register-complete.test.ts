@@ -58,6 +58,11 @@ vi.mock("@/lib/validations/register", () => ({
   registerCompleteSchema: {},
 }));
 
+const mockExecuteLifecycleActions = vi.fn().mockResolvedValue({ actionDetails: [] });
+vi.mock("@/lib/lifecycle-actions", () => ({
+  executeLifecycleActions: (...args: unknown[]) => mockExecuteLifecycleActions(...args),
+}));
+
 // fetchモック
 vi.stubGlobal("fetch", vi.fn());
 
@@ -479,6 +484,657 @@ describe("POST /api/register/complete", () => {
 
       const res = await POST(req);
       expect(res.status).toBe(200);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // __Host-patient_id cookie 優先テスト
+  // ------------------------------------------------------------------
+  describe("__Host-patient_id cookie優先", () => {
+    it("__Host-patient_idがpatient_idより優先される", async () => {
+      // cookieからの解決パス: __Host-patient_idが優先
+      const patientsChain = createChain({ data: { patient_id: "PT-HOST" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { patient_id: "PT-HOST", id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { "__Host-patient_id": "PT-HOST", patient_id: "PT-FALLBACK" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 新規患者INSERT パス（既存患者が見つからない場合）
+  // ------------------------------------------------------------------
+  describe("新規患者INSERT", () => {
+    it("既存患者がDBに存在しない場合はINSERTで作成する", async () => {
+      // patients チェーン: then の呼び出し回数で返り値を制御
+      const patientsChain = createChain();
+      let patientsThenCount = 0;
+      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+        patientsThenCount++;
+        if (patientsThenCount === 1) {
+          // ステップ1: LINE UID検索 → 見つかる
+          return fn({ data: { patient_id: "PT-NEW" }, error: null });
+        }
+        if (patientsThenCount === 2) {
+          // LINE UID重複チェック → なし
+          return fn({ data: [], error: null });
+        }
+        if (patientsThenCount === 3) {
+          // 電話番号重複チェック → なし
+          return fn({ data: [], error: null });
+        }
+        if (patientsThenCount === 4) {
+          // 既存患者チェック（select→maybeSingle） → 見つからない（INSERTパスへ）
+          return fn({ data: null, error: null });
+        }
+        if (patientsThenCount === 5) {
+          // INSERT結果
+          return fn({ data: null, error: null });
+        }
+        return fn({ data: null, error: null });
+      });
+      tableChains["patients"] = patientsChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U456new" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      // insert が呼ばれたことを確認
+      expect(patientsChain.insert).toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // LINE プロフィール取得: 失敗パス
+  // ------------------------------------------------------------------
+  describe("LINEプロフィール取得の失敗パス", () => {
+    it("LINEプロフィール取得がok=falseの場合でもエラーにならない", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      // プロフィール取得失敗（ok: false）
+      (fetch as any).mockResolvedValue({ ok: false });
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123profile_fail" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+
+    it("LINEプロフィール取得で例外発生時でもエラーにならない", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      // fetch で例外発生
+      (fetch as any).mockRejectedValue(new Error("Network error"));
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123fetch_error" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+
+    it("LINEプロフィール: displayNameもpictureUrlも空の場合はprofile更新しない", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      // displayName も pictureUrl も空文字
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ displayName: "", pictureUrl: "" }),
+      });
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123no_profile" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // LINE_ACCESS_TOKEN が空の場合
+  // ------------------------------------------------------------------
+  describe("LINE_ACCESS_TOKENが空の場合", () => {
+    it("トークンが空でもプロフィール取得をスキップして正常完了する", async () => {
+      const { getSettingOrEnv } = await import("@/lib/settings");
+      (getSettingOrEnv as any).mockResolvedValueOnce("");
+
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123no_token" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // intake レコードが存在しない場合
+  // ------------------------------------------------------------------
+  describe("intakeレコード未存在", () => {
+    it("intakeが見つからない場合でもエラーにならず正常完了する", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      // intake: 電話番号更新対象なし
+      const intakeChain = createChain({ data: null, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123no_intake" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      // intake.update は呼ばれないはず（ただし同じチェーンなので呼び出し数で判定は困難）
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // ライフサイクルアクション実行テスト
+  // ------------------------------------------------------------------
+  describe("ライフサイクルアクション", () => {
+    it("LINE UID と pid がある場合にライフサイクルアクションが実行される", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-LC" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      mockExecuteLifecycleActions.mockResolvedValue({
+        actionDetails: ["タグ付与: VIP", "メッセージ送信"],
+      });
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123lifecycle" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      // executeLifecycleActions が正しいパラメータで呼ばれたことを確認
+      expect(mockExecuteLifecycleActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          settingKey: "verification_completed",
+          patientId: "PT-LC",
+          lineUserId: "U123lifecycle",
+          tenantId: "test-tenant",
+          assignedBy: "complete",
+        })
+      );
+    });
+
+    it("LINE UIDが空の場合はライフサイクルアクションが実行されない", async () => {
+      // cookie経由でpatient_idを解決（LINE UIDなし）
+      const patientsChain = createChain({ data: { patient_id: "PT-NOLC" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { patient_id: "PT-NOLC", id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { patient_id: "PT-NOLC" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      // LINE UIDなしなのでライフサイクルアクションは呼ばれない
+      expect(mockExecuteLifecycleActions).not.toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 電話番号重複検出: 自動マージのテスト
+  // ------------------------------------------------------------------
+  describe("電話番号重複検出と自動マージ", () => {
+    it("同一電話番号・同一名前のline_id=nullレコードがある場合は自動マージされる", async () => {
+      const patientsChain = createChain();
+      let patientsMaybeSingleCount = 0;
+      // limit(5)の呼び出しを追跡する
+      let patientsLimitCount = 0;
+      patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
+        patientsMaybeSingleCount++;
+        if (patientsMaybeSingleCount === 1) {
+          // ステップ1: LINE UID検索
+          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        }
+        if (patientsMaybeSingleCount === 2) {
+          // 電話番号重複: 現在の患者情報取得
+          return { then: (fn: any) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
+        }
+        // 既存患者チェック
+        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+      });
+
+      // limit(5)で重複データを返す: 電話番号重複検出用
+      const originalLimit = patientsChain.limit;
+      patientsChain.limit = vi.fn().mockImplementation((n: number) => {
+        patientsLimitCount++;
+        if (n === 5 && patientsLimitCount === 2) {
+          // 電話番号重複データ: line_id=null、名前一致
+          return {
+            then: (fn: any) => fn({
+              data: [
+                { patient_id: "PT-OLD", name: "田中太郎", name_kana: "タナカタロウ", line_id: null },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return originalLimit(n);
+      });
+      tableChains["patients"] = patientsChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+      // マージ対象テーブル
+      for (const table of ["reservations", "orders", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"]) {
+        tableChains[table] = createChain({ data: [{ id: 1 }], error: null });
+      }
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123merge" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+
+    it("同一電話番号でもline_id有りの場合はマージスキップ", async () => {
+      const patientsChain = createChain();
+      let patientsMaybeSingleCount = 0;
+      let patientsLimitCount = 0;
+      patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
+        patientsMaybeSingleCount++;
+        if (patientsMaybeSingleCount === 1) {
+          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        }
+        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+      });
+
+      const originalLimit = patientsChain.limit;
+      patientsChain.limit = vi.fn().mockImplementation((n: number) => {
+        patientsLimitCount++;
+        if (n === 5 && patientsLimitCount === 2) {
+          // line_id有りの別アカウント → マージスキップ
+          return {
+            then: (fn: any) => fn({
+              data: [
+                { patient_id: "PT-OTHER", name: "田中太郎", name_kana: null, line_id: "U999other" },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return originalLimit(n);
+      });
+      tableChains["patients"] = patientsChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123skip_merge" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+
+    it("同一電話番号・名前不一致の場合はマージスキップ", async () => {
+      const patientsChain = createChain();
+      let patientsMaybeSingleCount = 0;
+      let patientsLimitCount = 0;
+      patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
+        patientsMaybeSingleCount++;
+        if (patientsMaybeSingleCount === 1) {
+          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        }
+        if (patientsMaybeSingleCount === 2) {
+          // 現在の患者: 名前が異なる
+          return { then: (fn: any) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
+        }
+        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+      });
+
+      const originalLimit = patientsChain.limit;
+      patientsChain.limit = vi.fn().mockImplementation((n: number) => {
+        patientsLimitCount++;
+        if (n === 5 && patientsLimitCount === 2) {
+          // line_id=null だが名前が異なる
+          return {
+            then: (fn: any) => fn({
+              data: [
+                { patient_id: "PT-DIFF", name: "鈴木花子", name_kana: "スズキハナコ", line_id: null },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return originalLimit(n);
+      });
+      tableChains["patients"] = patientsChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123name_mismatch" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // LINE UID重複: 正規レコード同士の重複
+  // ------------------------------------------------------------------
+  describe("LINE UID重複: 正規レコード同士", () => {
+    it("正規レコード同士の重複は手動対応として警告のみ", async () => {
+      const patientsChain = createChain();
+      let patientsThenCount = 0;
+      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+        patientsThenCount++;
+        if (patientsThenCount === 1) {
+          // ステップ1: LINE UID検索 → 見つかる
+          return fn({ data: { patient_id: "PT-001" }, error: null });
+        }
+        if (patientsThenCount === 2) {
+          // LINE UID重複チェック → 正規レコードの重複あり
+          return fn({
+            data: [
+              { patient_id: "PT-002", name: "重複患者", name_kana: null, line_id: "U123dup" },
+            ],
+            error: null,
+          });
+        }
+        if (patientsThenCount === 3) {
+          // 電話番号重複チェック → なし
+          return fn({ data: [], error: null });
+        }
+        // それ以降: 既存患者チェックなど
+        return fn({ data: { patient_id: "PT-001" }, error: null });
+      });
+      tableChains["patients"] = patientsChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123dup" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      // 正規レコード重複の警告ログが出力されることを確認
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("正規レコード重複")
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // LINE UID重複: マージ時のエラーハンドリング
+  // ------------------------------------------------------------------
+  describe("LINE UID重複マージのエラーハンドリング", () => {
+    it("マージ中のテーブル更新エラー（23505以外）でもエラーにならず続行する", async () => {
+      const patientsChain = createChain();
+      let patientsMaybeSingleCount = 0;
+      let patientsLimitCount = 0;
+      patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
+        patientsMaybeSingleCount++;
+        if (patientsMaybeSingleCount === 1) {
+          return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+        }
+        return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+      });
+
+      const originalLimit = patientsChain.limit;
+      patientsChain.limit = vi.fn().mockImplementation((n: number) => {
+        patientsLimitCount++;
+        if (n === 5 && patientsLimitCount === 1) {
+          // LINE_仮レコード → 自動マージ対象
+          return {
+            then: (fn: any) => fn({
+              data: [
+                { patient_id: "LINE_err123", name: "仮ユーザー", name_kana: null, line_id: "U123merr" },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return originalLimit(n);
+      });
+      tableChains["patients"] = patientsChain;
+
+      // マージ対象テーブルでエラーを返す
+      const errorChain = createChain({ data: null, error: { code: "42P01", message: "テーブルが存在しません" } });
+      tableChains["reservations"] = errorChain;
+      tableChains["orders"] = errorChain;
+      tableChains["reorders"] = errorChain;
+      tableChains["message_log"] = errorChain;
+      tableChains["patient_tags"] = errorChain;
+      tableChains["patient_marks"] = errorChain;
+      tableChains["friend_field_values"] = errorChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123merr" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+
+    it("マージ中のUNIQUE制約違反（23505）は無視される", async () => {
+      const patientsChain = createChain();
+      let patientsMaybeSingleCount = 0;
+      let patientsLimitCount = 0;
+      patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
+        patientsMaybeSingleCount++;
+        if (patientsMaybeSingleCount === 1) {
+          return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+        }
+        return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+      });
+
+      const originalLimit = patientsChain.limit;
+      patientsChain.limit = vi.fn().mockImplementation((n: number) => {
+        patientsLimitCount++;
+        if (n === 5 && patientsLimitCount === 1) {
+          return {
+            then: (fn: any) => fn({
+              data: [
+                { patient_id: "LINE_uniq123", name: "仮ユーザー", name_kana: null, line_id: "U123uniq" },
+              ],
+              error: null,
+            }),
+          };
+        }
+        return originalLimit(n);
+      });
+      tableChains["patients"] = patientsChain;
+
+      // UNIQUE制約違反（23505）→ 無視されるはず
+      const uniqueErrorChain = createChain({ data: null, error: { code: "23505", message: "UNIQUE violation" } });
+      tableChains["reservations"] = uniqueErrorChain;
+      tableChains["orders"] = uniqueErrorChain;
+      tableChains["reorders"] = uniqueErrorChain;
+      tableChains["message_log"] = uniqueErrorChain;
+      tableChains["patient_tags"] = uniqueErrorChain;
+      tableChains["patient_marks"] = uniqueErrorChain;
+      tableChains["friend_field_values"] = uniqueErrorChain;
+
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123uniq" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // patients更新/挿入エラーハンドリング
+  // ------------------------------------------------------------------
+  describe("patients更新エラーハンドリング", () => {
+    it("patients updateエラーでもレスポンスは200で返る", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      // updateのthenでエラーを返すように設定
+      const originalThen = patientsChain.then;
+      let thenCallCount = 0;
+      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+        thenCallCount++;
+        // update完了時のthen（後半の呼び出し）でエラーを返す
+        return fn({ data: { patient_id: "PT-001" }, error: { message: "更新エラー" } });
+      });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123update_err" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // LINE UIDなし時の動作（プロフィール取得スキップ）
+  // ------------------------------------------------------------------
+  describe("LINE UIDなしの場合", () => {
+    it("LINE UIDが空の場合、プロフィール取得とメニュー切替がスキップされる", async () => {
+      // cookie のみで patient_id を解決
+      const patientsChain = createChain({ data: { patient_id: "PT-NOLINE" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const intakeChain = createChain({ data: { patient_id: "PT-NOLINE", id: 1, answers: {} }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { patient_id: "PT-NOLINE" }
+      );
+
+      // fetch が呼ばれる前にカウントをリセット
+      (fetch as any).mockClear();
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+
+      // LINE UIDがないのでプロフィール取得のfetchは呼ばれない
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // intake answers が null の場合
+  // ------------------------------------------------------------------
+  describe("intake answersがnullの場合", () => {
+    it("answersがnullでも電話番号が正しく追記される", async () => {
+      const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
+      tableChains["patients"] = patientsChain;
+      // answers が null
+      const intakeChain = createChain({ data: { id: 1, answers: null }, error: null });
+      tableChains["intake"] = intakeChain;
+
+      const req = createReqWithCookies(
+        { phone: "09012345678" },
+        { line_user_id: "U123null_answers" }
+      );
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      // intake.update が呼ばれたことを確認
+      expect(intakeChain.update).toHaveBeenCalled();
     });
   });
 });

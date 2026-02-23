@@ -69,7 +69,48 @@ import {
 import { redis } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { shouldProcessWithAI } from "@/lib/ai-reply-filter";
+import { sendApprovalFlexMessage } from "@/lib/ai-reply-approval";
 import { getSettingOrEnv } from "@/lib/settings";
+import Anthropic from "@anthropic-ai/sdk";
+
+// --- processAiReply テスト用ヘルパー ---
+// デバウンス通過済みエントリをセットアップし、processAiReplyを間接呼び出しする
+function setupDebounceEntry(overrides?: Partial<{
+  lineUid: string; patientId: string; patientName: string; tenantId: string | null;
+}>) {
+  const entry = {
+    lineUid: overrides?.lineUid ?? "uid1",
+    patientId: overrides?.patientId ?? "p1",
+    patientName: overrides?.patientName ?? "田中",
+    tenantId: overrides?.tenantId ?? null,
+    ts: Date.now() - 120_000, // 120秒前（60秒超）
+  };
+  vi.mocked(redis.smembers).mockResolvedValue([entry.patientId]);
+  vi.mocked(redis.get).mockResolvedValue(JSON.stringify(entry));
+  return entry;
+}
+
+// Claude APIモッククラスを返すヘルパー
+function mockAnthropicCreate(responseText: string, inputTokens = 100, outputTokens = 50) {
+  const mockCreate = vi.fn().mockResolvedValue({
+    content: [{ type: "text", text: responseText }],
+    usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+  });
+  // new Anthropic() でインスタンス化されるのでclassとしてモック
+  vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+    this.messages = { create: mockCreate };
+  });
+  return mockCreate;
+}
+
+// supabaseAdmin.from のデフォルトモックをリセットするヘルパー
+async function resetFromMock() {
+  const { supabaseAdmin } = await import("@/lib/supabase");
+  vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+    if (!tableChains[table]) tableChains[table] = createChain();
+    return tableChains[table];
+  });
+}
 
 // ============================================================
 // buildSystemPrompt（純粋関数テスト）
@@ -315,15 +356,911 @@ describe("processPendingAiReplies", () => {
     const result = await processPendingAiReplies();
     expect(result).toBe(0);
   });
+
+  it("rawが既にオブジェクト（JSON.parseが不要） → 正常にパースされる", async () => {
+    const entry = {
+      lineUid: "uid1",
+      patientId: "p1",
+      patientName: "田中",
+      tenantId: null,
+      ts: Date.now() - 30_000, // デバウンス未経過 → スキップ
+    };
+    vi.mocked(redis.smembers).mockResolvedValue(["p1"]);
+    // rawがオブジェクトとして返る（Upstash Redisの挙動）
+    vi.mocked(redis.get).mockResolvedValue(entry as any);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(0);
+    // パースエラーにならずスキップ（デバウンス未経過）
+    expect(redis.del).not.toHaveBeenCalled();
+  });
+
+  it("デバウンス通過 → マーカー削除してprocessAiReply呼び出し", async () => {
+    setupDebounceEntry();
+
+    // processAiReply内: settings無効で早期リターンさせる
+    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+      r({ data: { is_enabled: false }, error: null })
+    );
+
+    const result = await processPendingAiReplies();
+    // processAiReplyが呼ばれたが設定無効で0件（processedはインクリメントされる）
+    expect(result).toBe(1);
+    // マーカー削除が呼ばれた
+    expect(redis.del).toHaveBeenCalledWith("ai_debounce:p1");
+    expect(redis.srem).toHaveBeenCalledWith("ai_debounce_keys", "p1");
+  });
+
+  it("processAiReply内でエラー → キャッチされて0件扱い", async () => {
+    setupDebounceEntry();
+
+    // processAiReply内で例外を投げさせる
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation(() => {
+      throw new Error("DB接続エラー");
+    });
+
+    const result = await processPendingAiReplies();
+    // processAiReplyがエラーだが例外は握りつぶされる
+    expect(result).toBe(0);
+    // マーカー削除は呼ばれている（processAiReply呼び出し前に実行済み）
+    expect(redis.del).toHaveBeenCalledWith("ai_debounce:p1");
+  });
+
+  it("複数のデバウンスエントリ → 各エントリが独立して処理される", async () => {
+    await resetFromMock(); // 前のテストで上書きされた from モックをリセット
+    const entry1 = {
+      lineUid: "uid1", patientId: "p1", patientName: "田中", tenantId: null,
+      ts: Date.now() - 120_000,
+    };
+    const entry2 = {
+      lineUid: "uid2", patientId: "p2", patientName: "佐藤", tenantId: null,
+      ts: Date.now() - 10_000, // デバウンス未経過
+    };
+    vi.mocked(redis.smembers).mockResolvedValue(["p1", "p2"]);
+    vi.mocked(redis.get).mockImplementation(async (key: string) => {
+      if (key === "ai_debounce:p1") return JSON.stringify(entry1);
+      if (key === "ai_debounce:p2") return JSON.stringify(entry2);
+      return null;
+    });
+
+    // p1のprocessAiReplyが実行される: settings無効で早期リターン
+    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+      r({ data: { is_enabled: false }, error: null })
+    );
+
+    const result = await processPendingAiReplies();
+    // p1のみ処理（p2はデバウンス未経過でスキップ）
+    expect(result).toBe(1);
+    expect(redis.del).toHaveBeenCalledWith("ai_debounce:p1");
+    expect(redis.del).not.toHaveBeenCalledWith("ai_debounce:p2");
+  });
+});
+
+// ============================================================
+// processAiReply（processPendingAiReplies経由の間接テスト）
+// ============================================================
+describe("processAiReply（間接テスト）", () => {
+  beforeEach(() => {
+    resetTableChains();
+    vi.clearAllMocks();
+  });
+
+  // デバウンス通過後にprocessAiReplyが呼ばれるセットアップ
+  function setupForProcessAiReply() {
+    setupDebounceEntry();
+  }
+
+  it("設定が無効（is_enabled=false）→ 早期リターン", async () => {
+    setupForProcessAiReply();
+    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+      r({ data: { is_enabled: false }, error: null })
+    );
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("設定がnull → 早期リターン", async () => {
+    setupForProcessAiReply();
+    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+      r({ data: null, error: null })
+    );
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("日次上限到達 → 早期リターン", async () => {
+    setupForProcessAiReply();
+    const settings = { is_enabled: true, daily_limit: 10 };
+
+    // 1回目: settings取得、2回目: 日次カウント
+    let settingsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") {
+        settingsCallCount++;
+        return createChain({ data: settings, error: null });
+      }
+      if (table === "ai_reply_drafts") {
+        // 日次カウント: 上限に到達
+        return createChain({ data: null, error: null, count: 10 });
+      }
+      return createChain();
+    });
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("APIキー未設定 → 早期リターン", async () => {
+    setupForProcessAiReply();
+    const settings = { is_enabled: true, daily_limit: 100 };
+
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") {
+        return createChain({ data: settings, error: null });
+      }
+      if (table === "ai_reply_drafts") {
+        return createChain({ data: null, error: null, count: 0 });
+      }
+      return createChain();
+    });
+    // APIキー未設定
+    vi.mocked(getSettingOrEnv).mockResolvedValue("");
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("未返信メッセージなし → 早期リターン", async () => {
+    setupForProcessAiReply();
+    const settings = { is_enabled: true, daily_limit: 100 };
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") {
+        return createChain({ data: settings, error: null });
+      }
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) {
+          // 日次カウント
+          return createChain({ data: null, error: null, count: 0 });
+        }
+        // 既存pendingドラフトの更新（expired化）
+        return createChain({ data: null, error: null });
+      }
+      if (table === "message_log") {
+        // 直近会話: outgoing のみ（未返信メッセージなし）
+        return createChain({
+          data: [
+            { direction: "outgoing", content: "こんにちは", event_type: "message", sent_at: "2026-01-01T00:00:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("Claude APIレスポンス: 直接JSON → 正常にパースされる", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "テストKB", custom_instructions: "丁寧に",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "ご予約の変更を承ります。",
+      reason: "予約変更の問い合わせ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") {
+        return createChain({ data: settings, error: null });
+      }
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 }); // 日次カウント
+        if (draftsCallCount === 2) return createChain({ data: null, error: null }); // pending expired化
+        if (draftsCallCount === 3) return createChain({ data: null, error: null }); // 却下パターン取得
+        // ドラフト挿入
+        return createChain({ data: { id: 42 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "予約を変更したい", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // approvalモードなのでsendApprovalFlexMessageが呼ばれる
+    expect(sendApprovalFlexMessage).toHaveBeenCalled();
+  });
+
+  it("Claude APIレスポンス: コードブロック内JSON → 正常にパースされる", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "auto",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = '```json\n{"category":"operational","confidence":0.85,"reply":"お問い合わせありがとうございます。","reason":"一般的な問い合わせ"}\n```';
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null }); // expired化
+        if (draftsCallCount === 3) return createChain({ data: null, error: null }); // 却下パターン
+        return createChain({ data: { id: 43 }, error: null }); // ドラフト挿入
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "テストメッセージ", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+    // autoモードなのでpushMessageが呼ばれる
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // autoモード → sendAiReplyが呼ばれ、pushMessageが実行される
+    expect(pushMessage).toHaveBeenCalled();
+  });
+
+  it("Claude APIレスポンス: JSONなし → エラーでリターン", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 44 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "こんにちは", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    // JSONが含まれないレスポンス
+    mockAnthropicCreate("申し訳ございませんが、応答を生成できません。");
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // ドラフト挿入は呼ばれない（Claude APIエラーでリターン）
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+  });
+
+  it("Claude APIでエラー → キャッチしてリターン", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 45 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "テスト", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    // Anthropicがエラーをスロー
+    vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+      this.messages = { create: vi.fn().mockRejectedValue(new Error("API rate limit")) };
+    });
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+  });
+
+  it("greetingカテゴリ → 返信スキップ（ドラフト保存されない）", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "greeting",
+      confidence: 0.95,
+      reply: null,
+      reason: "挨拶メッセージ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 46 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "ありがとうございます", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // greetingなのでドラフト挿入もApprovalも呼ばれない
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+    expect(pushMessage).not.toHaveBeenCalled();
+  });
+
+  it("replyがnull（カテゴリother）→ 返信スキップ", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "other",
+      confidence: 0.5,
+      reply: null,
+      reason: "返信不要と判断",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 47 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "画像を送ります", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+  });
+
+  it("DB保存エラー → リターン（ドラフトinsert失敗）", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "ご予約を承ります。",
+      reason: "予約問い合わせ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        // ドラフト挿入エラー
+        return createChain({ data: null, error: { message: "insert error" } });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "予約したい", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // DB保存エラーなのでApprovalもpushMessageも呼ばれない
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+    expect(pushMessage).not.toHaveBeenCalled();
+  });
+
+  it("autoモード → sendAiReplyが呼ばれてpushMessageが実行される", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "auto",
+      knowledge_base: "テストKB", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "お問い合わせありがとうございます。",
+      reason: "一般問い合わせ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 48 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "営業時間は？", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // autoモード: pushMessage（sendAiReply経由）が呼ばれる
+    expect(pushMessage).toHaveBeenCalledWith(
+      "uid1",
+      [{ type: "text", text: "お問い合わせありがとうございます。" }],
+      undefined
+    );
+    // sendApprovalFlexMessageは呼ばれない
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+  });
+
+  it("approvalモード → sendApprovalFlexMessageが呼ばれる", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "KB", custom_instructions: "丁寧に",
+      approval_timeout_hours: 12,
+    };
+    const aiResponse = JSON.stringify({
+      category: "medical",
+      confidence: 0.7,
+      reply: "担当医に確認いたします。",
+      reason: "医療相談",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 49 }, error: null });
+      }
+      if (table === "message_log") {
+        // descending order で返す（reverse()で昇順に戻される）
+        return createChain({
+          data: [
+            { direction: "incoming", content: "薬の副作用が心配です", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+            { direction: "outgoing", content: "こんにちは", event_type: "message", sent_at: "2026-01-01T00:00:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // approvalモード: sendApprovalFlexMessageが呼ばれる
+    expect(sendApprovalFlexMessage).toHaveBeenCalled();
+    expect(pushMessage).not.toHaveBeenCalled();
+  });
+
+  it("会話コンテキストあり（outgoing後のincoming）→ buildUserMessageにコンテキストが渡される", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "承知いたしました。",
+      reason: "フォローアップ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 50 }, error: null });
+      }
+      if (table === "message_log") {
+        // descending order で返す（reverse()で昇順に戻される）
+        return createChain({
+          data: [
+            { direction: "incoming", content: "もう1つ質問があります", event_type: "message", sent_at: "2026-01-01T00:02:00Z" },
+            { direction: "incoming", content: "ありがとうございます", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+            { direction: "outgoing", content: "お薬の効果について", event_type: "message", sent_at: "2026-01-01T00:00:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    const mockCreate = mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // Anthropic APIが呼ばれたことを確認
+    expect(mockCreate).toHaveBeenCalled();
+    // user messageに複数メッセージが含まれる
+    const callArgs = mockCreate.mock.calls[0][0];
+    const userContent = callArgs.messages[0].content;
+    expect(userContent).toContain("ありがとうございます");
+    expect(userContent).toContain("もう1つ質問があります");
+    // コンテキストも含まれる
+    expect(userContent).toContain("スタッフ");
+  });
+
+  it("複数の未返信メッセージ → 番号付きで結合される", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.8,
+      reply: "お問い合わせ内容を確認いたします。",
+      reason: "複数の質問",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 51 }, error: null });
+      }
+      if (table === "message_log") {
+        // descending order で返すので逆順（reverse()で昇順に戻される）
+        return createChain({
+          data: [
+            { direction: "incoming", content: "質問3", event_type: "message", sent_at: "2026-01-01T00:03:00Z" },
+            { direction: "incoming", content: "質問2", event_type: "message", sent_at: "2026-01-01T00:02:00Z" },
+            { direction: "incoming", content: "質問1", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    const mockCreate = mockAnthropicCreate(aiResponse);
+
+    await processPendingAiReplies();
+
+    // 3つのメッセージが番号付きで結合される
+    const callArgs = mockCreate.mock.calls[0][0];
+    const userContent = callArgs.messages[0].content;
+    expect(userContent).toContain("(1) 質問1");
+    expect(userContent).toContain("(2) 質問2");
+    expect(userContent).toContain("(3) 質問3");
+  });
+
+  it("VERCEL_PROJECT_PRODUCTION_URL環境変数あり → originが設定される", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "承知いたしました。",
+      reason: "問い合わせ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 52 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "テスト", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    // VERCEL_PROJECT_PRODUCTION_URL を設定
+    const origUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "test.vercel.app";
+    try {
+      await processPendingAiReplies();
+      // sendApprovalFlexMessageのorigin引数を検証
+      expect(sendApprovalFlexMessage).toHaveBeenCalled();
+      const callArgs = vi.mocked(sendApprovalFlexMessage).mock.calls[0];
+      expect(callArgs[8]).toBe("https://test.vercel.app");
+    } finally {
+      if (origUrl === undefined) {
+        delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+      } else {
+        process.env.VERCEL_PROJECT_PRODUCTION_URL = origUrl;
+      }
+    }
+  });
+
+  it("Claudeレスポンスのcontent[0].typeがtext以外 → 空文字として扱いJSONなしエラー", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 24,
+    };
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 53 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "テスト", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    // content typeがtool_useの場合
+    vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+      this.messages = {
+        create: vi.fn().mockResolvedValue({
+          content: [{ type: "tool_use", id: "toolu_xxx", name: "test", input: {} }],
+          usage: { input_tokens: 100, output_tokens: 50 },
+        }),
+      };
+    });
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // JSONなしエラーでリターン
+    expect(sendApprovalFlexMessage).not.toHaveBeenCalled();
+  });
+
+  it("日次カウントがnull → 0として扱い上限チェック通過", async () => {
+    setupForProcessAiReply();
+    const settings = { is_enabled: true, daily_limit: 100 };
+
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        // countがnull（todayCount || 0 のnullパス）
+        return createChain({ data: null, error: null, count: null });
+      }
+      return createChain();
+    });
+    // APIキー未設定で早期リターン
+    vi.mocked(getSettingOrEnv).mockResolvedValue("");
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+  });
+
+  it("recentMsgsがnull → 空配列として扱われる", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: null, // nullの場合24がデフォルト
+    };
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 54 }, error: null });
+      }
+      if (table === "message_log") {
+        // recentMsgsがnull
+        return createChain({ data: null, error: null });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    // recentMsgsがnull → 未返信メッセージなしでスキップ
+  });
+
+  it("approval_timeout_hoursがnull → デフォルト24時間", async () => {
+    setupForProcessAiReply();
+    const settings = {
+      is_enabled: true, daily_limit: 100, mode: "approval",
+      knowledge_base: "", custom_instructions: "",
+      approval_timeout_hours: 0, // falsyなので24がデフォルト
+    };
+    const aiResponse = JSON.stringify({
+      category: "operational",
+      confidence: 0.9,
+      reply: "承知いたしました。",
+      reason: "問い合わせ",
+    });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_settings") return createChain({ data: settings, error: null });
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        if (draftsCallCount === 1) return createChain({ data: null, error: null, count: 0 });
+        if (draftsCallCount === 2) return createChain({ data: null, error: null });
+        if (draftsCallCount === 3) return createChain({ data: null, error: null });
+        return createChain({ data: { id: 55 }, error: null });
+      }
+      if (table === "message_log") {
+        return createChain({
+          data: [
+            { direction: "incoming", content: "テスト", event_type: "message", sent_at: "2026-01-01T00:01:00Z" },
+          ],
+          error: null,
+        });
+      }
+      return createChain();
+    });
+    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    mockAnthropicCreate(aiResponse);
+
+    const result = await processPendingAiReplies();
+    expect(result).toBe(1);
+    expect(sendApprovalFlexMessage).toHaveBeenCalled();
+  });
 });
 
 // ============================================================
 // sendAiReply
 // ============================================================
 describe("sendAiReply", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetTableChains();
     vi.clearAllMocks();
+    await resetFromMock(); // processAiReplyテストで上書きされた from モックをリセット
   });
 
   it("pushMessage成功 → ドラフトをsent更新 & message_logにinsert", async () => {
@@ -384,9 +1321,10 @@ describe("sendAiReply", () => {
 // handleImplicitAiFeedback
 // ============================================================
 describe("handleImplicitAiFeedback", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetTableChains();
     vi.clearAllMocks();
+    await resetFromMock(); // processAiReplyテストで上書きされた from モックをリセット
   });
 
   it("pendingドラフトなし → 何もしない", async () => {
@@ -540,5 +1478,89 @@ describe("handleImplicitAiFeedback", () => {
 
     // in() に3件のIDが渡される
     expect(draftsUpdateChain.in).toHaveBeenCalledWith("id", [10, 11, 12]);
+  });
+
+  it("staffReplyが空文字 → ナレッジ追記スキップ", async () => {
+    const pendingDrafts = [
+      { id: 10, original_message: "テスト", draft_reply: "AI返信" },
+    ];
+    const draftsSelectChain = createChain({ data: pendingDrafts, error: null });
+    const draftsUpdateChain = createChain({ data: null, error: null });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        return draftsCallCount === 1 ? draftsSelectChain : draftsUpdateChain;
+      }
+      return createChain();
+    });
+
+    // staffReplyが空文字 → latestDraft?.original_message && staffReply が false
+    await handleImplicitAiFeedback("p1", "", null);
+
+    // expired更新は実行される
+    expect(draftsUpdateChain.update).toHaveBeenCalled();
+    // ai_reply_settings テーブルにはアクセスされない（ナレッジ追記スキップ）
+  });
+
+  it("latestDraft.original_messageがnull → ナレッジ追記スキップ", async () => {
+    const pendingDrafts = [
+      { id: 10, original_message: null, draft_reply: "AI返信" },
+    ];
+    const draftsSelectChain = createChain({ data: pendingDrafts, error: null });
+    const draftsUpdateChain = createChain({ data: null, error: null });
+
+    let draftsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        return draftsCallCount === 1 ? draftsSelectChain : draftsUpdateChain;
+      }
+      return createChain();
+    });
+
+    await handleImplicitAiFeedback("p1", "手動返信テスト", null);
+
+    // expired更新は実行される
+    expect(draftsUpdateChain.update).toHaveBeenCalled();
+  });
+
+  it("既存ナレッジベースが空文字 → 空文字+追記で保存", async () => {
+    const pendingDrafts = [
+      { id: 10, original_message: "質問テスト", draft_reply: "AI返信テスト" },
+    ];
+    const draftsSelectChain = createChain({ data: pendingDrafts, error: null });
+    const draftsUpdateChain = createChain({ data: null, error: null });
+    const settingsSelectChain = createChain({
+      data: { id: 1, knowledge_base: null },
+      error: null,
+    });
+    const settingsUpdateChain = createChain({ data: null, error: null });
+
+    let draftsCallCount = 0;
+    let settingsCallCount = 0;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "ai_reply_drafts") {
+        draftsCallCount++;
+        return draftsCallCount === 1 ? draftsSelectChain : draftsUpdateChain;
+      }
+      if (table === "ai_reply_settings") {
+        settingsCallCount++;
+        return settingsCallCount === 1 ? settingsSelectChain : settingsUpdateChain;
+      }
+      return createChain();
+    });
+
+    await handleImplicitAiFeedback("p1", "スタッフの返信", null);
+
+    // ナレッジベース更新が呼ばれた
+    expect(settingsUpdateChain.update).toHaveBeenCalled();
+    const kbUpdateArgs = settingsUpdateChain.update.mock.calls[0][0];
+    expect(kbUpdateArgs.knowledge_base).toContain("スタッフ手動返信例");
+    expect(kbUpdateArgs.knowledge_base).toContain("質問テスト");
   });
 });

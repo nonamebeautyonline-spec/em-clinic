@@ -348,7 +348,7 @@ async function processAiReply(
   log.push("step6: Claude API呼び出し");
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -395,7 +395,7 @@ async function processAiReply(
       draft_reply: aiResult.reply,
       confidence: aiResult.confidence,
       status: settings.mode === "auto" ? "approved" : "pending",
-      model_used: "claude-sonnet-4-5-20250929",
+      model_used: "claude-sonnet-4-6",
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       expires_at: expiresAt.toISOString(),
