@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, karteEditSchema);
     if ("error" in parsed) return parsed.error;
-    const { intakeId, note } = parsed.data;
+    const { intakeId, note, noteFormat } = parsed.data;
 
     const tenantId = resolveTenantId(req);
 
@@ -45,13 +45,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 更新
+    const updatePayload: Record<string, unknown> = {
+      note: note || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (noteFormat) {
+      updatePayload.note_format = noteFormat;
+    }
     const { error: updateErr } = await withTenant(
       supabaseAdmin
         .from("intake")
-        .update({
-          note: note || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", intakeId),
       tenantId
     );

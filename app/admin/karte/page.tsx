@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 import Link from "next/link";
 import { formatFullDateTimeJST, calcAge, formatDateJST } from "@/lib/patient-utils";
+import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
+import { emptySoapNote, noteToSoap, soapToNote, soapToText, parseJsonToSoap, SOAP_LABELS } from "@/lib/soap-parser";
+import { KarteNoteEditor } from "@/components/karte/KarteNoteEditor";
 
 const KarteImageSection = lazy(() => import("@/components/KarteImageSection"));
 
@@ -35,6 +38,7 @@ type IntakeItem = {
   status: string | null;
   prescriptionMenu: string;
   note: string;
+  noteFormat?: NoteFormat;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answers: Record<string, any>;
   locked_at?: string | null;
@@ -172,6 +176,9 @@ export default function KartePage() {
   const [editingIntakeId, setEditingIntakeId] = useState<number | null>(null);
   const [editNote, setEditNote] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  // SOAP構造化入力
+  const [editSoap, setEditSoap] = useState<SoapNote>(emptySoapNote());
+  const [editNoteFormat, setEditNoteFormat] = useState<NoteFormat>("plain");
 
   // --- テンプレート ---
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
@@ -306,32 +313,43 @@ export default function KartePage() {
       return;
     }
     setEditingIntakeId(intake.id);
-    setEditNote(intake.note || "");
+    const fmt = intake.noteFormat || "plain";
+    setEditNoteFormat(fmt);
+    setEditSoap(noteToSoap(intake.note, fmt));
   };
 
   const cancelEdit = () => {
     setEditingIntakeId(null);
-    setEditNote("");
+    setEditSoap(emptySoapNote());
+    setEditNoteFormat("plain");
     setShowTemplates(false);
   };
 
   const saveNote = async () => {
     if (!editingIntakeId) return;
     setEditSaving(true);
+    const noteToSave = soapToNote(editSoap, editNoteFormat);
     try {
       const res = await fetch("/api/admin/karte-edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intakeId: editingIntakeId, note: editNote }),
+        body: JSON.stringify({
+          intakeId: editingIntakeId,
+          note: noteToSave,
+          noteFormat: editNoteFormat,
+        }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "保存失敗");
       // ローカル更新
       setIntakes(prev => prev.map(it =>
-        it.id === editingIntakeId ? { ...it, note: editNote } : it
+        it.id === editingIntakeId
+          ? { ...it, note: noteToSave, noteFormat: editNoteFormat }
+          : it
       ));
       setEditingIntakeId(null);
-      setEditNote("");
+      setEditSoap(emptySoapNote());
+      setEditNoteFormat("plain");
       setShowTemplates(false);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "保存に失敗しました");
@@ -344,7 +362,10 @@ export default function KartePage() {
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
     const text = tmpl.body.replace(/\{\{date\}\}/g, dateStr);
-    setEditNote(prev => prev ? prev + "\n" + text : text);
+    // テンプレートはSOAPのS（フリーモード時もS）に追記
+    const current = editSoap.s || "";
+    const trimmed = current.trimEnd();
+    setEditSoap({ ...editSoap, s: trimmed ? `${trimmed}\n${text}` : text });
     setShowTemplates(false);
   };
 
@@ -996,12 +1017,12 @@ export default function KartePage() {
 
                                       {isEditing ? (
                                         <div className="space-y-2">
-                                          <textarea
-                                            value={editNote}
-                                            onChange={(e) => setEditNote(e.target.value)}
-                                            rows={6}
-                                            className="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500/20 focus:border-red-400 outline-none resize-none"
-                                            placeholder="カルテメモを入力..."
+                                          {/* SOAP構造化入力フォーム */}
+                                          <KarteNoteEditor
+                                            soap={editSoap}
+                                            onSoapChange={setEditSoap}
+                                            noteFormat={editNoteFormat}
+                                            onNoteFormatChange={setEditNoteFormat}
                                           />
                                           {/* テンプレートボタン */}
                                           <div className="relative">
@@ -1053,7 +1074,7 @@ export default function KartePage() {
                                       ) : (
                                         <>
                                           {it.note ? (
-                                            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{it.note}</p>
+                                            <NoteDisplay note={it.note} noteFormat={it.noteFormat} />
                                           ) : (
                                             <p className="text-sm text-gray-400 italic">メモなし</p>
                                           )}
@@ -1159,4 +1180,34 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-gray-700">{value}</span>
     </div>
   );
+}
+
+/** SOAP/プレーンを自動判定して表示 */
+function NoteDisplay({ note, noteFormat }: { note: string; noteFormat?: NoteFormat }) {
+  const fmt = noteFormat || "plain";
+  if (fmt === "soap") {
+    const soap = parseJsonToSoap(note);
+    const sections = [
+      { key: "s", label: "S", value: soap.s, color: "border-l-blue-400" },
+      { key: "o", label: "O", value: soap.o, color: "border-l-green-400" },
+      { key: "a", label: "A", value: soap.a, color: "border-l-amber-400" },
+      { key: "p", label: "P", value: soap.p, color: "border-l-purple-400" },
+    ].filter(s => s.value);
+
+    if (sections.length === 0) {
+      return <p className="text-sm text-gray-400 italic">メモなし</p>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {sections.map(s => (
+          <div key={s.key} className={`border-l-4 ${s.color} pl-3`}>
+            <div className="text-[10px] font-bold text-gray-400">{s.label}</div>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{s.value}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{note}</p>;
 }

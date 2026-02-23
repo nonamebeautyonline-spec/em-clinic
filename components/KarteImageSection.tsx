@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { BeforeAfterCompare } from "@/components/karte/BeforeAfterCompare";
 
 type KarteImage = {
   id: number;
@@ -364,6 +365,9 @@ export default function KarteImageSection({
               </div>
             </div>
           ))}
+
+          {/* ビフォーアフター比較 */}
+          <BeforeAfterCompare images={images} />
         </div>
       )}
 
