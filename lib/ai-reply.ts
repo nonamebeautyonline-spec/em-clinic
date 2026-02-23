@@ -10,7 +10,7 @@ import { pushMessage } from "@/lib/line-push";
 import { redis } from "@/lib/redis";
 import { rejectCategoryLabels, type RejectCategory } from "@/lib/validations/ai-reply";
 
-const DEBOUNCE_SEC = 60; // メッセージ待機時間（秒）
+const DEBOUNCE_SEC = 10; // メッセージ待機時間（秒）
 
 interface AiReplyResult {
   category: "operational" | "medical" | "greeting" | "other";

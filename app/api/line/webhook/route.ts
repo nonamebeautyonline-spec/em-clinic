@@ -1464,6 +1464,8 @@ export async function POST(req: NextRequest) {
     // レスポンス後にAI返信のデバウンス処理を実行（Vercel Cronに依存しない）
     after(async () => {
       try {
+        // デバウンス待機（10秒）後に処理
+        await new Promise(r => setTimeout(r, 12_000));
         const lock = await acquireLock("cron:ai-reply", 55);
         if (!lock.acquired) return;
         try {
