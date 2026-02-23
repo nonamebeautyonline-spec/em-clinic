@@ -16,6 +16,10 @@ vi.mock("@/lib/line-richmenu", () => ({
   linkRichMenuToUser: mockLinkRichMenuToUser,
 }));
 
+vi.mock("@/lib/line-push", () => ({
+  pushMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock("@/lib/merge-tables", () => ({
   MERGE_TABLES: ["reservations", "orders", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"],
 }));
@@ -190,6 +194,20 @@ describe("register/personal-info 既存患者（LINE再ログイン）", () => {
     tableChains["patient_tags"] = createChain({ data: null, error: null });
     tableChains["rich_menus"] = createChain({ data: { line_rich_menu_id: "richmenu-xxx" }, error: null });
 
+    // ライフサイクルイベント設定（executeLifecycleActions用）
+    tableChains["friend_add_settings"] = createChain({
+      data: {
+        enabled: true,
+        setting_value: {
+          steps: [
+            { type: "tag_add", tag_id: 1, tag_name: "個人情報提出ずみ" },
+            { type: "menu_change", menu_id: "1" },
+          ],
+        },
+      },
+      error: null,
+    });
+
     const { POST } = await import("@/app/api/register/personal-info/route");
     const req = createRequest(validBody, { line_user_id: "U12345" });
 
@@ -199,7 +217,7 @@ describe("register/personal-info 既存患者（LINE再ログイン）", () => {
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.patient_id).toBe("10005");
-    // リッチメニュー切り替えが呼ばれる
+    // ライフサイクルイベント経由でリッチメニュー切り替えが呼ばれる
     expect(mockLinkRichMenuToUser).toHaveBeenCalledWith("U12345", "richmenu-xxx", "test-tenant");
   });
 });

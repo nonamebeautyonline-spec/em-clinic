@@ -1,8 +1,9 @@
 // app/api/register/complete/route.ts
-// 電話認証完了時に answerers.tel を保存 + リッチメニュー切り替え
+// 電話認証完了時に answerers.tel を保存 + ライフサイクルイベント実行
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
+import { executeLifecycleActions } from "@/lib/lifecycle-actions";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { MERGE_TABLES } from "@/lib/merge-tables";
@@ -274,40 +275,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================================
-    // ステップ4: リッチメニュー切り替え（verify完了 → 適切なメニューに）
+    // ステップ4: ライフサイクルイベント: 電話番号認証完了時アクション
     // ============================================================
-    if (LINE_ACCESS_TOKEN && lineUserId) {
-      try {
-        // ordersがあれば「処方後」、なければ「個人情報入力後」
-        const { data: order } = await withTenant(supabaseAdmin
-          .from("orders")
-          .select("id")
-          .eq("patient_id", pid), tenantId)
-          .limit(1)
-          .maybeSingle();
-
-        const menuName = order ? "処方後" : "個人情報入力後";
-        const { data: menu } = await withTenant(supabaseAdmin
-          .from("rich_menus")
-          .select("line_rich_menu_id")
-          .eq("name", menuName), tenantId)
-          .maybeSingle();
-
-        if (menu?.line_rich_menu_id) {
-          const currentRes = await fetch(`https://api.line.me/v2/bot/user/${lineUserId}/richmenu`, {
-            headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
-          });
-          const current = currentRes.ok ? await currentRes.json() : null;
-          if (current?.richMenuId !== menu.line_rich_menu_id) {
-            await fetch(`https://api.line.me/v2/bot/user/${lineUserId}/richmenu/${menu.line_rich_menu_id}`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LINE_ACCESS_TOKEN}` },
-            });
-            console.log(`[register/complete] switched rich menu to ${menuName} for ${pid}`);
-          }
-        }
-      } catch (err) {
-        console.error("[register/complete] rich menu switch error:", err);
+    if (lineUserId && pid) {
+      const { actionDetails } = await executeLifecycleActions({
+        settingKey: "verification_completed",
+        patientId: pid,
+        lineUserId,
+        tenantId,
+        assignedBy: "complete",
+      });
+      if (actionDetails.length > 0) {
+        console.log("[register/complete] lifecycle actions:", actionDetails.join(", "));
       }
     }
 

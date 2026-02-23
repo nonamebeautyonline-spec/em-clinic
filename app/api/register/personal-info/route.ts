@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { linkRichMenuToUser } from "@/lib/line-richmenu";
+import { executeLifecycleActions } from "@/lib/lifecycle-actions";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { parseBody } from "@/lib/validations/helpers";
@@ -203,32 +203,18 @@ export async function POST(req: NextRequest) {
       console.error("[register/personal-info] Intake upsert failed:", intakeError.message);
     }
 
-    // 7) 「個人情報提出ずみ」タグを付与（tag_id=1）
-    const { error: tagError } = await supabaseAdmin
-      .from("patient_tags")
-      .upsert(
-        { patient_id: patientId, tag_id: 1, assigned_by: "register", ...tenantPayload(tenantId) },
-        { onConflict: "patient_id,tag_id" }
-      );
-    if (tagError) {
-      console.error("[register/personal-info] Tag assign failed:", tagError.message);
-    }
-
-    // 8) リッチメニューを「個人情報入力後」に切り替え
-    if (lineUserId) {
-      const { data: postMenu } = await withTenant(supabaseAdmin
-        .from("rich_menus")
-        .select("line_rich_menu_id")
-        .eq("name", "個人情報入力後"), tenantId)
-        .maybeSingle();
-
-      if (postMenu?.line_rich_menu_id) {
-        const linked = await linkRichMenuToUser(lineUserId, postMenu.line_rich_menu_id, tenantId ?? undefined);
-        if (linked) {
-          console.log("[register/personal-info] Rich menu switched to 個人情報入力後 for", lineUserId);
-        } else {
-          console.error("[register/personal-info] Failed to switch rich menu for", lineUserId);
-        }
+    // 7) ライフサイクルイベント: 個人情報入力完了時アクション
+    if (lineUserId && patientId) {
+      const { actionDetails } = await executeLifecycleActions({
+        settingKey: "personal_info_completed",
+        patientId,
+        lineUserId,
+        patientName: name.trim(),
+        tenantId,
+        assignedBy: "register",
+      });
+      if (actionDetails.length > 0) {
+        console.log("[register/personal-info] lifecycle actions:", actionDetails.join(", "));
       }
     }
 

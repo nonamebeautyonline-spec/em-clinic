@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
 interface Template {
   id: number;
@@ -102,6 +103,8 @@ export default function TemplateManagementPage() {
   // Flex JSON直接編集
   const [flexJson, setFlexJson] = useState("");
   const [flexError, setFlexError] = useState("");
+  // Flexプリセット
+  const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
   // 変数プレビュー用state
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewVars, setPreviewVars] = useState<Record<string, string> | null>(null);
@@ -114,9 +117,10 @@ export default function TemplateManagementPage() {
   const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = async () => {
-    const [tRes, cRes] = await Promise.all([
+    const [tRes, cRes, fpRes] = await Promise.all([
       fetch("/api/admin/line/templates", { credentials: "include" }),
       fetch("/api/admin/line/template-categories", { credentials: "include" }),
+      fetch("/api/admin/line/flex-presets", { credentials: "include" }),
     ]);
     const tData = await tRes.json();
     const cData = await cRes.json();
@@ -126,6 +130,11 @@ export default function TemplateManagementPage() {
       if (cData.categories.length > 0 && selectedCategory === null) {
         setSelectedCategory(cData.categories[0].name);
       }
+    }
+    // Flexプリセット取得
+    if (fpRes.ok) {
+      const fpData = await fpRes.json();
+      if (fpData.presets) setFlexPresets(fpData.presets);
     }
     setLoading(false);
   };
@@ -561,7 +570,7 @@ export default function TemplateManagementPage() {
       {/* テンプレート作成/編集モーダル */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => resetForm()}>
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className={`bg-white rounded-2xl w-full shadow-2xl max-h-[90vh] flex flex-col transition-all ${activeTab === "flex" ? "max-w-6xl" : "max-w-2xl"}`} onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h2 className="font-bold text-gray-900 text-lg">
@@ -935,45 +944,99 @@ export default function TemplateManagementPage() {
                 </div>
               )}
 
-              {/* Flex JSON直接編集 */}
+              {/* Flex JSON編集（プリセット + エディタ + プレビュー） */}
               {activeTab === "flex" && (
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Flex Message JSON <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                    </label>
-                    <p className="text-xs text-gray-400 mb-2">
-                      LINE Flex Message Simulator で作成したJSONを貼り付けてください
-                    </p>
-                    <textarea
-                      value={flexJson}
-                      onChange={(e) => {
-                        setFlexJson(e.target.value);
-                        if (e.target.value.trim()) {
-                          try { JSON.parse(e.target.value); setFlexError(""); } catch { setFlexError("JSON形式が不正です"); }
-                        } else { setFlexError(""); }
-                      }}
-                      placeholder='{"type":"bubble","body":{"type":"box",...}}'
-                      rows={12}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
-                      spellCheck={false}
-                    />
-                    {flexError && (
-                      <p className="text-xs text-red-500 mt-1">{flexError}</p>
-                    )}
-                    <div className="flex justify-end mt-1">
-                      <button
-                        onClick={() => {
+                  {/* プリセットボタン */}
+                  {flexPresets.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">プリセットから選択</label>
+                      <div className="flex flex-wrap gap-2">
+                        {flexPresets.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              setFlexJson(JSON.stringify(p.flex_json, null, 2));
+                              setFlexError("");
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:border-[#06C755] hover:bg-green-50 transition-colors text-gray-700"
+                          >
+                            {p.name}
+                            {p.description && (
+                              <span className="ml-1.5 text-[10px] text-gray-400">{p.description}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* JSONエディタ + プレビュー 横並び */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* JSONエディタ */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Flex Message JSON <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
+                        </label>
+                        <button
+                          onClick={() => {
+                            try {
+                              const parsed = JSON.parse(flexJson);
+                              setFlexJson(JSON.stringify(parsed, null, 2));
+                              setFlexError("");
+                            } catch { setFlexError("JSON形式が不正です"); }
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          整形
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-400 mb-2">
+                        プリセットを選択するか、LINE Flex Message Simulator で作成したJSONを貼り付けてください
+                      </p>
+                      <textarea
+                        value={flexJson}
+                        onChange={(e) => {
+                          setFlexJson(e.target.value);
+                          if (e.target.value.trim()) {
+                            try { JSON.parse(e.target.value); setFlexError(""); } catch { setFlexError("JSON形式が不正です"); }
+                          } else { setFlexError(""); }
+                        }}
+                        placeholder='{"type":"bubble","body":{"type":"box",...}}'
+                        rows={16}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
+                        spellCheck={false}
+                      />
+                      {flexError && (
+                        <p className="text-xs text-red-500 mt-1">{flexError}</p>
+                      )}
+                    </div>
+
+                    {/* リアルタイムプレビュー */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">プレビュー</label>
+                      <div className="bg-[#7494c0] rounded-xl p-4 min-h-[350px]">
+                        {(() => {
+                          if (!flexJson.trim()) {
+                            return (
+                              <div className="text-center text-white/60 text-sm py-20">
+                                プリセットを選択またはJSONを入力してください
+                              </div>
+                            );
+                          }
                           try {
                             const parsed = JSON.parse(flexJson);
-                            setFlexJson(JSON.stringify(parsed, null, 2));
-                            setFlexError("");
-                          } catch { setFlexError("JSON形式が不正です"); }
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-800"
-                      >
-                        整形
-                      </button>
+                            return <FlexPreviewRenderer data={parsed} />;
+                          } catch {
+                            return (
+                              <div className="text-center text-white/60 text-sm py-20">
+                                JSONを修正してください
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1178,7 +1241,7 @@ export default function TemplateManagementPage() {
                   ) : previewTemplate.message_type === "image" ? (
                     <img src={previewTemplate.content} alt="" className="max-w-[280px] rounded-2xl rounded-tl-sm shadow-sm" />
                   ) : previewTemplate.message_type === "flex" && previewTemplate.flex_content ? (
-                    <FlexPreviewSimple data={previewTemplate.flex_content} />
+                    <FlexPreviewRenderer data={previewTemplate.flex_content} />
                   ) : (
                     <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 max-w-[280px] shadow-sm">
                       <p className="text-sm whitespace-pre-wrap text-gray-800">
@@ -1252,78 +1315,4 @@ function HighlightVariables({ text }: { text: string }) {
   );
 }
 
-/* ---------- Flex簡易プレビュー ---------- */
-function FlexPreviewSimple({ data }: { data: Record<string, unknown> }) {
-  const type = data.type as string;
-
-  if (type === "carousel") {
-    const contents = (data.contents || []) as Record<string, unknown>[];
-    return (
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {contents.map((bubble, i) => (
-          <div key={i} className="flex-shrink-0 w-[240px]">
-            <BubblePreview bubble={bubble} />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (type === "bubble") {
-    return <div className="max-w-[280px]"><BubblePreview bubble={data} /></div>;
-  }
-
-  return <div className="text-white/60 text-xs text-center py-10">Flex: {type || "不明"}</div>;
-}
-
-function BubblePreview({ bubble }: { bubble: Record<string, unknown> }) {
-  const hero = bubble.hero as Record<string, unknown> | undefined;
-  const body = bubble.body as Record<string, unknown> | undefined;
-  const footer = bubble.footer as Record<string, unknown> | undefined;
-
-  return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-lg">
-      {hero && hero.type === "image" && !!hero.url && (
-        <div className="w-full bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${hero.url})`, aspectRatio: (hero.aspectRatio as string) || "20:13" }} />
-      )}
-      {body && <div className="px-3 py-2"><BoxPreview box={body} /></div>}
-      {footer && <div className="px-3 pb-2"><BoxPreview box={footer} /></div>}
-    </div>
-  );
-}
-
-function BoxPreview({ box }: { box: Record<string, unknown> }) {
-  const layout = box.layout as string;
-  const contents = (box.contents || []) as Record<string, unknown>[];
-  return (
-    <div className={`flex ${layout === "horizontal" ? "flex-row items-center" : "flex-col"} gap-1`}>
-      {contents.map((item, i) => <ElementPreview key={i} el={item} />)}
-    </div>
-  );
-}
-
-function ElementPreview({ el }: { el: Record<string, unknown> }) {
-  const type = el.type as string;
-  if (type === "text") {
-    const weight = el.weight === "bold" ? "font-bold" : "";
-    const size = el.size as string;
-    const cls = size === "xs" ? "text-[10px]" : size === "sm" ? "text-xs" : size === "lg" ? "text-base" : size === "xl" ? "text-lg" : "text-sm";
-    return <span className={`${cls} ${weight} leading-snug`} style={{ color: (el.color as string) || "#111" }}>{el.text as string}</span>;
-  }
-  if (type === "button") {
-    const action = el.action as Record<string, unknown>;
-    const style = el.style as string;
-    return (
-      <div className={`py-1.5 px-3 rounded-lg text-center text-xs font-medium ${style === "primary" ? "text-white" : "bg-gray-100 text-gray-700"}`}
-        style={style === "primary" ? { backgroundColor: (el.color as string) || "#06C755" } : undefined}>
-        {(action?.label as string) || "ボタン"}
-      </div>
-    );
-  }
-  if (type === "separator") return <hr className="border-gray-200 my-1" />;
-  if (type === "box") return <BoxPreview box={el} />;
-  if (type === "image" && el.url) {
-    return <div className="w-full bg-gray-200 bg-cover bg-center rounded" style={{ backgroundImage: `url(${el.url})`, aspectRatio: (el.aspectRatio as string) || "1/1", minHeight: "40px" }} />;
-  }
-  return null;
-}
+/* Flex簡易プレビュー（FlexPreviewRenderer に統合済み・削除） */

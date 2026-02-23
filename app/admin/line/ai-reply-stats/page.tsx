@@ -140,7 +140,11 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function AIReplyStatsPage() {
+/**
+ * AI返信統計のコンテンツ部分（ページラッパーを除いた純粋な統計UI）
+ * ai-reply-settings ページからタブ経由で埋め込み可能
+ */
+export function AIReplyStatsContent() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
@@ -168,7 +172,7 @@ export default function AIReplyStatsPage() {
   // ローディング
   if (loading && !data) {
     return (
-      <div className="min-h-full bg-gray-50/50 flex items-center justify-center">
+      <div className="flex items-center justify-center py-16">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-cyan-200 border-t-cyan-500 rounded-full animate-spin" />
           <span className="text-sm text-gray-400">AI返信統計を読み込み中...</span>
@@ -179,7 +183,7 @@ export default function AIReplyStatsPage() {
 
   if (!data) {
     return (
-      <div className="min-h-full bg-gray-50/50 flex items-center justify-center">
+      <div className="flex items-center justify-center py-16">
         <p className="text-sm text-gray-400">データの取得に失敗しました</p>
       </div>
     );
@@ -187,122 +191,99 @@ export default function AIReplyStatsPage() {
 
   const { kpi, categoryStats, dailyTrend, recentDrafts } = data;
 
-  // PieChart用データ
-  const pieData = categoryStats.map((c) => ({
-    name: CATEGORY_LABELS[c.category] || c.category,
-    value: c.count,
-    color: CATEGORY_COLORS[c.category] || "#9ca3af",
-  }));
-
   return (
-    <div className="min-h-full bg-gray-50/50">
-      {/* ヘッダー */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                  {/* ロボットアイコン */}
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                AI返信統計
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">AI返信のパフォーマンスを分析</p>
-            </div>
-
-            {/* 期間切替 */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              {[7, 30, 90].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    period === p
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {p}日
-                </button>
-              ))}
-            </div>
+    <div className="space-y-6">
+      {/* 期間切替 + KPIカード */}
+      <div>
+        <div className="flex items-center justify-end mb-4">
+          {/* 期間切替 */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {[7, 30, 90].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  period === p
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {p}日
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* KPIカード */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-            <KPICard
-              label="総処理数"
-              value={String(kpi.total)}
-              sub="件"
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              }
-              gradient="from-slate-50 to-gray-50"
-              border="border-gray-100/50"
-              valueColor="text-gray-700"
-              subColor="text-gray-400"
-              iconBg="bg-gray-100"
-              iconColor="text-gray-500"
-            />
-            <KPICard
-              label="承認率"
-              value={`${kpi.approvalRate}%`}
-              sub={`${Math.round(kpi.total * kpi.approvalRate / 100)}件送信`}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              }
-              gradient="from-emerald-50 to-green-50"
-              border="border-emerald-100/50"
-              valueColor="text-emerald-700"
-              subColor="text-emerald-500"
-              iconBg="bg-emerald-100"
-              iconColor="text-emerald-600"
-            />
-            <KPICard
-              label="平均信頼度"
-              value={`${(kpi.avgConfidence * 100).toFixed(1)}%`}
-              sub="confidence"
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              }
-              gradient="from-blue-50 to-indigo-50"
-              border="border-blue-100/50"
-              valueColor="text-blue-700"
-              subColor="text-blue-500"
-              iconBg="bg-blue-100"
-              iconColor="text-blue-600"
-            />
-            <KPICard
-              label="トークン消費"
-              value={fmtTokens(kpi.totalTokens)}
-              sub={`$${kpi.estimatedCost.toFixed(2)}`}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              }
-              gradient="from-violet-50 to-purple-50"
-              border="border-violet-100/50"
-              valueColor="text-violet-700"
-              subColor="text-violet-500"
-              iconBg="bg-violet-100"
-              iconColor="text-violet-600"
-            />
-          </div>
+        {/* KPIカード */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KPICard
+            label="総処理数"
+            value={String(kpi.total)}
+            sub="件"
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            }
+            gradient="from-slate-50 to-gray-50"
+            border="border-gray-100/50"
+            valueColor="text-gray-700"
+            subColor="text-gray-400"
+            iconBg="bg-gray-100"
+            iconColor="text-gray-500"
+          />
+          <KPICard
+            label="承認率"
+            value={`${kpi.approvalRate}%`}
+            sub={`${Math.round(kpi.total * kpi.approvalRate / 100)}件送信`}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            }
+            gradient="from-emerald-50 to-green-50"
+            border="border-emerald-100/50"
+            valueColor="text-emerald-700"
+            subColor="text-emerald-500"
+            iconBg="bg-emerald-100"
+            iconColor="text-emerald-600"
+          />
+          <KPICard
+            label="平均信頼度"
+            value={`${(kpi.avgConfidence * 100).toFixed(1)}%`}
+            sub="confidence"
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            }
+            gradient="from-blue-50 to-indigo-50"
+            border="border-blue-100/50"
+            valueColor="text-blue-700"
+            subColor="text-blue-500"
+            iconBg="bg-blue-100"
+            iconColor="text-blue-600"
+          />
+          <KPICard
+            label="トークン消費"
+            value={fmtTokens(kpi.totalTokens)}
+            sub={`$${kpi.estimatedCost.toFixed(2)}`}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+            gradient="from-violet-50 to-purple-50"
+            border="border-violet-100/50"
+            valueColor="text-violet-700"
+            subColor="text-violet-500"
+            iconBg="bg-violet-100"
+            iconColor="text-violet-600"
+          />
         </div>
       </div>
 
       {/* グラフ・テーブル */}
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6 space-y-6">
         {/* 日次件数推移（AreaChart） */}
         <ChartCard title="日次件数推移" icon="trend">
           {dailyTrend.length > 0 ? (
@@ -597,6 +578,37 @@ export default function AIReplyStatsPage() {
             <li>- 信頼度はAIが返信案の適切さを自己評価した値（0〜100%）です</li>
           </ul>
         </div>
+    </div>
+  );
+}
+
+/**
+ * AI返信統計ページ（直接アクセス用）
+ * ヘッダー付きのフルページラッパー
+ */
+export default function AIReplyStatsPage() {
+  return (
+    <div className="min-h-full bg-gray-50/50">
+      {/* ヘッダー */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-6">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              AI返信統計
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">AI返信のパフォーマンスを分析</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 統計コンテンツ */}
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-6">
+        <AIReplyStatsContent />
       </div>
     </div>
   );

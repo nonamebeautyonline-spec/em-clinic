@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 /* ---------- 型定義 ---------- */
-interface FlexPreset {
+export interface FlexPreset {
   id: number;
   name: string;
   category: string;
@@ -334,8 +334,8 @@ export default function FlexBuilderPage() {
   );
 }
 
-/* ---------- Flexプレビューレンダラー ---------- */
-function FlexPreviewRenderer({ data }: { data: Record<string, unknown> }) {
+/* ---------- Flexプレビューレンダラー（named export: テンプレートページ等から再利用可能） ---------- */
+export function FlexPreviewRenderer({ data }: { data: Record<string, unknown> }) {
   const type = data.type as string;
 
   if (type === "carousel") {
