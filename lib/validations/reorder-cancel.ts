@@ -4,7 +4,7 @@ import { z } from "zod";
 /** 再処方キャンセル POST /api/reorder/cancel */
 export const reorderCancelSchema = z
   .object({
-    reorder_id: z.number({ message: "reorder_idは数値で指定してください" }),
+    reorder_id: z.coerce.number({ message: "reorder_idは数値で指定してください" }),
   })
   .passthrough();
 
