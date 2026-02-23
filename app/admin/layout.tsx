@@ -20,9 +20,9 @@ function LogoMark({ compact }: { compact?: boolean }) {
     );
   }
   return (
-    <div className="flex items-center gap-0">
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={86} height={86} className="object-contain" />
-      <span className={`text-base font-bold whitespace-nowrap ${gradientClass}`}>Lオペ <span className="text-xs font-semibold tracking-widest uppercase">for CLINIC</span></span>
+    <div className="flex items-center gap-0 min-w-0">
+      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={86} height={86} className="shrink-0 object-contain" />
+      <span className={`text-xl font-bold whitespace-nowrap ${gradientClass}`}>Lオペ <span className="text-sm font-semibold tracking-widest uppercase">for CLINIC</span></span>
     </div>
   );
 }
