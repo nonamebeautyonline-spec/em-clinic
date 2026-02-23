@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { classifyPatients, saveSegments } from "@/lib/patient-segments";
+import { acquireLock } from "@/lib/distributed-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,12 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 排他制御: 同時実行を防止
+  const lock = await acquireLock("cron:segment-recalculate", 55);
+  if (!lock.acquired) {
+    return NextResponse.json({ ok: true, skipped: "別のプロセスが実行中" });
   }
 
   const startTime = Date.now();
@@ -50,20 +57,22 @@ export async function GET(req: NextRequest) {
         errors.push(msg);
       }
     }
+
+    const elapsed = Date.now() - startTime;
+
+    return NextResponse.json({
+      ok: errors.length === 0,
+      processed: totalProcessed,
+      errors: errors.length > 0 ? errors : undefined,
+      elapsedMs: elapsed,
+    });
   } catch (err) {
     console.error("[cron/segment-recalculate] 致命的エラー:", err);
     return NextResponse.json(
       { ok: false, error: "セグメント再計算に失敗しました" },
       { status: 500 },
     );
+  } finally {
+    await lock.release();
   }
-
-  const elapsed = Date.now() - startTime;
-
-  return NextResponse.json({
-    ok: errors.length === 0,
-    processed: totalProcessed,
-    errors: errors.length > 0 ? errors : undefined,
-    elapsedMs: elapsed,
-  });
 }

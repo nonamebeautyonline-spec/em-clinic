@@ -4,12 +4,19 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { acquireLock } from "@/lib/distributed-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  // 排他制御: 同時実行を防止
+  const lock = await acquireLock("cron:process-steps", 55);
+  if (!lock.acquired) {
+    return NextResponse.json({ ok: true, skipped: "別のプロセスが実行中" });
+  }
+
   try {
     const tenantId = resolveTenantId(req);
     const now = new Date().toISOString();
@@ -143,6 +150,8 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     console.error("[process-steps] cron error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
+  } finally {
+    await lock.release();
   }
 }
 

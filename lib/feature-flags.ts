@@ -1,4 +1,8 @@
 // lib/feature-flags.ts — プラン別機能フラグ
+//
+// 従量課金制移行後:
+// - 全プランで BASE_FEATURES が利用可（プラン間の機能差なし）
+// - AI系3機能は tenant_options テーブルで個別課金管理
 import { supabaseAdmin } from "@/lib/supabase";
 
 /** 機能名の型定義 */
@@ -7,11 +11,13 @@ export type Feature =
   | "rich_menu" // リッチメニュー管理
   | "step_scenario" // ステップ配信
   | "keyword_reply" // キーワード自動応答
-  | "ai_reply" // AI返信
+  | "ai_reply" // AI返信（オプション課金）
   | "form_builder" // フォームビルダー
   | "analytics" // アナリティクス
   | "reorder" // 再処方
-  | "multi_doctor"; // 複数Dr管理
+  | "multi_doctor" // 複数Dr管理
+  | "voice_input" // 音声入力（オプション課金）
+  | "ai_karte"; // AIカルテ（オプション課金）
 
 /** 全機能一覧 */
 export const ALL_FEATURES: Feature[] = [
@@ -24,6 +30,27 @@ export const ALL_FEATURES: Feature[] = [
   "analytics",
   "reorder",
   "multi_doctor",
+  "voice_input",
+  "ai_karte",
+];
+
+/** 全プラン共通で利用可能な基本機能（AI系オプション除く） */
+export const BASE_FEATURES: Feature[] = [
+  "broadcast",
+  "rich_menu",
+  "step_scenario",
+  "keyword_reply",
+  "form_builder",
+  "analytics",
+  "reorder",
+  "multi_doctor",
+];
+
+/** AIオプション機能（tenant_options テーブルで課金管理） */
+export const AI_OPTION_FEATURES: Feature[] = [
+  "ai_reply",
+  "voice_input",
+  "ai_karte",
 ];
 
 /** 機能名→表示名マッピング */
@@ -37,10 +64,16 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   analytics: "アナリティクス",
   reorder: "再処方",
   multi_doctor: "複数Dr管理",
+  voice_input: "音声入力",
+  ai_karte: "AIカルテ",
 };
 
-/** プラン別の利用可能機能 */
-const PLAN_FEATURES: Record<string, Feature[]> = {
+/**
+ * 旧プラン別の利用可能機能（後方互換）
+ * 新規テナントはメッセージ量ベースプランで作成されるため、
+ * 旧プラン名が使われることはないが、移行期間中の互換のため残す
+ */
+const LEGACY_PLAN_FEATURES: Record<string, Feature[]> = {
   trial: ["broadcast", "keyword_reply"],
   standard: [
     "broadcast",
@@ -103,9 +136,11 @@ async function getFeatureOverrides(
  * テナントで特定の機能が有効かチェック
  *
  * 解決ロジック（優先順位）:
- * 1. tenant_settings の個別オーバーライド
- * 2. tenant_plans のプラン → PLAN_FEATURES マッピング
- * 3. テナントID null → 全機能有効（シングルテナント互換）
+ * 1. tenant_settings の個別オーバーライド（最優先）
+ * 2. AIオプション → tenant_options テーブル参照
+ * 3. ベース機能 → 全プランで有効
+ * 4. 旧プラン互換 → LEGACY_PLAN_FEATURES で判定
+ * 5. テナントID null → 全機能有効（シングルテナント互換）
  */
 export async function hasFeature(
   tenantId: string | null,
@@ -114,17 +149,33 @@ export async function hasFeature(
   // シングルテナント互換: テナントIDがなければ全機能有効
   if (!tenantId) return true;
 
-  // 個別オーバーライド確認
+  // 個別オーバーライド確認（最優先）
   const overrides = await getFeatureOverrides(tenantId);
   if (feature in overrides) {
     return overrides[feature];
   }
 
-  // プランベース判定
-  const planName = await getTenantPlan(tenantId);
-  if (!planName) return false; // プラン未設定 → 機能なし
+  // AIオプション → tenant_options テーブル参照
+  if (AI_OPTION_FEATURES.includes(feature)) {
+    const { data } = await supabaseAdmin
+      .from("tenant_options")
+      .select("is_active")
+      .eq("tenant_id", tenantId)
+      .eq("option_key", feature)
+      .maybeSingle();
+    return data?.is_active ?? false;
+  }
 
-  const planFeatures = PLAN_FEATURES[planName] ?? [];
+  // ベース機能 → 全プランで有効
+  if (BASE_FEATURES.includes(feature)) {
+    return true;
+  }
+
+  // 旧プラン互換フォールバック
+  const planName = await getTenantPlan(tenantId);
+  if (!planName) return false;
+
+  const planFeatures = LEGACY_PLAN_FEATURES[planName] ?? [];
   return planFeatures.includes(feature);
 }
 
@@ -139,13 +190,28 @@ export async function getEnabledFeatures(
 
   const planName = await getTenantPlan(tenantId);
   const basePlanFeatures = planName
-    ? (PLAN_FEATURES[planName] ?? [])
+    ? (LEGACY_PLAN_FEATURES[planName] ?? [])
     : [];
 
   const overrides = await getFeatureOverrides(tenantId);
 
-  // プラン機能 + オーバーライドを統合
-  const enabled = new Set<Feature>(basePlanFeatures);
+  // ベース機能 + プラン機能 + オーバーライドを統合
+  const enabled = new Set<Feature>([...BASE_FEATURES, ...basePlanFeatures]);
+
+  // AIオプション: tenant_options から有効なものを追加
+  const { data: options } = await supabaseAdmin
+    .from("tenant_options")
+    .select("option_key")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true);
+
+  if (options) {
+    for (const opt of options) {
+      if (ALL_FEATURES.includes(opt.option_key as Feature)) {
+        enabled.add(opt.option_key as Feature);
+      }
+    }
+  }
 
   for (const [key, value] of Object.entries(overrides)) {
     if (value) {
@@ -160,9 +226,10 @@ export async function getEnabledFeatures(
 
 /**
  * プラン名から利用可能な機能一覧を取得（DB不要、定義のみ）
+ * 新プランでは全ベース機能が有効なため、旧プラン互換用
  */
 export function getPlanFeatures(planName: string): Feature[] {
-  return PLAN_FEATURES[planName] ?? [];
+  return LEGACY_PLAN_FEATURES[planName] ?? [...BASE_FEATURES];
 }
 
 /**

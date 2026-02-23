@@ -44,6 +44,11 @@ vi.mock("@/lib/step-enrollment", () => ({
   jumpToStep: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockAcquireLock = vi.fn();
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: (...args: any[]) => mockAcquireLock(...args),
+}));
+
 import { GET } from "@/app/api/cron/process-steps/route";
 import { pushMessage } from "@/lib/line-push";
 import { evaluateStepConditions, jumpToStep, calculateNextSendAt } from "@/lib/step-enrollment";
@@ -53,6 +58,8 @@ describe("GET /api/cron/process-steps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
+    // デフォルト: ロック取得成功
+    mockAcquireLock.mockResolvedValue({ acquired: true, release: vi.fn() });
   });
 
   // ------------------------------------------------------------------
@@ -763,6 +770,40 @@ describe("GET /api/cron/process-steps", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.errors).toBe(1);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 排他制御テスト
+  // ------------------------------------------------------------------
+  describe("排他制御", () => {
+    it("ロック取得失敗時はスキップレスポンスを返す", async () => {
+      mockAcquireLock.mockResolvedValue({ acquired: false, release: vi.fn() });
+
+      const req = new NextRequest("http://localhost/api/cron/process-steps");
+      const res = await GET(req);
+      const body = await res.json();
+
+      expect(body.ok).toBe(true);
+      expect(body.skipped).toBe("別のプロセスが実行中");
+    });
+
+    it("ロック取得成功時は処理を実行する", async () => {
+      const releaseMock = vi.fn();
+      mockAcquireLock.mockResolvedValue({ acquired: true, release: releaseMock });
+
+      // 空の結果を返す
+      const chain = getOrCreateChain("step_enrollments");
+      chain.then.mockImplementation((resolve: any) => resolve({ data: [], error: null }));
+
+      const req = new NextRequest("http://localhost/api/cron/process-steps");
+      const res = await GET(req);
+      const body = await res.json();
+
+      expect(body.ok).toBe(true);
+      expect(body.processed).toBe(0);
+      // ロック解放が呼ばれることを確認
+      expect(releaseMock).toHaveBeenCalled();
     });
   });
 });

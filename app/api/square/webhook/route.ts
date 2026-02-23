@@ -6,6 +6,7 @@ import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { checkIdempotency } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -205,6 +206,12 @@ export async function POST(req: Request) {
   const eventType = String(event?.type || "");
   const eventId = String(event?.event_id || event?.id || "");
 
+  // 冪等チェック: 同一event_idの重複処理を防止
+  const idem = await checkIdempotency("square", eventId, tenantId, { eventType });
+  if (idem.duplicate) {
+    return new NextResponse("ok", { status: 200 });
+  }
+
   try {
     // ---- refund ----
     if (eventType === "refund.created" || eventType === "refund.updated") {
@@ -255,6 +262,7 @@ export async function POST(req: Request) {
         console.error("Failed to invalidate cache on refund:", error);
       }
 
+      await idem.markCompleted();
       return new NextResponse("ok", { status: 200 });
     }
 
@@ -449,14 +457,17 @@ if (reorderId) {
         await invalidateDashboardCache(patientId);
       }
 
+      await idem.markCompleted();
       return new NextResponse("ok", { status: 200 });
     }
 
     // その他イベントは無視
+    await idem.markCompleted();
     return new NextResponse("ok", { status: 200 });
 
   } catch (err: any) {
     console.error("webhook handler error:", err?.stack || err?.message || err);
+    await idem.markFailed(err?.message || "unknown error");
     // Squareには200返して止められないようにする（後でバックフィル）
     return new NextResponse("ok", { status: 200 });
   }

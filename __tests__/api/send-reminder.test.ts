@@ -73,6 +73,16 @@ vi.mock("@/lib/validations/admin-operations", () => ({
   sendReminderSchema: {},
 }));
 
+// 冪等チェックモック
+vi.mock("@/lib/idempotency", () => ({
+  checkIdempotency: vi.fn().mockResolvedValue({
+    duplicate: false,
+    markCompleted: vi.fn().mockResolvedValue(undefined),
+    markFailed: vi.fn().mockResolvedValue(undefined),
+  }),
+}));
+import { checkIdempotency } from "@/lib/idempotency";
+
 // --- ルートインポート ---
 import { GET, POST } from "@/app/api/admin/reservations/send-reminder/route";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -376,6 +386,45 @@ describe("send-reminder API", () => {
       expect(res.status).toBe(200);
       expect(body.testOnly).toBe(true);
       expect(body.total).toBe(1); // テスト対象のみ
+    });
+  });
+
+  // --- 冪等チェック ---
+  describe("冪等チェック", () => {
+    it("idempotencyKey付きで重複リクエストは409を返す", async () => {
+      vi.mocked(checkIdempotency).mockResolvedValueOnce({
+        duplicate: true,
+        markCompleted: vi.fn().mockResolvedValue(undefined),
+        markFailed: vi.fn().mockResolvedValue(undefined),
+      });
+      vi.mocked(parseBody).mockResolvedValue({
+        data: { date: "2026-02-23", idempotencyKey: "test-key-123" },
+      } as any);
+
+      const req = createPostRequest({ date: "2026-02-23", idempotencyKey: "test-key-123" });
+      const res = await POST(req);
+      const body = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(body.error).toContain("既に実行済み");
+      // pushMessage は呼ばれない
+      expect(pushMessage).not.toHaveBeenCalled();
+    });
+
+    it("idempotencyKeyなしの場合は冪等チェックをスキップ", async () => {
+      vi.mocked(parseBody).mockResolvedValue({
+        data: { date: "2026-02-23" },
+      } as any);
+
+      const resvChain = createChain({ data: [], error: null });
+      setTableChain("reservations", resvChain);
+
+      const req = createPostRequest({ date: "2026-02-23" });
+      const res = await POST(req);
+
+      expect(res.status).toBe(200);
+      // checkIdempotency は呼ばれない
+      expect(checkIdempotency).not.toHaveBeenCalled();
     });
   });
 

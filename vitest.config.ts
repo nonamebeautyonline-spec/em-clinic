@@ -21,10 +21,10 @@ export default defineConfig({
       ],
       thresholds: {
         // 実測値(2026-02-23): Lines 66.46%, Branches 54.06%, Functions 65.46%
-        // 段階的引き上げ: 16→66（達成済み）→ 70% → 80% → 90%
-        lines: 64,
-        branches: 52,
-        functions: 63,
+        // 段階的引き上げ: 16→64→66（達成済み）→ 70% → 80% → 90%
+        lines: 66,
+        branches: 54,
+        functions: 65,
       },
     },
   },

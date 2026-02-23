@@ -60,6 +60,12 @@ const PLAN_LABELS: Record<string, string> = {
   standard: "スタンダード",
   premium: "プレミアム",
   enterprise: "エンタープライズ",
+  light: "ライト",
+  pro: "プロ",
+  business: "ビジネス",
+  business_30: "ビジネス30万",
+  business_50: "ビジネス50万",
+  business_100: "ビジネス100万",
 };
 
 const PLAN_BADGE_COLORS: Record<string, string> = {
@@ -67,6 +73,12 @@ const PLAN_BADGE_COLORS: Record<string, string> = {
   standard: "bg-blue-100 text-blue-700",
   premium: "bg-purple-100 text-purple-700",
   enterprise: "bg-amber-100 text-amber-700",
+  light: "bg-slate-100 text-slate-700",
+  pro: "bg-indigo-100 text-indigo-700",
+  business: "bg-purple-100 text-purple-700",
+  business_30: "bg-emerald-100 text-emerald-700",
+  business_50: "bg-teal-100 text-teal-700",
+  business_100: "bg-amber-100 text-amber-700",
 };
 
 const PLAN_STATUS_LABELS: Record<string, string> = {
@@ -97,7 +109,13 @@ const INVOICE_STATUS_COLORS: Record<string, string> = {
 
 const MONTHLY_FEE_PRESETS: Record<string, number> = {
   trial: 0,
-  standard: 50000,
+  light: 4000,
+  standard: 17000,
+  pro: 26000,
+  business: 70000,
+  business_30: 105000,
+  business_50: 115000,
+  business_100: 158000,
   premium: 80000,
   enterprise: 150000,
 };
@@ -130,7 +148,9 @@ const formatDateTime = (isoString: string | null) => {
 
 // ===== メインコンポーネント =====
 export default function BillingPage() {
-  const [activeTab, setActiveTab] = useState<"plans" | "invoices">("plans");
+  const [activeTab, setActiveTab] = useState<
+    "plans" | "invoices" | "usage"
+  >("plans");
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -178,6 +198,16 @@ export default function BillingPage() {
           プラン管理
         </button>
         <button
+          onClick={() => setActiveTab("usage")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "usage"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+          }`}
+        >
+          使用量
+        </button>
+        <button
           onClick={() => setActiveTab("invoices")}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
             activeTab === "invoices"
@@ -192,6 +222,8 @@ export default function BillingPage() {
       {/* タブコンテンツ */}
       {activeTab === "plans" ? (
         <PlansTab showToast={(msg, type) => setToast({ message: msg, type })} />
+      ) : activeTab === "usage" ? (
+        <UsageTab />
       ) : (
         <InvoicesTab
           showToast={(msg, type) => setToast({ message: msg, type })}
@@ -677,6 +709,218 @@ function PlansTab({
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+// ===== 使用量タブ =====
+type UsageData = {
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  month: string;
+  messageCount: number;
+  quota: number;
+  remaining: number;
+  overageCount: number;
+  overageUnitPrice: number;
+  overageAmount: number;
+};
+
+function UsageTab() {
+  const [usages, setUsages] = useState<UsageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [month, setMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await fetch(
+          `/api/platform/billing/usage?month=${month}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error(`エラー: ${res.status}`);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "取得に失敗しました");
+        setUsages(data.usages || []);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "予期しないエラー");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [month]);
+
+  const totalMessages = usages.reduce((s, u) => s + u.messageCount, 0);
+  const totalOverage = usages.reduce((s, u) => s + u.overageAmount, 0);
+
+  return (
+    <>
+      {/* 月選択 + サマリー */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <div className="flex gap-4 text-sm">
+          <div>
+            <span className="text-slate-500">合計送信数: </span>
+            <span className="font-bold text-slate-900">
+              {totalMessages.toLocaleString()}通
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500">超過料金合計: </span>
+            <span className="font-bold text-slate-900">
+              {formatYen(totalOverage)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg text-red-700 p-4 mb-6">
+          {error}
+        </div>
+      )}
+
+      {/* テナント別使用量テーブル */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  テナント
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  送信数
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  クォータ
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  残り
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  超過数
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  超過料金
+                </th>
+                <th className="text-center px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  消費率
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <td key={j} className="px-6 py-4">
+                        <div className="h-4 bg-slate-200 rounded animate-pulse" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : usages.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-12 text-center text-slate-500"
+                  >
+                    使用量データがありません
+                  </td>
+                </tr>
+              ) : (
+                usages.map((u) => {
+                  const pct =
+                    u.quota > 0
+                      ? Math.min(100, Math.round((u.messageCount / u.quota) * 100))
+                      : 0;
+                  return (
+                    <tr
+                      key={u.tenantId}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-slate-900 text-sm">
+                          {u.tenantName}
+                        </div>
+                        <div className="text-xs text-slate-400">{u.tenantSlug}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm font-medium text-slate-900">
+                        {u.messageCount.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-600">
+                        {u.quota.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-600">
+                        {u.remaining.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm">
+                        <span
+                          className={
+                            u.overageCount > 0
+                              ? "font-bold text-red-600"
+                              : "text-slate-400"
+                          }
+                        >
+                          {u.overageCount > 0
+                            ? `+${u.overageCount.toLocaleString()}`
+                            : "0"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm">
+                        <span
+                          className={
+                            u.overageAmount > 0
+                              ? "font-bold text-red-600"
+                              : "text-slate-400"
+                          }
+                        >
+                          {u.overageAmount > 0
+                            ? formatYen(u.overageAmount)
+                            : "-"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                pct >= 90
+                                  ? "bg-red-500"
+                                  : pct >= 70
+                                    ? "bg-amber-500"
+                                    : "bg-blue-500"
+                              }`}
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-slate-500 w-10 text-right">
+                            {pct}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </>
   );
 }

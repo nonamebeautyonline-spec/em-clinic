@@ -7,6 +7,7 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { formatReservationTime, buildReminderMessage } from "@/lib/auto-reminder";
 import { parseBody } from "@/lib/validations/helpers";
 import { sendReminderSchema } from "@/lib/validations/admin-operations";
+import { checkIdempotency } from "@/lib/idempotency";
 
 // 対象患者を取得（共通）
 async function getTargetPatients(date: string, tenantId: string | null) {
@@ -107,7 +108,15 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, sendReminderSchema);
     if ("error" in parsed) return parsed.error;
-    const { date, testOnly, patient_ids } = parsed.data;
+    const { date, testOnly, patient_ids, idempotencyKey } = parsed.data;
+
+    // 冪等チェック: フロントからidempotencyKeyが送られた場合のみ
+    if (idempotencyKey) {
+      const idem = await checkIdempotency("send_reminder", idempotencyKey, tenantId);
+      if (idem.duplicate) {
+        return NextResponse.json({ ok: false, error: "この送信は既に実行済みです" }, { status: 409 });
+      }
+    }
 
     const targets = await getTargetPatients(date, tenantId);
 

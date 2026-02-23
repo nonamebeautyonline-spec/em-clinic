@@ -486,6 +486,7 @@ export const sendReminderSchema = z
     date: z.string().min(1, "日付は必須です"),
     testOnly: z.boolean().optional(),
     patient_ids: z.array(z.string()).optional(),
+    idempotencyKey: z.string().optional(),
   })
   .passthrough();
 

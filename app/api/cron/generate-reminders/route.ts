@@ -11,6 +11,7 @@ import {
   formatReservationTime,
   buildReminderMessage,
 } from "@/lib/auto-reminder";
+import { acquireLock } from "@/lib/distributed-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,12 @@ export const maxDuration = 60;
 const BATCH_SIZE = 10;
 
 export async function GET(req: NextRequest) {
+  // 排他制御: 同時実行を防止
+  const lock = await acquireLock("cron:generate-reminders", 55);
+  if (!lock.acquired) {
+    return NextResponse.json({ ok: true, skipped: "別のプロセスが実行中" });
+  }
+
   try {
     // ?offset=0（当日）or ?offset=1（前日）でルールを絞り込み
     const offsetParam = req.nextUrl.searchParams.get("offset");
@@ -61,6 +68,8 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     console.error("[reminders] cron error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
+  } finally {
+    await lock.release();
   }
 }
 

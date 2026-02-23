@@ -64,6 +64,14 @@ vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: vi.fn().mockResolvedValue(""),
 }));
 
+vi.mock("@/lib/idempotency", () => ({
+  checkIdempotency: vi.fn().mockResolvedValue({
+    duplicate: false,
+    markCompleted: vi.fn(),
+    markFailed: vi.fn(),
+  }),
+}));
+
 // fetch モック
 vi.stubGlobal("fetch", vi.fn());
 
@@ -431,6 +439,31 @@ describe("Square Webhook API", () => {
       const res = await POST(req);
       // 不正JSONでもSquareには200で応答
       expect(res.status).toBe(200);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 冪等チェックテスト
+  // ------------------------------------------------------------------
+  describe("冪等チェック", () => {
+    it("重複イベントはスキップされる", async () => {
+      const { checkIdempotency } = await import("@/lib/idempotency");
+      (checkIdempotency as any).mockResolvedValueOnce({
+        duplicate: true,
+        markCompleted: vi.fn(),
+        markFailed: vi.fn(),
+      });
+
+      const req = createWebhookRequest({
+        type: "payment.created",
+        event_id: "dup-event-123",
+        data: { object: { payment: { id: "pay_123", status: "COMPLETED" } } },
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      // 重複時はSquare APIを呼ばない
+      expect(fetch).not.toHaveBeenCalled();
     });
   });
 });

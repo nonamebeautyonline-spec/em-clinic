@@ -5,9 +5,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
-// テナント slug → id のキャッシュ（プロセス内メモリ、5分TTL）
+// テナント slug → id のキャッシュ（プロセス内メモリ、1分TTL）
 const slugCache = new Map<string, { id: string; expires: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 1 * 60 * 1000;
 
 async function resolveSlugToTenantId(slug: string): Promise<string | null> {
   const cached = slugCache.get(slug);
@@ -215,6 +215,14 @@ export async function middleware(req: NextRequest) {
         tenantId = await resolveSlugToTenantId(slug);
       } catch (e) {
         console.error("[middleware] subdomain resolve error:", e);
+      }
+
+      // サブドメインが存在するのにテナント解決失敗 → 404
+      if (!tenantId) {
+        return NextResponse.json(
+          { ok: false, error: "テナントが見つかりません" },
+          { status: 404 },
+        );
       }
     }
   }

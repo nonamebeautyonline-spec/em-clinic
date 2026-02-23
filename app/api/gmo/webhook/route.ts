@@ -1,11 +1,14 @@
 // app/api/gmo/webhook/route.ts — GMO PG 結果通知エンドポイント
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { checkIdempotency } from "@/lib/idempotency";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -35,6 +38,27 @@ function parseClientField(field: string): Record<string, string> {
     }
   }
   return result;
+}
+
+/** GMO PG 結果通知の署名検証（CheckStringパラメータ） */
+function verifyGmoSignature(params: URLSearchParams, shopPass: string): boolean {
+  // 段階導入: ShopPass未設定ならスキップ
+  if (!shopPass) return true;
+
+  const checkString = params.get("CheckString") || "";
+  if (!checkString) return true; // CheckStringなし = 旧形式の通知
+
+  const shopId = params.get("ShopID") || "";
+  const orderId = params.get("OrderID") || "";
+  const status = params.get("Status") || "";
+  const amount = params.get("Amount") || "";
+  const accessId = params.get("AccessID") || "";
+
+  // GMO PGの検証用文字列: ShopID + OrderID + Status + Amount + AccessID + ShopPass
+  const raw = `${shopId}${orderId}${status}${amount}${accessId}${shopPass}`;
+  const hash = crypto.createHash("sha256").update(raw, "utf8").digest("hex");
+
+  return hash === checkString;
 }
 
 /** 再処方を決済済みに更新 */
@@ -99,8 +123,16 @@ export async function POST(req: Request) {
   // GMO は常に200を返す（リトライ防止）
   try {
     const tenantId = resolveTenantId(req);
+    const tid = tenantId ?? undefined;
     const bodyText = await req.text();
     const params = new URLSearchParams(bodyText);
+
+    // 署名検証（段階導入: ShopPass未設定ならスキップ）
+    const shopPass = (await getSettingOrEnv("gmo", "shop_pass", "GMO_SHOP_PASS", tid)) || "";
+    if (!verifyGmoSignature(params, shopPass)) {
+      console.error("[gmo/webhook] 署名検証失敗");
+      return new NextResponse("unauthorized", { status: 401 });
+    }
 
     const orderId = params.get("OrderID") || "";
     const status = params.get("Status") || "";
@@ -125,6 +157,13 @@ export async function POST(req: Request) {
       patientId: patientId ? `${patientId.slice(0, 8)}...` : "",
       mode,
     });
+
+    // 冪等チェック: AccessID×Statusで重複処理を防止
+    const idempotencyKey = `${accessId || orderId}_${status}`;
+    const idem = await checkIdempotency("gmo", idempotencyKey, tenantId, { orderId, status, amount });
+    if (idem.duplicate) {
+      return new NextResponse("ok", { status: 200 });
+    }
 
     // ---- 決済完了（CAPTURE / SALES） ----
     if (status === "CAPTURE" || status === "SALES") {
@@ -214,6 +253,7 @@ export async function POST(req: Request) {
         evaluateMenuRules(patientId, tenantId ?? undefined).catch(() => {});
       }
 
+      await idem.markCompleted();
       return new NextResponse("ok", { status: 200 });
     }
 
@@ -250,6 +290,7 @@ export async function POST(req: Request) {
         await invalidateDashboardCache(patientId);
       }
 
+      await idem.markCompleted();
       return new NextResponse("ok", { status: 200 });
     }
 
@@ -283,11 +324,13 @@ export async function POST(req: Request) {
         await invalidateDashboardCache(patientId);
       }
 
+      await idem.markCompleted();
       return new NextResponse("ok", { status: 200 });
     }
 
     // 未対応ステータス
     console.warn("[gmo/webhook] 未対応ステータス:", status, { orderId });
+    await idem.markCompleted();
     return new NextResponse("ok", { status: 200 });
   } catch (err: any) {
     console.error("[gmo/webhook] handler error:", err?.stack || err?.message || err);

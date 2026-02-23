@@ -49,6 +49,18 @@ vi.mock("@/lib/menu-auto-rules", () => ({
   evaluateMenuRules: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/idempotency", () => ({
+  checkIdempotency: vi.fn().mockResolvedValue({
+    duplicate: false,
+    markCompleted: vi.fn(),
+    markFailed: vi.fn(),
+  }),
+}));
+
+vi.mock("@/lib/settings", () => ({
+  getSettingOrEnv: vi.fn().mockResolvedValue(""),
+}));
+
 import { GET, POST } from "@/app/api/gmo/webhook/route";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
@@ -617,6 +629,32 @@ describe("POST /api/gmo/webhook", () => {
 
       const res = await POST(req);
       expect(res.status).toBe(200);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 冪等チェックテスト
+  // ------------------------------------------------------------------
+  describe("冪等チェック", () => {
+    it("重複イベントはスキップされる", async () => {
+      const { checkIdempotency } = await import("@/lib/idempotency");
+      (checkIdempotency as any).mockResolvedValueOnce({
+        duplicate: true,
+        markCompleted: vi.fn(),
+        markFailed: vi.fn(),
+      });
+
+      const req = createGMORequest({
+        OrderID: "order_dup",
+        Status: "CAPTURE",
+        Amount: "5000",
+        AccessID: "acc_dup",
+        ClientField1: "PID:patient1;Product:prod1",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      // 重複時はDB操作が行われない
     });
   });
 });
