@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
@@ -7,7 +7,8 @@ import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepE
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
-import { scheduleAiReply, sendAiReply } from "@/lib/ai-reply";
+import { scheduleAiReply, sendAiReply, processPendingAiReplies } from "@/lib/ai-reply";
+import { acquireLock } from "@/lib/distributed-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1460,6 +1461,21 @@ export async function POST(req: NextRequest) {
     }
 
     // LINEには常に200（再送防止）
+    // レスポンス後にAI返信のデバウンス処理を実行（Vercel Cronに依存しない）
+    after(async () => {
+      try {
+        const lock = await acquireLock("cron:ai-reply", 55);
+        if (!lock.acquired) return;
+        try {
+          await processPendingAiReplies();
+        } finally {
+          await lock.release();
+        }
+      } catch (err) {
+        console.error("[webhook] after() AI reply error:", err);
+      }
+    });
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("LINE webhook fatal error", e);
