@@ -239,6 +239,123 @@ describe("normalizeJPPhone: 電話番号保存ルートの正規化適用", () =
 });
 
 // ===================================================================
+// 禁止遷移ガード: 状態遷移の逆行を防止するルール
+// docs/domain-boundaries.md セクション10「禁止遷移」をCIで強制
+// ===================================================================
+describe("禁止遷移ガード: reorders.status 更新は必ずガード条件付き", () => {
+  // reorders.status を更新する全ファイル
+  const REORDER_UPDATE_FILES = [
+    "app/api/doctor/reorders/approve/route.ts",
+    "app/api/admin/reorders/approve/route.ts",
+    "app/api/doctor/reorders/reject/route.ts",
+    "app/api/admin/reorders/reject/route.ts",
+    "app/api/reorder/cancel/route.ts",
+  ];
+
+  for (const file of REORDER_UPDATE_FILES) {
+    it(`${file}: status更新前に現在statusを検証している`, () => {
+      const src = readFile(file);
+      // .eq("status", "...") または .in("status", [...]) でガード
+      const hasGuard =
+        /\.eq\(\s*["']status["']/.test(src) ||
+        /\.in\(\s*["']status["']/.test(src) ||
+        /status\s*!==?\s*["']/.test(src);
+      expect(hasGuard).toBe(true);
+    });
+  }
+
+  // rejected は最終状態 → rejected から別状態への遷移コードが存在してはならない
+  it("rejected → 他状態への遷移コードが存在しない", () => {
+    const apiDir = path.resolve(process.cwd(), "app/api");
+    const routes = findAllRouteFiles(apiDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const src = fs.readFileSync(routePath, "utf-8");
+      // .eq("status", "rejected") の後に .update が続くパターンを検出
+      if (src.match(/\.eq\(\s*["']status["']\s*,\s*["']rejected["']\s*\)[\s\S]{0,100}\.update\(/)) {
+        violations.push(path.relative(process.cwd(), routePath));
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+describe("禁止遷移ガード: webhook決済で reorders.status は confirmed→paid のみ", () => {
+  const WEBHOOK_FILES = [
+    "app/api/square/webhook/route.ts",
+    "app/api/gmo/webhook/route.ts",
+    "app/api/bank-transfer/shipping/route.ts",
+  ];
+
+  for (const file of WEBHOOK_FILES) {
+    it(`${file}: reorders更新は .eq("status", "confirmed") ガード付き`, () => {
+      const src = readFile(file);
+      // reordersテーブルへのupdate + statusガードの組み合わせを検証
+      const reorderUpdates = src.match(/\.from\(\s*["']reorders["']\s*\)[\s\S]{0,500}\.update\(/g);
+      if (!reorderUpdates) return; // reorder更新がないならスキップ
+
+      // confirmed ガードが存在すること
+      expect(src).toMatch(/\.eq\(\s*["']status["']\s*,\s*["']confirmed["']\s*\)/);
+    });
+  }
+});
+
+describe("禁止遷移ガード: orders.payment_status は逆行しない", () => {
+  it("全ルートで payment_status を pending に戻すコードが存在しない", () => {
+    const apiDir = path.resolve(process.cwd(), "app/api");
+    const routes = findAllRouteFiles(apiDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const src = fs.readFileSync(routePath, "utf-8");
+      // payment_status: "pending" を update で設定するパターンを検出
+      // ※ INSERT/upsert での初期値設定は許容（新規作成時のみ）
+      if (src.match(/\.update\(\s*\{[^}]*payment_status:\s*["']pending["']/)) {
+        violations.push(path.relative(process.cwd(), routePath));
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+describe("禁止遷移ガード: orders.shipping_status は逆行しない", () => {
+  it("全ルートで shipping_status を shipped→pending に戻すコードが存在しない", () => {
+    const apiDir = path.resolve(process.cwd(), "app/api");
+    const routes = findAllRouteFiles(apiDir);
+    const violations: string[] = [];
+
+    for (const routePath of routes) {
+      const src = fs.readFileSync(routePath, "utf-8");
+      // shipping_status: "pending" を update で設定するパターンを検出
+      if (src.match(/\.update\(\s*\{[^}]*shipping_status:\s*["']pending["']/)) {
+        violations.push(path.relative(process.cwd(), routePath));
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
+// 全ルートファイルを再帰取得するヘルパー（テスト間で共有）
+function findAllRouteFiles(dir: string): string[] {
+  const results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...findAllRouteFiles(full));
+    } else if (entry.name === "route.ts") {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+// ===================================================================
 // intake upsert 禁止: 全ルートで intake に upsert していないこと
 // ===================================================================
 describe("intake upsert禁止: 全ルート監査", () => {

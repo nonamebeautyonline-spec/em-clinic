@@ -30,9 +30,22 @@ export default defineConfig({
       dependencies: ["setup"],
     },
     {
-      // 患者APIテスト（Cookie認証、管理者セッション不要）
+      // 患者APIテスト（旧: 統合ファイル — 後方互換）
       name: "patient-api",
       testMatch: /patient-flow\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: { cookies: [], origins: [] },
+      },
+    },
+    {
+      // ドメイン別 Smoke E2E（問診・予約・決済・統合）
+      // retries: 0 — フレークをリトライで隠さない（"固定"の原則）
+      name: "smoke",
+      testDir: "./e2e/smoke",
+      testMatch: /\.spec\.ts$/,
+      retries: 0,
+      timeout: 30_000,
       use: {
         ...devices["Desktop Chrome"],
         storageState: { cookies: [], origins: [] },

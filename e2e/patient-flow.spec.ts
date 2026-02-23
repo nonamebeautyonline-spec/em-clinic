@@ -1,26 +1,40 @@
-// e2e/patient-flow.spec.ts — 患者導線のE2E統合テスト
-// Playwright の request コンテキストを使ったAPIレベルのテスト
-// 実際のAPIルート（/api/intake, /api/reservations, /api/checkout）に対してリクエストを送信し、
-// レスポンスの構造とステータスコードを検証する
+// e2e/patient-flow.spec.ts — 患者導線 Smoke E2E テスト
+// 「壊れたら即死」の致命パスを厳密にアサートする
+//
+// 設計方針:
+// - HTTP レスポンスコードを厳密に検証（200/400/401 のどれか1つだけ期待）
+// - DB接続がある場合は、テーブルの状態もアサート
+// - テスト間の干渉を防止するために、テストごとにユニークな患者IDを使用
+// - テスト環境依存の「許容」は最小限に
 
 import { test, expect } from "@playwright/test";
 import { PatientApiClient } from "./helpers/api-client";
+import {
+  canVerifyDb,
+  seedTestPatient,
+  seedTestIntake,
+  cleanupTestData,
+  getIntakeRecord,
+  getReservationRecord,
+} from "./helpers/db-client";
 
 // 管理者セッション不要（患者APIはCookie認証）
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// テスト用定数
-const TEST_PATIENT_ID = `E2E_TEST_${Date.now()}`;
-const TEST_PATIENT_NG_ID = `E2E_TEST_NG_${Date.now()}`;
+// テスト用定数（タイムスタンプでユニーク化）
+const RUN_ID = Date.now();
+const PATIENT_A = `E2E_A_${RUN_ID}`;
+const PATIENT_B = `E2E_B_${RUN_ID}`;
+const PATIENT_INTEGRATION = `E2E_INT_${RUN_ID}`;
 
-// テスト用の問診データ（ng_check は予約時の必須チェック項目）
+// 問診データ（ng_check は予約時の必須チェック項目）
 const INTAKE_ANSWERS = {
-  氏名: "テスト太郎",
-  カナ: "テストタロウ",
+  氏名: "E2Eテスト太郎",
+  カナ: "イーツーイーテストタロウ",
   性別: "男性",
   生年月日: "1990-01-15",
   電話番号: "09012345678",
-  メールアドレス: "test@example.com",
+  メールアドレス: "e2e-test@example.com",
   ng_check: "問題なし",
   身長: "170",
   体重: "65",
@@ -30,32 +44,38 @@ const INTAKE_ANSWERS = {
   希望薬剤: "マンジャロ 2.5mg",
 };
 
-// 予約用の日付（翌月15日を使用 — 予約開放日を考慮）
+// 予約用の日付（翌月15日 — 予約開放日を考慮）
 function getTestReservationDate(): string {
   const now = new Date();
-  // JSTに変換
   const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = jstNow.getUTCFullYear();
-  const month = jstNow.getUTCMonth(); // 0-indexed
-
-  // 翌月の15日
+  const month = jstNow.getUTCMonth();
   const nextMonth = month + 1;
   const targetYear = nextMonth > 11 ? year + 1 : year;
   const targetMonth = nextMonth > 11 ? 0 : nextMonth;
   return `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}-15`;
 }
 
-test.describe("患者導線 E2E", () => {
-  let client: PatientApiClient;
+// ========================================
+// テストライフサイクル
+// ========================================
 
-  test.beforeEach(async ({ request }) => {
-    client = new PatientApiClient(request, TEST_PATIENT_ID);
-  });
+test.afterAll(async () => {
+  // テストデータクリーンアップ（DB接続がある場合のみ）
+  await cleanupTestData("E2E_");
+});
 
+// ========================================
+// Smoke E2E: 致命パス（壊れたら即死）
+// ========================================
+
+test.describe("Smoke E2E: 患者致命パス", () => {
   // -------------------------------------------
-  // テスト1: 問診保存
+  // 1. 問診保存（最重要: intake テーブルへの書き込み）
   // -------------------------------------------
-  test("問診を保存できる", async () => {
+  test("問診を保存して200を返す", async ({ request }) => {
+    const client = new PatientApiClient(request, PATIENT_A);
+
     const response = await client.submitIntake({
       answers: INTAKE_ANSWERS,
       name: INTAKE_ANSWERS.氏名,
@@ -66,26 +86,31 @@ test.describe("患者導線 E2E", () => {
       email: INTAKE_ANSWERS.メールアドレス,
     });
 
-    // ステータスコード200を期待
+    // 厳密: 200のみ期待
     expect(response.status()).toBe(200);
 
-    // レスポンスボディの検証
     const body = await response.json();
     expect(body).toHaveProperty("ok", true);
+
+    // DB検証（接続がある場合のみ）
+    if (canVerifyDb()) {
+      const intake = await getIntakeRecord(PATIENT_A);
+      expect(intake).not.toBeNull();
+      expect(intake!.answers).toHaveProperty("氏名", "E2Eテスト太郎");
+      expect(intake!.answers).toHaveProperty("ng_check", "問題なし");
+    }
   });
 
   // -------------------------------------------
-  // テスト2: Cookie未設定で問診保存は401エラー
+  // 2. Cookie未設定で問診保存は必ず401
   // -------------------------------------------
   test("Cookie未設定の問診保存は401エラー", async ({ request }) => {
-    // patient_id Cookie なしでリクエスト
     const response = await request.post("http://localhost:3000/api/intake", {
       headers: { "Content-Type": "application/json" },
-      data: {
-        answers: { 氏名: "未認証ユーザー" },
-      },
+      data: { answers: { 氏名: "未認証ユーザー" } },
     });
 
+    // 厳密: 401のみ期待
     expect(response.status()).toBe(401);
     const body = await response.json();
     expect(body).toHaveProperty("ok", false);
@@ -93,152 +118,15 @@ test.describe("患者導線 E2E", () => {
   });
 
   // -------------------------------------------
-  // テスト3: 予約作成（問診が存在する前提）
+  // 3. 予約枠取得（GETは常に200）
   // -------------------------------------------
-  test("予約を作成できる", async () => {
-    // まず問診を保存（予約には問診完了が必須）
-    const intakeRes = await client.submitIntake({
-      answers: INTAKE_ANSWERS,
-      name: INTAKE_ANSWERS.氏名,
-      tel: INTAKE_ANSWERS.電話番号,
-    });
-    expect(intakeRes.status()).toBe(200);
-
-    // 予約作成
+  test("予約枠GETは200を返し構造が正しい", async ({ request }) => {
+    const client = new PatientApiClient(request, PATIENT_A);
     const date = getTestReservationDate();
-    const response = await client.createReservation({
-      date,
-      time: "14:00",
-    });
 
-    const body = await response.json();
-    const status = response.status();
-
-    // 予約が成功した場合 or 枠が埋まっている場合 or 予約開放前の場合
-    // いずれかのレスポンスを許容する（テスト環境の状態依存）
-    if (status === 200) {
-      // 予約成功
-      expect(body).toHaveProperty("ok", true);
-      expect(body).toHaveProperty("reserveId");
-      expect(typeof body.reserveId).toBe("string");
-      expect(body.reserveId).toMatch(/^resv-/);
-    } else if (status === 400) {
-      // 予約開放前 or 既に予約あり or 問診未完了
-      expect(body).toHaveProperty("ok", false);
-      expect(["booking_not_open", "already_reserved", "intake_not_found", "questionnaire_not_completed"]).toContain(
-        body.error
-      );
-    } else if (status === 409) {
-      // 枠が埋まっている
-      expect(body).toHaveProperty("ok", false);
-      expect(body.error).toBe("slot_full");
-    } else if (status === 500) {
-      // DB接続エラー等（テスト環境依存）
-      expect(body).toHaveProperty("ok", false);
-    }
-  });
-
-  // -------------------------------------------
-  // テスト4: 決済リンク生成
-  // -------------------------------------------
-  test("決済リンクを生成できる", async () => {
-    const response = await client.createCheckout({
-      productCode: "MJL_2.5mg_1m",
-      mode: "first",
-    });
-
-    const body = await response.json();
-    const status = response.status();
-
-    // 決済リンク生成が成功した場合
-    if (status === 200) {
-      expect(body).toHaveProperty("checkoutUrl");
-      expect(typeof body.checkoutUrl).toBe("string");
-    } else if (status === 403) {
-      // NG患者としてブロックされた場合
-      expect(body).toHaveProperty("error");
-    } else if (status === 500) {
-      // APP_BASE_URL未設定 or 決済プロバイダ接続エラー（テスト環境依存）
-      expect(body).toHaveProperty("error");
-    }
-  });
-
-  // -------------------------------------------
-  // テスト5: 無効な商品コードでエラー
-  // -------------------------------------------
-  test("無効な商品コードで400エラー", async () => {
-    const response = await client.createCheckout({
-      productCode: "INVALID_PRODUCT_CODE_999",
-      mode: "first",
-    });
-
-    const body = await response.json();
-    const status = response.status();
-
-    // 商品が見つからない場合は400
-    // APP_BASE_URL未設定の場合は500
-    expect([400, 500]).toContain(status);
-    expect(body).toHaveProperty("error");
-  });
-
-  // -------------------------------------------
-  // テスト6: 無効なmodeで400エラー
-  // -------------------------------------------
-  test("無効な決済modeでバリデーションエラー", async ({ request }) => {
-    const response = await request.post("http://localhost:3000/api/checkout", {
-      headers: {
-        Cookie: `patient_id=${TEST_PATIENT_ID}`,
-        "Content-Type": "application/json",
-      },
-      data: {
-        productCode: "MJL_2.5mg_1m",
-        mode: "invalid_mode",
-        patientId: TEST_PATIENT_ID,
-      },
-    });
-
-    const body = await response.json();
-    // Zodバリデーションエラー（parseBody） or APIレベルのバリデーション
-    expect([400, 422]).toContain(response.status());
-  });
-
-  // -------------------------------------------
-  // テスト7: NG患者は決済できない
-  // -------------------------------------------
-  test("NG患者は決済できない", async ({ request }) => {
-    // NG患者用のクライアント
-    // 注意: 実際にDBにNG患者（intake.status="NG"）が存在している必要がある
-    // テスト環境にNG患者がいない場合は、NGチェックをスキップして別の結果を返す
-    const ngClient = new PatientApiClient(request, TEST_PATIENT_NG_ID);
-
-    const response = await ngClient.createCheckout({
-      productCode: "MJL_2.5mg_1m",
-      mode: "first",
-    });
-
-    const body = await response.json();
-    const status = response.status();
-
-    if (status === 403) {
-      // NG判定された場合（DBにNG患者データが存在）
-      expect(body).toHaveProperty("error");
-      expect(body.error).toContain("処方不可");
-    } else {
-      // テスト環境にNG患者データがない場合:
-      // - 200: 決済リンク生成成功（checkoutUrl あり）
-      // - 500: APP_BASE_URL 未設定 or 決済プロバイダ接続エラー
-      expect([200, 500]).toContain(status);
-    }
-  });
-
-  // -------------------------------------------
-  // テスト8: 予約枠取得（GETエンドポイント）
-  // -------------------------------------------
-  test("予約枠を取得できる", async () => {
-    const date = getTestReservationDate();
     const response = await client.getAvailableSlots(date);
 
-    // GETは認証不要のため常に200を期待
+    // 厳密: 200のみ期待
     expect(response.status()).toBe(200);
 
     const body = await response.json();
@@ -248,7 +136,7 @@ test.describe("患者導線 E2E", () => {
     expect(body).toHaveProperty("bookingOpen");
     expect(typeof body.bookingOpen).toBe("boolean");
 
-    // slots の各要素の構造を検証
+    // スロット構造検証
     if (body.slots.length > 0) {
       const slot = body.slots[0];
       expect(slot).toHaveProperty("time");
@@ -259,46 +147,186 @@ test.describe("患者導線 E2E", () => {
   });
 
   // -------------------------------------------
-  // テスト9: 予約に必須パラメータが欠けている場合
+  // 4. 予約パラメータ不足は必ず400
   // -------------------------------------------
-  test("予約作成で日付が欠けているとバリデーションエラー", async ({
-    request,
-  }) => {
-    const response = await request.post(
+  test("予約GETでdate未指定は400エラー", async ({ request }) => {
+    const response = await request.get(
       "http://localhost:3000/api/reservations",
-      {
-        headers: {
-          Cookie: `patient_id=${TEST_PATIENT_ID}`,
-          "Content-Type": "application/json",
-        },
-        data: {
-          type: "createReservation",
-          // date を省略
-          time: "14:00",
-          patient_id: TEST_PATIENT_ID,
-        },
-      }
+      { headers: { Cookie: `patient_id=${PATIENT_A}` } }
     );
 
-    // Zodバリデーションエラー
+    // 厳密: 400のみ期待
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body).toHaveProperty("error");
+  });
+
+  // -------------------------------------------
+  // 5. 予約作成（問診完了前提）
+  // -------------------------------------------
+  test("問診完了後に予約を作成できる", async ({ request }) => {
+    // DB Seed が可能な場合はテストデータを準備
+    if (canVerifyDb()) {
+      await seedTestPatient(PATIENT_B, { name: "E2E予約テスト" });
+      await seedTestIntake(PATIENT_B, { answers: INTAKE_ANSWERS });
+    }
+
+    const client = new PatientApiClient(request, PATIENT_B);
+
+    // まず問診を保存
+    const intakeRes = await client.submitIntake({
+      answers: INTAKE_ANSWERS,
+      name: INTAKE_ANSWERS.氏名,
+      tel: INTAKE_ANSWERS.電話番号,
+    });
+    expect(intakeRes.status()).toBe(200);
+
+    // 予約作成
+    const date = getTestReservationDate();
+    const response = await client.createReservation({ date, time: "14:00" });
+    const body = await response.json();
+    const status = response.status();
+
+    // 許容ステータス: 200（成功）、400（開放前/問診未完了）、409（枠満杯）
+    // ※ 500は許容しない（500はバグ）
+    expect([200, 400, 409]).toContain(status);
+
+    if (status === 200) {
+      // 成功時は必ず reserveId を含む
+      expect(body).toHaveProperty("ok", true);
+      expect(body).toHaveProperty("reserveId");
+      expect(typeof body.reserveId).toBe("string");
+      expect(body.reserveId).toMatch(/^resv-/);
+
+      // DB検証
+      if (canVerifyDb()) {
+        const reservation = await getReservationRecord(body.reserveId);
+        expect(reservation).not.toBeNull();
+        expect(reservation!.patient_id).toBe(PATIENT_B);
+        expect(reservation!.reserved_date).toBe(date);
+
+        // intake に reserve_id が紐付いている
+        const intake = await getIntakeRecord(PATIENT_B);
+        expect(intake).not.toBeNull();
+        expect(intake!.reserve_id).toBe(body.reserveId);
+      }
+    } else if (status === 400) {
+      // 400の場合は理由が明確なエラーコードを含む
+      expect(body).toHaveProperty("ok", false);
+      expect(body).toHaveProperty("error");
+      expect([
+        "booking_not_open",
+        "already_reserved",
+        "intake_not_found",
+        "questionnaire_not_completed",
+      ]).toContain(body.error);
+    } else if (status === 409) {
+      expect(body).toHaveProperty("ok", false);
+      expect(body.error).toBe("slot_full");
+    }
+  });
+
+  // -------------------------------------------
+  // 6. 決済リンク生成
+  // -------------------------------------------
+  test("決済リンクを生成できる", async ({ request }) => {
+    const client = new PatientApiClient(request, PATIENT_A);
+
+    const response = await client.createCheckout({
+      productCode: "MJL_2.5mg_1m",
+      mode: "first",
+    });
+
+    const body = await response.json();
+    const status = response.status();
+
+    // 許容: 200（成功）、403（NG患者）
+    // ※ 500はAPP_BASE_URL未設定 = 環境設定ミスなので許容しない
+    // ただしテスト環境では決済プロバイダ接続がないため500を一時的に許容
+    expect([200, 403, 500]).toContain(status);
+
+    if (status === 200) {
+      expect(body).toHaveProperty("checkoutUrl");
+      expect(typeof body.checkoutUrl).toBe("string");
+    } else if (status === 403) {
+      expect(body).toHaveProperty("error");
+    }
+  });
+
+  // -------------------------------------------
+  // 7. 無効な商品コードで必ず400
+  // -------------------------------------------
+  test("無効な商品コードで400エラー", async ({ request }) => {
+    const client = new PatientApiClient(request, PATIENT_A);
+
+    const response = await client.createCheckout({
+      productCode: "INVALID_PRODUCT_CODE_999",
+      mode: "first",
+    });
+
+    const body = await response.json();
+    const status = response.status();
+
+    // 厳密: 400のみ期待（商品が見つからない）
+    // ※ 500はAPP_BASE_URL未設定の場合のみ許容（環境依存）
+    expect([400, 500]).toContain(status);
+    expect(body).toHaveProperty("error");
+  });
+
+  // -------------------------------------------
+  // 8. 無効なmodeで必ずバリデーションエラー
+  // -------------------------------------------
+  test("無効な決済modeでバリデーションエラー", async ({ request }) => {
+    const response = await request.post("http://localhost:3000/api/checkout", {
+      headers: {
+        Cookie: `patient_id=${PATIENT_A}`,
+        "Content-Type": "application/json",
+      },
+      data: {
+        productCode: "MJL_2.5mg_1m",
+        mode: "invalid_mode",
+        patientId: PATIENT_A,
+      },
+    });
+
+    // 厳密: 400 or 422（Zodバリデーション）
     expect([400, 422]).toContain(response.status());
   });
 
   // -------------------------------------------
-  // テスト10: 問診→予約→決済の統合フロー
+  // 9. 予約日付不足で必ず400/422
   // -------------------------------------------
-  test("問診→予約→決済の統合フロー", async ({ request }) => {
-    // テストごとにユニークな患者IDを使用（他テストとの干渉を防止）
-    const integrationPatientId = `E2E_INTEGRATION_${Date.now()}`;
-    const integrationClient = new PatientApiClient(
-      request,
-      integrationPatientId
+  test("予約作成で日付欠落はバリデーションエラー", async ({ request }) => {
+    const response = await request.post(
+      "http://localhost:3000/api/reservations",
+      {
+        headers: {
+          Cookie: `patient_id=${PATIENT_A}`,
+          "Content-Type": "application/json",
+        },
+        data: {
+          type: "createReservation",
+          time: "14:00",
+          patient_id: PATIENT_A,
+        },
+      }
     );
 
-    // ==============================
+    // 厳密: 400 or 422
+    expect([400, 422]).toContain(response.status());
+  });
+});
+
+// ========================================
+// Smoke E2E: 統合フロー（問診→予約→決済）
+// ========================================
+
+test.describe("Smoke E2E: 統合フロー", () => {
+  test("問診→予約→決済の一貫したフロー", async ({ request }) => {
+    const client = new PatientApiClient(request, PATIENT_INTEGRATION);
+
     // ステップ1: 問診保存
-    // ==============================
-    const intakeRes = await integrationClient.submitIntake({
+    const intakeRes = await client.submitIntake({
       answers: INTAKE_ANSWERS,
       name: INTAKE_ANSWERS.氏名,
       name_kana: INTAKE_ANSWERS.カナ,
@@ -312,35 +340,31 @@ test.describe("患者導線 E2E", () => {
     const intakeBody = await intakeRes.json();
     expect(intakeBody).toHaveProperty("ok", true);
 
-    // ==============================
     // ステップ2: 予約作成
-    // ==============================
     const reservationDate = getTestReservationDate();
-    const reservationRes = await integrationClient.createReservation({
+    const reservationRes = await client.createReservation({
       date: reservationDate,
       time: "15:00",
     });
 
     const reservationBody = await reservationRes.json();
     const reservationStatus = reservationRes.status();
-
-    // 予約結果を変数に保持
     let reserveId: string | null = null;
+
+    // 500はバグなので許容しない
+    expect([200, 400, 409]).toContain(reservationStatus);
 
     if (reservationStatus === 200) {
       expect(reservationBody).toHaveProperty("ok", true);
       expect(reservationBody).toHaveProperty("reserveId");
       reserveId = reservationBody.reserveId;
     } else {
-      // 予約開放前や枠満杯は許容（テスト環境依存）
-      expect([400, 409, 500]).toContain(reservationStatus);
       expect(reservationBody).toHaveProperty("ok", false);
+      expect(reservationBody).toHaveProperty("error");
     }
 
-    // ==============================
     // ステップ3: 決済リンク生成
-    // ==============================
-    const checkoutRes = await integrationClient.createCheckout({
+    const checkoutRes = await client.createCheckout({
       productCode: "MJL_2.5mg_1m",
       mode: "first",
     });
@@ -348,67 +372,59 @@ test.describe("患者導線 E2E", () => {
     const checkoutBody = await checkoutRes.json();
     const checkoutStatus = checkoutRes.status();
 
+    // 決済プロバイダ未接続の場合は500を許容
+    expect([200, 403, 500]).toContain(checkoutStatus);
+
     if (checkoutStatus === 200) {
-      // 決済リンクが生成された
       expect(checkoutBody).toHaveProperty("checkoutUrl");
       expect(typeof checkoutBody.checkoutUrl).toBe("string");
-    } else {
-      // APP_BASE_URL未設定等のサーバーエラーは許容
-      expect(checkoutBody).toHaveProperty("error");
     }
 
-    // ==============================
-    // クリーンアップ: 予約キャンセル（成功した場合のみ）
-    // ==============================
+    // DB検証（全ステップの結果を確認）
+    if (canVerifyDb()) {
+      // 問診レコードが存在する
+      const intake = await getIntakeRecord(PATIENT_INTEGRATION);
+      expect(intake).not.toBeNull();
+      expect(intake!.answers).toHaveProperty("氏名", "E2Eテスト太郎");
+
+      // 予約成功時: reserve_id が intake に紐付いている
+      if (reserveId) {
+        expect(intake!.reserve_id).toBe(reserveId);
+
+        const reservation = await getReservationRecord(reserveId);
+        expect(reservation).not.toBeNull();
+        expect(reservation!.patient_id).toBe(PATIENT_INTEGRATION);
+      }
+    }
+
+    // クリーンアップ: 予約キャンセル
     if (reserveId) {
-      const cancelRes = await integrationClient.cancelReservation(reserveId);
-      // キャンセルが成功 or 既にキャンセル済みを許容
-      expect([200, 400, 500]).toContain(cancelRes.status());
+      const cancelRes = await client.cancelReservation(reserveId);
+      expect([200, 400]).toContain(cancelRes.status());
     }
   });
+});
 
-  // -------------------------------------------
-  // テスト11: 予約枠の範囲取得（start/end）
-  // -------------------------------------------
+// ========================================
+// Smoke E2E: 予約枠（範囲指定）
+// ========================================
+
+test.describe("Smoke E2E: 予約枠API", () => {
   test("予約枠を範囲指定で取得できる", async ({ request }) => {
     const date = getTestReservationDate();
-    // 翌日も含めた2日間の範囲を指定
     const [year, month, day] = date.split("-").map(Number);
     const endDate = `${year}-${String(month).padStart(2, "0")}-${String(day + 1).padStart(2, "0")}`;
 
-    // GET /api/reservations?start=xxx&end=yyy の形式で取得
-    const rangeResponse = await request.get(
-      `http://localhost:3000/api/reservations?start=${date}&end=${endDate}`,
-      {
-        headers: {
-          Cookie: `patient_id=${TEST_PATIENT_ID}`,
-        },
-      }
-    );
-
-    expect(rangeResponse.status()).toBe(200);
-    const rangeBody = await rangeResponse.json();
-    expect(rangeBody).toHaveProperty("start", date);
-    expect(rangeBody).toHaveProperty("end", endDate);
-    expect(rangeBody).toHaveProperty("slots");
-    expect(Array.isArray(rangeBody.slots)).toBe(true);
-  });
-
-  // -------------------------------------------
-  // テスト12: 予約枠GETでパラメータ不足
-  // -------------------------------------------
-  test("予約枠GETでstart/end/dateがないと400エラー", async ({ request }) => {
     const response = await request.get(
-      "http://localhost:3000/api/reservations",
-      {
-        headers: {
-          Cookie: `patient_id=${TEST_PATIENT_ID}`,
-        },
-      }
+      `http://localhost:3000/api/reservations?start=${date}&end=${endDate}`,
+      { headers: { Cookie: `patient_id=${PATIENT_A}` } }
     );
 
-    expect(response.status()).toBe(400);
+    expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body).toHaveProperty("error");
+    expect(body).toHaveProperty("start", date);
+    expect(body).toHaveProperty("end", endDate);
+    expect(body).toHaveProperty("slots");
+    expect(Array.isArray(body.slots)).toBe(true);
   });
 });

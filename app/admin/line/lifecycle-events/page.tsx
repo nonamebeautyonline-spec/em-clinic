@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -116,38 +116,48 @@ export default function LifecycleEventsPage() {
   // 条件ビルダーモーダル
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
-  const fetchData = async () => {
-    const [sRes, mRes, tRes, rmRes, tmplRes] = await Promise.all([
-      fetch("/api/admin/line/friend-settings", { credentials: "include" }),
+  // 初回は設定データのみ取得（高速表示）
+  const fetchSettings = async () => {
+    const res = await fetch("/api/admin/line/friend-settings", { credentials: "include" });
+    const data = await res.json();
+    if (data.settings) {
+      setSettings(data.settings.filter((s: EventSetting) =>
+        LIFECYCLE_KEYS.includes(s.setting_key as typeof LIFECYCLE_KEYS[number])
+      ));
+    }
+    setLoading(false);
+  };
+
+  // モーダル用データは編集時に遅延取得
+  const modalDataLoaded = useRef(false);
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const fetchModalData = async () => {
+    if (modalDataLoaded.current) return;
+    setModalLoading(true);
+    const [mRes, tRes, rmRes, tmplRes] = await Promise.all([
       fetch("/api/admin/line/marks", { credentials: "include" }),
       fetch("/api/admin/tags", { credentials: "include" }),
       fetch("/api/admin/line/rich-menus", { credentials: "include" }),
       fetch("/api/admin/line/templates", { credentials: "include" }),
     ]);
-    const sData = await sRes.json();
-    const mData = await mRes.json();
-    const tData = await tRes.json();
-    const rmData = await rmRes.json();
-    const tmplData = await tmplRes.json();
-
-    // ライフサイクルイベント用の設定のみフィルタリング
-    if (sData.settings) {
-      setSettings(sData.settings.filter((s: EventSetting) =>
-        LIFECYCLE_KEYS.includes(s.setting_key as typeof LIFECYCLE_KEYS[number])
-      ));
-    }
+    const [mData, tData, rmData, tmplData] = await Promise.all([
+      mRes.json(), tRes.json(), rmRes.json(), tmplRes.json(),
+    ]);
     if (mData.marks) setMarks(mData.marks);
     if (tData.tags) setTags(tData.tags);
     if (rmData.menus) setRichMenus(rmData.menus);
     if (tmplData.templates) setTemplates(tmplData.templates);
-    setLoading(false);
+    modalDataLoaded.current = true;
+    setModalLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchSettings(); }, []);
 
-  const handleEdit = (setting: EventSetting) => {
+  const handleEdit = async (setting: EventSetting) => {
     setEditingKey(setting.setting_key);
     setEditSteps(convertLegacyToSteps(setting.setting_value));
+    await fetchModalData();
   };
 
   const handleSave = async () => {
@@ -173,7 +183,7 @@ export default function LifecycleEventsPage() {
     });
 
     if (res.ok) {
-      await fetchData();
+      await fetchSettings();
       setEditingKey(null);
     } else {
       const data = await res.json();
@@ -194,7 +204,7 @@ export default function LifecycleEventsPage() {
         enabled: false,
       }),
     });
-    await fetchData();
+    await fetchSettings();
     setSaving(false);
   };
 
@@ -371,6 +381,12 @@ export default function LifecycleEventsPage() {
 
             {/* モーダルコンテンツ */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {modalLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
+                  <span className="ml-2 text-sm text-gray-400">データ読み込み中...</span>
+                </div>
+              )}
               {/* ステップ一覧 */}
               {editSteps.map((step, i) => (
                 <div key={i} className="border border-gray-200 rounded-xl overflow-hidden">
