@@ -380,37 +380,44 @@ async function processAiReply(
   }
 
   // 8. 返信案をDBに保存
+  log.push("step8: DB保存");
   const expiresAt = new Date();
   expiresAt.setHours(expiresAt.getHours() + (settings.approval_timeout_hours || 24));
   const originalMessage = pendingMessages.join("\n");
 
+  const insertPayload = {
+    ...tenantPayload(tenantId),
+    patient_id: patientId,
+    line_uid: lineUid,
+    original_message: originalMessage,
+    ai_category: aiResult.category,
+    draft_reply: aiResult.reply,
+    confidence: aiResult.confidence,
+    status: settings.mode === "auto" ? "approved" : "pending",
+    model_used: "claude-sonnet-4-6",
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    expires_at: expiresAt.toISOString(),
+  };
+
   const { data: draft, error: insertError } = await supabaseAdmin
     .from("ai_reply_drafts")
-    .insert({
-      ...tenantPayload(tenantId),
-      patient_id: patientId,
-      line_uid: lineUid,
-      original_message: originalMessage,
-      ai_category: aiResult.category,
-      draft_reply: aiResult.reply,
-      confidence: aiResult.confidence,
-      status: settings.mode === "auto" ? "approved" : "pending",
-      model_used: "claude-sonnet-4-6",
-      input_tokens: inputTokens,
-      output_tokens: outputTokens,
-      expires_at: expiresAt.toISOString(),
-    })
+    .insert(insertPayload)
     .select("id")
     .single();
 
   if (insertError || !draft) {
+    log.push(`error: DB保存失敗: ${JSON.stringify(insertError)}`);
     console.error("[AI Reply] 返信案保存エラー:", insertError);
     return;
   }
+  log.push(`step8: OK (draft_id=${draft.id})`);
 
   // 9. モードに応じた処理
+  log.push(`step9: mode=${settings.mode}`);
   if (settings.mode === "auto") {
     await sendAiReply(draft.id, lineUid, aiResult.reply, patientId, tenantId);
+    log.push("step9: auto送信完了");
   } else {
     // origin: Vercelではホスト名から推定
     const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -421,6 +428,7 @@ async function processAiReply(
       originalMessage, aiResult.reply, aiResult.confidence,
       aiResult.category, tid, origin, pendingMessagesWithTime
     );
+    log.push("step9: 承認Flex送信完了");
   }
 }
 
