@@ -1,164 +1,342 @@
 // __tests__/api/mypage.test.ts
-// マイページ関連ユーティリティのロジックテスト
-// 対象: app/api/mypage/route.ts, app/api/mypage/orders/route.ts, app/api/mypage/profile/route.ts
+// マイページAPI (app/api/mypage/route.ts) の統合テスト
+// 認証、キャッシュ、DB並列取得、LINE UID整合性チェック、NG患者判定をテスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
-// --- ロジック再実装（route.ts 内の非エクスポート関数を再現） ---
-
-type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
-type Carrier = "japanpost" | "yamato";
-
-function safeStr(v: any): string {
-  return typeof v === "string" ? v : v == null ? "" : String(v);
+// --- モックチェーン ---
+function createChain(defaultResolve = { data: null, error: null }) {
+  const chain: any = {};
+  [
+    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
+    "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
+    "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
+  ].forEach((m) => {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  });
+  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  return chain;
 }
 
-function normalizePaymentStatus(v: any): PaymentStatus {
-  const s = safeStr(v).toLowerCase();
-  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
-  if (safeStr(v).toUpperCase() === "COMPLETED") return "paid";
-  return "paid";
+let tableChains: Record<string, any> = {};
+function getOrCreateChain(table: string) {
+  if (!tableChains[table]) tableChains[table] = createChain();
+  return tableChains[table];
 }
 
-function normalizeRefundStatus(v: any): RefundStatus | undefined {
-  const s = safeStr(v).toUpperCase();
-  if (!s) return undefined;
-  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as RefundStatus;
-  return "UNKNOWN";
+// --- モック（vi.mock内ではトップレベル変数を参照しない） ---
+vi.mock("@/lib/supabase", () => ({
+  supabaseAdmin: {
+    from: vi.fn((table: string) => {
+      // テスト側で tableChains を操作してモックを設定
+      const { getOrCreateChain: goc } = require("./__mypage_helpers");
+      return goc(table);
+    }),
+  },
+}));
+
+// ↑の方式だとvi.mock内でrequireが必要になるので、別の方式を使う
+// vi.mock はファクトリ関数の外から変数を参照できないため、
+// globalThisを使用して共有する
+vi.mock("@/lib/supabase", () => {
+  return {
+    supabaseAdmin: {
+      from: vi.fn((...args: any[]) => {
+        // globalThis 経由でtableChains にアクセス
+        const chains = (globalThis as any).__testTableChains || {};
+        const table = args[0];
+        if (!chains[table]) {
+          const c: any = {};
+          [
+            "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
+            "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
+            "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
+          ].forEach((m) => {
+            c[m] = vi.fn().mockReturnValue(c);
+          });
+          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+          chains[table] = c;
+        }
+        return chains[table];
+      }),
+    },
+  };
+});
+
+vi.mock("@/lib/tenant", () => ({
+  resolveTenantId: vi.fn(() => "test-tenant"),
+  withTenant: vi.fn((q: any) => q),
+  tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
+}));
+
+const _mockCookieStore = {
+  get: vi.fn(),
+};
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(() => Promise.resolve(_mockCookieStore)),
+}));
+
+vi.mock("@/lib/redis", () => ({
+  redis: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue("OK"),
+  },
+  getDashboardCacheKey: vi.fn((pid: string) => `dashboard:${pid}`),
+}));
+
+vi.mock("@/lib/validations/helpers", () => ({
+  validateBody: vi.fn((raw: any) => {
+    if (raw && typeof raw === "object") return { data: raw };
+    return { data: {} };
+  }),
+}));
+
+vi.mock("@/lib/validations/mypage", () => ({
+  mypageDashboardSchema: {},
+}));
+
+// --- ルートインポート ---
+import { POST } from "@/app/api/mypage/route";
+import { redis } from "@/lib/redis";
+
+// --- ヘルパー ---
+function createRequest(body: any = {}) {
+  return new NextRequest("http://localhost:3000/api/mypage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
-function toIsoFlexible(v: any): string {
-  const s = (typeof v === "string" ? v : String(v ?? "")).trim();
-  if (!s) return "";
-
-  // ISOっぽい（Tを含む）ならそのまま
-  if (s.includes("T")) return s;
-
-  // yyyy/MM/dd HH:mm(:ss)
-  if (/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}(:\d{2})?$/.test(s)) {
-    const replaced = s.replace(/\//g, "-");
-    const withSec = /:\d{2}:\d{2}$/.test(replaced) ? replaced : replaced + ":00";
-    return withSec.replace(" ", "T") + "+09:00";
-  }
-
-  // yyyy-MM-dd HH:mm:ss
-  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(s)) {
-    return s.replace(" ", "T") + "+09:00";
-  }
-
-  // yyyy-MM-dd or yyyy/MM/dd
-  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(s)) {
-    const parts = s.replace(/\//g, "-").split("-");
-    const y = parts[0];
-    const mm = parts[1].padStart(2, "0");
-    const dd = parts[2].padStart(2, "0");
-    return `${y}-${mm}-${dd}T00:00:00+09:00`;
-  }
-
-  // 最後の保険
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.toISOString();
-
-  return "";
+// テーブルチェーンを設定する関数
+function setTableChain(table: string, chain: any) {
+  (globalThis as any).__testTableChains[table] = chain;
 }
 
-const TRACKING_SWITCH_AT = new Date("2025-12-22T00:00:00+09:00").getTime();
+describe("POST /api/mypage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (globalThis as any).__testTableChains = {};
+    _mockCookieStore.get.mockReset();
+    vi.mocked(redis.get).mockResolvedValue(null);
+    vi.mocked(redis.set).mockResolvedValue("OK");
+  });
 
-function inferCarrierFromDates(o: { shippingEta?: string; paidAt?: string }): Carrier {
-  const se = safeStr(o.shippingEta).trim();
-  if (se) {
-    const t = new Date(se).getTime();
-    if (Number.isFinite(t)) return t < TRACKING_SWITCH_AT ? "japanpost" : "yamato";
-  }
-  const pa = safeStr(o.paidAt).trim();
-  if (pa) {
-    const t = new Date(pa).getTime();
-    if (Number.isFinite(t)) return t < TRACKING_SWITCH_AT ? "japanpost" : "yamato";
-  }
-  return "yamato";
-}
+  // --- 認証テスト ---
+  describe("認証", () => {
+    it("patient_id Cookieがない場合は401を返す", async () => {
+      _mockCookieStore.get.mockReturnValue(undefined);
 
-// === テスト ===
+      const res = await POST(createRequest());
+      const body = await res.json();
 
-describe("マイページ ユーティリティ関数テスト", () => {
-  // --- normalizePaymentStatus ---
-  describe("normalizePaymentStatus", () => {
-    it('"paid" → "paid"', () => {
-      expect(normalizePaymentStatus("paid")).toBe("paid");
+      expect(res.status).toBe(401);
+      expect(body.error).toBe("unauthorized");
     });
 
-    it('"COMPLETED" → "paid"', () => {
-      expect(normalizePaymentStatus("COMPLETED")).toBe("paid");
+    it("__Host-patient_id Cookieがあれば認証成功", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-001" };
+        return undefined;
+      });
+
+      // patientsのline_idがnull = 整合性チェックスキップ
+      const pChain = createChain({ data: { patient_id: "pid-001", name: "テスト太郎", line_id: null }, error: null });
+      setTableChain("patients", pChain);
+      setTableChain("intake", createChain({ data: null, error: null }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const res = await POST(createRequest());
+      expect(res.status).toBe(200);
     });
 
-    it('不明値 "something_random" → "paid"（デフォルト）', () => {
-      expect(normalizePaymentStatus("something_random")).toBe("paid");
+    it("patient_id Cookieでフォールバック認証", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "patient_id") return { value: "pid-002" };
+        return undefined;
+      });
+
+      setTableChain("patients", createChain({ data: { patient_id: "pid-002", name: "太郎", line_id: null }, error: null }));
+      setTableChain("intake", createChain({ data: null, error: null }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const res = await POST(createRequest());
+      expect(res.status).toBe(200);
     });
   });
 
-  // --- normalizeRefundStatus ---
-  describe("normalizeRefundStatus", () => {
-    it('"PENDING" → "PENDING"', () => {
-      expect(normalizeRefundStatus("PENDING")).toBe("PENDING");
+  // --- LINE UID 整合性チェック ---
+  describe("LINE UID 整合性チェック", () => {
+    it("line_user_id と patient の line_id が不一致なら pid_mismatch で401", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-001" };
+        if (name === "__Host-line_user_id") return { value: "U-different" };
+        return undefined;
+      });
+
+      // patients.line_id が別の値
+      setTableChain("patients", createChain({ data: { line_id: "U-original" }, error: null }));
+
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(401);
+      expect(body.error).toBe("pid_mismatch");
     });
 
-    it('"COMPLETED" → "COMPLETED"', () => {
-      expect(normalizeRefundStatus("COMPLETED")).toBe("COMPLETED");
-    });
+    it("line_user_id と patient の line_id が一致なら成功", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-001" };
+        if (name === "__Host-line_user_id") return { value: "U-same" };
+        return undefined;
+      });
 
-    it("空文字 → undefined", () => {
-      expect(normalizeRefundStatus("")).toBeUndefined();
-    });
+      setTableChain("patients", createChain({ data: { patient_id: "pid-001", name: "太郎", line_id: "U-same" }, error: null }));
+      setTableChain("intake", createChain({ data: null, error: null }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
 
-    it('不明値 "xyz" → "UNKNOWN"', () => {
-      expect(normalizeRefundStatus("xyz")).toBe("UNKNOWN");
-    });
-  });
-
-  // --- toIsoFlexible ---
-  describe("toIsoFlexible", () => {
-    it('"2026/02/15 14:00" → ISO形式（+09:00）', () => {
-      const result = toIsoFlexible("2026/02/15 14:00");
-      expect(result).toBe("2026-02-15T14:00:00+09:00");
-    });
-
-    it('"2026-02-15 14:00:00" → ISO形式（+09:00）', () => {
-      const result = toIsoFlexible("2026-02-15 14:00:00");
-      expect(result).toBe("2026-02-15T14:00:00+09:00");
-    });
-
-    it('"2026-02-15" → ISO形式（T00:00:00+09:00）', () => {
-      const result = toIsoFlexible("2026-02-15");
-      expect(result).toBe("2026-02-15T00:00:00+09:00");
-    });
-
-    it('空文字 → ""', () => {
-      expect(toIsoFlexible("")).toBe("");
+      const res = await POST(createRequest());
+      expect(res.status).toBe(200);
     });
   });
 
-  // --- inferCarrierFromDates ---
-  describe("inferCarrierFromDates", () => {
-    it("TRACKING_SWITCH_AT（2025-12-22）より前 → japanpost、以後 → yamato", () => {
-      // 切替日前（2025-11-01）→ japanpost
-      expect(
-        inferCarrierFromDates({ shippingEta: "2025-11-01", paidAt: "2025-10-01" })
-      ).toBe("japanpost");
+  // --- キャッシュテスト ---
+  describe("キャッシュ", () => {
+    it("キャッシュヒットした場合はキャッシュデータを返す", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-cached" };
+        return undefined;
+      });
 
-      // 切替日後（2026-01-15）→ yamato
-      expect(
-        inferCarrierFromDates({ shippingEta: "2026-01-15", paidAt: "2026-01-10" })
-      ).toBe("yamato");
+      // 整合性チェック用: line_idがnull
+      setTableChain("patients", createChain({ data: { line_id: null }, error: null }));
 
-      // shippingEta なし、paidAt で判定（切替前）
-      expect(
-        inferCarrierFromDates({ paidAt: "2025-06-01" })
-      ).toBe("japanpost");
+      const cachedPayload = { ok: true, patient: { id: "pid-cached", displayName: "キャッシュ太郎" } };
+      vi.mocked(redis.get).mockResolvedValue(cachedPayload as any);
 
-      // 両方なし → デフォルト yamato
-      expect(
-        inferCarrierFromDates({})
-      ).toBe("yamato");
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.patient.displayName).toBe("キャッシュ太郎");
+    });
+
+    it("refresh=true の場合はキャッシュをスキップしDBから取得する", async () => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-001" };
+        return undefined;
+      });
+
+      setTableChain("patients", createChain({ data: { patient_id: "pid-001", name: "DB太郎", line_id: null }, error: null }));
+      setTableChain("intake", createChain({ data: null, error: null }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const cachedPayload = { ok: true, patient: { id: "pid-001", displayName: "キャッシュ太郎" } };
+      vi.mocked(redis.get).mockResolvedValue(cachedPayload as any);
+
+      const res = await POST(createRequest({ refresh: true }));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      // キャッシュを使わなかったので redis.set が呼ばれる
+      expect(redis.set).toHaveBeenCalled();
+    });
+  });
+
+  // --- レスポンスデータテスト ---
+  describe("レスポンス構造", () => {
+    beforeEach(() => {
+      _mockCookieStore.get.mockImplementation((name: string) => {
+        if (name === "__Host-patient_id") return { value: "pid-001" };
+        return undefined;
+      });
+    });
+
+    it("正常レスポンスにok, patient, orders, ordersFlags等が含まれる", async () => {
+      setTableChain("patients", createChain({
+        data: { patient_id: "pid-001", name: "テスト太郎", line_id: "" },
+        error: null,
+      }));
+      setTableChain("intake", createChain({
+        data: { patient_id: "pid-001", status: "OK", answers: { ng_check: "OK" } },
+        error: null,
+      }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body).toHaveProperty("patient");
+      expect(body).toHaveProperty("orders");
+      expect(body).toHaveProperty("ordersFlags");
+      expect(body).toHaveProperty("reorders");
+      expect(body).toHaveProperty("history");
+      expect(body).toHaveProperty("hasIntake");
+    });
+
+    it("注文がない場合のordersFlags", async () => {
+      setTableChain("patients", createChain({
+        data: { patient_id: "pid-001", name: "太郎", line_id: "" },
+        error: null,
+      }));
+      setTableChain("intake", createChain({ data: null, error: null }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(body.ordersFlags.canPurchaseCurrentCourse).toBe(true);
+      expect(body.ordersFlags.canApplyReorder).toBe(false);
+      expect(body.ordersFlags.hasAnyPaidOrder).toBe(false);
+    });
+
+    it("NG患者は購入不可", async () => {
+      setTableChain("patients", createChain({
+        data: { patient_id: "pid-ng", name: "NG太郎", line_id: "" },
+        error: null,
+      }));
+      setTableChain("intake", createChain({
+        data: { patient_id: "pid-ng", status: "NG", answers: { ng_check: "NG" } },
+        error: null,
+      }));
+      setTableChain("reservations", createChain({ data: null, error: null }));
+      setTableChain("orders", createChain({ data: [], error: null }));
+      setTableChain("reorders", createChain({ data: [], error: null }));
+
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(body.ordersFlags.canPurchaseCurrentCourse).toBe(false);
+      expect(body.ordersFlags.canApplyReorder).toBe(false);
+    });
+  });
+
+  // --- エラーハンドリング ---
+  describe("エラーハンドリング", () => {
+    it("予期しないエラー発生時は500を返す", async () => {
+      _mockCookieStore.get.mockImplementation(() => {
+        throw new Error("予期しないエラー");
+      });
+
+      const res = await POST(createRequest());
+      const body = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(body.error).toBe("unexpected_error");
     });
   });
 });
