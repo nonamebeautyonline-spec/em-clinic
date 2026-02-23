@@ -196,11 +196,6 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
                 </label>
               ))}
             </div>
-            <div className="mt-4 bg-amber-50 border border-amber-100 rounded-lg p-3">
-              <p className="text-xs text-amber-800 leading-relaxed">
-                現時点では設定の保存のみです。カルテ画面への反映は今後のアップデートで対応予定です。
-              </p>
-            </div>
           </div>
         </div>
       </div>

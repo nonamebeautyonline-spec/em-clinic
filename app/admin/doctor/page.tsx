@@ -114,6 +114,7 @@ export default function DoctorPage() {
   const [callFormSentIds, setCallFormSentIds] = useState<Set<string>>(new Set());
   const [callFormConfirmTarget, setCallFormConfirmTarget] = useState<IntakeRow | null>(null);
   const [sendingCallForm, setSendingCallForm] = useState(false);
+  const [lineCallEnabled, setLineCallEnabled] = useState(true);
 
   // カルテ textarea 用 ref（カーソル位置取得用）
   const noteRef = useRef<HTMLTextAreaElement | null>(null);
@@ -254,6 +255,18 @@ export default function DoctorPage() {
   useEffect(() => {
     fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 診察モード取得（LINE通話フォームボタン表示制御）
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+        const data = await res.json();
+        const t = data.settings?.type || "online_all";
+        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
+      } catch {}
+    })();
   }, []);
 
 
@@ -986,7 +999,7 @@ const isCallFormSent = callStatus === "call_form_sent";
                   )}
 
                   {/* LINE通話フォーム送信ボタン */}
-                  {patientId && (
+                  {lineCallEnabled && patientId && (
                     (callFormSentIds.has(reserveId || patientId) || isCallFormSent) ? (
                       <div
                         className="w-10 h-10 rounded-lg bg-gray-300 text-white font-bold shadow-md flex items-center justify-center text-[9px] leading-tight text-center"
@@ -1157,7 +1170,7 @@ const isCallFormSent = callStatus === "call_form_sent";
                   {pick(selected, ["name", "氏名", "お名前"])} のカルテ
                 </h2>
                 <div className="flex items-center gap-2">
-                  {(() => {
+                  {lineCallEnabled && (() => {
                     const rid = pickReserveId(selected);
                     const pid = pick(selected, ["patient_id", "Patient_ID", "patientId"]);
                     const cs = pick(selected, ["call_status"]);

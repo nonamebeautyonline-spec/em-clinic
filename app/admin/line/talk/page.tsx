@@ -344,6 +344,7 @@ export default function TalkPage() {
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
   const [lineCallUrl, setLineCallUrl] = useState("");
+  const [lineCallEnabled, setLineCallEnabled] = useState(true);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectAbortRef = useRef<AbortController | null>(null);
 
@@ -393,6 +394,8 @@ export default function TalkPage() {
       try {
         const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
         const data = await res.json();
+        const t = data.settings?.type || "online_all";
+        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
         if (data.settings?.line_call_url) {
           setLineCallUrl(data.settings.line_call_url);
           return;
@@ -1544,6 +1547,7 @@ export default function TalkPage() {
                     </div>
                     <span className="text-xs font-medium text-gray-700">画像送信</span>
                   </button>
+                  {lineCallEnabled && (
                   <button
                     onClick={() => { setShowAttachPanel(false); setShowCallConfirm(true); }}
                     disabled={!lineCallUrl}
@@ -1560,6 +1564,7 @@ export default function TalkPage() {
                       {lineCallUrl ? "通話フォーム" : "通話フォーム（URL未設定）"}
                     </span>
                   </button>
+                  )}
                   <button
                     onClick={openActionPicker}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"

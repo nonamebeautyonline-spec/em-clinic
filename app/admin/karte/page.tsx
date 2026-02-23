@@ -180,6 +180,7 @@ export default function KartePage() {
   // --- LINE通話フォーム ---
   const [callFormSending, setCallFormSending] = useState(false);
   const [callFormSentPatients, setCallFormSentPatients] = useState<Set<string>>(new Set());
+  const [lineCallEnabled, setLineCallEnabled] = useState(true);
 
   // === 本日の予約データ取得（reservations APIから直接） ===
   const fetchTodayData = useCallback(async () => {
@@ -200,6 +201,18 @@ export default function KartePage() {
       fetchTodayData();
     }
   }, [viewMode, fetchTodayData]);
+
+  // 診察モード取得（LINE通話フォームボタン表示制御）
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+        const data = await res.json();
+        const t = data.settings?.type || "online_all";
+        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
+      } catch {}
+    })();
+  }, []);
 
   // === 新規予約データ取得（本日作成された予約） ===
   const fetchNewData = useCallback(async () => {
@@ -798,7 +811,7 @@ export default function KartePage() {
                           )}
                         </div>
                         {/* LINE通話フォーム送信 */}
-                        {patient.lineId && (
+                        {lineCallEnabled && patient.lineId && (
                           <button
                             type="button"
                             disabled={callFormSending || callFormSentPatients.has(patient.id)}
