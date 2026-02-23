@@ -21,9 +21,9 @@ function LogoMark({ compact }: { compact?: boolean }) {
   }
   return (
     <div className="flex items-center gap-2">
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={86} height={86} className="object-contain" />
-      <div className="flex flex-col">
-        <span className={`text-xl font-black tracking-tight ${gradientClass}`}>Lオペ</span>
+      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={36} height={36} className="object-contain" />
+      <div className="flex items-baseline gap-1">
+        <span className={`text-lg font-black tracking-tight ${gradientClass}`}>Lオペ</span>
         <span className={`text-[10px] font-semibold tracking-widest uppercase ${gradientClass}`}>for CLINIC</span>
       </div>
     </div>
