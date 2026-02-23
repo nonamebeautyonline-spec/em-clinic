@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Lオペ for CLINIC — Landing Page (Blue theme, Full feature showcase)
@@ -128,7 +129,7 @@ function Nav() {
     <nav className="fixed top-0 z-50 w-full border-b border-slate-100/60 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-5">
         <a href="#" className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-sky-500 text-[13px] font-black text-white shadow-sm">L</span>
+          <Image src="/images/l-ope-logo.png" alt="Lオペ" width={32} height={32} className="object-contain" />
           <span className="text-[15px] font-bold tracking-tight">Lオペ <span className="text-blue-600">for CLINIC</span></span>
         </a>
         <div className="hidden items-center gap-7 md:flex">
@@ -1784,51 +1785,101 @@ function Flow() {
 
 /* ═══════════════════════════════════════════════════════════ PRICING ═══ */
 function Pricing() {
+  const plans = [
+    { name: "ライト", msgs: "5,000通", price: "¥4,000", per: "¥1.0/通" },
+    { name: "スタンダード", msgs: "30,000通", price: "¥17,000", per: "¥0.7/通", pop: true },
+    { name: "プロ", msgs: "50,000通", price: "¥26,000", per: "¥0.6/通" },
+    { name: "ビジネス", msgs: "100,000通", price: "¥70,000", per: "¥0.5/通" },
+  ];
+  const bigPlans = [
+    { name: "ビジネス30万", msgs: "300,000通", price: "¥105,000", per: "¥0.4/通" },
+    { name: "ビジネス50万", msgs: "500,000通", price: "¥115,000", per: "¥0.3/通" },
+    { name: "ビジネス100万", msgs: "1,000,000通", price: "¥158,000", per: "¥0.2/通" },
+  ];
+  const options = [
+    { name: "AI返信", price: "¥20,000", desc: "AIによるLINE自動返信" },
+    { name: "音声入力", price: "¥15,000", desc: "音声からテキスト変換" },
+    { name: "AIカルテ", price: "¥20,000", desc: "AI自動カルテ生成" },
+  ];
   return (
     <Section id="pricing" className="bg-gradient-to-b from-white to-blue-50/20">
-      <div className="text-center"><Label>PRICING</Label><Title>料金プラン</Title><Sub>クリニック運営に必要なすべての機能を、シンプルな料金体系でご提供します。</Sub></div>
-      <div className="mx-auto max-w-lg">
-        <div className="overflow-hidden rounded-2xl border-2 border-blue-500 bg-white shadow-2xl shadow-blue-100/40">
-          <div className="bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-6 text-center text-white"><h3 className="text-xl font-bold">Lオペ for CLINIC</h3><p className="mt-1 text-[13px] text-blue-100">オールインワンプラン</p></div>
-          <div className="p-8">
-            <div className="mb-5 text-center"><div className="text-[12px] text-slate-400">初期導入費用</div><div className="text-3xl font-extrabold text-slate-900">¥500,000〜<span className="text-sm font-normal text-slate-400">（税別）</span></div><p className="mt-1 text-[11px] text-slate-400">LINE連携設定・リッチメニュー構築・データ移行・研修込み</p></div>
-            <div className="mb-7 rounded-xl bg-blue-50 p-6 text-center"><div className="text-[12px] text-slate-400">月額利用料</div><div className="text-4xl font-extrabold text-blue-600">¥80,000〜<span className="text-sm font-normal text-slate-400">/月（税別）</span></div><p className="mt-1 text-[11px] text-slate-400">全機能 / ユーザー数無制限 / アップデート無料</p></div>
-            <ul className="mb-6 grid grid-cols-2 gap-1.5 text-[12px] text-slate-600">
-              {["患者CRM（タグ・マーク・情報欄）", "セグメント配信・一斉配信", "リッチメニュービルダー", "回答フォームビルダー", "アクション自動化", "予約・スケジュール管理", "会計・決済管理", "配送管理", "リアルタイムダッシュボード", "AI自動返信", "ステップシナリオ", "専任サポート"].map((f) => <li key={f} className="flex items-start gap-1.5"><span className="mt-0.5 text-blue-500">&#10003;</span>{f}</li>)}
-            </ul>
-            <a href="#contact" className="block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 py-3.5 text-center text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">まずは資料請求（無料）</a>
-          </div>
+      <div className="text-center"><Label>PRICING</Label><Title>料金プラン</Title><Sub>メッセージ送信量に応じた従量課金制。全機能が使えて、Lステップより約20%おトクです。</Sub></div>
+
+      {/* メッセージプラン */}
+      <div className="mx-auto mt-10 max-w-5xl">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {plans.map((p) => (
+            <div key={p.name} className={`rounded-2xl border-2 bg-white p-6 text-center shadow-sm transition hover:shadow-lg ${p.pop ? "border-blue-500 shadow-blue-100/40 relative" : "border-slate-200"}`}>
+              {p.pop && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-3 py-0.5 text-[10px] font-bold text-white">人気</span>}
+              <h3 className="text-[15px] font-bold text-slate-800">{p.name}</h3>
+              <p className="mt-1 text-[12px] text-slate-400">{p.msgs}/月</p>
+              <div className="mt-4 text-3xl font-extrabold text-blue-600">{p.price}<span className="text-sm font-normal text-slate-400">/月</span></div>
+              <p className="mt-1 text-[11px] text-slate-400">超過分 {p.per}</p>
+            </div>
+          ))}
         </div>
-      </div>
-      <div className="mx-auto mt-16 max-w-4xl">
-        <h3 className="mb-5 text-center text-[15px] font-bold text-slate-700">競合サービスとの価格比較</h3>
-        <div className="overflow-x-auto rounded-xl border border-slate-200">
+
+        {/* 大量プラン */}
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full text-[12px]">
-            <thead><tr className="bg-blue-50">{["サービス", "初期費用", "月額", "特徴"].map((h) => <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>)}</tr></thead>
+            <thead><tr className="bg-slate-50">{["大量送信プラン", "込み通数", "月額（税込）", "超過単価"].map((h) => <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-500">{h}</th>)}</tr></thead>
             <tbody>
-              {[
-                { name: "Lオペ for CLINIC", i: "¥500,000〜", m: "¥80,000〜", note: "クリニック特化 / LINE CRM+業務DX / オールインワン", hl: true },
-                { name: "メディカルフォース", i: "非公開", m: "¥50,000〜", note: "自由診療特化 / 電子カルテ中心", hl: false },
-                { name: "CLINICSカルテ", i: "¥0〜1,000,000", m: "¥40,000〜", note: "電子カルテ＋オンライン診療", hl: false },
-                { name: "Medibot", i: "要問合せ", m: "要問合せ", note: "LINE特化 / オンライン診療", hl: false },
-                { name: "Lステップ（プロ）", i: "¥0", m: "¥32,780", note: "汎用LINEマーケ / 医療特化なし", hl: false },
-                { name: "Liny（プレミアム）", i: "¥54,780", m: "〜¥69,800", note: "汎用LINE拡張 / 医療特化なし", hl: false },
-              ].map((r) => (
-                <tr key={r.name} className={`border-t border-slate-100 ${r.hl ? "bg-blue-50/50 font-semibold" : ""}`}>
-                  <td className="px-4 py-2.5">{r.hl && <span className="mr-1 text-blue-500">&#9733;</span>}{r.name}</td><td className="px-4 py-2.5">{r.i}</td><td className="px-4 py-2.5">{r.m}</td><td className="px-4 py-2.5 text-slate-400">{r.note}</td>
+              {bigPlans.map((p) => (
+                <tr key={p.name} className="border-t border-slate-100">
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{p.name}</td>
+                  <td className="px-4 py-2.5 text-slate-600">{p.msgs}</td>
+                  <td className="px-4 py-2.5 font-bold text-slate-900">{p.price}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{p.per}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-center text-[10px] text-slate-400">※ 各サービスの価格は2025年公開情報に基づく参考値です</p>
+        <p className="mt-2 text-[11px] text-slate-400 text-center">全プランで全機能利用可 / 初期費用: ¥300,000〜（導入支援込み）</p>
       </div>
-      <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-amber-200/60 bg-amber-50/50 p-7">
-        <h4 className="mb-4 text-center text-[15px] font-bold text-amber-800">コスト比較シミュレーション</h4>
-        <div className="grid gap-5 md:grid-cols-2">
-          <div className="rounded-xl bg-white p-5"><div className="mb-2 text-[12px] font-bold text-rose-500">ツール個別導入の場合</div><ul className="space-y-1 text-[12px] text-slate-500"><li>LINE配信ツール：¥20,000〜33,000</li><li>予約システム：¥10,000〜40,000</li><li>会計ソフト：¥5,000〜15,000</li><li>配送管理：¥5,000〜</li></ul><div className="mt-3 border-t border-slate-100 pt-2 text-[14px] font-bold text-rose-600">合計：月額 ¥40,000〜93,000+</div></div>
-          <div className="rounded-xl bg-blue-50 p-5"><div className="mb-2 text-[12px] font-bold text-blue-600">Lオペ for CLINIC の場合</div><ul className="space-y-1 text-[12px] text-slate-500"><li>LINE CRM ＋ セグメント配信</li><li>予約・スケジュール管理</li><li>会計・決済・配送管理</li><li>AI返信 ＋ その他全機能</li></ul><div className="mt-3 border-t border-blue-200 pt-2 text-[14px] font-bold text-blue-700">すべて込みで月額 ¥80,000〜</div></div>
+
+      {/* AIオプション */}
+      <div className="mx-auto mt-12 max-w-3xl">
+        <h3 className="mb-4 text-center text-[15px] font-bold text-slate-700">AIオプション（月額追加）</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {options.map((o) => (
+            <div key={o.name} className="rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+              <h4 className="text-[14px] font-bold text-slate-800">{o.name}</h4>
+              <p className="mt-1 text-[11px] text-slate-400">{o.desc}</p>
+              <div className="mt-3 text-xl font-extrabold text-blue-600">+{o.price}<span className="text-sm font-normal text-slate-400">/月</span></div>
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* Lステップ比較 */}
+      <div className="mx-auto mt-14 max-w-4xl">
+        <h3 className="mb-5 text-center text-[15px] font-bold text-slate-700">Lステップとの価格比較</h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full text-[12px]">
+            <thead><tr className="bg-blue-50">{["通数", "Lオペ（税込）", "Lステップ（税込）", "おトク額"].map((h) => <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>)}</tr></thead>
+            <tbody>
+              {[
+                { msgs: "5,000通", lope: "¥4,000", lstep: "¥5,000", save: "¥1,000" },
+                { msgs: "30,000通", lope: "¥17,000", lstep: "¥21,780", save: "¥4,780" },
+                { msgs: "50,000通", lope: "¥26,000", lstep: "¥32,780", save: "¥6,780" },
+                { msgs: "100,000通", lope: "¥70,000", lstep: "¥87,780", save: "¥17,780" },
+              ].map((r) => (
+                <tr key={r.msgs} className="border-t border-slate-100">
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{r.msgs}</td>
+                  <td className="px-4 py-2.5 font-bold text-blue-600">{r.lope}</td>
+                  <td className="px-4 py-2.5 text-slate-400 line-through">{r.lstep}</td>
+                  <td className="px-4 py-2.5 font-bold text-green-600">{r.save} おトク</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-slate-400">※ Lステップ価格は2025年公開情報に基づく。Lオペは全CRM・予約・配送機能込み。</p>
+      </div>
+
+      <div className="mt-10 text-center">
+        <a href="#contact" className="inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-10 py-4 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">まずは資料請求（無料）</a>
       </div>
     </Section>
   );
@@ -1888,7 +1939,7 @@ function Footer() {
     <footer className="bg-slate-900 px-5 py-10 text-slate-400">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col items-center justify-between gap-5 md:flex-row">
-          <div className="flex items-center gap-2 text-[14px] font-bold text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-sky-500 text-[11px] font-black text-white">L</span>Lオペ for CLINIC</div>
+          <div className="flex items-center gap-2 text-[14px] font-bold text-white"><Image src="/images/l-ope-logo.png" alt="Lオペ" width={28} height={28} className="object-contain" />Lオペ for CLINIC</div>
           <div className="flex flex-wrap justify-center gap-6 text-[12px]">
             {["機能", "強み", "活用シーン", "料金", "FAQ", "お問い合わせ"].map((l) => <a key={l} href={`#${l === "機能" ? "features" : l === "強み" ? "strengths" : l === "活用シーン" ? "usecases" : l === "料金" ? "pricing" : l === "FAQ" ? "faq" : "contact"}`} className="hover:text-white">{l}</a>)}
           </div>
