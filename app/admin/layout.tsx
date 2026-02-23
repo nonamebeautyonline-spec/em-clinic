@@ -20,8 +20,8 @@ function LogoMark({ compact }: { compact?: boolean }) {
     );
   }
   return (
-    <div className="flex items-center gap-0 min-w-0">
-      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={86} height={86} className="shrink-0 object-contain" />
+    <div className="flex items-center min-w-0 overflow-hidden">
+      <Image src="/images/l-ope-logo.png" alt="Lオペ" width={86} height={86} className="shrink-0 object-contain -ml-3 -mr-2" />
       <span className={`text-xl font-bold whitespace-nowrap ${gradientClass}`}>Lオペ <span className="text-sm font-semibold tracking-widest uppercase">for CLINIC</span></span>
     </div>
   );
