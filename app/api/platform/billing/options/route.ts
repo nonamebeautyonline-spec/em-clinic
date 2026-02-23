@@ -83,12 +83,7 @@ export async function POST(req: NextRequest) {
     );
 
   const parsed = await parseBody(req, toggleOptionSchema);
-  if (!parsed.ok) {
-    return NextResponse.json(
-      { ok: false, error: parsed.error },
-      { status: 400 }
-    );
-  }
+  if ("error" in parsed) return parsed.error;
 
   const { tenantId, optionKey, isActive } = parsed.data;
 
