@@ -137,7 +137,10 @@ export async function scheduleAiReply(
     supabaseAdmin.from("ai_reply_settings").select("*").maybeSingle(),
     tenantId
   );
-  if (!settings?.is_enabled) return;
+  if (!settings?.is_enabled) {
+    console.log(`[AI Reply] scheduleAiReply スキップ: settings無効 (settings=${JSON.stringify(settings ? { is_enabled: settings.is_enabled } : null)})`);
+    return;
+  }
 
   const filterResult = shouldProcessWithAI(messageText, "text", settings);
   if (!filterResult.process) {
