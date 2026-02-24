@@ -134,7 +134,11 @@ export default function OnboardingChecklist({
           return (
             <div
               key={step.key}
-              className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors"
+              className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                completed
+                  ? "opacity-40"
+                  : "hover:bg-slate-50"
+              }`}
             >
               {/* チェックアイコン */}
               <div
@@ -164,17 +168,18 @@ export default function OnboardingChecklist({
               </div>
 
               <div className="flex-1 min-w-0">
-                <a
-                  href={step.link}
+                <span
                   className={`text-sm font-medium ${
                     completed
-                      ? "text-green-700 line-through"
-                      : "text-slate-900 hover:text-blue-600"
+                      ? "text-slate-400"
+                      : "text-slate-900"
                   }`}
                 >
                   {step.label}
-                </a>
-                <p className="text-xs text-slate-500 mt-0.5">
+                </span>
+                <p className={`text-xs mt-0.5 ${
+                  completed ? "text-slate-300" : "text-slate-500"
+                }`}>
                   {step.description}
                 </p>
               </div>

@@ -61,8 +61,21 @@ export async function GET(req: NextRequest) {
   );
   const lineConfigured = !!lineToken;
 
-  // 2. 決済設定: tenant_settingsのcategory='payment'にデータがあるか
-  const paymentConfigured = await hasSettingsForCategory("payment", tenantId);
+  // 2. 決済設定: Square or GMO が設定済みか（DB設定 or 環境変数フォールバック）
+  const squareToken = await getSettingOrEnv(
+    "square",
+    "access_token",
+    "SQUARE_ACCESS_TOKEN",
+    tenantId ?? undefined,
+  );
+  const gmoShopId = await getSettingOrEnv(
+    "gmo",
+    "shop_id",
+    "GMO_SHOP_ID",
+    tenantId ?? undefined,
+  );
+  const paymentProvider = await hasSettingsForCategory("payment", tenantId);
+  const paymentConfigured = !!squareToken || !!gmoShopId || paymentProvider;
 
   // 3. 商品登録: productsテーブルに1件以上あるか
   const productsRegistered = await tableHasData("products", tenantId);

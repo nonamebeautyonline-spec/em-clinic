@@ -47,6 +47,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/dedup-patients", icon: "🔍", label: "患者名寄せ" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
   { href: "/admin/settings", icon: "⚙️", label: "設定" },
+  { href: "/admin/help", icon: "❓", label: "ヘルプ" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -526,6 +527,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="設定"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/settings"}
+          />
+          <MenuItem
+            href="/admin/help"
+            icon="❓"
+            label="ヘルプ"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/help"}
           />
         </nav>
 
