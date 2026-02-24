@@ -41,6 +41,15 @@ function resetTableChains() {
   for (const key of Object.keys(tableChains)) delete tableChains[key];
 }
 
+// after()はリクエストスコープ外で呼ぶとエラーになるためモック
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: vi.fn((cb: () => void) => { cb(); }),
+  };
+});
+
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => getOrCreateChain(table)),

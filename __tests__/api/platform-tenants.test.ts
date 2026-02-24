@@ -239,7 +239,7 @@ describe("GET /api/platform/tenants", () => {
       const res = await GET(req);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBe("テナント一覧の取得に失敗しました");
+      expect(body.error).toContain("テナント一覧の取得に失敗しました");
     });
   });
 

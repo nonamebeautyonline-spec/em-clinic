@@ -131,6 +131,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             setPlatformRole(data.user?.platformRole || "tenant_admin");
             setTenantRole(data.user?.tenantRole || "admin");
             setIsAuthenticated(true);
+
+            // 初回ログイン時: セットアップ未完了ならオンボーディングへリダイレクト
+            if (!pathname.startsWith("/admin/onboarding")) {
+              try {
+                const statusRes = await fetch("/api/admin/setup-status", { credentials: "include" });
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.completedCount === 0) {
+                    router.push("/admin/onboarding");
+                    setLoading(false);
+                    return;
+                  }
+                }
+              } catch { /* セットアップ状態取得失敗は無視してダッシュボードへ */ }
+            }
+
             setLoading(false);
             return;
           }
@@ -213,6 +229,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </div>
     );
+  }
+
+  // オンボーディングページはサイドバーなしのフルスクリーン表示
+  const isOnboarding = pathname.startsWith("/admin/onboarding");
+  if (isOnboarding) {
+    return <FeaturesProvider>{children}</FeaturesProvider>;
   }
 
   return (

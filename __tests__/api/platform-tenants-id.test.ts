@@ -195,7 +195,9 @@ describe("platform/tenants/[tenantId] API", () => {
       chain.then = vi.fn((resolve: any) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", slug: "test-clinic" }, error: null });
-        if (callCount === 2) return resolve({ data: null, error: { message: "DB error" } }); // 更新エラー
+        // 1回目の更新もフォールバック更新も両方エラー
+        if (callCount === 2) return resolve({ data: null, error: { message: "DB error" } });
+        if (callCount === 3) return resolve({ data: null, error: { message: "DB error" } });
         return resolve({ data: null, error: null });
       });
       tableChains["tenants"] = chain;

@@ -85,7 +85,11 @@ describe("セットアップステータスAPI 拡張テスト", () => {
   });
 
   it("LINE設定あり → steps.line=true", async () => {
-    mockGetSettingOrEnv.mockResolvedValue("test-token-xxx");
+    // LINE token のみ値を返し、Square/GMO は undefined
+    mockGetSettingOrEnv
+      .mockResolvedValueOnce("test-token-xxx") // line channel_access_token
+      .mockResolvedValueOnce(undefined)         // square access_token
+      .mockResolvedValueOnce(undefined);        // gmo shop_id
     const req = createMockRequest("GET", "http://localhost/api/admin/setup-status");
     const res = await GET(req);
     const json = await res.json();

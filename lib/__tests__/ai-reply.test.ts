@@ -83,7 +83,7 @@ function setupDebounceEntry(overrides?: Partial<{
     patientId: overrides?.patientId ?? "p1",
     patientName: overrides?.patientName ?? "田中",
     tenantId: overrides?.tenantId ?? null,
-    ts: Date.now() - 120_000, // 120秒前（60秒超）
+    ts: Date.now() - 15_000, // 15秒前（10秒超）
   };
   vi.mocked(redis.smembers).mockResolvedValue([entry.patientId]);
   vi.mocked(redis.get).mockResolvedValue(JSON.stringify(entry));
@@ -334,14 +334,14 @@ describe("processPendingAiReplies", () => {
     expect(redis.srem).toHaveBeenCalledWith("ai_debounce_keys", "p1");
   });
 
-  it("デバウンス期間未経過（60秒未満）→ スキップ", async () => {
+  it("デバウンス期間未経過（10秒未満）→ スキップ", async () => {
     vi.mocked(redis.smembers).mockResolvedValue(["p1"]);
     const entry = {
       lineUid: "uid1",
       patientId: "p1",
       patientName: "田中",
       tenantId: null,
-      ts: Date.now() - 30000, // 30秒前（60秒未満）
+      ts: Date.now() - 5000, // 5秒前（10秒未満）
     };
     vi.mocked(redis.get).mockResolvedValue(JSON.stringify(entry));
 
@@ -363,7 +363,7 @@ describe("processPendingAiReplies", () => {
       patientId: "p1",
       patientName: "田中",
       tenantId: null,
-      ts: Date.now() - 30_000, // デバウンス未経過 → スキップ
+      ts: Date.now() - 5_000, // デバウンス未経過 → スキップ
     };
     vi.mocked(redis.smembers).mockResolvedValue(["p1"]);
     // rawがオブジェクトとして返る（Upstash Redisの挙動）
@@ -411,11 +411,11 @@ describe("processPendingAiReplies", () => {
     await resetFromMock(); // 前のテストで上書きされた from モックをリセット
     const entry1 = {
       lineUid: "uid1", patientId: "p1", patientName: "田中", tenantId: null,
-      ts: Date.now() - 120_000,
+      ts: Date.now() - 15_000, // 15秒前（10秒超 → デバウンス通過）
     };
     const entry2 = {
       lineUid: "uid2", patientId: "p2", patientName: "佐藤", tenantId: null,
-      ts: Date.now() - 10_000, // デバウンス未経過
+      ts: Date.now() - 5_000, // 5秒前（10秒未満 → デバウンス未経過）
     };
     vi.mocked(redis.smembers).mockResolvedValue(["p1", "p2"]);
     vi.mocked(redis.get).mockImplementation(async (key: string) => {

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
-  const simple = req.nextUrl.searchParams.get("simple") === "true";
+  const simple = new URL(req.url).searchParams.get("simple") === "true";
 
   const { data: tagDefs, error } = await withTenant(
     supabaseAdmin
