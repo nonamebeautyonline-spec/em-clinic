@@ -39,121 +39,105 @@ export async function GET(req: NextRequest) {
     );
     const offset = (page - 1) * limit;
 
-    // テナント一覧のベースクエリ（患者数・今月売上をサブクエリで取得）
-    let query = supabaseAdmin
-      .from("tenants")
-      .select(
-        `
-        id,
-        name,
-        slug,
-        industry,
-        is_active,
-        contact_email,
-        contact_phone,
-        logo_url,
-        created_at,
-        updated_at,
-        deleted_at,
-        tenant_plans (
-          plan_name,
-          monthly_fee,
-          setup_fee,
-          started_at,
-          next_billing_at
-        )
-      `,
-        { count: "exact" },
-      )
-      .is("deleted_at", null);
+    // テナント一覧取得（フルクエリ → フォールバック）
+    const FULL_SELECT = `
+      id, name, slug, industry, is_active, contact_email, contact_phone,
+      logo_url, created_at, updated_at, deleted_at,
+      tenant_plans (plan_name, monthly_fee, setup_fee, started_at, next_billing_at)
+    `;
+    const BASIC_SELECT = "id, name, slug, is_active, created_at, updated_at";
 
-    // ステータスフィルター
-    if (status === "active") {
-      query = query.eq("is_active", true);
-    } else if (status === "inactive") {
-      query = query.eq("is_active", false);
+    function applyFilters(q: any) {
+      let filtered = q;
+      if (status === "active") filtered = filtered.eq("is_active", true);
+      else if (status === "inactive") filtered = filtered.eq("is_active", false);
+      if (search) filtered = filtered.or(`name.ilike.%${search}%,slug.ilike.%${search}%`);
+      if (sort === "name") filtered = filtered.order("name", { ascending: true });
+      else filtered = filtered.order("created_at", { ascending: false });
+      return filtered.range(offset, offset + limit - 1);
     }
 
-    // 検索（名前またはslug）
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,slug.ilike.%${search}%`);
+    // フルクエリを試行
+    let fullQuery = supabaseAdmin.from("tenants").select(FULL_SELECT, { count: "exact" }).is("deleted_at", null);
+    let { data: tenants, error: tenantsErr, count } = await applyFilters(fullQuery);
+
+    // フォールバック: カラムやリレーションが未作成の場合、基本カラムのみで再試行
+    if (tenantsErr) {
+      console.error("[platform/tenants] フルクエリ失敗（フォールバック実行）:", tenantsErr.message);
+      const basicQuery = supabaseAdmin.from("tenants").select(BASIC_SELECT, { count: "exact" });
+      const result = await applyFilters(basicQuery);
+      tenants = result.data;
+      tenantsErr = result.error;
+      count = result.count;
     }
-
-    // ソート
-    if (sort === "name") {
-      query = query.order("name", { ascending: true });
-    } else {
-      // デフォルト: 作成日降順
-      query = query.order("created_at", { ascending: false });
-    }
-
-    // ページネーション
-    query = query.range(offset, offset + limit - 1);
-
-    const { data: tenants, error: tenantsErr, count } = await query;
 
     if (tenantsErr) {
       console.error("[platform/tenants] GET error:", tenantsErr);
       return NextResponse.json(
-        { ok: false, error: "テナント一覧の取得に失敗しました" },
+        { ok: false, error: `テナント一覧の取得に失敗しました: ${tenantsErr.message}` },
         { status: 500 },
       );
     }
 
-    // 各テナントの患者数と今月売上を取得
-    const tenantIds = (tenants || []).map((t) => t.id);
+    // 各テナントの患者数と今月売上を取得（失敗しても一覧表示は維持）
+    const tenantIds = (tenants || []).map((t: any) => t.id);
 
-    // 患者数を一括取得
     let patientsCountMap: Record<string, number> = {};
-    if (tenantIds.length > 0) {
-      const { data: patientCounts } = await supabaseAdmin.rpc(
-        "count_patients_by_tenants",
-        { tenant_ids: tenantIds },
-      );
-      if (patientCounts) {
-        for (const row of patientCounts) {
-          patientsCountMap[row.tenant_id] = row.count;
-        }
-      } else {
-        // RPCが未定義の場合、個別にカウント（フォールバック）
-        for (const tid of tenantIds) {
-          const { count: pCount } = await supabaseAdmin
-            .from("patients")
-            .select("id", { count: "exact", head: true })
-            .eq("tenant_id", tid);
-          patientsCountMap[tid] = pCount || 0;
-        }
-      }
-    }
-
-    // 今月売上を一括取得
     let monthlyRevenueMap: Record<string, number> = {};
-    const now = new Date();
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
     if (tenantIds.length > 0) {
-      const { data: revData } = await supabaseAdmin.rpc(
-        "sum_revenue_by_tenants",
-        { tenant_ids: tenantIds, since: monthStart },
-      );
-      if (revData) {
-        for (const row of revData) {
-          monthlyRevenueMap[row.tenant_id] = row.total;
+      // 患者数を取得（エラー時は0のまま）
+      try {
+        const { data: patientCounts } = await supabaseAdmin.rpc(
+          "count_patients_by_tenants",
+          { tenant_ids: tenantIds },
+        );
+        if (patientCounts) {
+          for (const row of patientCounts) {
+            patientsCountMap[row.tenant_id] = row.count;
+          }
+        } else {
+          for (const tid of tenantIds) {
+            const { count: pCount } = await supabaseAdmin
+              .from("patients")
+              .select("id", { count: "exact", head: true })
+              .eq("tenant_id", tid);
+            patientsCountMap[tid] = pCount || 0;
+          }
         }
-      } else {
-        // RPCが未定義の場合、個別に集計（フォールバック）
-        for (const tid of tenantIds) {
-          const { data: orders } = await supabaseAdmin
-            .from("orders")
-            .select("amount")
-            .eq("tenant_id", tid)
-            .gte("paid_at", monthStart)
-            .not("paid_at", "is", null);
-          const total = (orders || []).reduce(
-            (sum, o) => sum + (o.amount || 0),
-            0,
-          );
-          monthlyRevenueMap[tid] = total;
+      } catch (e) {
+        console.error("[platform/tenants] 患者数取得失敗（スキップ）:", e);
+      }
+
+      // 今月売上を取得（エラー時は0のまま）
+      try {
+        const now = new Date();
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+        const { data: revData } = await supabaseAdmin.rpc(
+          "sum_revenue_by_tenants",
+          { tenant_ids: tenantIds, since: monthStart },
+        );
+        if (revData) {
+          for (const row of revData) {
+            monthlyRevenueMap[row.tenant_id] = row.total;
+          }
+        } else {
+          for (const tid of tenantIds) {
+            const { data: orders } = await supabaseAdmin
+              .from("orders")
+              .select("amount")
+              .eq("tenant_id", tid)
+              .gte("paid_at", monthStart)
+              .not("paid_at", "is", null);
+            const total = (orders || []).reduce(
+              (sum, o) => sum + (o.amount || 0),
+              0,
+            );
+            monthlyRevenueMap[tid] = total;
+          }
         }
+      } catch (e) {
+        console.error("[platform/tenants] 売上取得失敗（スキップ）:", e);
       }
     }
 

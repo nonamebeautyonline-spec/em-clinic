@@ -27,51 +27,32 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   const { tenantId } = await ctx.params;
 
   try {
-    const { data: tenant, error } = await supabaseAdmin
+    const FULL_SELECT = `
+      id, name, slug, industry, is_active, contact_email, contact_phone,
+      address, notes, logo_url, created_at, updated_at, deleted_at,
+      tenant_members (id, role, created_at, admin_users (id, name, email, platform_role, is_active, last_login_at, created_at)),
+      tenant_plans (id, plan_name, monthly_fee, setup_fee, started_at, next_billing_at, created_at)
+    `;
+    const BASIC_SELECT = "id, name, slug, is_active, created_at, updated_at";
+
+    let { data: tenant, error } = await supabaseAdmin
       .from("tenants")
-      .select(
-        `
-        id,
-        name,
-        slug,
-        industry,
-        is_active,
-        contact_email,
-        contact_phone,
-        address,
-        notes,
-        logo_url,
-        created_at,
-        updated_at,
-        deleted_at,
-        tenant_members (
-          id,
-          role,
-          created_at,
-          admin_users (
-            id,
-            name,
-            email,
-            platform_role,
-            is_active,
-            last_login_at,
-            created_at
-          )
-        ),
-        tenant_plans (
-          id,
-          plan_name,
-          monthly_fee,
-          setup_fee,
-          started_at,
-          next_billing_at,
-          created_at
-        )
-      `,
-      )
+      .select(FULL_SELECT)
       .eq("id", tenantId)
       .is("deleted_at", null)
       .single();
+
+    // フォールバック: カラムやリレーションが未作成の場合
+    if (error) {
+      console.error("[platform/tenants/[id]] フルクエリ失敗（フォールバック実行）:", error.message);
+      const result = await supabaseAdmin
+        .from("tenants")
+        .select(BASIC_SELECT)
+        .eq("id", tenantId)
+        .single();
+      tenant = result.data;
+      error = result.error;
+    }
 
     if (error || !tenant) {
       return NextResponse.json(
@@ -109,13 +90,25 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   const data = parsed.data;
 
   try {
-    // テナント存在確認
-    const { data: existing } = await supabaseAdmin
+    // テナント存在確認（deleted_atカラム未作成時も動作するよう保護）
+    let existing: any = null;
+    const { data: ex1, error: exErr1 } = await supabaseAdmin
       .from("tenants")
       .select("id, slug")
       .eq("id", tenantId)
       .is("deleted_at", null)
       .single();
+    if (exErr1) {
+      // deleted_atカラムがない場合のフォールバック
+      const { data: ex2 } = await supabaseAdmin
+        .from("tenants")
+        .select("id, slug")
+        .eq("id", tenantId)
+        .single();
+      existing = ex2;
+    } else {
+      existing = ex1;
+    }
 
     if (!existing) {
       return NextResponse.json(
@@ -130,7 +123,6 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
         .from("tenants")
         .select("id")
         .eq("slug", data.slug)
-        .is("deleted_at", null)
         .neq("id", tenantId)
         .maybeSingle();
 
@@ -142,7 +134,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       }
     }
 
-    // 更新データを構築
+    // 更新データを構築（基本カラムのみ最初に試行、失敗時は拡張カラムを除外）
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -157,12 +149,28 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     if (data.logoUrl !== undefined) updatePayload.logo_url = data.logoUrl;
     if (data.industry !== undefined) updatePayload.industry = data.industry;
 
-    const { data: updated, error: updateErr } = await supabaseAdmin
+    let { data: updated, error: updateErr } = await supabaseAdmin
       .from("tenants")
       .update(updatePayload)
       .eq("id", tenantId)
       .select("id, name, slug, is_active, updated_at")
       .single();
+
+    // フォールバック: 拡張カラム（industry等）が未作成の場合
+    if (updateErr) {
+      console.error("[platform/tenants/[id]] PUT フルペイロード失敗:", updateErr.message);
+      const basicPayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (data.name !== undefined) basicPayload.name = data.name;
+      if (data.slug !== undefined) basicPayload.slug = data.slug;
+      const result = await supabaseAdmin
+        .from("tenants")
+        .update(basicPayload)
+        .eq("id", tenantId)
+        .select("id, name, slug, is_active, updated_at")
+        .single();
+      updated = result.data;
+      updateErr = result.error;
+    }
 
     if (updateErr) {
       console.error("[platform/tenants/[id]] PUT error:", updateErr);
