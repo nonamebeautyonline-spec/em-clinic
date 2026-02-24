@@ -21,6 +21,8 @@ export const createTenantSchema = z.object({
   adminName: z.string().min(1, "管理者名は必須です").max(100),
   adminEmail: z.string().email("有効なメールアドレスを入力してください").max(255),
   adminPassword: z.string().min(8, "パスワードは8文字以上です").max(100),
+  // 業種
+  industry: z.enum(["clinic", "salon", "retail", "other"]).default("clinic"),
   // LINE設定（任意）
   lineChannelId: z.string().optional(),
   lineChannelSecret: z.string().optional(),
@@ -45,6 +47,7 @@ export const updateTenantSchema = z.object({
   address: z.string().max(500).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   logoUrl: z.string().url().max(500).nullable().optional(),
+  industry: z.enum(["clinic", "salon", "retail", "other"]).optional(),
 });
 
 export const updateTenantStatusSchema = z.object({

@@ -49,6 +49,7 @@ interface TenantDetail {
   id: string;
   name: string;
   slug: string;
+  industry: string;
   is_active: boolean;
   contact_email: string | null;
   contact_phone: string | null;
@@ -110,9 +111,15 @@ export default function TenantDetailPage() {
     address: "",
     notes: "",
     logoUrl: "",
+    industry: "clinic",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // AIオプション管理用
+  const [aiOptions, setAiOptions] = useState<{ key: string; label: string; monthlyPrice: number; isActive: boolean }[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsSaving, setOptionsSaving] = useState<string | null>(null);
 
   // トースト
   const [toast, setToast] = useState("");
@@ -155,6 +162,7 @@ export default function TenantDetailPage() {
           address: data.tenant.address || "",
           notes: data.tenant.notes || "",
           logoUrl: data.tenant.logo_url || "",
+          industry: data.tenant.industry || "clinic",
         });
       }
     } catch (err) {
@@ -204,12 +212,57 @@ export default function TenantDetailPage() {
     fetchStats();
   }, [fetchTenant, fetchStats]);
 
+  // AIオプション取得
+  const fetchOptions = useCallback(async () => {
+    if (!tenantId) return;
+    setOptionsLoading(true);
+    try {
+      const res = await fetch(`/api/platform/billing/options?tenant_id=${tenantId}`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setAiOptions(data.options || []);
+      }
+    } catch {
+      // 取得失敗は無視（UIには空配列が表示される）
+    } finally {
+      setOptionsLoading(false);
+    }
+  }, [tenantId]);
+
+  // AIオプション切替
+  const toggleOption = async (optionKey: string, isActive: boolean) => {
+    setOptionsSaving(optionKey);
+    try {
+      const res = await fetch("/api/platform/billing/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ tenantId, optionKey, isActive }),
+      });
+      if (res.ok) {
+        await fetchOptions();
+        showToast(`${isActive ? "有効化" : "無効化"}しました`);
+      }
+    } catch {
+      showToast("オプションの更新に失敗しました");
+    } finally {
+      setOptionsSaving(null);
+    }
+  };
+
   // 分析タブ選択時にデータ取得
   useEffect(() => {
     if (activeTab === "analytics" && analyticsData.length === 0) {
       fetchAnalytics();
     }
   }, [activeTab, analyticsData.length, fetchAnalytics]);
+
+  // 設定タブ選択時にAIオプション取得
+  useEffect(() => {
+    if (activeTab === "settings" && aiOptions.length === 0) {
+      fetchOptions();
+    }
+  }, [activeTab, aiOptions.length, fetchOptions]);
 
   // 金額フォーマット
   const formatCurrency = (amount: number) =>
@@ -297,6 +350,8 @@ export default function TenantDetailPage() {
         payload.notes = editForm.notes || null;
       if (editForm.logoUrl !== (tenant?.logo_url || ""))
         payload.logoUrl = editForm.logoUrl || null;
+      if (editForm.industry !== (tenant?.industry || "clinic"))
+        payload.industry = editForm.industry;
 
       if (Object.keys(payload).length === 0) {
         showToast("変更はありません");
@@ -1024,6 +1079,99 @@ export default function TenantDetailPage() {
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* 業種設定 */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-base font-semibold text-slate-900">業種</h2>
+                <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                  { clinic: "bg-blue-100 text-blue-700", salon: "bg-purple-100 text-purple-700", retail: "bg-emerald-100 text-emerald-700", other: "bg-slate-100 text-slate-600" }[editForm.industry] || "bg-slate-100 text-slate-600"
+                }`}>
+                  {{ clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" }[editForm.industry] || editForm.industry}
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mb-4">
+                テナントの業種を設定します。業種によってテナント管理画面の表示セクションが変わります。
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {(["clinic", "salon", "retail", "other"] as const).map((ind) => {
+                  const labels: Record<string, string> = { clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" };
+                  const icons: Record<string, string> = { clinic: "🏥", salon: "💇", retail: "🏪", other: "🏢" };
+                  const isSelected = editForm.industry === ind;
+                  return (
+                    <button
+                      key={ind}
+                      onClick={() => setEditForm((p) => ({ ...p, industry: ind }))}
+                      className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                        isSelected
+                          ? "border-amber-500 bg-amber-50 text-amber-800"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="text-xl">{icons[ind]}</span>
+                      <span>{labels[ind]}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* AIオプション管理 */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+              <h2 className="text-base font-semibold text-slate-900 mb-1">AIオプション</h2>
+              <p className="text-sm text-slate-500 mb-5">テナントに付与するAIオプション機能を管理します。</p>
+              {optionsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-slate-100 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {aiOptions.map((opt) => (
+                    <div key={opt.key} className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                      opt.isActive ? "border-green-200 bg-green-50/50" : "border-slate-200 bg-slate-50/50"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">
+                          {{ ai_reply: "🤖", voice_input: "🎙️", ai_karte: "📋" }[opt.key] || "✨"}
+                        </span>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{opt.label}</p>
+                          <p className="text-xs text-slate-500">¥{opt.monthlyPrice.toLocaleString()}/月</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded ${
+                          opt.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {opt.isActive ? "有効" : "無効"}
+                        </span>
+                        <button
+                          onClick={() => toggleOption(opt.key, !opt.isActive)}
+                          disabled={optionsSaving === opt.key}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                            opt.isActive ? "bg-amber-500" : "bg-slate-300"
+                          }`}
+                        >
+                          <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ease-in-out ${
+                            opt.isActive ? "translate-x-5" : "translate-x-0"
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {aiOptions.length > 0 && (
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-200 mt-2">
+                      <span className="text-sm text-slate-600">オプション月額合計</span>
+                      <span className="text-base font-bold text-slate-900">
+                        ¥{aiOptions.filter((o) => o.isActive).reduce((s, o) => s + o.monthlyPrice, 0).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* ステータス変更 */}

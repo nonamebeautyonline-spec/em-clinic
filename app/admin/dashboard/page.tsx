@@ -187,6 +187,17 @@ export default function EnhancedDashboard() {
   // SSE関連のstate
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  // セットアップ状態
+  const [setupComplete, setSetupComplete] = useState(true);
+  useEffect(() => {
+    fetch("/api/admin/setup-status", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.setupComplete !== undefined) setSetupComplete(data.setupComplete);
+      })
+      .catch(() => {});
+  }, []);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -521,6 +532,34 @@ export default function EnhancedDashboard() {
           )}
         </div>
       </div>
+
+      {/* セットアップバナー（LINE未設定時） */}
+      {!setupComplete && (
+        <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="shrink-0 w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-900">LINE Messaging APIの設定が完了していません</p>
+                <p className="text-xs text-amber-700">全機能を利用するために設定を完了してください</p>
+              </div>
+            </div>
+            <a
+              href="/admin/settings?section=line"
+              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+            >
+              設定する
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg text-red-700">

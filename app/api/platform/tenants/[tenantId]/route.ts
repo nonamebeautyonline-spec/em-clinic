@@ -34,6 +34,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
         id,
         name,
         slug,
+        industry,
         is_active,
         contact_email,
         contact_phone,
@@ -154,6 +155,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     if (data.address !== undefined) updatePayload.address = data.address;
     if (data.notes !== undefined) updatePayload.notes = data.notes;
     if (data.logoUrl !== undefined) updatePayload.logo_url = data.logoUrl;
+    if (data.industry !== undefined) updatePayload.industry = data.industry;
 
     const { data: updated, error: updateErr } = await supabaseAdmin
       .from("tenants")

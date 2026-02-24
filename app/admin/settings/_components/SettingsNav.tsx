@@ -1,32 +1,39 @@
 // 設定ページ左サイドナビゲーション
 "use client";
 
-export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "flex" | "consultation" | "ehr" | "account";
+export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "flex" | "consultation" | "ehr" | "account" | "options";
 
-const SECTIONS: { key: SectionKey; label: string; icon: string }[] = [
+const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
-  { key: "payment", label: "決済設定", icon: "💳" },
   { key: "line", label: "LINE連携", icon: "💬" },
-  { key: "sms", label: "SMS認証", icon: "📱" },
+  { key: "payment", label: "決済設定", icon: "💳" },
+  { key: "sms", label: "SMS認証", icon: "📱", clinicOnly: true },
   { key: "mypage", label: "マイページ", icon: "🎨" },
   { key: "flex", label: "LINE通知", icon: "📩" },
-  { key: "consultation", label: "診察設定", icon: "🩺" },
-  { key: "ehr", label: "カルテ連携", icon: "🏗" },
+  { key: "consultation", label: "診察設定", icon: "🩺", clinicOnly: true },
+  { key: "ehr", label: "カルテ連携", icon: "🏗", clinicOnly: true },
+  { key: "options", label: "オプション機能", icon: "✨" },
   { key: "account", label: "アカウント", icon: "👤" },
 ];
 
 interface SettingsNavProps {
   active: SectionKey;
   onChange: (key: SectionKey) => void;
+  industry?: string;
 }
 
-export default function SettingsNav({ active, onChange }: SettingsNavProps) {
+export default function SettingsNav({ active, onChange, industry = "clinic" }: SettingsNavProps) {
+  const visibleSections = SECTIONS.filter((s) => {
+    if (s.clinicOnly && industry !== "clinic") return false;
+    return true;
+  });
+
   return (
     <>
       {/* PC: 縦ナビ */}
       <nav className="hidden md:block w-52 shrink-0">
         <div className="sticky top-6 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {SECTIONS.map(({ key, label, icon }) => (
+          {visibleSections.map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => onChange(key)}
@@ -50,7 +57,7 @@ export default function SettingsNav({ active, onChange }: SettingsNavProps) {
           onChange={(e) => onChange(e.target.value as SectionKey)}
           className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
-          {SECTIONS.map(({ key, label, icon }) => (
+          {visibleSections.map(({ key, label, icon }) => (
             <option key={key} value={key}>
               {icon} {label}
             </option>

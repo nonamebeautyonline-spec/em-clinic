@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
         id,
         name,
         slug,
+        industry,
         is_active,
         contact_email,
         contact_phone,
@@ -245,6 +246,7 @@ export async function POST(req: NextRequest) {
       .insert({
         name: data.name,
         slug: data.slug,
+        industry: data.industry || "clinic",
         contact_email: data.contactEmail || null,
         contact_phone: data.contactPhone || null,
         address: data.address || null,

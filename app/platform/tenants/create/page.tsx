@@ -13,6 +13,7 @@ interface FormData {
   // Step 1: 基本情報
   name: string;
   slug: string;
+  industry: string;
   contactEmail: string;
   contactPhone: string;
   address: string;
@@ -37,6 +38,7 @@ interface FormData {
 const initialFormData: FormData = {
   name: "",
   slug: "",
+  industry: "clinic",
   contactEmail: "",
   contactPhone: "",
   address: "",
@@ -270,6 +272,7 @@ export default function CreateTenantPage() {
         body: JSON.stringify({
           name: formData.name,
           slug: formData.slug,
+          industry: formData.industry,
           contactEmail: formData.contactEmail || undefined,
           contactPhone: formData.contactPhone || undefined,
           address: formData.address || undefined,
@@ -516,6 +519,36 @@ export default function CreateTenantPage() {
                     placeholder="東京都渋谷区..."
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                </div>
+
+                {/* 業種 */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    業種
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {([
+                      { key: "clinic", label: "クリニック", icon: "🏥" },
+                      { key: "salon", label: "サロン", icon: "💇" },
+                      { key: "retail", label: "小売", icon: "🏪" },
+                      { key: "other", label: "その他", icon: "🏢" },
+                    ] as const).map((ind) => (
+                      <button
+                        key={ind.key}
+                        type="button"
+                        onClick={() => updateField("industry", ind.key)}
+                        className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                          formData.industry === ind.key
+                            ? "border-amber-500 bg-amber-50 text-amber-800"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="text-xl">{ind.icon}</span>
+                        <span>{ind.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">業種によって管理画面に表示される機能セクションが変わります</p>
                 </div>
               </div>
             </div>
@@ -773,6 +806,7 @@ export default function CreateTenantPage() {
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                   <ConfirmRow label="クリニック名" value={formData.name} />
                   <ConfirmRow label="URL" value={`${formData.slug}.lope.jp`} mono />
+                  <ConfirmRow label="業種" value={{ clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" }[formData.industry] || formData.industry} />
                   {formData.contactEmail && (
                     <ConfirmRow label="連絡先メール" value={formData.contactEmail} />
                   )}

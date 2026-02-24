@@ -11,6 +11,7 @@ import AccountSection from "./_components/AccountSection";
 import SmsSection from "./_components/SmsSection";
 import EhrSection from "./_components/EhrSection";
 import ConsultationSection from "./_components/ConsultationSection";
+import OptionsSection from "./_components/OptionsSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -159,6 +160,13 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  // テナント情報（業種・オプション）
+  const [industry, setIndustry] = useState("clinic");
+  const [enabledOptions, setEnabledOptions] = useState<string[]>([]);
+
+  // セットアップ状態
+  const [setupComplete, setSetupComplete] = useState(true);
+
   const loadSettings = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -174,7 +182,37 @@ export default function SettingsPage() {
     }
   }, []);
 
+  // テナント情報取得
+  useEffect(() => {
+    fetch("/api/admin/tenant-info", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.industry) setIndustry(data.industry);
+        if (data.enabledOptions) setEnabledOptions(data.enabledOptions);
+      })
+      .catch(() => {});
+  }, []);
+
+  // セットアップ状態取得
+  useEffect(() => {
+    fetch("/api/admin/setup-status", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.setupComplete !== undefined) setSetupComplete(data.setupComplete);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  // URLパラメータからセクション指定
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const section = params.get("section");
+    if (section) {
+      setActiveSection(section as SectionKey);
+    }
+  }, []);
 
   const handleSaved = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -204,11 +242,42 @@ export default function SettingsPage() {
 
       {/* ヘッダー */}
       <div className="bg-white border-b border-gray-100">
+        <div className="h-0.5 bg-gradient-to-r from-amber-400 to-orange-500" />
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-5">
           <h1 className="text-xl font-bold text-gray-900">設定</h1>
           <p className="text-sm text-gray-500 mt-0.5">各種サービスの設定を管理します</p>
         </div>
       </div>
+
+      {/* セットアップバナー（LINE未設定時） */}
+      {!setupComplete && (
+        <div className="max-w-7xl mx-auto px-4 md:px-8 mt-4">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-5">
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-sm">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-amber-900">Lオペへようこそ</h3>
+                <p className="text-sm text-amber-700 mt-1">
+                  全機能を利用するために、LINE Messaging APIの設定を完了してください。
+                </p>
+                <button
+                  onClick={() => setActiveSection("line")}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+                >
+                  LINE連携を設定する
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="max-w-7xl mx-auto px-4 md:px-8 mt-4">
@@ -220,13 +289,13 @@ export default function SettingsPage() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
         {/* モバイルナビ（md未満で表示） */}
         <div className="md:hidden">
-          <SettingsNav active={activeSection} onChange={setActiveSection} />
+          <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} />
         </div>
 
         <div className="flex gap-6">
           {/* PCナビ（md以上で表示） */}
           <div className="hidden md:block">
-            <SettingsNav active={activeSection} onChange={setActiveSection} />
+            <SettingsNav active={activeSection} onChange={setActiveSection} industry={industry} />
           </div>
 
           {/* コンテンツ領域 */}
@@ -239,6 +308,7 @@ export default function SettingsPage() {
             {activeSection === "flex" && <FlexSection onToast={handleToast} />}
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
+            {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>
