@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const tenantId = resolveTenantId(req);
+    const simple = req.nextUrl.searchParams.get("simple") === "true";
 
     const { data, error } = await withTenant(
       supabaseAdmin.from("rich_menus").select("*").order("created_at", { ascending: false }),
@@ -21,6 +22,12 @@ export async function GET(req: NextRequest) {
     );
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // simple=true: id/name/is_active のみ返す（メニュー自動切替ページ等の軽量取得用）
+    if (simple) {
+      const menus = (data || []).map((m: any) => ({ id: m.id, name: m.name, is_active: m.is_active }));
+      return NextResponse.json({ menus });
+    }
 
     // メニューごとの表示人数を計算
     // 1. LINE連携済み患者の総数（patients テーブルの line_id で判定）

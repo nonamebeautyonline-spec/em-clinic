@@ -53,7 +53,7 @@ export default function MenuRulesPage() {
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/friend-fields", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/rich-menus", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/line/rich-menus?simple=true", { credentials: "include" }).then(r => r.json()),
     ]);
     if (rulesRes.rules) setRules(rulesRes.rules);
     if (tagsRes.tags) setTags(tagsRes.tags);
