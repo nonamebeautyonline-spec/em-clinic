@@ -2,6 +2,7 @@
 // テナント管理用Zodスキーマ
 
 import { z } from "zod";
+import { strongPasswordSchema } from "@/lib/validations/password-policy";
 
 // slug予約語
 const RESERVED_SLUGS = ["app", "admin", "www", "localhost", "127", "l-ope", "api", "platform"];
@@ -20,7 +21,7 @@ export const createTenantSchema = z.object({
   // 初期管理者
   adminName: z.string().min(1, "管理者名は必須です").max(100),
   adminEmail: z.string().email("有効なメールアドレスを入力してください").max(255),
-  adminPassword: z.string().min(8, "パスワードは8文字以上です").max(100),
+  adminPassword: strongPasswordSchema,
   // 業種
   industry: z.enum(["clinic", "salon", "retail", "other"]).default("clinic"),
   // LINE設定（任意）
@@ -57,7 +58,7 @@ export const updateTenantStatusSchema = z.object({
 export const addMemberSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email().max(255),
-  password: z.string().min(8).max(100),
+  password: strongPasswordSchema,
   role: z.enum(["admin", "owner", "viewer"]).default("admin"),
 });
 

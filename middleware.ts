@@ -1,7 +1,8 @@
-// middleware.ts — proxy.ts統合 + CSRF検証（Double Submit Cookie パターン）
+// middleware.ts — proxy.ts統合 + CSRF検証（Double Submit Cookie パターン）+ 権限チェック
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import { getRequiredPermission, hasPermission } from "@/lib/permissions";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
@@ -188,22 +189,15 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // === viewer ロールの書き込みブロック ===
-  if (
-    tenantRole === "viewer" &&
-    ["POST", "PUT", "PATCH", "DELETE"].includes(method) &&
-    pathname.startsWith("/api/admin/") &&
-    // viewer でも許可する操作
-    !pathname.startsWith("/api/admin/login") &&
-    !pathname.startsWith("/api/admin/logout") &&
-    !pathname.startsWith("/api/admin/session") &&
-    !pathname.startsWith("/api/admin/chat-reads") &&
-    !pathname.startsWith("/api/admin/account")
-  ) {
-    return NextResponse.json(
-      { ok: false, error: "閲覧専用アカウントのため、この操作は実行できません" },
-      { status: 403 },
-    );
+  // === 細粒度権限チェック ===
+  if (tenantRole && pathname.startsWith("/api/admin/")) {
+    const requiredPermission = getRequiredPermission(pathname, method);
+    if (requiredPermission && !hasPermission(tenantRole, requiredPermission)) {
+      return NextResponse.json(
+        { ok: false, error: "この操作に対する権限がありません" },
+        { status: 403 },
+      );
+    }
   }
 
   // 2. JWTにテナントIDがなければサブドメインから解決

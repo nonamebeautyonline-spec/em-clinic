@@ -99,7 +99,7 @@ describe("accountPasswordChangeSchema", () => {
   it("正常値でparse成功", () => {
     const result = accountPasswordChangeSchema.safeParse({
       currentPassword: "oldpass",
-      newPassword: "12345678",
+      newPassword: "NewPass123!",
     });
     expect(result.success).toBe(true);
   });
@@ -114,7 +114,7 @@ describe("accountPasswordChangeSchema", () => {
 
   it("currentPassword 欠損で失敗", () => {
     const result = accountPasswordChangeSchema.safeParse({
-      newPassword: "12345678",
+      newPassword: "NewPass123!",
     });
     expect(result.success).toBe(false);
   });
@@ -1069,7 +1069,7 @@ describe("adminPasswordResetConfirmSchema", () => {
   it("正常値でparse成功", () => {
     const result = adminPasswordResetConfirmSchema.safeParse({
       token: "abc123",
-      password: "newpassword",
+      password: "NewPass123!",
     });
     expect(result.success).toBe(true);
   });

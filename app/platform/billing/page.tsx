@@ -725,6 +725,9 @@ type UsageData = {
   overageCount: number;
   overageUnitPrice: number;
   overageAmount: number;
+  storageMb: number;
+  storageQuotaMb: number;
+  apiCallCount: number;
 };
 
 function UsageTab() {
@@ -820,13 +823,19 @@ function UsageTab() {
                 <th className="text-center px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
                   消費率
                 </th>
+                <th className="text-center px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  ストレージ
+                </th>
+                <th className="text-right px-6 py-3 text-xs font-semibold text-slate-500 uppercase">
+                  API呼出数
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 Array.from({ length: 3 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 7 }).map((_, j) => (
+                    {Array.from({ length: 9 }).map((_, j) => (
                       <td key={j} className="px-6 py-4">
                         <div className="h-4 bg-slate-200 rounded animate-pulse" />
                       </td>
@@ -836,7 +845,7 @@ function UsageTab() {
               ) : usages.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-6 py-12 text-center text-slate-500"
                   >
                     使用量データがありません
@@ -912,6 +921,41 @@ function UsageTab() {
                             {pct}%
                           </span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const storagePct =
+                            u.storageQuotaMb > 0
+                              ? Math.min(100, Math.round((u.storageMb / u.storageQuotaMb) * 100))
+                              : 0;
+                          return (
+                            <div>
+                              <div className="text-xs text-slate-600 mb-1 text-right">
+                                {u.storageMb?.toFixed(1) ?? "0"} / {u.storageQuotaMb ?? 1024} MB
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      storagePct >= 90
+                                        ? "bg-red-500"
+                                        : storagePct >= 70
+                                          ? "bg-amber-500"
+                                          : "bg-emerald-500"
+                                    }`}
+                                    style={{ width: `${Math.min(storagePct, 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-slate-500 w-10 text-right">
+                                  {storagePct}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-600">
+                        {(u.apiCallCount ?? 0).toLocaleString()}
                       </td>
                     </tr>
                   );

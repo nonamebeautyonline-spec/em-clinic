@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { addMemberSchema } from "@/lib/validations/platform-tenant";
 import { generateUsername } from "@/lib/username";
+import { sendTenantInviteEmail } from "@/lib/email";
 
 interface RouteContext {
   params: Promise<{ tenantId: string }>;
@@ -191,6 +192,18 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       memberName: data.name,
       memberEmail: data.email,
       role: data.role,
+    });
+
+    // テナント招待メール送信（fire-and-forget）
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://lope.jp"}/setup?token=${newUser.id}`;
+    sendTenantInviteEmail(
+      data.email,
+      admin.name || "プラットフォーム管理者",
+      tenant.name,
+      inviteUrl,
+      data.role,
+    ).catch((err) => {
+      console.error("[platform/tenants/[id]/members] 招待メール送信エラー:", err);
     });
 
     return NextResponse.json(

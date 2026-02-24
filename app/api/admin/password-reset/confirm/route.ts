@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetConfirmSchema } from "@/lib/validations/admin-operations";
+import { checkPasswordHistory, savePasswordHistory } from "@/lib/password-policy";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,14 +120,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // パスワード履歴チェック（直近5回と重複していないか）
+    const isAllowed = await checkPasswordHistory(resetToken.admin_user_id, password);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { ok: false, error: "過去5回以内に使用したパスワードは再利用できません" },
+        { status: 400 }
+      );
+    }
+
     // パスワードハッシュ化
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // パスワード更新
+    // パスワード更新 + password_changed_at 更新
     const { error: updateError } = await withTenant(
       supabase
         .from("admin_users")
-        .update({ password_hash: passwordHash })
+        .update({
+          password_hash: passwordHash,
+          password_changed_at: new Date().toISOString(),
+        })
         .eq("id", resetToken.admin_user_id),
       tenantId
     );
@@ -138,6 +151,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // パスワード履歴に保存
+    await savePasswordHistory(resetToken.admin_user_id, passwordHash);
 
     // トークンを使用済みにする
     await withTenant(

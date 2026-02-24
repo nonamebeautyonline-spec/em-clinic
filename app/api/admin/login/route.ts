@@ -10,6 +10,7 @@ import { adminLoginSchema } from "@/lib/validations/admin-login";
 import { logAudit } from "@/lib/audit";
 import { createSession } from "@/lib/session";
 import { sendLoginAlertIfNewIp } from "@/lib/notifications/login-alert";
+import { isPasswordExpired } from "@/lib/password-policy";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     // ユーザー取得（usernameはグローバルに一意なのでテナント不要）
     const { data: user, error: userError } = await supabase
       .from("admin_users")
-      .select("id, email, name, username, password_hash, is_active, tenant_id, platform_role")
+      .select("id, email, name, username, password_hash, is_active, tenant_id, platform_role, password_changed_at")
       .eq("username", usernameNorm)
       .single();
 
@@ -152,6 +153,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // パスワード有効期限チェック
+    const passwordExpired = isPasswordExpired(user.password_changed_at ?? null);
+
     // レスポンス
     const response = NextResponse.json({
       ok: true,
@@ -161,6 +165,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
       },
       redirectUrl,
+      ...(passwordExpired ? { passwordExpired: true } : {}),
     });
 
     // httpOnly Cookie設定（24時間有効）

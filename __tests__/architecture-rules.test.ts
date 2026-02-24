@@ -152,6 +152,9 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/csrf-token/route.ts",
     "app/api/health/route.ts",
     "app/api/cron/health-report/route.ts",
+    // 全テナント横断のCronジョブ（テナント単位ではなく全テナントをループ処理）
+    "app/api/cron/usage-check/route.ts",
+    "app/api/cron/audit-archive/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",

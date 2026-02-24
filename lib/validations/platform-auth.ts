@@ -1,5 +1,6 @@
 // lib/validations/platform-auth.ts — プラットフォーム認証関連Zodスキーマ
 import { z } from "zod";
+import { strongPasswordSchema } from "@/lib/validations/password-policy";
 
 // パスワードリセットリクエスト（メール送信）
 export const passwordResetRequestSchema = z.object({
@@ -11,7 +12,7 @@ export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchem
 // パスワードリセット実行（新パスワード設定）
 export const passwordResetSchema = z.object({
   token: z.string().min(1, "トークンは必須です"),
-  password: z.string().min(8, "パスワードは8文字以上で入力してください").max(200, "パスワードは200文字以下で入力してください"),
+  password: strongPasswordSchema,
 });
 
 export type PasswordResetInput = z.infer<typeof passwordResetSchema>;

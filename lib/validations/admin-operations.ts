@@ -1,5 +1,6 @@
 // lib/validations/admin-operations.ts — 管理者操作APIのZodスキーマ
 import { z } from "zod";
+import { strongPasswordSchema } from "@/lib/validations/password-policy";
 
 /** 患者マージ POST /api/admin/merge-patients */
 export const mergePatientSchema = z
@@ -18,7 +19,7 @@ export const mergePatientSchema = z
 export const accountPasswordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, "現在のパスワードは必須です"),
-    newPassword: z.string().min(8, "パスワードは8文字以上で入力してください"),
+    newPassword: strongPasswordSchema,
   })
   .passthrough();
 
@@ -545,7 +546,7 @@ export const adminPasswordResetRequestSchema = z
 export const adminPasswordResetConfirmSchema = z
   .object({
     token: z.string().min(1, "トークンは必須です"),
-    password: z.string().min(8, "パスワードは8文字以上必要です"),
+    password: strongPasswordSchema,
   })
   .passthrough();
 

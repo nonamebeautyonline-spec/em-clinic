@@ -7,6 +7,7 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 import bcrypt from "bcryptjs";
 import { parseBody } from "@/lib/validations/helpers";
 import { accountPasswordChangeSchema, accountEmailChangeSchema } from "@/lib/validations/admin-operations";
+import { checkPasswordHistory, savePasswordHistory } from "@/lib/password-policy";
 
 /**
  * PUT: パスワード変更
@@ -44,16 +45,31 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "現在のパスワードが正しくありません" }, { status: 400 });
     }
 
+    // パスワード履歴チェック（直近5回と重複していないか）
+    const isAllowed = await checkPasswordHistory(userId, newPassword);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { ok: false, error: "過去5回以内に使用したパスワードは再利用できません" },
+        { status: 400 }
+      );
+    }
+
     // 新しいパスワードをハッシュ化して更新
     const newHash = await bcrypt.hash(newPassword, 10);
     const { error: updateError } = await withTenant(
-      supabaseAdmin.from("admin_users").update({ password_hash: newHash }), tenantId
+      supabaseAdmin.from("admin_users").update({
+        password_hash: newHash,
+        password_changed_at: new Date().toISOString(),
+      }), tenantId
     ).eq("id", userId);
 
     if (updateError) {
       console.error("[Account] パスワード更新エラー:", updateError);
       return NextResponse.json({ ok: false, error: "パスワードの更新に失敗しました" }, { status: 500 });
     }
+
+    // パスワード履歴に保存
+    await savePasswordHistory(userId, newHash);
 
     return NextResponse.json({ ok: true, message: "パスワードを変更しました" });
   } catch (err) {

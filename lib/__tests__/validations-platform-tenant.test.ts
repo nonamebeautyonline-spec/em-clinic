@@ -16,7 +16,7 @@ describe("createTenantSchema", () => {
     slug: "test-clinic",
     adminName: "管理者太郎",
     adminEmail: "admin@example.com",
-    adminPassword: "password123",
+    adminPassword: "Password123!",
   };
 
   it("正常値でparse成功（必須フィールドのみ）", () => {
@@ -167,7 +167,7 @@ describe("createTenantSchema", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("パスワードは8文字以上です");
+      expect(msgs).toContain("パスワードは8文字以上で入力してください");
     }
   });
 
@@ -276,7 +276,7 @@ describe("addMemberSchema", () => {
   const validMember = {
     name: "スタッフ花子",
     email: "staff@example.com",
-    password: "password123",
+    password: "Password123!",
   };
 
   it("正常値でparse成功（デフォルトrole=admin）", () => {

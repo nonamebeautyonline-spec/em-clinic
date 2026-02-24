@@ -47,6 +47,10 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/ai-reply/[draftId]/reject/route.ts",
   // cron/health-report（全テナント横断の監視レポート）
   "app/api/cron/health-report/route.ts",
+  // cron/usage-check（全テナント横断の使用量チェックCron）
+  "app/api/cron/usage-check/route.ts",
+  // cron/audit-archive（全テナント横断の監査ログアーカイブCron）
+  "app/api/cron/audit-archive/route.ts",
 ]);
 
 // platform APIはスーパー管理者用で意図的にテナント横断アクセスするため、テナントフィルター不要

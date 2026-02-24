@@ -97,13 +97,16 @@ export async function sendPasswordResetEmail(
 export async function sendWelcomeEmail(
   to: string,
   name: string,
-  setupUrl: string
+  setupUrl: string,
+  tenantName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const resend = getResend();
     if (!resend) {
       return { success: false, error: "メール設定が完了していません" };
     }
+
+    const displayName = tenantName || "Lオペ for CLINIC";
 
     const { error } = await resend.emails.send({
       from: `${APP_NAME} <${FROM_EMAIL}>`,
@@ -113,7 +116,7 @@ export async function sendWelcomeEmail(
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1e293b;">管理者アカウントが作成されました</h2>
           <p>${name} 様</p>
-          <p>のなめビューティー管理画面の管理者アカウントが作成されました。</p>
+          <p>${displayName}管理画面の管理者アカウントが作成されました。</p>
           <p>下記のリンクからパスワードを設定してください。</p>
           <p style="margin: 24px 0;">
             <a href="${setupUrl}"
@@ -142,4 +145,126 @@ export async function sendWelcomeEmail(
     console.error("[Email] Unexpected error:", err);
     return { success: false, error: "メール送信に失敗しました" };
   }
+}
+
+/**
+ * テナント招待メール送信
+ */
+export async function sendTenantInviteEmail(
+  to: string,
+  inviterName: string,
+  tenantName: string,
+  inviteUrl: string,
+  role: string,
+): Promise<void> {
+  const roleLabel = role === "owner" ? "オーナー" : role === "admin" ? "管理者" : "メンバー";
+
+  await sendEmail({
+    to,
+    subject: `【${APP_NAME}】${tenantName}への招待`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e293b;">${tenantName}に招待されました</h2>
+        <p>${inviterName} さんから、${tenantName}の${roleLabel}として招待されました。</p>
+        <p>下記のリンクから参加してください。</p>
+        <p style="margin: 24px 0;">
+          <a href="${inviteUrl}"
+             style="display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px;">
+            招待を承認する
+          </a>
+        </p>
+        <p style="color: #64748b; font-size: 14px;">
+          このリンクは7日間有効です。<br>
+          心当たりがない場合は、このメールを無視してください。
+        </p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="color: #94a3b8; font-size: 12px;">
+          ${APP_NAME}
+        </p>
+      </div>
+    `,
+  });
+}
+
+/**
+ * 請求通知メール送信
+ */
+export async function sendInvoiceNotificationEmail(
+  to: string,
+  tenantName: string,
+  amount: number,
+  billingPeriod: string,
+): Promise<void> {
+  const formattedAmount = new Intl.NumberFormat("ja-JP").format(amount);
+
+  await sendEmail({
+    to,
+    subject: `【${APP_NAME}】${tenantName}の請求書が発行されました`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e293b;">請求書のお知らせ</h2>
+        <p>${tenantName} 様</p>
+        <p>以下の内容で請求書が発行されました。</p>
+        <div style="margin: 24px 0; padding: 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">請求期間</p>
+          <p style="margin: 0 0 16px 0; font-weight: bold; color: #1e293b;">${billingPeriod}</p>
+          <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">請求金額</p>
+          <p style="margin: 0; font-size: 24px; font-weight: bold; color: #1e293b;">&yen;${formattedAmount}</p>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">
+          詳細は管理画面の請求書ページからご確認ください。
+        </p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="color: #94a3b8; font-size: 12px;">
+          ${APP_NAME}
+        </p>
+      </div>
+    `,
+  });
+}
+
+/**
+ * 使用量警告メール送信
+ */
+export async function sendUsageWarningEmail(
+  to: string,
+  tenantName: string,
+  usagePercent: number,
+  currentCount: number,
+  quota: number,
+): Promise<void> {
+  const formattedCount = new Intl.NumberFormat("ja-JP").format(currentCount);
+  const formattedQuota = new Intl.NumberFormat("ja-JP").format(quota);
+  const isOverLimit = usagePercent >= 100;
+  const statusLabel = isOverLimit ? "上限に到達しました" : `${usagePercent}%に到達しました`;
+  const barColor = isOverLimit ? "#ef4444" : "#f59e0b";
+
+  await sendEmail({
+    to,
+    subject: `【${APP_NAME}】${tenantName}のメッセージ使用量が${statusLabel}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e293b;">メッセージ使用量のお知らせ</h2>
+        <p>${tenantName} 様</p>
+        <p>当月のメッセージ送信数が${statusLabel}</p>
+        <div style="margin: 24px 0; padding: 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 8px 0; color: #64748b; font-size: 14px;">使用状況</p>
+          <p style="margin: 0 0 8px 0; font-size: 20px; font-weight: bold; color: #1e293b;">
+            ${formattedCount} / ${formattedQuota} 通 (${usagePercent}%)
+          </p>
+          <div style="width: 100%; height: 8px; background-color: #e2e8f0; border-radius: 4px; overflow: hidden;">
+            <div style="width: ${Math.min(usagePercent, 100)}%; height: 100%; background-color: ${barColor}; border-radius: 4px;"></div>
+          </div>
+        </div>
+        ${isOverLimit
+          ? `<p style="color: #ef4444; font-weight: bold;">上限を超過した分は従量課金となります。</p>`
+          : `<p style="color: #64748b; font-size: 14px;">上限に達すると従量課金が発生します。プランの変更は管理画面から行えます。</p>`
+        }
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+        <p style="color: #94a3b8; font-size: 12px;">
+          ${APP_NAME}
+        </p>
+      </div>
+    `,
+  });
 }

@@ -329,7 +329,7 @@ describe("passwordResetSchema", () => {
   it("正常値でparse成功", () => {
     const result = passwordResetSchema.safeParse({
       token: "reset-token-xyz",
-      password: "newpassword123",
+      password: "NewPass123!",
     });
     expect(result.success).toBe(true);
   });
@@ -337,7 +337,7 @@ describe("passwordResetSchema", () => {
   it("tokenが空文字でparse失敗", () => {
     const result = passwordResetSchema.safeParse({
       token: "",
-      password: "newpassword123",
+      password: "NewPass123!",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -349,7 +349,7 @@ describe("passwordResetSchema", () => {
   it("passwordが7文字でparse失敗（8文字以上必要）", () => {
     const result = passwordResetSchema.safeParse({
       token: "reset-token",
-      password: "1234567",
+      password: "Ab1!xyz",
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -358,10 +358,10 @@ describe("passwordResetSchema", () => {
     }
   });
 
-  it("passwordが8文字でparse成功（境界値）", () => {
+  it("passwordが8文字でparse成功（境界値・強化ポリシー準拠）", () => {
     const result = passwordResetSchema.safeParse({
       token: "reset-token",
-      password: "12345678",
+      password: "Abcde1!@",
     });
     expect(result.success).toBe(true);
   });
@@ -369,7 +369,7 @@ describe("passwordResetSchema", () => {
   it("passwordが200文字超でparse失敗", () => {
     const result = passwordResetSchema.safeParse({
       token: "reset-token",
-      password: "a".repeat(201),
+      password: "A" + "a".repeat(197) + "1!@",
     });
     expect(result.success).toBe(false);
     if (!result.success) {

@@ -39,6 +39,12 @@ vi.mock("@/lib/tenant", () => ({
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
+// --- パスワードポリシーモック ---
+vi.mock("@/lib/password-policy", () => ({
+  checkPasswordHistory: vi.fn().mockResolvedValue(true),
+  savePasswordHistory: vi.fn().mockResolvedValue(undefined),
+}));
+
 // --- bcrypt モック ---
 const mockBcryptCompare = vi.fn();
 const mockBcryptHash = vi.fn().mockResolvedValue("hashed-new-pw");
@@ -73,7 +79,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     mockVerifyAdminAuth.mockResolvedValue(false);
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "old-pass",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(401);
@@ -85,7 +91,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     mockGetAdminUserId.mockResolvedValue(null);
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "old-pass",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(401);
@@ -108,7 +114,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "old-pass",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(404);
@@ -124,7 +130,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "wrong-password",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(400);
@@ -147,7 +153,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "correct-password",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(200);
@@ -170,7 +176,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "correct-password",
-      newPassword: "new-password-123",
+      newPassword: "New-Pass-123!",
     });
     const res = await PUT(req);
     expect(res.status).toBe(500);

@@ -4,6 +4,7 @@
 // tenant_plans の message_quota と比較して超過分を算出する。
 
 import { supabaseAdmin } from "@/lib/supabase";
+import { getStorageUsage } from "@/lib/usage-storage";
 
 /** 使用量サマリー */
 export interface UsageSummary {
@@ -15,6 +16,9 @@ export interface UsageSummary {
   overageCount: number; // 超過数
   overageUnitPrice: number; // 超過単価
   overageAmount: number; // 超過金額（円）
+  storageMb: number; // ストレージ使用量（MB）
+  storageQuotaMb: number; // ストレージ上限（MB）
+  apiCallCount: number; // API呼出数（当月）
 }
 
 /**
@@ -52,18 +56,42 @@ export async function getMonthUsage(
 
   const messageCount = count ?? 0;
 
-  // tenant_plans からクォータ・超過単価を取得
+  // tenant_plans からクォータ・超過単価・ストレージ上限を取得
   const { data: plan } = await supabaseAdmin
     .from("tenant_plans")
-    .select("message_quota, overage_unit_price")
+    .select("message_quota, overage_unit_price, storage_quota_mb")
     .eq("tenant_id", tenantId)
     .eq("status", "active")
     .maybeSingle();
 
   const quota = plan?.message_quota ?? 5000;
   const overageUnitPrice = plan?.overage_unit_price ?? 1.0;
+  const storageQuotaMb = plan?.storage_quota_mb ?? 1024;
   const overageCount = Math.max(0, messageCount - quota);
   const overageAmount = Math.ceil(overageCount * overageUnitPrice);
+
+  // ストレージ使用量を取得
+  let storageMb = 0;
+  try {
+    const storage = await getStorageUsage(tenantId);
+    storageMb = Math.round((storage.totalBytes / (1024 * 1024)) * 100) / 100;
+  } catch {
+    // ストレージ取得エラーは無視（0のまま）
+  }
+
+  // API呼出数: audit_logs の当月レコード数で近似
+  let apiCallCount = 0;
+  try {
+    const { count: auditCount } = await supabaseAdmin
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .gte("created_at", monthStart)
+      .lt("created_at", monthEnd);
+    apiCallCount = auditCount ?? 0;
+  } catch {
+    // audit_logs取得エラーは無視（0のまま）
+  }
 
   return {
     tenantId,
@@ -74,6 +102,9 @@ export async function getMonthUsage(
     overageCount,
     overageUnitPrice,
     overageAmount,
+    storageMb,
+    storageQuotaMb,
+    apiCallCount,
   };
 }
 

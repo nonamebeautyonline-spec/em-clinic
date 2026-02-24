@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -18,6 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import OnboardingChecklist from "@/components/admin/OnboardingChecklist";
 
 interface DashboardStats {
   reservations: {
@@ -143,6 +146,8 @@ export default function AdminDashboard() {
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [showCustomize, setShowCustomize] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<WidgetId | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(true);
 
   // ドラッグ&ドロップ（@dnd-kit）
   const sensors = useSensors(
@@ -231,7 +236,12 @@ export default function AdminDashboard() {
   };
 
   // ドラッグ&ドロップハンドラ（@dnd-kit）
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as WidgetId);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
     const { active, over } = event;
     if (!over || active.id === over.id || !layout) return;
     const oldIndex = layout.widgets.findIndex((w) => w.id === active.id);
@@ -709,6 +719,11 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* オンボーディングチェックリスト */}
+      {showOnboarding && (
+        <OnboardingChecklist onDismiss={() => setShowOnboarding(false)} />
+      )}
+
       {/* カスタマイズパネル */}
       {showCustomize && layout && (
         <div className="mb-8 bg-white rounded-lg shadow p-6 border border-blue-200">
@@ -733,15 +748,50 @@ export default function AdminDashboard() {
           <p className="text-xs text-slate-500 mb-4">
             ドラッグ&ドロップで並び替え、チェックで表示/非表示を切り替え
           </p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <SortableContext items={layout.widgets.map((w) => w.id)} strategy={verticalListSortingStrategy}>
               <div className="space-y-1">
                 {layout.widgets.map((w) => (
-                  <SortableWidgetItem key={w.id} widget={w} onToggle={() => toggleWidget(w.id)} />
+                  <SortableWidgetItem key={w.id} widget={w} onToggle={() => toggleWidget(w.id)} isGhost={activeDragId === w.id} />
                 ))}
               </div>
             </SortableContext>
+            <DragOverlay>
+              {activeDragId ? (
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-blue-50 shadow-lg border border-blue-200 opacity-80">
+                  <span className="text-slate-400 text-sm">&#x2630;</span>
+                  <span className="text-sm font-medium text-blue-700">{WIDGET_LABELS[activeDragId]}</span>
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
+
+          {/* 非表示のウィジェット再追加セクション */}
+          {(() => {
+            const hiddenWidgets = layout.widgets.filter((w) => !w.visible);
+            return (
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">非表示のウィジェット</h3>
+                {hiddenWidgets.length === 0 ? (
+                  <p className="text-xs text-slate-400">すべてのウィジェットが表示中です</p>
+                ) : (
+                  <div className="space-y-1">
+                    {hiddenWidgets.map((w) => (
+                      <div key={w.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
+                        <span className="text-sm text-slate-500">{WIDGET_LABELS[w.id]}</span>
+                        <button
+                          onClick={() => toggleWidget(w.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          +追加
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -756,7 +806,7 @@ export default function AdminDashboard() {
 }
 
 // ドラッグ&ドロップ対応ウィジェット行
-function SortableWidgetItem({ widget, onToggle }: { widget: WidgetConfig; onToggle: () => void }) {
+function SortableWidgetItem({ widget, onToggle, isGhost }: { widget: WidgetConfig; onToggle: () => void; isGhost?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -769,7 +819,7 @@ function SortableWidgetItem({ widget, onToggle }: { widget: WidgetConfig; onTogg
       style={style}
       className={`flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 select-none ${
         isDragging ? "opacity-50 shadow-lg bg-blue-50" : ""
-      }`}
+      } ${isGhost ? "opacity-30" : ""}`}
     >
       <span
         {...attributes}
