@@ -38,7 +38,6 @@ type IntakeItem = {
   status: string | null;
   prescriptionMenu: string;
   note: string;
-  noteFormat?: NoteFormat;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answers: Record<string, any>;
   locked_at?: string | null;
@@ -180,6 +179,18 @@ export default function KartePage() {
   const [editSoap, setEditSoap] = useState<SoapNote>(emptySoapNote());
   const [editNoteFormat, setEditNoteFormat] = useState<NoteFormat>("plain");
 
+  /** noteの内容からSOAP/plainを自動判定 */
+  const detectNoteFormat = (note: string | null | undefined): NoteFormat => {
+    if (!note) return "plain";
+    try {
+      const parsed = JSON.parse(note);
+      if (parsed && typeof parsed === "object" && ("s" in parsed || "o" in parsed || "a" in parsed || "p" in parsed)) {
+        return "soap";
+      }
+    } catch { /* plainテキスト */ }
+    return "plain";
+  };
+
   // --- テンプレート ---
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -308,12 +319,8 @@ export default function KartePage() {
 
   // === カルテ編集 ===
   const startEdit = (intake: IntakeItem) => {
-    if (intake.locked_at) {
-      alert("このカルテはロックされています。");
-      return;
-    }
     setEditingIntakeId(intake.id);
-    const fmt = intake.noteFormat || "plain";
+    const fmt = detectNoteFormat(intake.note);
     setEditNoteFormat(fmt);
     setEditSoap(noteToSoap(intake.note, fmt));
   };
@@ -336,16 +343,13 @@ export default function KartePage() {
         body: JSON.stringify({
           intakeId: editingIntakeId,
           note: noteToSave,
-          noteFormat: editNoteFormat,
         }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "保存失敗");
       // ローカル更新
       setIntakes(prev => prev.map(it =>
-        it.id === editingIntakeId
-          ? { ...it, note: noteToSave, noteFormat: editNoteFormat }
-          : it
+        it.id === editingIntakeId ? { ...it, note: noteToSave } : it
       ));
       setEditingIntakeId(null);
       setEditSoap(emptySoapNote());
@@ -1074,7 +1078,7 @@ export default function KartePage() {
                                       ) : (
                                         <>
                                           {it.note ? (
-                                            <NoteDisplay note={it.note} noteFormat={it.noteFormat} />
+                                            <NoteDisplay note={it.note} />
                                           ) : (
                                             <p className="text-sm text-gray-400 italic">メモなし</p>
                                           )}
@@ -1182,11 +1186,18 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** SOAP/プレーンを自動判定して表示 */
-function NoteDisplay({ note, noteFormat }: { note: string; noteFormat?: NoteFormat }) {
-  const fmt = noteFormat || "plain";
-  if (fmt === "soap") {
-    const soap = parseJsonToSoap(note);
+/** SOAP/プレーンをnote内容から自動判定して表示 */
+function NoteDisplay({ note }: { note: string }) {
+  // JSON形式（SOAP）かどうかを判定
+  let soap: { s: string; o: string; a: string; p: string } | null = null;
+  try {
+    const parsed = JSON.parse(note);
+    if (parsed && typeof parsed === "object" && ("s" in parsed || "o" in parsed || "a" in parsed || "p" in parsed)) {
+      soap = parseJsonToSoap(note);
+    }
+  } catch { /* プレーンテキスト */ }
+
+  if (soap) {
     const sections = [
       { key: "s", label: "S", value: soap.s, color: "border-l-blue-400" },
       { key: "o", label: "O", value: soap.o, color: "border-l-green-400" },

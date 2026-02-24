@@ -118,7 +118,6 @@ export const karteEditSchema = z
       { message: "intakeIdは必須です" },
     ),
     note: z.string().optional(),
-    noteFormat: z.enum(["plain", "soap"]).optional(),
   })
   .passthrough();
 

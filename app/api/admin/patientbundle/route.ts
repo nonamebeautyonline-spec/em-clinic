@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       withTenant(
         supabaseAdmin
           .from("intake")
-          .select("id, patient_id, reserve_id, status, note, note_format, answers, created_at, locked_at, locked_by")
+          .select("id, patient_id, reserve_id, status, note, answers, created_at")
           .eq("patient_id", patientId)
           .order("id", { ascending: false })
           .limit(50),
@@ -109,10 +109,7 @@ export async function GET(req: NextRequest) {
           status: i.status || null,
           prescriptionMenu: res?.prescription_menu || "",
           note: i.note || "",
-          noteFormat: i.note_format || "plain",
           answers: i.answers || {},
-          locked_at: i.locked_at || null,
-          locked_by: i.locked_by || null,
         };
       }),
       // 再処方カルテ（karte_note あり）を来院履歴に追加
