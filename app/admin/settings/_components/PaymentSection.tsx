@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { SettingItem, SettingsMap, CategoryKey } from "../page";
+import type { SettingsMap, CategoryKey } from "../page";
 import { SettingRow, SourceBadge } from "../page";
 
 const PROVIDER_OPTIONS: { value: string; label: string; description: string; category: CategoryKey }[] = [
@@ -13,6 +13,161 @@ const PROVIDER_OPTIONS: { value: string; label: string; description: string; cat
 interface Props {
   settings: SettingsMap | null;
   onSaved: (msg: string, type: "success" | "error") => void;
+}
+
+function PaymentSetupGuide({ provider, defaultOpen }: { provider: string; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="border-b border-gray-100">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-5 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm">📋</span>
+          <span className="text-xs font-bold text-gray-700">設定手順を見る</span>
+        </div>
+        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-4">
+          {provider === "square" ? (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">1</span>
+                  <h4 className="text-xs font-bold text-gray-800">Squareアプリケーションを準備</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <p>
+                    <a href="https://developer.squareup.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                      Square Developer Dashboard
+                    </a>
+                    {" "}にログイン
+                  </p>
+                  <p>「Applications」→ 対象のアプリを選択（なければ「+」で新規作成）</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">2</span>
+                  <h4 className="text-xs font-bold text-gray-800">APIキーを取得</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
+                    <p>「<strong>Credentials</strong>」タブを開く</p>
+                    <p className="text-amber-700">※ 上部で「<strong>Production</strong>」タブに切り替えること（Sandboxではなく）</p>
+                    <p className="pl-3">「Access Token」→ 下の <strong>Access Token</strong> にコピー</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+                  <h4 className="text-xs font-bold text-gray-800">Location IDを取得</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <p>「<strong>Locations</strong>」タブ → 対象ロケーションのIDをコピー</p>
+                  <p className="pl-3">→ 下の <strong>Location ID</strong> にコピー</p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">4</span>
+                  <h4 className="text-xs font-bold text-gray-800">Webhookを設定</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
+                    <p>「<strong>Webhooks</strong>」タブ → 「<strong>Add Endpoint</strong>」</p>
+                    <p>URL に以下を入力:</p>
+                    <code className="block bg-white px-2.5 py-1 rounded border border-gray-200 text-[11px] font-mono text-gray-800 select-all">
+                      https://あなたのドメイン/api/square/webhook
+                    </code>
+                    <p>イベント: <strong>payment.completed</strong>, <strong>refund.created</strong> を選択</p>
+                    <p>「Signature Key」→ 下の <strong>Webhook Signature Key</strong> にコピー</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">5</span>
+                  <h4 className="text-xs font-bold text-gray-800">環境を設定</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 leading-relaxed">
+                  <p>下の「<strong>環境</strong>」で <strong>production</strong> を入力して保存</p>
+                </div>
+              </div>
+            </div>
+          ) : provider === "gmo" ? (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">1</span>
+                  <h4 className="text-xs font-bold text-gray-800">GMO PG管理画面にログイン</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <p>
+                    <a href="https://kt01.mul-pay.jp/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+                      GMO PG サイト管理画面
+                    </a>
+                    {" "}にログイン
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">2</span>
+                  <h4 className="text-xs font-bold text-gray-800">ショップ情報を確認</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
+                    <p>「ショップ管理」を開く</p>
+                    <p className="pl-3">「ショップID」→ 下の <strong>ショップID</strong> にコピー</p>
+                    <p className="pl-3">「ショップパスワード」→ 下の <strong>ショップパスワード</strong> にコピー</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
+                  <h4 className="text-xs font-bold text-gray-800">サイト情報を確認</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 space-y-1 leading-relaxed">
+                  <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5">
+                    <p>「サイト管理」を開く</p>
+                    <p className="pl-3">「サイトID」→ 下の <strong>サイトID</strong> にコピー</p>
+                    <p className="pl-3">「サイトパスワード」→ 下の <strong>サイトパスワード</strong> にコピー</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="shrink-0 w-5 h-5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">4</span>
+                  <h4 className="text-xs font-bold text-gray-800">環境を設定</h4>
+                </div>
+                <div className="ml-7 text-xs text-gray-600 leading-relaxed">
+                  <p>下の「<strong>環境</strong>」で <strong>production</strong> を入力して保存</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function PaymentSection({ settings, onSaved }: Props) {
@@ -110,6 +265,13 @@ export default function PaymentSection({ settings, onSaved }: Props) {
               {selectedOption?.label} API設定
             </p>
           </div>
+
+          {/* 設定手順ガイド */}
+          <PaymentSetupGuide
+            provider={selected}
+            defaultOpen={providerSettings.every((i) => i.source === "未設定")}
+          />
+
           {providerSettings.map((item) => (
             <SettingRow
               key={item.key}
