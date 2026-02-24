@@ -39,7 +39,10 @@ jobs:
           name: coverage-report
           path: coverage/
 
-      - name: Security audit
+      - name: Security audit (high/critical で失敗)
+        run: npm audit --audit-level=high
+
+      - name: Security audit (moderate は警告のみ)
         run: npm audit --audit-level=moderate
         continue-on-error: true
 

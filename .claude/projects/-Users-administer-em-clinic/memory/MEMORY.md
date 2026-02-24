@@ -133,3 +133,10 @@
 - **セッション管理**: `lib/session.ts` → `admin_sessions` テーブル（同時3セッション上限、5分間隔でlast_activity更新）
 - **CSP ヘッダー**: `next.config.ts` で設定
 - **CSRF 除外パス**: webhook, cron, OAuth, Dr API（Basic auth保護）, 患者向けAPI
+
+## 運用ドキュメント（2026-02-24 作成）
+- **`docs/security-operations.md`**: セキュリティ運用チェックリスト（認証・セッション・RLS・暗号化・監査ログ・レート制限・CSRF・Webhook署名検証・日次/週次/月次チェックリスト）
+- **`docs/incident-response.md`**: 障害対応ランブック（P0/P1/P2定義・初動フロー・顧客連絡テンプレート・過去事故記録・ロールバック手順・再発防止報告書テンプレ）
+- **`docs/data-protection-policy.md`**: データ保護ポリシー（個人情報種類・保存期間・削除ポリシー・アクセス制限・持ち出し禁止・AI連携時のマスク方針）
+- **`.github/dependabot.yml`**: 依存パッケージ自動更新（npm週次・GitHub Actions週次・グルーピング設定）
+- **CI強化**: `npm audit --audit-level=high` でhigh/criticalはCI失敗（moderateは警告のみ）

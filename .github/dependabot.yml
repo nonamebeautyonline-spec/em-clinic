@@ -1,0 +1,73 @@
+# Dependabot — 依存パッケージの自動更新・脆弱性検知
+# https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # npm パッケージ更新
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    # PRの最大同時数（多すぎるとレビュー負担増）
+    open-pull-requests-limit: 10
+    # セキュリティ修正は自動、マイナー以上は手動確認
+    versioning-strategy: auto
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+    # 重要パッケージのグルーピング
+    groups:
+      # Next.js + React 関連
+      next-react:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+          - "eslint-config-next"
+      # テスト関連
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/*"
+          - "playwright"
+      # Supabase関連
+      supabase:
+        patterns:
+          - "@supabase/*"
+      # LINE/外部API
+      external-apis:
+        patterns:
+          - "@line/*"
+          - "square"
+          - "@anthropic-ai/*"
+          - "@deepgram/*"
+          - "groq-sdk"
+      # セキュリティ関連
+      security:
+        patterns:
+          - "@upstash/*"
+          - "jose"
+          - "bcryptjs"
+      # Tailwind関連
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+
+  # GitHub Actions 更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    labels:
+      - "dependencies"
+      - "ci"
