@@ -636,11 +636,11 @@ export default function TalkPage() {
         .then(async (d) => {
           if (selectedPatientRef.current?.patient_id !== friend.patient_id) return;
           setIsBlocked(!!d.blocked);
+          // 左カラムのis_blockedフラグを更新（ブロック解除時もfalseに戻す）
+          setFriends(prev => prev.map(fr =>
+            fr.patient_id === friend.patient_id ? { ...fr, is_blocked: !!d.blocked } : fr
+          ));
           if (d.blocked) {
-            // 左カラムのis_blockedフラグを更新
-            setFriends(prev => prev.map(fr =>
-              fr.patient_id === friend.patient_id ? { ...fr, is_blocked: true } : fr
-            ));
             // message_logにイベントが追加されたのでメッセージを再取得
             const res = await fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(friend.patient_id)}&limit=${MSG_BATCH}`, { credentials: "include" });
             const data = await res.json();

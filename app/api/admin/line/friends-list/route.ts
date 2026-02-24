@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
   // RPC結果をカテゴリ別にマッピング
   const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
   const lastTemplateMap = new Map<string, { content: string; sent_at: string }>();
-  const lastEventMap = new Map<string, { content: string; sent_at: string }>();
+  const lastEventMap = new Map<string, { content: string; sent_at: string; event_type: string | null }>();
   const lastIncomingMap = new Map<string, string>();
   const msgPatientIds = new Set<string>();
 
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
         break;
       }
       case "event":
-        lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
+        lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at, event_type: row.event_type || null });
         break;
     }
   }
@@ -141,10 +141,12 @@ export async function GET(req: NextRequest) {
   const patients = Array.from(patientMap.values()).map(p => {
     const lastMsg = lastMsgMap.get(p.patient_id);
     const lastIncoming = lastIncomingMap.get(p.patient_id);
-    // 最新イベントに応じた表示
+    // 最新イベントに応じた表示（event_typeで正確に判定）
     const lastEvent = lastEventMap.get(p.patient_id);
-    const isBlocked = lastEvent?.content?.includes("ブロック");
-    const eventDisplay = isBlocked ? "ブロックされました" : lastEvent ? "【友達追加】" : null;
+    const isBlocked = lastEvent?.event_type === "unfollow";
+    const eventDisplay = isBlocked ? "ブロックされました"
+      : lastEvent?.content?.includes("再追加") ? "友だち再登録"
+      : lastEvent ? "【友達追加】" : null;
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
