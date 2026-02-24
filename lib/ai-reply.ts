@@ -227,7 +227,7 @@ export async function processPendingAiReplies(): Promise<number> {
 export let lastProcessLog: string[] = [];
 
 /** AI返信のメイン処理（デバウンス後に呼ばれる） */
-async function processAiReply(
+export async function processAiReply(
   lineUid: string,
   patientId: string,
   patientName: string,

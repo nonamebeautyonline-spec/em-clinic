@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from("message_log").insert({
         ...tenantPayload(tenantId),
         patient_id: target.patient_id,
+        event_type: "message",
         message_type: "broadcast",
         content: message,
         status: "no_uid",
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
         ...tenantPayload(tenantId),
         patient_id: target.patient_id,
         line_uid: target.line_id,
+        event_type: "message",
         message_type: "broadcast",
         content: resolvedMsg,
         status,
@@ -178,6 +180,7 @@ export async function POST(req: NextRequest) {
         ...tenantPayload(tenantId),
         patient_id: target.patient_id,
         line_uid: target.line_id,
+        event_type: "message",
         message_type: "broadcast",
         content: resolvedMsg,
         status: "failed",

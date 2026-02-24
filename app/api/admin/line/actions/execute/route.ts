@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
             // UID無しでもログは残す
             await supabaseAdmin.from("message_log").insert({
               ...tenantPayload(tenantId),
-              patient_id, line_uid: null, message_type: "individual",
+              patient_id, line_uid: null, event_type: "message", message_type: "individual",
               content: text, status: "no_uid", direction: "outgoing",
             });
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           const status = pushRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
             ...tenantPayload(tenantId),
-            patient_id, line_uid: lineUid, message_type: "individual",
+            patient_id, line_uid: lineUid, event_type: "message", message_type: "individual",
             content: text, status, direction: "outgoing",
           });
           results.push({ step: i, type: step.type, success: pushRes.ok, detail: status });
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           if (!lineUid) {
             await supabaseAdmin.from("message_log").insert({
               ...tenantPayload(tenantId),
-              patient_id, line_uid: null, message_type: "individual",
+              patient_id, line_uid: null, event_type: "message", message_type: "individual",
               content: tmplText, status: "no_uid", direction: "outgoing",
             });
             results.push({ step: i, type: step.type, success: false, detail: "LINE UID未登録" });
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
           const tmplStatus = tmplRes.ok ? "sent" : "failed";
           await supabaseAdmin.from("message_log").insert({
             ...tenantPayload(tenantId),
-            patient_id, line_uid: lineUid, message_type: "individual",
+            patient_id, line_uid: lineUid, event_type: "message", message_type: "individual",
             content: tmplText, status: tmplStatus, direction: "outgoing",
           });
           results.push({ step: i, type: step.type, success: tmplRes.ok, detail: tmplStatus });

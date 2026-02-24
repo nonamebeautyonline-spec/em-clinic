@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from("message_log").insert({
       ...tenantPayload(tenantId),
       patient_id,
+      event_type: "message",
       message_type: "individual",
       content: message,
       status: "no_uid",
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       ...tenantPayload(tenantId),
       patient_id,
       line_uid: patient.line_id,
+      event_type: "message",
       message_type: "flex",
       content: `[${(flexMsg.altText as string) || "Flex Message"}]`,
       flex_json: flexMsg.contents,
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest) {
     ...tenantPayload(tenantId),
     patient_id,
     line_uid: patient.line_id,
+    event_type: "message",
     message_type: "individual",
     content: logContent,
     status,

@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     ...tenantPayload(tenantId),
     patient_id: patientId,
     line_uid: patient.line_id,
+    event_type: "message",
     message_type: "individual",
     content: imageUrl,
     status,

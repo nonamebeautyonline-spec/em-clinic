@@ -7,8 +7,11 @@ import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepE
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
-import { scheduleAiReply, sendAiReply, processPendingAiReplies } from "@/lib/ai-reply";
+import { scheduleAiReply, sendAiReply, processAiReply } from "@/lib/ai-reply";
 import { acquireLock } from "@/lib/distributed-lock";
+
+/** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
+let pendingAiReplyTargets: Array<{ lineUid: string; patientId: string; patientName: string; tenantId: string | null }> = [];
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -733,14 +736,12 @@ async function handleMessage(lineUid: string, message: any, tenantId: string | n
     }
   }
 
-  // AI返信処理（テキスト・キーワード未マッチ時のみ、60秒デバウンス付き）
-  console.log(`[webhook] AI reply gate: type=${message.type}, hasText=${!!message.text}, patientId=${patient?.patient_id}, keywordMatched=${keywordMatched}`);
+  // AI返信処理（テキスト・キーワード未マッチ時のみ）
   if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
-    try {
-      await scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId);
-    } catch (err) {
-      console.error("[webhook] AI reply error:", err);
-    }
+    // Redis デバウンスにも登録（cron バックアップ用）
+    scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
+    // after() で直接処理するためのターゲットに追加
+    pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
   }
 }
 
@@ -1461,22 +1462,26 @@ export async function POST(req: NextRequest) {
     }
 
     // LINEには常に200（再送防止）
-    // レスポンス後にAI返信のデバウンス処理を実行（Vercel Cronに依存しない）
-    after(async () => {
-      try {
-        // デバウンス待機（10秒）後に処理
-        await new Promise(r => setTimeout(r, 12_000));
-        const lock = await acquireLock("cron:ai-reply", 55);
-        if (!lock.acquired) return;
-        try {
-          await processPendingAiReplies();
-        } finally {
-          await lock.release();
+    // レスポンス後にAI返信を直接処理（3秒待機でメッセージバッチング）
+    const targets = [...pendingAiReplyTargets];
+    pendingAiReplyTargets = [];
+    if (targets.length > 0) {
+      after(async () => {
+        await new Promise(r => setTimeout(r, 3_000));
+        for (const t of targets) {
+          const lockKey = `ai-reply:${t.patientId}`;
+          const lock = await acquireLock(lockKey, 30);
+          if (!lock.acquired) continue;
+          try {
+            await processAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId);
+          } catch (err) {
+            console.error(`[webhook] after() AI reply error: patient=${t.patientId}`, err);
+          } finally {
+            await lock.release();
+          }
         }
-      } catch (err) {
-        console.error("[webhook] after() AI reply error:", err);
-      }
-    });
+      });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
