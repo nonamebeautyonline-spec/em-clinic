@@ -63,6 +63,7 @@ export default function MediaManagementPage() {
   const [deleteFolderConfirm, setDeleteFolderConfirm] = useState<MediaFolder | null>(null);
   const [showUploadTypeModal, setShowUploadTypeModal] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [compressConfirm, setCompressConfirm] = useState<{ files: File[]; smallFiles: File[] } | null>(null);
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
   const [moveFile, setMoveFile] = useState<MediaFile | null>(null);
 
@@ -128,9 +129,27 @@ export default function MediaManagementPage() {
 
   const handleUpload = async (fileType: FileTypeFilter) => {
     setShowUploadTypeModal(false);
+
+    const MAX_MENU_SIZE = 1 * 1024 * 1024;
+
+    // メニュー画像で1MB超のファイルがあれば圧縮確認ダイアログを表示
+    if (fileType === "menu_image") {
+      const overSize = pendingFiles.filter((f) => f.size > MAX_MENU_SIZE);
+      const underSize = pendingFiles.filter((f) => f.size <= MAX_MENU_SIZE);
+      if (overSize.length > 0) {
+        setCompressConfirm({ files: overSize, smallFiles: underSize });
+        return;
+      }
+    }
+
+    await doUpload(pendingFiles, fileType);
+  };
+
+  // 実際のアップロード処理
+  const doUpload = async (filesToUpload: File[], fileType: FileTypeFilter) => {
     setUploading(true);
 
-    for (const file of pendingFiles) {
+    for (const file of filesToUpload) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("file_type", fileType);
@@ -151,6 +170,24 @@ export default function MediaManagementPage() {
     setPendingFiles([]);
     setUploading(false);
     await Promise.all([fetchFolders(), fetchFiles()]);
+  };
+
+  // 圧縮確認ダイアログで「圧縮してアップロード」を選択した場合
+  const handleCompressAndUpload = async () => {
+    if (!compressConfirm) return;
+    setCompressConfirm(null);
+    setUploading(true);
+
+    try {
+      const compressed: File[] = [];
+      for (const file of compressConfirm.files) {
+        compressed.push(await compressImage(file));
+      }
+      await doUpload([...compressConfirm.smallFiles, ...compressed], "menu_image");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "圧縮に失敗しました");
+      setUploading(false);
+    }
   };
 
   const handleRename = async () => {
@@ -250,6 +287,51 @@ export default function MediaManagementPage() {
       alert(data.error || "削除失敗");
     }
     setDeleteFolderConfirm(null);
+  };
+
+  // メニュー画像を1MB以下に圧縮（Canvas API）
+  const compressImage = async (file: File): Promise<File> => {
+    const MAX_SIZE = 1 * 1024 * 1024;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    return new Promise((resolve, reject) => {
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement("canvas");
+        // 最大幅2500px（LINE仕様）
+        const maxW = 2500;
+        const scale = img.width > maxW ? maxW / img.width : 1;
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // 品質を段階的に下げて1MB以下になるまで試行
+        const tryCompress = (quality: number) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return reject(new Error("圧縮に失敗しました"));
+              if (blob.size <= MAX_SIZE || quality <= 0.3) {
+                const ext = quality < 0.85 ? ".jpg" : file.name.split(".").pop() || "jpg";
+                const name = file.name.replace(/\.[^.]+$/, "") + (ext.startsWith(".") ? ext : `.${ext}`);
+                resolve(new File([blob], name, { type: "image/jpeg" }));
+              } else {
+                tryCompress(quality - 0.1);
+              }
+            },
+            "image/jpeg",
+            quality,
+          );
+        };
+        tryCompress(0.85);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("画像の読み込みに失敗しました"));
+      };
+      img.src = url;
+    });
   };
 
   const formatSize = (bytes: number) => {
@@ -853,6 +935,43 @@ export default function MediaManagementPage() {
                   className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25"
                 >
                   削除する
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 圧縮確認モーダル */}
+      {compressConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setCompressConfirm(null); setPendingFiles([]); }}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-gray-900 mb-1">画像サイズが1MBを超えています</h3>
+              <p className="text-xs text-gray-400 mb-3">メニュー画像はLINE APIの制限で1MB以下が必要です</p>
+              <div className="w-full bg-gray-50 rounded-xl p-3 mb-4 text-left space-y-1">
+                {compressConfirm.files.map((f, i) => (
+                  <p key={i} className="text-xs text-gray-600 truncate">
+                    {f.name} <span className="text-amber-600 font-medium">({(f.size / (1024 * 1024)).toFixed(2)}MB)</span>
+                  </p>
+                ))}
+              </div>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => { setCompressConfirm(null); setPendingFiles([]); }}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleCompressAndUpload}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium shadow-lg shadow-green-500/25 hover:shadow-green-500/40 transition-shadow"
+                >
+                  圧縮してアップロード
                 </button>
               </div>
             </div>
