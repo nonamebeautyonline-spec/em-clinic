@@ -27,41 +27,78 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   const { tenantId } = await ctx.params;
 
   try {
-    const FULL_SELECT = `
-      id, name, slug, industry, is_active, contact_email, contact_phone,
-      address, notes, logo_url, created_at, updated_at, deleted_at,
-      tenant_members (id, role, created_at, admin_users (id, name, email, platform_role, is_active, created_at)),
-      tenant_plans (id, plan_name, monthly_fee, setup_fee, started_at, next_billing_at, created_at)
-    `;
-    const BASIC_SELECT = "id, name, slug, is_active, created_at, updated_at";
-
-    let { data: tenant, error } = await supabaseAdmin
+    // テナント基本情報（リレーションなし、確実に動作するカラムのみ）
+    const { data: tenant, error: tenantErr } = await supabaseAdmin
       .from("tenants")
-      .select(FULL_SELECT)
+      .select("id, name, slug, industry, is_active, contact_email, contact_phone, address, notes, logo_url, created_at, updated_at, deleted_at")
       .eq("id", tenantId)
-      .is("deleted_at", null)
-      .single();
+      .maybeSingle();
 
-    // フォールバック: カラムやリレーションが未作成の場合
-    if (error) {
-      console.error("[platform/tenants/[id]] フルクエリ失敗（フォールバック実行）:", error.message);
-      const result = await supabaseAdmin
+    if (tenantErr) {
+      console.error("[platform/tenants/[id]] テナント取得エラー:", tenantErr.message);
+      // 拡張カラムが未作成の場合のフォールバック
+      const { data: basic, error: basicErr } = await supabaseAdmin
         .from("tenants")
-        .select(BASIC_SELECT)
+        .select("id, name, slug, is_active, created_at, updated_at")
         .eq("id", tenantId)
-        .single();
-      tenant = result.data;
-      error = result.error;
+        .maybeSingle();
+      if (basicErr || !basic) {
+        return NextResponse.json(
+          { ok: false, error: "テナントが見つかりません" },
+          { status: 404 },
+        );
+      }
+      return NextResponse.json({ ok: true, tenant: { ...basic, tenant_members: [], tenant_plans: [] } });
     }
 
-    if (error || !tenant) {
+    if (!tenant) {
       return NextResponse.json(
         { ok: false, error: "テナントが見つかりません" },
         { status: 404 },
       );
     }
 
-    return NextResponse.json({ ok: true, tenant });
+    // メンバー情報を個別取得（リレーション解決問題を回避）
+    let tenantMembers: any[] = [];
+    try {
+      const { data: members } = await supabaseAdmin
+        .from("tenant_members")
+        .select("id, role, created_at, admin_user_id")
+        .eq("tenant_id", tenantId);
+      if (members && members.length > 0) {
+        const userIds = members.map((m: any) => m.admin_user_id);
+        const { data: users } = await supabaseAdmin
+          .from("admin_users")
+          .select("id, name, email, platform_role, is_active, created_at")
+          .in("id", userIds);
+        const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+        tenantMembers = members.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          created_at: m.created_at,
+          admin_users: userMap.get(m.admin_user_id) || null,
+        }));
+      }
+    } catch (e) {
+      console.error("[platform/tenants/[id]] メンバー取得スキップ:", e);
+    }
+
+    // プラン情報を個別取得
+    let tenantPlans: any[] = [];
+    try {
+      const { data: plans } = await supabaseAdmin
+        .from("tenant_plans")
+        .select("id, plan_name, monthly_fee, setup_fee, started_at, next_billing_at, created_at")
+        .eq("tenant_id", tenantId);
+      tenantPlans = plans || [];
+    } catch (e) {
+      console.error("[platform/tenants/[id]] プラン取得スキップ:", e);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      tenant: { ...tenant, tenant_members: tenantMembers, tenant_plans: tenantPlans },
+    });
   } catch (err) {
     console.error("[platform/tenants/[id]] GET error:", err);
     return NextResponse.json(
