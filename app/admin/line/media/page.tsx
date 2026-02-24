@@ -298,33 +298,39 @@ export default function MediaManagementPage() {
     return new Promise((resolve, reject) => {
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const canvas = document.createElement("canvas");
-        // 最大幅2500px（LINE仕様）
-        const maxW = 2500;
-        const scale = img.width > maxW ? maxW / img.width : 1;
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // 品質を段階的に下げて1MB以下になるまで試行
-        const tryCompress = (quality: number) => {
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) return reject(new Error("圧縮に失敗しました"));
-              if (blob.size <= MAX_SIZE || quality <= 0.3) {
-                const ext = quality < 0.85 ? ".jpg" : file.name.split(".").pop() || "jpg";
-                const name = file.name.replace(/\.[^.]+$/, "") + (ext.startsWith(".") ? ext : `.${ext}`);
-                resolve(new File([blob], name, { type: "image/jpeg" }));
-              } else {
-                tryCompress(quality - 0.1);
-              }
-            },
-            "image/jpeg",
-            quality,
-          );
+        const tryWithScale = (dimScale: number) => {
+          const canvas = document.createElement("canvas");
+          const maxW = 2500 * dimScale;
+          const scale = img.width > maxW ? maxW / img.width : dimScale;
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const tryQuality = (quality: number) => {
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return reject(new Error("圧縮に失敗しました"));
+                if (blob.size <= MAX_SIZE) {
+                  const name = file.name.replace(/\.[^.]+$/, ".jpg");
+                  resolve(new File([blob], name, { type: "image/jpeg" }));
+                } else if (quality > 0.15) {
+                  tryQuality(quality - 0.05);
+                } else if (dimScale > 0.5) {
+                  // 品質を下げても1MB超 → 寸法を縮小して再試行
+                  tryWithScale(dimScale - 0.25);
+                } else {
+                  reject(new Error("圧縮しても1MB以下にできませんでした"));
+                }
+              },
+              "image/jpeg",
+              quality,
+            );
+          };
+          tryQuality(0.85);
         };
-        tryCompress(0.85);
+        tryWithScale(1.0);
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
