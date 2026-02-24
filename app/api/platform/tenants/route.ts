@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     }
 
     // テナントデータにカウント・売上を付与
-    const enriched = (tenants || []).map((t) => ({
+    const enriched = (tenants || []).map((t: { id: string; [key: string]: unknown }) => ({
       ...t,
       patients_count: patientsCountMap[t.id] || 0,
       monthly_revenue: monthlyRevenueMap[t.id] || 0,
@@ -150,7 +150,7 @@ export async function GET(req: NextRequest) {
 
     // patients_countでソートが必要な場合はメモリ上でソート
     if (sort === "patients_count") {
-      enriched.sort((a, b) => b.patients_count - a.patients_count);
+      enriched.sort((a: { patients_count: number }, b: { patients_count: number }) => b.patients_count - a.patients_count);
     }
 
     return NextResponse.json({
