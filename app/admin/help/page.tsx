@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 // ── 型定義 ──
 interface FAQ {
@@ -502,7 +502,7 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-// ── アニメーション付きアコーディオン（高さ遷移） ──
+// ── アニメーション付きアコーディオン（CSS Grid方式） ──
 function AnimatedCollapse({
   isOpen,
   children,
@@ -510,21 +510,15 @@ function AnimatedCollapse({
   isOpen: boolean;
   children: React.ReactNode;
 }) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>(0);
-
-  useEffect(() => {
-    if (contentRef.current) {
-      setHeight(contentRef.current.scrollHeight);
-    }
-  }, [isOpen, children]);
-
   return (
     <div
-      className="overflow-hidden transition-all duration-300 ease-in-out"
-      style={{ maxHeight: isOpen ? height : 0, opacity: isOpen ? 1 : 0 }}
+      className="grid transition-[grid-template-rows,opacity] duration-300 ease-in-out"
+      style={{
+        gridTemplateRows: isOpen ? "1fr" : "0fr",
+        opacity: isOpen ? 1 : 0,
+      }}
     >
-      <div ref={contentRef}>{children}</div>
+      <div className="overflow-hidden">{children}</div>
     </div>
   );
 }
