@@ -2,12 +2,13 @@
 -- RFM分析に基づくセグメント（VIP / アクティブ / 離脱リスク / 休眠 / 新規）を格納
 
 CREATE TABLE IF NOT EXISTS patient_segments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_id VARCHAR(20) NOT NULL,
   tenant_id UUID,
   segment VARCHAR(50) NOT NULL,
   rfm_score JSONB NOT NULL DEFAULT '{}',
   calculated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (patient_id, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'))
+  UNIQUE (patient_id, tenant_id)
 );
 
 -- セグメント別検索用インデックス
