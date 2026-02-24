@@ -48,13 +48,15 @@ export async function POST(req: NextRequest) {
 
     // ★ Step 2: DB先行書き込み（intakeテーブルとreservationsテーブル）
     const [intakeResult, reservationResult] = await Promise.allSettled([
-      // 2a. intakeテーブルを更新（status, note）※ prescription_menu は reservations が正
+      // 2a. intakeテーブルを更新（status, note, call_statusクリア）
+      // ステータスOK/NG設定時は call_status もクリア（不通→診察済で表示が残る問題の防止）
       withTenant(
         supabaseAdmin
           .from("intake")
           .update({
             status: status || null,
             note: note || null,
+            call_status: null,
           })
           .eq("reserve_id", reserveId),
         tenantId

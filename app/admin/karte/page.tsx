@@ -94,16 +94,18 @@ type ReservationItem = {
   created_at?: string;
 };
 
-/** 診察ステータスを判定 */
+/** 診察ステータスを判定（intake_status が OK/NG なら call_status より優先） */
 function getExamStatus(item: ReservationItem): { label: string; color: string } {
-  if (item.call_status === "不通" || item.call_status === "no_answer" || item.call_status === "no_answer_sent" || item.call_status === "unreachable") {
-    return { label: "不通", color: "bg-gray-100 text-gray-600 border-gray-300" };
-  }
+  // Dr が診察済（OK/NG）にした場合は最優先
   if (item.intake_status === "OK") {
     return { label: "診察済", color: "bg-emerald-50 text-emerald-700 border-emerald-200" };
   }
   if (item.intake_status === "NG") {
     return { label: "NG", color: "bg-rose-50 text-rose-700 border-rose-200" };
+  }
+  // 診察前で不通の場合のみ不通表示
+  if (item.call_status === "不通" || item.call_status === "no_answer" || item.call_status === "no_answer_sent" || item.call_status === "unreachable") {
+    return { label: "不通", color: "bg-gray-100 text-gray-600 border-gray-300" };
   }
   return { label: "診察前", color: "bg-amber-50 text-amber-700 border-amber-200" };
 }
