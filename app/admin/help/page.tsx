@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
-// カテゴリ定義
+// ── 型定義 ──
 interface FAQ {
   question: string;
   answer: string;
@@ -10,15 +10,23 @@ interface FAQ {
 
 interface Category {
   id: string;
+  icon: string;
   title: string;
+  description: string;
+  gradient: string;
+  iconBg: string;
   faqs: FAQ[];
 }
 
+// ── カテゴリ定義 ──
 const CATEGORIES: Category[] = [
-  // ── 初期設定 ──
   {
     id: "setup",
+    icon: "⚡",
     title: "初期設定・基本操作",
+    description: "LINE連携・決済・商品登録など初期設定の手順",
+    gradient: "from-blue-500 to-indigo-600",
+    iconBg: "bg-blue-100 text-blue-600",
     faqs: [
       {
         question: "LINE連携の設定方法は？",
@@ -57,11 +65,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── LINE友だち管理 ──
   {
     id: "friends",
+    icon: "👥",
     title: "LINE友だち管理",
+    description: "友だち一覧・タグ・マーク・カスタムフィールドの使い方",
+    gradient: "from-green-500 to-emerald-600",
+    iconBg: "bg-green-100 text-green-600",
     faqs: [
       {
         question: "友だち一覧の見方は？",
@@ -95,11 +105,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── トーク・メッセージ ──
   {
     id: "talk",
+    icon: "💬",
     title: "トーク・メッセージ",
+    description: "個別チャット・テンプレート・送信履歴",
+    gradient: "from-purple-500 to-violet-600",
+    iconBg: "bg-purple-100 text-purple-600",
     faqs: [
       {
         question: "友だちとの個別トークの方法は？",
@@ -123,11 +135,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 一斉配信・自動配信 ──
   {
     id: "broadcast",
+    icon: "📡",
     title: "一斉配信・自動配信",
+    description: "ブロードキャスト・ステップ配信・リマインダー",
+    gradient: "from-orange-500 to-amber-600",
+    iconBg: "bg-orange-100 text-orange-600",
     faqs: [
       {
         question: "一斉配信の方法は？",
@@ -166,11 +180,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── リッチメニュー・クーポン・NPS ──
   {
     id: "richmenu",
+    icon: "🎨",
     title: "リッチメニュー・クーポン・NPS",
+    description: "リッチメニュー作成・クーポン配布・満足度調査",
+    gradient: "from-pink-500 to-rose-600",
+    iconBg: "bg-pink-100 text-pink-600",
     faqs: [
       {
         question: "リッチメニューの作成方法は？",
@@ -194,11 +210,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 予約管理 ──
   {
     id: "reservations",
+    icon: "📅",
     title: "予約管理",
+    description: "診療スケジュール・予約受付・リマインド",
+    gradient: "from-cyan-500 to-teal-600",
+    iconBg: "bg-cyan-100 text-cyan-600",
     faqs: [
       {
         question: "診療スケジュールの設定方法は？",
@@ -232,11 +250,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── カルテ ──
   {
     id: "karte",
+    icon: "📋",
     title: "カルテ・診察",
+    description: "簡易カルテ・SOAP入力・音声入力・テンプレート",
+    gradient: "from-emerald-500 to-green-600",
+    iconBg: "bg-emerald-100 text-emerald-600",
     faqs: [
       {
         question: "簡易カルテとカルテの違いは？",
@@ -265,11 +285,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 再処方 ──
   {
     id: "reorders",
+    icon: "🔄",
     title: "再処方",
+    description: "再処方申請・承認/却下・用量変更",
+    gradient: "from-indigo-500 to-blue-600",
+    iconBg: "bg-indigo-100 text-indigo-600",
     faqs: [
       {
         question: "再処方申請の承認・却下方法は？",
@@ -288,11 +310,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 決済・発送 ──
   {
     id: "payment-shipping",
+    icon: "💳",
     title: "決済・発送・在庫",
+    description: "カード決済・銀行振込・返金・発送・追跡番号",
+    gradient: "from-yellow-500 to-orange-600",
+    iconBg: "bg-yellow-100 text-yellow-700",
     faqs: [
       {
         question: "カード決済の確認方法は？",
@@ -312,7 +336,7 @@ const CATEGORIES: Category[] = [
       {
         question: "発送の手順は？",
         answer:
-          "① 「本日発送予定」画面で発送待ちオーダーを確認→② 梱包・出荷処理→③ 「追跡番号付与」画面でヤマトB2等の追跡番号CSVを登録→④ 「発送通知送信」ボタンで患者にLINE通知を一斉送信。追跡番号は患者のマイページにも自動反映されます。",
+          "「本日発送予定」画面で発送待ちオーダーを確認 → 梱包・出荷処理 → 「追跡番号付与」画面でヤマトB2等の追跡番号CSVを登録 → 「発送通知送信」ボタンで患者にLINE通知を一斉送信。追跡番号は患者のマイページにも自動反映されます。",
       },
       {
         question: "在庫管理の使い方は？",
@@ -321,11 +345,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 問診 ──
   {
     id: "intake",
+    icon: "📝",
     title: "問診",
+    description: "問診フォーム設計・回答確認・患者フロー",
+    gradient: "from-teal-500 to-cyan-600",
+    iconBg: "bg-teal-100 text-teal-600",
     faqs: [
       {
         question: "問診フォームのカスタマイズ方法は？",
@@ -344,11 +370,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── 分析・レポート ──
   {
     id: "reports",
+    icon: "📊",
     title: "分析・レポート",
+    description: "KPI・売上分析・セグメント・CSV出力",
+    gradient: "from-violet-500 to-purple-600",
+    iconBg: "bg-violet-100 text-violet-600",
     faqs: [
       {
         question: "ダッシュボードで確認できる指標は？",
@@ -373,15 +401,17 @@ const CATEGORIES: Category[] = [
       {
         question: "CSVエクスポートの方法は？",
         answer:
-          "各管理画面のエクスポートボタンから対象データをCSV形式でダウンロードできます。「売上管理」画面からは期間指定の売上CSV、「友だち一覧」からは友だちデータCSV、「フォーム回答」からは回答CSVを出力できます。全テナントデータの一括エクスポートは設定画面の「全データエクスポート」から実行できます（処理完了後にダウンロード可能）。",
+          "各管理画面のエクスポートボタンから対象データをCSV形式でダウンロードできます。「売上管理」画面からは期間指定の売上CSV、「友だち一覧」からは友だちデータCSV、「フォーム回答」からは回答CSVを出力できます。全テナントデータの一括エクスポートは設定画面の「全データエクスポート」から実行できます。",
       },
     ],
   },
-
-  // ── AI機能 ──
   {
     id: "ai",
+    icon: "🤖",
     title: "AI機能",
+    description: "AI自動返信・音声入力・効果測定",
+    gradient: "from-fuchsia-500 to-pink-600",
+    iconBg: "bg-fuchsia-100 text-fuchsia-600",
     faqs: [
       {
         question: "AI自動返信の設定方法は？",
@@ -400,11 +430,13 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── セキュリティ・アカウント ──
   {
     id: "security",
+    icon: "🔒",
     title: "セキュリティ・アカウント",
+    description: "権限管理・監査ログ・セッション・データ保護",
+    gradient: "from-slate-600 to-gray-700",
+    iconBg: "bg-slate-100 text-slate-600",
     faqs: [
       {
         question: "管理者の権限レベルは？",
@@ -428,26 +460,28 @@ const CATEGORIES: Category[] = [
       },
     ],
   },
-
-  // ── トラブルシューティング ──
   {
     id: "troubleshooting",
+    icon: "🛠",
     title: "よくあるトラブル",
+    description: "メッセージ不達・決済エラー・表示不具合の解決策",
+    gradient: "from-red-500 to-rose-600",
+    iconBg: "bg-red-100 text-red-600",
     faqs: [
       {
         question: "LINEメッセージが届かない場合は？",
         answer:
-          "① 「設定」→「LINE」でWebhook URLが正しく設定されているか確認してください。② LINE Developersコンソールで「Webhook送信」がONになっているか確認してください。③ チャネルアクセストークンの有効期限が切れていないか確認してください。④ 相手にブロックされている場合はメッセージが届きません（友だち一覧で確認可能）。",
+          "「設定」→「LINE」でWebhook URLが正しく設定されているか確認 → LINE Developersコンソールで「Webhook送信」がONか確認 → チャネルアクセストークンの有効期限を確認 → 相手にブロックされていないか友だち一覧で確認。以上で解決しない場合はサポートへお問い合わせください。",
       },
       {
         question: "患者がマイページにアクセスできない場合は？",
         answer:
-          "① 患者のLINE連携が完了しているか確認してください（友だち一覧に表示されているか）。② 個人情報登録と電話番号認証が完了しているか確認してください。③ 「マイページ確認」画面で患者ID指定でプレビュー表示し、表示状態を確認できます。",
+          "患者のLINE連携が完了しているか確認（友だち一覧に表示されているか） → 個人情報登録と電話番号認証が完了しているか確認 → 「マイページ確認」画面で患者ID指定でプレビュー表示し、表示状態を確認できます。",
       },
       {
         question: "予約が取れない（枠が表示されない）場合は？",
         answer:
-          "① 「スケジュール管理」で該当日のスロットが設定されているか確認してください。② 休診日設定で該当日がブロックされていないか確認してください。③ 翌月の予約が開放されているか確認してください（毎月5日に自動開放、または手動で早期開放）。④ 各枠の定員が満員でないか確認してください。",
+          "「スケジュール管理」で該当日のスロットが設定されているか確認 → 休診日設定で該当日がブロックされていないか確認 → 翌月の予約が開放されているか確認（毎月5日に自動開放、または手動で早期開放） → 各枠の定員が満員でないか確認。",
       },
       {
         question: "決済エラーが発生した場合は？",
@@ -468,63 +502,242 @@ const CATEGORIES: Category[] = [
   },
 ];
 
-function AccordionItem({
-  category,
+// ── アニメーション付きアコーディオン（高さ遷移） ──
+function AnimatedCollapse({
   isOpen,
-  onToggle,
+  children,
 }: {
-  category: Category;
   isOpen: boolean;
-  onToggle: () => void;
+  children: React.ReactNode;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>(0);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setHeight(contentRef.current.scrollHeight);
+    }
+  }, [isOpen, children]);
+
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-6 py-4 bg-white hover:bg-slate-50 transition-colors text-left"
-      >
-        <span className="text-base font-semibold text-slate-900">
-          {category.title}
-          <span className="ml-2 text-xs font-normal text-slate-400">
-            ({category.faqs.length})
-          </span>
-        </span>
-        <svg
-          className={`w-5 h-5 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="border-t border-slate-200 bg-slate-50">
-          <div className="divide-y divide-slate-200">
-            {category.faqs.map((faq, idx) => (
-              <div key={idx} className="px-6 py-4">
-                <h3 className="text-sm font-semibold text-slate-800 mb-2">
-                  Q. {faq.question}
-                </h3>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                  {faq.answer}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div
+      className="overflow-hidden transition-all duration-300 ease-in-out"
+      style={{ maxHeight: isOpen ? height : 0, opacity: isOpen ? 1 : 0 }}
+    >
+      <div ref={contentRef}>{children}</div>
     </div>
   );
 }
 
+// ── 個別FAQ項目 ──
+function FAQItem({
+  faq,
+  index,
+  searchQuery,
+}: {
+  faq: FAQ;
+  index: number;
+  searchQuery: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // 検索ヒット時のハイライト
+  const highlight = useCallback(
+    (text: string) => {
+      if (!searchQuery) return text;
+      const regex = new RegExp(
+        `(${searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+        "gi",
+      );
+      const parts = text.split(regex);
+      return parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark
+            key={i}
+            className="bg-yellow-200 text-yellow-900 rounded-sm px-0.5"
+          >
+            {part}
+          </mark>
+        ) : (
+          part
+        ),
+      );
+    },
+    [searchQuery],
+  );
+
+  return (
+    <div
+      className="group animate-fadeSlideIn"
+      style={{ animationDelay: `${index * 30}ms` }}
+    >
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-start gap-3 px-5 py-4 text-left transition-all duration-200 ${
+          isOpen
+            ? "bg-white"
+            : "bg-white/60 hover:bg-white"
+        }`}
+      >
+        {/* 質問番号バッジ */}
+        <span
+          className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mt-0.5 transition-colors duration-200 ${
+            isOpen
+              ? "bg-blue-600 text-white"
+              : "bg-slate-200 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600"
+          }`}
+        >
+          Q
+        </span>
+
+        <span
+          className={`flex-1 text-sm leading-relaxed transition-colors duration-200 ${
+            isOpen
+              ? "font-semibold text-slate-900"
+              : "font-medium text-slate-700 group-hover:text-slate-900"
+          }`}
+        >
+          {highlight(faq.question)}
+        </span>
+
+        <svg
+          className={`w-4 h-4 flex-shrink-0 mt-1 text-slate-400 transition-transform duration-300 ease-out ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+
+      <AnimatedCollapse isOpen={isOpen}>
+        <div className="px-5 pb-5 pt-0">
+          <div className="ml-9 pl-4 border-l-2 border-blue-200">
+            <p className="text-sm text-slate-600 leading-[1.8] whitespace-pre-line">
+              {highlight(faq.answer)}
+            </p>
+          </div>
+        </div>
+      </AnimatedCollapse>
+    </div>
+  );
+}
+
+// ── カテゴリアコーディオン ──
+function CategoryAccordion({
+  category,
+  isOpen,
+  onToggle,
+  searchQuery,
+}: {
+  category: Category;
+  isOpen: boolean;
+  onToggle: () => void;
+  searchQuery: string;
+}) {
+  return (
+    <div
+      className={`rounded-2xl overflow-hidden transition-all duration-300 ${
+        isOpen
+          ? "shadow-lg shadow-slate-200/60 ring-1 ring-slate-200"
+          : "shadow-sm hover:shadow-md ring-1 ring-slate-100 hover:ring-slate-200"
+      }`}
+    >
+      {/* カテゴリヘッダー */}
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center gap-4 px-6 py-5 text-left transition-all duration-300 ${
+          isOpen
+            ? `bg-gradient-to-r ${category.gradient} text-white`
+            : "bg-white hover:bg-slate-50/80"
+        }`}
+      >
+        {/* アイコン */}
+        <span
+          className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300 ${
+            isOpen ? "bg-white/20 scale-110" : category.iconBg
+          }`}
+        >
+          {category.icon}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`text-base font-bold transition-colors duration-300 ${
+                isOpen ? "text-white" : "text-slate-900"
+              }`}
+            >
+              {category.title}
+            </span>
+            <span
+              className={`text-xs font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${
+                isOpen
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {category.faqs.length}件
+            </span>
+          </div>
+          <p
+            className={`text-xs mt-0.5 transition-colors duration-300 ${
+              isOpen ? "text-white/80" : "text-slate-500"
+            }`}
+          >
+            {category.description}
+          </p>
+        </div>
+
+        {/* 矢印アイコン */}
+        <div
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+            isOpen ? "bg-white/20 rotate-180" : "bg-slate-100"
+          }`}
+        >
+          <svg
+            className={`w-4 h-4 transition-colors duration-300 ${
+              isOpen ? "text-white" : "text-slate-400"
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </div>
+      </button>
+
+      {/* FAQ リスト */}
+      <AnimatedCollapse isOpen={isOpen}>
+        <div className="bg-slate-50/50 divide-y divide-slate-100">
+          {category.faqs.map((faq, idx) => (
+            <FAQItem
+              key={idx}
+              faq={faq}
+              index={idx}
+              searchQuery={searchQuery}
+            />
+          ))}
+        </div>
+      </AnimatedCollapse>
+    </div>
+  );
+}
+
+// ── メインページ ──
 export default function HelpPage() {
-  const [openCategory, setOpenCategory] = useState<string | null>("setup");
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   // 検索フィルタ
@@ -540,95 +753,225 @@ export default function HelpPage() {
     : CATEGORIES;
 
   const totalFaqs = CATEGORIES.reduce((sum, cat) => sum + cat.faqs.length, 0);
+  const filteredFaqCount = filteredCategories.reduce(
+    (sum, cat) => sum + cat.faqs.length,
+    0,
+  );
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">
-          操作ガイド / FAQ
-        </h1>
-        <p className="text-slate-600 text-sm mt-1">
-          Lオペ for CLINIC の使い方をカテゴリ別にまとめています（全{totalFaqs}件）
-        </p>
-      </div>
+    <>
+      {/* アニメーション用CSS */}
+      <style jsx global>{`
+        @keyframes fadeSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeSlideIn {
+          animation: fadeSlideIn 0.3s ease-out both;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out both;
+        }
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.4s ease-out both;
+        }
+      `}</style>
 
-      {/* 検索バー */}
-      <div className="mb-6">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="質問を検索..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          {/* ── ヘッダー ── */}
+          <div className="text-center mb-10 animate-fadeIn">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl mb-5 shadow-lg shadow-blue-500/25">
+              📖
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              ヘルプセンター
+            </h1>
+            <p className="text-slate-500 text-sm sm:text-base mt-2 max-w-md mx-auto leading-relaxed">
+              Lオペ for CLINIC の操作ガイド・よくある質問を
+              <br className="hidden sm:block" />
+              カテゴリ別にまとめています
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
-            </button>
-          )}
-        </div>
-        {searchQuery && (
-          <p className="text-xs text-slate-500 mt-1">
-            {filteredCategories.reduce((sum, cat) => sum + cat.faqs.length, 0)}件の結果
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        {filteredCategories.map((category) => (
-          <AccordionItem
-            key={category.id}
-            category={category}
-            isOpen={searchQuery ? true : openCategory === category.id}
-            onToggle={() =>
-              setOpenCategory(
-                openCategory === category.id ? null : category.id,
-              )
-            }
-          />
-        ))}
-        {filteredCategories.length === 0 && (
-          <div className="text-center py-12 text-slate-500">
-            <p className="text-sm">「{searchQuery}」に一致する質問が見つかりませんでした</p>
-            <button
-              onClick={() => setSearchQuery("")}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-            >
-              検索をクリア
-            </button>
+              {CATEGORIES.length}カテゴリ / 全{totalFaqs}件のFAQ
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* サポートリンク */}
-      <div className="mt-12 p-6 bg-blue-50 rounded-lg border border-blue-200">
-        <h2 className="text-base font-bold text-blue-900 mb-2">
-          お困りの場合
-        </h2>
-        <p className="text-sm text-blue-800">
-          FAQで解決しない場合は、管理画面右下のチャットサポートからお問い合わせください。
-          平日10:00〜18:00で対応しています。
-        </p>
+          {/* ── 検索バー ── */}
+          <div className="mb-8 animate-slideDown" style={{ animationDelay: "100ms" }}>
+            <div className="relative max-w-2xl mx-auto">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg
+                  className="w-5 h-5 text-slate-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="キーワードで質問を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-12 py-3.5 bg-white border border-slate-200 rounded-2xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition-all duration-200 placeholder:text-slate-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="text-center text-xs text-slate-500 mt-2 animate-fadeIn">
+                「{searchQuery}」の検索結果：
+                <span className="font-semibold text-blue-600 ml-1">
+                  {filteredFaqCount}件
+                </span>
+              </p>
+            )}
+          </div>
+
+          {/* ── カテゴリリスト ── */}
+          <div className="space-y-4">
+            {filteredCategories.map((category, idx) => (
+              <div
+                key={category.id}
+                className="animate-slideDown"
+                style={{ animationDelay: `${150 + idx * 50}ms` }}
+              >
+                <CategoryAccordion
+                  category={category}
+                  isOpen={searchQuery ? true : openCategory === category.id}
+                  onToggle={() =>
+                    setOpenCategory(
+                      openCategory === category.id ? null : category.id,
+                    )
+                  }
+                  searchQuery={searchQuery}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* 検索結果なし */}
+          {filteredCategories.length === 0 && (
+            <div className="text-center py-16 animate-fadeIn">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 text-2xl mb-4">
+                🔍
+              </div>
+              <p className="text-slate-600 font-medium">
+                「{searchQuery}」に一致する質問が見つかりませんでした
+              </p>
+              <p className="text-sm text-slate-400 mt-1">
+                別のキーワードで検索してみてください
+              </p>
+              <button
+                onClick={() => setSearchQuery("")}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100 transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                検索をクリア
+              </button>
+            </div>
+          )}
+
+          {/* ── サポートカード ── */}
+          <div
+            className="mt-12 animate-slideDown"
+            style={{ animationDelay: `${150 + filteredCategories.length * 50 + 100}ms` }}
+          >
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-8 text-white shadow-xl shadow-blue-600/20">
+              {/* 装飾パターン */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+              <div className="relative">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center text-xl">
+                    💡
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold mb-1.5">
+                      お探しの回答が見つかりませんか？
+                    </h2>
+                    <p className="text-sm text-white/80 leading-relaxed max-w-lg">
+                      FAQで解決しない場合は、管理画面右下のチャットサポートからお気軽にお問い合わせください。
+                      平日 10:00〜18:00 で専任スタッフが対応いたします。
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
