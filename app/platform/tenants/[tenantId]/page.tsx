@@ -24,7 +24,6 @@ interface AdminUser {
   email: string;
   platform_role: string;
   is_active: boolean;
-  last_login_at: string | null;
   created_at: string;
 }
 
@@ -853,7 +852,7 @@ export default function TenantDetailPage() {
                           ステータス
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                          最終ログイン
+                          登録日
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                           操作
@@ -903,7 +902,7 @@ export default function TenantDetailPage() {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-500">
-                              {formatDateTime(user?.last_login_at)}
+                              {formatDateTime(user?.created_at)}
                             </td>
                             <td className="px-6 py-4 text-right">
                               <button

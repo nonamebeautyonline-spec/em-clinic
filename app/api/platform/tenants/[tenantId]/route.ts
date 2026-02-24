@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const FULL_SELECT = `
       id, name, slug, industry, is_active, contact_email, contact_phone,
       address, notes, logo_url, created_at, updated_at, deleted_at,
-      tenant_members (id, role, created_at, admin_users (id, name, email, platform_role, is_active, last_login_at, created_at)),
+      tenant_members (id, role, created_at, admin_users (id, name, email, platform_role, is_active, created_at)),
       tenant_plans (id, plan_name, monthly_fee, setup_fee, started_at, next_billing_at, created_at)
     `;
     const BASIC_SELECT = "id, name, slug, is_active, created_at, updated_at";

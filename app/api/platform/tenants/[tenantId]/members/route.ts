@@ -58,7 +58,6 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
           username,
           platform_role,
           is_active,
-          last_login_at,
           created_at
         )
       `,
