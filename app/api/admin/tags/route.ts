@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
+  const simple = req.nextUrl.searchParams.get("simple") === "true";
 
   const { data: tagDefs, error } = await withTenant(
     supabaseAdmin
@@ -21,6 +22,11 @@ export async function GET(req: NextRequest) {
   );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // simple=true: 定義のみ返す（カウント不要なページ用）
+  if (simple) {
+    return NextResponse.json({ tags: tagDefs || [] });
+  }
 
   // タグごとの患者数を一括取得（ページネーション対応）
   const allPT: { tag_id: number }[] = [];

@@ -50,9 +50,9 @@ export default function MenuRulesPage() {
     setLoading(true);
     const [rulesRes, tagsRes, marksRes, fieldsRes, menusRes] = await Promise.all([
       fetch("/api/admin/line/menu-rules", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/friend-fields", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/tags?simple=true", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/line/marks?simple=true", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/rich-menus?simple=true", { credentials: "include" }).then(r => r.json()),
     ]);
     if (rulesRes.rules) setRules(rulesRes.rules);
