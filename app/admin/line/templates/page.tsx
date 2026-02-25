@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
 interface Template {
@@ -105,10 +106,13 @@ export default function TemplateManagementPage() {
   const [flexError, setFlexError] = useState("");
   // Flexプリセット
   const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
-  // テスト送信
-  const [testAccount, setTestAccount] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean } | null>(null);
+  // テスト送信（複数アカウント対応）
+  type TestAccount = { patient_id: string; patient_name: string; has_line_uid: boolean };
+  const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
   const [testSendingId, setTestSendingId] = useState<number | null>(null);
   const [testSendResult, setTestSendResult] = useState<{ id: number; ok: boolean; message: string } | null>(null);
+  const [showTestSendModal, setShowTestSendModal] = useState<Template | null>(null);
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
 
   // 変数プレビュー用state
   const [previewResult, setPreviewResult] = useState<string | null>(null);
@@ -142,10 +146,15 @@ export default function TemplateManagementPage() {
       const fpData = await fpRes.json();
       if (fpData.presets) setFlexPresets(fpData.presets);
     }
-    // テスト送信アカウント取得
+    // テスト送信アカウント取得（複数対応）
     if (taRes.ok) {
       const taData = await taRes.json();
-      if (taData.patient_id) setTestAccount(taData);
+      if (taData.accounts && taData.accounts.length > 0) {
+        setTestAccounts(taData.accounts);
+      } else if (taData.patient_id) {
+        // 後方互換
+        setTestAccounts([{ patient_id: taData.patient_id, patient_name: taData.patient_name, has_line_uid: taData.has_line_uid }]);
+      }
     }
     setLoading(false);
   };
@@ -242,43 +251,67 @@ export default function TemplateManagementPage() {
     setSelectedPatient(null);
   };
 
-  // テスト送信
-  const handleTestSend = async (t: Template) => {
-    if (!testAccount || testSendingId) return;
+  // テスト送信確認画面を開く
+  const openTestSendModal = (t: Template) => {
+    if (testAccounts.length === 0 || testSendingId) return;
+    setShowTestSendModal(t);
+    // デフォルトで全アカウント選択
+    setSelectedTestIds(testAccounts.filter(a => a.has_line_uid).map(a => a.patient_id));
+  };
+
+  // テスト送信実行（選択されたアカウントに送信）
+  const executeTestSend = async () => {
+    const t = showTestSendModal;
+    if (!t || selectedTestIds.length === 0 || testSendingId) return;
+    setShowTestSendModal(null);
     setTestSendingId(t.id);
     setTestSendResult(null);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: any = { patient_id: testAccount.patient_id };
-      if (t.message_type === "flex" && t.flex_content) {
-        body.message_type = "flex";
-        body.flex = { type: "flex", altText: t.name, contents: t.flex_content };
-        body.message = "";
-      } else if (t.message_type === "image") {
-        body.message_type = "image";
-        body.message = t.content;
-        body.template_name = t.name;
-      } else {
-        body.message = t.content;
+
+    const results: string[] = [];
+    let allOk = true;
+    for (const pid of selectedTestIds) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const body: any = { patient_id: pid };
+        if (t.message_type === "flex" && t.flex_content) {
+          body.message_type = "flex";
+          body.flex = { type: "flex", altText: t.name, contents: t.flex_content };
+          body.message = "";
+        } else if (t.message_type === "image") {
+          body.message_type = "image";
+          body.message = t.content;
+          body.template_name = t.name;
+        } else {
+          body.message = t.content;
+        }
+        const res = await fetch("/api/admin/line/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        const account = testAccounts.find(a => a.patient_id === pid);
+        const name = account?.patient_name || pid;
+        if (data.ok) {
+          results.push(`${name}: 送信完了`);
+        } else {
+          allOk = false;
+          results.push(`${name}: ${data.error || "失敗"}`);
+        }
+      } catch {
+        allOk = false;
+        const account = testAccounts.find(a => a.patient_id === pid);
+        results.push(`${account?.patient_name || pid}: 通信エラー`);
       }
-      const res = await fetch("/api/admin/line/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      setTestSendResult({
-        id: t.id,
-        ok: !!data.ok,
-        message: data.ok ? `${testAccount.patient_name}に送信完了` : (data.error || "送信失敗"),
-      });
-    } catch {
-      setTestSendResult({ id: t.id, ok: false, message: "通信エラー" });
-    } finally {
-      setTestSendingId(null);
-      setTimeout(() => setTestSendResult(null), 4000);
     }
+    setTestSendResult({
+      id: t.id,
+      ok: allOk,
+      message: results.join(" / "),
+    });
+    setTestSendingId(null);
+    setTimeout(() => setTestSendResult(null), 6000);
   };
 
   const filteredTemplates = selectedCategory === null
@@ -540,12 +573,12 @@ export default function TemplateManagementPage() {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* テーブルヘッダー */}
                 <div className={`grid gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
-                  testAccount ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
+                  testAccounts.length > 0 ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
                 }`}>
                   <div>テンプレート名</div>
                   <div className="text-center">登録日</div>
                   <div className="text-center">プレビュー</div>
-                  {testAccount && <div className="text-center">テスト</div>}
+                  {testAccounts.length > 0 && <div className="text-center">テスト</div>}
                   <div className="text-center">操作</div>
                 </div>
 
@@ -553,7 +586,7 @@ export default function TemplateManagementPage() {
                   <div
                     key={t.id}
                     className={`grid gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group ${
-                      testAccount ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
+                      testAccounts.length > 0 ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
                     }`}
                   >
                     {/* テンプレート名 */}
@@ -598,19 +631,24 @@ export default function TemplateManagementPage() {
                     </div>
 
                     {/* テスト送信 */}
-                    {testAccount && (
+                    {testAccounts.length > 0 && (
                       <div className="text-center">
                         {testSendResult?.id === t.id ? (
-                          <span className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}>
-                            {testSendResult.ok ? "送信完了" : "失敗"}
+                          <span
+                            className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}
+                            title={testSendResult.message}
+                          >
+                            {testSendResult.ok ? "送信完了" : testSendResult.message || "失敗"}
                           </span>
+                        ) : testSendingId === t.id ? (
+                          <span className="text-[11px] text-amber-600">送信中...</span>
                         ) : (
                           <button
-                            onClick={() => handleTestSend(t)}
+                            onClick={() => openTestSendModal(t)}
                             disabled={testSendingId !== null}
                             className="px-3 py-1.5 text-xs font-medium border border-amber-200 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-40 transition-colors"
                           >
-                            {testSendingId === t.id ? "送信中..." : "テスト"}
+                            テスト
                           </button>
                         )}
                       </div>
@@ -618,12 +656,21 @@ export default function TemplateManagementPage() {
 
                     {/* 操作 */}
                     <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        別窓
-                      </button>
+                      {t.message_type === "flex" && t.flex_content ? (
+                        <Link
+                          href={`/admin/line/flex-builder?template=${t.id}`}
+                          className="px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          エディタ
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit(t)}
+                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          編集
+                        </button>
+                      )}
                       <button
                         onClick={() => setDeleteConfirm(t.id)}
                         className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
@@ -1021,6 +1068,24 @@ export default function TemplateManagementPage() {
               {/* Flex JSON編集（プリセット + エディタ + プレビュー） */}
               {activeTab === "flex" && (
                 <div className="space-y-3">
+                  {/* ビジュアルエディタへのリンク */}
+                  <Link
+                    href={editingTemplate ? `/admin/line/flex-builder?template=${editingTemplate.id}` : "/admin/line/flex-builder"}
+                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <div>
+                      <span className="text-sm font-medium text-blue-700">ノーコードエディタで開く</span>
+                      <span className="text-xs text-blue-500 ml-2">JSONを書かずにビジュアルで編集</span>
+                    </div>
+                    <svg className="w-4 h-4 text-blue-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+
                   {/* プリセットボタン */}
                   {flexPresets.length > 0 && (
                     <div>
@@ -1362,6 +1427,67 @@ export default function TemplateManagementPage() {
                   削除する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* テスト送信確認モーダル */}
+      {showTestSendModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTestSendModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">テスト送信</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                「{showTestSendModal.name}」を送信する宛先を選択してください
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-2 max-h-[300px] overflow-y-auto">
+              {testAccounts.map((a) => (
+                <label
+                  key={a.patient_id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors cursor-pointer ${
+                    selectedTestIds.includes(a.patient_id)
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-gray-200 hover:bg-gray-50"
+                  } ${!a.has_line_uid ? "opacity-50" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTestIds.includes(a.patient_id)}
+                    disabled={!a.has_line_uid}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTestIds(prev => [...prev, a.patient_id]);
+                      } else {
+                        setSelectedTestIds(prev => prev.filter(id => id !== a.patient_id));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-800">{a.patient_name || a.patient_id}</span>
+                    {!a.has_line_uid && (
+                      <span className="ml-2 text-[10px] text-red-500">LINE未連携</span>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setShowTestSendModal(null)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={executeTestSend}
+                disabled={selectedTestIds.length === 0}
+                className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-40 text-sm font-medium transition-colors"
+              >
+                {selectedTestIds.length}人に送信
+              </button>
             </div>
           </div>
         </div>

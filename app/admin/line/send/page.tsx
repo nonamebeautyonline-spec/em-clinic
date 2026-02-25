@@ -100,10 +100,13 @@ export default function BroadcastSendPage() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // テスト送信
-  const [testAccount, setTestAccount] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean } | null>(null);
+  // テスト送信（複数アカウント対応）
+  type TestAccount = { patient_id: string; patient_name: string; has_line_uid: boolean };
+  const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [showTestSendModal, setShowTestSendModal] = useState(false);
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
 
   // テキストエリア参照（カーソル位置に変数を挿入するため）
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -138,7 +141,11 @@ export default function BroadcastSendPage() {
       if (templatesData.templates) setTemplates(templatesData.templates);
       if (broadcastData.broadcasts) setBroadcasts(broadcastData.broadcasts);
       if (segData.segments) setSegments(segData.segments);
-      if (testData.patient_id) setTestAccount(testData);
+      if (testData.accounts && testData.accounts.length > 0) {
+        setTestAccounts(testData.accounts);
+      } else if (testData.patient_id) {
+        setTestAccounts([{ patient_id: testData.patient_id, patient_name: testData.patient_name, has_line_uid: testData.has_line_uid }]);
+      }
       setLoadingHistory(false);
     });
   }, []);
@@ -351,29 +358,47 @@ export default function BroadcastSendPage() {
     setTemplates(prev => prev.filter(t => t.id !== id));
   };
 
-  // テスト送信
-  const handleTestSend = async () => {
-    if (!testAccount || !message.trim() || testSending) return;
+  // テスト送信確認画面を開く
+  const openTestSendModal = () => {
+    if (testAccounts.length === 0 || !message.trim() || testSending) return;
+    setSelectedTestIds(testAccounts.filter(a => a.has_line_uid).map(a => a.patient_id));
+    setShowTestSendModal(true);
+  };
+
+  // テスト送信実行
+  const executeTestSend = async () => {
+    if (selectedTestIds.length === 0 || testSending) return;
+    setShowTestSendModal(false);
     setTestSending(true);
     setTestResult(null);
-    try {
-      const res = await fetch("/api/admin/line/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ patient_id: testAccount.patient_id, message }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setTestResult(`テスト送信完了（${testAccount.patient_name}）`);
-      } else {
-        setTestResult(`テスト送信失敗: ${data.error || "不明なエラー"}`);
+
+    const results: string[] = [];
+    let allOk = true;
+    for (const pid of selectedTestIds) {
+      try {
+        const res = await fetch("/api/admin/line/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ patient_id: pid, message }),
+        });
+        const data = await res.json();
+        const account = testAccounts.find(a => a.patient_id === pid);
+        const name = account?.patient_name || pid;
+        if (data.ok) {
+          results.push(`${name}: 完了`);
+        } else {
+          allOk = false;
+          results.push(`${name}: ${data.error || "失敗"}`);
+        }
+      } catch {
+        allOk = false;
+        const account = testAccounts.find(a => a.patient_id === pid);
+        results.push(`${account?.patient_name || pid}: 通信エラー`);
       }
-    } catch {
-      setTestResult("テスト送信失敗: 通信エラー");
-    } finally {
-      setTestSending(false);
     }
+    setTestResult(allOk ? `テスト送信完了（${results.join(", ")}）` : `テスト送信: ${results.join(" / ")}`);
+    setTestSending(false);
   };
 
   const formatDate = (s: string) => {
@@ -841,10 +866,10 @@ export default function BroadcastSendPage() {
         </div>
 
         {/* テスト送信ボタン */}
-        {testAccount && (
+        {testAccounts.length > 0 && (
           <div className="space-y-2">
             <button
-              onClick={handleTestSend}
+              onClick={openTestSendModal}
               disabled={testSending || !message.trim()}
               className="w-full py-2.5 text-amber-700 bg-amber-50 border border-amber-200 rounded-xl disabled:opacity-40 font-medium transition-all text-sm flex items-center justify-center gap-2 hover:bg-amber-100"
             >
@@ -858,7 +883,7 @@ export default function BroadcastSendPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
-                  テスト送信（{testAccount.patient_name}）
+                  テスト送信（{testAccounts.length}人登録済み）
                 </>
               )}
             </button>
@@ -1073,6 +1098,65 @@ export default function BroadcastSendPage() {
           onSave={handleConditionModalSave}
           onClose={() => setShowConditionModal(null)}
         />
+      )}
+
+      {/* テスト送信確認モーダル */}
+      {showTestSendModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTestSendModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">テスト送信</h3>
+              <p className="text-xs text-gray-500 mt-1">送信する宛先を選択してください</p>
+            </div>
+            <div className="px-6 py-4 space-y-2 max-h-[300px] overflow-y-auto">
+              {testAccounts.map((a) => (
+                <label
+                  key={a.patient_id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-colors cursor-pointer ${
+                    selectedTestIds.includes(a.patient_id)
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-gray-200 hover:bg-gray-50"
+                  } ${!a.has_line_uid ? "opacity-50" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTestIds.includes(a.patient_id)}
+                    disabled={!a.has_line_uid}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTestIds(prev => [...prev, a.patient_id]);
+                      } else {
+                        setSelectedTestIds(prev => prev.filter(id => id !== a.patient_id));
+                      }
+                    }}
+                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-800">{a.patient_name || a.patient_id}</span>
+                    {!a.has_line_uid && (
+                      <span className="ml-2 text-[10px] text-red-500">LINE未連携</span>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setShowTestSendModal(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={executeTestSend}
+                disabled={selectedTestIds.length === 0}
+                className="flex-1 px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-40 text-sm font-medium transition-colors"
+              >
+                {selectedTestIds.length}人に送信
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

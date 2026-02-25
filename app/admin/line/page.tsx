@@ -98,25 +98,30 @@ export default function LineDashboardPage() {
   const [period, setPeriod] = useState(7);
   const [activeTab, setActiveTab] = useState<"charts" | "table" | "broadcasts">("charts");
 
-  // テスト送信設定
-  const [testAccount, setTestAccount] = useState<TestAccount | null>(null);
-  const [testAccountLoading, setTestAccountLoading] = useState(false);
+  // テスト送信設定（複数アカウント対応）
+  const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
   const [testPid, setTestPid] = useState("");
   const [testSaving, setTestSaving] = useState(false);
   const [testError, setTestError] = useState("");
 
   // テスト送信アカウント読み込み
-  const fetchTestAccount = async () => {
+  const fetchTestAccounts = async () => {
     try {
       const res = await fetch("/api/admin/line/test-account", { credentials: "include" });
       const json = await res.json();
-      if (json.patient_id) setTestAccount(json);
-      else setTestAccount(null);
+      if (json.accounts && json.accounts.length > 0) {
+        setTestAccounts(json.accounts);
+      } else if (json.patient_id) {
+        // 後方互換
+        setTestAccounts([{ patient_id: json.patient_id, patient_name: json.patient_name, has_line_uid: json.has_line_uid }]);
+      } else {
+        setTestAccounts([]);
+      }
     } catch { /* ignore */ }
   };
 
-  // テスト送信アカウント設定
-  const handleSetTestAccount = async () => {
+  // テスト送信アカウント追加
+  const handleAddTestAccount = async () => {
     if (!testPid.trim() || testSaving) return;
     setTestSaving(true);
     setTestError("");
@@ -128,8 +133,8 @@ export default function LineDashboardPage() {
         body: JSON.stringify({ patient_id: testPid.trim() }),
       });
       const json = await res.json();
-      if (res.ok) {
-        setTestAccount(json);
+      if (res.ok && json.account) {
+        setTestAccounts(prev => [...prev, json.account]);
         setTestPid("");
       } else {
         setTestError(json.error || "設定に失敗しました");
@@ -142,13 +147,18 @@ export default function LineDashboardPage() {
   };
 
   // テスト送信アカウント解除
-  const handleRemoveTestAccount = async () => {
-    await fetch("/api/admin/line/test-account", { method: "DELETE", credentials: "include" });
-    setTestAccount(null);
+  const handleRemoveTestAccount = async (patientId: string) => {
+    await fetch("/api/admin/line/test-account", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ patient_id: patientId }),
+    });
+    setTestAccounts(prev => prev.filter(a => a.patient_id !== patientId));
   };
 
   useEffect(() => {
-    fetchTestAccount();
+    fetchTestAccounts();
   }, []);
 
   useEffect(() => {
@@ -567,49 +577,55 @@ export default function LineDashboardPage() {
             テスト送信先アカウントを登録すると、一斉配信・テンプレート・キーワード応答の各画面でテスト送信が可能になります
           </p>
         </div>
-        <div className="px-5 py-4">
-          {/* 設定済みの場合 */}
-          {testAccount ? (
-            <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-900">{testAccount.patient_name || "名前未登録"}</span>
-                    <span className="text-xs text-gray-500 font-mono">{testAccount.patient_id}</span>
+        <div className="px-5 py-4 space-y-3">
+          {/* 登録済みアカウント一覧 */}
+          {testAccounts.length > 0 && (
+            <div className="space-y-2">
+              {testAccounts.map((a) => (
+                <div key={a.patient_id} className="flex items-center justify-between bg-emerald-50 rounded-xl px-4 py-2.5 border border-emerald-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">{a.patient_name || "名前未登録"}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">{a.patient_id}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {a.has_line_uid ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            LINE連携済み
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 font-medium">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            </svg>
+                            LINE未連携
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {testAccount.has_line_uid ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        LINE連携済み
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 font-medium">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
-                        LINE未連携（送信不可）
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => handleRemoveTestAccount(a.patient_id)}
+                    className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    解除
+                  </button>
                 </div>
-              </div>
-              <button
-                onClick={handleRemoveTestAccount}
-                className="px-3 py-1.5 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                解除
-              </button>
+              ))}
             </div>
-          ) : (
-            /* 未設定の場合 */
+          )}
+
+          {/* アカウント追加フォーム */}
+          {testAccounts.length < 10 && (
             <div>
               <div className="flex gap-2">
                 <input
@@ -618,19 +634,19 @@ export default function LineDashboardPage() {
                   onChange={(e) => { setTestPid(e.target.value); setTestError(""); }}
                   placeholder="患者IDを入力（例: PID-001234）"
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 bg-gray-50/50 transition-all"
-                  onKeyDown={(e) => e.key === "Enter" && handleSetTestAccount()}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddTestAccount()}
                 />
                 <button
-                  onClick={handleSetTestAccount}
+                  onClick={handleAddTestAccount}
                   disabled={!testPid.trim() || testSaving}
                   className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-medium hover:from-amber-600 hover:to-orange-600 disabled:opacity-40 shadow-lg shadow-amber-500/25 transition-all flex items-center gap-1.5"
                 >
                   {testSaving ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      設定中...
+                      追加中...
                     </>
-                  ) : "設定"}
+                  ) : "追加"}
                 </button>
               </div>
               {testError && (
@@ -641,6 +657,7 @@ export default function LineDashboardPage() {
                   {testError}
                 </p>
               )}
+              <p className="text-[10px] text-gray-400 mt-1.5">最大10人まで登録可能（現在 {testAccounts.length}/10）</p>
             </div>
           )}
         </div>

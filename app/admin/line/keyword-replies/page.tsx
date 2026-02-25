@@ -66,8 +66,9 @@ export default function KeywordRepliesPage() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
-  // テスト送信
-  const [testAccount, setTestAccount] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean } | null>(null);
+  // テスト送信（複数アカウント対応 → 最初のアカウントを使用）
+  const [testAccounts, setTestAccounts] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean }[]>([]);
+  const testAccount = testAccounts.length > 0 ? testAccounts[0] : null;
   const [testSending, setTestSending] = useState(false);
   const [testSendMsg, setTestSendMsg] = useState<string | null>(null);
 
@@ -94,7 +95,11 @@ export default function KeywordRepliesPage() {
       }
       if (taRes.ok) {
         const d = await taRes.json();
-        if (d.patient_id) setTestAccount(d);
+        if (d.accounts && d.accounts.length > 0) {
+          setTestAccounts(d.accounts);
+        } else if (d.patient_id) {
+          setTestAccounts([{ patient_id: d.patient_id, patient_name: d.patient_name, has_line_uid: d.has_line_uid }]);
+        }
       }
     } catch (e) {
       console.error("データ取得エラー:", e);

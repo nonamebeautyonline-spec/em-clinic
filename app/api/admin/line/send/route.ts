@@ -45,7 +45,29 @@ export async function POST(req: NextRequest) {
   if (message_type === "flex" && flex) {
     const flexMsg = flex as any;
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
-    const status = res?.ok ? "sent" : "failed";
+
+    // pushMessageがnullを返す = トークン未設定
+    if (!res) {
+      await supabaseAdmin.from("message_log").insert({
+        ...tenantPayload(tenantId),
+        patient_id,
+        line_uid: patient.line_id,
+        event_type: "message",
+        message_type: "flex",
+        content: `[${(flexMsg.altText as string) || "Flex Message"}]`,
+        flex_json: flexMsg.contents,
+        status: "failed",
+        direction: "outgoing",
+      });
+      return NextResponse.json({ ok: false, error: "LINEチャネルアクセストークンが未設定です", status: "failed" }, { status: 500 });
+    }
+
+    // LINE APIエラーの場合は詳細を取得
+    let lineError = "";
+    if (!res.ok) {
+      lineError = await res.text().catch(() => "");
+    }
+    const status = res.ok ? "sent" : "failed";
 
     await supabaseAdmin.from("message_log").insert({
       ...tenantPayload(tenantId),
@@ -59,7 +81,10 @@ export async function POST(req: NextRequest) {
       direction: "outgoing",
     });
 
-    return NextResponse.json({ ok: status === "sent", status, patient_name: patient.name });
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
+    }
+    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }
 
   // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
@@ -81,7 +106,22 @@ export async function POST(req: NextRequest) {
     ? { type: "image" as const, originalContentUrl: resolvedMessage, previewImageUrl: resolvedMessage }
     : { type: "text" as const, text: resolvedMessage };
   const res = await pushMessage(patient.line_id, [lineMessage], tenantId ?? undefined);
-  const status = res?.ok ? "sent" : "failed";
+
+  if (!res) {
+    await supabaseAdmin.from("message_log").insert({
+      ...tenantPayload(tenantId),
+      patient_id,
+      line_uid: patient.line_id,
+      event_type: "message",
+      message_type: "individual",
+      content: resolvedMessage,
+      status: "failed",
+      direction: "outgoing",
+    });
+    return NextResponse.json({ ok: false, error: "LINEチャネルアクセストークンが未設定です", status: "failed" }, { status: 500 });
+  }
+
+  const status = res.ok ? "sent" : "failed";
 
   // メッセージログに記録（画像テンプレは【テンプレ名】URL形式で保存）
   const logContent = message_type === "image" && template_name
