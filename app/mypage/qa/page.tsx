@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -440,6 +440,14 @@ function CategoryAccordion({
 
 // ── メインページ ──
 export default function PatientQAPage() {
+  return (
+    <Suspense>
+      <PatientQAPageInner />
+    </Suspense>
+  );
+}
+
+function PatientQAPageInner() {
   const searchParams = useSearchParams();
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
