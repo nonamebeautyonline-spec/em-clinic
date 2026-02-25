@@ -986,19 +986,37 @@ async function executeRichMenuActions(
           const { data: tmpl } = await withTenant(
             supabaseAdmin
               .from("message_templates")
-              .select("content, name, message_type")
+              .select("content, name, message_type, flex_content")
               .eq("id", Number(action.value))
               .maybeSingle(),
             tenantId
           );
           if (!tmpl) break;
 
-          const text = tmpl.content
+          const text = (tmpl.content || "")
             .replace(/\{name\}/g, patient?.patient_name || "")
             .replace(/\{patient_id\}/g, patient?.patient_id || "");
 
           // タイミング制御（即時以外は後で実装、今は即時送信）
-          if (tmpl.message_type === "image") {
+          if (tmpl.message_type === "flex" && tmpl.flex_content) {
+            // Flexテンプレート → flex_contentをそのまま送信
+            await pushMessage(lineUid, [{
+              type: "flex",
+              altText: tmpl.name || "メッセージ",
+              contents: tmpl.flex_content,
+            }], tenantId ?? undefined);
+            await logEvent({
+              tenantId,
+              patient_id: patient?.patient_id,
+              line_uid: lineUid,
+              direction: "outgoing",
+              event_type: "postback",
+              message_type: "individual",
+              content: `[${tmpl.name}]`,
+              status: "sent",
+            });
+            actionDetails.push(`Flex[${tmpl.name}]を送信`);
+          } else if (tmpl.message_type === "image") {
             // 画像テンプレート → LINE image メッセージで送信
             await pushMessage(lineUid, [{
               type: "image",
