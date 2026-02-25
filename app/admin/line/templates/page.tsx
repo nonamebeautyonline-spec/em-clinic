@@ -540,7 +540,7 @@ export default function TemplateManagementPage() {
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* テーブルヘッダー */}
                 <div className={`grid gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
-                  testAccount ? "grid-cols-[1fr_140px_100px_100px_100px]" : "grid-cols-[1fr_140px_100px_100px]"
+                  testAccount ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
                 }`}>
                   <div>テンプレート名</div>
                   <div className="text-center">登録日</div>
@@ -553,7 +553,7 @@ export default function TemplateManagementPage() {
                   <div
                     key={t.id}
                     className={`grid gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group ${
-                      testAccount ? "grid-cols-[1fr_140px_100px_100px_100px]" : "grid-cols-[1fr_140px_100px_100px]"
+                      testAccount ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
                     }`}
                   >
                     {/* テンプレート名 */}

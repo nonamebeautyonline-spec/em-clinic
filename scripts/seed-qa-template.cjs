@@ -119,12 +119,16 @@ const flexContent = {
   contents: [...QA_CARDS.map(buildBubble), buildMoreBubble()],
 };
 
+// デフォルトテナントID（環境変数で上書き可能）
+const TENANT_ID = process.env.TENANT_ID || "00000000-0000-0000-0000-000000000001";
+
 async function main() {
   // 既に同名テンプレートが存在するか確認
   const { data: existing } = await supabase
     .from("message_templates")
     .select("id")
     .eq("name", "よくある質問（Q&Aカルーセル）")
+    .eq("tenant_id", TENANT_ID)
     .maybeSingle();
 
   if (existing) {
@@ -156,6 +160,7 @@ async function main() {
         message_type: "flex",
         category: "Q&A",
         flex_content: flexContent,
+        tenant_id: TENANT_ID,
       })
       .select()
       .single();
