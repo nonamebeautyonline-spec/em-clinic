@@ -7,6 +7,33 @@ import { parseBody } from "@/lib/validations/helpers";
 import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
 
+// Flexコンテンツを再帰的に正規化（LINE APIが受け付けるbubble/carousel形式に変換）
+function normalizeFlexContents(raw: unknown, depth = 0): unknown {
+  // 無限再帰防止
+  if (depth > 5 || !raw || typeof raw !== "object") return raw;
+
+  // 配列 → カルーセルにラップ（単一要素は取り出し）
+  if (Array.isArray(raw)) {
+    const items = raw.map(item => normalizeFlexContents(item, depth + 1));
+    return items.length === 1 ? items[0] : { type: "carousel", contents: items };
+  }
+
+  const obj = raw as Record<string, unknown>;
+
+  // { type: "flex", contents: X } → Xをアンラップして再帰
+  if (obj.type === "flex" && obj.contents) {
+    return normalizeFlexContents(obj.contents, depth + 1);
+  }
+
+  // carousel内のcontentsも再帰的に正規化
+  if (obj.type === "carousel" && Array.isArray(obj.contents)) {
+    return { ...obj, contents: (obj.contents as unknown[]).map(item => normalizeFlexContents(item, depth + 1)) };
+  }
+
+  // bubble/その他はそのまま
+  return obj;
+}
+
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -43,18 +70,16 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    // Flexデータの正規化: contentsがbubble/carouselコンテナになるよう調整
-    const rawFlex = flex as any;
-    let contents = rawFlex.contents;
-    // flex_contentが { type: "flex", contents: {...} } 形式で保存されている場合はアンラップ
-    if (contents && typeof contents === "object" && !Array.isArray(contents) && contents.type === "flex" && contents.contents) {
-      contents = contents.contents;
-    }
-    // flex_contentが配列の場合はcarouselでラップ
-    if (Array.isArray(contents)) {
-      contents = contents.length === 1 ? contents[0] : { type: "carousel", contents };
-    }
-    const flexMsg = { type: "flex" as const, altText: rawFlex.altText || "Flex Message", contents };
+    // flex全体を再帰的に正規化（配列、flexラッパー、ネストされた形式すべてに対応）
+    const rawFlex = flex as Record<string, unknown>;
+    const rawContents = rawFlex.contents ?? rawFlex;
+    const contents = normalizeFlexContents(rawContents);
+
+    // デバッグログ（正規化前後のデータを記録）
+    const contentsType = contents && typeof contents === "object" && !Array.isArray(contents) ? (contents as Record<string, unknown>).type : Array.isArray(contents) ? "array" : typeof contents;
+    console.log(`[Flex Send] patient=${patient_id}, rawType=${typeof rawContents}, normalizedType=${contentsType}`);
+
+    const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
 
     // pushMessageがnullを返す = トークン未設定
@@ -93,7 +118,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
+      console.error(`[Flex Send] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", debug: { sentContentsType: contentsType } });
     }
     return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }
