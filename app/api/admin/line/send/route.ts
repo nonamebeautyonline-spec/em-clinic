@@ -121,6 +121,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "LINEチャネルアクセストークンが未設定です", status: "failed" }, { status: 500 });
   }
 
+  // LINE APIエラーの場合は詳細を取得
+  let lineError = "";
+  if (!res.ok) {
+    lineError = await res.text().catch(() => "");
+  }
   const status = res.ok ? "sent" : "failed";
 
   // メッセージログに記録（画像テンプレは【テンプレ名】URL形式で保存）
@@ -138,10 +143,14 @@ export async function POST(req: NextRequest) {
     direction: "outgoing",
   });
 
+  if (!res.ok) {
+    return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
+  }
+
   // スタッフ手動返信 → pending AIドラフトがあれば暗黙フィードバック（fire-and-forget）
-  if (status === "sent" && message_type !== "image") {
+  if (message_type !== "image") {
     handleImplicitAiFeedback(patient_id, resolvedMessage, tenantId).catch(() => {});
   }
 
-  return NextResponse.json({ ok: status === "sent", status, patient_name: patient.name });
+  return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
 }

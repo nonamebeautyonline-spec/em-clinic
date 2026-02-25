@@ -43,7 +43,9 @@ export async function pushMessage(lineUserId: string, messages: LineMessage[], t
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    // clone()でボディを保持（呼び出し元でもres.text()できるように）
+    const cloned = res.clone();
+    const text = await cloned.text().catch(() => "");
     console.error(`[LINE Push] Error ${res.status}:`, text);
   }
 
@@ -74,7 +76,8 @@ export async function multicastMessage(lineUserIds: string[], messages: LineMess
     });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      const cloned = res.clone();
+      const text = await cloned.text().catch(() => "");
       console.error(`[LINE Multicast] Error ${res.status}:`, text);
     }
     results.push(res);
