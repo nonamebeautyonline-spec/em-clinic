@@ -4,6 +4,22 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
+/** Flex送信前にバブルの type:"bubble" を補完（LINE API必須） */
+function fixFlexForSend(data: unknown): unknown {
+  if (!data || typeof data !== "object") return data;
+  if (Array.isArray(data)) return data.map(fixFlexForSend);
+  const o = data as Record<string, unknown>;
+  // carousel → 内部を再帰
+  if (o.type === "carousel" && Array.isArray(o.contents)) {
+    return { ...o, contents: o.contents.map(fixFlexForSend) };
+  }
+  // type未設定でbubble構造 → type補完
+  if (!o.type && (o.header || o.hero || o.body || o.footer)) {
+    return { type: "bubble", ...o };
+  }
+  return o;
+}
+
 interface Template {
   id: number;
   name: string;
@@ -275,7 +291,7 @@ export default function TemplateManagementPage() {
         const body: any = { patient_id: pid };
         if (t.message_type === "flex" && t.flex_content) {
           body.message_type = "flex";
-          body.flex = { type: "flex", altText: t.name, contents: t.flex_content };
+          body.flex = { type: "flex", altText: t.name, contents: fixFlexForSend(t.flex_content) };
           body.message = "";
         } else if (t.message_type === "image") {
           body.message_type = "image";
