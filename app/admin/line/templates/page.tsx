@@ -297,9 +297,7 @@ export default function TemplateManagementPage() {
           results.push(`${name}: 送信完了`);
         } else {
           allOk = false;
-          // デバッグ: 正規化後データを表示
-          const debugInfo = data._v ? ` [v${data._v}] norm:${(data._norm || "?").substring(0, 80)}` : "";
-          results.push(`${name}: ${data.error || "失敗"}${debugInfo}`);
+          results.push(`${name}: ${data.error || "失敗"}`);
         }
       } catch {
         allOk = false;

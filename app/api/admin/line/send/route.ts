@@ -7,6 +7,11 @@ import { parseBody } from "@/lib/validations/helpers";
 import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
 
+// バブルらしきオブジェクトか判定（header/hero/body/footerのいずれかを持つ）
+function looksLikeBubble(obj: Record<string, unknown>): boolean {
+  return !!(obj.header || obj.hero || obj.body || obj.footer);
+}
+
 // Flexコンテンツを再帰的に正規化（LINE APIが受け付けるbubble/carousel形式に変換）
 function normalizeFlexContents(raw: unknown, depth = 0): unknown {
   // 無限再帰防止
@@ -30,7 +35,11 @@ function normalizeFlexContents(raw: unknown, depth = 0): unknown {
     return { ...obj, contents: (obj.contents as unknown[]).map(item => normalizeFlexContents(item, depth + 1)) };
   }
 
-  // bubble/その他はそのまま
+  // type未設定だがバブルの構造を持つ場合 → type: "bubble" を補完
+  if (!obj.type && looksLikeBubble(obj)) {
+    return { type: "bubble", ...obj };
+  }
+
   return obj;
 }
 
@@ -77,15 +86,8 @@ export async function POST(req: NextRequest) {
 
     // 最終安全チェック: 正規化後もまだ配列なら強制carousel化
     if (Array.isArray(contents)) {
-      console.error("[Flex Send v3] WARN: still array after normalize!", JSON.stringify(contents).substring(0, 200));
       contents = contents.length === 1 ? contents[0] : { type: "carousel", contents };
     }
-
-    // デバッグログ（正規化前後のデータを記録）
-    const rawSnap = JSON.stringify(rawFlex).substring(0, 400);
-    const normSnap = JSON.stringify(contents).substring(0, 400);
-    console.log(`[Flex Send v3] rawFlex=${rawSnap}`);
-    console.log(`[Flex Send v3] normalized=${normSnap}`);
 
     const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
@@ -126,8 +128,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!res.ok) {
-      console.error(`[Flex Send v3] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
-      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", _v: 3, _raw: rawSnap, _norm: normSnap });
+      console.error("[Flex Send] LINE API Error:", lineError);
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
     }
     return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }

@@ -7,6 +7,22 @@ import { StructureTree } from "./_components/StructureTree";
 import { InteractivePreview } from "./_components/InteractivePreview";
 import { PropertyPanel } from "./_components/PropertyPanel";
 
+/* ---------- バブルtype補完ユーティリティ ---------- */
+function ensureBubbleTypes(obj: unknown): unknown {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(ensureBubbleTypes);
+  const o = obj as Record<string, unknown>;
+  // bubble構造（header/hero/body/footerを持つ）なのにtype未設定 → type: "bubble" 追加
+  if (!o.type && (o.header || o.hero || o.body || o.footer)) {
+    return { type: "bubble", ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, k === "contents" || k === "header" || k === "hero" || k === "body" || k === "footer" ? ensureBubbleTypes(v) : v])) };
+  }
+  // carousel → 内部contentsを再帰
+  if (o.type === "carousel" && Array.isArray(o.contents)) {
+    return { ...o, contents: o.contents.map(ensureBubbleTypes) };
+  }
+  return o;
+}
+
 /* ---------- 型定義 ---------- */
 export interface FlexPreset {
   id: number;
@@ -178,6 +194,9 @@ function FlexBuilderInner() {
       return;
     }
 
+    // 保存前にバブルのtype補完（エディタ操作でtype: "bubble"が消える場合の対策）
+    const saveData = ensureBubbleTypes(flexData);
+
     setSaving(true);
     try {
       if (editingTemplateId) {
@@ -189,7 +208,7 @@ function FlexBuilderInner() {
             name: editName.trim(),
             content: "",
             message_type: "flex",
-            flex_content: flexData,
+            flex_content: saveData,
           }),
         });
         if (!res.ok) {
@@ -206,7 +225,7 @@ function FlexBuilderInner() {
             name: editName.trim(),
             content: "",
             message_type: "flex",
-            flex_content: flexData,
+            flex_content: saveData,
           }),
         });
         if (!res.ok) {
