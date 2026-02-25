@@ -43,7 +43,18 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    const flexMsg = flex as any;
+    // Flexデータの正規化: contentsがbubble/carouselコンテナになるよう調整
+    const rawFlex = flex as any;
+    let contents = rawFlex.contents;
+    // flex_contentが { type: "flex", contents: {...} } 形式で保存されている場合はアンラップ
+    if (contents && typeof contents === "object" && !Array.isArray(contents) && contents.type === "flex" && contents.contents) {
+      contents = contents.contents;
+    }
+    // flex_contentが配列の場合はcarouselでラップ
+    if (Array.isArray(contents)) {
+      contents = contents.length === 1 ? contents[0] : { type: "carousel", contents };
+    }
+    const flexMsg = { type: "flex" as const, altText: rawFlex.altText || "Flex Message", contents };
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
 
     // pushMessageがnullを返す = トークン未設定
