@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 // ── 型定義 ──
@@ -439,8 +440,21 @@ function CategoryAccordion({
 
 // ── メインページ ──
 export default function PatientQAPage() {
+  const searchParams = useSearchParams();
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // URLパラメータ ?c=categoryId からカテゴリを自動展開
+  useEffect(() => {
+    const c = searchParams.get("c");
+    if (c && CATEGORIES.some((cat) => cat.id === c)) {
+      setOpenCategory(c);
+      // 該当カテゴリまでスクロール
+      setTimeout(() => {
+        document.getElementById(`qa-${c}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [searchParams]);
 
   // 検索フィルタ
   const filteredCategories = searchQuery
@@ -570,6 +584,7 @@ export default function PatientQAPage() {
               {filteredCategories.map((category, idx) => (
                 <div
                   key={category.id}
+                  id={`qa-${category.id}`}
                   className="animate-slideDown"
                   style={{ animationDelay: `${(idx + 2) * 60}ms` }}
                 >
