@@ -73,13 +73,19 @@ export async function POST(req: NextRequest) {
     // flex全体を再帰的に正規化（配列、flexラッパー、ネストされた形式すべてに対応）
     const rawFlex = flex as Record<string, unknown>;
     const rawContents = rawFlex.contents ?? rawFlex;
-    const contents = normalizeFlexContents(rawContents);
+    let contents = normalizeFlexContents(rawContents);
+
+    // 最終安全チェック: 正規化後もまだ配列なら強制carousel化
+    if (Array.isArray(contents)) {
+      console.error("[Flex Send v3] WARN: still array after normalize!", JSON.stringify(contents).substring(0, 200));
+      contents = contents.length === 1 ? contents[0] : { type: "carousel", contents };
+    }
 
     // デバッグログ（正規化前後のデータを記録）
-    const rawSnap = JSON.stringify(rawContents).substring(0, 300);
-    const normSnap = JSON.stringify(contents).substring(0, 300);
-    console.log(`[Flex Send v2] raw=${rawSnap}`);
-    console.log(`[Flex Send v2] normalized=${normSnap}`);
+    const rawSnap = JSON.stringify(rawFlex).substring(0, 400);
+    const normSnap = JSON.stringify(contents).substring(0, 400);
+    console.log(`[Flex Send v3] rawFlex=${rawSnap}`);
+    console.log(`[Flex Send v3] normalized=${normSnap}`);
 
     const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
@@ -120,8 +126,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!res.ok) {
-      console.error(`[Flex Send v2] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
-      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", _v: 2, _raw: rawSnap, _norm: normSnap });
+      console.error(`[Flex Send v3] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", _v: 3, _raw: rawSnap, _norm: normSnap });
     }
     return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }
