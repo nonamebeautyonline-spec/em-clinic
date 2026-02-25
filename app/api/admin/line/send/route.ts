@@ -76,8 +76,10 @@ export async function POST(req: NextRequest) {
     const contents = normalizeFlexContents(rawContents);
 
     // デバッグログ（正規化前後のデータを記録）
-    const contentsType = contents && typeof contents === "object" && !Array.isArray(contents) ? (contents as Record<string, unknown>).type : Array.isArray(contents) ? "array" : typeof contents;
-    console.log(`[Flex Send] patient=${patient_id}, rawType=${typeof rawContents}, normalizedType=${contentsType}`);
+    const rawSnap = JSON.stringify(rawContents).substring(0, 300);
+    const normSnap = JSON.stringify(contents).substring(0, 300);
+    console.log(`[Flex Send v2] raw=${rawSnap}`);
+    console.log(`[Flex Send v2] normalized=${normSnap}`);
 
     const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
@@ -118,8 +120,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (!res.ok) {
-      console.error(`[Flex Send] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
-      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", debug: { sentContentsType: contentsType } });
+      console.error(`[Flex Send v2] LINE API Error: ${lineError}`, JSON.stringify(flexMsg).substring(0, 500));
+      return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed", _v: 2, _raw: rawSnap, _norm: normSnap });
     }
     return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
   }

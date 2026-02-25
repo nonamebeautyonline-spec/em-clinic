@@ -297,7 +297,9 @@ export default function TemplateManagementPage() {
           results.push(`${name}: 送信完了`);
         } else {
           allOk = false;
-          results.push(`${name}: ${data.error || "失敗"}`);
+          // デバッグ: _v が返ってくればv2コード実行中
+          const debugInfo = data._v ? ` [v${data._v}]` : " [v?]";
+          results.push(`${name}: ${data.error || "失敗"}${debugInfo}`);
         }
       } catch {
         allOk = false;
