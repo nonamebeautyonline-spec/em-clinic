@@ -101,7 +101,7 @@ function buildBubble(card) {
           { type: "box", layout: "vertical", contents: [{ type: "text", text: "\u25cf", size: "xxs", color: card.color }], width: "16px", paddingTop: "4px" },
           { type: "text", text: item, size: "sm", color: "#444444", wrap: true, flex: 1 },
         ],
-        ...(i > 0 ? { marginTop: "12px" } : {}),
+        ...(i > 0 ? { margin: "12px" } : {}),
       })),
       paddingAll: "20px",
       spacing: "none",

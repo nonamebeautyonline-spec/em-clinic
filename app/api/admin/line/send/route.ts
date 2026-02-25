@@ -18,6 +18,28 @@ function looksLikeBubble(obj: Record<string, unknown>): boolean {
   return !!(obj.header || obj.hero || obj.body || obj.footer);
 }
 
+// LINE API仕様にないプロパティ名 → 正しい名前のマッピング
+const PROP_RENAMES: Record<string, string> = {
+  marginTop: "margin",
+  marginBottom: "margin",
+};
+
+/**
+ * Flex JSON内部の全要素を再帰的に走査し、無効なプロパティ名を修正
+ */
+function fixInvalidProps(data: unknown): unknown {
+  if (!data || typeof data !== "object") return data;
+  if (Array.isArray(data)) return data.map(fixInvalidProps);
+  const obj = data as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const newKey = PROP_RENAMES[key] ?? key;
+    // contentsなど配列/オブジェクトは再帰
+    result[newKey] = (typeof value === "object" && value !== null) ? fixInvalidProps(value) : value;
+  }
+  return result;
+}
+
 /**
  * Flexコンテナ（bubble/carousel）をLINE API仕様に準拠するようサニタイズ
  * - 不明なプロパティを除去
@@ -98,10 +120,13 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    // flex全体をサニタイズ（不要プロパティ除去、型補完、配列→carousel変換）
+    // flex全体をサニタイズ（不要プロパティ除去・修正、型補完、配列→carousel変換）
     const rawFlex = flex as Record<string, unknown>;
     const rawContents = rawFlex.contents ?? rawFlex;
-    let contents = sanitizeFlexContainer(rawContents);
+    // 1. 無効プロパティ名を修正（marginTop → margin 等）
+    const fixedContents = fixInvalidProps(rawContents);
+    // 2. コンテナレベルのサニタイズ（type補完、不要キー除去）
+    let contents = sanitizeFlexContainer(fixedContents);
 
     // 最終安全チェック: サニタイズ後もまだ配列なら強制carousel化
     if (Array.isArray(contents)) {

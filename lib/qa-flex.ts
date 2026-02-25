@@ -128,7 +128,7 @@ function buildQaBubble(card: (typeof QA_CARDS)[number]) {
             flex: 1,
           },
         ],
-        ...(i > 0 ? { marginTop: "12px" } : {}),
+        ...(i > 0 ? { margin: "12px" } : {}),
       })),
       paddingAll: "20px",
       spacing: "none",
