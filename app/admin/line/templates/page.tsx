@@ -291,8 +291,11 @@ export default function TemplateManagementPage() {
         const body: any = { patient_id: pid };
         if (t.message_type === "flex" && t.flex_content) {
           body.message_type = "flex";
-          body.flex = { type: "flex", altText: t.name, contents: fixFlexForSend(t.flex_content) };
+          const fixedContent = fixFlexForSend(t.flex_content);
+          body.flex = { type: "flex", altText: t.name, contents: fixedContent };
           body.message = "";
+          // デバッグ: コンソールにflexデータを出力
+          console.log("[FE5] flex contents:", JSON.stringify(fixedContent).substring(0, 500));
         } else if (t.message_type === "image") {
           body.message_type = "image";
           body.message = t.content;
@@ -313,7 +316,9 @@ export default function TemplateManagementPage() {
           results.push(`${name}: 送信完了`);
         } else {
           allOk = false;
-          results.push(`${name}: ${data.error || "失敗"} [FE4]`);
+          // エラー時にflexデータの先頭を表示（原因特定用）
+          const snap = body.flex ? JSON.stringify(body.flex.contents).substring(0, 120) : "";
+          results.push(`${name}: ${data.error || "失敗"} [FE5] ${snap}`);
         }
       } catch {
         allOk = false;
