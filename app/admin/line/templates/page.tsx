@@ -105,6 +105,11 @@ export default function TemplateManagementPage() {
   const [flexError, setFlexError] = useState("");
   // Flexプリセット
   const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
+  // テスト送信
+  const [testAccount, setTestAccount] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean } | null>(null);
+  const [testSendingId, setTestSendingId] = useState<number | null>(null);
+  const [testSendResult, setTestSendResult] = useState<{ id: number; ok: boolean; message: string } | null>(null);
+
   // 変数プレビュー用state
   const [previewResult, setPreviewResult] = useState<string | null>(null);
   const [previewVars, setPreviewVars] = useState<Record<string, string> | null>(null);
@@ -117,10 +122,11 @@ export default function TemplateManagementPage() {
   const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = async () => {
-    const [tRes, cRes, fpRes] = await Promise.all([
+    const [tRes, cRes, fpRes, taRes] = await Promise.all([
       fetch("/api/admin/line/templates", { credentials: "include" }),
       fetch("/api/admin/line/template-categories", { credentials: "include" }),
       fetch("/api/admin/line/flex-presets", { credentials: "include" }),
+      fetch("/api/admin/line/test-account", { credentials: "include" }),
     ]);
     const tData = await tRes.json();
     const cData = await cRes.json();
@@ -135,6 +141,11 @@ export default function TemplateManagementPage() {
     if (fpRes.ok) {
       const fpData = await fpRes.json();
       if (fpData.presets) setFlexPresets(fpData.presets);
+    }
+    // テスト送信アカウント取得
+    if (taRes.ok) {
+      const taData = await taRes.json();
+      if (taData.patient_id) setTestAccount(taData);
     }
     setLoading(false);
   };
@@ -229,6 +240,45 @@ export default function TemplateManagementPage() {
     setPatientSearch("");
     setPatientCandidates([]);
     setSelectedPatient(null);
+  };
+
+  // テスト送信
+  const handleTestSend = async (t: Template) => {
+    if (!testAccount || testSendingId) return;
+    setTestSendingId(t.id);
+    setTestSendResult(null);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: any = { patient_id: testAccount.patient_id };
+      if (t.message_type === "flex" && t.flex_content) {
+        body.message_type = "flex";
+        body.flex = { type: "flex", altText: t.name, contents: t.flex_content };
+        body.message = "";
+      } else if (t.message_type === "image") {
+        body.message_type = "image";
+        body.message = t.content;
+        body.template_name = t.name;
+      } else {
+        body.message = t.content;
+      }
+      const res = await fetch("/api/admin/line/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setTestSendResult({
+        id: t.id,
+        ok: !!data.ok,
+        message: data.ok ? `${testAccount.patient_name}に送信完了` : (data.error || "送信失敗"),
+      });
+    } catch {
+      setTestSendResult({ id: t.id, ok: false, message: "通信エラー" });
+    } finally {
+      setTestSendingId(null);
+      setTimeout(() => setTestSendResult(null), 4000);
+    }
   };
 
   const filteredTemplates = selectedCategory === null
@@ -489,17 +539,22 @@ export default function TemplateManagementPage() {
             ) : (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* テーブルヘッダー */}
-                <div className="grid grid-cols-[1fr_140px_100px_100px] gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <div className={`grid gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
+                  testAccount ? "grid-cols-[1fr_140px_100px_100px_100px]" : "grid-cols-[1fr_140px_100px_100px]"
+                }`}>
                   <div>テンプレート名</div>
                   <div className="text-center">登録日</div>
                   <div className="text-center">プレビュー</div>
+                  {testAccount && <div className="text-center">テスト</div>}
                   <div className="text-center">操作</div>
                 </div>
 
                 {filteredTemplates.map((t) => (
                   <div
                     key={t.id}
-                    className="grid grid-cols-[1fr_140px_100px_100px] gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
+                    className={`grid gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group ${
+                      testAccount ? "grid-cols-[1fr_140px_100px_100px_100px]" : "grid-cols-[1fr_140px_100px_100px]"
+                    }`}
                   >
                     {/* テンプレート名 */}
                     <div>
@@ -541,6 +596,25 @@ export default function TemplateManagementPage() {
                         プレビュー
                       </button>
                     </div>
+
+                    {/* テスト送信 */}
+                    {testAccount && (
+                      <div className="text-center">
+                        {testSendResult?.id === t.id ? (
+                          <span className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}>
+                            {testSendResult.ok ? "送信完了" : "失敗"}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleTestSend(t)}
+                            disabled={testSendingId !== null}
+                            className="px-3 py-1.5 text-xs font-medium border border-amber-200 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-40 transition-colors"
+                          >
+                            {testSendingId === t.id ? "送信中..." : "テスト"}
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     {/* 操作 */}
                     <div className="flex items-center justify-center gap-1">

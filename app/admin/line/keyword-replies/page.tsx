@@ -66,13 +66,19 @@ export default function KeywordRepliesPage() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
+  // テスト送信
+  const [testAccount, setTestAccount] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean } | null>(null);
+  const [testSending, setTestSending] = useState(false);
+  const [testSendMsg, setTestSendMsg] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rulesRes, tplRes, actRes] = await Promise.all([
+      const [rulesRes, tplRes, actRes, taRes] = await Promise.all([
         fetch("/api/admin/line/keyword-replies", { credentials: "include" }),
         fetch("/api/admin/line/templates", { credentials: "include" }),
         fetch("/api/admin/line/actions", { credentials: "include" }),
+        fetch("/api/admin/line/test-account", { credentials: "include" }),
       ]);
       if (rulesRes.ok) {
         const d = await rulesRes.json();
@@ -85,6 +91,10 @@ export default function KeywordRepliesPage() {
       if (actRes.ok) {
         const d = await actRes.json();
         setActions(d.actions || []);
+      }
+      if (taRes.ok) {
+        const d = await taRes.json();
+        if (d.patient_id) setTestAccount(d);
       }
     } catch (e) {
       console.error("データ取得エラー:", e);
@@ -160,6 +170,49 @@ export default function KeywordRepliesPage() {
     }
   };
 
+  // テスト送信（キーワード応答の内容を送信）
+  const handleTestSendRule = async (rule: KeywordRule) => {
+    if (!testAccount || testSending) return;
+    setTestSending(true);
+    setTestSendMsg(null);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const body: any = { patient_id: testAccount.patient_id };
+
+      if (rule.reply_type === "template" && rule.reply_template_id) {
+        // テンプレートの内容を取得して送信
+        const tpl = templates.find(t => t.id === rule.reply_template_id);
+        if (tpl) {
+          body.message = tpl.content;
+        } else {
+          setTestSendMsg("テンプレートが見つかりません");
+          setTestSending(false);
+          return;
+        }
+      } else if (rule.reply_text) {
+        body.message = rule.reply_text;
+      } else {
+        setTestSendMsg("送信するメッセージがありません");
+        setTestSending(false);
+        return;
+      }
+
+      const res = await fetch("/api/admin/line/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setTestSendMsg(data.ok ? `テスト送信完了（${testAccount.patient_name}）` : `送信失敗: ${data.error || "不明"}`);
+    } catch {
+      setTestSendMsg("通信エラー");
+    } finally {
+      setTestSending(false);
+      setTimeout(() => setTestSendMsg(null), 4000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -209,16 +262,56 @@ export default function KeywordRepliesPage() {
         {testResult && (
           <div className={`mt-3 p-3 rounded-lg text-sm ${testResult.matched ? "bg-green-50 text-green-800" : "bg-gray-50 text-gray-600"}`}>
             {testResult.matched ? (
-              <>
-                <span className="font-medium">マッチ!</span> → ルール「{testResult.rule?.name}」（キーワード: {testResult.rule?.keyword}）
+              <div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium">マッチ!</span> → ルール「{testResult.rule?.name}」（キーワード: {testResult.rule?.keyword}）
+                  </div>
+                  {testAccount && testResult.rule && (
+                    <button
+                      onClick={() => {
+                        // マッチしたルールに対応するKeywordRuleオブジェクトを探して送信
+                        const matched = rules.find(r => r.id === testResult.rule?.id);
+                        if (matched) handleTestSendRule(matched);
+                      }}
+                      disabled={testSending}
+                      className="px-3 py-1 text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-40 transition-colors flex items-center gap-1"
+                    >
+                      {testSending ? "送信中..." : `テスト送信（${testAccount.patient_name}）`}
+                    </button>
+                  )}
+                </div>
                 {testResult.rule?.reply_text && <div className="mt-1 text-gray-600">応答: {testResult.rule.reply_text}</div>}
-              </>
+                {testSendMsg && (
+                  <div className={`mt-2 text-xs font-medium ${testSendMsg.includes("完了") ? "text-emerald-600" : "text-red-500"}`}>
+                    {testSendMsg}
+                  </div>
+                )}
+              </div>
             ) : (
               "マッチするルールはありません"
             )}
           </div>
         )}
       </div>
+
+      {/* テスト送信結果（グローバル） */}
+      {testSendMsg && !testResult?.matched && (
+        <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm flex items-center gap-2 ${
+          testSendMsg.includes("完了") ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {testSendMsg.includes("完了") ? (
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          {testSendMsg}
+        </div>
+      )}
 
       {/* ルール一覧 */}
       {rules.length === 0 ? (
@@ -271,7 +364,16 @@ export default function KeywordRepliesPage() {
                       />
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {testAccount && (
+                      <button
+                        onClick={() => handleTestSendRule(rule)}
+                        disabled={testSending}
+                        className="text-amber-600 hover:text-amber-800 text-xs mr-3 disabled:opacity-40"
+                      >
+                        テスト
+                      </button>
+                    )}
                     <button
                       onClick={() => setEditRule({ ...rule })}
                       className="text-blue-600 hover:text-blue-800 text-xs mr-3"
