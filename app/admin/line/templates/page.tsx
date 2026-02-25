@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
-/** Flex送信前にバブルの type:"bubble" を補完（LINE API必須） */
+/** Flex送信前にバブルの type:"bubble" を補完（LINE API必須）v4 */
 function fixFlexForSend(data: unknown): unknown {
   if (!data || typeof data !== "object") return data;
   if (Array.isArray(data)) return data.map(fixFlexForSend);
@@ -13,9 +13,9 @@ function fixFlexForSend(data: unknown): unknown {
   if (o.type === "carousel" && Array.isArray(o.contents)) {
     return { ...o, contents: o.contents.map(fixFlexForSend) };
   }
-  // type未設定でbubble構造 → type補完
-  if (!o.type && (o.header || o.hero || o.body || o.footer)) {
-    return { type: "bubble", ...o };
+  // bubble構造（header/hero/body/footer）でtypeがbubbleでない → 強制上書き
+  if ((o.header || o.hero || o.body || o.footer) && o.type !== "bubble") {
+    return { ...o, type: "bubble" };
   }
   return o;
 }
@@ -313,7 +313,7 @@ export default function TemplateManagementPage() {
           results.push(`${name}: 送信完了`);
         } else {
           allOk = false;
-          results.push(`${name}: ${data.error || "失敗"}`);
+          results.push(`${name}: ${data.error || "失敗"} [FE4]`);
         }
       } catch {
         allOk = false;

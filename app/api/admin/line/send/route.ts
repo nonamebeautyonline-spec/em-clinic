@@ -35,9 +35,9 @@ function normalizeFlexContents(raw: unknown, depth = 0): unknown {
     return { ...obj, contents: (obj.contents as unknown[]).map(item => normalizeFlexContents(item, depth + 1)) };
   }
 
-  // type未設定だがバブルの構造を持つ場合 → type: "bubble" を補完
-  if (!obj.type && looksLikeBubble(obj)) {
-    return { type: "bubble", ...obj };
+  // type未設定/不正だがバブルの構造を持つ場合 → type: "bubble" を強制設定
+  if (looksLikeBubble(obj) && obj.type !== "bubble") {
+    return { ...obj, type: "bubble" };
   }
 
   return obj;

@@ -12,13 +12,13 @@ function ensureBubbleTypes(obj: unknown): unknown {
   if (!obj || typeof obj !== "object") return obj;
   if (Array.isArray(obj)) return obj.map(ensureBubbleTypes);
   const o = obj as Record<string, unknown>;
-  // bubble構造（header/hero/body/footerを持つ）なのにtype未設定 → type: "bubble" 追加
-  if (!o.type && (o.header || o.hero || o.body || o.footer)) {
-    return { type: "bubble", ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, k === "contents" || k === "header" || k === "hero" || k === "body" || k === "footer" ? ensureBubbleTypes(v) : v])) };
-  }
   // carousel → 内部contentsを再帰
   if (o.type === "carousel" && Array.isArray(o.contents)) {
     return { ...o, contents: o.contents.map(ensureBubbleTypes) };
+  }
+  // bubble構造でtypeがbubbleでない → 強制設定（スプレッド後にtype設定で確実に上書き）
+  if ((o.header || o.hero || o.body || o.footer) && o.type !== "bubble") {
+    return { ...o, type: "bubble" };
   }
   return o;
 }
