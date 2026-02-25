@@ -1627,6 +1627,20 @@ onClick={() => handleOpenTracking(order)}
         </section>
         )}
 
+{/* よくある質問 */}
+<section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">
+  <h2 className="text-sm font-semibold text-slate-800 mb-2">よくある質問</h2>
+  <p className="text-sm text-slate-600 mb-3">
+    マイページ・予約・決済・配送などについてのQ&Aをまとめています。
+  </p>
+  <Link
+    href="/mypage/qa"
+    className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition border border-[var(--mp-primary)] text-[var(--mp-primary)] bg-white hover:bg-[var(--mp-light)]"
+  >
+    Q&Aを見る
+  </Link>
+</section>
+
 {/* サポート */}
 {mpSections.showSupport && (
 <section className="bg-white rounded-3xl shadow-sm p-4 md:p-5 mb-4">

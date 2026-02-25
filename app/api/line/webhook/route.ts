@@ -816,29 +816,66 @@ async function checkAndReplyKeyword(
       const { data: tpl } = await withTenant(
         supabaseAdmin
           .from("message_templates")
-          .select("content, message_type")
+          .select("content, message_type, flex_content")
           .eq("id", rule.reply_template_id)
           .maybeSingle(),
         tenantId
       );
 
-      if (tpl?.content) {
-        let tplContent = tpl.content;
-        tplContent = tplContent.replace(/\{name\}/g, patient?.patient_name || "");
-        tplContent = tplContent.replace(/\{patient_id\}/g, patient?.patient_id || "");
+      if (tpl) {
+        // Flexテンプレート対応
+        if (tpl.message_type === "flex" && tpl.flex_content) {
+          await pushMessage(lineUid, [{
+            type: "flex",
+            altText: tpl.content || "テンプレートメッセージ",
+            contents: tpl.flex_content,
+          }], tenantId ?? undefined);
 
-        await pushMessage(lineUid, [{ type: "text", text: tplContent }], tenantId ?? undefined);
+          await logEvent({
+            tenantId,
+            patient_id: patient?.patient_id,
+            line_uid: lineUid,
+            direction: "outgoing",
+            event_type: "auto_reply",
+            message_type: "individual",
+            content: tpl.content || "[Flexメッセージ]",
+            status: "sent",
+          });
+        } else if (tpl.message_type === "image" && tpl.content) {
+          await pushMessage(lineUid, [{
+            type: "image",
+            originalContentUrl: tpl.content,
+            previewImageUrl: tpl.content,
+          }], tenantId ?? undefined);
 
-        await logEvent({
-          tenantId,
-          patient_id: patient?.patient_id,
-          line_uid: lineUid,
-          direction: "outgoing",
-          event_type: "auto_reply",
-          message_type: "individual",
-          content: tplContent,
-          status: "sent",
-        });
+          await logEvent({
+            tenantId,
+            patient_id: patient?.patient_id,
+            line_uid: lineUid,
+            direction: "outgoing",
+            event_type: "auto_reply",
+            message_type: "individual",
+            content: tpl.content,
+            status: "sent",
+          });
+        } else if (tpl.content) {
+          let tplContent = tpl.content;
+          tplContent = tplContent.replace(/\{name\}/g, patient?.patient_name || "");
+          tplContent = tplContent.replace(/\{patient_id\}/g, patient?.patient_id || "");
+
+          await pushMessage(lineUid, [{ type: "text", text: tplContent }], tenantId ?? undefined);
+
+          await logEvent({
+            tenantId,
+            patient_id: patient?.patient_id,
+            line_uid: lineUid,
+            direction: "outgoing",
+            event_type: "auto_reply",
+            message_type: "individual",
+            content: tplContent,
+            status: "sent",
+          });
+        }
       }
     }
 
