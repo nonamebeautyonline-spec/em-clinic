@@ -141,8 +141,61 @@ export async function GET(req: NextRequest) {
       total_clicks: 0,
       unique_clicks: 0,
     }));
-  const allRows = [...(chartRows || []), ...supplementRows]
+  const allRows: any[] = [...(chartRows || []), ...supplementRows]
     .sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+
+  // LINE Insight API未準備の直近日をmessage_logのfollow/unfollowイベントで推定補完
+  const coveredDates = new Set(allRows.map((r: any) => r.stat_date));
+  const estimateDates: string[] = [];
+  for (let i = 0; i <= 2; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0, 10);
+    if (!coveredDates.has(ds) && ds >= periodStartStr) estimateDates.push(ds);
+  }
+
+  if (estimateDates.length > 0) {
+    const oldest = estimateDates[estimateDates.length - 1];
+    const { data: followEvents } = await withTenant(
+      supabaseAdmin
+        .from("message_log")
+        .select("sent_at, event_type")
+        .eq("message_type", "event")
+        .in("event_type", ["follow", "unfollow"])
+        .gte("sent_at", oldest + "T00:00:00"),
+      tenantId
+    );
+
+    // 日別のfollow/unfollow集計
+    const dailyNet = new Map<string, { follows: number; unfollows: number }>();
+    for (const evt of followEvents || []) {
+      const date = (evt.sent_at as string)?.slice(0, 10);
+      if (!date || coveredDates.has(date)) continue;
+      if (!dailyNet.has(date)) dailyNet.set(date, { follows: 0, unfollows: 0 });
+      const entry = dailyNet.get(date)!;
+      if (evt.event_type === "follow") entry.follows++;
+      else entry.unfollows++;
+    }
+
+    // 最新の既知フォロワー数をベースに日ごとの推定値を算出
+    const lastKnown = allRows.length > 0 ? allRows[allRows.length - 1] : null;
+    let baseFollowers = lastKnown?.followers || stats.followers;
+    const sorted = estimateDates.sort();
+    for (const date of sorted) {
+      const net = dailyNet.get(date) || { follows: 0, unfollows: 0 };
+      baseFollowers += net.follows - net.unfollows;
+      allRows.push({
+        stat_date: date,
+        followers: baseFollowers,
+        targeted_reaches: 0,
+        blocks: net.unfollows,
+        messages_sent: 0,
+        total_clicks: 0,
+        unique_clicks: 0,
+      });
+    }
+    allRows.sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+  }
 
   // チャート用データ構築
   const chartData = {
