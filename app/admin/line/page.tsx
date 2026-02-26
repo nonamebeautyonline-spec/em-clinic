@@ -13,6 +13,7 @@ interface DailyStats {
   followers: number;
   targetedReaches: number;
   blocks: number;
+  blocksDaily: number;
 }
 
 interface RecentMessage {
@@ -486,7 +487,8 @@ export default function LineDashboardPage() {
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">日付</th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">有効友だち</th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">増減</th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック人数</th>
+                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">ブロック累積</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -506,6 +508,7 @@ export default function LineDashboardPage() {
                               <span className="text-xs text-gray-300">—</span>
                             )}
                           </td>
+                          <td className="px-5 py-3 text-right text-gray-500">{(day.blocksDaily || 0).toLocaleString()}</td>
                           <td className="px-5 py-3 text-right text-gray-500">{day.blocks.toLocaleString()}</td>
                         </tr>
                       );

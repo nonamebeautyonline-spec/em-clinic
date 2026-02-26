@@ -158,45 +158,61 @@ export async function GET(req: NextRequest) {
 
   if (estimateDates.length > 0) {
     const oldest = estimateDates[estimateDates.length - 1];
+    // JST日付の開始 = UTC 15:00前日（例: 2/26 JST → 2/25T15:00:00Z）
     const { data: followEvents } = await withTenant(
       supabaseAdmin
         .from("message_log")
         .select("sent_at, event_type")
         .eq("message_type", "event")
         .in("event_type", ["follow", "unfollow"])
-        .gte("sent_at", oldest + "T00:00:00"),
+        .gte("sent_at", oldest + "T00:00:00+09:00"),
       tenantId
     );
 
-    // 日別のfollow/unfollow集計
+    // 日別のfollow/unfollow集計（sent_atをJST日付に変換）
     const dailyNet = new Map<string, { follows: number; unfollows: number }>();
     for (const evt of followEvents || []) {
-      const date = (evt.sent_at as string)?.slice(0, 10);
-      if (!date || coveredDates.has(date)) continue;
-      if (!dailyNet.has(date)) dailyNet.set(date, { follows: 0, unfollows: 0 });
-      const entry = dailyNet.get(date)!;
+      if (!evt.sent_at) continue;
+      // UTC → JST変換して日付抽出
+      const jstDate = new Date(new Date(evt.sent_at).getTime() + 9 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10);
+      if (coveredDates.has(jstDate)) continue;
+      if (!dailyNet.has(jstDate)) dailyNet.set(jstDate, { follows: 0, unfollows: 0 });
+      const entry = dailyNet.get(jstDate)!;
       if (evt.event_type === "follow") entry.follows++;
       else entry.unfollows++;
     }
 
-    // 最新の既知フォロワー数をベースに日ごとの推定値を算出
+    // 最新の既知フォロワー数・累積ブロック数をベースに推定値を算出
     const lastKnown = allRows.length > 0 ? allRows[allRows.length - 1] : null;
     let baseFollowers = lastKnown?.followers || stats.followers;
+    let baseCumulativeBlocks = lastKnown?.blocks || stats.blocks;
     const sorted = estimateDates.sort();
     for (const date of sorted) {
       const net = dailyNet.get(date) || { follows: 0, unfollows: 0 };
       baseFollowers += net.follows - net.unfollows;
+      baseCumulativeBlocks += net.unfollows;
       allRows.push({
         stat_date: date,
         followers: baseFollowers,
         targeted_reaches: 0,
-        blocks: net.unfollows,
+        blocks: baseCumulativeBlocks,
+        blocks_daily: net.unfollows,
         messages_sent: 0,
         total_clicks: 0,
         unique_clicks: 0,
       });
     }
     allRows.sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+  }
+
+  // LINE API / line_daily_stats 行に blocks_daily を算出（blocksは累積なので前日差分）
+  for (let i = 0; i < allRows.length; i++) {
+    if (allRows[i].blocks_daily === undefined) {
+      allRows[i].blocks_daily = i > 0
+        ? Math.max(0, (allRows[i].blocks || 0) - (allRows[i - 1].blocks || 0))
+        : 0;
+    }
   }
 
   // チャート用データ構築
@@ -308,19 +324,21 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // dailyStatsにチャート用allRowsの推定データを統合（詳細タブ用）
-  const dailyStatsSet = new Set(dailyStats.map(d => d.date));
-  const mergedDailyStats = [
-    ...dailyStats,
-    ...allRows
-      .filter((r: any) => !dailyStatsSet.has(r.stat_date))
-      .map((r: any) => ({
-        date: r.stat_date,
-        followers: r.followers,
-        targetedReaches: r.targeted_reaches || 0,
-        blocks: r.blocks || 0,
-      })),
-  ].sort((a, b) => b.date.localeCompare(a.date));
+  // allRows から統一された dailyStats を構築（詳細タブ用）
+  const mergedDailyStats = allRows.map((r: any) => ({
+    date: r.stat_date,
+    followers: r.followers,
+    targetedReaches: r.targeted_reaches || 0,
+    blocks: r.blocks || 0,
+    blocksDaily: r.blocks_daily || 0,
+  })).reverse(); // 降順（新しい日付が先頭）
+
+  // 有効友だち数・ブロック累積を最新推定値で更新
+  const latestRow = allRows.length > 0 ? allRows[allRows.length - 1] : null;
+  if (latestRow) {
+    stats.followers = latestRow.followers;
+    stats.blocks = latestRow.blocks;
+  }
 
   return NextResponse.json({
     stats,
