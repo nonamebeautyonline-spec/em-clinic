@@ -19,6 +19,10 @@ type MergePatient = {
   name: string;
   phone: string;
   lineId?: string;
+  intakeCount: number;
+  orderCount: number;
+  reorderCount: number;
+  latestOrder?: { productName: string; amount: number; paidAt: string };
 } | null;
 
 type SearchCandidate = {
@@ -454,6 +458,12 @@ function NameChangeSection() {
   );
 }
 
+// ─── PIDバリデーション ──────────────────────────────────
+const PID_REGEX = /^(\d{11}|LINE_[a-f0-9]+)$/;
+function isValidPid(value: string): boolean {
+  return PID_REGEX.test(value.trim());
+}
+
 // ─── 患者統合セクション（既存機能の移行） ────────────────────
 
 function MergeSection() {
@@ -473,6 +483,12 @@ function MergeSection() {
   const [success, setSuccess] = useState("");
 
   async function loadPatient(patientId: string, isOld: boolean) {
+    const trimmed = patientId.trim();
+    if (!isValidPid(trimmed)) {
+      setError("PID形式が不正です（数字11桁 or LINE_xxx）");
+      return;
+    }
+
     const setLoading = isOld ? setLoadingOld : setLoadingNew;
     const setPatient = isOld ? setOldPatient : setNewPatient;
 
@@ -482,7 +498,7 @@ function MergeSection() {
 
     try {
       const res = await fetch(
-        `/api/admin/patientbundle?patientId=${encodeURIComponent(patientId)}`,
+        `/api/admin/patientbundle?patientId=${encodeURIComponent(trimmed)}`,
         { cache: "no-store" }
       );
       const data = await res.json();
@@ -495,7 +511,22 @@ function MergeSection() {
         throw new Error("患者が見つかりませんでした");
       }
 
-      setPatient(data.patient);
+      const intakes = data.intakes || [];
+      const history = data.history || [];
+      const reorders = data.reorders || [];
+      const latest = history[0];
+
+      setPatient({
+        ...data.patient,
+        intakeCount: intakes.length,
+        orderCount: history.length,
+        reorderCount: reorders.length,
+        latestOrder: latest ? {
+          productName: latest.productName || "",
+          amount: latest.amount || 0,
+          paidAt: latest.paidAt || "",
+        } : undefined,
+      });
     } catch (e: any) {
       setError(String(e?.message || e));
       setPatient(null);
@@ -589,14 +620,35 @@ function MergeSection() {
         </div>
       )}
 
+      {/* 統合方向の警告 */}
+      {oldPatient && newPatient && (() => {
+        const oldTotal = oldPatient.intakeCount + oldPatient.orderCount + oldPatient.reorderCount;
+        const newTotal = newPatient.intakeCount + newPatient.orderCount + newPatient.reorderCount;
+        if (oldTotal < newTotal) {
+          return (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-sm text-amber-800">
+              <span className="font-bold">注意：</span>統合元（旧）の方が情報が少ないです。統合方向が正しいか確認してください。
+              通常は<span className="font-bold">情報が多い方を統合元</span>にして、データを統合先に移行します。
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       <div className="grid md:grid-cols-2 gap-4">
         {/* 統合元（旧） */}
-        <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5 space-y-3">
+        <section className={`rounded-2xl shadow-sm p-4 md:p-5 space-y-3 ${
+          oldPatient && newPatient
+            ? (oldPatient.intakeCount + oldPatient.orderCount + oldPatient.reorderCount) >= (newPatient.intakeCount + newPatient.orderCount + newPatient.reorderCount)
+              ? "bg-green-50 border-2 border-green-300"
+              : "bg-white border border-slate-200"
+            : "bg-white"
+        }`}>
           <h2 className="text-sm font-semibold text-slate-800">
-            統合元（旧）
+            統合元（旧）— データ移行元
           </h2>
           <p className="text-xs text-slate-500">
-            以前のLINEアカウントで登録していた患者ID
+            以前のLINEアカウントで登録していた患者ID。こちらのデータが統合先に移行されます。
           </p>
 
           <div className="space-y-2">
@@ -606,14 +658,21 @@ function MergeSection() {
               value={oldPatientId}
               onChange={(e) => setOldPatientId(e.target.value)}
               placeholder="例: 20251200001"
-              className="w-full rounded-lg border border-slate-200 p-2 text-sm font-mono"
+              className={`w-full rounded-lg border p-2 text-sm font-mono ${
+                oldPatientId.trim() && !isValidPid(oldPatientId)
+                  ? "border-red-400 bg-red-50"
+                  : "border-slate-200"
+              }`}
               disabled={loadingOld || merging}
             />
+            {oldPatientId.trim() && !isValidPid(oldPatientId) && (
+              <p className="text-xs text-red-500">PID形式が不正です（数字11桁 or LINE_xxx）</p>
+            )}
 
             <button
               type="button"
               onClick={() => loadPatient(oldPatientId, true)}
-              disabled={!oldPatientId || loadingOld || merging}
+              disabled={!oldPatientId.trim() || !isValidPid(oldPatientId) || loadingOld || merging}
               className="w-full rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
               {loadingOld ? "読込中..." : "患者情報を取得"}
@@ -621,13 +680,13 @@ function MergeSection() {
           </div>
 
           {oldPatient && (
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
+            <div className="mt-4 p-3 bg-white/80 rounded-lg space-y-2 text-sm">
               <div>
                 <span className="text-slate-500">氏名：</span>
                 <span
                   className={`font-medium ${newPatient && oldPatient.name && newPatient.name && oldPatient.name === newPatient.name ? "text-red-600 font-bold" : ""}`}
                 >
-                  {oldPatient.name}
+                  {oldPatient.name || "（未登録）"}
                 </span>
               </div>
               <div>
@@ -635,7 +694,7 @@ function MergeSection() {
                 <span
                   className={`font-mono ${newPatient && oldPatient.phone && newPatient.phone && oldPatient.phone === newPatient.phone ? "text-red-600 font-bold" : ""}`}
                 >
-                  {oldPatient.phone}
+                  {oldPatient.phone || "（未登録）"}
                 </span>
               </div>
               <div>
@@ -644,17 +703,44 @@ function MergeSection() {
                   {oldPatient.lineId || "（未登録）"}
                 </span>
               </div>
+              <hr className="border-slate-200" />
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{oldPatient.intakeCount}</div>
+                  <div className="text-xs text-slate-500">来院</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{oldPatient.orderCount}</div>
+                  <div className="text-xs text-slate-500">決済</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{oldPatient.reorderCount}</div>
+                  <div className="text-xs text-slate-500">再処方</div>
+                </div>
+              </div>
+              {oldPatient.latestOrder && (
+                <div className="mt-1 p-2 bg-slate-100 rounded text-xs">
+                  <span className="text-slate-500">最新決済：</span>
+                  {oldPatient.latestOrder.productName} / ¥{oldPatient.latestOrder.amount.toLocaleString()} / {oldPatient.latestOrder.paidAt.split("T")[0]}
+                </div>
+              )}
             </div>
           )}
         </section>
 
         {/* 統合先（新） */}
-        <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5 space-y-3">
+        <section className={`rounded-2xl shadow-sm p-4 md:p-5 space-y-3 ${
+          oldPatient && newPatient
+            ? (newPatient.intakeCount + newPatient.orderCount + newPatient.reorderCount) > (oldPatient.intakeCount + oldPatient.orderCount + oldPatient.reorderCount)
+              ? "bg-green-50 border-2 border-green-300"
+              : "bg-white border border-slate-200"
+            : "bg-white"
+        }`}>
           <h2 className="text-sm font-semibold text-slate-800">
-            統合先（新）
+            統合先（新）— データ移行先
           </h2>
           <p className="text-xs text-slate-500">
-            新しいLINEアカウントで新規登録した患者ID
+            新しいLINEアカウントで新規登録した患者ID。こちらにデータが統合されます。
           </p>
 
           <div className="space-y-2">
@@ -664,14 +750,21 @@ function MergeSection() {
               value={newPatientId}
               onChange={(e) => setNewPatientId(e.target.value)}
               placeholder="例: 20260130002"
-              className="w-full rounded-lg border border-slate-200 p-2 text-sm font-mono"
+              className={`w-full rounded-lg border p-2 text-sm font-mono ${
+                newPatientId.trim() && !isValidPid(newPatientId)
+                  ? "border-red-400 bg-red-50"
+                  : "border-slate-200"
+              }`}
               disabled={loadingNew || merging}
             />
+            {newPatientId.trim() && !isValidPid(newPatientId) && (
+              <p className="text-xs text-red-500">PID形式が不正です（数字11桁 or LINE_xxx）</p>
+            )}
 
             <button
               type="button"
               onClick={() => loadPatient(newPatientId, false)}
-              disabled={!newPatientId || loadingNew || merging}
+              disabled={!newPatientId.trim() || !isValidPid(newPatientId) || loadingNew || merging}
               className="w-full rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
               {loadingNew ? "読込中..." : "患者情報を取得"}
@@ -679,13 +772,13 @@ function MergeSection() {
           </div>
 
           {newPatient && (
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg space-y-2 text-sm">
+            <div className="mt-4 p-3 bg-white/80 rounded-lg space-y-2 text-sm">
               <div>
                 <span className="text-slate-500">氏名：</span>
                 <span
                   className={`font-medium ${oldPatient && oldPatient.name && newPatient.name && oldPatient.name === newPatient.name ? "text-red-600 font-bold" : ""}`}
                 >
-                  {newPatient.name}
+                  {newPatient.name || "（未登録）"}
                 </span>
               </div>
               <div>
@@ -693,7 +786,7 @@ function MergeSection() {
                 <span
                   className={`font-mono ${oldPatient && oldPatient.phone && newPatient.phone && oldPatient.phone === newPatient.phone ? "text-red-600 font-bold" : ""}`}
                 >
-                  {newPatient.phone}
+                  {newPatient.phone || "（未登録）"}
                 </span>
               </div>
               <div>
@@ -702,6 +795,27 @@ function MergeSection() {
                   {newPatient.lineId || "（未登録）"}
                 </span>
               </div>
+              <hr className="border-slate-200" />
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{newPatient.intakeCount}</div>
+                  <div className="text-xs text-slate-500">来院</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{newPatient.orderCount}</div>
+                  <div className="text-xs text-slate-500">決済</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-slate-800">{newPatient.reorderCount}</div>
+                  <div className="text-xs text-slate-500">再処方</div>
+                </div>
+              </div>
+              {newPatient.latestOrder && (
+                <div className="mt-1 p-2 bg-slate-100 rounded text-xs">
+                  <span className="text-slate-500">最新決済：</span>
+                  {newPatient.latestOrder.productName} / ¥{newPatient.latestOrder.amount.toLocaleString()} / {newPatient.latestOrder.paidAt.split("T")[0]}
+                </div>
+              )}
             </div>
           )}
         </section>

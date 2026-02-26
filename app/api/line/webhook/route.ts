@@ -9,6 +9,7 @@ import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply } from "@/lib/ai-reply";
 import { acquireLock } from "@/lib/distributed-lock";
+import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
 let pendingAiReplyTargets: Array<{ lineUid: string; patientId: string; patientName: string; tenantId: string | null }> = [];
@@ -823,12 +824,12 @@ async function checkAndReplyKeyword(
       );
 
       if (tpl) {
-        // Flexテンプレート対応
+        // Flexテンプレート対応（サニタイズ済み）
         if (tpl.message_type === "flex" && tpl.flex_content) {
           await pushMessage(lineUid, [{
             type: "flex",
             altText: tpl.content || "テンプレートメッセージ",
-            contents: tpl.flex_content,
+            contents: sanitizeFlexContents(tpl.flex_content),
           }], tenantId ?? undefined);
 
           await logEvent({
@@ -999,11 +1000,11 @@ async function executeRichMenuActions(
 
           // タイミング制御（即時以外は後で実装、今は即時送信）
           if (tmpl.message_type === "flex" && tmpl.flex_content) {
-            // Flexテンプレート → flex_contentをそのまま送信
+            // Flexテンプレート → サニタイズして送信
             await pushMessage(lineUid, [{
               type: "flex",
               altText: tmpl.name || "メッセージ",
-              contents: tmpl.flex_content,
+              contents: sanitizeFlexContents(tmpl.flex_content),
             }], tenantId ?? undefined);
             await logEvent({
               tenantId,

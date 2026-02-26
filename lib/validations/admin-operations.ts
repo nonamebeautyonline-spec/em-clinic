@@ -2,11 +2,17 @@
 import { z } from "zod";
 import { strongPasswordSchema } from "@/lib/validations/password-policy";
 
+/** Patient ID形式: 数字11桁 or LINE_仮ID */
+const patientIdFormat = z.string()
+  .min(1, "患者IDは必須です")
+  .transform(v => v.trim())
+  .pipe(z.string().regex(/^(\d{11}|LINE_[a-f0-9]+)$/, "PID形式が不正です（数字11桁 or LINE_xxx）"));
+
 /** 患者マージ POST /api/admin/merge-patients */
 export const mergePatientSchema = z
   .object({
-    old_patient_id: z.string().min(1, "統合元患者IDは必須です"),
-    new_patient_id: z.string().min(1, "統合先患者IDは必須です"),
+    old_patient_id: patientIdFormat,
+    new_patient_id: patientIdFormat,
     delete_new_intake: z.boolean().optional(),
   })
   .passthrough();

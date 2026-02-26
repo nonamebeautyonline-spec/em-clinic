@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { linkRichMenuToUser } from "@/lib/line-richmenu";
 import { withTenant, tenantPayload } from "@/lib/tenant";
+import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 interface ActionStep {
   type: "send_text" | "send_template" | "tag_add" | "tag_remove" | "mark_change" | "menu_change";
@@ -95,7 +96,7 @@ export async function executeLifecycleActions(params: {
             await pushMessage(lineUserId, [{
               type: "flex",
               altText: tmpl.content || "メッセージ",
-              contents: tmpl.flex_content,
+              contents: sanitizeFlexContents(tmpl.flex_content),
             }], tenantId ?? undefined);
           } else {
             const text = (tmpl.content || "")

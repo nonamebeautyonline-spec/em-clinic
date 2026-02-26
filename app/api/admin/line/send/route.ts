@@ -6,83 +6,7 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
-
-// LINE Flex Message仕様で許可されたプロパティのみ残すサニタイズ
-// バブルコンテナの許可プロパティ（LINE Messaging API公式仕様準拠）
-const VALID_BUBBLE_KEYS = new Set([
-  "type", "size", "direction", "header", "hero", "body", "footer", "styles", "action",
-]);
-
-// バブルらしきオブジェクトか判定（header/hero/body/footerのいずれかを持つ）
-function looksLikeBubble(obj: Record<string, unknown>): boolean {
-  return !!(obj.header || obj.hero || obj.body || obj.footer);
-}
-
-// LINE API仕様にないプロパティ名 → 正しい名前のマッピング
-const PROP_RENAMES: Record<string, string> = {
-  marginTop: "margin",
-  marginBottom: "margin",
-};
-
-/**
- * Flex JSON内部の全要素を再帰的に走査し、無効なプロパティ名を修正
- */
-function fixInvalidProps(data: unknown): unknown {
-  if (!data || typeof data !== "object") return data;
-  if (Array.isArray(data)) return data.map(fixInvalidProps);
-  const obj = data as Record<string, unknown>;
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const newKey = PROP_RENAMES[key] ?? key;
-    // contentsなど配列/オブジェクトは再帰
-    result[newKey] = (typeof value === "object" && value !== null) ? fixInvalidProps(value) : value;
-  }
-  return result;
-}
-
-/**
- * Flexコンテナ（bubble/carousel）をLINE API仕様に準拠するようサニタイズ
- * - 不明なプロパティを除去
- * - type: "bubble" を確実に設定
- * - 再帰的にcarousel内のバブルも処理
- */
-function sanitizeFlexContainer(raw: unknown, depth = 0): unknown {
-  if (depth > 5 || !raw || typeof raw !== "object") return raw;
-
-  // 配列 → カルーセルにラップ（単一要素は取り出し）
-  if (Array.isArray(raw)) {
-    const items = raw.map(item => sanitizeFlexContainer(item, depth + 1));
-    return items.length === 1 ? items[0] : { type: "carousel", contents: items };
-  }
-
-  const obj = raw as Record<string, unknown>;
-
-  // { type: "flex", contents: X } → Xをアンラップして再帰
-  if (obj.type === "flex" && obj.contents) {
-    return sanitizeFlexContainer(obj.contents, depth + 1);
-  }
-
-  // carousel → contentsのみ保持して再帰
-  if (obj.type === "carousel" && Array.isArray(obj.contents)) {
-    return {
-      type: "carousel",
-      contents: (obj.contents as unknown[]).map(item => sanitizeFlexContainer(item, depth + 1)),
-    };
-  }
-
-  // バブルコンテナ → 許可プロパティのみ残す（type: "bubble" を最初に配置）
-  if (obj.type === "bubble" || looksLikeBubble(obj)) {
-    const cleaned: Record<string, unknown> = { type: "bubble" };
-    for (const key of Object.keys(obj)) {
-      if (key !== "type" && VALID_BUBBLE_KEYS.has(key)) {
-        cleaned[key] = obj[key];
-      }
-    }
-    return cleaned;
-  }
-
-  return obj;
-}
+import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
@@ -120,34 +44,12 @@ export async function POST(req: NextRequest) {
 
   // Flex Message送信
   if (message_type === "flex" && flex) {
-    // flex全体をサニタイズ（不要プロパティ除去・修正、型補完、配列→carousel変換）
     const rawFlex = flex as Record<string, unknown>;
     const rawContents = rawFlex.contents ?? rawFlex;
-    // 1. 無効プロパティ名を修正（marginTop → margin 等）
-    const fixedContents = fixInvalidProps(rawContents);
-    // 2. コンテナレベルのサニタイズ（type補完、不要キー除去）
-    let contents = sanitizeFlexContainer(fixedContents);
-
-    // 最終安全チェック: サニタイズ後もまだ配列なら強制carousel化
-    if (Array.isArray(contents)) {
-      contents = contents.length === 1 ? contents[0] : { type: "carousel", contents };
-    }
+    // サニタイズ（無効プロパティ修正 + 不要キー除去 + type補完 + 配列→carousel変換）
+    const contents = sanitizeFlexContents(rawContents);
 
     const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
-
-    // デバッグ: LINE APIに送信するFlexメッセージの構造をログ
-    const contentsObj = contents as Record<string, unknown>;
-    console.log("[FLEX_SEND] structure:", JSON.stringify({
-      contentsType: contentsObj?.type,
-      keys: Object.keys(contentsObj || {}),
-      firstItemKeys: contentsObj?.type === "carousel" && Array.isArray(contentsObj?.contents)
-        ? Object.keys((contentsObj.contents as Record<string, unknown>[])[0] || {})
-        : undefined,
-      firstItemType: contentsObj?.type === "carousel" && Array.isArray(contentsObj?.contents)
-        ? ((contentsObj.contents as Record<string, unknown>[])[0] || {}).type
-        : undefined,
-    }));
-    console.log("[FLEX_SEND] payload:", JSON.stringify(flexMsg).substring(0, 3000));
 
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
 
@@ -188,16 +90,10 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       console.error("[Flex Send] LINE API Error:", lineError);
-      // デバッグ: エラー時にコンテナ構造情報を返す
-      const debugKeys = contentsObj?.type === "carousel" && Array.isArray(contentsObj?.contents)
-        ? `carousel[${(contentsObj.contents as unknown[]).length}] item0keys=${Object.keys((contentsObj.contents as Record<string, unknown>[])[0] || {}).join(",")}`
-        : `${contentsObj?.type} keys=${Object.keys(contentsObj || {}).join(",")}`;
       return NextResponse.json({
         ok: false,
         error: `LINE API エラー: ${lineError}`,
         status: "failed",
-        _debug: debugKeys,
-        _payload: JSON.stringify(flexMsg).substring(0, 500),
       });
     }
     return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });

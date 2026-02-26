@@ -33,6 +33,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { withTenant, tenantPayload } from "@/lib/tenant";
+import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /**
  * 決済完了時にフォローアップログをスケジュール
@@ -181,7 +182,7 @@ export async function processFollowups(tenantId?: string) {
       if (rule.flex_json) {
         res = await pushMessage(
           patient.line_id,
-          [{ type: "flex", altText: resolvedMsg, contents: rule.flex_json }],
+          [{ type: "flex", altText: resolvedMsg, contents: sanitizeFlexContents(rule.flex_json) }],
           logTenantId ?? undefined,
         );
       } else {
