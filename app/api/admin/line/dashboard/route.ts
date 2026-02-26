@@ -128,24 +128,40 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
+  // LINE Insight APIのリアルタイムデータで line_daily_stats の欠落日を補完
+  const dbDates = new Set((chartRows || []).map((r: any) => r.stat_date));
+  const supplementRows = (dailyStats || [])
+    .filter(d => !dbDates.has(d.date))
+    .map(d => ({
+      stat_date: d.date,
+      followers: d.followers,
+      targeted_reaches: d.targetedReaches,
+      blocks: d.blocks,
+      messages_sent: 0,
+      total_clicks: 0,
+      unique_clicks: 0,
+    }));
+  const allRows = [...(chartRows || []), ...supplementRows]
+    .sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+
   // チャート用データ構築
   const chartData = {
     period: validPeriod,
-    followerTrend: (chartRows || []).map((r: any, i: number, arr: any[]) => ({
+    followerTrend: allRows.map((r: any, i: number, arr: any[]) => ({
       date: r.stat_date,
       followers: r.followers,
       diff: i > 0 ? r.followers - arr[i - 1].followers : 0,
     })),
-    deliveryStats: (chartRows || []).map((r: any) => ({
+    deliveryStats: allRows.map((r: any) => ({
       date: r.stat_date,
       sent: r.messages_sent,
     })),
-    clickStats: (chartRows || []).map((r: any) => ({
+    clickStats: allRows.map((r: any) => ({
       date: r.stat_date,
       clicks: r.total_clicks,
       uniqueClicks: r.unique_clicks,
     })),
-    blockStats: (chartRows || []).map((r: any) => ({
+    blockStats: allRows.map((r: any) => ({
       date: r.stat_date,
       blocks: r.blocks,
       followers: r.followers,
