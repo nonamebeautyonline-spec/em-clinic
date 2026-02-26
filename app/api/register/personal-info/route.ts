@@ -102,6 +102,9 @@ export async function POST(req: NextRequest) {
           }
         })
       );
+      // friend_summaries の patient_id も移行（PK競合時は旧エントリ削除）
+      const { migrateFriendSummary } = await import("@/lib/merge-tables");
+      await migrateFriendSummary(oldLinePatientId, patientId);
       console.log("[register/personal-info] Migration complete:", oldLinePatientId, "->", patientId);
     }
 

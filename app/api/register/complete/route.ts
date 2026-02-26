@@ -125,6 +125,9 @@ export async function POST(req: NextRequest) {
               console.error(`[register/complete] LINE_マージエラー(${table}):`, error.message);
             }
           }
+          // friend_summaries 移行
+          const { migrateFriendSummary } = await import("@/lib/merge-tables");
+          await migrateFriendSummary(oldPid, pid);
           // 仮レコード削除
           await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", oldPid), tenantId);
           console.log(`[register/complete] LINE_ 自動マージ完了: ${oldPid} → ${pid}`);

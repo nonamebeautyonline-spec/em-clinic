@@ -189,6 +189,9 @@ async function mergeFakePatients(properPatientId: string, fakeIds: string[], ten
       })
     );
 
+    // friend_summaries 移行
+    const { migrateFriendSummary } = await import("@/lib/merge-tables");
+    await migrateFriendSummary(fakeId, properPatientId);
     // 仮レコード削除（intake → patients の順）
     await withTenant(supabaseAdmin.from("intake").delete().eq("patient_id", fakeId), tenantId);
     await withTenant(supabaseAdmin.from("patients").delete().eq("patient_id", fakeId), tenantId);
