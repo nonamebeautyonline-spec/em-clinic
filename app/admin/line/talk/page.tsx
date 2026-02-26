@@ -473,17 +473,30 @@ export default function TalkPage() {
     }
   }, [pinnedIds]);
 
-  // 友達一覧を取得
+  // 友達一覧を取得（SWR: キャッシュ即表示 → バックグラウンド更新）
+  const FRIENDS_CACHE_KEY = "friends-list-cache";
   const fetchFriends = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
       const data = await res.json();
-      if (data.patients) setFriends(data.patients);
+      if (data.patients) {
+        setFriends(data.patients);
+        try { sessionStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data.patients)); } catch { /* quota */ }
+      }
     } catch { /* ignore */ }
     setFriendsLoading(false);
   }, []);
 
   useEffect(() => {
+    // キャッシュがあれば即表示（体感0秒）
+    try {
+      const cached = sessionStorage.getItem(FRIENDS_CACHE_KEY);
+      if (cached) {
+        setFriends(JSON.parse(cached));
+        setFriendsLoading(false);
+      }
+    } catch { /* ignore */ }
+    // バックグラウンドで最新データを取得
     fetchFriends();
 
     Promise.all([
