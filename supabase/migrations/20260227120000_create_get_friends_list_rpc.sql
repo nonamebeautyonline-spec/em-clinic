@@ -29,7 +29,7 @@ RETURNS TABLE(
     fs.last_event_content,
     fs.last_event_type
   FROM friend_summaries fs
-  LEFT JOIN patients p ON p.patient_id = fs.patient_id
+  JOIN patients p ON p.patient_id = fs.patient_id
   LEFT JOIN patient_marks pm ON pm.patient_id = fs.patient_id
   WHERE (p_tenant_id IS NULL OR fs.tenant_id = p_tenant_id)
 $$ LANGUAGE SQL STABLE;
