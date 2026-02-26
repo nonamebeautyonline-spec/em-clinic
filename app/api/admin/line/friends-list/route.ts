@@ -5,27 +5,25 @@ import { resolveTenantId } from "@/lib/tenant";
 
 // 友達一覧（RPC 1回で全データ取得）
 export async function GET(req: NextRequest) {
-  console.time("[friends-list] total");
-  console.time("[friends-list] auth");
+  const t0 = Date.now();
+
   const isAuthorized = await verifyAdminAuth(req);
-  console.timeEnd("[friends-list] auth");
+  const tAuth = Date.now();
   if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const tenantId = resolveTenantId(req);
 
   // RPC 1回で friend_summaries + patients + patient_marks をJOIN取得
-  console.time("[friends-list] rpc");
   const { data, error } = await supabaseAdmin.rpc("get_friends_list", {
     p_tenant_id: tenantId || null,
   });
-  console.timeEnd("[friends-list] rpc");
+  const tRpc = Date.now();
 
   if (error) {
     console.error("[friends-list] RPC error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  console.time("[friends-list] transform");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const patients = (data || []).map((row: any) => {
     const isBlocked = row.last_event_type === "unfollow";
@@ -48,8 +46,17 @@ export async function GET(req: NextRequest) {
       last_text_at: row.last_msg_at || null,
     };
   });
-  console.timeEnd("[friends-list] transform");
+  const tEnd = Date.now();
 
-  console.timeEnd("[friends-list] total");
-  return NextResponse.json({ patients });
+  // デバッグ用タイミング（_timing でレスポンスに含める）
+  const _timing = {
+    auth_ms: tAuth - t0,
+    rpc_ms: tRpc - tAuth,
+    transform_ms: tEnd - tRpc,
+    total_ms: tEnd - t0,
+    rows: patients.length,
+  };
+  console.log("[friends-list]", _timing);
+
+  return NextResponse.json({ patients, _timing });
 }
