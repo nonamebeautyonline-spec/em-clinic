@@ -145,10 +145,12 @@ export async function GET(req: NextRequest) {
     .sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
 
   // LINE Insight API未準備の直近日をmessage_logのfollow/unfollowイベントで推定補完
+  // Vercelサーバーは UTC なので JST(+9h) に変換して日付生成
+  const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const coveredDates = new Set(allRows.map((r: any) => r.stat_date));
   const estimateDates: string[] = [];
   for (let i = 0; i <= 2; i++) {
-    const d = new Date();
+    const d = new Date(jstNow);
     d.setDate(d.getDate() - i);
     const ds = d.toISOString().slice(0, 10);
     if (!coveredDates.has(ds) && ds >= periodStartStr) estimateDates.push(ds);
@@ -306,10 +308,24 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  // dailyStatsにチャート用allRowsの推定データを統合（詳細タブ用）
+  const dailyStatsSet = new Set(dailyStats.map(d => d.date));
+  const mergedDailyStats = [
+    ...dailyStats,
+    ...allRows
+      .filter((r: any) => !dailyStatsSet.has(r.stat_date))
+      .map((r: any) => ({
+        date: r.stat_date,
+        followers: r.followers,
+        targetedReaches: r.targeted_reaches || 0,
+        blocks: r.blocks || 0,
+      })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+
   return NextResponse.json({
     stats,
     monthlySent: monthlySent || 0,
-    dailyStats,
+    dailyStats: mergedDailyStats,
     recentMessages,
     chartData,
     broadcastStats,
