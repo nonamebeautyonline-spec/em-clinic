@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
 
   // 並列でデータ取得（左カラム表示に必要な最小限のみ）
   // tags/fieldsは患者選択時に別APIで取得するためここでは不要
-  // message_log は RPC関数で患者ごとの最新メッセージのみ取得（全件取得を廃止）
-  const [intakeRes, patientsRes, marksRes, lastMsgRes] = await Promise.all([
+  // friend_summaries: メッセージINSERT時にDBトリガーで自動更新される事前集計テーブル
+  const [intakeRes, patientsRes, marksRes, summariesRes] = await Promise.all([
     fetchAll(
       () => withTenant(
         supabaseAdmin.from("intake").select("patient_id").not("patient_id", "is", null).order("created_at", { ascending: false }),
@@ -48,10 +48,11 @@ export async function GET(req: NextRequest) {
         tenantId
       ),
     ),
-    // RPC: 患者ごとの最新メッセージ（4カテゴリ × 患者数 ≈ 2,500行）
-    supabaseAdmin.rpc("get_friends_last_messages", {
-      p_tenant_id: tenantId || null,
-    }),
+    // friend_summaries: 事前集計テーブルから直接SELECT（旧: RPC 4回フルスキャン）
+    withTenant(
+      supabaseAdmin.from("friend_summaries").select("*"),
+      tenantId
+    ),
   ]);
 
   if (intakeRes.error) {
@@ -94,37 +95,18 @@ export async function GET(req: NextRequest) {
     markMap.set(row.patient_id, row.mark);
   }
 
-  // RPC結果をカテゴリ別にマッピング
-  const lastMsgMap = new Map<string, { content: string; sent_at: string }>();
-  const lastTemplateMap = new Map<string, { content: string; sent_at: string }>();
-  const lastEventMap = new Map<string, { content: string; sent_at: string; event_type: string | null }>();
-  const lastIncomingMap = new Map<string, string>();
-  const msgPatientIds = new Set<string>();
-
-  for (const row of lastMsgRes.data || []) {
+  // friend_summaries をマッピング
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const summaryMap = new Map<string, any>();
+  const summaryPatientIds = new Set<string>();
+  for (const row of summariesRes.data || []) {
     if (!row.patient_id) continue;
-    msgPatientIds.add(row.patient_id);
-
-    switch (row.category) {
-      case "incoming_any":
-        lastIncomingMap.set(row.patient_id, row.sent_at);
-        break;
-      case "incoming_msg":
-        lastMsgMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at });
-        break;
-      case "template": {
-        const name = row.content?.match(/^【.+?】/)?.[0] || row.content;
-        lastTemplateMap.set(row.patient_id, { content: name, sent_at: row.sent_at });
-        break;
-      }
-      case "event":
-        lastEventMap.set(row.patient_id, { content: row.content, sent_at: row.sent_at, event_type: row.event_type || null });
-        break;
-    }
+    summaryPatientIds.add(row.patient_id);
+    summaryMap.set(row.patient_id, row);
   }
 
-  // intakeに存在しない患者をmessage_logから補完（intakeが消失したケース対応）
-  for (const pid of msgPatientIds) {
+  // intakeに存在しない患者をfriend_summariesから補完（intakeが消失したケース対応）
+  for (const pid of summaryPatientIds) {
     if (!patientMap.has(pid)) {
       const pt = patientsMap.get(pid);
       patientMap.set(pid, {
@@ -139,14 +121,13 @@ export async function GET(req: NextRequest) {
 
   // 統合
   const patients = Array.from(patientMap.values()).map(p => {
-    const lastMsg = lastMsgMap.get(p.patient_id);
-    const lastIncoming = lastIncomingMap.get(p.patient_id);
+    const s = summaryMap.get(p.patient_id);
     // 最新イベントに応じた表示（event_typeで正確に判定）
-    const lastEvent = lastEventMap.get(p.patient_id);
-    const isBlocked = lastEvent?.event_type === "unfollow";
+    const isBlocked = s?.last_event_type === "unfollow";
     const eventDisplay = isBlocked ? "ブロックされました"
-      : lastEvent?.content?.includes("再追加") ? "友だち再登録"
-      : lastEvent ? "【友達追加】" : null;
+      : s?.last_event_content?.includes("再追加") ? "友だち再登録"
+      : s?.last_event_content ? "【友達追加】" : null;
+    const tplName = s?.last_template_content?.match(/^【.+?】/)?.[0] || s?.last_template_content;
     return {
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
@@ -157,9 +138,9 @@ export async function GET(req: NextRequest) {
       is_blocked: !!isBlocked,
       tags: [],
       fields: {},
-      last_message: lastMsg?.content || lastTemplateMap.get(p.patient_id)?.content || eventDisplay || null,
-      last_sent_at: lastIncoming || null,
-      last_text_at: lastMsg?.sent_at || null,
+      last_message: s?.last_msg_content || tplName || eventDisplay || null,
+      last_sent_at: s?.last_incoming_at || null,
+      last_text_at: s?.last_msg_at || null,
     };
   });
 
