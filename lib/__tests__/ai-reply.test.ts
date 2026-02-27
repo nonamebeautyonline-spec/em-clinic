@@ -1762,7 +1762,7 @@ describe("buildSystemPrompt - ステータスガイドライン", () => {
     expect(result).toContain("友だち追加直後・個人情報未登録");
     expect(result).toContain("問診未完了");
     expect(result).toContain("診察完了・決済待ち");
-    expect(result).toContain("患者がまだ到達していないステップの案内はしない");
+    expect(result).toContain("一般的な質問をした場合は、フローステージに関係なく");
   });
 });
 
