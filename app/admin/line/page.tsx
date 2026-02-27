@@ -247,6 +247,9 @@ export default function LineDashboardPage() {
                     </td>
                     <td className="px-6 py-5 text-center">
                       <p className="text-3xl font-bold text-gray-900">{data.stats.targetedReaches.toLocaleString()}<span className="text-base font-normal text-gray-500">人</span></p>
+                      {data.stats.followers - data.stats.targetedReaches > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">(未リーチ：{(data.stats.followers - data.stats.targetedReaches).toLocaleString()}人)</p>
+                      )}
                     </td>
                     <td className="px-6 py-5 text-center">
                       <p className="text-3xl font-bold text-gray-900">{data.stats.blocks.toLocaleString()}<span className="text-base font-normal text-gray-500">人</span> <span className="text-lg font-medium text-gray-500">({blockRate}%)</span></p>
