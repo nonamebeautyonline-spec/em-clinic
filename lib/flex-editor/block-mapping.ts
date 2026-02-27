@@ -299,7 +299,7 @@ function textToFlexWithBullet(block: EditorBlock): FlexObj | null {
   if (block.props.blockType !== "text") return null;
   const text = block.props.text;
   // ●/・/▶/★ + 半角スペース + 残りテキスト のパターンを検出
-  const match = text.match(/^([●・▶★◆■□◇▷►☆✓✔︎⚫︎])\s(.+)$/s);
+  const match = text.match(/^([●・▶★◆■□◇▷►☆✓✔︎⚫︎])\s([\s\S]+)$/);
   if (!match) return null;
   const [, bullet, mainText] = match;
   const color = block.props.color;
