@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
 /** Flex送信前にバブルの type:"bubble" を補完（LINE API必須）v4 */
@@ -120,6 +120,8 @@ export default function TemplateManagementPage() {
   // Flex JSON直接編集
   const [flexJson, setFlexJson] = useState("");
   const [flexError, setFlexError] = useState("");
+  const [showJsonPaste, setShowJsonPaste] = useState(false);
+  const [jsonPasteValue, setJsonPasteValue] = useState("");
   // Flexプリセット
   const [flexPresets, setFlexPresets] = useState<FlexPreset[]>([]);
   // テスト送信（複数アカウント対応）
@@ -129,6 +131,11 @@ export default function TemplateManagementPage() {
   const [testSendResult, setTestSendResult] = useState<{ id: number; ok: boolean; message: string } | null>(null);
   const [showTestSendModal, setShowTestSendModal] = useState<Template | null>(null);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+
+  // ⋮メニュー
+  const [actionMenuId, setActionMenuId] = useState<number | null>(null);
+  const [renameTarget, setRenameTarget] = useState<Template | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   // 変数プレビュー用state
   const [previewResult, setPreviewResult] = useState<string | null>(null);
@@ -332,6 +339,61 @@ export default function TemplateManagementPage() {
     });
     setTestSendingId(null);
     setTimeout(() => setTestSendResult(null), 6000);
+  };
+
+  // コピー作成
+  const handleDuplicate = async (t: Template) => {
+    setActionMenuId(null);
+    try {
+      const res = await fetch("/api/admin/line/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: `${t.name}（コピー）`,
+          content: t.content || "",
+          message_type: t.message_type,
+          category: t.category || "未分類",
+          flex_content: t.flex_content || null,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || "コピーに失敗しました");
+        return;
+      }
+      fetchData();
+    } catch {
+      alert("コピー中にエラーが発生しました");
+    }
+  };
+
+  // 名前変更
+  const handleRename = async () => {
+    if (!renameTarget || !renameValue.trim()) return;
+    try {
+      const res = await fetch(`/api/admin/line/templates/${renameTarget.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: renameValue.trim(),
+          content: renameTarget.content || "",
+          message_type: renameTarget.message_type,
+          category: renameTarget.category || "未分類",
+          flex_content: renameTarget.flex_content || null,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || "名前変更に失敗しました");
+        return;
+      }
+      setRenameTarget(null);
+      fetchData();
+    } catch {
+      alert("名前変更中にエラーが発生しました");
+    }
   };
 
   const filteredTemplates = selectedCategory === null
@@ -592,22 +654,18 @@ export default function TemplateManagementPage() {
             ) : (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {/* テーブルヘッダー */}
-                <div className={`grid gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
-                  testAccounts.length > 0 ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
-                }`}>
+                <div className="grid grid-cols-[1fr_100px_80px_60px_40px] gap-4 px-6 py-3 bg-gray-50/80 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   <div>テンプレート名</div>
                   <div className="text-center">登録日</div>
                   <div className="text-center">プレビュー</div>
-                  {testAccounts.length > 0 && <div className="text-center">テスト</div>}
-                  <div className="text-center">操作</div>
+                  <div className="text-center">編集</div>
+                  <div></div>
                 </div>
 
                 {filteredTemplates.map((t) => (
                   <div
                     key={t.id}
-                    className={`grid gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group ${
-                      testAccounts.length > 0 ? "grid-cols-[1fr_100px_80px_80px_110px]" : "grid-cols-[1fr_100px_80px_100px]"
-                    }`}
+                    className="grid grid-cols-[1fr_100px_80px_60px_40px] gap-4 items-center px-6 py-3.5 border-b border-gray-50 hover:bg-gray-50/50 transition-colors group"
                   >
                     {/* テンプレート名 */}
                     <div>
@@ -650,55 +708,97 @@ export default function TemplateManagementPage() {
                       </button>
                     </div>
 
-                    {/* テスト送信 */}
-                    {testAccounts.length > 0 && (
-                      <div className="text-center">
-                        {testSendResult?.id === t.id ? (
-                          <span
-                            className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}
-                            title={testSendResult.message}
-                          >
-                            {testSendResult.ok ? "送信完了" : testSendResult.message || "失敗"}
-                          </span>
-                        ) : testSendingId === t.id ? (
-                          <span className="text-[11px] text-amber-600">送信中...</span>
-                        ) : (
-                          <button
-                            onClick={() => openTestSendModal(t)}
-                            disabled={testSendingId !== null}
-                            className="px-3 py-1.5 text-xs font-medium border border-amber-200 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 disabled:opacity-40 transition-colors"
-                          >
-                            テスト
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {/* 操作 */}
-                    <div className="flex items-center justify-center gap-1">
-                      {t.message_type === "flex" && t.flex_content ? (
-                        <Link
-                          href={`/admin/line/flex-builder?template=${t.id}`}
-                          className="px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                        >
-                          エディタ
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => handleEdit(t)}
-                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          編集
-                        </button>
-                      )}
+                    {/* 編集 */}
+                    <div className="text-center">
                       <button
-                        onClick={() => setDeleteConfirm(t.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={() => handleEdit(t)}
+                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        編集
                       </button>
+                    </div>
+
+                    {/* ⋮ メニュー */}
+                    <div className="text-center relative">
+                      {testSendResult?.id === t.id ? (
+                        <span
+                          className={`text-[11px] font-medium ${testSendResult.ok ? "text-emerald-600" : "text-red-500"}`}
+                          title={testSendResult.message}
+                        >
+                          {testSendResult.ok ? "送信完了" : "失敗"}
+                        </span>
+                      ) : testSendingId === t.id ? (
+                        <span className="text-[11px] text-amber-600">送信中...</span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setActionMenuId(actionMenuId === t.id ? null : t.id)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                              <circle cx="12" cy="5" r="1.5" />
+                              <circle cx="12" cy="12" r="1.5" />
+                              <circle cx="12" cy="19" r="1.5" />
+                            </svg>
+                          </button>
+                          {actionMenuId === t.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[160px] py-1">
+                                <button
+                                  onClick={() => handleDuplicate(t)}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                  コピー
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActionMenuId(null);
+                                    setRenameValue(t.name);
+                                    setRenameTarget(t);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                  名前を変更
+                                </button>
+                                {testAccounts.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setActionMenuId(null);
+                                      openTestSendModal(t);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                    テスト送信
+                                  </button>
+                                )}
+                                <div className="border-t border-gray-100 my-1" />
+                                <button
+                                  onClick={() => {
+                                    setActionMenuId(null);
+                                    setDeleteConfirm(t.id);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  削除
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1085,27 +1185,9 @@ export default function TemplateManagementPage() {
                 </div>
               )}
 
-              {/* Flex JSON編集（プリセット + エディタ + プレビュー） */}
+              {/* Flex編集（プリセット + プレビュー + JSON貼り付け） */}
               {activeTab === "flex" && (
-                <div className="space-y-3">
-                  {/* ビジュアルエディタへのリンク */}
-                  <Link
-                    href={editingTemplate ? `/admin/line/flex-builder?template=${editingTemplate.id}` : "/admin/line/flex-builder"}
-                    className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-colors"
-                  >
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                    </svg>
-                    <div>
-                      <span className="text-sm font-medium text-blue-700">ノーコードエディタで開く</span>
-                      <span className="text-xs text-blue-500 ml-2">JSONを書かずにビジュアルで編集</span>
-                    </div>
-                    <svg className="w-4 h-4 text-blue-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-
+                <div className="space-y-4">
                   {/* プリセットボタン */}
                   {flexPresets.length > 0 && (
                     <div>
@@ -1130,74 +1212,97 @@ export default function TemplateManagementPage() {
                     </div>
                   )}
 
-                  {/* JSONエディタ + プレビュー 横並び */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* JSONエディタ */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Flex Message JSON <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
-                        </label>
-                        <button
-                          onClick={() => {
-                            try {
-                              const parsed = JSON.parse(flexJson);
-                              setFlexJson(JSON.stringify(parsed, null, 2));
-                              setFlexError("");
-                            } catch { setFlexError("JSON形式が不正です"); }
-                          }}
-                          className="text-xs text-blue-600 hover:text-blue-800"
-                        >
-                          整形
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-400 mb-2">
-                        プリセットを選択するか、LINE Flex Message Simulator で作成したJSONを貼り付けてください
-                      </p>
-                      <textarea
-                        value={flexJson}
-                        onChange={(e) => {
-                          setFlexJson(e.target.value);
-                          if (e.target.value.trim()) {
-                            try { JSON.parse(e.target.value); setFlexError(""); } catch { setFlexError("JSON形式が不正です"); }
-                          } else { setFlexError(""); }
-                        }}
-                        placeholder='{"type":"bubble","body":{"type":"box",...}}'
-                        rows={16}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
-                        spellCheck={false}
-                      />
-                      {flexError && (
-                        <p className="text-xs text-red-500 mt-1">{flexError}</p>
-                      )}
-                    </div>
-
-                    {/* リアルタイムプレビュー */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">プレビュー</label>
-                      <div className="bg-[#7494c0] rounded-xl p-4 min-h-[350px]">
-                        {(() => {
-                          if (!flexJson.trim()) {
-                            return (
-                              <div className="text-center text-white/60 text-sm py-20">
-                                プリセットを選択またはJSONを入力してください
-                              </div>
-                            );
-                          }
-                          try {
-                            const parsed = JSON.parse(flexJson);
-                            return <FlexPreviewRenderer data={parsed} />;
-                          } catch {
-                            return (
-                              <div className="text-center text-white/60 text-sm py-20">
-                                JSONを修正してください
-                              </div>
-                            );
-                          }
-                        })()}
-                      </div>
-                    </div>
+                  {/* プレビュー */}
+                  <div className="bg-[#7494c0] rounded-xl p-6 min-h-[300px] flex items-center justify-center">
+                    {(() => {
+                      if (!flexJson.trim()) {
+                        return (
+                          <div className="text-center text-white/60 text-sm py-10">
+                            プリセットを選択またはJSONを貼り付けてください
+                          </div>
+                        );
+                      }
+                      try {
+                        const parsed = JSON.parse(flexJson);
+                        return <FlexPreviewRenderer data={parsed} />;
+                      } catch {
+                        return (
+                          <div className="text-center text-white/60 text-sm py-10">
+                            JSONの形式が正しくありません
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
+
+                  {/* JSONを貼り付けボタン */}
+                  <button
+                    onClick={() => {
+                      setJsonPasteValue(flexJson);
+                      setShowJsonPaste(true);
+                    }}
+                    className="w-full px-4 py-2.5 border border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 transition-colors"
+                  >
+                    JSONを貼り付け
+                  </button>
+
+                  {/* JSON貼り付けダイアログ */}
+                  {showJsonPaste && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                      <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl mx-4 max-h-[80vh] flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-100">
+                          <h3 className="text-base font-bold text-gray-800">JSONを貼り付け</h3>
+                          <p className="text-xs text-gray-400 mt-1">
+                            LINE Flex Message Simulator で作成したJSONを貼り付けてください
+                          </p>
+                        </div>
+                        <div className="px-6 py-4 flex-1 overflow-auto">
+                          <textarea
+                            value={jsonPasteValue}
+                            onChange={(e) => setJsonPasteValue(e.target.value)}
+                            placeholder='{"type":"bubble","body":{"type":"box",...}}'
+                            rows={14}
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl text-xs font-mono text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
+                            spellCheck={false}
+                            autoFocus
+                          />
+                          {flexError && (
+                            <p className="text-xs text-red-500 mt-2">{flexError}</p>
+                          )}
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+                          <button
+                            onClick={() => {
+                              setShowJsonPaste(false);
+                              setFlexError("");
+                            }}
+                            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!jsonPasteValue.trim()) {
+                                setFlexError("JSONを入力してください");
+                                return;
+                              }
+                              try {
+                                JSON.parse(jsonPasteValue);
+                                setFlexJson(jsonPasteValue);
+                                setFlexError("");
+                                setShowJsonPaste(false);
+                              } catch {
+                                setFlexError("JSON形式が不正です");
+                              }
+                            }}
+                            className="flex-1 px-4 py-2.5 bg-[#06C755] text-white rounded-xl hover:bg-[#05b34c] text-sm font-medium transition-colors"
+                          >
+                            適用
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1419,6 +1524,40 @@ export default function TemplateManagementPage() {
               >
                 閉じる
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 名前変更モーダル */}
+      {renameTarget && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setRenameTarget(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col">
+              <h3 className="font-bold text-gray-900 mb-3">テンプレート名を変更</h3>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="テンプレート名"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRename();
+                }}
+              />
+              <div className="flex gap-3 w-full mt-4">
+                <button onClick={() => setRenameTarget(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleRename}
+                  disabled={!renameValue.trim()}
+                  className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 text-sm font-medium shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                >
+                  変更
+                </button>
+              </div>
             </div>
           </div>
         </div>

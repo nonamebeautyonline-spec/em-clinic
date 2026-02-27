@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_components/BlockEditorContext";
 import { PanelSettingsBar } from "./_components/PanelSettingsBar";
 import { PanelNavigator } from "./_components/PanelNavigator";
-import { BlockPreview } from "./_components/BlockPreview";
 import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
 import { editorPanelsToFlex } from "@/lib/flex-editor/block-mapping";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
@@ -338,14 +337,36 @@ function FlexBuilderInner() {
 
       {/* メインエリア: プレビュー + ブロック設定 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左: プレビュー */}
+        {/* 左: リアルタイムFlexプレビュー */}
         <div className="flex-1 overflow-auto bg-[#7494c0]">
-          <BlockPreview />
+          <LiveFlexPreview />
         </div>
 
         {/* 右: ブロック設定 */}
         <div className="w-[400px] border-l border-gray-200 bg-white flex-shrink-0 overflow-hidden">
           <BlockSettingsPanel />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- リアルタイムFlexプレビュー ---------- */
+function LiveFlexPreview() {
+  const { panels } = useBlockEditor();
+  const flexData = useMemo(() => editorPanelsToFlex(panels), [panels]);
+
+  return (
+    <div className="p-6 min-h-full flex items-start justify-center">
+      <div className="max-w-[300px] w-full">
+        <FlexPreviewRenderer data={flexData as Record<string, unknown>} />
+        <div className="mt-4 text-center">
+          <a
+            href="/admin/line/templates"
+            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+          >
+            戻る
+          </a>
         </div>
       </div>
     </div>
