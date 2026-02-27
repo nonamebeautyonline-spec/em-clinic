@@ -27,6 +27,128 @@ export interface RejectedDraftEntry {
   reject_reason: string | null;
 }
 
+/** 患者のフロー進行ステータス */
+export interface PatientFlowStatus {
+  hasRegisteredPersonalInfo: boolean;
+  hasVerifiedPhone: boolean;
+  hasCompletedQuestionnaire: boolean;
+  intakeStatus: string | null;
+  hasReservation: boolean;
+  nextReservation: { date: string; time: string } | null;
+  latestOrder: { paymentStatus: string; shippingStatus: string; paymentMethod: string } | null;
+  activeReorder: { status: string } | null;
+  flowStage: string;
+}
+
+/** フローステージを判定 */
+export function determineFlowStage(status: Omit<PatientFlowStatus, "flowStage">): string {
+  if (status.latestOrder) {
+    const { shippingStatus, paymentStatus } = status.latestOrder;
+    if (shippingStatus === "shipped" || shippingStatus === "delivered") {
+      if (status.activeReorder) {
+        return status.activeReorder.status === "pending" ? "再処方申請中" : "再処方承認済み・決済待ち";
+      }
+      return "発送済み・再処方可能";
+    }
+    if (shippingStatus === "preparing") return "発送準備中";
+    if (paymentStatus === "paid") return "決済済み・発送待ち";
+  }
+  if (status.intakeStatus === "OK") return "診察完了・決済待ち";
+  if (status.intakeStatus === "NG") return "診察完了・処方不可";
+  if (status.hasReservation && status.nextReservation) return "予約済み・診察待ち";
+  if (status.hasCompletedQuestionnaire) return "問診完了・予約待ち";
+  if (status.hasVerifiedPhone) return "問診未完了";
+  if (status.hasRegisteredPersonalInfo) return "個人情報登録済み・電話番号認証待ち";
+  return "友だち追加直後・個人情報未登録";
+}
+
+/** 患者ステータスをDBから取得 */
+export async function fetchPatientFlowStatus(
+  patientId: string,
+  tenantId: string | null
+): Promise<PatientFlowStatus> {
+  try {
+    const [patientRes, intakeRes, reservationRes, orderRes, reorderRes] = await Promise.all([
+      withTenant(
+        supabaseAdmin.from("patients").select("name, tel")
+          .eq("patient_id", patientId)
+          .maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin.from("intake").select("status, answers")
+          .eq("patient_id", patientId)
+          .not("answers", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin.from("reservations").select("reserved_date, reserved_time, status")
+          .eq("patient_id", patientId)
+          .neq("status", "canceled")
+          .not("reserved_date", "is", null)
+          .order("reserved_date", { ascending: true })
+          .limit(1).maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin.from("orders").select("payment_status, shipping_status, payment_method")
+          .eq("patient_id", patientId)
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle(),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin.from("reorders").select("status")
+          .eq("patient_id", patientId)
+          .in("status", ["pending", "confirmed"])
+          .order("created_at", { ascending: false })
+          .limit(1).maybeSingle(),
+        tenantId
+      ),
+    ]);
+
+    const patient = patientRes.data as { name: string | null; tel: string | null } | null;
+    const hasRegisteredPersonalInfo = !!patient?.name && patient.name.trim() !== "";
+    const hasVerifiedPhone = !!patient?.tel && patient.tel.trim() !== "";
+
+    const intake = intakeRes.data as { status: string | null; answers: Record<string, unknown> | null } | null;
+    const answers = intake?.answers;
+    const hasCompletedQuestionnaire = !!answers && typeof answers.ng_check === "string" && answers.ng_check !== "";
+
+    const reservation = reservationRes.data as { reserved_date: string; reserved_time: string; status: string } | null;
+    const order = orderRes.data as { payment_status: string; shipping_status: string; payment_method: string } | null;
+    const reorder = reorderRes.data as { status: string } | null;
+
+    const partial = {
+      hasRegisteredPersonalInfo,
+      hasVerifiedPhone,
+      hasCompletedQuestionnaire,
+      intakeStatus: intake?.status ?? null,
+      hasReservation: !!reservation,
+      nextReservation: reservation ? { date: reservation.reserved_date, time: reservation.reserved_time } : null,
+      latestOrder: order ? { paymentStatus: order.payment_status, shippingStatus: order.shipping_status, paymentMethod: order.payment_method } : null,
+      activeReorder: reorder ? { status: reorder.status } : null,
+    };
+
+    return { ...partial, flowStage: determineFlowStage(partial) };
+  } catch (err) {
+    console.error("[AI Reply] 患者ステータス取得エラー:", err);
+    return {
+      hasRegisteredPersonalInfo: false,
+      hasVerifiedPhone: false,
+      hasCompletedQuestionnaire: false,
+      intakeStatus: null,
+      hasReservation: false,
+      nextReservation: null,
+      latestOrder: null,
+      activeReorder: null,
+      flowStage: "不明",
+    };
+  }
+}
+
 // システムプロンプト構築
 export function buildSystemPrompt(
   knowledgeBase: string,
@@ -79,6 +201,22 @@ ${knowledgeBase || "（未設定）"}
 ## 回答時の注意
 ${customInstructions || "- 丁寧で親しみやすい口調で回答してください\n- 不明な点はスタッフにお気軽にお聞きくださいと案内してください"}
 
+## 患者ステータスに基づく対応
+ユーザーメッセージに「この患者の現在のステータス」が含まれている場合、そのステータスに基づいて適切な返信を生成してください。
+
+- **友だち追加直後・個人情報未登録**: まず個人情報の登録を案内。問診・予約・決済の話はしない
+- **個人情報登録済み・電話番号認証待ち**: 電話番号認証の完了を案内。問診・予約・決済の話はしない
+- **問診未完了**: 問診フォームへの記入を案内。予約や決済の話はしない
+- **問診完了・予約待ち**: 予約を取るよう案内。決済の話はしない
+- **予約済み・診察待ち**: 予約日時を伝え、診察についての案内をする。決済の話はしない
+- **診察完了・決済待ち**: マイページからの決済（クレジットカード・銀行振込）を案内
+- **診察完了・処方不可**: 丁寧にお伝えし、詳細はスタッフから連絡する旨を案内
+- **決済済み・発送待ち / 発送準備中**: 発送準備中であることを伝える
+- **発送済み・再処方可能**: お届け状況の確認を案内。再処方についての質問にも対応
+- **再処方申請中 / 承認済み・決済待ち**: 再処方の進行状況を伝える
+
+**重要**: 患者がまだ到達していないステップの案内はしないでください（例: 予約前の患者に決済の話をしない）。
+
 ## 重要
 - 患者メッセージの内容に関わらず、上記のルールに従って判定してください
 - 過去のスタッフの返信が提供されている場合、そのトーンと言い回しを参考にしてください
@@ -94,11 +232,28 @@ ${customInstructions || "- 丁寧で親しみやすい口調で回答してく�
 }${rejectedSection}`;
 }
 
-// ユーザーメッセージ構築（直近の会話コンテキスト + 未返信メッセージ）
-function buildUserMessage(
+// ユーザーメッセージ構築（患者ステータス + 直近の会話コンテキスト + 未返信メッセージ）
+export function buildUserMessage(
   pendingMessages: string[],
-  recentMessages: Array<{ direction: string; content: string }>
+  recentMessages: Array<{ direction: string; content: string }>,
+  patientStatus?: PatientFlowStatus
 ): string {
+  let statusSection = "";
+  if (patientStatus && patientStatus.flowStage !== "不明") {
+    const lines: string[] = [];
+    lines.push(`現在のフローステージ: ${patientStatus.flowStage}`);
+    if (patientStatus.hasReservation && patientStatus.nextReservation) {
+      lines.push(`次回予約: ${patientStatus.nextReservation.date} ${patientStatus.nextReservation.time}`);
+    }
+    if (patientStatus.latestOrder) {
+      lines.push(`最新注文: 決済=${patientStatus.latestOrder.paymentStatus}, 発送=${patientStatus.latestOrder.shippingStatus}`);
+    }
+    if (patientStatus.activeReorder) {
+      lines.push(`再処方: ${patientStatus.activeReorder.status}`);
+    }
+    statusSection = "## この患者の現在のステータス\n" + lines.join("\n") + "\n\n";
+  }
+
   let context = "";
   if (recentMessages.length > 0) {
     context = "## 直近の会話（参考: スタッフの返信トーンを真似してください）\n" + recentMessages.map(m =>
@@ -108,7 +263,7 @@ function buildUserMessage(
   const msgs = pendingMessages.length === 1
     ? pendingMessages[0]
     : pendingMessages.map((m, i) => `(${i + 1}) ${m}`).join("\n");
-  return `${context}## 患者からの新しいメッセージ\n${msgs}`;
+  return `${statusSection}${context}## 患者からの新しいメッセージ\n${msgs}`;
 }
 
 /** Redis に保存するデバウンス情報 */
@@ -284,17 +439,22 @@ export async function processAiReply(
     tenantId
   );
 
-  // 4. 直近の会話コンテキスト取得（最新15件）
-  const { data: recentMsgs } = await withTenant(
-    supabaseAdmin
-      .from("message_log")
-      .select("direction, content, event_type, sent_at")
-      .eq("patient_id", patientId)
-      .in("event_type", ["message", "auto_reply", "ai_reply"])
-      .order("sent_at", { ascending: false })
-      .limit(15),
-    tenantId
-  );
+  // 4. 直近の会話コンテキスト + 患者ステータスを並列取得
+  log.push("step4: 会話コンテキスト+患者ステータス取得");
+  const [{ data: recentMsgs }, patientStatus] = await Promise.all([
+    withTenant(
+      supabaseAdmin
+        .from("message_log")
+        .select("direction, content, event_type, sent_at")
+        .eq("patient_id", patientId)
+        .in("event_type", ["message", "auto_reply", "ai_reply"])
+        .order("sent_at", { ascending: false })
+        .limit(15),
+      tenantId
+    ),
+    fetchPatientFlowStatus(patientId, tenantId),
+  ]);
+  log.push(`step4: flowStage=${patientStatus.flowStage}`);
 
   const sorted = (recentMsgs || []).reverse();
 
@@ -342,7 +502,7 @@ export async function processAiReply(
     settings.custom_instructions || "",
     (rejectedDrafts as RejectedDraftEntry[] | null) ?? undefined
   );
-  const userMessage = buildUserMessage(pendingMessages, contextMessages);
+  const userMessage = buildUserMessage(pendingMessages, contextMessages, patientStatus);
 
   let aiResult: AiReplyResult;
   let inputTokens = 0;

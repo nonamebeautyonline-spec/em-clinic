@@ -59,12 +59,16 @@ vi.mock("@/lib/supabase", () => ({
 
 import {
   buildSystemPrompt,
+  buildUserMessage,
   scheduleAiReply,
   processPendingAiReplies,
   sendAiReply,
   handleImplicitAiFeedback,
   lastProcessLog,
+  determineFlowStage,
+  fetchPatientFlowStatus,
   type RejectedDraftEntry,
+  type PatientFlowStatus,
 } from "@/lib/ai-reply";
 import { redis } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
@@ -1562,5 +1566,282 @@ describe("handleImplicitAiFeedback", () => {
     const kbUpdateArgs = settingsUpdateChain.update.mock.calls[0][0];
     expect(kbUpdateArgs.knowledge_base).toContain("スタッフ手動返信例");
     expect(kbUpdateArgs.knowledge_base).toContain("質問テスト");
+  });
+});
+
+// ============================================================
+// determineFlowStage（純粋関数テスト）
+// ============================================================
+describe("determineFlowStage", () => {
+  const base: Omit<PatientFlowStatus, "flowStage"> = {
+    hasRegisteredPersonalInfo: false,
+    hasVerifiedPhone: false,
+    hasCompletedQuestionnaire: false,
+    intakeStatus: null,
+    hasReservation: false,
+    nextReservation: null,
+    latestOrder: null,
+    activeReorder: null,
+  };
+
+  it("全て未完了 → 友だち追加直後・個人情報未登録", () => {
+    expect(determineFlowStage(base)).toBe("友だち追加直後・個人情報未登録");
+  });
+
+  it("個人情報登録済み・電話番号未認証 → 個人情報登録済み・電話番号認証待ち", () => {
+    expect(determineFlowStage({ ...base, hasRegisteredPersonalInfo: true })).toBe("個人情報登録済み・電話番号認証待ち");
+  });
+
+  it("電話番号認証済み・問診未完了 → 問診未完了", () => {
+    expect(determineFlowStage({ ...base, hasRegisteredPersonalInfo: true, hasVerifiedPhone: true })).toBe("問診未完了");
+  });
+
+  it("問診完了・予約なし → 問診完了・予約待ち", () => {
+    expect(determineFlowStage({
+      ...base, hasRegisteredPersonalInfo: true, hasVerifiedPhone: true, hasCompletedQuestionnaire: true,
+    })).toBe("問診完了・予約待ち");
+  });
+
+  it("予約済み・診察前 → 予約済み・診察待ち", () => {
+    expect(determineFlowStage({
+      ...base, hasRegisteredPersonalInfo: true, hasVerifiedPhone: true, hasCompletedQuestionnaire: true,
+      hasReservation: true, nextReservation: { date: "2026-03-01", time: "10:00" },
+    })).toBe("予約済み・診察待ち");
+  });
+
+  it("診察完了(OK) → 診察完了・決済待ち", () => {
+    expect(determineFlowStage({
+      ...base, hasRegisteredPersonalInfo: true, hasVerifiedPhone: true, hasCompletedQuestionnaire: true,
+      intakeStatus: "OK",
+    })).toBe("診察完了・決済待ち");
+  });
+
+  it("診察完了(NG) → 診察完了・処方不可", () => {
+    expect(determineFlowStage({
+      ...base, hasRegisteredPersonalInfo: true, hasVerifiedPhone: true, hasCompletedQuestionnaire: true,
+      intakeStatus: "NG",
+    })).toBe("診察完了・処方不可");
+  });
+
+  it("決済済み・発送前 → 決済済み・発送待ち", () => {
+    expect(determineFlowStage({
+      ...base, latestOrder: { paymentStatus: "paid", shippingStatus: "pending", paymentMethod: "credit_card" },
+    })).toBe("決済済み・発送待ち");
+  });
+
+  it("発送準備中 → 発送準備中", () => {
+    expect(determineFlowStage({
+      ...base, latestOrder: { paymentStatus: "paid", shippingStatus: "preparing", paymentMethod: "credit_card" },
+    })).toBe("発送準備中");
+  });
+
+  it("発送済み・再処方なし → 発送済み・再処方可能", () => {
+    expect(determineFlowStage({
+      ...base, latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
+    })).toBe("発送済み・再処方可能");
+  });
+
+  it("発送済み・再処方pending → 再処方申請中", () => {
+    expect(determineFlowStage({
+      ...base,
+      latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
+      activeReorder: { status: "pending" },
+    })).toBe("再処方申請中");
+  });
+
+  it("発送済み・再処方confirmed → 再処方承認済み・決済待ち", () => {
+    expect(determineFlowStage({
+      ...base,
+      latestOrder: { paymentStatus: "paid", shippingStatus: "delivered", paymentMethod: "bank_transfer" },
+      activeReorder: { status: "confirmed" },
+    })).toBe("再処方承認済み・決済待ち");
+  });
+});
+
+// ============================================================
+// buildUserMessage（患者ステータス含む）
+// ============================================================
+describe("buildUserMessage", () => {
+  it("ステータスなし → 従来通りの出力", () => {
+    const result = buildUserMessage(["こんにちは"], []);
+    expect(result).toContain("患者からの新しいメッセージ");
+    expect(result).toContain("こんにちは");
+    expect(result).not.toContain("この患者の現在のステータス");
+  });
+
+  it("ステータスあり → ステータスセクションが先頭に含まれる", () => {
+    const status: PatientFlowStatus = {
+      hasRegisteredPersonalInfo: true,
+      hasVerifiedPhone: true,
+      hasCompletedQuestionnaire: true,
+      intakeStatus: "OK",
+      hasReservation: false,
+      nextReservation: null,
+      latestOrder: null,
+      activeReorder: null,
+      flowStage: "診察完了・決済待ち",
+    };
+    const result = buildUserMessage(["決済方法を教えてください"], [], status);
+    expect(result).toContain("この患者の現在のステータス");
+    expect(result).toContain("診察完了・決済待ち");
+    expect(result).toContain("決済方法を教えてください");
+  });
+
+  it("予約情報あり → 予約日時が含まれる", () => {
+    const status: PatientFlowStatus = {
+      hasRegisteredPersonalInfo: true,
+      hasVerifiedPhone: true,
+      hasCompletedQuestionnaire: true,
+      intakeStatus: null,
+      hasReservation: true,
+      nextReservation: { date: "2026-03-01", time: "14:00" },
+      latestOrder: null,
+      activeReorder: null,
+      flowStage: "予約済み・診察待ち",
+    };
+    const result = buildUserMessage(["テスト"], [], status);
+    expect(result).toContain("次回予約: 2026-03-01 14:00");
+  });
+
+  it("注文情報あり → 決済・発送ステータスが含まれる", () => {
+    const status: PatientFlowStatus = {
+      hasRegisteredPersonalInfo: true,
+      hasVerifiedPhone: true,
+      hasCompletedQuestionnaire: true,
+      intakeStatus: "OK",
+      hasReservation: false,
+      nextReservation: null,
+      latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
+      activeReorder: null,
+      flowStage: "発送済み・再処方可能",
+    };
+    const result = buildUserMessage(["テスト"], [], status);
+    expect(result).toContain("最新注文: 決済=paid, 発送=shipped");
+  });
+
+  it("再処方情報あり → 再処方ステータスが含まれる", () => {
+    const status: PatientFlowStatus = {
+      hasRegisteredPersonalInfo: true,
+      hasVerifiedPhone: true,
+      hasCompletedQuestionnaire: true,
+      intakeStatus: "OK",
+      hasReservation: false,
+      nextReservation: null,
+      latestOrder: { paymentStatus: "paid", shippingStatus: "shipped", paymentMethod: "credit_card" },
+      activeReorder: { status: "pending" },
+      flowStage: "再処方申請中",
+    };
+    const result = buildUserMessage(["テスト"], [], status);
+    expect(result).toContain("再処方: pending");
+  });
+
+  it("flowStageが不明 → ステータスセクション非表示", () => {
+    const status: PatientFlowStatus = {
+      hasRegisteredPersonalInfo: false,
+      hasVerifiedPhone: false,
+      hasCompletedQuestionnaire: false,
+      intakeStatus: null,
+      hasReservation: false,
+      nextReservation: null,
+      latestOrder: null,
+      activeReorder: null,
+      flowStage: "不明",
+    };
+    const result = buildUserMessage(["テスト"], [], status);
+    expect(result).not.toContain("この患者の現在のステータス");
+  });
+});
+
+// ============================================================
+// buildSystemPrompt（ステータスガイドライン追加確認）
+// ============================================================
+describe("buildSystemPrompt - ステータスガイドライン", () => {
+  it("患者ステータスに基づく対応セクションが含まれる", () => {
+    const result = buildSystemPrompt("KB", "指示");
+    expect(result).toContain("患者ステータスに基づく対応");
+    expect(result).toContain("友だち追加直後・個人情報未登録");
+    expect(result).toContain("問診未完了");
+    expect(result).toContain("診察完了・決済待ち");
+    expect(result).toContain("患者がまだ到達していないステップの案内はしない");
+  });
+});
+
+// ============================================================
+// fetchPatientFlowStatus
+// ============================================================
+describe("fetchPatientFlowStatus", () => {
+  beforeEach(async () => {
+    resetTableChains();
+    vi.clearAllMocks();
+    await resetFromMock();
+  });
+
+  it("全データなし → 友だち追加直後", async () => {
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("友だち追加直後・個人情報未登録");
+    expect(result.hasRegisteredPersonalInfo).toBe(false);
+    expect(result.hasVerifiedPhone).toBe(false);
+    expect(result.hasCompletedQuestionnaire).toBe(false);
+  });
+
+  it("患者名あり・電話番号なし → 個人情報登録済み・電話番号認証待ち", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "patients") return createChain({ data: { name: "田中太郎", tel: null }, error: null });
+      return createChain();
+    });
+
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("個人情報登録済み・電話番号認証待ち");
+    expect(result.hasRegisteredPersonalInfo).toBe(true);
+    expect(result.hasVerifiedPhone).toBe(false);
+  });
+
+  it("患者名・電話番号あり・問診未完了 → 問診未完了", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "patients") return createChain({ data: { name: "田中太郎", tel: "09012345678" }, error: null });
+      return createChain();
+    });
+
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("問診未完了");
+  });
+
+  it("問診完了 → 問診完了・予約待ち", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "patients") return createChain({ data: { name: "田中太郎", tel: "09012345678" }, error: null });
+      if (table === "intake") return createChain({ data: { status: null, answers: { ng_check: "ok" } }, error: null });
+      return createChain();
+    });
+
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("問診完了・予約待ち");
+    expect(result.hasCompletedQuestionnaire).toBe(true);
+  });
+
+  it("診察完了(OK) → 診察完了・決済待ち", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
+      if (table === "patients") return createChain({ data: { name: "田中太郎", tel: "09012345678" }, error: null });
+      if (table === "intake") return createChain({ data: { status: "OK", answers: { ng_check: "ok" } }, error: null });
+      return createChain();
+    });
+
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("診察完了・決済待ち");
+    expect(result.intakeStatus).toBe("OK");
+  });
+
+  it("DB取得エラー → フォールバック（flowStage=不明）", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.from).mockImplementation(() => {
+      throw new Error("DB接続エラー");
+    });
+
+    const result = await fetchPatientFlowStatus("p1", null);
+    expect(result.flowStage).toBe("不明");
+    expect(result.hasCompletedQuestionnaire).toBe(false);
   });
 });
