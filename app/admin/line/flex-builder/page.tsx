@@ -439,7 +439,12 @@ function BubbleRenderer({ bubble }: { bubble: Record<string, unknown> }) {
         </div>
       )}
       {footer && (
-        <div className="px-4 pb-3">
+        <div
+          className="px-4 pb-3"
+          style={{
+            backgroundColor: (footer.backgroundColor as string) || undefined,
+          }}
+        >
           <BoxRenderer box={footer} />
         </div>
       )}
@@ -452,12 +457,29 @@ function BoxRenderer({ box }: { box: Record<string, unknown> }) {
   const contents = (box.contents || []) as Record<string, unknown>[];
   const spacing = box.spacing as string;
   const margin = box.margin as string;
+  const bgColor = box.backgroundColor as string;
+  const paddingAll = box.paddingAll as string;
+  const flex = box.flex as number | undefined;
+  const alignItems = box.alignItems as string;
+  const justifyContent = box.justifyContent as string;
+  const cornerRadius = box.cornerRadius as string;
 
-  const gapClass = spacing === "sm" ? "gap-1.5" : spacing === "md" ? "gap-2" : spacing === "lg" ? "gap-3" : "gap-1";
+  const gapClass = spacing === "sm" ? "gap-1.5" : spacing === "md" ? "gap-2" : spacing === "lg" ? "gap-3" : spacing === "none" ? "gap-0" : "gap-1";
   const marginClass = margin === "sm" ? "mt-1" : margin === "md" ? "mt-2" : margin === "lg" ? "mt-3" : margin === "xl" ? "mt-4" : "";
+  const layoutClass = layout === "horizontal" ? "flex-row" : layout === "baseline" ? "flex-row items-baseline" : "flex-col";
+  const alignClass = alignItems === "center" ? "items-center" : alignItems === "end" ? "items-end" : "";
+  const justifyClass = justifyContent === "center" ? "justify-center" : justifyContent === "flex-end" ? "justify-end" : justifyContent === "space-between" ? "justify-between" : justifyContent === "space-around" ? "justify-around" : justifyContent === "space-evenly" ? "justify-evenly" : "";
 
   return (
-    <div className={`flex ${layout === "horizontal" ? "flex-row" : "flex-col"} ${gapClass} ${marginClass}`}>
+    <div
+      className={`flex ${layoutClass} ${gapClass} ${marginClass} ${alignClass} ${justifyClass}`}
+      style={{
+        backgroundColor: bgColor || undefined,
+        padding: paddingAll || undefined,
+        flex: flex !== undefined ? flex : undefined,
+        borderRadius: cornerRadius || undefined,
+      }}
+    >
       {contents.map((item, i) => (
         <FlexElementRenderer key={i} element={item} />
       ))}
@@ -536,6 +558,23 @@ function FlexElementRenderer({ element }: { element: Record<string, unknown> }) 
         }}
       />
     );
+  }
+
+  if (type === "filler") {
+    return <div className="flex-1" />;
+  }
+
+  if (type === "spacer") {
+    const size = element.size as string;
+    const h = size === "xs" ? 4 : size === "sm" ? 8 : size === "md" ? 16 : size === "lg" ? 24 : size === "xl" ? 32 : size === "xxl" ? 40 : 16;
+    return <div style={{ height: `${h}px` }} />;
+  }
+
+  if (type === "icon") {
+    const url = element.url as string;
+    const size = element.size as string;
+    const s = size === "xxs" ? 14 : size === "xs" ? 16 : size === "sm" ? 18 : size === "lg" ? 24 : size === "xl" ? 28 : 20;
+    return <img src={url} alt="" style={{ width: `${s}px`, height: `${s}px` }} className="inline-block flex-shrink-0" />;
   }
 
   return null;

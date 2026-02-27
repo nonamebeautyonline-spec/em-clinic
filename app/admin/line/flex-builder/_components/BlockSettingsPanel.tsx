@@ -16,7 +16,7 @@ export function BlockSettingsPanel() {
   if (!panel) return null;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div key={`panel-${activePanelIndex}`} className="h-full flex flex-col overflow-hidden">
       {/* ヘッダー: ブロック追加 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <span className="text-sm font-bold text-gray-700">ブロック設定</span>
