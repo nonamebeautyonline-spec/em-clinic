@@ -6,7 +6,8 @@ import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_
 import { PanelSettingsBar } from "./_components/PanelSettingsBar";
 import { PanelNavigator } from "./_components/PanelNavigator";
 import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
-import { editorPanelsToFlex } from "@/lib/flex-editor/block-mapping";
+import { editorPanelsToFlex, panelToBubble } from "@/lib/flex-editor/block-mapping";
+import type { EditorBlock } from "@/lib/flex-editor/block-types";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /* ---------- バブルtype補完ユーティリティ ---------- */
@@ -351,15 +352,76 @@ function FlexBuilderInner() {
   );
 }
 
-/* ---------- リアルタイムFlexプレビュー ---------- */
+/* ---------- リアルタイムFlexプレビュー（ブロック番号バッジ付き） ---------- */
 function LiveFlexPreview() {
-  const { panels } = useBlockEditor();
-  const flexData = useMemo(() => editorPanelsToFlex(panels), [panels]);
+  const { panels, activePanelIndex, selectedBlockId } = useBlockEditor();
+  const dispatch = useBlockEditorDispatch();
+  const activePanel = panels[activePanelIndex];
+
+  // パネルごとにbubbleを生成
+  const panelBubbles = useMemo(
+    () => panels.map((p) => panelToBubble(p) as Record<string, unknown>),
+    [panels],
+  );
+
+  // アクティブパネルのブロック→セクション（header/body/footer）マッピング
+  const blockMapping = useMemo(() => {
+    if (!activePanel) return { header: [] as number[], body: [] as number[], footer: [] as number[] };
+    const header: number[] = [];
+    const body: number[] = [];
+    const footer: number[] = [];
+    let inHeader = true;
+    activePanel.blocks.forEach((block, idx) => {
+      if (
+        inHeader &&
+        (block.props.blockType === "title" ||
+          (block.props.blockType === "text" && header.length > 0 && header.length < 2))
+      ) {
+        header.push(idx);
+      } else {
+        inHeader = false;
+        if (block.props.blockType === "button") {
+          footer.push(idx);
+        } else {
+          body.push(idx);
+        }
+      }
+    });
+    return { header, body, footer };
+  }, [activePanel]);
+
+  const isCarousel = panels.length > 1;
 
   return (
     <div className="p-6 min-h-full flex items-start justify-center">
       <div className="max-w-[300px] w-full">
-        <FlexPreviewRenderer data={flexData as Record<string, unknown>} />
+        {isCarousel ? (
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {panelBubbles.map((bubble, i) => (
+              <div key={i} className="flex-shrink-0 w-[260px]">
+                {i === activePanelIndex ? (
+                  <AnnotatedBubbleRenderer
+                    bubble={bubble}
+                    blockMapping={blockMapping}
+                    blocks={activePanel?.blocks || []}
+                    selectedBlockId={selectedBlockId}
+                    onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
+                  />
+                ) : (
+                  <BubbleRenderer bubble={bubble} />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : panelBubbles.length > 0 ? (
+          <AnnotatedBubbleRenderer
+            bubble={panelBubbles[0]}
+            blockMapping={blockMapping}
+            blocks={activePanel?.blocks || []}
+            selectedBlockId={selectedBlockId}
+            onSelectBlock={(blockId) => dispatch({ type: "SELECT_BLOCK", blockId })}
+          />
+        ) : null}
         <div className="mt-4 text-center">
           <a
             href="/admin/line/templates"
@@ -578,4 +640,116 @@ function FlexElementRenderer({ element }: { element: Record<string, unknown> }) 
   }
 
   return null;
+}
+
+/* ---------- ブロック番号バッジ付きバブルレンダラー ---------- */
+function AnnotatedBubbleRenderer({
+  bubble,
+  blockMapping,
+  blocks,
+  selectedBlockId,
+  onSelectBlock,
+}: {
+  bubble: Record<string, unknown>;
+  blockMapping: { header: number[]; body: number[]; footer: number[] };
+  blocks: EditorBlock[];
+  selectedBlockId: string | null;
+  onSelectBlock: (blockId: string) => void;
+}) {
+  const header = bubble.header as Record<string, unknown> | undefined;
+  const hero = bubble.hero as Record<string, unknown> | undefined;
+  const body = bubble.body as Record<string, unknown> | undefined;
+  const footer = bubble.footer as Record<string, unknown> | undefined;
+
+  /** セクション内の各要素にブロック番号バッジを付与してレンダリング */
+  const renderAnnotatedContents = (
+    box: Record<string, unknown>,
+    indices: number[],
+  ) => {
+    const layout = box.layout as string;
+    const contents = (box.contents || []) as Record<string, unknown>[];
+    const spacing = box.spacing as string;
+    const alignItems = box.alignItems as string;
+
+    const gapClass = spacing === "sm" ? "gap-1.5" : spacing === "md" ? "gap-2" : spacing === "lg" ? "gap-3" : spacing === "none" ? "gap-0" : "gap-1";
+    const layoutClass = layout === "horizontal" ? "flex-row" : layout === "baseline" ? "flex-row items-baseline" : "flex-col";
+    const alignClass = alignItems === "center" ? "items-center" : alignItems === "end" ? "items-end" : "";
+
+    return (
+      <div className={`flex ${layoutClass} ${gapClass} ${alignClass}`}>
+        {contents.map((item, i) => {
+          const blockIdx = indices[i];
+          const block = blockIdx !== undefined ? blocks[blockIdx] : undefined;
+          const isSelected = block ? block.id === selectedBlockId : false;
+
+          return (
+            <div
+              key={i}
+              className={`relative ${isSelected ? "ring-2 ring-blue-400 ring-offset-1 rounded" : ""}`}
+              onClick={
+                block
+                  ? (e) => {
+                      e.stopPropagation();
+                      onSelectBlock(block.id);
+                    }
+                  : undefined
+              }
+              style={{ cursor: block ? "pointer" : undefined }}
+            >
+              <FlexElementRenderer element={item} />
+              {blockIdx !== undefined && (
+                <span
+                  className={`absolute left-0 top-0 z-10 flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-bold text-white shadow ${
+                    isSelected ? "bg-blue-500" : "bg-green-600/90"
+                  }`}
+                >
+                  {blockIdx + 1}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden shadow-lg">
+      {header && (
+        <div
+          className="px-4 py-3"
+          style={{
+            backgroundColor: (header.backgroundColor as string) || undefined,
+            ...(header.paddingAll ? { padding: header.paddingAll as string } : {}),
+          }}
+        >
+          {renderAnnotatedContents(header, blockMapping.header)}
+        </div>
+      )}
+      {hero && hero.type === "image" && (
+        <div
+          className="w-full bg-gray-200 bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${hero.url})`,
+            aspectRatio: (hero.aspectRatio as string) || "2/1",
+          }}
+        />
+      )}
+      {body && (
+        <div className="px-4 py-3">
+          {renderAnnotatedContents(body, blockMapping.body)}
+        </div>
+      )}
+      {footer && (
+        <div
+          className="px-4 pb-3"
+          style={{
+            backgroundColor: (footer.backgroundColor as string) || undefined,
+          }}
+        >
+          {renderAnnotatedContents(footer, blockMapping.footer)}
+        </div>
+      )}
+    </div>
+  );
 }
