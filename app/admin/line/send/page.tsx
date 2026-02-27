@@ -108,6 +108,16 @@ export default function BroadcastSendPage() {
   const [showTestSendModal, setShowTestSendModal] = useState(false);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
 
+  // AI文面生成
+  const [showAiCompose, setShowAiCompose] = useState(false);
+  const [aiPurpose, setAiPurpose] = useState("");
+  const [aiTargetAudience, setAiTargetAudience] = useState("");
+  const [aiTone, setAiTone] = useState<"formal" | "casual" | "urgent">("formal");
+  const [aiMaxLength, setAiMaxLength] = useState(500);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiResult, setAiResult] = useState<{ message: string; alternatives: string[] } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   // テキストエリア参照（カーソル位置に変数を挿入するため）
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -334,6 +344,42 @@ export default function BroadcastSendPage() {
       if (histData.broadcasts) setBroadcasts(histData.broadcasts);
     }
     setSending(false);
+  };
+
+  // AI文面生成
+  const handleAiCompose = async () => {
+    if (!aiPurpose.trim() || !aiTargetAudience.trim() || aiGenerating) return;
+    setAiGenerating(true);
+    setAiError(null);
+    setAiResult(null);
+    try {
+      const res = await fetch("/api/admin/line/ai-compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          purpose: aiPurpose,
+          target_audience: aiTargetAudience,
+          tone: aiTone,
+          max_length: aiMaxLength,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAiResult({ message: data.message, alternatives: data.alternatives || [] });
+      } else {
+        setAiError(data.error || "生成に失敗しました");
+      }
+    } catch {
+      setAiError("通信エラーが発生しました");
+    }
+    setAiGenerating(false);
+  };
+
+  const applyAiMessage = (text: string) => {
+    setMessage(text);
+    setShowAiCompose(false);
+    setAiResult(null);
   };
 
   const handleSaveTemplate = async () => {
@@ -766,6 +812,18 @@ export default function BroadcastSendPage() {
             </div>
           )}
 
+          {/* AI文面生成ボタン */}
+          <button
+            type="button"
+            onClick={() => { setShowAiCompose(true); setAiResult(null); setAiError(null); }}
+            className="mb-3 w-full py-2.5 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            AI文面生成
+          </button>
+
           {/* 差し込み変数ツールバー */}
           <div className="flex flex-wrap items-center gap-1 mb-2 p-2 bg-gray-50/80 rounded-lg border border-gray-200">
             <span className="text-[10px] text-gray-400 mr-1 font-medium">差し込み</span>
@@ -1154,6 +1212,165 @@ export default function BroadcastSendPage() {
               >
                 {selectedTestIds.length}人に送信
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI文面生成モーダル */}
+      {showAiCompose && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAiCompose(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">AI文面生成</h3>
+                  <p className="text-xs text-gray-400">目的とターゲットを入力するとAIが配信文面を作成します</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* 入力フォーム（結果が出ていない場合） */}
+              {!aiResult && (
+                <>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">キャンペーン目的</label>
+                    <input
+                      type="text"
+                      value={aiPurpose}
+                      onChange={(e) => setAiPurpose(e.target.value)}
+                      placeholder="例: 冬季限定キャンペーンの案内"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 bg-gray-50/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1.5 block">ターゲット</label>
+                    <input
+                      type="text"
+                      value={aiTargetAudience}
+                      onChange={(e) => setAiTargetAudience(e.target.value)}
+                      placeholder="例: 3ヶ月以上来院していない休眠患者"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 bg-gray-50/50"
+                    />
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="text-xs font-semibold text-gray-600 mb-1.5 block">トーン</label>
+                      <select
+                        value={aiTone}
+                        onChange={(e) => setAiTone(e.target.value as "formal" | "casual" | "urgent")}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 bg-gray-50/50"
+                      >
+                        <option value="formal">丁寧・フォーマル</option>
+                        <option value="casual">親しみやすい・カジュアル</option>
+                        <option value="urgent">緊急・重要</option>
+                      </select>
+                    </div>
+                    <div className="w-28">
+                      <label className="text-xs font-semibold text-gray-600 mb-1.5 block">最大文字数</label>
+                      <input
+                        type="number"
+                        value={aiMaxLength}
+                        onChange={(e) => setAiMaxLength(Number(e.target.value) || 500)}
+                        min={100}
+                        max={2000}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 bg-gray-50/50"
+                      />
+                    </div>
+                  </div>
+
+                  {aiError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
+                      {aiError}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* 生成結果 */}
+              {aiResult && (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-purple-600">メイン案</span>
+                      <span className="text-[10px] text-gray-400">{aiResult.message.length}文字</span>
+                    </div>
+                    <div
+                      className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed cursor-pointer hover:bg-purple-100 transition-colors"
+                      onClick={() => applyAiMessage(aiResult.message)}
+                      title="クリックで挿入"
+                    >
+                      {aiResult.message}
+                    </div>
+                    <button
+                      onClick={() => applyAiMessage(aiResult.message)}
+                      className="mt-2 px-4 py-1.5 text-xs font-medium text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors"
+                    >
+                      この文面を使用
+                    </button>
+                  </div>
+
+                  {aiResult.alternatives.map((alt, i) => (
+                    <div key={i}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-500">代替案 {i + 1}</span>
+                        <span className="text-[10px] text-gray-400">{alt.length}文字</span>
+                      </div>
+                      <div
+                        className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => applyAiMessage(alt)}
+                        title="クリックで挿入"
+                      >
+                        {alt}
+                      </div>
+                      <button
+                        onClick={() => applyAiMessage(alt)}
+                        className="mt-2 px-4 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        この文面を使用
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => { setShowAiCompose(false); setAiResult(null); }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors"
+              >
+                閉じる
+              </button>
+              {aiResult ? (
+                <button
+                  onClick={() => { setAiResult(null); setAiError(null); }}
+                  className="flex-1 px-4 py-2.5 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200 text-sm font-medium transition-colors"
+                >
+                  条件を変えて再生成
+                </button>
+              ) : (
+                <button
+                  onClick={handleAiCompose}
+                  disabled={aiGenerating || !aiPurpose.trim() || !aiTargetAudience.trim()}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl hover:from-purple-600 hover:to-indigo-600 disabled:opacity-40 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    "生成する"
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

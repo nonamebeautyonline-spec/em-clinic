@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── セグメント型定義 ──────────────────────────────────────────
 
@@ -74,6 +74,13 @@ const SEGMENT_CONFIG: {
   },
 ];
 
+// ── AIセグメント型定義 ──────────────────────────────────────────
+
+interface AIQueryPatient {
+  patient_id: string;
+  name: string;
+}
+
 export default function SegmentsPage() {
   const [data, setData] = useState<SegmentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +88,16 @@ export default function SegmentsPage() {
   const [activeTab, setActiveTab] = useState<SegmentType>("vip");
   const [recalculating, setRecalculating] = useState(false);
   const [recalcMessage, setRecalcMessage] = useState("");
+
+  // ── AIセグメント状態 ──────────────────────────────────────────
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiExecuting, setAiExecuting] = useState(false);
+  const [aiSQL, setAiSQL] = useState<string | null>(null);
+  const [aiPatients, setAiPatients] = useState<AIQueryPatient[] | null>(null);
+  const [aiCount, setAiCount] = useState<number | null>(null);
+  const [aiError, setAiError] = useState("");
+  const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
   // ── データ取得 ──────────────────────────────────────────
 
@@ -133,6 +150,76 @@ export default function SegmentsPage() {
     } finally {
       setRecalculating(false);
     }
+  };
+
+  // ── AIセグメント: SQL生成 ──────────────────────────────────
+
+  const handleAiGenerate = async () => {
+    if (!aiQuery.trim() || aiGenerating) return;
+    setAiGenerating(true);
+    setAiError("");
+    setAiSQL(null);
+    setAiPatients(null);
+    setAiCount(null);
+    try {
+      const res = await fetch("/api/admin/line/segments/ai-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiQuery.trim(), execute: false }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setAiError(json.error || "SQL生成に失敗しました");
+        if (json.sql) setAiSQL(json.sql);
+        return;
+      }
+      setAiSQL(json.sql);
+    } catch (err) {
+      setAiError("AIクエリの送信に失敗しました");
+      console.error("[ai-query] 生成エラー:", err);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // ── AIセグメント: SQL実行 ──────────────────────────────────
+
+  const handleAiExecute = async () => {
+    if (!aiSQL || aiExecuting) return;
+    setAiExecuting(true);
+    setAiError("");
+    setAiPatients(null);
+    setAiCount(null);
+    try {
+      const res = await fetch("/api/admin/line/segments/ai-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiQuery.trim(), execute: true, sql: aiSQL }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setAiError(json.error || "クエリ実行に失敗しました");
+        return;
+      }
+      setAiPatients(json.patients || []);
+      setAiCount(json.count ?? 0);
+    } catch (err) {
+      setAiError("クエリ実行に失敗しました");
+      console.error("[ai-query] 実行エラー:", err);
+    } finally {
+      setAiExecuting(false);
+    }
+  };
+
+  // ── AIセグメント: リセット ──────────────────────────────────
+
+  const handleAiReset = () => {
+    setAiQuery("");
+    setAiSQL(null);
+    setAiPatients(null);
+    setAiCount(null);
+    setAiError("");
+    aiInputRef.current?.focus();
   };
 
   // ── RFMスコアバッジ ──────────────────────────────────────
@@ -237,6 +324,168 @@ export default function SegmentsPage() {
               </button>
             );
           })}
+        </div>
+
+        {/* AIセグメント */}
+        <div className="bg-white rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <h2 className="text-lg font-semibold text-gray-900">
+                AIセグメント
+              </h2>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              自然言語で患者の検索条件を入力し、AIがSQLクエリに変換します
+            </p>
+          </div>
+
+          <div className="px-6 py-4 space-y-4">
+            {/* 入力エリア */}
+            <div>
+              <label htmlFor="ai-query" className="block text-sm font-medium text-gray-700 mb-1">
+                検索条件（自然言語）
+              </label>
+              <textarea
+                ref={aiInputRef}
+                id="ai-query"
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                placeholder="例: 3ヶ月以内に2回以上来院し、平均単価5000円以上の患者"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleAiGenerate();
+                  }
+                }}
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-400">
+                  Cmd+Enter でSQL生成
+                </span>
+                <div className="flex gap-2">
+                  {(aiSQL || aiPatients) && (
+                    <button
+                      onClick={handleAiReset}
+                      className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                    >
+                      リセット
+                    </button>
+                  )}
+                  <button
+                    onClick={handleAiGenerate}
+                    disabled={!aiQuery.trim() || aiGenerating}
+                    className="px-4 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {aiGenerating ? "生成中..." : "SQL生成"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* エラー表示 */}
+            {aiError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{aiError}</p>
+              </div>
+            )}
+
+            {/* SQLプレビュー */}
+            {aiSQL && (
+              <div className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700">
+                      生成されたSQL
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      実行前にSQLを確認してください
+                    </span>
+                  </div>
+                  <pre className="p-3 bg-gray-900 text-green-400 rounded-lg text-xs overflow-x-auto font-mono whitespace-pre-wrap">
+                    {aiSQL}
+                  </pre>
+                </div>
+                {!aiPatients && (
+                  <button
+                    onClick={handleAiExecute}
+                    disabled={aiExecuting}
+                    className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {aiExecuting ? "実行中..." : "実行"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 結果表示 */}
+            {aiPatients !== null && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      該当患者
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {aiCount}名
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // 患者IDリストをクリップボードにコピー
+                      const ids = aiPatients.map(p => p.patient_id).join("\n");
+                      navigator.clipboard.writeText(ids);
+                    }}
+                    className="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    IDをコピー
+                  </button>
+                </div>
+                {aiPatients.length === 0 ? (
+                  <div className="py-6 text-center text-gray-500 text-sm">
+                    該当する患者がいません
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            #
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            患者ID
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            氏名
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {aiPatients.map((patient, idx) => (
+                          <tr key={patient.patient_id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 text-xs text-gray-400">
+                              {idx + 1}
+                            </td>
+                            <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                              {patient.patient_id}
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              {patient.name}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* セグメント別患者一覧 */}

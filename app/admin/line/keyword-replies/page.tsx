@@ -18,6 +18,14 @@ interface KeywordRule {
   created_at: string;
 }
 
+/* 統計データ（statsエンドポイントから取得） */
+interface KeywordRuleStat {
+  id: number;
+  total_trigger_count: number;
+  period_trigger_count: number;
+  last_triggered_at: string | null;
+}
+
 interface Template {
   id: number;
   name: string;
@@ -66,6 +74,9 @@ export default function KeywordRepliesPage() {
   const [testResult, setTestResult] = useState<any>(null);
   const [testing, setTesting] = useState(false);
 
+  // 統計データ（キーワードごとのトリガー回数）
+  const [stats, setStats] = useState<Record<number, KeywordRuleStat>>({});
+
   // テスト送信（複数アカウント対応 → 最初のアカウントを使用）
   const [testAccounts, setTestAccounts] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean }[]>([]);
   const testAccount = testAccounts.length > 0 ? testAccounts[0] : null;
@@ -75,11 +86,12 @@ export default function KeywordRepliesPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rulesRes, tplRes, actRes, taRes] = await Promise.all([
+      const [rulesRes, tplRes, actRes, taRes, statsRes] = await Promise.all([
         fetch("/api/admin/line/keyword-replies", { credentials: "include" }),
         fetch("/api/admin/line/templates", { credentials: "include" }),
         fetch("/api/admin/line/actions", { credentials: "include" }),
         fetch("/api/admin/line/test-account", { credentials: "include" }),
+        fetch("/api/admin/line/keyword-replies/stats", { credentials: "include" }),
       ]);
       if (rulesRes.ok) {
         const d = await rulesRes.json();
@@ -100,6 +112,15 @@ export default function KeywordRepliesPage() {
         } else if (d.patient_id) {
           setTestAccounts([{ patient_id: d.patient_id, patient_name: d.patient_name, has_line_uid: d.has_line_uid }]);
         }
+      }
+      // 統計データをルールID→統計のマップに変換
+      if (statsRes.ok) {
+        const d = await statsRes.json();
+        const map: Record<number, KeywordRuleStat> = {};
+        for (const s of d.rules || []) {
+          map[s.id] = s;
+        }
+        setStats(map);
       }
     } catch (e) {
       console.error("データ取得エラー:", e);
@@ -333,6 +354,7 @@ export default function KeywordRepliesPage() {
                 <th className="px-4 py-3 text-left">キーワード</th>
                 <th className="px-4 py-3 text-left">マッチ</th>
                 <th className="px-4 py-3 text-left">応答</th>
+                <th className="px-4 py-3 text-center">トリガー回数</th>
                 <th className="px-4 py-3 text-center">有効</th>
                 <th className="px-4 py-3 text-right">操作</th>
               </tr>
@@ -358,6 +380,22 @@ export default function KeywordRepliesPage() {
                     )}
                     {rule.reply_type === "template" && "テンプレート"}
                     {rule.reply_type === "action" && "アクション"}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {stats[rule.id] ? (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {stats[rule.id].total_trigger_count.toLocaleString()}
+                        </span>
+                        {stats[rule.id].last_triggered_at && (
+                          <span className="text-[10px] text-gray-400">
+                            最終: {new Date(stats[rule.id].last_triggered_at!).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button

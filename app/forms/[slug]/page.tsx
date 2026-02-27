@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { evaluateDisplayConditions } from "@/lib/form-conditions";
+import type { DisplayConditions } from "@/lib/form-conditions";
 
 // ============================================================
 // 型定義
@@ -18,6 +20,7 @@ interface FormField {
   options: string[];
   min_length: number | null;
   max_length: number | null;
+  display_conditions?: DisplayConditions;
 }
 
 interface FormDisplayData {
@@ -252,6 +255,18 @@ export default function PublicFormPage() {
       .catch(() => setPageError("読み込みに失敗しました"));
   }, [slug, isPreview]);
 
+  // 表示条件に基づいて表示するフィールドIDを計算
+  const visibleFieldIds = useMemo(() => {
+    if (!formData) return new Set<string>();
+    const visible = new Set<string>();
+    for (const field of formData.fields) {
+      if (evaluateDisplayConditions(field.display_conditions, answers)) {
+        visible.add(field.id);
+      }
+    }
+    return visible;
+  }, [formData, answers]);
+
   const handleSubmit = async () => {
     if (!formData) return;
     setError(null);
@@ -283,11 +298,19 @@ export default function PublicFormPage() {
       return;
     }
 
+    // 非表示フィールドの値を除外して送信
+    const filteredAnswers: Record<string, unknown> = {};
+    for (const [fieldId, value] of Object.entries(answers)) {
+      if (visibleFieldIds.has(fieldId)) {
+        filteredAnswers[fieldId] = value;
+      }
+    }
+
     const res = await fetch(`/api/forms/${slug}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        answers,
+        answers: filteredAnswers,
         line_user_id: lineUserId,
       }),
     });
@@ -401,6 +424,9 @@ export default function PublicFormPage() {
         {/* フィールド */}
         <div className="bg-white mt-2 px-6 py-6 space-y-6">
           {formData.fields.map(field => {
+            // 表示条件を満たさないフィールドは非表示
+            if (!visibleFieldIds.has(field.id)) return null;
+
             if (field.type === "heading_sm" || field.type === "heading_md") {
               return (
                 <FieldRenderer

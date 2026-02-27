@@ -159,3 +159,58 @@ export const bulkSendSchema = z
     template_id: z.union([z.number(), z.string()]),
   })
   .passthrough();
+
+/** ワークフローステップ設定 */
+const workflowStepSchema = z.object({
+  sort_order: z.number().int().min(0).optional(),
+  step_type: z.enum([
+    "send_message",
+    "add_tag",
+    "remove_tag",
+    "switch_richmenu",
+    "wait",
+    "condition",
+    "webhook",
+  ]),
+  config: z.record(z.string(), z.unknown()).default({}),
+});
+
+/** ワークフロー作成 POST /api/admin/line/workflows */
+export const createWorkflowSchema = z
+  .object({
+    name: z.string().min(1, "ワークフロー名は必須です"),
+    description: z.string().optional(),
+    trigger_type: z.enum([
+      "reservation_completed",
+      "payment_completed",
+      "tag_added",
+      "form_submitted",
+      "scheduled",
+      "manual",
+    ]),
+    trigger_config: z.record(z.string(), z.unknown()).optional(),
+    status: z.enum(["draft", "active", "paused", "archived"]).optional(),
+    steps: z.array(workflowStepSchema).optional(),
+  })
+  .passthrough();
+
+/** ワークフロー更新 PUT /api/admin/line/workflows/[id] */
+export const updateWorkflowSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().optional(),
+    trigger_type: z
+      .enum([
+        "reservation_completed",
+        "payment_completed",
+        "tag_added",
+        "form_submitted",
+        "scheduled",
+        "manual",
+      ])
+      .optional(),
+    trigger_config: z.record(z.string(), z.unknown()).optional(),
+    status: z.enum(["draft", "active", "paused", "archived"]).optional(),
+    steps: z.array(workflowStepSchema).optional(),
+  })
+  .passthrough();

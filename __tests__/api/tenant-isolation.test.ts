@@ -51,6 +51,8 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/cron/usage-check/route.ts",
   // cron/audit-archive（全テナント横断の監査ログアーカイブCron）
   "app/api/cron/audit-archive/route.ts",
+  // Google Calendar OAuthコールバック（stateパラメータからtenantIdを取得し直接.eq()で使用）
+  "app/api/admin/google-calendar/callback/route.ts",
 ]);
 
 // platform APIはスーパー管理者用で意図的にテナント横断アクセスするため、テナントフィルター不要

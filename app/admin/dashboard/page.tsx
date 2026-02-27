@@ -12,6 +12,14 @@ const SegmentWidget = dynamic(
   () => import("./widgets/segment-widget"),
   { ssr: false, loading: () => <SegmentWidgetSkeleton /> },
 );
+const ConversionWidget = dynamic(
+  () => import("./widgets/conversion-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
+const LTVWidget = dynamic(
+  () => import("./widgets/ltv-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
 
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
@@ -37,12 +45,16 @@ interface WidgetSettings {
   revenueChart: boolean;   // 売上推移グラフ
   orderChart: boolean;     // 新規vs再処方グラフ
   segmentChart: boolean;   // セグメント分布
+  conversionChart: boolean; // 初診→再診転換率
+  ltvChart: boolean;        // LTV分析
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   revenueChart: true,
   orderChart: true,
   segmentChart: true,
+  conversionChart: true,
+  ltvChart: true,
 };
 
 const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
@@ -495,6 +507,24 @@ export default function EnhancedDashboard() {
                   />
                   <span className="text-sm text-slate-700">セグメント分布</span>
                 </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.conversionChart}
+                    onChange={() => toggleWidget("conversionChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">初診→再診転換率</span>
+                </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.ltvChart}
+                    onChange={() => toggleWidget("ltvChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">LTV分析</span>
+                </label>
               </div>
             )}
           </div>
@@ -843,6 +873,12 @@ export default function EnhancedDashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* 分析ウィジェット */}
+      <div className="mt-8 space-y-6">
+        {widgetSettings.conversionChart && <ConversionWidget />}
+        {widgetSettings.ltvChart && <LTVWidget />}
       </div>
 
       {/* トースト通知コンテナ */}

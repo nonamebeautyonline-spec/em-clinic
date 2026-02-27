@@ -289,6 +289,7 @@ async function logEvent(params: {
   status: string;
   postback_data?: object | null;
   tenantId?: string | null;
+  keyword_reply_id?: number | null;
 }) {
   await supabaseAdmin.from("message_log").insert({
     ...tenantPayload(params.tenantId ?? null),
@@ -300,6 +301,7 @@ async function logEvent(params: {
     content: params.content,
     status: params.status,
     postback_data: params.postback_data || null,
+    keyword_reply_id: params.keyword_reply_id || null,
   });
 }
 
@@ -795,6 +797,13 @@ async function checkAndReplyKeyword(
     // マッチ → 応答送信
     console.log(`[webhook] keyword auto-reply matched: rule=${rule.name}, keyword=${rule.keyword}`);
 
+    // トリガー回数をインクリメント（fire-and-forget）
+    supabaseAdmin
+      .from("keyword_auto_replies")
+      .update({ trigger_count: (rule.trigger_count || 0) + 1, last_triggered_at: new Date().toISOString() })
+      .eq("id", rule.id)
+      .then(() => {});
+
     if (rule.reply_type === "text" && rule.reply_text) {
       // 変数置換
       let replyText = rule.reply_text;
@@ -814,6 +823,7 @@ async function checkAndReplyKeyword(
         message_type: "individual",
         content: replyText,
         status: "sent",
+        keyword_reply_id: rule.id,
       });
     } else if (rule.reply_type === "template" && rule.reply_template_id) {
       // テンプレートからメッセージ取得して送信
@@ -844,6 +854,7 @@ async function checkAndReplyKeyword(
             message_type: "individual",
             content: tpl.content || "[Flexメッセージ]",
             status: "sent",
+            keyword_reply_id: rule.id,
           });
         } else if (tpl.message_type === "image" && tpl.content) {
           await pushMessage(lineUid, [{
@@ -861,6 +872,7 @@ async function checkAndReplyKeyword(
             message_type: "individual",
             content: tpl.content,
             status: "sent",
+            keyword_reply_id: rule.id,
           });
         } else if (tpl.content) {
           let tplContent = tpl.content;
@@ -878,6 +890,7 @@ async function checkAndReplyKeyword(
             message_type: "individual",
             content: tplContent,
             status: "sent",
+            keyword_reply_id: rule.id,
           });
         }
       }

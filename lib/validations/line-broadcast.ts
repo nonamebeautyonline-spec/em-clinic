@@ -38,6 +38,43 @@ export const lineSendSchema = z
   })
   .passthrough();
 
+/** ABテストバリアントのスキーマ */
+const abTestVariantSchema = z.object({
+  name: z.string().min(1, "バリアント名は必須です"),
+  template_id: z.string().uuid().optional().nullable(),
+  message_content: z.string().optional().nullable(),
+  message_type: z.string().default("text"),
+  allocation_ratio: z.number().min(1).max(99).default(50),
+});
+
+/** ABテスト管理 POST /api/admin/line/ab-test */
+export const createAbTestSchema = z
+  .object({
+    name: z.string().min(1, "テスト名は必須です"),
+    target_segment: z.string().optional().nullable(),
+    winner_criteria: z.enum(["open_rate", "click_rate", "conversion_rate"]).default("open_rate"),
+    auto_select_winner: z.boolean().default(true),
+    min_sample_size: z.number().min(1).default(100),
+    variants: z.array(abTestVariantSchema).min(2, "2つ以上のバリアントが必要です"),
+  })
+  .passthrough();
+
+/** ABテスト更新 PUT /api/admin/line/ab-test/[id] */
+export const updateAbTestSchema = z
+  .object({
+    name: z.string().optional(),
+    status: z.enum(["draft", "running", "completed", "cancelled"]).optional(),
+    winner_variant_id: z.string().uuid().optional().nullable(),
+    winner_criteria: z.enum(["open_rate", "click_rate", "conversion_rate"]).optional(),
+    auto_select_winner: z.boolean().optional(),
+    min_sample_size: z.number().min(1).optional(),
+    target_count: z.number().optional(),
+    variants: z.array(abTestVariantSchema.partial().extend({
+      id: z.string().uuid().optional(),
+    })).optional(),
+  })
+  .passthrough();
+
 /** セグメント保存 POST /api/admin/line/segments */
 export const saveSegmentSchema = z
   .object({

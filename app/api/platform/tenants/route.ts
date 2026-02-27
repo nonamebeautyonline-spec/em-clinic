@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { parseBody } from "@/lib/validations/helpers";
 import { createTenantSchema } from "@/lib/validations/platform-tenant";
 import { generateUsername } from "@/lib/username";
+import { seedTenantData } from "@/lib/tenant-seed";
 
 /**
  * GET: テナント一覧取得
@@ -329,6 +330,15 @@ export async function POST(req: NextRequest) {
       slug: data.slug,
       adminEmail: data.adminEmail,
       planName: data.planName,
+    });
+
+    // 初期データ自動投入（fire-and-forget）
+    // テンプレート・問診フォーム・AI返信設定のデフォルトデータを非同期で投入
+    seedTenantData(tenantId).catch((err) => {
+      console.error(
+        `[platform/tenants] 初期データ投入エラー (tenant: ${tenantId}):`,
+        err,
+      );
     });
 
     return NextResponse.json(

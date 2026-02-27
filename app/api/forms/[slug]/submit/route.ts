@@ -4,6 +4,8 @@ import { pushMessage } from "@/lib/line-push";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { formSubmitSchema } from "@/lib/validations/forms";
+import { evaluateDisplayConditions } from "@/lib/form-conditions";
+import type { DisplayConditions } from "@/lib/form-conditions";
 
 /**
  * フォーム送信後のアクション実行
@@ -166,6 +168,10 @@ export async function POST(
   for (const field of fields) {
     if (field.hidden) continue;
     if (field.type === "heading_sm" || field.type === "heading_md") continue;
+
+    // 表示条件を満たさないフィールドはバリデーションをスキップ
+    const displayConditions = field.display_conditions as DisplayConditions;
+    if (!evaluateDisplayConditions(displayConditions, answers || {})) continue;
 
     const val = answers?.[field.id as string];
 

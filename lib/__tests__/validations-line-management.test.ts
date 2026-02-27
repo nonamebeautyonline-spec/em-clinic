@@ -1,5 +1,6 @@
 // lib/__tests__/validations-line-management.test.ts
 // LINE管理機能APIのZodスキーマバリデーションテスト
+import { describe, it, expect } from "vitest";
 import {
   createFolderSchema,
   updateFolderSchema,

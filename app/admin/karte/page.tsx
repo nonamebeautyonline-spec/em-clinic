@@ -197,6 +197,10 @@ export default function KartePage() {
   const [templates, setTemplates] = useState<KarteTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
 
+  // --- AI要約生成 ---
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryResult, setAiSummaryResult] = useState<{ summary: string; medications: string[] } | null>(null);
+
   // --- LINE通話フォーム ---
   const [callFormSending, setCallFormSending] = useState(false);
   const [callFormSentPatients, setCallFormSentPatients] = useState<Set<string>>(new Set());
@@ -332,6 +336,7 @@ export default function KartePage() {
     setEditSoap(emptySoapNote());
     setEditNoteFormat("plain");
     setShowTemplates(false);
+    setAiSummaryResult(null);
   };
 
   const saveNote = async () => {
@@ -357,6 +362,7 @@ export default function KartePage() {
       setEditSoap(emptySoapNote());
       setEditNoteFormat("plain");
       setShowTemplates(false);
+      setAiSummaryResult(null);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -373,6 +379,52 @@ export default function KartePage() {
     const trimmed = current.trimEnd();
     setEditSoap({ ...editSoap, s: trimmed ? `${trimmed}\n${text}` : text });
     setShowTemplates(false);
+  };
+
+  // === AI要約生成 ===
+  const handleAiSummary = async (intakeId: number) => {
+    if (!selectedPatientId || aiSummaryLoading) return;
+
+    // 既存の入力がある場合は上書き確認
+    const hasExisting = editSoap.s || editSoap.o || editSoap.a || editSoap.p;
+    if (hasExisting) {
+      if (!confirm("現在の入力内容をAI要約で上書きしますか？")) return;
+    }
+
+    setAiSummaryLoading(true);
+    setAiSummaryResult(null);
+    try {
+      const res = await fetch("/api/admin/karte/ai-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          patient_id: selectedPatientId,
+          intake_id: intakeId,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "AI要約の生成に失敗しました");
+
+      // SOAP欄に自動入力
+      setEditSoap({
+        s: data.soap?.s || "",
+        o: data.soap?.o || "",
+        a: data.soap?.a || "",
+        p: data.soap?.p || "",
+      });
+      // SOAPモードに切り替え
+      setEditNoteFormat("soap");
+      // サマリー・薬剤情報を保持
+      setAiSummaryResult({
+        summary: data.summary || "",
+        medications: data.medications || [],
+      });
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "AI要約の生成に失敗しました");
+    } finally {
+      setAiSummaryLoading(false);
+    }
   };
 
   // === ロック操作 ===
@@ -1030,14 +1082,15 @@ export default function KartePage() {
                                             noteFormat={editNoteFormat}
                                             onNoteFormatChange={setEditNoteFormat}
                                           />
-                                          {/* テンプレートボタン */}
-                                          <div className="relative">
-                                            <button
-                                              onClick={() => setShowTemplates(!showTemplates)}
-                                              className="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                                            >
-                                              テンプレート挿入
-                                            </button>
+                                          {/* テンプレート・AI要約ボタン */}
+                                          <div className="flex items-center gap-2">
+                                            <div className="relative">
+                                              <button
+                                                onClick={() => setShowTemplates(!showTemplates)}
+                                                className="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                              >
+                                                テンプレート挿入
+                                              </button>
                                             {showTemplates && (
                                               <div className="absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-64 max-h-60 overflow-auto">
                                                 {Object.entries(templatesByCategory).map(([cat, tmpls]) => (
@@ -1059,7 +1112,51 @@ export default function KartePage() {
                                                 ))}
                                               </div>
                                             )}
+                                            </div>
+                                            {/* AI要約生成ボタン */}
+                                            <button
+                                              onClick={() => handleAiSummary(it.id)}
+                                              disabled={aiSummaryLoading}
+                                              className="text-[11px] px-2 py-1 rounded bg-violet-100 text-violet-700 hover:bg-violet-200 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                              title="問診回答・過去カルテ・処方履歴からAIでSOAP要約を生成"
+                                            >
+                                              {aiSummaryLoading ? (
+                                                <>
+                                                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                  </svg>
+                                                  AI生成中...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                                  </svg>
+                                                  AI要約生成
+                                                </>
+                                              )}
+                                            </button>
                                           </div>
+                                          {/* AI要約サマリー表示 */}
+                                          {aiSummaryResult && editingIntakeId === it.id && (
+                                            <div className="rounded-lg bg-violet-50 border border-violet-200 p-3 space-y-1">
+                                              <div className="text-[10px] font-bold text-violet-600">AI要約</div>
+                                              {aiSummaryResult.summary && (
+                                                <p className="text-xs text-violet-800">{aiSummaryResult.summary}</p>
+                                              )}
+                                              {aiSummaryResult.medications.length > 0 && (
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                  <span className="text-[10px] text-violet-500">薬剤:</span>
+                                                  {aiSummaryResult.medications.map((med, i) => (
+                                                    <span key={i} className="px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-[10px]">
+                                                      {med}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
                                           {/* 保存・キャンセル */}
                                           <div className="flex items-center gap-2 pt-1">
                                             <button

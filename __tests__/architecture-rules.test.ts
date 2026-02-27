@@ -155,9 +155,12 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     // 全テナント横断のCronジョブ（テナント単位ではなく全テナントをループ処理）
     "app/api/cron/usage-check/route.ts",
     "app/api/cron/audit-archive/route.ts",
+    "app/api/cron/usage-alert/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",
+    // Google Calendar OAuthコールバック（stateパラメータからtenantIdを取得し直接.eq()で使用）
+    "app/api/admin/google-calendar/callback/route.ts",
   ]);
 
   function findRouteFiles(dir: string): string[] {

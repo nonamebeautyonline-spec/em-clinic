@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+/* ---------- 効果測定パネル（SSR回避: Rechartsはクライアント専用） ---------- */
+const StatsPanel = dynamic(() => import("./stats-panel"), { ssr: false });
 
 /* ---------- 型定義 ---------- */
 interface Scenario {
@@ -37,6 +41,7 @@ export default function StepScenariosPage() {
   const router = useRouter();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statsScenarioId, setStatsScenarioId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -258,6 +263,22 @@ export default function StepScenariosPage() {
                   {/* 右: 操作 */}
                   <div className="flex items-center gap-2 ml-4">
                     <button
+                      onClick={() => setStatsScenarioId(statsScenarioId === s.id ? null : s.id)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        statsScenarioId === s.id
+                          ? "text-blue-700 bg-blue-100"
+                          : "text-blue-600 bg-blue-50 hover:bg-blue-100 opacity-0 group-hover:opacity-100"
+                      }`}
+                    >
+                      統計
+                    </button>
+                    <button
+                      onClick={() => router.push(`/admin/line/flow-builder?scenario_id=${s.id}`)}
+                      className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      フロー
+                    </button>
+                    <button
                       onClick={() => router.push(`/admin/line/step-scenarios/${s.id}`)}
                       className="px-3 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                     >
@@ -286,6 +307,16 @@ export default function StepScenariosPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* 効果測定パネル（展開） */}
+                {statsScenarioId === s.id && (
+                  <div className="mt-3">
+                    <StatsPanel
+                      scenario_id={s.id}
+                      onClose={() => setStatsScenarioId(null)}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>

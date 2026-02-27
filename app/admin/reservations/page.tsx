@@ -2,6 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+
+// カレンダービューをdynamic importでSSR回避
+const CalendarView = dynamic(() => import("./calendar-view"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center py-12">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent" />
+    </div>
+  ),
+});
+
+type ViewMode = "list" | "calendar";
 
 interface Reservation {
   id: string;
@@ -54,6 +67,9 @@ export default function ReservationsPage() {
   const [loadingReminder, setLoadingReminder] = useState(false);
   const [lineRemindSending, setLineRemindSending] = useState(false);
   const [lineRemindResult, setLineRemindResult] = useState<ReminderSendResult & { testOnly?: boolean } | null>(null);
+
+  // ビュー切替（リスト / カレンダー）
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   // チェックボックス用（リマインド送信対象選択）
   const [checkedPatientIds, setCheckedPatientIds] = useState<Set<string>>(new Set());
@@ -182,9 +198,53 @@ export default function ReservationsPage() {
     );
   }
 
+  // カレンダービュー表示時はカレンダーコンポーネントのみ表示
+  if (viewMode === "calendar") {
+    return (
+      <div className="max-w-6xl mx-auto p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">予約カレンダー</h1>
+          {/* ビュー切替タブ */}
+          <div className="flex bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("list")}
+              className="px-4 py-1.5 text-sm rounded-md text-slate-600 hover:text-slate-900"
+            >
+              リスト
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className="px-4 py-1.5 text-sm rounded-md bg-white text-slate-900 shadow-sm font-medium"
+            >
+              カレンダー
+            </button>
+          </div>
+        </div>
+        <CalendarView />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
-      <h1 className="text-xl font-bold mb-2">予約リスト</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">予約リスト</h1>
+        {/* ビュー切替タブ */}
+        <div className="flex bg-slate-100 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode("list")}
+            className="px-4 py-1.5 text-sm rounded-md bg-white text-slate-900 shadow-sm font-medium"
+          >
+            リスト
+          </button>
+          <button
+            onClick={() => setViewMode("calendar")}
+            className="px-4 py-1.5 text-sm rounded-md text-slate-600 hover:text-slate-900"
+          >
+            カレンダー
+          </button>
+        </div>
+      </div>
 
       {/* 日付選択 */}
       <div className="flex items-center gap-4 mb-4">

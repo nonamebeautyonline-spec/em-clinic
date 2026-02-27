@@ -202,7 +202,8 @@ describe("admin配下全ルート: 認証チェック", () => {
   const adminRoutes = findRouteFiles("app/api/admin");
 
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
-  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse"];
+  // google-calendar/callback: OAuth2コールバック（Googleからのリダイレクトで管理者セッションなし、stateで識別）
+  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse", "google-calendar/callback"];
 
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];
@@ -251,10 +252,16 @@ describe("platform配下全ルート: 認証チェック", () => {
 describe("admin配下全ルート: テナント分離", () => {
   const adminRoutes = findRouteFiles("app/api/admin");
 
+  // テナント対応免除ルート（stateやDB内部からtenantIdを取得して直接.eq()で使用するルート）
+  const TENANT_EXEMPT_ADMIN = new Set([
+    "app/api/admin/google-calendar/callback/route.ts", // OAuth2コールバック: stateからtenantIdを取得し直接.eq()
+  ]);
+
   it("supabaseAdmin を使用している admin ルートはテナント対応している（プラットフォーム管理を除く）", () => {
     const violations: string[] = [];
 
     for (const route of adminRoutes) {
+      if (TENANT_EXEMPT_ADMIN.has(route)) continue;
 
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
       if (src.includes("supabaseAdmin")) {
@@ -444,7 +451,7 @@ describe("患者管理bulk操作: 基本要件", () => {
 describe("Cron: テナント対応", () => {
   const cronRoutes = findRouteFiles("app/api/cron");
   // テナント横断チェックのためテナント対応不要なcronルート
-  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive"];
+  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert"];
 
   it("supabaseAdminを使うcronルートはテナント対応している", () => {
     const violations: string[] = [];
