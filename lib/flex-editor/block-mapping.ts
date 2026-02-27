@@ -147,11 +147,12 @@ function mergeBulletTextBox(box: FlexObj): EditorBlock {
 function flattenBoxContents(box: FlexObj): EditorBlock[] {
   const contents = (box.contents || []) as FlexObj[];
   const blocks: EditorBlock[] = [];
-  for (const item of contents) {
+  for (let i = 0; i < contents.length; i++) {
+    const item = contents[i];
     const type = item.type as string;
     if (type === "box") {
       if (isBulletTextBox(item)) {
-        // ●+テキストパターン → 1ブロックに統合
+        // horizontal boxの●+テキストパターン → 1ブロックに統合
         blocks.push(mergeBulletTextBox(item));
       } else {
         // ネストboxは展開
@@ -159,6 +160,27 @@ function flattenBoxContents(box: FlexObj): EditorBlock[] {
       }
     } else if (type === "filler" || type === "spacer") {
       // filler/spacerはブロック変換不要（装飾用）→ スキップ
+    } else if (type === "text") {
+      const text = (item.text as string) || "";
+      const next = contents[i + 1];
+      // vertical box内の●+次テキストパターンを検出
+      if (BULLET_CHARS.test(text) && next && next.type === "text" && ((next.text as string) || "").length > 0) {
+        const color = (item.color || next.color) as string | undefined;
+        const size = (next.size || item.size) as string | undefined;
+        blocks.push({
+          id: generateBlockId(),
+          props: {
+            blockType: "text",
+            text: `${text} ${(next.text as string) || ""}`,
+            wrap: next.wrap !== false,
+            ...(color && color !== "#666666" && color !== "#111111" ? { color } : {}),
+            ...(size && size !== "md" ? { size } : {}),
+          },
+        });
+        i++; // 次の要素はスキップ（統合済み）
+      } else {
+        blocks.push(flexElementToBlock(item));
+      }
     } else {
       blocks.push(flexElementToBlock(item));
     }
