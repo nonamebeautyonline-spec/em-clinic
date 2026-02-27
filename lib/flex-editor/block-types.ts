@@ -20,6 +20,8 @@ export interface TitleBlockProps {
 export interface TextBlockProps {
   text: string;
   wrap: boolean;
+  color?: string;
+  size?: string;
 }
 
 export interface ImageBlockProps {

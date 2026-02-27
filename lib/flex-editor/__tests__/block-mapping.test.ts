@@ -295,13 +295,13 @@ describe("panelToBubble", () => {
     const bubble = panelToBubble(panel);
     expect(bubble.type).toBe("bubble");
     expect(bubble.size).toBe("mega");
-    const body = bubble.body as Record<string, unknown>;
-    expect(body.type).toBe("box");
-    expect(body.layout).toBe("vertical");
-    expect((body.contents as unknown[]).length).toBe(0);
+    // 空パネルはheader/body/footerなし
+    expect(bubble.header).toBeUndefined();
+    expect(bubble.body).toBeUndefined();
+    expect(bubble.footer).toBeUndefined();
   });
 
-  it("タイトルブロックをbold+xlテキストに変換", () => {
+  it("タイトルブロックをheaderに配置", () => {
     const panel: Panel = {
       id: "p1",
       settings: { ...createEmptyPanel().settings },
@@ -311,18 +311,19 @@ describe("panelToBubble", () => {
       }],
     };
     const bubble = panelToBubble(panel);
-    const body = bubble.body as Record<string, unknown>;
-    const contents = body.contents as Record<string, unknown>[];
+    // タイトルはheaderに入る
+    const header = bubble.header as Record<string, unknown>;
+    expect(header).toBeTruthy();
+    const contents = header.contents as Record<string, unknown>[];
     expect(contents[0]).toMatchObject({
       type: "text",
       text: "テストタイトル",
       weight: "bold",
       size: "xl",
-      wrap: true,
     });
   });
 
-  it("テキストブロックをmdテキストに変換", () => {
+  it("テキストブロックをbodyに配置", () => {
     const panel: Panel = {
       id: "p1",
       settings: { ...createEmptyPanel().settings },
@@ -332,6 +333,7 @@ describe("panelToBubble", () => {
       }],
     };
     const bubble = panelToBubble(panel);
+    // テキストのみの場合、headerはなくbodyに入る
     const body = bubble.body as Record<string, unknown>;
     const contents = body.contents as Record<string, unknown>[];
     expect(contents[0]).toMatchObject({
@@ -342,7 +344,7 @@ describe("panelToBubble", () => {
     });
   });
 
-  it("ボタンブロックをbuttonに変換", () => {
+  it("ボタンブロックをfooterに配置", () => {
     const panel: Panel = {
       id: "p1",
       settings: { ...createEmptyPanel().settings },
@@ -358,8 +360,10 @@ describe("panelToBubble", () => {
       }],
     };
     const bubble = panelToBubble(panel);
-    const body = bubble.body as Record<string, unknown>;
-    const contents = body.contents as Record<string, unknown>[];
+    // ボタンはfooterに入る
+    const footer = bubble.footer as Record<string, unknown>;
+    expect(footer).toBeTruthy();
+    const contents = footer.contents as Record<string, unknown>[];
     expect(contents[0]).toMatchObject({
       type: "button",
       style: "primary",
@@ -395,7 +399,7 @@ describe("panelToBubble", () => {
     const panel: Panel = {
       id: "p1",
       settings: { backgroundColor: "#f0f0f0", themeColor: "#06C755", size: "mega" },
-      blocks: [],
+      blocks: [{ id: "b1", props: { blockType: "text", text: "テスト", wrap: true } }],
     };
     const bubble = panelToBubble(panel);
     const body = bubble.body as Record<string, unknown>;
@@ -406,7 +410,7 @@ describe("panelToBubble", () => {
     const panel: Panel = {
       id: "p1",
       settings: { backgroundColor: "#ffffff", themeColor: "#06C755", size: "mega" },
-      blocks: [],
+      blocks: [{ id: "b1", props: { blockType: "text", text: "テスト", wrap: true } }],
     };
     const bubble = panelToBubble(panel);
     const body = bubble.body as Record<string, unknown>;
@@ -438,12 +442,16 @@ describe("往復変換（Flex → ブロック → Flex）", () => {
 
     expect(result.type).toBe("bubble");
     expect(result.size).toBe("mega");
-    const body = result.body as Record<string, unknown>;
-    const contents = body.contents as Record<string, unknown>[];
-    expect(contents).toHaveLength(3);
-    expect(contents[0]).toMatchObject({ type: "text", weight: "bold", size: "xl" });
-    expect(contents[1]).toMatchObject({ type: "text", size: "md" });
-    expect(contents[2]).toMatchObject({ type: "button", style: "primary" });
+    // タイトル+サブタイトルはheaderに、ボタンはfooterに振り分けられる
+    const header = result.header as Record<string, unknown>;
+    expect(header).toBeTruthy();
+    const headerContents = header.contents as Record<string, unknown>[];
+    expect(headerContents[0]).toMatchObject({ type: "text", weight: "bold", size: "xl" });
+    expect(headerContents[1]).toMatchObject({ type: "text" }); // サブタイトル
+
+    const footer = result.footer as Record<string, unknown>;
+    const footerContents = footer.contents as Record<string, unknown>[];
+    expect(footerContents[0]).toMatchObject({ type: "button", style: "primary" });
   });
 
   it("carouselの往復変換", () => {

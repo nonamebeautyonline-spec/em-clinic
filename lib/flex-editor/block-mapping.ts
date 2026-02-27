@@ -60,11 +60,20 @@ function flexElementToBlock(el: FlexObj): EditorBlock {
         id: generateBlockId(),
         props: { blockType: "title", text: (el.text as string) || "" },
       };
-    case "text":
+    case "text": {
+      const color = el.color as string | undefined;
+      const size = el.size as string | undefined;
       return {
         id: generateBlockId(),
-        props: { blockType: "text", text: (el.text as string) || "", wrap: el.wrap !== false },
+        props: {
+          blockType: "text",
+          text: (el.text as string) || "",
+          wrap: el.wrap !== false,
+          ...(color && color !== "#666666" && color !== "#111111" ? { color } : {}),
+          ...(size && size !== "md" ? { size } : {}),
+        },
       };
+    }
     case "image":
       return {
         id: generateBlockId(),
@@ -96,6 +105,44 @@ function flexElementToBlock(el: FlexObj): EditorBlock {
   }
 }
 
+/** バレット記号パターン */
+const BULLET_CHARS = /^[●・▶★◆■□◇▷►☆✓✔⚫︎○◎▪▸•]$/;
+
+/** horizontal/baseline boxが●+テキストのパターンか判定 */
+function isBulletTextBox(box: FlexObj): boolean {
+  const layout = box.layout as string;
+  if (layout !== "horizontal" && layout !== "baseline") return false;
+  const contents = (box.contents || []) as FlexObj[];
+  if (contents.length !== 2) return false;
+  const first = contents[0];
+  const second = contents[1];
+  if (first.type !== "text" || second.type !== "text") return false;
+  const firstText = (first.text as string) || "";
+  // バレット記号 + 後続テキスト
+  return BULLET_CHARS.test(firstText) && ((second.text as string) || "").length > 0;
+}
+
+/** ●+テキストパターンを1つのテキストブロックに統合 */
+function mergeBulletTextBox(box: FlexObj): EditorBlock {
+  const contents = (box.contents || []) as FlexObj[];
+  const bullet = contents[0];
+  const text = contents[1];
+  const bulletText = (bullet.text as string) || "";
+  const mainText = (text.text as string) || "";
+  const color = (bullet.color || text.color) as string | undefined;
+  const size = (text.size || bullet.size) as string | undefined;
+  return {
+    id: generateBlockId(),
+    props: {
+      blockType: "text",
+      text: `${bulletText} ${mainText}`,
+      wrap: text.wrap !== false,
+      ...(color && color !== "#666666" && color !== "#111111" ? { color } : {}),
+      ...(size && size !== "md" ? { size } : {}),
+    },
+  };
+}
+
 /** box内のcontentsを再帰的にフラットなブロック列に展開 */
 function flattenBoxContents(box: FlexObj): EditorBlock[] {
   const contents = (box.contents || []) as FlexObj[];
@@ -103,8 +150,15 @@ function flattenBoxContents(box: FlexObj): EditorBlock[] {
   for (const item of contents) {
     const type = item.type as string;
     if (type === "box") {
-      // ネストboxは展開
-      blocks.push(...flattenBoxContents(item));
+      if (isBulletTextBox(item)) {
+        // ●+テキストパターン → 1ブロックに統合
+        blocks.push(mergeBulletTextBox(item));
+      } else {
+        // ネストboxは展開
+        blocks.push(...flattenBoxContents(item));
+      }
+    } else if (type === "filler" || type === "spacer") {
+      // filler/spacerはブロック変換不要（装飾用）→ スキップ
     } else {
       blocks.push(flexElementToBlock(item));
     }
@@ -140,11 +194,12 @@ export function bubbleToPanel(bubble: FlexObj): Panel {
     blocks.push(...flattenBoxContents(footer));
   }
 
-  // パネル設定を抽出
+  // パネル設定を抽出（headerの背景色をthemeColorとして使用）
   const bodyBg = body?.backgroundColor as string;
+  const headerBg = header?.backgroundColor as string;
   const settings: PanelSettings = {
     backgroundColor: bodyBg || DEFAULT_PANEL_SETTINGS.backgroundColor,
-    themeColor: extractThemeColor(blocks) || DEFAULT_PANEL_SETTINGS.themeColor,
+    themeColor: headerBg || extractThemeColor(blocks) || DEFAULT_PANEL_SETTINGS.themeColor,
     size: (bubble.size as PanelSettings["size"]) || DEFAULT_PANEL_SETTINGS.size,
   };
 
@@ -211,10 +266,9 @@ function blockToFlexElement(block: EditorBlock): FlexObj {
       return {
         type: "text",
         text: props.text || "テキスト",
-        size: "md",
-        color: "#666666",
+        size: props.size || "md",
+        color: props.color || "#666666",
         wrap: props.wrap,
-        ...(props.wrap === false ? {} : {}),
       };
     case "image":
       return {
@@ -240,14 +294,78 @@ function blockToFlexElement(block: EditorBlock): FlexObj {
   }
 }
 
+/** テキストが●/・/▶等のバレット付きかチェックし、horizontal boxに変換 */
+function textToFlexWithBullet(block: EditorBlock): FlexObj | null {
+  if (block.props.blockType !== "text") return null;
+  const text = block.props.text;
+  // ●/・/▶/★ + 半角スペース + 残りテキスト のパターンを検出
+  const match = text.match(/^([●・▶★◆■□◇▷►☆✓✔︎⚫︎])\s(.+)$/s);
+  if (!match) return null;
+  const [, bullet, mainText] = match;
+  const color = block.props.color;
+  const size = block.props.size || "md";
+  return {
+    type: "box",
+    layout: "horizontal",
+    spacing: "sm",
+    contents: [
+      { type: "text", text: bullet, flex: 0, size, ...(color ? { color } : {}) },
+      { type: "text", text: mainText, flex: 5, size, wrap: block.props.wrap, color: color || "#666666" },
+    ],
+  };
+}
+
 /** Panel → Flex JSON bubbleに変換 */
 export function panelToBubble(panel: Panel): FlexObj {
-  const bodyContents = panel.blocks.map(blockToFlexElement);
+  // ブロックをheader / body / footerに振り分け
+  const headerBlocks: EditorBlock[] = [];
+  const bodyBlocks: EditorBlock[] = [];
+  const footerBlocks: EditorBlock[] = [];
+
+  let inHeader = true;
+  for (const block of panel.blocks) {
+    if (inHeader && (block.props.blockType === "title" || (block.props.blockType === "text" && headerBlocks.length > 0 && headerBlocks.length < 2))) {
+      headerBlocks.push(block);
+    } else {
+      inHeader = false;
+      if (block.props.blockType === "button") {
+        footerBlocks.push(block);
+      } else {
+        bodyBlocks.push(block);
+      }
+    }
+  }
+
+  // bodyBlocksのbulletパターンをhorizontal boxに変換
+  const bodyContents = bodyBlocks.map((b) => textToFlexWithBullet(b) || blockToFlexElement(b));
+  const footerContents = footerBlocks.map(blockToFlexElement);
 
   const bubble: FlexObj = {
     type: "bubble",
     size: panel.settings.size,
-    body: {
+  };
+
+  // header: タイトル＋サブタイトル（themeColor背景）
+  if (headerBlocks.length > 0) {
+    const headerContents = headerBlocks.map((b) => {
+      const el = blockToFlexElement(b);
+      // header内テキストは白文字
+      if (b.props.blockType === "title") return { ...el, color: "#ffffff" };
+      if (b.props.blockType === "text") return { ...el, color: "#ffffffcc", size: "sm" };
+      return el;
+    });
+    bubble.header = {
+      type: "box",
+      layout: "vertical",
+      contents: headerContents,
+      backgroundColor: panel.settings.themeColor,
+      paddingAll: "20px",
+    };
+  }
+
+  // body
+  if (bodyContents.length > 0) {
+    bubble.body = {
       type: "box",
       layout: "vertical",
       contents: bodyContents,
@@ -255,8 +373,18 @@ export function panelToBubble(panel: Panel): FlexObj {
       ...(panel.settings.backgroundColor !== "#ffffff"
         ? { backgroundColor: panel.settings.backgroundColor }
         : {}),
-    },
-  };
+    };
+  }
+
+  // footer
+  if (footerContents.length > 0) {
+    bubble.footer = {
+      type: "box",
+      layout: "vertical",
+      contents: footerContents,
+      spacing: "sm",
+    };
+  }
 
   return bubble;
 }
