@@ -49,9 +49,17 @@ interface BroadcastStat {
   sentAt: string;
 }
 
+interface MessageQuota {
+  planType: string;
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+}
+
 interface DashboardData {
   stats: { followers: number; targetedReaches: number; blocks: number };
   monthlySent: number;
+  messageQuota?: MessageQuota;
   dailyStats: DailyStats[];
   recentMessages: RecentMessage[];
   chartData?: ChartData;
@@ -214,54 +222,81 @@ export default function LineDashboardPage() {
         <p className="text-sm text-gray-500 mt-0.5">LINE公式アカウントの概況</p>
       </div>
 
-      {/* 統計カード */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 text-white shadow-lg shadow-emerald-500/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-emerald-100 text-xs font-medium uppercase tracking-wider">有効友だち数</p>
-              <p className="text-3xl font-bold mt-1">{data.stats.followers.toLocaleString()}</p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      {/* 友だち統計（Lステップ風テーブル） */}
+      {(() => {
+        const totalFriends = data.stats.followers + data.stats.blocks;
+        const blockRate = totalFriends > 0
+          ? ((data.stats.blocks / totalFriends) * 100).toFixed(1)
+          : "0.0";
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">有効友だち数</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">ターゲットリーチ</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">ブロック / 非表示数</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="px-6 py-5 text-center">
+                      <p className="text-3xl font-bold text-gray-900">{data.stats.followers.toLocaleString()}<span className="text-base font-normal text-gray-500">人</span></p>
+                      <p className="text-xs text-gray-400 mt-1">(友だち総数：{totalFriends.toLocaleString()}人)</p>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <p className="text-3xl font-bold text-gray-900">{data.stats.targetedReaches.toLocaleString()}<span className="text-base font-normal text-gray-500">人</span></p>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <p className="text-3xl font-bold text-gray-900">{data.stats.blocks.toLocaleString()}<span className="text-base font-normal text-gray-500">人</span> <span className="text-lg font-medium text-gray-500">({blockRate}%)</span></p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        );
+      })()}
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-xs font-medium uppercase tracking-wider">ターゲットリーチ</p>
-              <p className="text-3xl font-bold mt-1">{data.stats.targetedReaches.toLocaleString()}</p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-            </div>
-          </div>
+      {/* 送信可能数 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-800">{new Date().getMonth() + 1}月の送信数</h2>
         </div>
-
-        <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-rose-500/20">
+        <div className="px-6 py-5">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-rose-100 text-xs font-medium uppercase tracking-wider">ブロック</p>
-              <p className="text-3xl font-bold mt-1">{data.stats.blocks.toLocaleString()}</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              </div>
+              <span className="text-sm font-semibold text-gray-700">LINE公式</span>
             </div>
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg>
+            <div className="text-right">
+              {data.messageQuota?.limit != null ? (
+                <>
+                  <p className="text-xs text-gray-400">
+                    {data.messageQuota.limit.toLocaleString()}通中 {data.messageQuota.used.toLocaleString()}通使用
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                    残り <span className="text-emerald-600">{(data.messageQuota.remaining ?? 0).toLocaleString()}</span> 通
+                  </p>
+                </>
+              ) : (
+                <p className="text-2xl font-bold text-gray-900">
+                  {data.monthlySent.toLocaleString()} <span className="text-base font-normal text-gray-500">通送信済み</span>
+                </p>
+              )}
             </div>
           </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl p-5 text-white shadow-lg shadow-violet-500/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-violet-100 text-xs font-medium uppercase tracking-wider">今月の配信数</p>
-              <p className="text-3xl font-bold mt-1">{data.monthlySent.toLocaleString()}</p>
+          {data.messageQuota?.limit != null && (
+            <div className="mt-3 w-full bg-gray-100 rounded-full h-2">
+              <div
+                className="bg-emerald-500 h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(100, ((data.messageQuota.used / data.messageQuota.limit) * 100))}%` }}
+              />
             </div>
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

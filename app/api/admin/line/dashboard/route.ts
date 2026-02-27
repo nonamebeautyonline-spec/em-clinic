@@ -67,17 +67,31 @@ export async function GET(req: NextRequest) {
     ? { followers: dailyStats[0].followers, targetedReaches: dailyStats[0].targetedReaches, blocks: dailyStats[0].blocks }
     : { followers: 0, targetedReaches: 0, blocks: 0 };
 
-  // 2. 今月の送信数
+  // 2. 今月の送信数 + LINE メッセージ残数
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01T00:00:00`;
-  const { count: monthlySent } = await withTenant(
-    supabaseAdmin
-      .from("message_log")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "sent")
-      .gte("sent_at", monthStart),
-    tenantId
-  );
+  const [{ count: monthlySent }, quotaData, consumptionData] = await Promise.all([
+    withTenant(
+      supabaseAdmin
+        .from("message_log")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "sent")
+        .gte("sent_at", monthStart),
+      tenantId
+    ),
+    // LINE メッセージ配信上限
+    lineToken
+      ? fetch("https://api.line.me/v2/bot/message/quota", {
+          headers: { Authorization: `Bearer ${lineToken}` },
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      : Promise.resolve(null),
+    // LINE メッセージ配信済み数
+    lineToken
+      ? fetch("https://api.line.me/v2/bot/message/quota/consumption", {
+          headers: { Authorization: `Bearer ${lineToken}` },
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      : Promise.resolve(null),
+  ]);
 
   // 3. 最新送信メッセージ10件
   const { data: recentMsgs } = await withTenant(
@@ -340,9 +354,20 @@ export async function GET(req: NextRequest) {
     stats.blocks = latestRow.blocks;
   }
 
+  // LINE メッセージ残数
+  const quotaLimit = quotaData?.type === "limited" ? (quotaData.value || 0) : null;
+  const quotaUsed = consumptionData?.totalUsage || 0;
+  const messageQuota = {
+    planType: quotaData?.type || "unknown", // "limited" | "none"(従量課金無制限)
+    limit: quotaLimit,
+    used: quotaUsed,
+    remaining: quotaLimit != null ? quotaLimit - quotaUsed : null,
+  };
+
   return NextResponse.json({
     stats,
     monthlySent: monthlySent || 0,
+    messageQuota,
     dailyStats: mergedDailyStats,
     recentMessages,
     chartData,
