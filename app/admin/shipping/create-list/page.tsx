@@ -341,7 +341,7 @@ export default function CreateShippingListPage() {
           dosage_7_5mg: group.reduce((sum, item) => sum + item.dosage_7_5mg, 0),
           dosage_10mg: group.reduce((sum, item) => sum + item.dosage_10mg, 0),
           price: group.reduce((sum, item) => sum + item.price, 0),
-          id: group.map((item) => item.id).join(","), // 複数IDを結合
+          id: group[0].id, // 合箱時は最初の注文IDを使用（カンマ結合するとヤマトB2インポートでエラーになるため）
           product_name: group.map((item) => item.product_name).join(", "),
         };
         merged.push(mergedItem);

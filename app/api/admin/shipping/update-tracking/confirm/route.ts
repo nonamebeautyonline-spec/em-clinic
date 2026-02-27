@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
             shipping_status: "shipped",
             shipping_date: today,
             updated_at: new Date().toISOString(),
-          }).eq("id", payment_id).eq("shipping_status", "pending").select("id, patient_id"),
+          }).eq("id", payment_id).eq("shipping_status", "pending").select("id, patient_id, shipping_list_created_at"),
           tenantId
         );
 
@@ -90,6 +90,30 @@ export async function POST(req: NextRequest) {
         }
 
         console.log(`[UpdateTrackingConfirm] ✅ Updated ${payment_id} with tracking ${tracking_number}`);
+
+        // ★ 合箱対応: 同一出荷バッチ（shipping_list_created_at）の兄弟注文も自動更新
+        if (data[0]?.patient_id && data[0]?.shipping_list_created_at) {
+          const { data: siblings } = await withTenant(
+            supabase.from("orders").update({
+              tracking_number,
+              shipping_status: "shipped",
+              shipping_date: today,
+              updated_at: new Date().toISOString(),
+            })
+              .eq("patient_id", data[0].patient_id)
+              .eq("shipping_list_created_at", data[0].shipping_list_created_at)
+              .eq("shipping_status", "pending")
+              .select("id"),
+            tenantId
+          );
+
+          if (siblings && siblings.length > 0) {
+            for (const s of siblings) {
+              successUpdates.push(s.id);
+              console.log(`[UpdateTrackingConfirm] ✅ 合箱兄弟注文も自動更新: ${s.id} with tracking ${tracking_number}`);
+            }
+          }
+        }
       } catch (err) {
         console.error(`[UpdateTrackingConfirm] Exception for ${payment_id}:`, err);
         errors.push(`${payment_id}: ${err instanceof Error ? err.message : "Unknown error"}`);
