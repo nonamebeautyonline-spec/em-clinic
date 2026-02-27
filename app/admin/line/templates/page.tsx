@@ -710,12 +710,21 @@ export default function TemplateManagementPage() {
 
                     {/* 編集 */}
                     <div className="text-center">
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        編集
-                      </button>
+                      {t.message_type === "flex" && t.flex_content ? (
+                        <button
+                          onClick={() => { window.location.href = `/admin/line/flex-builder?template=${t.id}`; }}
+                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          編集
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleEdit(t)}
+                          className="px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          編集
+                        </button>
+                      )}
                     </div>
 
                     {/* ⋮ メニュー */}
