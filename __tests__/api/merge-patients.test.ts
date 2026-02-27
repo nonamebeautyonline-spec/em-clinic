@@ -89,13 +89,17 @@ describe("merge-patients API", () => {
     selectCalls = [];
   });
 
+  // テスト用の有効な patient_id（数字11桁形式）
+  const OLD_PID = "10000000001";
+  const NEW_PID = "10000000002";
+
   // 1. 正常統合
   it("正常統合 → {ok:true, results} を返す", async () => {
     // answerers: 統合元あり・統合先なし → 移行パターン
-    mockResults["select:patients:old_001"] = { data: { line_id: "L1", name: "太郎", name_kana: "タロウ", tel: "090", sex: "M", birthday: "2000-01-01" } };
-    mockResults["select:patients:new_001"] = { data: null };
+    mockResults[`select:patients:${OLD_PID}`] = { data: { line_id: "L1", name: "太郎", name_kana: "タロウ", tel: "090", sex: "M", birthday: "2000-01-01" } };
+    mockResults[`select:patients:${NEW_PID}`] = { data: null };
 
-    const res = await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -105,7 +109,7 @@ describe("merge-patients API", () => {
 
   // 2. old_patient_id 未指定 → 400
   it("old_patient_id 未指定 → 400", async () => {
-    const res = await POST(makeRequest({ new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
@@ -117,7 +121,7 @@ describe("merge-patients API", () => {
 
   // 3. new_patient_id 未指定 → 400
   it("new_patient_id 未指定 → 400", async () => {
-    const res = await POST(makeRequest({ old_patient_id: "old_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
@@ -129,7 +133,8 @@ describe("merge-patients API", () => {
 
   // 4. old === new → 400
   it("old_patient_id === new_patient_id → 400", async () => {
-    const res = await POST(makeRequest({ old_patient_id: "same", new_patient_id: "same" }));
+    const SAME_PID = "10000000099";
+    const res = await POST(makeRequest({ old_patient_id: SAME_PID, new_patient_id: SAME_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
@@ -141,7 +146,7 @@ describe("merge-patients API", () => {
   it("認証失敗 → 401", async () => {
     mockAuthorized = false;
 
-    const res = await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(401);
@@ -151,16 +156,16 @@ describe("merge-patients API", () => {
 
   // 6. 全MERGE_TABLESの更新確認
   it("全MERGE_TABLES（8テーブル）のpatient_id更新が呼ばれる", async () => {
-    mockResults["select:patients:old_001"] = { data: null };
+    mockResults[`select:patients:${OLD_PID}`] = { data: null };
 
-    const res = await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
     // 8テーブル全てに update が発行されるはず
     const expectedTables = ["intake", "orders", "reservations", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"];
     const updatedTables = updateCalls
-      .filter(c => c.data.patient_id === "new_001" && c.eq[0] === "patient_id" && c.eq[1] === "old_001")
+      .filter(c => c.data.patient_id === NEW_PID && c.eq[0] === "patient_id" && c.eq[1] === OLD_PID)
       .map(c => c.table);
 
     for (const t of expectedTables) {
@@ -171,17 +176,17 @@ describe("merge-patients API", () => {
 
   // 7. answerers統合: 統合先あり → 空フィールド補完
   it("answerers統合: 統合先が存在する場合、空フィールドを統合元で補完", async () => {
-    mockResults["select:patients:old_001"] = {
+    mockResults[`select:patients:${OLD_PID}`] = {
       data: { line_id: "L_old", name: "旧太郎", name_kana: "キュウタロウ", tel: "090-0000-0000", sex: "M", birthday: "1990-01-01" },
     };
-    mockResults["select:patients:new_001"] = {
+    mockResults[`select:patients:${NEW_PID}`] = {
       data: { line_id: "", name: "新太郎", name_kana: "", tel: "", sex: "", birthday: "" },
     };
 
-    await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
 
     // patients テーブルへの update を確認（answerers統合）
-    const patientsUpdates = updateCalls.filter(c => c.table === "patients" && c.eq[1] === "new_001");
+    const patientsUpdates = updateCalls.filter(c => c.table === "patients" && c.eq[1] === NEW_PID);
     expect(patientsUpdates.length).toBeGreaterThanOrEqual(1);
 
     const mergedData = patientsUpdates[0].data;
@@ -194,33 +199,33 @@ describe("merge-patients API", () => {
 
   // 8. answerers統合: 統合先なし → patient_id更新で移行
   it("answerers統合: 統合先が存在しない場合、統合元のpatient_idを更新して移行", async () => {
-    mockResults["select:patients:old_001"] = {
+    mockResults[`select:patients:${OLD_PID}`] = {
       data: { line_id: "L_old", name: "旧太郎", name_kana: "キュウタロウ", tel: "090", sex: "M", birthday: "1990-01-01" },
     };
-    mockResults["select:patients:new_001"] = { data: null };
+    mockResults[`select:patients:${NEW_PID}`] = { data: null };
 
-    await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
 
     // patients テーブルへの update: patient_id を old → new に変更
     const moveUpdate = updateCalls.find(
-      c => c.table === "patients" && c.data.patient_id === "new_001" && c.eq[1] === "old_001"
+      c => c.table === "patients" && c.data.patient_id === NEW_PID && c.eq[1] === OLD_PID
     );
     expect(moveUpdate).toBeDefined();
   });
 
   // 9. deleteNewIntake: 統合先データ先削除
   it("delete_new_intake=true の場合、統合先のintake/reservations/patientsが先に削除される", async () => {
-    mockResults["select:patients:old_001"] = { data: null };
+    mockResults[`select:patients:${OLD_PID}`] = { data: null };
 
     await POST(makeRequest({
-      old_patient_id: "old_001",
-      new_patient_id: "new_001",
+      old_patient_id: OLD_PID,
+      new_patient_id: NEW_PID,
       delete_new_intake: true,
     }));
 
-    // intake, reservations, patients の3テーブルで new_001 を削除
+    // intake, reservations, patients の3テーブルで NEW_PID を削除
     const deletedTables = deleteCalls
-      .filter(c => c.eq[0] === "patient_id" && c.eq[1] === "new_001")
+      .filter(c => c.eq[0] === "patient_id" && c.eq[1] === NEW_PID)
       .map(c => c.table);
 
     expect(deletedTables).toContain("intake");
@@ -231,9 +236,9 @@ describe("merge-patients API", () => {
   // 10. DBエラー → results内にerror記録（全体はok:true）
   it("テーブル更新でDBエラー発生 → results内にerror記録、全体はok:true", async () => {
     mockResults["update:orders"] = { error: { message: "DB connection failed" }, count: null };
-    mockResults["select:patients:old_001"] = { data: null };
+    mockResults[`select:patients:${OLD_PID}`] = { data: null };
 
-    const res = await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -243,18 +248,18 @@ describe("merge-patients API", () => {
 
   // 11. 統合元answerer削除確認
   it("answerers統合後、統合元のanswerersが削除される", async () => {
-    mockResults["select:patients:old_001"] = {
+    mockResults[`select:patients:${OLD_PID}`] = {
       data: { line_id: "L_old", name: "旧太郎", name_kana: "", tel: "", sex: "", birthday: "" },
     };
-    mockResults["select:patients:new_001"] = {
+    mockResults[`select:patients:${NEW_PID}`] = {
       data: { line_id: "", name: "新太郎", name_kana: "", tel: "", sex: "", birthday: "" },
     };
 
-    await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
 
-    // 統合元 (old_001) の patients 削除を確認
+    // 統合元 (OLD_PID) の patients 削除を確認
     const deleteOld = deleteCalls.find(
-      c => c.table === "patients" && c.eq[0] === "patient_id" && c.eq[1] === "old_001"
+      c => c.table === "patients" && c.eq[0] === "patient_id" && c.eq[1] === OLD_PID
     );
     expect(deleteOld).toBeDefined();
   });
@@ -272,7 +277,7 @@ describe("merge-patients API", () => {
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
     (verifyAdminAuth as any).mockRejectedValueOnce(new Error("unexpected"));
 
-    const res = await POST(makeRequest({ old_patient_id: "old_001", new_patient_id: "new_001" }));
+    const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();
 
     expect(res.status).toBe(500);

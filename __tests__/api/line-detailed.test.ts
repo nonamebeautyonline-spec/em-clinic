@@ -288,9 +288,9 @@ describe("dashboard: LINE分析ダッシュボード詳細", () => {
 describe("friends-list: 友だち一覧詳細", () => {
   const file = "app/api/admin/line/friends-list/route.ts";
 
-  it("patients テーブルから友だちを取得している", () => {
+  it("RPC経由で友だちを取得している", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain('"patients"');
+    expect(src).toContain("get_friends_list");
   });
 });

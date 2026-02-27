@@ -246,7 +246,10 @@ describe("LINE ダッシュボード API", () => {
       expect(body.stats.followers).toBe(0);
       expect(body.stats.targetedReaches).toBe(0);
       expect(body.stats.blocks).toBe(0);
-      expect(body.dailyStats).toHaveLength(0);
+      // 推定補完ロジックにより直近数日分のエントリが生成される場合がある
+      for (const d of body.dailyStats) {
+        expect(d.followers).toBe(0);
+      }
     });
 
     it("LINE API の status が ready でない場合は null（除外される）", async () => {
@@ -261,7 +264,10 @@ describe("LINE ダッシュボード API", () => {
 
       const res = await GET(createReq());
       const body = await res.json();
-      expect(body.dailyStats).toHaveLength(0);
+      // LINE Insight APIのデータは除外されるが、推定補完で直近数日分が生成される場合がある
+      for (const d of body.dailyStats) {
+        expect(d.followers).toBe(0);
+      }
       expect(body.stats.followers).toBe(0);
     });
 
