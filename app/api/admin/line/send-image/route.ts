@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   const status = res?.ok ? "sent" : "failed";
 
   // メッセージログに記録
-  await supabaseAdmin.from("message_log").insert({
+  const { data: imgLog } = await supabaseAdmin.from("message_log").insert({
     ...tenantPayload(tenantId),
     patient_id: patientId,
     line_uid: patient.line_id,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     content: imageUrl,
     status,
     direction: "outgoing",
-  });
+  }).select("id").single();
 
-  return NextResponse.json({ ok: status === "sent", status, imageUrl });
+  return NextResponse.json({ ok: status === "sent", status, imageUrl, messageId: imgLog?.id });
 }

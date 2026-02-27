@@ -800,7 +800,7 @@ export default function TalkPage() {
     if (data.ok) {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: newMessage, status: "sent",
+        id: data.messageId ?? Date.now(), content: newMessage, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);
@@ -863,7 +863,7 @@ export default function TalkPage() {
         ? `【${template.name}】${template.content}`
         : template.content;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: displayContent, status: "sent",
+        id: data.messageId ?? Date.now(), content: displayContent, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);
@@ -891,7 +891,7 @@ export default function TalkPage() {
     if (data.ok) {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: data.imageUrl || `[画像] ${file.name}`, status: "sent",
+        id: data.messageId ?? Date.now(), content: data.imageUrl || `[画像] ${file.name}`, status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);
@@ -1043,7 +1043,7 @@ export default function TalkPage() {
     if (data.ok) {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
-        id: Date.now(), content: "[通話フォーム]", status: "sent",
+        id: data.messageId ?? Date.now(), content: "[通話フォーム]", status: "sent",
         message_type: "individual", sent_at: new Date().toISOString(),
         direction: "outgoing",
       }]);

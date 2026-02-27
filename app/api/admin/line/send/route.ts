@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     }
     const status = res.ok ? "sent" : "failed";
 
-    await supabaseAdmin.from("message_log").insert({
+    const { data: flexLog } = await supabaseAdmin.from("message_log").insert({
       ...tenantPayload(tenantId),
       patient_id,
       line_uid: patient.line_id,
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       flex_json: flexMsg.contents,
       status,
       direction: "outgoing",
-    });
+    }).select("id").single();
 
     if (!res.ok) {
       console.error("[Flex Send] LINE API Error:", lineError);
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         status: "failed",
       });
     }
-    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
+    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: flexLog?.id });
   }
 
   // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
   const logContent = message_type === "image" && template_name
     ? `【${template_name}】${resolvedMessage}`
     : resolvedMessage;
-  await supabaseAdmin.from("message_log").insert({
+  const { data: msgLog } = await supabaseAdmin.from("message_log").insert({
     ...tenantPayload(tenantId),
     patient_id,
     line_uid: patient.line_id,
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     content: logContent,
     status,
     direction: "outgoing",
-  });
+  }).select("id").single();
 
   if (!res.ok) {
     return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
@@ -164,5 +164,5 @@ export async function POST(req: NextRequest) {
     handleImplicitAiFeedback(patient_id, resolvedMessage, tenantId).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name });
+  return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: msgLog?.id });
 }
