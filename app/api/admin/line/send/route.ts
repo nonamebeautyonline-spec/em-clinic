@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       flex_json: flexMsg.contents,
       status,
       direction: "outgoing",
-    }).select("id").single();
+    }).select("id, sent_at").single();
 
     if (!res.ok) {
       console.error("[Flex Send] LINE API Error:", lineError);
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
         status: "failed",
       });
     }
-    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: flexLog?.id });
+    return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: flexLog?.id, sentAt: flexLog?.sent_at });
   }
 
   // 次回予約を取得（キャンセル済み除外、本日以降で最も近いもの）
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     content: logContent,
     status,
     direction: "outgoing",
-  }).select("id").single();
+  }).select("id, sent_at").single();
 
   if (!res.ok) {
     return NextResponse.json({ ok: false, error: `LINE API エラー: ${lineError}`, status: "failed" });
@@ -164,5 +164,5 @@ export async function POST(req: NextRequest) {
     handleImplicitAiFeedback(patient_id, resolvedMessage, tenantId).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: msgLog?.id });
+  return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: msgLog?.id, sentAt: msgLog?.sent_at });
 }

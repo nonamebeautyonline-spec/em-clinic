@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     content: imageUrl,
     status,
     direction: "outgoing",
-  }).select("id").single();
+  }).select("id, sent_at").single();
 
-  return NextResponse.json({ ok: status === "sent", status, imageUrl, messageId: imgLog?.id });
+  return NextResponse.json({ ok: status === "sent", status, imageUrl, messageId: imgLog?.id, sentAt: imgLog?.sent_at });
 }

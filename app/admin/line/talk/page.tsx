@@ -343,10 +343,15 @@ export default function TalkPage() {
   const [pendingTemplate, setPendingTemplate] = useState<Template | null>(null);
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
+  const sendLockRef = useRef(false);
   const [lineCallUrl, setLineCallUrl] = useState("");
   const [lineCallEnabled, setLineCallEnabled] = useState(true);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectAbortRef = useRef<AbortController | null>(null);
+
+  // テンプレート推薦
+  const [recommendedTemplates, setRecommendedTemplates] = useState<{ template_id: number; template_name: string; reason: string }[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   // アクション実行
   const [showActionPicker, setShowActionPicker] = useState(false);
@@ -620,6 +625,7 @@ export default function TalkPage() {
     setUserRichMenu(null);
     setShowMenuPicker(false);
     setIsBlocked(false);
+    setRecommendedTemplates([]);
 
     shouldScrollToBottom.current = true;
 
@@ -759,9 +765,9 @@ export default function TalkPage() {
         );
         const data = await res.json();
         if (data.messages && data.messages.length > 0) {
-          // 既存IDと重複しない新着のみ追加
-          const existingIds = new Set(msgs.map(m => m.id));
-          const newMsgs = (data.messages as MessageLog[]).filter(m => !existingIds.has(m.id));
+          // 既存IDと重複しない新着のみ追加（型不一致防止のためString化）
+          const existingIds = new Set(msgs.map(m => String(m.id)));
+          const newMsgs = (data.messages as MessageLog[]).filter(m => !existingIds.has(String(m.id)));
           if (newMsgs.length > 0) {
             shouldScrollToBottom.current = true;
             setMessages(prev => [...prev, ...newMsgs.reverse()]);
@@ -789,24 +795,30 @@ export default function TalkPage() {
   // メッセージ送信
   const handleSend = async () => {
     if (!newMessage.trim() || sending || !selectedPatient) return;
+    if (sendLockRef.current) return;
+    sendLockRef.current = true;
     setSending(true);
-    const res = await fetch("/api/admin/line/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: newMessage }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      shouldScrollToBottom.current = true;
-      setMessages(prev => [...prev, {
-        id: data.messageId ?? Date.now(), content: newMessage, status: "sent",
-        message_type: "individual", sent_at: new Date().toISOString(),
-        direction: "outgoing",
-      }]);
-      setNewMessage("");
+    try {
+      const res = await fetch("/api/admin/line/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: newMessage }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        shouldScrollToBottom.current = true;
+        setMessages(prev => [...prev, {
+          id: data.messageId ?? Date.now(), content: newMessage, status: "sent",
+          message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
+          direction: "outgoing",
+        }]);
+        setNewMessage("");
+      }
+    } finally {
+      sendLockRef.current = false;
+      setSending(false);
     }
-    setSending(false);
   };
 
   // テンプレート送信
@@ -831,6 +843,25 @@ export default function TalkPage() {
       }
       setTemplatesLoading(false);
     }
+    // テンプレート推薦を取得
+    if (selectedPatient && recommendedTemplates.length === 0 && !loadingRecommendations) {
+      setLoadingRecommendations(true);
+      try {
+        const recRes = await fetch("/api/admin/line/template-recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ patient_id: selectedPatient.patient_id }),
+        });
+        const recData = await recRes.json();
+        if (recData.ok && recData.recommendations) {
+          setRecommendedTemplates(recData.recommendations);
+        }
+      } catch {
+        // 推薦取得失敗は無視（メイン機能に影響しない）
+      }
+      setLoadingRecommendations(false);
+    }
   };
 
   const confirmTemplate = (template: Template) => {
@@ -840,35 +871,41 @@ export default function TalkPage() {
 
   const sendTemplate = async (template: Template) => {
     if (sending || !selectedPatient) return;
+    if (sendLockRef.current) return;
+    sendLockRef.current = true;
     setPendingTemplate(null);
     setSending(true);
-    const payload: Record<string, string> = {
-      patient_id: selectedPatient.patient_id,
-      message: template.content,
-    };
-    if (template.message_type === "image") {
-      payload.message_type = "image";
-      payload.template_name = template.name;
+    try {
+      const payload: Record<string, string> = {
+        patient_id: selectedPatient.patient_id,
+        message: template.content,
+      };
+      if (template.message_type === "image") {
+        payload.message_type = "image";
+        payload.template_name = template.name;
+      }
+      const res = await fetch("/api/admin/line/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        shouldScrollToBottom.current = true;
+        const displayContent = template.message_type === "image"
+          ? `【${template.name}】${template.content}`
+          : template.content;
+        setMessages(prev => [...prev, {
+          id: data.messageId ?? Date.now(), content: displayContent, status: "sent",
+          message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
+          direction: "outgoing",
+        }]);
+      }
+    } finally {
+      sendLockRef.current = false;
+      setSending(false);
     }
-    const res = await fetch("/api/admin/line/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      shouldScrollToBottom.current = true;
-      const displayContent = template.message_type === "image"
-        ? `【${template.name}】${template.content}`
-        : template.content;
-      setMessages(prev => [...prev, {
-        id: data.messageId ?? Date.now(), content: displayContent, status: "sent",
-        message_type: "individual", sent_at: new Date().toISOString(),
-        direction: "outgoing",
-      }]);
-    }
-    setSending(false);
   };
 
   // 画像送信
@@ -892,7 +929,7 @@ export default function TalkPage() {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
         id: data.messageId ?? Date.now(), content: data.imageUrl || `[画像] ${file.name}`, status: "sent",
-        message_type: "individual", sent_at: new Date().toISOString(),
+        message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
         direction: "outgoing",
       }]);
     } else {
@@ -1044,7 +1081,7 @@ export default function TalkPage() {
       shouldScrollToBottom.current = true;
       setMessages(prev => [...prev, {
         id: data.messageId ?? Date.now(), content: "[通話フォーム]", status: "sent",
-        message_type: "individual", sent_at: new Date().toISOString(),
+        message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
         direction: "outgoing",
       }]);
     } else {
@@ -1822,6 +1859,48 @@ export default function TalkPage() {
 
             {/* テンプレートリスト */}
             <div className="flex-1 overflow-y-auto min-h-0">
+              {/* おすすめテンプレート */}
+              {(loadingRecommendations || recommendedTemplates.length > 0) && !templateSearch && !templateCategoryFilter && (
+                <div className="border-b border-gray-100">
+                  <div className="px-5 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span className="text-xs font-bold text-amber-700">AIおすすめ</span>
+                  </div>
+                  {loadingRecommendations ? (
+                    <div className="flex items-center justify-center py-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+                        <span className="text-xs text-gray-400">推薦を取得中...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-50">
+                      {recommendedTemplates.map((rec) => {
+                        const tpl = templates.find((t) => t.id === rec.template_id);
+                        if (!tpl) return null;
+                        return (
+                          <button
+                            key={`rec-${rec.template_id}`}
+                            onClick={() => confirmTemplate(tpl)}
+                            disabled={sending}
+                            className="w-full text-left px-5 py-3 hover:bg-amber-50/50 transition-colors group disabled:opacity-50"
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-800 group-hover:text-amber-700 transition-colors">{rec.template_name}</span>
+                              <svg className="w-4 h-4 text-gray-300 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                            </div>
+                            <p className="text-[11px] text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1">{rec.reason}</p>
+                            <p className="text-xs text-gray-400 line-clamp-1 leading-relaxed">{tpl.content}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {templatesLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
