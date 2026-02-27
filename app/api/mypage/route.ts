@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { redis, getDashboardCacheKey } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { validateBody } from "@/lib/validations/helpers";
 import { mypageDashboardSchema } from "@/lib/validations/mypage";
 
@@ -398,35 +398,8 @@ export async function POST(_req: NextRequest) {
     }
     console.log(`[Cache] Miss: ${cacheKey}`);
 
-    // マイページアクセスログ（fire-and-forget、5分以内の重複はスキップ）
-    if (lineUserId) {
-      supabaseAdmin
-        .from("message_log")
-        .select("id")
-        .eq("patient_id", patientId)
-        .eq("event_type", "system")
-        .eq("content", "マイページにアクセスしました")
-        .gte("sent_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
-        .limit(1)
-        .then(({ data }) => {
-          if (data && data.length > 0) return; // 5分以内にログ済み
-          supabaseAdmin.from("message_log").insert({
-            patient_id: patientId,
-            line_uid: lineUserId,
-            direction: "incoming",
-            event_type: "system",
-            message_type: "event",
-            content: "マイページにアクセスしました",
-            status: "received",
-            sent_at: new Date().toISOString(),
-            ...tenantPayload(tenantId),
-          }).then(({ error }) => {
-            if (error) console.error("[mypage] access log failed:", error.message);
-          });
-        });
-    }
-
     // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）
+    // ※ マイページアクセスログは /api/line/track（リッチメニュートラッキング）で自動記録
     const [patientInfo, nextReservation, ordersAll, reorders, history] = await Promise.all([
       getPatientInfoFromSupabase(patientId, tenantId),
       getNextReservationFromSupabase(patientId, tenantId),

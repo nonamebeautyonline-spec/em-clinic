@@ -31,12 +31,15 @@ interface RichMenuArea {
  */
 function mapActionToLine(action: RichMenuArea["action"], origin: string) {
   switch (action.type) {
-    case "uri":
+    case "uri": {
+      const uriLabel = action.label || "リンク";
+      const originalUri = action.uri || "https://line.me";
       return {
         type: "uri" as const,
-        uri: action.uri || "https://line.me",
-        label: action.label || "リンク",
+        uri: `${origin}/api/line/track?label=${encodeURIComponent(uriLabel)}&to=${encodeURIComponent(originalUri)}`,
+        label: uriLabel,
       };
+    }
     case "tel":
       return {
         type: "uri" as const,
@@ -48,12 +51,15 @@ function mapActionToLine(action: RichMenuArea["action"], origin: string) {
         type: "message" as const,
         text: action.text || "メッセージ",
       };
-    case "form":
+    case "form": {
+      const formLabel = action.label || "フォーム";
+      const formUri = `${origin}/forms/${action.formSlug || ""}`;
       return {
         type: "uri" as const,
-        uri: `${origin}/forms/${action.formSlug || ""}`,
-        label: action.label || "フォーム",
+        uri: `${origin}/api/line/track?label=${encodeURIComponent(formLabel)}&to=${encodeURIComponent(formUri)}`,
+        label: formLabel,
       };
+    }
     case "action":
       return {
         type: "postback" as const,
