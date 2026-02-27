@@ -9,6 +9,7 @@ const mockQueryBuilder: any = {
   select: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
+  in: vi.fn().mockReturnThis(),
   delete: vi.fn().mockReturnThis(),
   upsert: vi.fn().mockReturnThis(),
   maybeSingle: vi.fn(async () => mockChainResult),
@@ -36,6 +37,8 @@ import {
   getSettingOrEnv,
   setSetting,
   deleteSetting,
+  getSettingsBulk,
+  getSettingsByCategory,
 } from "@/lib/settings";
 
 beforeEach(() => {
@@ -164,5 +167,98 @@ describe("deleteSetting", () => {
     expect(mockQueryBuilder.delete).toHaveBeenCalled();
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith("category", "line");
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith("key", "channel_secret");
+  });
+});
+
+// ---------- getSettingsBulk ----------
+describe("getSettingsBulk", () => {
+  it("複数カテゴリを一括取得してMapを返す", async () => {
+    // getSettingsBulk はチェーン最後に await query（then経由）で解決する
+    mockChainResult = {
+      data: [
+        { category: "line", key: "token", value: "encrypted:line-token" },
+        { category: "square", key: "app_id", value: "encrypted:sq-app" },
+      ],
+      error: null,
+    };
+
+    const result = await getSettingsBulk(["line", "square"]);
+    expect(result).toBeInstanceOf(Map);
+    expect(result.get("line:token")).toBe("line-token");
+    expect(result.get("square:app_id")).toBe("sq-app");
+    expect(mockQueryBuilder.in).toHaveBeenCalledWith("category", ["line", "square"]);
+  });
+
+  it("DB値なしの場合は空Mapを返す", async () => {
+    mockChainResult = { data: null, error: null };
+
+    const result = await getSettingsBulk(["line"]);
+    expect(result).toBeInstanceOf(Map);
+    expect(result.size).toBe(0);
+  });
+
+  it("decrypt失敗時はそのまま値を返す", async () => {
+    mockChainResult = {
+      data: [
+        { category: "general", key: "legacy", value: "plain-text-value" },
+      ],
+      error: null,
+    };
+
+    const result = await getSettingsBulk(["general"]);
+    // decrypt が throw → catch でそのまま返す
+    expect(result.get("general:legacy")).toBe("plain-text-value");
+  });
+
+  it("tenantId指定時はeq('tenant_id')で絞り込む", async () => {
+    mockChainResult = { data: [], error: null };
+
+    await getSettingsBulk(["line"], "tenant-bulk");
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith("tenant_id", "tenant-bulk");
+  });
+});
+
+// ---------- getSettingsByCategory ----------
+describe("getSettingsByCategory", () => {
+  it("カテゴリ内のキー一覧を返す", async () => {
+    mockChainResult = {
+      data: [
+        { key: "token", value: "encrypted:val" },
+        { key: "secret", value: "encrypted:sec" },
+      ],
+      error: null,
+    };
+
+    const result = await getSettingsByCategory("line");
+    expect(result).toHaveLength(2);
+    expect(result[0].key).toBe("token");
+    expect(result[1].key).toBe("secret");
+  });
+
+  it("valueがあればhasValue: true", async () => {
+    mockChainResult = {
+      data: [{ key: "token", value: "some-value" }],
+      error: null,
+    };
+
+    const result = await getSettingsByCategory("line");
+    expect(result[0].hasValue).toBe(true);
+  });
+
+  it("valueが空文字の場合hasValue: false", async () => {
+    mockChainResult = {
+      data: [{ key: "empty_key", value: "" }],
+      error: null,
+    };
+
+    const result = await getSettingsByCategory("line");
+    expect(result[0].hasValue).toBe(false);
+  });
+
+  it("DB例外時は空配列を返す", async () => {
+    mockChainResult = { data: null, error: { message: "DB error" } };
+
+    const result = await getSettingsByCategory("line");
+    expect(result).toEqual([]);
   });
 });

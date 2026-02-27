@@ -300,3 +300,472 @@ describe("Google Calendar 連携フロー統合テスト", () => {
     expect(expiresDate.getTime() - now).toBeLessThan(3610000);
   });
 });
+
+// =============================================
+// Google Calendar Sync 詳細テスト（+10ケース）
+// =============================================
+describe("Google Calendar Sync 詳細テスト", () => {
+  // sync 用に Supabase モックを上書きするヘルパー
+  // テストごとに from() の振る舞いを細かく制御する
+  let mockFromBehavior: (table: string) => any;
+
+  async function setupSupabaseMock(behavior: (table: string) => any) {
+    mockFromBehavior = behavior;
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    (supabaseAdmin as any).from = (table: string) => {
+      mockSupabaseFrom(table);
+      return mockFromBehavior(table);
+    };
+  }
+
+  // テーブルごとのデフォルトチェーンビルダー
+  function chainBuilder(overrides: Record<string, any> = {}) {
+    const chain: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnValue({ data: overrides.limitData ?? [], error: null }),
+      single: vi.fn().mockReturnValue({ data: overrides.singleData ?? null, error: overrides.singleError ?? null }),
+      update: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnValue({ data: null, error: overrides.insertError ?? null }),
+      in: vi.fn().mockReturnValue({ data: [], error: null }),
+    };
+    return chain;
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { verifyAdminAuth } = await import("@/lib/admin-auth");
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
+
+    const { resolveTenantId } = await import("@/lib/tenant");
+    vi.mocked(resolveTenantId).mockReturnValue("test-tenant-id");
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([]);
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "event-1" } as any);
+    vi.mocked(gcal.refreshAccessToken).mockResolvedValue({
+      access_token: "new-access-token",
+      expires_in: 3600,
+    } as any);
+    vi.mocked(gcal.calculateTokenExpiry).mockReturnValue("2026-02-27T19:00:00.000Z");
+  });
+
+  it("医師が見つからない場合は404を返す", async () => {
+    await setupSupabaseMock((table) => {
+      return chainBuilder({ singleData: null, singleError: { message: "not found" } });
+    });
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_unknown" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error).toContain("医師が見つかりません");
+  });
+
+  it("google_refresh_tokenがない場合は400を返す", async () => {
+    await setupSupabaseMock((table) => {
+      return chainBuilder({
+        singleData: {
+          doctor_id: "dr_001",
+          doctor_name: "テスト医師",
+          google_calendar_id: null,
+          google_access_token: "token",
+          google_refresh_token: null,
+          google_token_expires_at: null,
+        },
+      });
+    });
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Googleカレンダーが連携されていません");
+  });
+
+  it("トークンリフレッシュ失敗時は401を返す", async () => {
+    await setupSupabaseMock((table) => {
+      return chainBuilder({
+        singleData: {
+          doctor_id: "dr_001",
+          doctor_name: "テスト医師",
+          google_calendar_id: null,
+          google_access_token: "old-token",
+          google_refresh_token: "refresh-token",
+          google_token_expires_at: "2020-01-01T00:00:00.000Z", // 期限切れ
+        },
+      });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.refreshAccessToken).mockRejectedValue(new Error("refresh failed"));
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    const data = await res.json();
+    expect(data.error).toContain("リフレッシュに失敗");
+  });
+
+  it("listEvents失敗時は502を返す", async () => {
+    // 未来の有効期限でリフレッシュ不要にする
+    await setupSupabaseMock((table) => {
+      return chainBuilder({
+        singleData: {
+          doctor_id: "dr_001",
+          doctor_name: "テスト医師",
+          google_calendar_id: "primary",
+          google_access_token: "valid-token",
+          google_refresh_token: "refresh-token",
+          google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+        },
+      });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockRejectedValue(new Error("API error"));
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(502);
+    const data = await res.json();
+    expect(data.error).toContain("イベント取得に失敗");
+  });
+
+  it("正常同期（Googleイベント→em-clinic）は200を返す", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "primary",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "doctor_date_overrides") {
+        return chainBuilder({ limitData: [] }); // 既存overrideなし→新規挿入
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({ data: [], error: null }),
+        };
+      }
+      return chainBuilder();
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([
+      {
+        id: "google-evt-1",
+        status: "confirmed",
+        summary: "外部予定テスト",
+        start: { dateTime: "2026-03-01T10:00:00+09:00" },
+        end: { dateTime: "2026-03-01T11:00:00+09:00" },
+      },
+    ] as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.sync.google_to_clinic.events_found).toBe(1);
+  });
+
+  it("cancelledイベントは除外される", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "primary",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({ data: [], error: null }),
+        };
+      }
+      return chainBuilder({ limitData: [] });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([
+      { id: "evt-1", status: "cancelled", summary: "キャンセル済", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: { dateTime: "2026-03-01T11:00:00+09:00" } },
+      { id: "evt-2", status: "confirmed", summary: "有効な予定", start: { dateTime: "2026-03-02T10:00:00+09:00" }, end: { dateTime: "2026-03-02T11:00:00+09:00" } },
+    ] as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // 2イベント取得されたがcancelledを除外して overrides_created は1以下
+    expect(data.sync.google_to_clinic.events_found).toBe(2);
+    expect(data.sync.google_to_clinic.overrides_created).toBeLessThanOrEqual(1);
+  });
+
+  it("既存オーバーライドはUPDATEされる", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "primary",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    const updateMock = vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ data: null, error: null }) });
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "doctor_date_overrides") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnValue({ data: [{ id: "override-1" }], error: null }),
+          update: updateMock,
+          insert: vi.fn().mockReturnValue({ data: null, error: null }),
+        };
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({ data: [], error: null }),
+        };
+      }
+      return chainBuilder();
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([
+      { id: "evt-1", status: "confirmed", summary: "更新予定", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: { dateTime: "2026-03-01T11:00:00+09:00" } },
+    ] as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // 既存overrideがあるので overrides_created は 0
+    expect(data.sync.google_to_clinic.overrides_created).toBe(0);
+    expect(updateMock).toHaveBeenCalled();
+  });
+
+  it("em-clinic予約がGoogleカレンダーに挿入される", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "primary",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({
+            data: [
+              { reserve_id: "rsv-001", patient_name: "田中太郎", reserved_date: "2026-03-01", reserved_time: "10:00", status: "confirmed", prescription_menu: "AGA" },
+              { reserve_id: "rsv-002", patient_name: "山田花子", reserved_date: "2026-03-02", reserved_time: "14:00", status: "confirmed", prescription_menu: "ED" },
+            ],
+            error: null,
+          }),
+        };
+      }
+      return chainBuilder({ limitData: [] });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([]); // Googleイベントなし
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new-event" } as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.sync.clinic_to_google.events_created).toBe(2);
+    expect(gcal.insertEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("insertEvent個別失敗時は続行する", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "primary",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({
+            data: [
+              { reserve_id: "rsv-001", patient_name: "田中太郎", reserved_date: "2026-03-01", reserved_time: "10:00", status: "confirmed", prescription_menu: "AGA" },
+              { reserve_id: "rsv-002", patient_name: "山田花子", reserved_date: "2026-03-02", reserved_time: "14:00", status: "confirmed", prescription_menu: "ED" },
+            ],
+            error: null,
+          }),
+        };
+      }
+      return chainBuilder({ limitData: [] });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    vi.mocked(gcal.listEvents).mockResolvedValue([]);
+    // 1件目失敗、2件目成功
+    vi.mocked(gcal.insertEvent)
+      .mockRejectedValueOnce(new Error("API limit"))
+      .mockResolvedValueOnce({ id: "new-event" } as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // 1件失敗、1件成功
+    expect(data.sync.clinic_to_google.events_created).toBe(1);
+  });
+
+  it("同期結果のカウントが正しい", async () => {
+    const doctorData = {
+      doctor_id: "dr_001",
+      doctor_name: "テスト医師",
+      google_calendar_id: "cal-123",
+      google_access_token: "valid-token",
+      google_refresh_token: "refresh-token",
+      google_token_expires_at: new Date(Date.now() + 3600000).toISOString(),
+    };
+
+    await setupSupabaseMock((table) => {
+      if (table === "doctors") {
+        return chainBuilder({ singleData: doctorData });
+      }
+      if (table === "reservations") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          gte: vi.fn().mockReturnThis(),
+          lte: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnValue({
+            data: [
+              { reserve_id: "rsv-001", patient_name: "A", reserved_date: "2026-03-01", reserved_time: "10:00", status: "confirmed", prescription_menu: "X" },
+            ],
+            error: null,
+          }),
+        };
+      }
+      return chainBuilder({ limitData: [] });
+    });
+
+    const gcal = await import("@/lib/google-calendar");
+    // 3イベント: 1キャンセル、2有効
+    vi.mocked(gcal.listEvents).mockResolvedValue([
+      { id: "e1", status: "cancelled", summary: "C", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: {} },
+      { id: "e2", status: "confirmed", summary: "A", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: {} },
+      { id: "e3", status: "confirmed", summary: "B", start: { date: "2026-03-02" }, end: {}, description: "reserve_id:rsv-001" },
+    ] as any);
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new" } as any);
+
+    const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
+    const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
+      method: "POST",
+      body: JSON.stringify({ doctor_id: "dr_001" }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.doctor_id).toBe("dr_001");
+    expect(data.sync.google_to_clinic.events_found).toBe(3);
+    // rsv-001はGoogleに既存のためスキップ
+    expect(data.sync.clinic_to_google.already_synced).toBe(1);
+    expect(data.sync.clinic_to_google.events_created).toBe(0);
+    expect(data.sync.clinic_to_google.reservations_found).toBe(1);
+  });
+});
