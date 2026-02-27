@@ -69,11 +69,16 @@ describe("pushMessage", () => {
   // 4. APIエラー → console.error + Response返却
   it("APIエラー → console.errorが呼ばれ、Responseを返す", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    mockFetch.mockResolvedValue({
+    const mockErrorResponse = {
       ok: false,
       status: 400,
       text: vi.fn().mockResolvedValue("Bad Request"),
+      clone: vi.fn(),
+    };
+    mockErrorResponse.clone.mockReturnValue({
+      text: vi.fn().mockResolvedValue("Bad Request"),
     });
+    mockFetch.mockResolvedValue(mockErrorResponse);
 
     const res = await pushMessage("U_user_001", testMessages);
 

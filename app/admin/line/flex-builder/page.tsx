@@ -2,28 +2,29 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { FlexEditorProvider, useFlexEditor, useFlexEditorDispatch } from "./_components/FlexEditorContext";
-import { StructureTree } from "./_components/StructureTree";
-import { InteractivePreview } from "./_components/InteractivePreview";
-import { PropertyPanel } from "./_components/PropertyPanel";
+import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_components/BlockEditorContext";
+import { PanelSettingsBar } from "./_components/PanelSettingsBar";
+import { PanelNavigator } from "./_components/PanelNavigator";
+import { BlockPreview } from "./_components/BlockPreview";
+import { BlockSettingsPanel } from "./_components/BlockSettingsPanel";
+import { editorPanelsToFlex } from "@/lib/flex-editor/block-mapping";
+import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /* ---------- バブルtype補完ユーティリティ ---------- */
 function ensureBubbleTypes(obj: unknown): unknown {
   if (!obj || typeof obj !== "object") return obj;
   if (Array.isArray(obj)) return obj.map(ensureBubbleTypes);
   const o = obj as Record<string, unknown>;
-  // carousel → 内部contentsを再帰
   if (o.type === "carousel" && Array.isArray(o.contents)) {
     return { ...o, contents: o.contents.map(ensureBubbleTypes) };
   }
-  // bubble構造でtypeがbubbleでない → 強制設定（スプレッド後にtype設定で確実に上書き）
   if ((o.header || o.hero || o.body || o.footer) && o.type !== "bubble") {
     return { ...o, type: "bubble" };
   }
   return o;
 }
 
-/* ---------- 型定義 ---------- */
+/* ---------- 型定義（テンプレートページからインポートされる） ---------- */
 export interface FlexPreset {
   id: number;
   name: string;
@@ -40,19 +41,10 @@ interface SavedTemplate {
   flex_content: Record<string, unknown> | null;
 }
 
-const CATEGORIES: Record<string, string> = {
-  button: "ボタン型",
-  confirm: "確認型",
-  image_text: "画像+テキスト",
-  carousel: "カルーセル",
-  receipt: "レシート型",
-  general: "汎用",
-};
-
 /* ---------- メインページ ---------- */
 export default function FlexBuilderPage() {
   return (
-    <FlexEditorProvider>
+    <BlockEditorProvider>
       <Suspense fallback={
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-4 border-[#06C755] border-t-transparent" />
@@ -60,24 +52,20 @@ export default function FlexBuilderPage() {
       }>
         <FlexBuilderInner />
       </Suspense>
-    </FlexEditorProvider>
+    </BlockEditorProvider>
   );
 }
 
 function FlexBuilderInner() {
   const searchParams = useSearchParams();
-  const { flexData, jsonMode, historyIndex, history } = useFlexEditor();
-  const dispatch = useFlexEditorDispatch();
+  const { panels, templateName, editingTemplateId, historyIndex, history } = useBlockEditor();
+  const dispatch = useBlockEditorDispatch();
 
   const [presets, setPresets] = useState<FlexPreset[]>([]);
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editName, setEditName] = useState("新しいFlexテンプレート");
-  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [jsonText, setJsonText] = useState("");
-  const [jsonError, setJsonError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showPresets, setShowPresets] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -97,7 +85,7 @@ function FlexBuilderInner() {
       if (tplRes.ok) {
         const d = await tplRes.json();
         loadedTemplates = (d.templates || []).filter(
-          (t: SavedTemplate) => t.message_type === "flex" && t.flex_content
+          (t: SavedTemplate) => t.message_type === "flex" && t.flex_content,
         );
         setSavedTemplates(loadedTemplates);
       }
@@ -107,10 +95,12 @@ function FlexBuilderInner() {
       if (templateId) {
         const tpl = loadedTemplates.find((t) => t.id === Number(templateId));
         if (tpl && tpl.flex_content) {
-          dispatch({ type: "SET_DATA", data: tpl.flex_content });
-          setEditName(tpl.name);
-          setEditingTemplateId(tpl.id);
-          setJsonText(JSON.stringify(tpl.flex_content, null, 2));
+          dispatch({
+            type: "LOAD_FLEX_DATA",
+            flexData: tpl.flex_content,
+            name: tpl.name,
+            templateId: tpl.id,
+          });
         }
       }
     } catch (e) {
@@ -124,14 +114,6 @@ function FlexBuilderInner() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // flexData変更時にJSONテキストを同期
-  useEffect(() => {
-    if (flexData && !jsonMode) {
-      setJsonText(JSON.stringify(flexData, null, 2));
-      setJsonError(null);
-    }
-  }, [flexData, jsonMode]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -151,51 +133,37 @@ function FlexBuilderInner() {
 
   // プリセット選択
   const selectPreset = (preset: FlexPreset) => {
-    dispatch({ type: "SET_DATA", data: preset.flex_json });
-    setEditName(preset.name);
-    setEditingTemplateId(null);
-    setJsonText(JSON.stringify(preset.flex_json, null, 2));
-    setJsonError(null);
+    dispatch({
+      type: "LOAD_FLEX_DATA",
+      flexData: preset.flex_json,
+      name: preset.name,
+      templateId: null,
+    });
+    setShowPresets(false);
   };
 
   // 保存済みテンプレート選択
   const selectTemplate = (tpl: SavedTemplate) => {
     if (!tpl.flex_content) return;
-    dispatch({ type: "SET_DATA", data: tpl.flex_content });
-    setEditName(tpl.name);
-    setEditingTemplateId(tpl.id);
-    setJsonText(JSON.stringify(tpl.flex_content, null, 2));
-    setJsonError(null);
-  };
-
-  // JSON → ビジュアル適用
-  const applyJson = () => {
-    try {
-      const parsed = JSON.parse(jsonText);
-      if (typeof parsed !== "object" || parsed === null) {
-        setJsonError("JSONオブジェクトを入力してください");
-        return;
-      }
-      dispatch({ type: "SET_DATA", data: parsed });
-      setJsonError(null);
-    } catch {
-      setJsonError("JSON形式が不正です");
-    }
+    dispatch({
+      type: "LOAD_FLEX_DATA",
+      flexData: tpl.flex_content,
+      name: tpl.name,
+      templateId: tpl.id,
+    });
+    setShowPresets(false);
   };
 
   // テンプレートとして保存
   const handleSave = async () => {
-    if (!flexData) {
-      alert("Flexデータがありません");
-      return;
-    }
-    if (!editName.trim()) {
+    if (!templateName.trim()) {
       alert("テンプレート名を入力してください");
       return;
     }
 
-    // 保存前にバブルのtype補完（エディタ操作でtype: "bubble"が消える場合の対策）
-    const saveData = ensureBubbleTypes(flexData);
+    // ブロック → Flex JSON変換
+    const flexData = editorPanelsToFlex(panels);
+    const saveData = sanitizeFlexContents(ensureBubbleTypes(flexData));
 
     setSaving(true);
     try {
@@ -205,7 +173,7 @@ function FlexBuilderInner() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: editName.trim(),
+            name: templateName.trim(),
             content: "",
             message_type: "flex",
             flex_content: saveData,
@@ -222,7 +190,7 @@ function FlexBuilderInner() {
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: editName.trim(),
+            name: templateName.trim(),
             content: "",
             message_type: "flex",
             flex_content: saveData,
@@ -234,7 +202,7 @@ function FlexBuilderInner() {
           return;
         }
         const d = await res.json();
-        setEditingTemplateId(d.template?.id || null);
+        dispatch({ type: "SET_EDITING_ID", id: d.template?.id || null });
       }
       loadData();
       alert("保存しました");
@@ -255,22 +223,75 @@ function FlexBuilderInner() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* ヘッダーバー */}
       <div className="flex items-center gap-3 px-4 py-2 bg-white border-b border-gray-200 flex-shrink-0">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
-          title="サイドバー切替"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        {/* プリセット/テンプレート選択 */}
+        <div className="relative">
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className="p-1.5 text-gray-400 hover:text-gray-600 rounded"
+            title="テンプレートから選択"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
 
-        <h1 className="text-sm font-bold text-gray-800 whitespace-nowrap">Flexエディタ</h1>
+          {showPresets && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowPresets(false)} />
+              <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[260px] max-h-[400px] overflow-y-auto">
+                {/* プリセット */}
+                {presets.length > 0 && (
+                  <div className="p-3">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">プリセット</h4>
+                    <div className="space-y-1">
+                      {presets.map((p) => (
+                        <button
+                          key={p.id}
+                          onClick={() => selectPreset(p)}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 hover:text-green-700 transition-colors"
+                        >
+                          <span className="text-xs font-medium text-gray-700 block">{p.name}</span>
+                          {p.description && (
+                            <span className="text-[10px] text-gray-400 block mt-0.5">{p.description}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 保存済み */}
+                {savedTemplates.length > 0 && (
+                  <div className="p-3 border-t border-gray-100">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">保存済み</h4>
+                    <div className="space-y-1">
+                      {savedTemplates.map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => selectTemplate(t)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                            editingTemplateId === t.id
+                              ? "bg-green-50 text-green-700 font-medium"
+                              : "text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <h1 className="text-sm font-bold text-gray-800 whitespace-nowrap">メッセージ作成</h1>
 
         <input
           type="text"
-          value={editName}
-          onChange={(e) => setEditName(e.target.value)}
+          value={templateName}
+          onChange={(e) => dispatch({ type: "SET_TEMPLATE_NAME", name: e.target.value })}
           placeholder="テンプレート名"
           className="flex-1 max-w-[300px] px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#06C755]"
         />
@@ -281,7 +302,7 @@ function FlexBuilderInner() {
             onClick={() => dispatch({ type: "UNDO" })}
             disabled={historyIndex <= 0}
             className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded"
-            title="元に戻す (⌘Z)"
+            title="元に戻す (Ctrl+Z)"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -291,7 +312,7 @@ function FlexBuilderInner() {
             onClick={() => dispatch({ type: "REDO" })}
             disabled={historyIndex >= history.length - 1}
             className="p-1.5 text-gray-400 hover:text-gray-600 disabled:opacity-30 rounded"
-            title="やり直し (⌘⇧Z)"
+            title="やり直し (Ctrl+Shift+Z)"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
@@ -299,147 +320,33 @@ function FlexBuilderInner() {
           </button>
         </div>
 
-        {/* JSON切替 */}
-        <button
-          onClick={() => {
-            if (jsonMode && jsonText.trim()) {
-              applyJson();
-            }
-            dispatch({ type: "TOGGLE_JSON" });
-          }}
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-            jsonMode ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          {jsonMode ? "ビジュアル" : "JSON"}
-        </button>
-
-        {/* 保存 */}
+        {/* メッセージを保存 */}
         <button
           onClick={handleSave}
-          disabled={saving || !flexData}
+          disabled={saving}
           className="px-4 py-1.5 bg-[#06C755] text-white text-sm font-medium rounded-lg hover:bg-[#05b34c] disabled:opacity-50 transition-colors"
         >
-          {saving ? "保存中..." : editingTemplateId ? "更新" : "保存"}
+          {saving ? "保存中..." : editingTemplateId ? "メッセージを更新" : "メッセージを保存"}
         </button>
       </div>
 
-      {/* メインエリア */}
+      {/* パネル設定バー */}
+      <PanelSettingsBar />
+
+      {/* パネルナビゲーション */}
+      <PanelNavigator />
+
+      {/* メインエリア: プレビュー + ブロック設定 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左サイドバー: プリセット + 保存済み + StructureTree */}
-        {sidebarOpen && (
-          <div className="w-[220px] border-r border-gray-200 bg-white flex flex-col flex-shrink-0 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {/* プリセット */}
-              <div>
-                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">プリセット</h3>
-                <div className="space-y-1">
-                  {presets.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => selectPreset(p)}
-                      className="w-full text-left px-2.5 py-2 rounded-lg border border-gray-100 hover:border-[#06C755] hover:bg-green-50 transition-colors"
-                    >
-                      <span className="text-xs font-medium text-gray-700 block truncate">{p.name}</span>
-                      <span className="text-[10px] text-gray-400">{CATEGORIES[p.category] || p.category}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 保存済みテンプレート */}
-              {savedTemplates.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">保存済み</h3>
-                  <div className="space-y-1">
-                    {savedTemplates.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => selectTemplate(t)}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                          editingTemplateId === t.id
-                            ? "bg-green-50 border border-[#06C755] text-[#06C755] font-medium"
-                            : "border border-gray-100 text-gray-600 hover:bg-gray-50"
-                        }`}
-                      >
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 構造ツリー */}
-              {flexData && (
-                <div>
-                  <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">構造</h3>
-                  <StructureTree />
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 中央: プレビュー or JSONエディタ */}
+        {/* 左: プレビュー */}
         <div className="flex-1 overflow-auto bg-[#7494c0]">
-          {jsonMode ? (
-            <div className="h-full flex flex-col bg-white">
-              <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-                <span className="text-xs font-medium text-gray-600">JSON エディタ</span>
-                <div className="flex items-center gap-2">
-                  {jsonError && <span className="text-xs text-red-500">{jsonError}</span>}
-                  <button
-                    onClick={() => {
-                      try {
-                        const parsed = JSON.parse(jsonText);
-                        setJsonText(JSON.stringify(parsed, null, 2));
-                        setJsonError(null);
-                      } catch {
-                        setJsonError("JSON形式が不正です");
-                      }
-                    }}
-                    className="text-xs text-blue-600 hover:text-blue-800"
-                  >
-                    整形
-                  </button>
-                  <button
-                    onClick={applyJson}
-                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    適用
-                  </button>
-                </div>
-              </div>
-              <textarea
-                value={jsonText}
-                onChange={(e) => {
-                  setJsonText(e.target.value);
-                  setJsonError(null);
-                }}
-                className="flex-1 px-4 py-3 text-xs font-mono text-gray-800 focus:outline-none resize-none"
-                spellCheck={false}
-                placeholder="Flex Message JSON を入力..."
-              />
-            </div>
-          ) : (
-            <div className="p-6 min-h-full flex items-start justify-center">
-              {flexData ? (
-                <InteractivePreview />
-              ) : (
-                <div className="text-center text-white/60 text-sm py-20">
-                  左のプリセットを選択してください
-                </div>
-              )}
-            </div>
-          )}
+          <BlockPreview />
         </div>
 
-        {/* 右: プロパティパネル */}
-        {!jsonMode && flexData && (
-          <div className="w-[280px] border-l border-gray-200 bg-white flex-shrink-0 overflow-y-auto">
-            <PropertyPanel />
-          </div>
-        )}
+        {/* 右: ブロック設定 */}
+        <div className="w-[400px] border-l border-gray-200 bg-white flex-shrink-0 overflow-hidden">
+          <BlockSettingsPanel />
+        </div>
       </div>
     </div>
   );
@@ -485,7 +392,6 @@ function BubbleRenderer({ bubble }: { bubble: Record<string, unknown> }) {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden shadow-lg">
-      {/* Header */}
       {header && (
         <div
           className="px-4 py-3"
@@ -497,8 +403,6 @@ function BubbleRenderer({ bubble }: { bubble: Record<string, unknown> }) {
           <BoxRenderer box={header} />
         </div>
       )}
-
-      {/* Hero（画像） */}
       {hero && hero.type === "image" && (
         <div
           className="w-full bg-gray-200 bg-cover bg-center"
@@ -508,15 +412,11 @@ function BubbleRenderer({ bubble }: { bubble: Record<string, unknown> }) {
           }}
         />
       )}
-
-      {/* Body */}
       {body && (
         <div className="px-4 py-3">
           <BoxRenderer box={body} />
         </div>
       )}
-
-      {/* Footer */}
       {footer && (
         <div className="px-4 pb-3">
           <BoxRenderer box={footer} />

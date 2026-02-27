@@ -22,6 +22,7 @@ vi.mock("@/lib/line-push", () => ({
 
 vi.mock("@/lib/merge-tables", () => ({
   MERGE_TABLES: ["reservations", "orders", "reorders", "message_log", "patient_tags", "patient_marks", "friend_field_values"],
+  migrateFriendSummary: vi.fn().mockResolvedValue(undefined),
 }));
 
 // === Supabase モック（テーブル名ベース） ===

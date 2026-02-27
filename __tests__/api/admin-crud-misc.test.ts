@@ -174,8 +174,8 @@ describe("merge-patients API", () => {
     mockVerifyAdminAuth.mockResolvedValue(false);
     const res = await mergePatientsPOST(
       createReq("POST", "http://localhost/api/admin/merge-patients", {
-        old_patient_id: "p1",
-        new_patient_id: "p2",
+        old_patient_id: "00000000001",
+        new_patient_id: "00000000002",
       }),
     );
     expect(res.status).toBe(401);
@@ -184,8 +184,8 @@ describe("merge-patients API", () => {
   it("同一IDでマージ → 400", async () => {
     const res = await mergePatientsPOST(
       createReq("POST", "http://localhost/api/admin/merge-patients", {
-        old_patient_id: "p1",
-        new_patient_id: "p1",
+        old_patient_id: "00000000001",
+        new_patient_id: "00000000001",
       }),
     );
     expect(res.status).toBe(400);
@@ -198,8 +198,8 @@ describe("merge-patients API", () => {
 
     const res = await mergePatientsPOST(
       createReq("POST", "http://localhost/api/admin/merge-patients", {
-        old_patient_id: "old-p1",
-        new_patient_id: "new-p2",
+        old_patient_id: "00000000003",
+        new_patient_id: "00000000004",
       }),
     );
     expect(res.status).toBe(200);

@@ -59,21 +59,21 @@ import {
 describe("mergePatientSchema", () => {
   it("正常値でparse成功", () => {
     const result = mergePatientSchema.safeParse({
-      old_patient_id: "p_001",
-      new_patient_id: "p_002",
+      old_patient_id: "00000000001",
+      new_patient_id: "00000000002",
     });
     expect(result.success).toBe(true);
   });
 
   it("old_patient_id 欠損で失敗", () => {
-    const result = mergePatientSchema.safeParse({ new_patient_id: "p_002" });
+    const result = mergePatientSchema.safeParse({ new_patient_id: "00000000002" });
     expect(result.success).toBe(false);
   });
 
   it("passthrough で追加フィールドが許容される", () => {
     const result = mergePatientSchema.safeParse({
-      old_patient_id: "p_001",
-      new_patient_id: "p_002",
+      old_patient_id: "00000000001",
+      new_patient_id: "00000000002",
       extra_field: "test",
     });
     expect(result.success).toBe(true);
@@ -84,8 +84,8 @@ describe("mergePatientSchema", () => {
 
   it("delete_new_intake は省略可能", () => {
     const result = mergePatientSchema.safeParse({
-      old_patient_id: "p_001",
-      new_patient_id: "p_002",
+      old_patient_id: "00000000001",
+      new_patient_id: "00000000002",
       delete_new_intake: true,
     });
     expect(result.success).toBe(true);

@@ -1,5 +1,18 @@
 // lib/__tests__/merge-tables.test.ts — MERGE_TABLES定数テスト
 
+// merge-tables.ts が supabaseAdmin をインポートするためモックが必要
+vi.mock("@/lib/supabase", () => ({
+  supabaseAdmin: {
+    from: vi.fn(() => ({
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve: any) => resolve({ data: null, error: null })),
+    })),
+  },
+}));
+
+import { describe, it, expect, vi } from "vitest";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 
 describe("MERGE_TABLES", () => {

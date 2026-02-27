@@ -193,7 +193,9 @@ describe("createLineRichMenu", () => {
 
     const call = mockFetch.mock.calls[0];
     const body = JSON.parse(call[1].body);
-    expect(body.areas[0].action.uri).toBe("https://app.example.com/forms/intake-form");
+    // form アクションはトラッキングURL経由で /forms/slug に遷移する
+    expect(body.areas[0].action.uri).toContain("/api/line/track?");
+    expect(body.areas[0].action.uri).toContain(encodeURIComponent("https://app.example.com/forms/intake-form"));
   });
 });
 
