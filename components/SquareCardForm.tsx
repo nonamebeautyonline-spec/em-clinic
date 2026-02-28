@@ -76,25 +76,45 @@ export default function SquareCardForm({
 
     let cancelled = false;
 
+    // リダイレクト検知（SDK が勝手にページ遷移する場合をキャッチ）
+    const origAssign = window.location.assign.bind(window.location);
+    const origReplace = window.location.replace.bind(window.location);
+    window.location.assign = (url: string) => {
+      alert(`[DEBUG] SDK redirect detected (assign): ${url}`);
+      origAssign(url);
+    };
+    window.location.replace = (url: string) => {
+      alert(`[DEBUG] SDK redirect detected (replace): ${url}`);
+      origReplace(url);
+    };
+
     (async () => {
       try {
-        setDebugInfo(`payments() 呼び出し中... appId=${applicationId.slice(0, 10)}...`);
+        const step1 = `payments() appId=${applicationId}, locId=${locationId}`;
+        setDebugInfo(step1);
+        alert(`[DEBUG] Step 1: ${step1}`);
+
         const payments = await window.Square!.payments(applicationId, locationId);
         setDebugInfo("payments() 成功。card() 呼び出し中...");
+        alert("[DEBUG] Step 2: payments() 成功");
 
         const card = await payments.card();
         if (cancelled) return;
         setDebugInfo("card() 成功。attach() 呼び出し中...");
+        alert("[DEBUG] Step 3: card() 成功");
 
         await card.attach(containerRef.current!);
         cardRef.current = card;
         setLoading(false);
         setDebugInfo("初期化完了 ✓");
+        alert("[DEBUG] Step 4: attach() 成功 — 初期化完了");
       } catch (e: any) {
         if (!cancelled) {
           const errMsg = e?.message || "不明なエラー";
           const errType = e?.constructor?.name || "Error";
-          setDebugInfo(`初期化失敗: [${errType}] ${errMsg}`);
+          const errStr = JSON.stringify({ type: errType, message: errMsg, keys: Object.keys(e || {}) });
+          setDebugInfo(`初期化失敗: ${errStr}`);
+          alert(`[DEBUG] 初期化エラー: ${errStr}`);
           onError(`カードフォーム初期化エラー: ${errMsg}`);
         }
       }
