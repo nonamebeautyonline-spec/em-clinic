@@ -11,6 +11,7 @@ import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
 const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string; envFallback?: string }[]> = {
   square: [
     { key: "access_token", label: "Access Token", envFallback: "SQUARE_ACCESS_TOKEN" },
+    { key: "application_id", label: "Application ID", envFallback: "SQUARE_APPLICATION_ID" },
     { key: "location_id", label: "Location ID", envFallback: "SQUARE_LOCATION_ID" },
     { key: "webhook_signature_key", label: "Webhook Signature Key", envFallback: "SQUARE_WEBHOOK_SIGNATURE_KEY" },
     { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV" },
@@ -38,6 +39,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   ],
   payment: [
     { key: "provider", label: "決済プロバイダー" },
+    { key: "checkout_mode", label: "チェックアウトモード (hosted / inline)" },
   ],
   mypage: [
     { key: "config", label: "マイページ設定（JSON）" },

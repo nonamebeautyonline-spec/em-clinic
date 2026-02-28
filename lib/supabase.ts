@@ -25,6 +25,8 @@ export type Patient = {
   sex: string | null
   birthday: string | null
   line_id: string | null
+  square_customer_id: string | null
+  square_card_id: string | null
   created_at: string
   updated_at: string
 }

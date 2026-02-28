@@ -7,65 +7,9 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { checkIdempotency } from "@/lib/idempotency";
+import { markReorderPaid } from "@/lib/payment/square-inline";
 
 export const runtime = "nodejs";
-
-
-async function markReorderPaid(reorderId: string, patientId?: string, tenantId: string | null = null) {
-const idNum = Number(String(reorderId).trim());
-if (!Number.isFinite(idNum) || idNum < 2) {
-  console.error("invalid reorderId for paid:", reorderId);
-  return;
-}
-
-  // ★ Supabase更新（reorder_numberでマッチング → ダメなら id でフォールバック）
-  try {
-    const paidPayload = { status: "paid" as const, paid_at: new Date().toISOString() };
-
-    // 1) reorder_number で更新を試みる
-    let query = withTenant(
-      supabaseAdmin
-        .from("reorders")
-        .update(paidPayload)
-        .eq("reorder_number", idNum)
-        .eq("status", "confirmed"),
-      tenantId
-    );
-    if (patientId) query = query.eq("patient_id", patientId);
-
-    const { data: updated, error: dbError } = await query.select("id");
-
-    if (dbError) {
-      console.error("[square/webhook] Supabase reorder paid error:", dbError);
-    } else if (updated && updated.length > 0) {
-      console.log(`[square/webhook] Supabase reorder paid success (reorder_number), row=${idNum}`);
-    } else {
-      // 2) reorder_number でヒットしなかった場合、id（SERIAL PK）でフォールバック
-      //    フロント側で reorder_number が欠落して id が渡されたケースを救済
-      console.warn(`[square/webhook] reorder_number=${idNum} matched 0 rows, trying id fallback`);
-      let fallback = withTenant(
-        supabaseAdmin
-          .from("reorders")
-          .update(paidPayload)
-          .eq("id", idNum)
-          .eq("status", "confirmed"),
-        tenantId
-      );
-      if (patientId) fallback = fallback.eq("patient_id", patientId);
-
-      const { data: fb, error: fbErr } = await fallback.select("id");
-      if (fbErr) {
-        console.error("[square/webhook] Supabase reorder paid fallback error:", fbErr);
-      } else if (fb && fb.length > 0) {
-        console.log(`[square/webhook] Supabase reorder paid success (id fallback), id=${idNum}`);
-      } else {
-        console.warn(`[square/webhook] Supabase reorder paid: no rows matched (reorder_num=${idNum}, id=${idNum})`);
-      }
-    }
-  } catch (dbErr) {
-    console.error("[square/webhook] Supabase reorder paid exception:", dbErr);
-  }
-}
 
 
 function timingSafeEqual(a: string, b: string) {

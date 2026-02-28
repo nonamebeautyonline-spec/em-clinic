@@ -173,17 +173,28 @@ function PaymentSetupGuide({ provider, defaultOpen }: { provider: string; defaul
 export default function PaymentSection({ settings, onSaved }: Props) {
   const paymentSettings = settings?.payment ?? [];
   const providerSetting = paymentSettings.find((s) => s.key === "provider");
+  const checkoutModeSetting = paymentSettings.find((s) => s.key === "checkout_mode");
   const currentProvider = providerSetting?.maskedValue || "";
+  const currentCheckoutMode = checkoutModeSetting?.maskedValue || "";
 
   const [selected, setSelected] = useState<string>(
     currentProvider === "未設定" ? "" : currentProvider,
   );
+  const [checkoutMode, setCheckoutMode] = useState<string>(
+    !currentCheckoutMode || currentCheckoutMode === "未設定" ? "hosted" : currentCheckoutMode,
+  );
   const [saving, setSaving] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
 
   useEffect(() => {
     const val = providerSetting?.maskedValue || "";
     setSelected(val === "未設定" ? "" : val);
   }, [providerSetting?.maskedValue]);
+
+  useEffect(() => {
+    const val = checkoutModeSetting?.maskedValue || "";
+    setCheckoutMode(!val || val === "未設定" ? "hosted" : val);
+  }, [checkoutModeSetting?.maskedValue]);
 
   const handleSave = async () => {
     if (!selected) return;
@@ -204,6 +215,27 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       onSaved(err.message || "保存に失敗しました", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveCheckoutMode = async () => {
+    setSavingMode(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: "payment", key: "checkout_mode", value: checkoutMode }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+      }
+      onSaved("チェックアウトモードを保存しました", "success");
+    } catch (err: any) {
+      onSaved(err.message || "保存に失敗しました", "error");
+    } finally {
+      setSavingMode(false);
     }
   };
 
@@ -256,6 +288,76 @@ export default function PaymentSection({ settings, onSaved }: Props) {
           </button>
         </div>
       </div>
+
+      {/* チェックアウトモード（Squareの場合のみ表示） */}
+      {selected === "square" && (
+        <div className="px-5 py-4 border-b border-gray-100">
+          <p className="text-sm font-medium text-gray-900 mb-3">チェックアウトモード</p>
+          <div className="space-y-3">
+            <label
+              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                checkoutMode === "hosted"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="checkout_mode"
+                value="hosted"
+                checked={checkoutMode === "hosted"}
+                onChange={() => setCheckoutMode("hosted")}
+                className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">ホスティング型</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Square/GMOの決済画面に遷移して決済（現行方式）
+                </p>
+              </div>
+            </label>
+            <label
+              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                checkoutMode === "inline"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="checkout_mode"
+                value="inline"
+                checked={checkoutMode === "inline"}
+                onChange={() => setCheckoutMode("inline")}
+                className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">アプリ内決済</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  サイト内でカード入力・決済（Web Payments SDK）。カード保存・再利用が可能
+                </p>
+              </div>
+            </label>
+          </div>
+          <div className="mt-4">
+            <button
+              onClick={handleSaveCheckoutMode}
+              disabled={savingMode}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {savingMode ? "保存中..." : "モードを保存"}
+            </button>
+          </div>
+          {checkoutMode === "inline" && (
+            <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                アプリ内決済を使用するには、Square Developer Dashboard で <strong>Application ID</strong> を取得し、
+                下の「Square API設定」セクションに入力してください。
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 選択中プロバイダーのAPI Key設定 */}
       {selected && providerSettings.length > 0 && (
