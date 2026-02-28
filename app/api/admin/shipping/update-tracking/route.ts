@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     const patientIds: string[] = [];
     const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-    // データ行を処理（ヘッダーをスキップ）
+    // CSVの全行をフラットな更新リストに変換
+    const updateItems: { paymentId: string; trackingNumber: string }[] = [];
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
@@ -64,63 +65,66 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // payment_idにカンマが含まれる場合は分割（合箱対応）
-      const paymentIds = rawPaymentId.split(",").map((id: string) => id.trim()).filter(Boolean);
+      const paymentIdList = rawPaymentId.split(",").map((id: string) => id.trim()).filter(Boolean);
+      for (const paymentId of paymentIdList) {
+        updateItems.push({ paymentId, trackingNumber });
+      }
+    }
 
-      console.log(`[UpdateTracking] Row ${i + 1}: paymentIds=${paymentIds.join(",")}, tracking=${trackingNumber}`);
-
-      // 各payment_idに対して追跡番号を付与
-      for (const paymentId of paymentIds) {
-        try {
-          // ガード: shipping_status="pending" の場合のみ更新（二重発送防止）
-        const { data, error } = await withTenant(
-            supabase
-              .from("orders")
-              .update({
-                tracking_number: trackingNumber,
-                shipping_status: "shipped",
-                shipping_date: today,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", paymentId)
-              .eq("shipping_status", "pending")
-              .select("id, patient_id"),
-            tenantId
-          );
-
-          if (error) {
-            console.error(`[UpdateTracking] Error updating ${paymentId}:`, error);
-            errors.push(`${paymentId}: ${error.message}`);
-            continue;
-          }
-
-          if (!data || data.length === 0) {
-            // 更新0件: 注文が存在しないか、既に発送済み
-            const { data: existing } = await withTenant(
-              supabase.from("orders").select("id, shipping_status").eq("id", paymentId),
+    // 10件ずつ並列バッチで更新
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < updateItems.length; i += BATCH_SIZE) {
+      const batch = updateItems.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async ({ paymentId, trackingNumber }) => {
+          try {
+            const { data, error } = await withTenant(
+              supabase
+                .from("orders")
+                .update({
+                  tracking_number: trackingNumber,
+                  shipping_status: "shipped",
+                  shipping_date: today,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", paymentId)
+                .eq("shipping_status", "pending")
+                .select("id, patient_id"),
               tenantId
             );
-            if (existing && existing.length > 0 && existing[0].shipping_status === "shipped") {
-              // 既に発送済み → 冪等（成功扱い、スキップ）
-              console.log(`[UpdateTracking] ⏭ ${paymentId} は既に発送済み（スキップ）`);
-              successUpdates.push(paymentId);
-              continue;
-            }
-            console.warn(`[UpdateTracking] No order found for ${paymentId}`);
-            errors.push(`${paymentId}: 注文が見つかりません`);
-            continue;
-          }
 
-          successUpdates.push(paymentId);
-          if (data[0]?.patient_id) {
-            patientIds.push(data[0].patient_id);
+            if (error) {
+              console.error(`[UpdateTracking] Error updating ${paymentId}:`, error);
+              errors.push(`${paymentId}: ${error.message}`);
+              return;
+            }
+
+            if (!data || data.length === 0) {
+              const { data: existing } = await withTenant(
+                supabase.from("orders").select("id, shipping_status").eq("id", paymentId),
+                tenantId
+              );
+              if (existing && existing.length > 0 && existing[0].shipping_status === "shipped") {
+                console.log(`[UpdateTracking] ⏭ ${paymentId} は既に発送済み（スキップ）`);
+                successUpdates.push(paymentId);
+                return;
+              }
+              console.warn(`[UpdateTracking] No order found for ${paymentId}`);
+              errors.push(`${paymentId}: 注文が見つかりません`);
+              return;
+            }
+
+            successUpdates.push(paymentId);
+            if (data[0]?.patient_id) {
+              patientIds.push(data[0].patient_id);
+            }
+            console.log(`[UpdateTracking] ✅ Updated ${paymentId} with tracking ${trackingNumber}`);
+          } catch (err) {
+            console.error(`[UpdateTracking] Exception for ${paymentId}:`, err);
+            errors.push(`${paymentId}: ${err instanceof Error ? err.message : "Unknown error"}`);
           }
-          console.log(`[UpdateTracking] ✅ Updated ${paymentId} with tracking ${trackingNumber}`);
-        } catch (err) {
-          console.error(`[UpdateTracking] Exception for ${paymentId}:`, err);
-          errors.push(`${paymentId}: ${err instanceof Error ? err.message : "Unknown error"}`);
-        }
-      }
+        })
+      );
     }
 
     console.log(`[UpdateTracking] Complete: ${successUpdates.length} success, ${errors.length} failed`);

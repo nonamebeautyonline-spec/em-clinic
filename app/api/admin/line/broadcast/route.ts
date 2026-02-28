@@ -128,65 +128,71 @@ export async function POST(req: NextRequest) {
 
   const todayStr = new Date().toLocaleDateString("ja-JP");
 
-  // 即時送信
+  // 即時送信（10件ずつ並列バッチ）
   let sentCount = 0;
   let failedCount = 0;
   let noUidCount = 0;
 
-  for (const target of targets) {
-    if (!target.line_id) {
-      noUidCount++;
-      await supabaseAdmin.from("message_log").insert({
+  // LINE未連携を先にログ記録
+  const noUidTargets = targets.filter(t => !t.line_id);
+  const sendable = targets.filter(t => t.line_id);
+  noUidCount = noUidTargets.length;
+
+  if (noUidTargets.length > 0) {
+    await supabaseAdmin.from("message_log").insert(
+      noUidTargets.map(t => ({
         ...tenantPayload(tenantId),
-        patient_id: target.patient_id,
+        patient_id: t.patient_id,
         event_type: "message",
         message_type: "broadcast",
         content: message,
         status: "no_uid",
         campaign_id: broadcast.id,
         direction: "outgoing",
-      });
-      continue;
-    }
+      }))
+    );
+  }
 
-    const nextRes = nextReservationMap.get(target.patient_id);
-    const resolvedMsg = message
-      .replace(/\{name\}/g, target.patient_name || "")
-      .replace(/\{patient_id\}/g, target.patient_id)
-      .replace(/\{send_date\}/g, todayStr)
-      .replace(/\{next_reservation_date\}/g, nextRes?.date || "")
-      .replace(/\{next_reservation_time\}/g, nextRes?.time || "");
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < sendable.length; i += BATCH_SIZE) {
+    const batch = sendable.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (target) => {
+        const nextRes = nextReservationMap.get(target.patient_id);
+        const resolvedMsg = message
+          .replace(/\{name\}/g, target.patient_name || "")
+          .replace(/\{patient_id\}/g, target.patient_id)
+          .replace(/\{send_date\}/g, todayStr)
+          .replace(/\{next_reservation_date\}/g, nextRes?.date || "")
+          .replace(/\{next_reservation_time\}/g, nextRes?.time || "");
 
-    try {
-      const res = await pushMessage(target.line_id, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
-      const status = res?.ok ? "sent" : "failed";
-      if (status === "sent") sentCount++;
+        let status = "failed";
+        try {
+          const res = await pushMessage(target.line_id!, [{ type: "text", text: resolvedMsg }], tenantId ?? undefined);
+          status = res?.ok ? "sent" : "failed";
+        } catch {
+          // status remains "failed"
+        }
+
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: target.patient_id,
+          line_uid: target.line_id,
+          event_type: "message",
+          message_type: "broadcast",
+          content: resolvedMsg,
+          status,
+          campaign_id: broadcast.id,
+          direction: "outgoing",
+        });
+
+        return status === "sent";
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) sentCount++;
       else failedCount++;
-
-      await supabaseAdmin.from("message_log").insert({
-        ...tenantPayload(tenantId),
-        patient_id: target.patient_id,
-        line_uid: target.line_id,
-        event_type: "message",
-        message_type: "broadcast",
-        content: resolvedMsg,
-        status,
-        campaign_id: broadcast.id,
-        direction: "outgoing",
-      });
-    } catch {
-      failedCount++;
-      await supabaseAdmin.from("message_log").insert({
-        ...tenantPayload(tenantId),
-        patient_id: target.patient_id,
-        line_uid: target.line_id,
-        event_type: "message",
-        message_type: "broadcast",
-        content: resolvedMsg,
-        status: "failed",
-        campaign_id: broadcast.id,
-        direction: "outgoing",
-      });
     }
   }
 

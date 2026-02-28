@@ -6,6 +6,8 @@ import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
+export const maxDuration = 60;
+
 // 本日発送患者を取得（共通）
 async function getTodayShippedPatients(tenantId: string | null) {
   const now = new Date();
@@ -109,79 +111,97 @@ export async function POST(req: NextRequest) {
 
     const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
-    for (const p of patients) {
-      if (!p.line_id) {
-        noUid++;
-        continue;
-      }
+    // LINE未連携を先に除外
+    const sendable = patients.filter(p => {
+      if (!p.line_id) { noUid++; return false; }
+      return true;
+    });
 
-      // 1) Flex発送通知送信
-      try {
-        const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking, tenantId ?? undefined);
-        const result = await sendShippingNotification({
-          patientId: p.patient_id,
-          lineUid: p.line_id,
-          flex,
-          tenantId: tenantId ?? undefined,
-        });
-        if (result.ok) sent++;
-        else failed++;
-      } catch {
-        failed++;
-      }
-
-      // 2) 対応マークを「処方すみ」に（未設定 or 別マークの場合のみ）
-      if (rxMarkValue) {
-        try {
-          const { data: current } = await withTenant(
-            supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", p.patient_id),
-            tenantId
-          ).maybeSingle();
-
-          if (!current || current.mark !== rxMarkValue) {
-            await withTenant(
-              supabaseAdmin
-                .from("patient_marks")
-                .upsert({
-                  ...tenantPayload(tenantId),
-                  patient_id: p.patient_id,
-                  mark: rxMarkValue,
-                  note: null,
-                  updated_at: new Date().toISOString(),
-                  updated_by: "system:notify-shipped",
-                }, { onConflict: "patient_id" }),
-              tenantId
-            );
-            markUpdated++;
-          }
-        } catch (e) {
-          console.error(`[notify-shipped] mark update failed for ${p.patient_id}:`, e);
-        }
-      }
-
-      // 3) リッチメニューを「処方後」に（別メニューの場合のみ）
-      if (rxMenuId && lineToken) {
-        try {
-          const checkRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu`, {
-            headers: { Authorization: `Bearer ${lineToken}` },
-          });
-
-          let needSwitch = true;
-          if (checkRes.ok) {
-            const cur = await checkRes.json();
-            if (cur.richMenuId === rxMenuId) needSwitch = false;
-          }
-
-          if (needSwitch) {
-            const linkRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu/${rxMenuId}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${lineToken}` },
+    // 10件ずつ並列送信（LINE APIレートリミット対策）
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < sendable.length; i += BATCH_SIZE) {
+      const batch = sendable.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (p) => {
+          // 1) Flex発送通知送信
+          let sendOk = false;
+          try {
+            const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking, tenantId ?? undefined);
+            const result = await sendShippingNotification({
+              patientId: p.patient_id,
+              lineUid: p.line_id!,
+              flex,
+              tenantId: tenantId ?? undefined,
             });
-            if (linkRes.ok) menuSwitched++;
+            sendOk = result.ok;
+          } catch {
+            // sendOk = false
           }
-        } catch (e) {
-          console.error(`[notify-shipped] menu switch failed for ${p.patient_id}:`, e);
-        }
+
+          // 2) 対応マーク + 3) リッチメニューを並列実行
+          const sideEffects: Promise<void>[] = [];
+
+          if (rxMarkValue) {
+            sideEffects.push((async () => {
+              try {
+                const { data: current } = await withTenant(
+                  supabaseAdmin.from("patient_marks").select("mark").eq("patient_id", p.patient_id),
+                  tenantId
+                ).maybeSingle();
+                if (!current || current.mark !== rxMarkValue) {
+                  await withTenant(
+                    supabaseAdmin
+                      .from("patient_marks")
+                      .upsert({
+                        ...tenantPayload(tenantId),
+                        patient_id: p.patient_id,
+                        mark: rxMarkValue,
+                        note: null,
+                        updated_at: new Date().toISOString(),
+                        updated_by: "system:notify-shipped",
+                      }, { onConflict: "patient_id" }),
+                    tenantId
+                  );
+                  markUpdated++;
+                }
+              } catch (e) {
+                console.error(`[notify-shipped] mark update failed for ${p.patient_id}:`, e);
+              }
+            })());
+          }
+
+          if (rxMenuId && lineToken) {
+            sideEffects.push((async () => {
+              try {
+                const checkRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu`, {
+                  headers: { Authorization: `Bearer ${lineToken}` },
+                });
+                let needSwitch = true;
+                if (checkRes.ok) {
+                  const cur = await checkRes.json();
+                  if (cur.richMenuId === rxMenuId) needSwitch = false;
+                }
+                if (needSwitch) {
+                  const linkRes = await fetch(`https://api.line.me/v2/bot/user/${p.line_id}/richmenu/${rxMenuId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${lineToken}` },
+                  });
+                  if (linkRes.ok) menuSwitched++;
+                }
+              } catch (e) {
+                console.error(`[notify-shipped] menu switch failed for ${p.patient_id}:`, e);
+              }
+            })());
+          }
+
+          await Promise.allSettled(sideEffects);
+          return sendOk;
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) sent++;
+        else failed++;
       }
     }
 

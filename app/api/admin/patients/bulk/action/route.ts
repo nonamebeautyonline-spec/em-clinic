@@ -56,10 +56,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 患者のLINE UID + 名前をpatientsテーブルから一括取得（バッチ処理）
-  const BATCH_SIZE = 200;
+  const DB_BATCH_SIZE = 200;
   const intakeMap = new Map<string, { line_id: string | null; patient_name: string }>();
-  for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
-    const batch = patient_ids.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < patient_ids.length; i += DB_BATCH_SIZE) {
+    const batch = patient_ids.slice(i, i + DB_BATCH_SIZE);
     const { data: pData } = await withTenant(
       supabaseAdmin
         .from("patients")
@@ -75,7 +75,44 @@ export async function POST(req: NextRequest) {
   let successCount = 0;
   let failCount = 0;
 
-  for (const pid of patient_ids) {
+  // タグ名を事前に一括取得（ループ内で毎回DB取得するのを防止）
+  const tagIds = steps.filter(s => (s.type === "tag_add" || s.type === "tag_remove") && s.tag_id).map(s => s.tag_id!);
+  const tagNameMap = new Map<number, string>();
+  if (tagIds.length > 0) {
+    const { data: tagDefs } = await withTenant(
+      supabaseAdmin.from("tag_definitions").select("id, name").in("id", tagIds),
+      tenantId
+    );
+    for (const t of tagDefs || []) tagNameMap.set(t.id, t.name);
+  }
+
+  // アクション詳細テキストを事前構築（全患者共通）
+  const actionDetails: string[] = [];
+  for (const step of steps) {
+    switch (step.type) {
+      case "send_text":
+        if (step.content) actionDetails.push(`テキスト送信`);
+        break;
+      case "send_template":
+        actionDetails.push(`テンプレート送信`);
+        break;
+      case "tag_add":
+        if (step.tag_id) actionDetails.push(`タグ[${tagNameMap.get(step.tag_id) || step.tag_id}]を追加`);
+        break;
+      case "tag_remove":
+        if (step.tag_id) actionDetails.push(`タグ[${tagNameMap.get(step.tag_id) || step.tag_id}]を解除`);
+        break;
+      case "mark_change":
+        if (step.mark) actionDetails.push(`対応マークを[${step.mark}]に更新`);
+        break;
+    }
+  }
+  const actionLogContent = actionDetails.length > 0
+    ? `手動一括実行によりアクション[${action.name}]が実行され、\n${actionDetails.join("\n")}\nが起こりました`
+    : null;
+
+  // 1患者の全ステップを実行する関数
+  const processPatient = async (pid: string): Promise<boolean> => {
     const intake = intakeMap.get(pid);
     const lineUid = intake?.line_id || null;
     const patientName = intake?.patient_name || "";
@@ -190,47 +227,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (allStepsOk) successCount++;
-    else failCount++;
-
     // システムイベントログを記録
-    const actionDetails: string[] = [];
-    for (const step of steps) {
-      switch (step.type) {
-        case "send_text":
-          if (step.content) actionDetails.push(`テキスト送信`);
-          break;
-        case "send_template":
-          actionDetails.push(`テンプレート送信`);
-          break;
-        case "tag_add":
-          if (step.tag_id) {
-            const { data: t } = await withTenant(supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle(), tenantId);
-            actionDetails.push(`タグ[${t?.name || step.tag_id}]を追加`);
-          }
-          break;
-        case "tag_remove":
-          if (step.tag_id) {
-            const { data: t } = await withTenant(supabaseAdmin.from("tag_definitions").select("name").eq("id", step.tag_id).maybeSingle(), tenantId);
-            actionDetails.push(`タグ[${t?.name || step.tag_id}]を解除`);
-          }
-          break;
-        case "mark_change":
-          if (step.mark) actionDetails.push(`対応マークを[${step.mark}]に更新`);
-          break;
-      }
-    }
-    if (actionDetails.length > 0) {
+    if (actionLogContent) {
       await supabaseAdmin.from("message_log").insert({
         ...tenantPayload(tenantId),
         patient_id: pid,
         line_uid: lineUid || null,
         event_type: "system",
         message_type: "event",
-        content: `手動一括実行によりアクション[${action.name}]が実行され、\n${actionDetails.join("\n")}\nが起こりました`,
+        content: actionLogContent,
         status: "received",
         direction: "incoming",
       });
+    }
+
+    return allStepsOk;
+  };
+
+  // 10件ずつ並列バッチ実行
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
+    const batch = patient_ids.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(batch.map(processPatient));
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) successCount++;
+      else failCount++;
     }
   }
 

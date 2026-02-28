@@ -26,6 +26,24 @@
     },
     "app/api/voice/generate-karte/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/admin/shipping/notify-shipped/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/admin/patients/bulk/send/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/admin/patients/bulk/action/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/admin/patients/bulk/menu/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/admin/shipping/update-tracking/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/admin/shipping/update-tracking/confirm/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [

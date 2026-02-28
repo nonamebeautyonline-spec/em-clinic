@@ -87,17 +87,22 @@ export async function POST(req: NextRequest) {
         const text = await res.text().catch(() => "");
         console.error(`[Rich Menu Bulk Link] Batch error ${res.status}:`, text, "-> falling back to individual calls");
 
-        // 個別APIで1件ずつ割り当て
-        for (const uid of batch) {
-          try {
-            const r = await fetch(
-              `https://api.line.me/v2/bot/user/${uid}/richmenu/${menu.line_rich_menu_id}`,
-              { method: "POST", headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (r.ok) linked++;
+        // 個別APIで10件ずつ並列割り当て
+        const FB_BATCH = 10;
+        for (let j = 0; j < batch.length; j += FB_BATCH) {
+          const fbBatch = batch.slice(j, j + FB_BATCH);
+          const results = await Promise.allSettled(
+            fbBatch.map(async (uid) => {
+              const r = await fetch(
+                `https://api.line.me/v2/bot/user/${uid}/richmenu/${menu.line_rich_menu_id}`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+              );
+              return r.ok;
+            })
+          );
+          for (const r of results) {
+            if (r.status === "fulfilled" && r.value) linked++;
             else failed++;
-          } catch {
-            failed++;
           }
         }
       }

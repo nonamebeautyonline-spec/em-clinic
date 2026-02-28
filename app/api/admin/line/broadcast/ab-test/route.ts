@@ -99,43 +99,43 @@ export async function POST(req: NextRequest) {
       .replace(/\{next_reservation_time\}/g, nextRes?.time || "");
   };
 
-  // 送信関数
+  // 送信関数（10件ずつ並列バッチ）
   const sendToGroup = async (
     group: typeof sendable,
     message: string,
     broadcastId: number,
   ) => {
     let sent = 0, failed = 0;
-    for (const target of group) {
-      const resolved = resolveMsg(message, target);
-      try {
-        const res = await pushMessage(target.line_id!, [{ type: "text", text: resolved }], tenantId ?? undefined);
-        const status = res?.ok ? "sent" : "failed";
-        if (status === "sent") sent++; else failed++;
-        await supabaseAdmin.from("message_log").insert({
-          ...tenantPayload(tenantId),
-          patient_id: target.patient_id,
-          line_uid: target.line_id,
-          event_type: "message",
-          message_type: "broadcast",
-          content: resolved,
-          status,
-          campaign_id: broadcastId,
-          direction: "outgoing",
-        });
-      } catch {
-        failed++;
-        await supabaseAdmin.from("message_log").insert({
-          ...tenantPayload(tenantId),
-          patient_id: target.patient_id,
-          line_uid: target.line_id,
-          event_type: "message",
-          message_type: "broadcast",
-          content: resolved,
-          status: "failed",
-          campaign_id: broadcastId,
-          direction: "outgoing",
-        });
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < group.length; i += BATCH_SIZE) {
+      const batch = group.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (target) => {
+          const resolved = resolveMsg(message, target);
+          let status = "failed";
+          try {
+            const res = await pushMessage(target.line_id!, [{ type: "text", text: resolved }], tenantId ?? undefined);
+            status = res?.ok ? "sent" : "failed";
+          } catch {
+            // status remains "failed"
+          }
+          await supabaseAdmin.from("message_log").insert({
+            ...tenantPayload(tenantId),
+            patient_id: target.patient_id,
+            line_uid: target.line_id,
+            event_type: "message",
+            message_type: "broadcast",
+            content: resolved,
+            status,
+            campaign_id: broadcastId,
+            direction: "outgoing",
+          });
+          return status === "sent";
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) sent++;
+        else failed++;
       }
     }
     return { sent, failed };

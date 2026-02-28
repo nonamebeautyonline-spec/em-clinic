@@ -289,7 +289,7 @@ describe("患者一括アクション API", () => {
       };
       mockResultsByTable["patient_tags"] = { data: null, error: null };
       mockResultsByTable["message_log"] = { data: null, error: null };
-      mockResultsByTable["tag_definitions"] = { data: { name: "VIP" }, error: null };
+      mockResultsByTable["tag_definitions"] = { data: [{ id: 5, name: "VIP" }], error: null };
 
       const res = await POST(createReq({ patient_ids: ["P001"], action_id: 4 }));
       const body = await res.json();
@@ -317,7 +317,7 @@ describe("患者一括アクション API", () => {
       };
       mockResultsByTable["patient_tags"] = { data: null, error: null };
       mockResultsByTable["message_log"] = { data: null, error: null };
-      mockResultsByTable["tag_definitions"] = { data: { name: "VIP" }, error: null };
+      mockResultsByTable["tag_definitions"] = { data: [{ id: 5, name: "VIP" }], error: null };
 
       const res = await POST(createReq({ patient_ids: ["P001"], action_id: 5 }));
       const body = await res.json();
@@ -415,7 +415,7 @@ describe("患者一括アクション API", () => {
       };
       mockResultsByTable["message_log"] = { data: null, error: null };
       mockResultsByTable["patient_tags"] = { data: null, error: null };
-      mockResultsByTable["tag_definitions"] = { data: { name: "通知済み" }, error: null };
+      mockResultsByTable["tag_definitions"] = { data: [{ id: 10, name: "通知済み" }], error: null };
 
       const res = await POST(createReq({ patient_ids: ["P001"], action_id: 8 }));
       const body = await res.json();
