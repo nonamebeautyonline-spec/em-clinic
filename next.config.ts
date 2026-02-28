@@ -36,10 +36,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://sandbox.web.squarecdn.com https://web.squarecdn.com",
+              "font-src 'self' https://fonts.gstatic.com https://square-fonts-production-f.squarecdn.com https://d1g145x70srn7h.cloudfront.net",
               "img-src 'self' data: blob: https: http:",
-              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://connect.squareupsandbox.com https://api.squareup.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com https://web.squarecdn.com https://sandbox.web.squarecdn.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io https://*.l-ope.jp https://api.anthropic.com",
+              "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://connect.squareupsandbox.com https://api.squareup.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com https://web.squarecdn.com https://sandbox.web.squarecdn.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io https://o160250.ingest.sentry.io https://*.l-ope.jp https://api.anthropic.com",
               "frame-src 'self' https://js.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com",
               "base-uri 'self'",
               "form-action 'self'",
