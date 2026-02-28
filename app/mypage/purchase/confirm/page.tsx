@@ -207,22 +207,25 @@ function PurchaseConfirmContent() {
     fetchIdentity();
   }, []);
 
-  // SDK設定 + 保存済みカード情報を取得
+  // SDK設定を取得（1クエリに最適化済み、高速）
   useEffect(() => {
-    Promise.all([
-      fetch("/api/square/sdk-config", { credentials: "include" }).then((r) => r.json()),
-      fetch("/api/square/saved-card", { credentials: "include" }).then((r) => r.json()),
-    ])
-      .then(([config, card]: [SdkConfig, SavedCard]) => {
-        setSdkConfig(config);
+    fetch("/api/square/sdk-config", { credentials: "include" })
+      .then((r) => r.json())
+      .then((config: SdkConfig) => setSdkConfig(config))
+      .catch(() => setSdkConfig({ enabled: false }));
+  }, []);
+
+  // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
+  useEffect(() => {
+    if (!showCardForm || savedCard !== null) return;
+    fetch("/api/square/saved-card", { credentials: "include" })
+      .then((r) => r.json())
+      .then((card: SavedCard) => {
         setSavedCard(card);
         if (card?.hasCard) setPaymentMode("saved_card");
       })
-      .catch(() => {
-        setSdkConfig({ enabled: false });
-        setSavedCard({ hasCard: false });
-      });
-  }, []);
+      .catch(() => setSavedCard({ hasCard: false }));
+  }, [showCardForm, savedCard]);
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode") as Mode | null;
