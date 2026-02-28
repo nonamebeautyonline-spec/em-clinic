@@ -152,6 +152,8 @@ function PurchaseConfirmContent() {
     phone: "",
     email: "",
   });
+  const [autoAddress, setAutoAddress] = useState(""); // 郵便番号から自動入力された住所
+  const [addressDetail, setAddressDetail] = useState(""); // 番地・建物名等の手動入力
 
   // 郵便番号から住所自動入力
   const handlePostalCodeChange = useCallback(async (value: string) => {
@@ -163,18 +165,20 @@ function PurchaseConfirmContent() {
         const data = await res.json();
         if (data.results?.[0]) {
           const r = data.results[0];
-          const addr = `${r.address1}${r.address2}${r.address3}`;
-          setShipping((s) => ({ ...s, address: addr }));
+          setAutoAddress(`${r.address1}${r.address2}${r.address3}`);
         }
       } catch { /* API失敗時は手入力 */ }
     }
   }, []);
 
+  // autoAddress + addressDetail を統合して shipping.address に反映
+  const fullAddress = `${autoAddress}${addressDetail}`.trim();
+
   const isInline = sdkConfig?.enabled === true;
   const shippingValid =
     shipping.name.trim() !== "" &&
     shipping.postalCode.trim() !== "" &&
-    shipping.address.trim() !== "" &&
+    fullAddress !== "" &&
     shipping.phone.trim() !== "" &&
     shipping.email.trim() !== "";
 
@@ -307,7 +311,7 @@ function PurchaseConfirmContent() {
             patientId,
             reorderId: reorderIdParam ?? null,
             saveCard: true,
-            shipping,
+            shipping: { ...shipping, address: fullAddress },
           }),
         });
 
@@ -319,7 +323,7 @@ function PurchaseConfirmContent() {
         setSubmitting(false);
       }
     },
-    [product, patientId, modeParam, reorderIdParam, shipping, shippingValid, router],
+    [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router],
   );
 
   // 新規カードの nonce 受取
@@ -527,14 +531,24 @@ function PurchaseConfirmContent() {
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-0.5">住所</label>
-                    <input
-                      type="text"
-                      value={shipping.address}
-                      onChange={(e) => setShipping((s) => ({ ...s, address: e.target.value }))}
-                      disabled={submitting}
-                      placeholder="東京都渋谷区..."
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
-                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={autoAddress}
+                        readOnly
+                        tabIndex={-1}
+                        placeholder="都道府県市区町村"
+                        className="w-1/2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[12px] text-slate-700 placeholder:text-slate-300"
+                      />
+                      <input
+                        type="text"
+                        value={addressDetail}
+                        onChange={(e) => setAddressDetail(e.target.value)}
+                        disabled={submitting}
+                        placeholder="番地・建物名・部屋番号"
+                        className="w-1/2 rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-500 block mb-0.5">電話番号</label>

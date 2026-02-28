@@ -18,7 +18,8 @@ function ShippingFormContent() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [address, setAddress] = useState("");
+  const [autoAddress, setAutoAddress] = useState("");
+  const [addressDetail, setAddressDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,16 +33,18 @@ function ShippingFormContent() {
         const data = await res.json();
         if (data.results?.[0]) {
           const r = data.results[0];
-          setAddress(`${r.address1}${r.address2}${r.address3}`);
+          setAutoAddress(`${r.address1}${r.address2}${r.address3}`);
         }
       } catch { /* API失敗時は手入力 */ }
     }
   }, []);
 
+  const fullAddress = `${autoAddress}${addressDetail}`.trim();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!accountName.trim() || !shippingName.trim() || !phoneNumber.trim() || !email.trim() || !postalCode.trim() || !address.trim()) {
+    if (!accountName.trim() || !shippingName.trim() || !phoneNumber.trim() || !email.trim() || !postalCode.trim() || !fullAddress) {
       setError("すべての項目を入力してください。");
       return;
     }
@@ -69,7 +72,7 @@ function ShippingFormContent() {
           phoneNumber,
           email,
           postalCode,
-          address,
+          address: fullAddress,
         }),
       });
 
@@ -196,22 +199,32 @@ function ShippingFormContent() {
           {/* 住所 */}
           <div>
             <label
-              htmlFor="address"
+              htmlFor="addressDetail"
               className="block text-sm font-semibold text-slate-900 mb-2"
             >
               住所
             </label>
-            <textarea
-              id="address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="例: 東京都千代田区丸の内1-1-1 ○○ビル101号室"
-              rows={4}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500 resize-none"
-              disabled={submitting}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={autoAddress}
+                readOnly
+                tabIndex={-1}
+                placeholder="都道府県市区町村"
+                className="w-1/2 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400"
+              />
+              <input
+                type="text"
+                id="addressDetail"
+                value={addressDetail}
+                onChange={(e) => setAddressDetail(e.target.value)}
+                placeholder="番地・建物名・部屋番号"
+                className="w-1/2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                disabled={submitting}
+              />
+            </div>
             <p className="mt-1 text-[10px] text-slate-500">
-              ※ 都道府県から建物名・部屋番号まで正確に入力してください
+              ※ 郵便番号を入力すると都道府県・市区町村が自動入力されます
             </p>
           </div>
 

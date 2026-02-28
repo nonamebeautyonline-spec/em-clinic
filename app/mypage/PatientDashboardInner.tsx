@@ -1321,7 +1321,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
                       </div>
                     )}
                     <div className="text-[15px] font-medium text-slate-900">
-                      {order.productName}
+                      {PRODUCT_LABELS[order.productCode] || order.productName || order.productCode}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                       <div className="flex items-center gap-1">
@@ -1596,7 +1596,7 @@ onClick={() => handleOpenTracking(order)}
                       </div>
 
                       <div className="text-sm font-medium text-slate-900">
-                        {o.productName}
+                        {PRODUCT_LABELS[o.productCode] || o.productName || o.productCode}
                       </div>
 
                       {isRefunded && (
