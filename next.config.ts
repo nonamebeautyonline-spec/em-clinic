@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https: http:",
               "connect-src 'self' https://*.supabase.co https://api.line.me https://connect.squareup.com https://connect.squareupsandbox.com https://api.squareup.com https://pci-connect.squareup.com https://*.upstash.io https://*.sentry.io https://*.ingest.sentry.io https://*.l-ope.jp https://api.anthropic.com",
-              "frame-src 'self' https://js.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com",
+              "frame-src 'self' https://js.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com https://pci-connect.squareup.com https://pci-connect.squareupsandbox.com",
               "base-uri 'self'",
               "form-action 'self'",
             ].join("; "),
