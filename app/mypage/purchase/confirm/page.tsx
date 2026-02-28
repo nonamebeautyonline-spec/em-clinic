@@ -1,9 +1,40 @@
 // app/mypage/purchase/confirm/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react";
+import React, { useMemo, useState, useEffect, useCallback, Suspense, Component, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
+
+// SquareCardForm 用エラーバウンダリ（グローバル error.tsx の前にキャッチ）
+class CardFormErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-xl border-2 border-red-400 bg-red-50 p-4 space-y-2">
+          <p className="text-[12px] font-bold text-red-700">
+            カードフォームでエラーが発生しました
+          </p>
+          <pre className="text-[10px] text-red-600 whitespace-pre-wrap break-all bg-white rounded p-2 border">
+            {this.state.error.message}
+            {"\n\n"}
+            {this.state.error.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 
 type ProductCode =
@@ -552,14 +583,16 @@ function PurchaseConfirmContent() {
 
               {/* 新規カード入力（Web Payments SDK） */}
               {paymentMode === "new_card" && sdkConfig?.applicationId && sdkConfig?.locationId && (
-                <SquareCardForm
-                  applicationId={sdkConfig.applicationId}
-                  locationId={sdkConfig.locationId}
-                  environment={sdkConfig.environment || "production"}
-                  onTokenize={handleNonceReady}
-                  onError={handleCardFormError}
-                  disabled={submitting || !patientId || !shippingValid}
-                />
+                <CardFormErrorBoundary>
+                  <SquareCardForm
+                    applicationId={sdkConfig.applicationId}
+                    locationId={sdkConfig.locationId}
+                    environment={sdkConfig.environment || "production"}
+                    onTokenize={handleNonceReady}
+                    onError={handleCardFormError}
+                    disabled={submitting || !patientId || !shippingValid}
+                  />
+                </CardFormErrorBoundary>
               )}
             </div>
           ) : (
