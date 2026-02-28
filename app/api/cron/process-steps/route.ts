@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { withTenant, tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
 
 export const runtime = "nodejs";
@@ -11,6 +11,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  // Vercel Cron認証
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // 排他制御: 同時実行を防止
   const lock = await acquireLock("cron:process-steps", 55);
   if (!lock.acquired) {
@@ -18,20 +25,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tenantId = resolveTenantId(req);
     const now = new Date().toISOString();
 
-    // 送信予定時刻が過ぎたアクティブな enrollment を取得（最大50件）
-    const { data: enrollments, error } = await withTenant(
-      supabaseAdmin
-        .from("step_enrollments")
-        .select("*, step_scenarios!inner(name, is_enabled)")
-        .eq("status", "active")
-        .not("next_send_at", "is", null)
-        .lte("next_send_at", now)
-        .limit(50),
-      tenantId
-    );
+    // 送信予定時刻が過ぎたアクティブな enrollment を全テナント横断で取得（最大50件）
+    const { data: enrollments, error } = await supabaseAdmin
+      .from("step_enrollments")
+      .select("*, step_scenarios!inner(name, is_enabled)")
+      .eq("status", "active")
+      .not("next_send_at", "is", null)
+      .lte("next_send_at", now)
+      .limit(50);
 
     if (error) {
       console.error("[process-steps] query error:", error.message);
@@ -46,6 +49,9 @@ export async function GET(req: NextRequest) {
     let errors = 0;
 
     for (const enrollment of enrollments) {
+      // 各enrollmentが持つ tenant_id を使用
+      const tenantId: string | null = enrollment.tenant_id || null;
+
       try {
         // シナリオが無効化されていたらスキップ
         if (!enrollment.step_scenarios?.is_enabled) {

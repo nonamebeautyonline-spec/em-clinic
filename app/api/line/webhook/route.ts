@@ -803,11 +803,13 @@ async function checkAndReplyKeyword(
     console.log(`[webhook] keyword auto-reply matched: rule=${rule.name}, keyword=${rule.keyword}`);
 
     // トリガー回数をインクリメント（fire-and-forget）
-    supabaseAdmin
-      .from("keyword_auto_replies")
-      .update({ trigger_count: (rule.trigger_count || 0) + 1, last_triggered_at: new Date().toISOString() })
-      .eq("id", rule.id)
-      .then(() => {});
+    withTenant(
+      supabaseAdmin
+        .from("keyword_auto_replies")
+        .update({ trigger_count: (rule.trigger_count || 0) + 1, last_triggered_at: new Date().toISOString() })
+        .eq("id", rule.id),
+      tenantId
+    ).then(() => {});
 
     if (rule.reply_type === "text" && rule.reply_text) {
       // 変数置換

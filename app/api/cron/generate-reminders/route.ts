@@ -20,6 +20,13 @@ export const maxDuration = 60;
 const BATCH_SIZE = 10;
 
 export async function GET(req: NextRequest) {
+  // Vercel Cron認証
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   // 排他制御: 同時実行を防止
   const lock = await acquireLock("cron:generate-reminders", 55);
   if (!lock.acquired) {

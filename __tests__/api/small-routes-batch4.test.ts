@@ -207,7 +207,9 @@ describe("cron/generate-reminders", () => {
     chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
-    const req = makeReq("http://localhost:3000/api/cron/generate-reminders");
+    const req = makeReq("http://localhost:3000/api/cron/generate-reminders", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    });
     const res = await GET(req);
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -220,7 +222,9 @@ describe("cron/generate-reminders", () => {
     chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "DB error" } }));
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
-    const req = makeReq("http://localhost:3000/api/cron/generate-reminders");
+    const req = makeReq("http://localhost:3000/api/cron/generate-reminders", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    });
     const res = await GET(req);
     expect(res.status).toBe(500);
   });
@@ -230,16 +234,22 @@ describe("cron/generate-reminders", () => {
 // 2. cron/collect-line-stats
 // ============================================================
 describe("cron/collect-line-stats", () => {
-  it("正常系: 既に収集済みの場合 skipped=true を返す", async () => {
+  it("正常系: 既に収集済みの場合 skipped=1 を返す", async () => {
+    // テナント一覧
+    const tenantsChain = getOrCreateChain("tenants");
+    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: [{ id: "test-tenant" }], error: null }));
+    // 既存データあり
     const chain = getOrCreateChain("line_daily_stats");
     chain.then = vi.fn((resolve: any) => resolve({ data: { id: "existing" }, error: null }));
 
     const { GET } = await import("@/app/api/cron/collect-line-stats/route");
-    const req = makeReq("http://localhost:3000/api/cron/collect-line-stats");
+    const req = makeReq("http://localhost:3000/api/cron/collect-line-stats", {
+      headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+    });
     const res = await GET(req);
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json.skipped).toBe(true);
+    expect(json.skipped).toBe(1);
   });
 });
 

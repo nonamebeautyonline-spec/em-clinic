@@ -29,9 +29,8 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  resolveTenantId: vi.fn(() => "test-tenant"),
   withTenant: vi.fn((q: any) => q),
-  tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
+  tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 vi.mock("@/lib/line-push", () => ({
@@ -118,6 +117,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テストシナリオ", is_enabled: false },
       };
 
@@ -149,6 +149,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 99,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テストシナリオ", is_enabled: true },
       };
 
@@ -185,6 +186,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -225,6 +227,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -257,6 +260,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -296,6 +300,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -329,6 +334,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -362,6 +368,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -397,6 +404,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123abc",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -439,6 +447,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: null,
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -471,6 +480,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U999",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -512,6 +522,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -557,6 +568,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -591,6 +603,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -627,6 +640,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -663,6 +677,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
@@ -752,6 +767,7 @@ describe("GET /api/cron/process-steps", () => {
         scenario_id: "scn-1",
         current_step_order: 1,
         line_uid: "U123",
+        tenant_id: "test-tenant",
         step_scenarios: { name: "テスト", is_enabled: true },
       };
 
