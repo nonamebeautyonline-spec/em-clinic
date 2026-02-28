@@ -23,7 +23,8 @@ DECLARE
     'admin_sessions', 'coupons', 'coupon_issues',
     'intake_form_definitions', 'reminder_rules', 'reminder_sent_log',
     'line_daily_stats', 'nps_surveys', 'nps_responses',
-    'inventory_logs', 'audit_logs', 'bank_transfer_orders'
+    'inventory_logs', 'audit_logs', 'bank_transfer_orders',
+    'friend_summaries'
   ];
   t TEXT;
   row_count INTEGER;

@@ -291,7 +291,9 @@ async function logEvent(params: {
   tenantId?: string | null;
   keyword_reply_id?: number | null;
 }) {
-  await supabaseAdmin.from("message_log").insert({
+  // keyword_reply_id はカラム未作成時にINSERT全体が失敗するため、
+  // 値がある場合のみペイロードに含める（カラム追加後は常に含めてOK）
+  const payload: Record<string, unknown> = {
     ...tenantPayload(params.tenantId ?? null),
     patient_id: params.patient_id || null,
     line_uid: params.line_uid,
@@ -301,8 +303,11 @@ async function logEvent(params: {
     content: params.content,
     status: params.status,
     postback_data: params.postback_data || null,
-    keyword_reply_id: params.keyword_reply_id || null,
-  });
+  };
+  if (params.keyword_reply_id) {
+    payload.keyword_reply_id = params.keyword_reply_id;
+  }
+  await supabaseAdmin.from("message_log").insert(payload);
 }
 
 // =================================================================
