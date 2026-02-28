@@ -1,4 +1,5 @@
 // app/api/square/pay/route.ts — アプリ内決済（Web Payments SDK）
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -9,6 +10,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { inlinePaySchema } from "@/lib/validations/square-pay";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import {
   ensureSquareCustomer,
   saveCardOnFile,
@@ -35,6 +37,37 @@ export async function POST(req: NextRequest) {
 
     if (!cookiePatientId || cookiePatientId !== patientId) {
       return NextResponse.json({ error: "認証情報が一致しません" }, { status: 403 });
+    }
+
+    // レート制限（同一患者: 5分に5回、同一IP: 5分に10回）
+    const ip = getClientIp(req);
+    const [patientLimit, ipLimit] = await Promise.all([
+      checkRateLimit(`square-pay:patient:${patientId}`, 5, 300),
+      checkRateLimit(`square-pay:ip:${ip}`, 10, 300),
+    ]);
+    if (patientLimit.limited || ipLimit.limited) {
+      return NextResponse.json(
+        { error: "決済リクエストが多すぎます。しばらくしてから再度お試しください。" },
+        { status: 429 },
+      );
+    }
+
+    // 二重決済防止: 直近60秒以内の同一患者・同一商品の注文チェック
+    const { data: recentOrder } = await withTenant(
+      supabaseAdmin
+        .from("orders")
+        .select("id")
+        .eq("patient_id", patientId)
+        .eq("product_code", productCode)
+        .gte("paid_at", new Date(Date.now() - 60_000).toISOString())
+        .limit(1),
+      tenantId,
+    ).maybeSingle();
+    if (recentOrder) {
+      return NextResponse.json(
+        { error: "直前に同じ決済が処理されています。マイページで注文状況をご確認ください。" },
+        { status: 409 },
+      );
     }
 
     // NG患者チェック（既存 checkout と同じロジック）
@@ -99,16 +132,26 @@ export async function POST(req: NextRequest) {
       // カード保存失敗時はnonceで直接決済（フォールバック）
     } else if (!isNonce) {
       // 2回目以降: card_id で直接決済
-      // customer_id を取得（決済精度向上のため）
+      // customer_id 取得 + カードID所有権検証
       const { data: patient } = await withTenant(
         supabaseAdmin
           .from("patients")
-          .select("square_customer_id")
+          .select("square_customer_id, square_card_id")
           .eq("patient_id", patientId),
         tenantId,
       ).maybeSingle();
       customerId = patient?.square_customer_id ?? undefined;
+      // 保存済みカードIDが当該患者のものか検証
+      if (patient?.square_card_id !== sourceId) {
+        return NextResponse.json({ error: "無効なカード情報です" }, { status: 403 });
+      }
     }
+
+    // 冪等性キー: 患者+商品+分単位で決定的に生成（二重クリック防止）
+    const idempotencyKey = crypto
+      .createHash("sha256")
+      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 60000)}`)
+      .digest("hex");
 
     // Payments API 実行
     const payResult = await createSquarePayment(baseUrl, accessToken, {
@@ -117,6 +160,7 @@ export async function POST(req: NextRequest) {
       locationId,
       note: paymentNote,
       customerId,
+      idempotencyKey,
     });
 
     if (!payResult.ok) {

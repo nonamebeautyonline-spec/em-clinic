@@ -102,4 +102,25 @@ describe("inlinePaySchema", () => {
     const result = inlinePaySchema.safeParse({ ...validInput, sourceId: "ccof:CARD_ID_456" });
     expect(result.success).toBe(true);
   });
+
+  it("cnon:/ccof: 以外のsourceIdでエラー", () => {
+    const result = inlinePaySchema.safeParse({ ...validInput, sourceId: "invalid:TOKEN" });
+    expect(result.success).toBe(false);
+  });
+
+  it("郵便番号のフォーマット不正でエラー", () => {
+    const result = inlinePaySchema.safeParse({
+      ...validInput,
+      shipping: { ...validInput.shipping, postalCode: "abc" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("郵便番号ハイフンなしでもパスする", () => {
+    const result = inlinePaySchema.safeParse({
+      ...validInput,
+      shipping: { ...validInput.shipping, postalCode: "1600023" },
+    });
+    expect(result.success).toBe(true);
+  });
 });

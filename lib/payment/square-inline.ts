@@ -119,10 +119,13 @@ export async function createSquarePayment(
     locationId: string;
     note: string;
     customerId?: string;
+    idempotencyKey?: string;
   },
 ): Promise<{ ok: boolean; payment?: any; error?: string }> {
+  // 冪等性キー: 呼び出し元から渡された場合はそれを使用（二重決済防止）
+  const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
   const { ok, json } = await squareFetch(baseUrl, "/v2/payments", "POST", accessToken, {
-    idempotency_key: crypto.randomUUID(),
+    idempotency_key: idempotencyKey,
     source_id: params.sourceId,
     amount_money: { amount: params.amount, currency: "JPY" },
     location_id: params.locationId,
