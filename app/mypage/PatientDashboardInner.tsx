@@ -28,6 +28,7 @@ interface Reservation {
 
 interface Order {
   id: string;
+  productCode?: string;
   productName: string;
   shippingStatus: ShippingStatus;
   shippingEta?: string;
