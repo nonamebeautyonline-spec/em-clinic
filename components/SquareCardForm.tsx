@@ -42,12 +42,14 @@ export default function SquareCardForm({
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [sdkLoaded, setSdkLoaded] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>("SDK読み込み中...");
 
   // SDK スクリプト動的ロード
   useEffect(() => {
     const scriptId = "square-web-payments-sdk";
     if (document.getElementById(scriptId)) {
       setSdkLoaded(true);
+      setDebugInfo("SDK既にロード済み");
       return;
     }
 
@@ -57,8 +59,14 @@ export default function SquareCardForm({
       environment === "sandbox"
         ? "https://sandbox.web.squarecdn.com/v1/square.js"
         : "https://web.squarecdn.com/v1/square.js";
-    script.onload = () => setSdkLoaded(true);
-    script.onerror = () => onError("Square SDK の読み込みに失敗しました");
+    script.onload = () => {
+      setSdkLoaded(true);
+      setDebugInfo("SDKロード完了。初期化中...");
+    };
+    script.onerror = () => {
+      setDebugInfo("SDKスクリプト読み込み失敗");
+      onError("Square SDK の読み込みに失敗しました");
+    };
     document.head.appendChild(script);
   }, [environment, onError]);
 
@@ -70,15 +78,24 @@ export default function SquareCardForm({
 
     (async () => {
       try {
+        setDebugInfo(`payments() 呼び出し中... appId=${applicationId.slice(0, 10)}...`);
         const payments = await window.Square!.payments(applicationId, locationId);
+        setDebugInfo("payments() 成功。card() 呼び出し中...");
+
         const card = await payments.card();
         if (cancelled) return;
+        setDebugInfo("card() 成功。attach() 呼び出し中...");
+
         await card.attach(containerRef.current!);
         cardRef.current = card;
         setLoading(false);
+        setDebugInfo("初期化完了 ✓");
       } catch (e: any) {
         if (!cancelled) {
-          onError(e?.message || "カードフォームの初期化に失敗しました");
+          const errMsg = e?.message || "不明なエラー";
+          const errType = e?.constructor?.name || "Error";
+          setDebugInfo(`初期化失敗: [${errType}] ${errMsg}`);
+          onError(`カードフォーム初期化エラー: ${errMsg}`);
         }
       }
     })();
@@ -100,7 +117,7 @@ export default function SquareCardForm({
       if (result.status === "OK") {
         onTokenize(result.token);
       } else {
-        onError("カード情報の検証に失敗しました。入力内容をご確認ください。");
+        onError(`カード検証失敗: status=${result.status}`);
       }
     } catch (e: any) {
       onError(e?.message || "カード情報の処理中にエラーが発生しました");
@@ -110,6 +127,11 @@ export default function SquareCardForm({
   return (
     <div className="space-y-3">
       <p className="text-[11px] font-medium text-slate-700">カード情報を入力</p>
+
+      {/* デバッグ情報（問題特定後に削除） */}
+      <p className="text-[9px] text-blue-500 bg-blue-50 rounded px-2 py-1 font-mono">
+        [DEBUG] {debugInfo}
+      </p>
 
       <div
         ref={containerRef}
