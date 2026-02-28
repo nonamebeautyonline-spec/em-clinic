@@ -122,18 +122,13 @@ export default function SquareCardForm({
       {/* ヘッダー: ラベル + Squareロゴ */}
       <div className="flex items-center justify-between">
         <p className="text-[11px] font-medium text-slate-700">カード情報を入力</p>
-        <div className="flex items-center gap-1.5 text-slate-400">
+        <div className="flex items-center gap-1 text-slate-400">
           <span className="text-[9px]">powered by</span>
-          <svg className="h-[14px] w-auto" viewBox="0 0 56 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="#006AFF" stroke="#006AFF"/>
+          <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none">
+            <rect width="16" height="16" rx="4" fill="#006AFF"/>
             <rect x="4" y="4" width="8" height="8" rx="1.5" fill="white"/>
-            <path d="M22.5 4.5h2.8c1.7 0 2.7.8 2.7 2.2 0 1-.5 1.7-1.4 2l1.6 3.3h-1.8l-1.3-3h-1v3h-1.6V4.5zm2.6 3.2c.8 0 1.3-.4 1.3-1 0-.7-.5-1-1.3-1h-1v2h1z" fill="#0E1B2A"/>
-            <path d="M20.2 8.7c0-.6-.4-.9-1.2-1.1l-.9-.2c-.4-.1-.6-.2-.6-.5 0-.3.3-.5.7-.5.5 0 .8.2.9.5h1.5c-.1-1.1-.9-1.8-2.3-1.8-1.3 0-2.3.7-2.3 1.8 0 1 .7 1.5 1.7 1.7l.7.2c.5.1.6.3.6.5 0 .3-.3.5-.8.5-.6 0-.9-.3-1-.6h-1.5c.1 1.1 1 1.9 2.5 1.9 1.4 0 2.3-.8 2.3-1.8l-.3-.6z" fill="#0E1B2A"/>
-            <path d="M35.1 12h-1.6V8.7c0-.7-.3-1.1-.9-1.1-.6 0-1 .5-1 1.1V12h-1.6V5.2h1.5v.6c.4-.5 1-.7 1.6-.7 1.2 0 2 .9 2 2.3V12z" fill="#0E1B2A"/>
-            <path d="M41.3 5.2V12h-1.5v-.6c-.4.5-1 .7-1.6.7-1.4 0-2.5-1.2-2.5-2.8 0-1.6 1.1-2.8 2.5-2.8.6 0 1.1.2 1.5.6v-.5l1.6.4zm-1.6 4.1c0-.9-.6-1.5-1.3-1.5-.8 0-1.3.6-1.3 1.5s.5 1.5 1.3 1.5c.7 0 1.3-.6 1.3-1.5z" fill="#0E1B2A"/>
-            <path d="M42.4 9.3c0-1.6 1.2-2.8 2.8-2.8.9 0 1.6.4 2 .9V5.2H48v6.9c0 1.8-1.2 2.9-2.9 2.9-1.5 0-2.6-.9-2.7-2.1h1.5c.1.5.5.8 1.2.8.7 0 1.3-.5 1.3-1.4v-.5c-.4.5-1 .8-1.7.8-1.5 0-2.7-1.2-2.7-2.8l.4-.5zm1.7 0c0 .8.6 1.4 1.3 1.4.7 0 1.3-.6 1.3-1.4 0-.9-.6-1.5-1.3-1.5-.7 0-1.3.6-1.3 1.5z" fill="#0E1B2A"/>
-            <path d="M53.8 5.2V12h-1.5v-.6c-.4.5-.9.7-1.5.7-1.2 0-2-.9-2-2.3V5.2h1.6v4.3c0 .6.3 1 .9 1 .6 0 1-.5 1-1.1V5.2h1.5z" fill="#0E1B2A"/>
           </svg>
+          <span className="text-[10px] font-semibold text-slate-500">Square</span>
         </div>
       </div>
 

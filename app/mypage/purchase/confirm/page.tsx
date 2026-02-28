@@ -143,6 +143,7 @@ function PurchaseConfirmContent() {
   // inline決済用 state
   const [sdkConfig, setSdkConfig] = useState<SdkConfig | null>(null);
   const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
+  const [showCardForm, setShowCardForm] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"saved_card" | "new_card">("new_card");
   const [shipping, setShipping] = useState<ShippingData>({
     name: "",
@@ -412,8 +413,74 @@ function PurchaseConfirmContent() {
           {/* sdkConfig読み込み中は決済ボタンを表示しない */}
           {sdkConfig === null ? (
             <p className="text-[11px] text-slate-400 py-4 text-center">決済方法を読み込み中...</p>
-          ) : isInline ? (
+          ) : !showCardForm ? (
+            /* ===== 決済方法選択ボタン（初期画面） ===== */
+            <>
+              {isInline ? (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={!patientId}
+                    onClick={() => setShowCardForm(true)}
+                    className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                  >
+                    クレジットカードで決済
+                  </button>
+                  <p className="text-[10px] text-slate-500 px-2">
+                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={submitting || !patientId}
+                    onClick={handleSubmit}
+                    className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                  >
+                    {submitting ? "決済画面を準備しています..." : "クレジットカードで決済"}
+                  </button>
+                  <p className="text-[10px] text-slate-500 px-2">
+                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                  </p>
+                </div>
+              )}
+
+              {/* 銀行振込 */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={!patientId || !product}
+                  onClick={() => {
+                    const params = new URLSearchParams({ code: product?.code || "" });
+                    if (modeParam) params.append("mode", modeParam);
+                    if (reorderIdParam) params.append("reorder_id", reorderIdParam);
+                    router.push(`/mypage/purchase/bank-transfer?${params.toString()}`);
+                  }}
+                  className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                >
+                  銀行振込で決済
+                </button>
+                <p className="text-[10px] text-slate-500 px-2">
+                  金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
+                </p>
+              </div>
+            </>
+          ) : (
+            /* ===== カード入力フォーム（クレカ選択後） ===== */
             <div className="space-y-4">
+              {/* 戻るリンク */}
+              <button
+                type="button"
+                onClick={() => setShowCardForm(false)}
+                className="text-[11px] text-slate-500 flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                決済方法を選び直す
+              </button>
+
               {/* 配送先住所フォーム */}
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 space-y-3">
                 <p className="text-[11px] font-medium text-slate-700">配送先情報</p>
@@ -564,42 +631,7 @@ function PurchaseConfirmContent() {
                 />
               )}
             </div>
-          ) : (
-            /* ===== hosted モード（既存のまま） ===== */
-            <div className="space-y-2">
-              <button
-                type="button"
-                disabled={submitting || !patientId}
-                onClick={handleSubmit}
-                className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
-              >
-                {submitting ? "決済画面を準備しています..." : "クレジットカードで決済"}
-              </button>
-              <p className="text-[10px] text-slate-500 px-2">
-                即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
-              </p>
-            </div>
           )}
-
-          {/* 銀行振込 */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              disabled={!patientId || !product}
-              onClick={() => {
-                const params = new URLSearchParams({ code: product?.code || "" });
-                if (modeParam) params.append("mode", modeParam);
-                if (reorderIdParam) params.append("reorder_id", reorderIdParam);
-                router.push(`/mypage/purchase/bank-transfer?${params.toString()}`);
-              }}
-              className="w-full rounded-full bg-blue-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
-            >
-              銀行振込で決済
-            </button>
-            <p className="text-[10px] text-slate-500 px-2">
-              金曜15時〜月曜9時のお振込みはご利用の銀行次第で反映が翌営業日となる場合があります。振込確認後の発送となります。
-            </p>
-          </div>
 
           {/* 戻るボタン */}
           <button
