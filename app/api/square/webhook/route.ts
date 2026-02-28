@@ -279,11 +279,11 @@ if (reorderId) {
         const order = oRes.ok ? (oRes.json?.orders?.[0] || null) : null;
 
         if (order) {
-          // items
+          // items（nameが空のline_itemはスキップ = inline決済の自動生成order）
           if (Array.isArray(order.line_items) && order.line_items.length) {
             itemsText = order.line_items
-              .map((li: any) => `${li?.name || ""} x ${li?.quantity || "1"}`.trim())
-              .filter(Boolean)
+              .filter((li: any) => li?.name)
+              .map((li: any) => `${li.name} x ${li?.quantity || "1"}`.trim())
               .join(" / ");
           }
 
