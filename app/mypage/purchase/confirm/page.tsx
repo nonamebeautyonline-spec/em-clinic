@@ -431,10 +431,7 @@ function PurchaseConfirmContent() {
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">決済方法を選択</h3>
 
-          {/* sdkConfig読み込み中は決済ボタンを表示しない */}
-          {sdkConfig === null ? (
-            <p className="text-[11px] text-slate-400 py-4 text-center">決済方法を読み込み中...</p>
-          ) : !showCardForm ? (
+          {!showCardForm ? (
             /* ===== 決済方法選択ボタン（初期画面） ===== */
             <>
               {isInline ? (
@@ -545,7 +542,7 @@ function PurchaseConfirmContent() {
                         value={addressDetail}
                         onChange={(e) => setAddressDetail(e.target.value)}
                         disabled={submitting}
-                        placeholder="番地・建物名・部屋番号"
+                        placeholder="丁目以降を入力"
                         className="w-1/2 rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
                       />
                     </div>
