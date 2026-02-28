@@ -1,7 +1,7 @@
 // app/mypage/purchase/bank-transfer/shipping/page.tsx
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function ShippingFormContent() {
@@ -21,6 +21,22 @@ function ShippingFormContent() {
   const [address, setAddress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 郵便番号から住所自動入力
+  const handlePostalCodeChange = useCallback(async (value: string) => {
+    setPostalCode(value);
+    const digits = value.replace(/[^0-9]/g, "");
+    if (digits.length === 7) {
+      try {
+        const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
+        const data = await res.json();
+        if (data.results?.[0]) {
+          const r = data.results[0];
+          setAddress(`${r.address1}${r.address2}${r.address3}`);
+        }
+      } catch { /* API失敗時は手入力 */ }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,8 +185,9 @@ function ShippingFormContent() {
               type="text"
               id="postalCode"
               value={postalCode}
-              onChange={(e) => setPostalCode(e.target.value)}
+              onChange={(e) => handlePostalCodeChange(e.target.value)}
               placeholder="例: 123-4567"
+              inputMode="numeric"
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
               disabled={submitting}
             />

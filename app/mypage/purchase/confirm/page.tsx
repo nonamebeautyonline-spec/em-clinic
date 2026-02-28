@@ -153,6 +153,23 @@ function PurchaseConfirmContent() {
     email: "",
   });
 
+  // 郵便番号から住所自動入力
+  const handlePostalCodeChange = useCallback(async (value: string) => {
+    setShipping((s) => ({ ...s, postalCode: value }));
+    const digits = value.replace(/[^0-9]/g, "");
+    if (digits.length === 7) {
+      try {
+        const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${digits}`);
+        const data = await res.json();
+        if (data.results?.[0]) {
+          const r = data.results[0];
+          const addr = `${r.address1}${r.address2}${r.address3}`;
+          setShipping((s) => ({ ...s, address: addr }));
+        }
+      } catch { /* API失敗時は手入力 */ }
+    }
+  }, []);
+
   const isInline = sdkConfig?.enabled === true;
   const shippingValid =
     shipping.name.trim() !== "" &&
@@ -501,9 +518,10 @@ function PurchaseConfirmContent() {
                     <input
                       type="text"
                       value={shipping.postalCode}
-                      onChange={(e) => setShipping((s) => ({ ...s, postalCode: e.target.value }))}
+                      onChange={(e) => handlePostalCodeChange(e.target.value)}
                       disabled={submitting}
                       placeholder="123-4567"
+                      inputMode="numeric"
                       className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-300 disabled:opacity-60"
                     />
                   </div>
