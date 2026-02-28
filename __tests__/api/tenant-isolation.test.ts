@@ -275,8 +275,8 @@ describe("テナント分離: lib/tenant.ts ユーティリティ", () => {
     expect(src).toContain('.eq("tenant_id"');
   });
 
-  it("tenantPayloadがnull/空文字をnullに正規化", () => {
-    expect(src).toContain("tenantId || null");
+  it("tenantPayloadがnull/空文字をデフォルトテナントIDにフォールバック", () => {
+    expect(src).toContain("tenantId || DEFAULT_TENANT_ID");
   });
 });
 
@@ -393,12 +393,12 @@ describe("テナント分離: tenantPayload 関数の動作検証", () => {
     expect(tenantPayload("abc")).toEqual({ tenant_id: "abc" });
   });
 
-  it("tenantId が null のとき { tenant_id: null } を返す", () => {
-    expect(tenantPayload(null)).toEqual({ tenant_id: null });
+  it("tenantId が null のときデフォルトテナントIDにフォールバック", () => {
+    expect(tenantPayload(null)).toEqual({ tenant_id: "00000000-0000-0000-0000-000000000001" });
   });
 
-  it("tenantId が空文字のとき { tenant_id: null } を返す", () => {
-    expect(tenantPayload("")).toEqual({ tenant_id: null });
+  it("tenantId が空文字のときデフォルトテナントIDにフォールバック", () => {
+    expect(tenantPayload("")).toEqual({ tenant_id: "00000000-0000-0000-0000-000000000001" });
   });
 });
 

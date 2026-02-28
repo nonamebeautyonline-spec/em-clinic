@@ -61,7 +61,8 @@ vi.mock("@/lib/supabase", () => ({
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
   withTenant: vi.fn((q: any) => q),
-  tenantPayload: vi.fn(() => ({ tenant_id: null })),
+  tenantPayload: vi.fn(() => ({ tenant_id: "00000000-0000-0000-0000-000000000001" })),
+  DEFAULT_TENANT_ID: "00000000-0000-0000-0000-000000000001",
 }));
 
 vi.mock("@/lib/redis", () => ({
@@ -262,7 +263,7 @@ describe("LINE Webhook POST API", () => {
       expect(checkFollowTriggerScenarios).toHaveBeenCalledWith(
         "p001",
         "U1234567890",
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -292,7 +293,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: expect.stringContaining("ようこそ！") }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
   });
@@ -323,7 +324,7 @@ describe("LINE Webhook POST API", () => {
       expect(exitAllStepEnrollments).toHaveBeenCalledWith(
         "p001",
         "blocked",
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -403,7 +404,7 @@ describe("LINE Webhook POST API", () => {
         "p001",
         "テスト",
         "こんにちは",
-        null,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -480,7 +481,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "こんにちは！" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
       // AI返信は呼ばれない
       expect(scheduleAiReply).not.toHaveBeenCalled();
@@ -506,7 +507,7 @@ describe("LINE Webhook POST API", () => {
         "テスト",
         "p001",
         "U1234567890",
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
   });
@@ -577,7 +578,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "予約はこちら" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -608,7 +609,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "テンプレメッセージ for テスト" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -963,7 +964,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "予約はこちらからどうぞ！" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
       // キーワードマッチしたのでAI返信は呼ばれない
       expect(scheduleAiReply).not.toHaveBeenCalled();
@@ -997,7 +998,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "番号を受け付けました。" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -1035,7 +1036,7 @@ describe("LINE Webhook POST API", () => {
       expect(pushMessage).toHaveBeenCalledWith(
         "U1234567890",
         [{ type: "text", text: "営業時間は9:00〜18:00です。テスト様" }],
-        undefined,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 
@@ -1120,7 +1121,7 @@ describe("LINE Webhook POST API", () => {
         "Uxxxxxx",
         "AIが生成した返信文です。",
         "p001",
-        null,
+        "00000000-0000-0000-0000-000000000001",
       );
     });
 

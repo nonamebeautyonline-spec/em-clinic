@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply } from "@/lib/ai-reply";
@@ -1471,7 +1471,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- tenantId解決後に各種設定を動的取得 ----
-    const tenantId = resolveTenantId(req);
+    // LINE webhookは外部からのリクエストのため、subdomain解決に失敗する可能性あり
+    // シングルテナント運用中はデフォルトテナントIDにフォールバック
+    const tenantId = resolveTenantId(req) ?? DEFAULT_TENANT_ID;
     const tid = tenantId ?? undefined;
 
     const messagingSecret = await getSettingOrEnv("line", "channel_secret", "LINE_MESSAGING_API_CHANNEL_SECRET", tid);

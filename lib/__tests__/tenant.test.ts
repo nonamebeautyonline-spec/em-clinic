@@ -62,11 +62,11 @@ describe("tenantPayload", () => {
     expect(tenantPayload("tenant_abc")).toEqual({ tenant_id: "tenant_abc" });
   });
 
-  it("tenantIdがnullならtenant_id: nullを含む", () => {
-    expect(tenantPayload(null)).toEqual({ tenant_id: null });
+  it("tenantIdがnullならデフォルトテナントIDにフォールバック", () => {
+    expect(tenantPayload(null)).toEqual({ tenant_id: "00000000-0000-0000-0000-000000000001" });
   });
 
-  it("tenantIdが空文字ならtenant_id: nullを含む", () => {
-    expect(tenantPayload("")).toEqual({ tenant_id: null });
+  it("tenantIdが空文字ならデフォルトテナントIDにフォールバック", () => {
+    expect(tenantPayload("")).toEqual({ tenant_id: "00000000-0000-0000-0000-000000000001" });
   });
 });

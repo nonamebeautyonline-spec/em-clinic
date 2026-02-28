@@ -1,6 +1,9 @@
 // lib/tenant.ts — テナント解決ユーティリティ
 // 既存の lib/products.ts、lib/settings.ts のパターンを共通化
 
+/** デフォルトテナントID（シングルテナント運用時） */
+export const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+
 /**
  * リクエストからテナントIDを解決する
  * 1. middleware.ts が JWT から抽出した x-tenant-id ヘッダー（管理画面）
@@ -46,7 +49,8 @@ export function strictWithTenant<T>(query: T, tenantId: string | null): T {
 /**
  * INSERT用のテナントIDペイロード
  * スプレッド演算子で使う: { ...tenantPayload(tenantId), ...otherFields }
+ * tenantId が null の場合はデフォルトテナントIDを使用（NULLデータの再発防止）
  */
-export function tenantPayload(tenantId: string | null): { tenant_id: string | null } {
-  return { tenant_id: tenantId || null };
+export function tenantPayload(tenantId: string | null): { tenant_id: string } {
+  return { tenant_id: tenantId || DEFAULT_TENANT_ID };
 }
