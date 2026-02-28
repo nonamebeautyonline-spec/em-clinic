@@ -142,7 +142,7 @@ export async function GET(_req: NextRequest) {
       return {
         id: String(o.id ?? ""),
         productCode: String(o.product_code ?? o.productCode ?? ""),
-        productName: String(o.product_name ?? o.productName ?? "") || productNames[o.product_code] || o.product_code || "",
+        productName: productNames[o.product_code] || String(o.product_name ?? o.productName ?? "") || o.product_code || "",
         amount: Number(o.amount) || 0,
         paidAt: toIsoFlexible(paidRaw),
         shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
