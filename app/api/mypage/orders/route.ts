@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getProductNamesMap } from "@/lib/products";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
@@ -112,6 +113,9 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ ok: false, error: "database_error" }, { status: 500 });
     }
 
+    // product_nameがnullの注文用に商品名マップを取得
+    const productNames = await getProductNamesMap(tenantId ?? undefined);
+
     // ordersテーブルから注文データを取得（bank_transfer_ordersは廃止済み）
     const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
       const paidRaw =
@@ -138,7 +142,7 @@ export async function GET(_req: NextRequest) {
       return {
         id: String(o.id ?? ""),
         productCode: String(o.product_code ?? o.productCode ?? ""),
-        productName: String(o.product_name ?? o.productName ?? ""),
+        productName: String(o.product_name ?? o.productName ?? "") || productNames[o.product_code] || o.product_code || "",
         amount: Number(o.amount) || 0,
         paidAt: toIsoFlexible(paidRaw),
         shippingStatus: ((o.shipping_status || o.shippingStatus || "pending") as ShippingStatus) || "pending",
