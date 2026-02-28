@@ -8,6 +8,7 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { checkIdempotency } from "@/lib/idempotency";
 import { markReorderPaid } from "@/lib/payment/square-inline";
+import { getProductByCode } from "@/lib/products";
 
 export const runtime = "nodejs";
 
@@ -335,13 +336,14 @@ if (reorderId) {
 
           if (existingOrder) {
             // 既存の注文がある場合は、shipping情報を保持してその他の情報のみ更新
+            // product_name: インライン決済で既に正しい商品名が入っている場合、空のitemsTextで上書きしない
             const { error } = await withTenant(
               supabaseAdmin
                 .from("orders")
                 .update({
                   patient_id: patientId,
                   product_code: productCode || null,
-                  product_name: itemsText || null,
+                  ...(itemsText ? { product_name: itemsText } : {}),
                   amount: amountText ? parseFloat(amountText) : 0,
                   paid_at: createdAtIso || new Date().toISOString(),
                   payment_status: "COMPLETED",
@@ -366,11 +368,17 @@ if (reorderId) {
             }
           } else {
             // 新規注文の場合はINSERT
+            // itemsTextが空（インライン決済等）の場合、productCodeから商品名を解決
+            let resolvedProductName = itemsText || null;
+            if (!resolvedProductName && productCode) {
+              const p = await getProductByCode(productCode, tid);
+              resolvedProductName = p?.title || productCode;
+            }
             const { error } = await supabaseAdmin.from("orders").insert({
               id: paymentId,
               patient_id: patientId,
               product_code: productCode || null,
-              product_name: itemsText || null,
+              product_name: resolvedProductName,
               amount: amountText ? parseFloat(amountText) : 0,
               paid_at: createdAtIso || new Date().toISOString(),
               shipping_status: "pending",
