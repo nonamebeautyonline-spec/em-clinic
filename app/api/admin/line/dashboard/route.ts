@@ -4,6 +4,30 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
+// LINE Follower IDs API でリアルタイムの有効フォロワー数を取得
+async function getCurrentFollowerCount(token: string): Promise<number | null> {
+  if (!token) return null;
+  try {
+    let count = 0;
+    let next: string | undefined;
+    do {
+      const url = next
+        ? `https://api.line.me/v2/bot/followers/ids?start=${next}&limit=1000`
+        : "https://api.line.me/v2/bot/followers/ids?limit=1000";
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      count += (data.userIds || []).length;
+      next = data.next || undefined;
+    } while (next);
+    return count;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAll(buildQuery: () => any, pageSize = 5000) {
   const all: any[] = [];
   let offset = 0;
@@ -57,15 +81,24 @@ export async function GET(req: NextRequest) {
     dates.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
   }
 
-  const dailyResults = await Promise.all(dates.map(d => fetchFollowerStats(d, lineToken)));
+  // LINE Insight API（過去7日）とリアルタイムフォロワー数を並列取得
+  const [dailyResults, realtimeCount] = await Promise.all([
+    Promise.all(dates.map(d => fetchFollowerStats(d, lineToken))),
+    getCurrentFollowerCount(lineToken),
+  ]);
   const dailyStats = dailyResults.filter(Boolean) as {
     date: string; followers: number; targetedReaches: number; blocks: number;
   }[];
 
-  // 最新（昨日）の統計
-  const stats = dailyStats.length > 0
+  // 最新の統計: リアルタイムフォロワー数があればそちらを優先
+  const insightStats = dailyStats.length > 0
     ? { followers: dailyStats[0].followers, targetedReaches: dailyStats[0].targetedReaches, blocks: dailyStats[0].blocks }
     : { followers: 0, targetedReaches: 0, blocks: 0 };
+  const stats = {
+    followers: realtimeCount ?? insightStats.followers,
+    targetedReaches: insightStats.targetedReaches,
+    blocks: insightStats.blocks,
+  };
 
   // 2. 今月の送信数 + LINE メッセージ残数
   const now = new Date();
@@ -347,11 +380,13 @@ export async function GET(req: NextRequest) {
     blocksDaily: r.blocks_daily || 0,
   })).reverse(); // 降順（新しい日付が先頭）
 
-  // 有効友だち数・ブロック累積を最新推定値で更新
-  const latestRow = allRows.length > 0 ? allRows[allRows.length - 1] : null;
-  if (latestRow) {
-    stats.followers = latestRow.followers;
-    stats.blocks = latestRow.blocks;
+  // リアルタイム数がない場合のみ、最新推定値でフォールバック
+  if (realtimeCount == null) {
+    const latestRow = allRows.length > 0 ? allRows[allRows.length - 1] : null;
+    if (latestRow) {
+      stats.followers = latestRow.followers;
+      stats.blocks = latestRow.blocks;
+    }
   }
 
   // LINE メッセージ残数
