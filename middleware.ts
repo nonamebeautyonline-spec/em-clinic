@@ -212,7 +212,8 @@ export async function middleware(req: NextRequest) {
       }
 
       // サブドメインが存在するのにテナント解決失敗 → 404
-      if (!tenantId) {
+      // ただし Cron / webhook / 患者向けAPIはテナント不要で動作するためスキップ
+      if (!tenantId && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/line/webhook") && !pathname.startsWith("/api/health")) {
         return NextResponse.json(
           { ok: false, error: "テナントが見つかりません" },
           { status: 404 },
