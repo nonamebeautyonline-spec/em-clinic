@@ -75,6 +75,57 @@ type Val = { box_count: number; shipped_count: number; received_count: number; n
 type ValMap = Record<string, Val>;
 type MainTab = "journal" | "ledger";
 
+// 日本の祝日判定（振替休日対応）
+function isJapaneseHoliday(d: Date): boolean {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const key = `${m}-${day}`;
+
+  // 固定祝日
+  const fixed = new Set([
+    "1-1",   // 元日
+    "2-11",  // 建国記念の日
+    "2-23",  // 天皇誕生日
+    "4-29",  // 昭和の日
+    "5-3",   // 憲法記念日
+    "5-4",   // みどりの日
+    "5-5",   // こどもの日
+    "8-11",  // 山の日
+    "11-3",  // 文化の日
+    "11-23", // 勤労感謝の日
+  ]);
+  if (fixed.has(key)) return true;
+
+  // ハッピーマンデー
+  const dow = d.getDay();
+  const weekOfMonth = Math.ceil(day / 7);
+  if (dow === 1) {
+    if (m === 1 && weekOfMonth === 2) return true;  // 成人の日（1月第2月曜）
+    if (m === 7 && weekOfMonth === 3) return true;  // 海の日（7月第3月曜）
+    if (m === 9 && weekOfMonth === 3) return true;  // 敬老の日（9月第3月曜）
+    if (m === 10 && weekOfMonth === 2) return true; // スポーツの日（10月第2月曜）
+  }
+
+  // 春分の日・秋分の日（近似式）
+  if (m === 3) {
+    const vernal = Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+    if (day === vernal) return true;
+  }
+  if (m === 9) {
+    const autumnal = Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+    if (day === autumnal) return true;
+  }
+
+  // 振替休日: 祝日が日曜の場合、翌月曜が振替休日
+  if (dow === 1) {
+    const yesterday = new Date(y, m - 1, day - 1);
+    if (yesterday.getDay() === 0 && isJapaneseHoliday(yesterday)) return true;
+  }
+
+  return false;
+}
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -964,11 +1015,22 @@ export default function InventoryPage() {
                   <tbody>
                     {historyMatrix.map((row) => {
                       const dateObj = new Date(row.date + "T00:00:00");
+                      const dow = dateObj.getDay();
                       const label = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
                       const isToday = row.date === todayStr();
+                      const isSunday = dow === 0;
+                      const isSaturday = dow === 6;
+                      const isHoliday = !isSunday && isJapaneseHoliday(dateObj);
+                      const dateColor = isToday
+                        ? "text-blue-700"
+                        : isSunday || isHoliday
+                          ? "text-red-500"
+                          : isSaturday
+                            ? "text-blue-500"
+                            : "text-slate-700";
                       return (
                         <tr key={row.date} className={`border-b border-slate-100 ${isToday ? "bg-blue-50/50" : "hover:bg-slate-50"}`}>
-                          <td className={`px-4 py-2 font-medium sticky left-0 z-10 ${isToday ? "bg-blue-50/50 text-blue-700" : "bg-white text-slate-700"}`}>
+                          <td className={`px-4 py-2 font-medium sticky left-0 z-10 ${isToday ? "bg-blue-50/50" : "bg-white"} ${dateColor}`}>
                             {label}
                           </td>
                           {DOSAGES.map((dose) => {
