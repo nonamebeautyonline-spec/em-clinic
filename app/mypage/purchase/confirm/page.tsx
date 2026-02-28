@@ -1,40 +1,9 @@
 // app/mypage/purchase/confirm/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, Suspense, Component, type ReactNode } from "react";
+import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
-
-// SquareCardForm 用エラーバウンダリ（グローバル error.tsx の前にキャッチ）
-class CardFormErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="rounded-xl border-2 border-red-400 bg-red-50 p-4 space-y-2">
-          <p className="text-[12px] font-bold text-red-700">
-            カードフォームでエラーが発生しました
-          </p>
-          <pre className="text-[10px] text-red-600 whitespace-pre-wrap break-all bg-white rounded p-2 border">
-            {this.state.error.message}
-            {"\n\n"}
-            {this.state.error.stack}
-          </pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 
 type ProductCode =
@@ -440,8 +409,10 @@ function PurchaseConfirmContent() {
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">決済方法を選択</h3>
 
-          {/* ===== inline モード（アプリ内決済） ===== */}
-          {isInline ? (
+          {/* sdkConfig読み込み中は決済ボタンを表示しない */}
+          {sdkConfig === null ? (
+            <p className="text-[11px] text-slate-400 py-4 text-center">決済方法を読み込み中...</p>
+          ) : isInline ? (
             <div className="space-y-4">
               {/* 配送先住所フォーム */}
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 space-y-3">
@@ -583,16 +554,14 @@ function PurchaseConfirmContent() {
 
               {/* 新規カード入力（Web Payments SDK） */}
               {paymentMode === "new_card" && sdkConfig?.applicationId && sdkConfig?.locationId && (
-                <CardFormErrorBoundary>
-                  <SquareCardForm
-                    applicationId={sdkConfig.applicationId}
-                    locationId={sdkConfig.locationId}
-                    environment={sdkConfig.environment || "production"}
-                    onTokenize={handleNonceReady}
-                    onError={handleCardFormError}
-                    disabled={submitting || !patientId || !shippingValid}
-                  />
-                </CardFormErrorBoundary>
+                <SquareCardForm
+                  applicationId={sdkConfig.applicationId}
+                  locationId={sdkConfig.locationId}
+                  environment={sdkConfig.environment || "production"}
+                  onTokenize={handleNonceReady}
+                  onError={handleCardFormError}
+                  disabled={submitting || !patientId || !shippingValid}
+                />
               )}
             </div>
           ) : (

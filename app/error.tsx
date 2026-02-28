@@ -28,17 +28,11 @@ export default function ErrorBoundary({
         <h2 className="text-lg font-bold text-slate-900 mb-2">
           エラーが発生しました
         </h2>
-        <p className="text-sm text-slate-600 leading-relaxed mb-4">
+        <p className="text-sm text-slate-600 leading-relaxed mb-6">
           ページの表示中に問題が発生しました。
           <br />
           再試行しても解決しない場合は、LINEよりお問い合わせください。
         </p>
-        {/* デバッグ用エラー詳細（問題解決後に削除） */}
-        <pre className="text-left text-[9px] text-red-600 bg-red-50 rounded-lg p-3 mb-4 whitespace-pre-wrap break-all max-h-48 overflow-auto border border-red-200">
-          {error.message}
-          {"\n\n"}
-          {error.stack}
-        </pre>
         <button
           onClick={reset}
           className="w-full py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-semibold shadow-lg shadow-pink-200/50 transition-all"

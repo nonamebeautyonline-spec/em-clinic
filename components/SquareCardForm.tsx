@@ -1,7 +1,7 @@
 // components/SquareCardForm.tsx — Square Web Payments SDK カード入力フォーム
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 
 // Square Web Payments SDK の型定義
 declare global {
@@ -39,92 +39,65 @@ export default function SquareCardForm({
   disabled,
 }: Props) {
   const cardRef = useRef<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const initStarted = useRef(false);
   const [loading, setLoading] = useState(true);
-  const [sdkLoaded, setSdkLoaded] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>("SDK読み込み中...");
 
-  // SDK スクリプト動的ロード
-  useEffect(() => {
-    const scriptId = "square-web-payments-sdk";
-    if (document.getElementById(scriptId)) {
-      setSdkLoaded(true);
-      setDebugInfo("SDK既にロード済み");
-      return;
-    }
+  // コンテナDOMが確定した瞬間に1回だけSDKロード→初期化
+  // useEffectの2段階ではなく、テストページ同様にDOMノード直接操作
+  const containerCallback = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || initStarted.current) return;
+      initStarted.current = true;
 
-    const script = document.createElement("script");
-    script.id = scriptId;
-    script.src =
-      environment === "sandbox"
-        ? "https://sandbox.web.squarecdn.com/v1/square.js"
-        : "https://web.squarecdn.com/v1/square.js";
-    script.onload = () => {
-      setSdkLoaded(true);
-      setDebugInfo("SDKロード完了。初期化中...");
-    };
-    script.onerror = () => {
-      setDebugInfo("SDKスクリプト読み込み失敗");
-      onError("Square SDK の読み込みに失敗しました");
-    };
-    document.head.appendChild(script);
-  }, [environment, onError]);
+      const scriptId = "square-web-payments-sdk";
+      const sdkUrl =
+        environment === "sandbox"
+          ? "https://sandbox.web.squarecdn.com/v1/square.js"
+          : "https://web.squarecdn.com/v1/square.js";
 
-  // SDK 初期化 + Card iframe アタッチ
-  useEffect(() => {
-    if (!sdkLoaded || !containerRef.current || !window.Square) return;
-
-    let cancelled = false;
-
-    // リダイレクト検知（SDK が勝手にページ遷移する場合をキャッチ）
-    const origAssign = window.location.assign.bind(window.location);
-    const origReplace = window.location.replace.bind(window.location);
-    window.location.assign = (url: string) => {
-      alert(`[DEBUG] SDK redirect detected (assign): ${url}`);
-      origAssign(url);
-    };
-    window.location.replace = (url: string) => {
-      alert(`[DEBUG] SDK redirect detected (replace): ${url}`);
-      origReplace(url);
-    };
-
-    (async () => {
-      try {
-        const step1 = `payments() appId=${applicationId}, locId=${locationId}`;
-        setDebugInfo(step1);
-        alert(`[DEBUG] Step 1: ${step1}`);
-
-        const payments = await window.Square!.payments(applicationId, locationId);
-        setDebugInfo("payments() 成功。card() 呼び出し中...");
-        alert("[DEBUG] Step 2: payments() 成功");
-
-        const card = await payments.card();
-        if (cancelled) return;
-        setDebugInfo("card() 成功。attach() 呼び出し中...");
-        alert("[DEBUG] Step 3: card() 成功");
-
-        await card.attach(containerRef.current!);
-        cardRef.current = card;
-        setLoading(false);
-        setDebugInfo("初期化完了 ✓");
-        alert("[DEBUG] Step 4: attach() 成功 — 初期化完了");
-      } catch (e: any) {
-        if (!cancelled) {
-          const errMsg = e?.message || "不明なエラー";
-          const errType = e?.constructor?.name || "Error";
-          const errStr = JSON.stringify({ type: errType, message: errMsg, keys: Object.keys(e || {}) });
-          setDebugInfo(`初期化失敗: ${errStr}`);
-          alert(`[DEBUG] 初期化エラー: ${errStr}`);
-          onError(`カードフォーム初期化エラー: ${errMsg}`);
+      const initSdk = async () => {
+        try {
+          if (!window.Square) {
+            onError("Square SDK の読み込みに失敗しました");
+            return;
+          }
+          const payments = await window.Square.payments(applicationId, locationId);
+          const card = await payments.card();
+          await card.attach(node);
+          cardRef.current = card;
+          setLoading(false);
+        } catch (e: any) {
+          onError(e?.message || "カードフォーム初期化に失敗しました");
         }
-      }
-    })();
+      };
 
-    return () => {
-      cancelled = true;
-      cardRef.current?.destroy?.();
-    };
-  }, [sdkLoaded, applicationId, locationId, onError]);
+      // SDK スクリプトが既にロード済み
+      if (window.Square) {
+        initSdk();
+        return;
+      }
+
+      // スクリプトタグが既にあるが読み込み待ち
+      if (document.getElementById(scriptId)) {
+        const check = setInterval(() => {
+          if (window.Square) {
+            clearInterval(check);
+            initSdk();
+          }
+        }, 50);
+        return;
+      }
+
+      // スクリプト新規ロード
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = sdkUrl;
+      script.onload = () => initSdk();
+      script.onerror = () => onError("Square SDK の読み込みに失敗しました");
+      document.head.appendChild(script);
+    },
+    [applicationId, locationId, environment, onError],
+  );
 
   // tokenize
   const handleTokenize = useCallback(async () => {
@@ -146,15 +119,26 @@ export default function SquareCardForm({
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] font-medium text-slate-700">カード情報を入力</p>
-
-      {/* デバッグ情報（問題特定後に削除） */}
-      <p className="text-[9px] text-blue-500 bg-blue-50 rounded px-2 py-1 font-mono">
-        [DEBUG] {debugInfo}
-      </p>
+      {/* ヘッダー: ラベル + Squareロゴ */}
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-medium text-slate-700">カード情報を入力</p>
+        <div className="flex items-center gap-1.5 text-slate-400">
+          <span className="text-[9px]">powered by</span>
+          <svg className="h-[14px] w-auto" viewBox="0 0 56 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="#006AFF" stroke="#006AFF"/>
+            <rect x="4" y="4" width="8" height="8" rx="1.5" fill="white"/>
+            <path d="M22.5 4.5h2.8c1.7 0 2.7.8 2.7 2.2 0 1-.5 1.7-1.4 2l1.6 3.3h-1.8l-1.3-3h-1v3h-1.6V4.5zm2.6 3.2c.8 0 1.3-.4 1.3-1 0-.7-.5-1-1.3-1h-1v2h1z" fill="#0E1B2A"/>
+            <path d="M20.2 8.7c0-.6-.4-.9-1.2-1.1l-.9-.2c-.4-.1-.6-.2-.6-.5 0-.3.3-.5.7-.5.5 0 .8.2.9.5h1.5c-.1-1.1-.9-1.8-2.3-1.8-1.3 0-2.3.7-2.3 1.8 0 1 .7 1.5 1.7 1.7l.7.2c.5.1.6.3.6.5 0 .3-.3.5-.8.5-.6 0-.9-.3-1-.6h-1.5c.1 1.1 1 1.9 2.5 1.9 1.4 0 2.3-.8 2.3-1.8l-.3-.6z" fill="#0E1B2A"/>
+            <path d="M35.1 12h-1.6V8.7c0-.7-.3-1.1-.9-1.1-.6 0-1 .5-1 1.1V12h-1.6V5.2h1.5v.6c.4-.5 1-.7 1.6-.7 1.2 0 2 .9 2 2.3V12z" fill="#0E1B2A"/>
+            <path d="M41.3 5.2V12h-1.5v-.6c-.4.5-1 .7-1.6.7-1.4 0-2.5-1.2-2.5-2.8 0-1.6 1.1-2.8 2.5-2.8.6 0 1.1.2 1.5.6v-.5l1.6.4zm-1.6 4.1c0-.9-.6-1.5-1.3-1.5-.8 0-1.3.6-1.3 1.5s.5 1.5 1.3 1.5c.7 0 1.3-.6 1.3-1.5z" fill="#0E1B2A"/>
+            <path d="M42.4 9.3c0-1.6 1.2-2.8 2.8-2.8.9 0 1.6.4 2 .9V5.2H48v6.9c0 1.8-1.2 2.9-2.9 2.9-1.5 0-2.6-.9-2.7-2.1h1.5c.1.5.5.8 1.2.8.7 0 1.3-.5 1.3-1.4v-.5c-.4.5-1 .8-1.7.8-1.5 0-2.7-1.2-2.7-2.8l.4-.5zm1.7 0c0 .8.6 1.4 1.3 1.4.7 0 1.3-.6 1.3-1.4 0-.9-.6-1.5-1.3-1.5-.7 0-1.3.6-1.3 1.5z" fill="#0E1B2A"/>
+            <path d="M53.8 5.2V12h-1.5v-.6c-.4.5-.9.7-1.5.7-1.2 0-2-.9-2-2.3V5.2h1.6v4.3c0 .6.3 1 .9 1 .6 0 1-.5 1-1.1V5.2h1.5z" fill="#0E1B2A"/>
+          </svg>
+        </div>
+      </div>
 
       <div
-        ref={containerRef}
+        ref={containerCallback}
         className={`min-h-[56px] rounded-xl border border-slate-200 bg-white p-3 ${
           loading ? "animate-pulse bg-slate-100" : ""
         }`}
@@ -172,11 +156,16 @@ export default function SquareCardForm({
         {disabled ? "決済処理中..." : "このカードで決済する"}
       </button>
 
-      {/* 注意書き */}
-      <p className="text-[10px] text-slate-400 leading-relaxed px-1">
-        Square決済を使用しており、カード情報はのなめビューティー上では保存されません。
-        カード情報は全てSquare社のセキュリティ基準（PCI DSS）に基づき安全に処理されます。
-      </p>
+      {/* セキュリティ表示 */}
+      <div className="flex items-start gap-2 px-1">
+        <svg className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <p className="text-[10px] text-slate-400 leading-relaxed">
+          カード情報はSquare社の安全な環境で処理され、のなめビューティー上では保存されません。
+          PCI DSS準拠のセキュリティ基準で保護されています。
+        </p>
+      </div>
     </div>
   );
 }
