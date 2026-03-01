@@ -30,11 +30,21 @@ export async function GET(req: NextRequest) {
     }
 
     // メニューごとの表示人数を計算
-    // 1. LINE連携済み患者の総数（patients テーブルの line_id で判定）
-    const { count: totalLine } = await withTenant(
-      supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true }).not("line_id", "is", null).not("patient_id", "like", "LINE_%"),
-      tenantId
-    );
+    // 1. LINE連携済み全患者数（LINE_仮ID含む = デフォルトメニュー対象の母数）
+    const [registeredRes, allLineRes] = await Promise.all([
+      withTenant(
+        supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
+          .not("line_id", "is", null).not("patient_id", "like", "LINE_%"),
+        tenantId
+      ),
+      withTenant(
+        supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
+          .not("line_id", "is", null),
+        tenantId
+      ),
+    ]);
+    const registeredCount = registeredRes.count || 0;
+    const allLineCount = allLineRes.count || 0;
 
     // 2. 注文がある患者（処方後メニュー対象）のpatient_idを取得
     const orderPids = new Set<string>();
@@ -62,8 +72,10 @@ export async function GET(req: NextRequest) {
       rxCount += count || 0;
     }
 
-    const total = totalLine || 0;
-    const noRxCount = total - rxCount;
+    // 個人情報入力後 = 登録済み（LINE_除外）かつ注文なし
+    const noRxCount = registeredCount - rxCount;
+    // 個人情報入力前 = LINE友だち全体 − 登録済み（デフォルトメニューが表示される未登録者）
+    const preRegCount = allLineCount - registeredCount;
 
     // メニュー名に基づいてカウントをマッピング
     const menus = (data || []).map((menu: any) => {
@@ -73,7 +85,7 @@ export async function GET(req: NextRequest) {
       } else if (menu.name === "個人情報入力後") {
         user_count = noRxCount;
       } else if (menu.name === "個人情報入力前" || menu.selected) {
-        user_count = total;
+        user_count = preRegCount;
       }
       return { ...menu, user_count };
     });
