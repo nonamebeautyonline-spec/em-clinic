@@ -123,13 +123,34 @@ export async function POST(req: NextRequest) {
     let customerId: string | undefined;
 
     if (isNonce && saveCard) {
-      // 初回: nonce → Customer作成 → Card保存 → card_id で決済
-      customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
-      const cardId = await saveCardOnFile(baseUrl, accessToken, patientId, sourceId, tenantId);
-      if (cardId) {
-        paySourceId = cardId;
+      // 既存の保存済みカードがあればそれを使用（nonce消費を避ける）
+      const { data: existingPatient } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("square_customer_id, square_card_id")
+          .eq("patient_id", patientId),
+        tenantId,
+      ).maybeSingle();
+
+      if (existingPatient?.square_card_id) {
+        // 既に保存済みカードがある → nonceを消費せずcard_idで決済
+        paySourceId = existingPatient.square_card_id;
+        customerId = existingPatient.square_customer_id ?? undefined;
+      } else {
+        // 初回: nonce → Customer作成 → Card保存 → card_id で決済
+        customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
+        const cardId = await saveCardOnFile(baseUrl, accessToken, patientId, sourceId, tenantId);
+        if (cardId) {
+          paySourceId = cardId;
+        } else if (customerId) {
+          // saveCardOnFileがnonce消費後に失敗 → nonceは使用不可
+          return NextResponse.json(
+            { error: "カードの保存に失敗しました。再度お試しください。" },
+            { status: 400 },
+          );
+        }
+        // customerId取得失敗（=Cards API未呼び出し）→ nonceはまだ有効なのでそのまま続行
       }
-      // カード保存失敗時はnonceで直接決済（フォールバック）
     } else if (!isNonce) {
       // 2回目以降: card_id で直接決済
       // customer_id 取得 + カードID所有権検証
