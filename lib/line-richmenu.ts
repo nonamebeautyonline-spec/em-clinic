@@ -29,11 +29,32 @@ interface RichMenuArea {
 /**
  * 管理画面のアクション定義をLINE APIのアクション形式に変換
  */
+/** URIパスからリッチメニューのラベルを自動推定 */
+function guessLabelFromUri(uri: string): string {
+  try {
+    const pathname = uri.startsWith("/") ? uri : new URL(uri).pathname;
+    const map: Record<string, string> = {
+      "/mypage": "マイページ",
+      "/reserve": "予約",
+      "/intake": "問診",
+      "/register": "登録",
+      "/checkout": "決済",
+      "/reorder": "再処方",
+      "/repair": "修理・交換",
+    };
+    for (const [prefix, label] of Object.entries(map)) {
+      if (pathname.startsWith(prefix)) return label;
+    }
+    if (pathname.startsWith("/forms/")) return "フォーム";
+  } catch { /* 外部URLなど */ }
+  return "リンク";
+}
+
 function mapActionToLine(action: RichMenuArea["action"], origin: string) {
   switch (action.type) {
     case "uri": {
-      const uriLabel = action.label || "リンク";
       const originalUri = action.uri || "https://line.me";
+      const uriLabel = action.label || guessLabelFromUri(originalUri);
       return {
         type: "uri" as const,
         uri: `${origin}/api/line/track?label=${encodeURIComponent(uriLabel)}&to=${encodeURIComponent(originalUri)}`,

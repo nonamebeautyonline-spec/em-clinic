@@ -672,6 +672,11 @@ export default function RichMenuManagementPage() {
                   {btn.actionType === "uri" && (
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-600 flex-shrink-0 w-16">ラベル</label>
+                        <input type="text" value={btn.label} onChange={e => updateButton(idx, { label: e.target.value })}
+                          placeholder="例: マイページ（トーク画面に表示）" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                      </div>
+                      <div className="flex items-center gap-3">
                         <label className="text-sm text-gray-600 flex-shrink-0 w-16">表示方法</label>
                         <select value={btn.displayMethod} onChange={e => updateButton(idx, { displayMethod: e.target.value })}
                           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 bg-white">

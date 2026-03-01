@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
-import { resolveTenantId, tenantPayload } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +11,43 @@ export async function GET(req: NextRequest) {
   const label = req.nextUrl.searchParams.get("label") || "リンク";
   const to = req.nextUrl.searchParams.get("to") || "/";
 
-  // Cookie から患者情報を取得（未ログインなら記録スキップ）
+  // Cookie から患者情報を取得。Cookie がなければ line_user_id から患者を検索
   try {
     const cookieStore = await cookies();
-    const patientId = cookieStore.get("__Host-patient_id")?.value
+    let patientId = cookieStore.get("__Host-patient_id")?.value
       || cookieStore.get("patient_id")?.value;
-    const lineUserId = cookieStore.get("__Host-line_user_id")?.value
+    let lineUserId = cookieStore.get("__Host-line_user_id")?.value
       || cookieStore.get("line_user_id")?.value;
 
+    const tenantId = resolveTenantId(req);
+
+    // Cookie に patient_id がないが line_user_id がある → DB から patient_id を取得
+    if (!patientId && lineUserId) {
+      const { data: byLine } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("patient_id")
+          .eq("line_id", lineUserId)
+          .not("patient_id", "like", "LINE_%")
+          .limit(1),
+        tenantId
+      ).maybeSingle();
+      if (byLine?.patient_id) patientId = byLine.patient_id;
+    }
+
+    // patient_id はあるが line_user_id がない → DB から line_id を取得
+    if (patientId && !lineUserId) {
+      const { data: pat } = await withTenant(
+        supabaseAdmin
+          .from("patients")
+          .select("line_id")
+          .eq("patient_id", patientId),
+        tenantId
+      ).maybeSingle();
+      if (pat?.line_id) lineUserId = pat.line_id;
+    }
+
     if (patientId && lineUserId) {
-      const tenantId = resolveTenantId(req);
       const content = `「${label}」をタップしました`;
 
       // 5分以内の重複スキップ（fire-and-forget）
