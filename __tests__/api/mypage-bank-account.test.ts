@@ -30,13 +30,28 @@ describe("GET /api/mypage/bank-account", () => {
     mockSettings = {};
   });
 
-  it("口座情報が設定されている場合、全項目を返す", async () => {
+  it("新形式: JSON配列からアクティブ口座を返す", async () => {
+    const accounts = [
+      {
+        id: "acc_1",
+        bank_name: "住信SBIネット銀行",
+        bank_branch: "法人第一支店（106）",
+        bank_account_type: "普通",
+        bank_account_number: "2931048",
+        bank_account_holder: "カ）コブシ",
+      },
+      {
+        id: "acc_2",
+        bank_name: "PayPay銀行",
+        bank_branch: "本店営業部",
+        bank_account_type: "普通",
+        bank_account_number: "9876543",
+        bank_account_holder: "カ）テスト",
+      },
+    ];
     mockSettings = {
-      bank_name: "住信SBIネット銀行",
-      bank_branch: "法人第一支店（106）",
-      bank_account_type: "普通",
-      bank_account_number: "2931048",
-      bank_account_holder: "カ）コブシ",
+      bank_accounts: JSON.stringify(accounts),
+      active_bank_account_id: "acc_2",
     };
 
     const res = await GET(buildRequest());
@@ -44,15 +59,58 @@ describe("GET /api/mypage/bank-account", () => {
 
     const json = await res.json();
     expect(json.bankAccount).toEqual({
-      bank_name: "住信SBIネット銀行",
-      bank_branch: "法人第一支店（106）",
+      bank_name: "PayPay銀行",
+      bank_branch: "本店営業部",
       bank_account_type: "普通",
-      bank_account_number: "2931048",
-      bank_account_holder: "カ）コブシ",
+      bank_account_number: "9876543",
+      bank_account_holder: "カ）テスト",
     });
   });
 
-  it("口座情報が未設定の場合、空文字を返す", async () => {
+  it("新形式: アクティブIDが不正な場合、先頭口座を返す", async () => {
+    const accounts = [
+      {
+        id: "acc_1",
+        bank_name: "住信SBIネット銀行",
+        bank_branch: "法人第一支店（106）",
+        bank_account_type: "普通",
+        bank_account_number: "2931048",
+        bank_account_holder: "カ）コブシ",
+      },
+    ];
+    mockSettings = {
+      bank_accounts: JSON.stringify(accounts),
+      active_bank_account_id: "invalid_id",
+    };
+
+    const res = await GET(buildRequest());
+    const json = await res.json();
+    expect(json.bankAccount.bank_name).toBe("住信SBIネット銀行");
+  });
+
+  it("旧形式フォールバック: 個別キーから口座情報を返す", async () => {
+    mockSettings = {
+      bank_name: "三菱UFJ銀行",
+      bank_branch: "東京支店",
+      bank_account_type: "普通",
+      bank_account_number: "1234567",
+      bank_account_holder: "テスト太郎",
+    };
+
+    const res = await GET(buildRequest());
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.bankAccount).toEqual({
+      bank_name: "三菱UFJ銀行",
+      bank_branch: "東京支店",
+      bank_account_type: "普通",
+      bank_account_number: "1234567",
+      bank_account_holder: "テスト太郎",
+    });
+  });
+
+  it("未設定の場合、空文字を返す", async () => {
     const res = await GET(buildRequest());
     expect(res.status).toBe(200);
 
@@ -64,23 +122,6 @@ describe("GET /api/mypage/bank-account", () => {
       bank_account_number: "",
       bank_account_holder: "",
     });
-  });
-
-  it("一部のみ設定されている場合、設定済みの値と空文字を混在で返す", async () => {
-    mockSettings = {
-      bank_name: "三菱UFJ銀行",
-      bank_account_number: "1234567",
-    };
-
-    const res = await GET(buildRequest());
-    expect(res.status).toBe(200);
-
-    const json = await res.json();
-    expect(json.bankAccount.bank_name).toBe("三菱UFJ銀行");
-    expect(json.bankAccount.bank_account_number).toBe("1234567");
-    expect(json.bankAccount.bank_branch).toBe("");
-    expect(json.bankAccount.bank_account_type).toBe("");
-    expect(json.bankAccount.bank_account_holder).toBe("");
   });
 
   it("Cache-Controlヘッダーが設定されている", async () => {

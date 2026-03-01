@@ -564,6 +564,26 @@ export const bulkMenuSchema = z
   })
   .passthrough();
 
+/** 口座情報一括更新 PUT /api/admin/bank-accounts */
+export const bankAccountsUpdateSchema = z
+  .object({
+    accounts: z
+      .array(
+        z.object({
+          id: z.string().min(1, "口座IDは必須です"),
+          bank_name: z.string().min(1, "銀行名は必須です"),
+          bank_branch: z.string().min(1, "支店名は必須です"),
+          bank_account_type: z.string().min(1, "口座種別は必須です"),
+          bank_account_number: z.string().min(1, "口座番号は必須です"),
+          bank_account_holder: z.string().min(1, "口座名義は必須です"),
+        }).passthrough()
+      )
+      .min(1, "口座は1件以上必要です")
+      .max(10, "口座は10件以下にしてください"),
+    activeId: z.string().min(1, "アクティブ口座IDは必須です"),
+  })
+  .passthrough();
+
 /** テナント設定更新 PUT /api/admin/settings */
 export const settingsUpdateSchema = z
   .object({

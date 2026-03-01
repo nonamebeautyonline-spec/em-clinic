@@ -1,9 +1,10 @@
 // 決済設定セクション（プロバイダー選択 + APIキー管理）
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { SettingsMap, CategoryKey } from "../page";
 import { SettingRow, SourceBadge } from "../page";
+import { BANK_ACCOUNT_FIELDS, type BankAccount } from "@/lib/bank-account";
 
 const PROVIDER_OPTIONS: { value: string; label: string; description: string; category: CategoryKey }[] = [
   { value: "square", label: "Square", description: "クレジットカード決済（Payment Links API）", category: "square" },
@@ -170,13 +171,16 @@ function PaymentSetupGuide({ provider, defaultOpen }: { provider: string; defaul
   );
 }
 
-const BANK_ACCOUNT_KEYS = [
-  { key: "bank_name", label: "銀行名", placeholder: "例: 住信SBIネット銀行" },
-  { key: "bank_branch", label: "支店名", placeholder: "例: 法人第一支店（106）" },
-  { key: "bank_account_type", label: "口座種別", placeholder: "例: 普通" },
-  { key: "bank_account_number", label: "口座番号", placeholder: "例: 1234567" },
-  { key: "bank_account_holder", label: "口座名義", placeholder: "例: カ）コブシ" },
-] as const;
+function emptyBankAccount(): BankAccount {
+  return {
+    id: `acc_${Date.now()}`,
+    bank_name: "",
+    bank_branch: "",
+    bank_account_type: "",
+    bank_account_number: "",
+    bank_account_holder: "",
+  };
+}
 
 const RECONCILE_MODE_OPTIONS = [
   {
@@ -213,17 +217,16 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [savingMode, setSavingMode] = useState(false);
   const [savingReconcile, setSavingReconcile] = useState(false);
 
-  // 口座情報
-  const [bankForm, setBankForm] = useState<Record<string, string>>({
-    bank_name: "",
-    bank_branch: "",
-    bank_account_type: "",
-    bank_account_number: "",
-    bank_account_holder: "",
-  });
-  const [bankSaved, setBankSaved] = useState<Record<string, string>>({});
+  // 口座情報（複数口座対応）
+  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
+  const [savedAccounts, setSavedAccounts] = useState<BankAccount[]>([]);
+  const [savedActiveId, setSavedActiveId] = useState<string>("");
+  const [bankLoading, setBankLoading] = useState(true);
   const [savingBank, setSavingBank] = useState(false);
   const [showBankConfirm, setShowBankConfirm] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
+  const [isAddMode, setIsAddMode] = useState(false);
 
   useEffect(() => {
     const val = providerSetting?.maskedValue || "";
@@ -240,17 +243,24 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     setReconcileMode(!val || val === "未設定" ? "order_based" : val);
   }, [reconcileModeSetting?.maskedValue]);
 
-  // 口座情報の初期値をセット
+  // 口座情報の取得
+  const loadBankAccounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/bank-accounts", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data.accounts || []);
+        setActiveId(data.activeId || "");
+        setSavedAccounts(JSON.parse(JSON.stringify(data.accounts || [])));
+        setSavedActiveId(data.activeId || "");
+      }
+    } catch { /* 取得失敗時は空 */ }
+    setBankLoading(false);
+  }, []);
+
   useEffect(() => {
-    const initial: Record<string, string> = {};
-    for (const def of BANK_ACCOUNT_KEYS) {
-      const s = paymentSettings.find((s) => s.key === def.key);
-      const val = s?.maskedValue || "";
-      initial[def.key] = val === "未設定" ? "" : val;
-    }
-    setBankForm(initial);
-    setBankSaved(initial);
-  }, [paymentSettings]);
+    loadBankAccounts();
+  }, [loadBankAccounts]);
 
   const handleSave = async () => {
     if (!selected) return;
@@ -316,25 +326,21 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     }
   };
 
-  const handleSaveBankAccount = async () => {
+  const handleSaveBankAccounts = async () => {
     setSavingBank(true);
     try {
-      // 変更があるキーだけ保存
-      for (const def of BANK_ACCOUNT_KEYS) {
-        if (bankForm[def.key] !== bankSaved[def.key]) {
-          const res = await fetch("/api/admin/settings", {
-            method: "PUT",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ category: "payment", key: def.key, value: bankForm[def.key] }),
-          });
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || `${def.label}の保存に失敗しました`);
-          }
-        }
+      const res = await fetch("/api/admin/bank-accounts", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accounts, activeId }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "口座情報の保存に失敗しました");
       }
-      setBankSaved({ ...bankForm });
+      setSavedAccounts(JSON.parse(JSON.stringify(accounts)));
+      setSavedActiveId(activeId);
       setShowBankConfirm(false);
       onSaved("口座情報を保存しました", "success");
     } catch (err: any) {
@@ -344,7 +350,40 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     }
   };
 
-  const bankHasChanges = BANK_ACCOUNT_KEYS.some((def) => bankForm[def.key] !== bankSaved[def.key]);
+  const handleAddAccount = () => {
+    setEditingAccount(emptyBankAccount());
+    setIsAddMode(true);
+  };
+
+  const handleEditAccount = (acc: BankAccount) => {
+    setEditingAccount({ ...acc });
+    setIsAddMode(false);
+  };
+
+  const handleDeleteAccount = (id: string) => {
+    const updated = accounts.filter((a) => a.id !== id);
+    setAccounts(updated);
+    if (activeId === id && updated.length > 0) {
+      setActiveId(updated[0].id);
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingAccount) return;
+    if (isAddMode) {
+      setAccounts((prev) => [...prev, editingAccount]);
+      if (accounts.length === 0) {
+        setActiveId(editingAccount.id);
+      }
+    } else {
+      setAccounts((prev) => prev.map((a) => (a.id === editingAccount.id ? editingAccount : a)));
+    }
+    setEditingAccount(null);
+  };
+
+  const bankHasChanges =
+    JSON.stringify(accounts) !== JSON.stringify(savedAccounts) ||
+    activeId !== savedActiveId;
 
   const selectedOption = PROVIDER_OPTIONS.find((o) => o.value === selected);
   const providerSettings = selectedOption ? (settings?.[selectedOption.category] ?? []) : [];
@@ -542,63 +581,207 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       {/* 振込先口座情報 */}
       <div className="px-5 py-4 border-t border-gray-100">
         <p className="text-sm font-medium text-gray-900 mb-1">振込先口座情報</p>
-        <p className="text-xs text-gray-500 mb-3">患者マイページの銀行振込画面に表示される口座情報</p>
-        <div className="space-y-3">
-          {BANK_ACCOUNT_KEYS.map((def) => (
-            <div key={def.key}>
-              <label htmlFor={`bank_${def.key}`} className="block text-xs font-medium text-gray-700 mb-1">
-                {def.label}
-              </label>
-              <input
-                type="text"
-                id={`bank_${def.key}`}
-                value={bankForm[def.key] || ""}
-                onChange={(e) => setBankForm((prev) => ({ ...prev, [def.key]: e.target.value }))}
-                placeholder={def.placeholder}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+        <p className="text-xs text-gray-500 mb-3">患者マイページの銀行振込画面に表示される口座情報（複数登録可）</p>
+
+        {bankLoading ? (
+          <p className="text-xs text-gray-400 py-4">読み込み中...</p>
+        ) : (
+          <>
+            <div className="space-y-3">
+              {accounts.map((acc) => {
+                const isActive = acc.id === activeId;
+                return (
+                  <div
+                    key={acc.id}
+                    className={`rounded-lg border-2 p-3 ${
+                      isActive ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-gray-900 truncate">{acc.bank_name}</span>
+                          {isActive && (
+                            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100 rounded">
+                              使用中
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 space-y-0.5">
+                          <p>{acc.bank_branch} / {acc.bank_account_type} {acc.bank_account_number}</p>
+                          <p>{acc.bank_account_holder}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isActive && (
+                          <button
+                            onClick={() => setActiveId(acc.id)}
+                            className="px-2 py-1 text-[10px] font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                          >
+                            使用する
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEditAccount(acc)}
+                          className="px-2 py-1 text-[10px] font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+                        >
+                          編集
+                        </button>
+                        {accounts.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteAccount(acc.id)}
+                            className="px-2 py-1 text-[10px] font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                          >
+                            削除
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <button
-            onClick={() => setShowBankConfirm(true)}
-            disabled={!bankHasChanges}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            口座情報を保存
-          </button>
-        </div>
+
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={handleAddAccount}
+                className="px-3 py-2 text-xs font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                + 口座を追加
+              </button>
+              {bankHasChanges && (
+                <button
+                  onClick={() => setShowBankConfirm(true)}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  変更を保存
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* 口座情報確認モーダル */}
+      {/* 口座編集モーダル */}
+      {editingAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEditingAccount(null)}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">
+                {isAddMode ? "口座を追加" : "口座を編集"}
+              </h3>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {BANK_ACCOUNT_FIELDS.map((def) => (
+                <div key={def.key}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">{def.label}</label>
+                  <input
+                    type="text"
+                    value={editingAccount[def.key] || ""}
+                    onChange={(e) =>
+                      setEditingAccount((prev) =>
+                        prev ? { ...prev, [def.key]: e.target.value } : prev
+                      )
+                    }
+                    placeholder={def.placeholder}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setEditingAccount(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={!editingAccount.bank_name || !editingAccount.bank_account_number}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {isAddMode ? "追加する" : "更新する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 口座情報変更確認モーダル */}
       {showBankConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowBankConfirm(false)}>
-          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-gray-100">
               <h3 className="text-sm font-bold text-gray-800">口座情報の変更確認</h3>
               <p className="text-xs text-gray-500 mt-0.5">以下の内容で保存します。変更箇所をご確認ください。</p>
             </div>
             <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
-              {BANK_ACCOUNT_KEYS.map((def) => {
-                const changed = bankForm[def.key] !== bankSaved[def.key];
+              {/* アクティブ口座の変更 */}
+              {activeId !== savedActiveId && (
+                <div className="rounded-lg p-3 bg-yellow-50 border border-yellow-200">
+                  <div className="text-xs font-medium text-yellow-800 mb-1">使用口座の変更</div>
+                  <div className="text-sm text-yellow-900">
+                    {(() => {
+                      const oldAcc = savedAccounts.find((a) => a.id === savedActiveId);
+                      const newAcc = accounts.find((a) => a.id === activeId);
+                      return (
+                        <>
+                          <span className="line-through text-gray-400">{oldAcc?.bank_name || "なし"}</span>
+                          {" → "}
+                          <span className="font-medium">{newAcc?.bank_name || "なし"}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* 各口座の状態 */}
+              {accounts.map((acc) => {
+                const savedAcc = savedAccounts.find((a) => a.id === acc.id);
+                const isNew = !savedAcc;
+                const isChanged = savedAcc && JSON.stringify(acc) !== JSON.stringify(savedAcc);
+                const isActive = acc.id === activeId;
                 return (
-                  <div key={def.key} className={`rounded-lg p-3 ${changed ? "bg-blue-50 border border-blue-200" : "bg-gray-50"}`}>
-                    <div className="text-xs font-medium text-gray-600 mb-1">
-                      {def.label}
-                      {changed && <span className="ml-1.5 text-[10px] text-blue-600 font-bold">変更あり</span>}
+                  <div
+                    key={acc.id}
+                    className={`rounded-lg p-3 ${
+                      isNew ? "bg-green-50 border border-green-200" : isChanged ? "bg-blue-50 border border-blue-200" : "bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-700">{acc.bank_name}</span>
+                      {isActive && <span className="text-[10px] text-blue-600 font-bold">使用中</span>}
+                      {isNew && <span className="text-[10px] text-green-600 font-bold">新規追加</span>}
+                      {isChanged && <span className="text-[10px] text-blue-600 font-bold">変更あり</span>}
                     </div>
-                    {changed ? (
-                      <div className="space-y-0.5">
-                        <div className="text-xs text-gray-400 line-through">{bankSaved[def.key] || "（未設定）"}</div>
-                        <div className="text-sm font-medium text-blue-800">{bankForm[def.key] || "（未設定）"}</div>
+                    <div className="text-xs text-gray-600">
+                      {acc.bank_branch} / {acc.bank_account_type} {acc.bank_account_number} / {acc.bank_account_holder}
+                    </div>
+                    {isChanged && savedAcc && (
+                      <div className="mt-1 text-[10px] text-gray-400">
+                        変更前: {savedAcc.bank_branch} / {savedAcc.bank_account_type} {savedAcc.bank_account_number} / {savedAcc.bank_account_holder}
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-800">{bankForm[def.key] || "（未設定）"}</div>
                     )}
                   </div>
                 );
               })}
+
+              {/* 削除された口座 */}
+              {savedAccounts
+                .filter((sa) => !accounts.some((a) => a.id === sa.id))
+                .map((deleted) => (
+                  <div key={deleted.id} className="rounded-lg p-3 bg-red-50 border border-red-200">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-gray-700 line-through">{deleted.bank_name}</span>
+                      <span className="text-[10px] text-red-600 font-bold">削除</span>
+                    </div>
+                    <div className="text-xs text-gray-400 line-through">
+                      {deleted.bank_branch} / {deleted.bank_account_type} {deleted.bank_account_number}
+                    </div>
+                  </div>
+                ))}
             </div>
             <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
               <button
@@ -608,7 +791,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
                 キャンセル
               </button>
               <button
-                onClick={handleSaveBankAccount}
+                onClick={handleSaveBankAccounts}
                 disabled={savingBank}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
