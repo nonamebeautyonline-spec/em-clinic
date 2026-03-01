@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       is_blocked: !!isBlocked,
       tags: [],
       fields: {},
-      last_message: row.last_msg_content || tplName || eventDisplay || null,
+      last_message: row.last_msg_content || tplName || row.last_outgoing_content || eventDisplay || null,
       last_sent_at: row.last_incoming_at || null,
       last_text_at: row.last_msg_at || null,
     };

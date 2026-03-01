@@ -134,6 +134,36 @@ describe("friends-list API", () => {
     expect(json.patients).toBeDefined();
     expect(Array.isArray(json.patients)).toBe(true);
   });
+
+  it("outgoing のみの患者 → last_message に outgoing 内容が表示、ソート順は変わらない", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    (supabaseAdmin.rpc as any).mockReturnValue(
+      Promise.resolve({
+        data: [{
+          patient_id: "P001",
+          patient_name: "テスト太郎",
+          line_id: "U123",
+          line_display_name: null,
+          line_picture_url: null,
+          mark: "none",
+          last_msg_content: null,
+          last_msg_at: null,
+          last_incoming_at: null,
+          last_template_content: null,
+          last_event_content: null,
+          last_event_type: null,
+          last_outgoing_content: "承認通知です",
+          last_outgoing_at: "2026-03-01T10:00:00Z",
+        }],
+        error: null,
+      }),
+    );
+
+    const res = await friendsListGET(createReq("GET", "http://localhost/api/admin/line/friends-list"));
+    const json = await res.json();
+    expect(json.patients[0].last_sent_at).toBeNull();
+    expect(json.patients[0].last_message).toBe("承認通知です");
+  });
 });
 
 // ============================================================
