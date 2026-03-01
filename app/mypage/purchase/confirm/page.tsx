@@ -145,6 +145,7 @@ function PurchaseConfirmContent() {
   const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
   const [showCardForm, setShowCardForm] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"saved_card" | "new_card">("new_card");
+  const [cardFormKey, setCardFormKey] = useState(0); // エラー時にカードフォーム再マウント用
   const [shipping, setShipping] = useState<ShippingData>({
     name: "",
     postalCode: "",
@@ -324,6 +325,8 @@ function PurchaseConfirmContent() {
       } catch (e: any) {
         setError(e?.message || "決済処理中にエラーが発生しました");
         setSubmitting(false);
+        // カードフォームを再マウントして新しいnonceを取得可能にする
+        setCardFormKey((k) => k + 1);
       }
     },
     [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router],
@@ -654,6 +657,7 @@ function PurchaseConfirmContent() {
               {/* 新規カード入力（Web Payments SDK） */}
               {paymentMode === "new_card" && sdkConfig?.applicationId && sdkConfig?.locationId && (
                 <SquareCardForm
+                  key={cardFormKey}
                   applicationId={sdkConfig.applicationId}
                   locationId={sdkConfig.locationId}
                   environment={sdkConfig.environment || "production"}
