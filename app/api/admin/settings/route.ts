@@ -41,6 +41,11 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
     { key: "provider", label: "決済プロバイダー" },
     { key: "checkout_mode", label: "チェックアウトモード (hosted / inline)" },
     { key: "reconcile_mode", label: "振込照合モード (order_based / statement_based)" },
+    { key: "bank_name", label: "振込先銀行名" },
+    { key: "bank_branch", label: "振込先支店名" },
+    { key: "bank_account_type", label: "口座種別" },
+    { key: "bank_account_number", label: "口座番号" },
+    { key: "bank_account_holder", label: "口座名義" },
   ],
   mypage: [
     { key: "config", label: "マイページ設定（JSON）" },

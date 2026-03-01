@@ -88,6 +88,8 @@ export default function BankTransferReconcilePage() {
   const [manualConfirming, setManualConfirming] = useState(false);
   // 照合モード
   const [reconcileMode, setReconcileMode] = useState<"order_based" | "statement_based">("order_based");
+  // CSVフォーマット
+  const [csvFormat, setCsvFormat] = useState<"gmo" | "paypay">("paypay");
   // 金額不一致の選択状態
   const [selectedMismatches, setSelectedMismatches] = useState<Set<number>>(new Set());
 
@@ -147,6 +149,7 @@ export default function BankTransferReconcilePage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("csvFormat", csvFormat);
 
       const res = await fetch("/api/admin/bank-transfer/reconcile/preview", {
         method: "POST",
@@ -376,9 +379,58 @@ export default function BankTransferReconcilePage() {
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">CSVファイル選択</h2>
 
+        {/* CSVフォーマット選択 */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            銀行CSVファイル（三菱UFJ、三井住友、ゆうちょなど）
+            CSVフォーマット
+          </label>
+          <div className="flex gap-3">
+            <label
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
+                csvFormat === "paypay"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="csvFormat"
+                value="paypay"
+                checked={csvFormat === "paypay"}
+                onChange={() => setCsvFormat("paypay")}
+                className="w-4 h-4 text-blue-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900">PayPay銀行</span>
+                <p className="text-xs text-slate-500">年/月/日 分割、摘要、お預り金額</p>
+              </div>
+            </label>
+            <label
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
+                csvFormat === "gmo"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="csvFormat"
+                value="gmo"
+                checked={csvFormat === "gmo"}
+                onChange={() => setCsvFormat("gmo")}
+                className="w-4 h-4 text-blue-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900">GMOあおぞらネット銀行</span>
+                <p className="text-xs text-slate-500">日付, 摘要, 出金, 入金</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            CSVファイル
           </label>
           <input
             type="file"
@@ -407,17 +459,25 @@ export default function BankTransferReconcilePage() {
               : "bg-blue-600 text-white hover:bg-blue-700"
           }`}
         >
-          {loading ? "照合確認中..." : "🔍 照合確認"}
+          {loading ? "照合確認中..." : "照合確認"}
         </button>
 
         <div className="mt-4 p-4 bg-slate-50 rounded-lg text-sm text-slate-600">
-          <h3 className="font-semibold mb-2">📋 CSVフォーマット要件</h3>
-          <ul className="list-disc list-inside space-y-1">
-            <li>1行目: ヘッダー（スキップされます）</li>
-            <li>2行目以降: [日付, 摘要, 出金額, 入金額, 残高] など</li>
-            <li>入金額が0より大きい行のみが照合対象です</li>
-            <li>摘要に振込名義人（カタカナまたは漢字）が含まれている必要があります</li>
-          </ul>
+          <h3 className="font-semibold mb-2">CSVフォーマット要件</h3>
+          {csvFormat === "paypay" ? (
+            <ul className="list-disc list-inside space-y-1">
+              <li>1行目: 口座識別子（スキップ）</li>
+              <li>2行目: ヘッダー（操作日(年), 操作日(月), ..., 摘要, ..., お預り金額, ...）</li>
+              <li>3行目以降: データ行</li>
+              <li>「お預り金額」が0より大きい行が照合対象です</li>
+            </ul>
+          ) : (
+            <ul className="list-disc list-inside space-y-1">
+              <li>1行目: ヘッダー（スキップされます）</li>
+              <li>2行目以降: [日付, 摘要, 出金額, 入金額, 残高] など</li>
+              <li>入金額が0より大きい行のみが照合対象です</li>
+            </ul>
+          )}
         </div>
       </div>
 

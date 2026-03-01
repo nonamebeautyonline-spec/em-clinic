@@ -68,11 +68,14 @@ class MockTextDecoder {
 vi.stubGlobal("TextDecoder", MockTextDecoder);
 
 // CSVファイル付きのFormDataリクエストを作成
-function makeRequest(csvContent?: string) {
+function makeRequest(csvContent?: string, csvFormat?: string) {
   const formData = new FormData();
   if (csvContent !== undefined) {
     const blob = new Blob([csvContent], { type: "text/csv" });
     formData.append("file", blob, "test.csv");
+  }
+  if (csvFormat) {
+    formData.append("csvFormat", csvFormat);
   }
   return new NextRequest("http://localhost/api/admin/bank-transfer/reconcile/preview", {
     method: "POST",
@@ -424,6 +427,121 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
 
     expect(body.amountMismatch).toHaveLength(1);
     expect(body.amountMismatch[0].difference).toBe(-5000); // 25000 - 30000
+    consoleSpy.mockRestore();
+  });
+
+  // --- PayPay銀行フォーマットテスト ---
+  it("PayPay銀行フォーマット: ヘッダー自動検出で照合", async () => {
+    const csv = [
+      "NBG23061lpws71c2de1Cvq016ws19C1ZbH1p8bRDwuXt",
+      "操作日(年),操作日(月),操作日(日),操作時刻(時),操作時刻(分),操作時刻(秒),取引順番号,摘要,摘要内容,,お支払金額,お預り金額,残高,メモ",
+      "2026,3,1,7,45,22,801,振込 ハマダキヨウカ,,,,15500,4777642,",
+    ].join("\n");
+
+    const ordersChain = createChain({
+      data: [{
+        id: "order-1",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 15500,
+        account_name: "ハマダキヨウカ",
+        shipping_name: "浜田清香",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv, "paypay"));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.summary.matched).toBe(1);
+    expect(body.matched[0].order.patient_id).toBe("P-1");
+    expect(body.matched[0].transfer.date).toBe("2026/03/01");
+    expect(body.matched[0].transfer.description).toContain("ハマダキヨウカ");
+    consoleSpy.mockRestore();
+  });
+
+  it("PayPay銀行フォーマット: 入金なし行はスキップ", async () => {
+    const csv = [
+      "NBG_ACCOUNT_ID",
+      "操作日(年),操作日(月),操作日(日),操作時刻(時),操作時刻(分),操作時刻(秒),取引順番号,摘要,摘要内容,,お支払金額,お預り金額,残高,メモ",
+      "2026,3,1,10,0,0,802,振込手数料,,,330,,4777312,",
+    ].join("\n");
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv, "paypay"));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("入金データが見つかりませんでした");
+    consoleSpy.mockRestore();
+  });
+
+  it("PayPay銀行フォーマット: 複数件の入金を抽出", async () => {
+    const csv = [
+      "ACCOUNT_ID",
+      "操作日(年),操作日(月),操作日(日),操作時刻(時),操作時刻(分),操作時刻(秒),取引順番号,摘要,摘要内容,,お支払金額,お預り金額,残高,メモ",
+      "2026,3,1,7,45,22,801,振込 タナカタロウ,,,,30000,4777642,",
+      "2026,3,2,9,10,5,802,振込 ヤマダハナコ,,,,25000,4802642,",
+    ].join("\n");
+
+    const ordersChain = createChain({
+      data: [
+        {
+          id: "order-1",
+          patient_id: "P-1",
+          product_code: "MJL_2.5mg_1m",
+          amount: 30000,
+          account_name: "タナカタロウ",
+          shipping_name: "田中太郎",
+        },
+        {
+          id: "order-2",
+          patient_id: "P-2",
+          product_code: "MJL_2.5mg_2m",
+          amount: 25000,
+          account_name: "ヤマダハナコ",
+          shipping_name: "山田花子",
+        },
+      ],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv, "paypay"));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.summary.total).toBe(2);
+    expect(body.summary.matched).toBe(2);
+    consoleSpy.mockRestore();
+  });
+
+  it("デフォルト（csvFormat未指定）はGMOフォーマットとして処理", async () => {
+    const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,30000";
+
+    const ordersChain = createChain({
+      data: [{
+        id: "order-1",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 30000,
+        account_name: "タナカタロウ",
+        shipping_name: "田中太郎",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    // csvFormatを指定しない（デフォルト=gmo）
+    const res = await POST(makeRequest(csv));
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.summary.matched).toBe(1);
     consoleSpy.mockRestore();
   });
 

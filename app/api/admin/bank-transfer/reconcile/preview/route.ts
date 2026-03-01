@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const csvFormat = (formData.get("csvFormat") as string) || "gmo";
 
     if (!file) {
       return NextResponse.json(
@@ -44,54 +45,10 @@ export async function POST(req: NextRequest) {
     }
 
     // CSVをパース（カンマ区切り、ダブルクォート対応）
-    const parsedRows = lines.map((line) => {
-      const cols: string[] = [];
-      let current = "";
-      let inQuotes = false;
+    const parsedRows = lines.map((line) => parseCSVLine(line));
 
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        if (char === '"') {
-          inQuotes = !inQuotes;
-        } else if (char === "," && !inQuotes) {
-          cols.push(current.trim());
-          current = "";
-        } else {
-          current += char;
-        }
-      }
-      cols.push(current.trim());
-      return cols;
-    });
-
-    // ヘッダー行をスキップ（1行目）
-    const dataRows = parsedRows.slice(1);
-
-    // 銀行CSVフォーマットを検出（三菱UFJ、三井住友、ゆうちょなど）
-    const transfers = dataRows
-      .map((cols) => {
-        let date = "";
-        let description = "";
-        let amount = 0;
-
-        if (cols.length >= 4) {
-          date = cols[0] || "";
-          description = cols[1] || "";
-
-          const withdrawalStr = cols[2]?.replace(/[,円]/g, "") || "0";
-          const depositStr = cols[3]?.replace(/[,円]/g, "") || "0";
-
-          const withdrawal = parseInt(withdrawalStr, 10) || 0;
-          const deposit = parseInt(depositStr, 10) || 0;
-
-          if (deposit > 0) {
-            amount = deposit;
-          }
-        }
-
-        return { date, description, amount };
-      })
-      .filter((t) => t.amount > 0);
+    // フォーマットに応じて振込データを抽出
+    const transfers = parseTransfers(parsedRows, csvFormat);
 
     if (transfers.length === 0) {
       return NextResponse.json(
@@ -277,6 +234,118 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/** CSV1行をパース（カンマ区切り、ダブルクォート対応） */
+function parseCSVLine(line: string): string[] {
+  const cols: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      cols.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cols.push(current.trim());
+  return cols;
+}
+
+interface Transfer {
+  date: string;
+  description: string;
+  amount: number;
+}
+
+/** フォーマットに応じてCSV行から振込データを抽出 */
+function parseTransfers(parsedRows: string[][], format: string): Transfer[] {
+  switch (format) {
+    case "paypay":
+      return parsePayPayCSV(parsedRows);
+    case "gmo":
+    default:
+      return parseGmoCSV(parsedRows);
+  }
+}
+
+/** GMOあおぞらネット銀行フォーマット: [日付, 摘要, 出金, 入金, ...] */
+function parseGmoCSV(parsedRows: string[][]): Transfer[] {
+  const dataRows = parsedRows.slice(1); // ヘッダースキップ
+  return dataRows
+    .map((cols) => {
+      let date = "";
+      let description = "";
+      let amount = 0;
+
+      if (cols.length >= 4) {
+        date = cols[0] || "";
+        description = cols[1] || "";
+
+        const depositStr = cols[3]?.replace(/[,円]/g, "") || "0";
+        const deposit = parseInt(depositStr, 10) || 0;
+
+        if (deposit > 0) {
+          amount = deposit;
+        }
+      }
+      return { date, description, amount };
+    })
+    .filter((t) => t.amount > 0);
+}
+
+/** PayPay銀行フォーマット: 1行目=口座識別子, 2行目=ヘッダー, 3行目以降=データ */
+function parsePayPayCSV(parsedRows: string[][]): Transfer[] {
+  // ヘッダー行を検出（「摘要」を含む行）
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(5, parsedRows.length); i++) {
+    if (parsedRows[i].some((c) => c.includes("摘要"))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  const headers = parsedRows[headerIdx];
+
+  // ヘッダーからカラム位置を検出
+  let descIdx = -1;
+  let depositIdx = -1;
+  let yearIdx = -1;
+  let monthIdx = -1;
+  let dayIdx = -1;
+
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i].trim();
+    if (h === "摘要") descIdx = i;
+    if (h.includes("お預り")) depositIdx = i;
+    if (h.includes("操作日") && h.includes("年")) yearIdx = i;
+    if (h.includes("操作日") && h.includes("月")) monthIdx = i;
+    if (h.includes("操作日") && h.includes("日")) dayIdx = i;
+  }
+
+  const dataRows = parsedRows.slice(headerIdx + 1);
+
+  return dataRows
+    .map((cols) => {
+      const year = yearIdx >= 0 ? cols[yearIdx] || "" : "";
+      const month = monthIdx >= 0 ? (cols[monthIdx] || "").padStart(2, "0") : "";
+      const day = dayIdx >= 0 ? (cols[dayIdx] || "").padStart(2, "0") : "";
+      const date = year ? `${year}/${month}/${day}` : "";
+
+      const description = descIdx >= 0 ? cols[descIdx] || "" : "";
+
+      const depositStr = depositIdx >= 0 ? (cols[depositIdx] || "0").replace(/[,円]/g, "") : "0";
+      const deposit = parseInt(depositStr, 10) || 0;
+
+      return { date, description, amount: deposit };
+    })
+    .filter((t) => t.amount > 0);
 }
 
 /**

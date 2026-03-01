@@ -109,6 +109,8 @@ function BankTransferContent() {
   const [patientId, setPatientId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bankAccount, setBankAccount] = useState<Record<string, string> | null>(null);
+  const [bankLoading, setBankLoading] = useState(true);
 
   // patientId取得
   useEffect(() => {
@@ -138,6 +140,21 @@ function BankTransferContent() {
     };
 
     fetchIdentity();
+  }, []);
+
+  // 口座情報取得
+  useEffect(() => {
+    const fetchBankAccount = async () => {
+      try {
+        const res = await fetch("/api/mypage/bank-account", { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (res.ok && json?.bankAccount) {
+          setBankAccount(json.bankAccount);
+        }
+      } catch { /* 取得失敗時は空表示 */ }
+      setBankLoading(false);
+    };
+    fetchBankAccount();
   }, []);
 
   const codeParam = searchParams.get("code") as ProductCode | null;
@@ -249,28 +266,34 @@ function BankTransferContent() {
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-slate-900">口座情報</h2>
           <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3.5">
-            <div className="space-y-2 text-[11px] text-blue-900">
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold min-w-[60px]">銀行名</span>
-                <span>住信SBIネット銀行</span>
+            {bankLoading ? (
+              <p className="text-[11px] text-blue-700">口座情報を読み込んでいます...</p>
+            ) : bankAccount ? (
+              <div className="space-y-2 text-[11px] text-blue-900">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold min-w-[60px]">銀行名</span>
+                  <span>{bankAccount.bank_name || "ー"}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold min-w-[60px]">支店</span>
+                  <span>{bankAccount.bank_branch || "ー"}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold min-w-[60px]">口座種別</span>
+                  <span>{bankAccount.bank_account_type || "ー"}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold min-w-[60px]">口座番号</span>
+                  <span className="font-mono text-sm">{bankAccount.bank_account_number || "ー"}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold min-w-[60px]">口座名義</span>
+                  <span>{bankAccount.bank_account_holder || "ー"}</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold min-w-[60px]">支店</span>
-                <span>法人第一支店（106）</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold min-w-[60px]">口座種別</span>
-                <span>普通</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold min-w-[60px]">口座番号</span>
-                <span className="font-mono text-sm">2931048</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-semibold min-w-[60px]">口座名義</span>
-                <span>カ）コブシ</span>
-              </div>
-            </div>
+            ) : (
+              <p className="text-[11px] text-blue-700">口座情報が設定されていません。</p>
+            )}
           </div>
         </div>
 

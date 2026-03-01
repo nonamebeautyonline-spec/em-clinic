@@ -170,6 +170,14 @@ function PaymentSetupGuide({ provider, defaultOpen }: { provider: string; defaul
   );
 }
 
+const BANK_ACCOUNT_KEYS = [
+  { key: "bank_name", label: "銀行名", placeholder: "例: 住信SBIネット銀行" },
+  { key: "bank_branch", label: "支店名", placeholder: "例: 法人第一支店（106）" },
+  { key: "bank_account_type", label: "口座種別", placeholder: "例: 普通" },
+  { key: "bank_account_number", label: "口座番号", placeholder: "例: 1234567" },
+  { key: "bank_account_holder", label: "口座名義", placeholder: "例: カ）コブシ" },
+] as const;
+
 const RECONCILE_MODE_OPTIONS = [
   {
     value: "order_based",
@@ -205,6 +213,18 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [savingMode, setSavingMode] = useState(false);
   const [savingReconcile, setSavingReconcile] = useState(false);
 
+  // 口座情報
+  const [bankForm, setBankForm] = useState<Record<string, string>>({
+    bank_name: "",
+    bank_branch: "",
+    bank_account_type: "",
+    bank_account_number: "",
+    bank_account_holder: "",
+  });
+  const [bankSaved, setBankSaved] = useState<Record<string, string>>({});
+  const [savingBank, setSavingBank] = useState(false);
+  const [showBankConfirm, setShowBankConfirm] = useState(false);
+
   useEffect(() => {
     const val = providerSetting?.maskedValue || "";
     setSelected(val === "未設定" ? "" : val);
@@ -219,6 +239,18 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     const val = reconcileModeSetting?.maskedValue || "";
     setReconcileMode(!val || val === "未設定" ? "order_based" : val);
   }, [reconcileModeSetting?.maskedValue]);
+
+  // 口座情報の初期値をセット
+  useEffect(() => {
+    const initial: Record<string, string> = {};
+    for (const def of BANK_ACCOUNT_KEYS) {
+      const s = paymentSettings.find((s) => s.key === def.key);
+      const val = s?.maskedValue || "";
+      initial[def.key] = val === "未設定" ? "" : val;
+    }
+    setBankForm(initial);
+    setBankSaved(initial);
+  }, [paymentSettings]);
 
   const handleSave = async () => {
     if (!selected) return;
@@ -283,6 +315,36 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       setSavingMode(false);
     }
   };
+
+  const handleSaveBankAccount = async () => {
+    setSavingBank(true);
+    try {
+      // 変更があるキーだけ保存
+      for (const def of BANK_ACCOUNT_KEYS) {
+        if (bankForm[def.key] !== bankSaved[def.key]) {
+          const res = await fetch("/api/admin/settings", {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: "payment", key: def.key, value: bankForm[def.key] }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `${def.label}の保存に失敗しました`);
+          }
+        }
+      }
+      setBankSaved({ ...bankForm });
+      setShowBankConfirm(false);
+      onSaved("口座情報を保存しました", "success");
+    } catch (err: any) {
+      onSaved(err.message || "口座情報の保存に失敗しました", "error");
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  const bankHasChanges = BANK_ACCOUNT_KEYS.some((def) => bankForm[def.key] !== bankSaved[def.key]);
 
   const selectedOption = PROVIDER_OPTIONS.find((o) => o.value === selected);
   const providerSettings = selectedOption ? (settings?.[selectedOption.category] ?? []) : [];
@@ -476,6 +538,86 @@ export default function PaymentSection({ settings, onSaved }: Props) {
           </button>
         </div>
       </div>
+
+      {/* 振込先口座情報 */}
+      <div className="px-5 py-4 border-t border-gray-100">
+        <p className="text-sm font-medium text-gray-900 mb-1">振込先口座情報</p>
+        <p className="text-xs text-gray-500 mb-3">患者マイページの銀行振込画面に表示される口座情報</p>
+        <div className="space-y-3">
+          {BANK_ACCOUNT_KEYS.map((def) => (
+            <div key={def.key}>
+              <label htmlFor={`bank_${def.key}`} className="block text-xs font-medium text-gray-700 mb-1">
+                {def.label}
+              </label>
+              <input
+                type="text"
+                id={`bank_${def.key}`}
+                value={bankForm[def.key] || ""}
+                onChange={(e) => setBankForm((prev) => ({ ...prev, [def.key]: e.target.value }))}
+                placeholder={def.placeholder}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={() => setShowBankConfirm(true)}
+            disabled={!bankHasChanges}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            口座情報を保存
+          </button>
+        </div>
+      </div>
+
+      {/* 口座情報確認モーダル */}
+      {showBankConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowBankConfirm(false)}>
+          <div className="bg-white rounded-xl shadow-xl mx-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-800">口座情報の変更確認</h3>
+              <p className="text-xs text-gray-500 mt-0.5">以下の内容で保存します。変更箇所をご確認ください。</p>
+            </div>
+            <div className="px-5 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              {BANK_ACCOUNT_KEYS.map((def) => {
+                const changed = bankForm[def.key] !== bankSaved[def.key];
+                return (
+                  <div key={def.key} className={`rounded-lg p-3 ${changed ? "bg-blue-50 border border-blue-200" : "bg-gray-50"}`}>
+                    <div className="text-xs font-medium text-gray-600 mb-1">
+                      {def.label}
+                      {changed && <span className="ml-1.5 text-[10px] text-blue-600 font-bold">変更あり</span>}
+                    </div>
+                    {changed ? (
+                      <div className="space-y-0.5">
+                        <div className="text-xs text-gray-400 line-through">{bankSaved[def.key] || "（未設定）"}</div>
+                        <div className="text-sm font-medium text-blue-800">{bankForm[def.key] || "（未設定）"}</div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-800">{bankForm[def.key] || "（未設定）"}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowBankConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveBankAccount}
+                disabled={savingBank}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {savingBank ? "保存中..." : "保存する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
