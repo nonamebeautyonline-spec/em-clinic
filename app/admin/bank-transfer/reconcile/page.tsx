@@ -17,6 +17,20 @@ interface MatchedItem {
   updateSuccess: boolean;
 }
 
+interface AmountMismatchItem {
+  transfer: {
+    date: string;
+    description: string;
+    amount: number;
+  };
+  order: {
+    patient_id: string;
+    product_code: string;
+    amount: number;
+  };
+  difference: number;
+}
+
 interface UnmatchedItem {
   date: string;
   description: string;
@@ -25,11 +39,14 @@ interface UnmatchedItem {
 }
 
 interface ReconcileResult {
+  mode?: "order_based" | "statement_based";
   matched: MatchedItem[];
+  amountMismatch?: AmountMismatchItem[];
   unmatched: UnmatchedItem[];
   summary: {
     total: number;
     matched: number;
+    amountMismatch?: number;
     unmatched: number;
     updated: number;
   };
@@ -69,9 +86,22 @@ export default function BankTransferReconcilePage() {
   const [manualConfirmOrder, setManualConfirmOrder] = useState<PendingOrder | null>(null);
   const [manualConfirmMemo, setManualConfirmMemo] = useState("");
   const [manualConfirming, setManualConfirming] = useState(false);
+  // 照合モード
+  const [reconcileMode, setReconcileMode] = useState<"order_based" | "statement_based">("order_based");
+  // 金額不一致の選択状態
+  const [selectedMismatches, setSelectedMismatches] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadPendingOrders();
+    // テナントの照合モード設定を取得
+    fetch("/api/admin/settings?category=payment", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.settings?.reconcile_mode) {
+          setReconcileMode(data.settings.reconcile_mode as "order_based" | "statement_based");
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const loadPendingOrders = async () => {
@@ -131,6 +161,10 @@ export default function BankTransferReconcilePage() {
 
       const data = await res.json();
       setPreviewResult(data);
+      setSelectedMismatches(new Set());
+      if (data.mode) {
+        setReconcileMode(data.mode);
+      }
     } catch (err) {
       console.error("Preview error:", err);
       setError(err instanceof Error ? err.message : "照合プレビューに失敗しました");
@@ -145,6 +179,17 @@ export default function BankTransferReconcilePage() {
     setConfirming(true);
     setError("");
 
+    // matched + 選択された金額不一致項目を統合
+    const selectedMismatchItems = (previewResult.amountMismatch || [])
+      .filter((_, i) => selectedMismatches.has(i))
+      .map((item) => ({
+        transfer: item.transfer,
+        order: item.order,
+        newPaymentId: null,
+        updateSuccess: false,
+      }));
+    const allMatches = [...previewResult.matched, ...selectedMismatchItems];
+
     try {
       const res = await fetch("/api/admin/bank-transfer/reconcile/confirm", {
         method: "POST",
@@ -152,7 +197,7 @@ export default function BankTransferReconcilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ matches: previewResult.matched }),
+        body: JSON.stringify({ matches: allMatches }),
       });
 
       if (!res.ok) {
@@ -164,6 +209,7 @@ export default function BankTransferReconcilePage() {
       setResult(data);
       setPreviewResult(null);
       setFile(null);
+      setSelectedMismatches(new Set());
       loadPendingOrders(); // 未照合一覧を更新
     } catch (err) {
       console.error("Confirm error:", err);
@@ -213,9 +259,20 @@ export default function BankTransferReconcilePage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">銀行振込CSV一括照合</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-900">銀行振込CSV一括照合</h1>
+          <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+            reconcileMode === "statement_based"
+              ? "bg-purple-100 text-purple-800"
+              : "bg-slate-100 text-slate-700"
+          }`}>
+            {reconcileMode === "statement_based" ? "専用口座モード" : "共用口座モード"}
+          </span>
+        </div>
         <p className="text-slate-600 text-sm mt-1">
-          銀行CSVをアップロードして、振込確認待ちの注文と自動照合します
+          {reconcileMode === "statement_based"
+            ? "銀行明細の全入金を患者注文と照合します（専用口座向け）"
+            : "銀行CSVをアップロードして、振込確認待ちの注文と自動照合します"}
         </p>
       </div>
 
@@ -430,25 +487,172 @@ export default function BankTransferReconcilePage() {
             </div>
           )}
 
+          {/* 金額不一致セクション */}
+          {previewResult.amountMismatch && previewResult.amountMismatch.length > 0 && (
+            <div className="border-t border-orange-200">
+              <div className="px-6 py-4 bg-orange-50">
+                <h3 className="text-base font-semibold text-orange-900">
+                  金額不一致（{previewResult.amountMismatch.length}件）
+                </h3>
+                <p className="text-sm text-orange-700 mt-1">
+                  名義人は一致しますが金額が異なります。確認して反映対象に含める場合はチェックしてください
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        選択
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        振込日
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        名義人
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        振込金額
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        注文金額
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        差額
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        患者ID
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {previewResult.amountMismatch.map((item, i) => (
+                      <tr key={i} className="hover:bg-orange-50">
+                        <td className="px-6 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedMismatches.has(i)}
+                            onChange={(e) => {
+                              const next = new Set(selectedMismatches);
+                              if (e.target.checked) {
+                                next.add(i);
+                              } else {
+                                next.delete(i);
+                              }
+                              setSelectedMismatches(next);
+                            }}
+                            className="w-4 h-4 text-orange-600 border-slate-300 rounded focus:ring-orange-500"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                          {item.transfer.date}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-900">
+                          {item.transfer.description}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                          ¥{item.transfer.amount.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                          ¥{item.order.amount.toLocaleString()}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${
+                          item.difference > 0 ? "text-blue-600" : "text-red-600"
+                        }`}>
+                          {item.difference > 0 ? "+" : ""}¥{item.difference.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                          <button onClick={() => window.open(`/admin/line/talk?pid=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
+                            {item.order.patient_id}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 未マッチセクション（プレビュー内） */}
+          {previewResult.unmatched.length > 0 && (
+            <div className={`border-t ${
+              reconcileMode === "statement_based" ? "border-red-200" : "border-yellow-200"
+            }`}>
+              <div className={`px-6 py-4 ${
+                reconcileMode === "statement_based" ? "bg-red-50" : "bg-yellow-50"
+              }`}>
+                <h3 className={`text-base font-semibold ${
+                  reconcileMode === "statement_based" ? "text-red-900" : "text-yellow-900"
+                }`}>
+                  {reconcileMode === "statement_based"
+                    ? `不明な入金（${previewResult.unmatched.length}件）`
+                    : `未マッチ（${previewResult.unmatched.length}件）`}
+                </h3>
+                <p className={`text-sm mt-1 ${
+                  reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
+                }`}>
+                  {reconcileMode === "statement_based"
+                    ? "専用口座への入金ですが、対応する注文が見つかりません。要確認"
+                    : "以下の振込データは該当する注文が見つかりませんでした"}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">振込日</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要（名義人）</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">金額</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">理由</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {previewResult.unmatched.map((item, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{item.date}</td>
+                        <td className="px-6 py-4 text-sm text-slate-900">{item.description}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">¥{item.amount.toLocaleString()}</td>
+                        <td className={`px-6 py-4 text-sm ${
+                          reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
+                        }`}>{item.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <div className="text-sm text-slate-600">
               マッチ: <span className="font-semibold text-green-600">{previewResult.matched.length}件</span>
+              {(previewResult.amountMismatch?.length ?? 0) > 0 && (
+                <span className="ml-4">
+                  金額不一致: <span className="font-semibold text-orange-600">
+                    {previewResult.amountMismatch!.length}件
+                    {selectedMismatches.size > 0 && `（${selectedMismatches.size}件選択中）`}
+                  </span>
+                </span>
+              )}
               {previewResult.unmatched.length > 0 && (
                 <span className="ml-4">
-                  未マッチ: <span className="font-semibold text-yellow-600">{previewResult.unmatched.length}件</span>
+                  未マッチ: <span className={`font-semibold ${
+                    reconcileMode === "statement_based" ? "text-red-600" : "text-yellow-600"
+                  }`}>{previewResult.unmatched.length}件</span>
                 </span>
               )}
             </div>
             <button
               onClick={handleConfirm}
-              disabled={confirming || previewResult.matched.length === 0}
+              disabled={confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0)}
               className={`px-6 py-3 rounded-lg font-medium ${
-                confirming || previewResult.matched.length === 0
+                confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0)
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                   : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
-              {confirming ? "反映中..." : "このデータを反映する"}
+              {confirming ? "反映中..." : `このデータを反映する（${previewResult.matched.length + selectedMismatches.size}件）`}
             </button>
           </div>
 
@@ -640,47 +844,45 @@ export default function BankTransferReconcilePage() {
 
           {result.unmatched.length > 0 && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 bg-yellow-50 border-b border-yellow-200">
-                <h2 className="text-lg font-semibold text-yellow-900">
-                  ⚠️ 未マッチ（{result.unmatched.length}件）
+              <div className={`px-6 py-4 border-b ${
+                reconcileMode === "statement_based"
+                  ? "bg-red-50 border-red-200"
+                  : "bg-yellow-50 border-yellow-200"
+              }`}>
+                <h2 className={`text-lg font-semibold ${
+                  reconcileMode === "statement_based" ? "text-red-900" : "text-yellow-900"
+                }`}>
+                  {reconcileMode === "statement_based"
+                    ? `不明な入金（${result.unmatched.length}件）`
+                    : `未マッチ（${result.unmatched.length}件）`}
                 </h2>
-                <p className="text-sm text-yellow-700 mt-1">
-                  以下の振込データは該当する注文が見つかりませんでした
+                <p className={`text-sm mt-1 ${
+                  reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
+                }`}>
+                  {reconcileMode === "statement_based"
+                    ? "専用口座への入金ですが、対応する注文が見つかりません。要確認"
+                    : "以下の振込データは該当する注文が見つかりませんでした"}
                 </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        振込日
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        摘要（名義人）
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        金額
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
-                        理由
-                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">振込日</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要（名義人）</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">金額</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">理由</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
                     {result.unmatched.map((item, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {item.date}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-900">
-                          {item.description}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
-                          ¥{item.amount.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-yellow-700">
-                          {item.reason}
-                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{item.date}</td>
+                        <td className="px-6 py-4 text-sm text-slate-900">{item.description}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">¥{item.amount.toLocaleString()}</td>
+                        <td className={`px-6 py-4 text-sm ${
+                          reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
+                        }`}>{item.reason}</td>
                       </tr>
                     ))}
                   </tbody>

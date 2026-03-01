@@ -13,6 +13,14 @@ vi.mock("@/lib/tenant", () => ({
   withTenant: vi.fn((q: any) => q),
 }));
 
+let mockReconcileMode: string | null = null;
+vi.mock("@/lib/settings", () => ({
+  getSetting: vi.fn(async (_cat: string, key: string) => {
+    if (key === "reconcile_mode") return mockReconcileMode;
+    return null;
+  }),
+}));
+
 // --- Supabase チェーンモック ---
 function createChain(defaultResolve = { data: [], error: null }) {
   const chain: any = {};
@@ -83,6 +91,7 @@ function makeRequestWithoutFile() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuthorized = true;
+  mockReconcileMode = null;
   fromResults = [];
   fromCallIndex = 0;
 });
@@ -144,10 +153,9 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
     consoleSpy.mockRestore();
   });
 
-  it("金額不一致 → unmatched", async () => {
+  it("名義人一致・金額不一致 → amountMismatch に分類", async () => {
     const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,50000";
 
-    // pending注文（金額が異なる）
     const ordersChain = createChain({
       data: [{
         id: "order-1",
@@ -167,8 +175,11 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
 
     const body = await res.json();
     expect(body.summary.matched).toBe(0);
-    expect(body.summary.unmatched).toBe(1);
-    expect(body.unmatched[0].amount).toBe(50000);
+    expect(body.summary.amountMismatch).toBe(1);
+    expect(body.summary.unmatched).toBe(0);
+    expect(body.amountMismatch[0].transfer.amount).toBe(50000);
+    expect(body.amountMismatch[0].order.amount).toBe(30000);
+    expect(body.amountMismatch[0].difference).toBe(20000); // 50000 - 30000
     consoleSpy.mockRestore();
   });
 
@@ -340,5 +351,116 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
     expect(body.error).toContain("データ取得エラー");
     consoleSpy.mockRestore();
     logSpy.mockRestore();
+  });
+
+  it("デフォルトモードは order_based", async () => {
+    const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,30000";
+
+    const ordersChain = createChain({
+      data: [{
+        id: "order-1",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 30000,
+        account_name: "タナカタロウ",
+        shipping_name: "田中太郎",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv));
+    const body = await res.json();
+    expect(body.mode).toBe("order_based");
+    consoleSpy.mockRestore();
+  });
+
+  it("statement_based モード: unmatched の理由文が変わる", async () => {
+    mockReconcileMode = "statement_based";
+    const csv = "日付,摘要,出金,入金\n2026/02/20,フメイナニュウキン,0,99999";
+
+    const ordersChain = createChain({
+      data: [{
+        id: "order-1",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 30000,
+        account_name: "タナカタロウ",
+        shipping_name: "田中太郎",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv));
+    const body = await res.json();
+
+    expect(body.mode).toBe("statement_based");
+    expect(body.unmatched[0].reason).toContain("不明な入金");
+    consoleSpy.mockRestore();
+  });
+
+  it("金額不一致（負の差額）: 振込金額 < 注文金額", async () => {
+    const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,25000";
+
+    const ordersChain = createChain({
+      data: [{
+        id: "order-1",
+        patient_id: "P-1",
+        product_code: "MJL_2.5mg_1m",
+        amount: 30000,
+        account_name: "タナカタロウ",
+        shipping_name: "田中太郎",
+      }],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv));
+    const body = await res.json();
+
+    expect(body.amountMismatch).toHaveLength(1);
+    expect(body.amountMismatch[0].difference).toBe(-5000); // 25000 - 30000
+    consoleSpy.mockRestore();
+  });
+
+  it("完全マッチが優先: 金額一致は amountMismatch にならない", async () => {
+    const csv = "日付,摘要,出金,入金\n2026/02/20,タナカタロウ,0,30000";
+
+    const ordersChain = createChain({
+      data: [
+        {
+          id: "order-1",
+          patient_id: "P-1",
+          product_code: "MJL_5mg_1m",
+          amount: 50000,
+          account_name: "タナカタロウ",
+          shipping_name: "田中太郎",
+        },
+        {
+          id: "order-2",
+          patient_id: "P-1",
+          product_code: "MJL_2.5mg_1m",
+          amount: 30000,
+          account_name: "タナカタロウ",
+          shipping_name: "田中太郎",
+        },
+      ],
+      error: null,
+    });
+    fromResults.push(ordersChain);
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const res = await POST(makeRequest(csv));
+    const body = await res.json();
+
+    expect(body.summary.matched).toBe(1);
+    expect(body.summary.amountMismatch).toBe(0);
+    expect(body.matched[0].order.patient_id).toBe("P-1");
+    expect(body.matched[0].order.amount).toBe(30000);
+    consoleSpy.mockRestore();
   });
 });

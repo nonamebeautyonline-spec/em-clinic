@@ -40,6 +40,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   payment: [
     { key: "provider", label: "決済プロバイダー" },
     { key: "checkout_mode", label: "チェックアウトモード (hosted / inline)" },
+    { key: "reconcile_mode", label: "振込照合モード (order_based / statement_based)" },
   ],
   mypage: [
     { key: "config", label: "マイページ設定（JSON）" },

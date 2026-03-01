@@ -170,12 +170,27 @@ function PaymentSetupGuide({ provider, defaultOpen }: { provider: string; defaul
   );
 }
 
+const RECONCILE_MODE_OPTIONS = [
+  {
+    value: "order_based",
+    label: "注文ベース照合",
+    description: "共用口座向け。注文を基準にCSVからマッチを探す",
+  },
+  {
+    value: "statement_based",
+    label: "明細ベース照合",
+    description: "専用口座向け。銀行明細の全入金に対応する注文を探す",
+  },
+];
+
 export default function PaymentSection({ settings, onSaved }: Props) {
   const paymentSettings = settings?.payment ?? [];
   const providerSetting = paymentSettings.find((s) => s.key === "provider");
   const checkoutModeSetting = paymentSettings.find((s) => s.key === "checkout_mode");
+  const reconcileModeSetting = paymentSettings.find((s) => s.key === "reconcile_mode");
   const currentProvider = providerSetting?.maskedValue || "";
   const currentCheckoutMode = checkoutModeSetting?.maskedValue || "";
+  const currentReconcileMode = reconcileModeSetting?.maskedValue || "";
 
   const [selected, setSelected] = useState<string>(
     currentProvider === "未設定" ? "" : currentProvider,
@@ -183,8 +198,12 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [checkoutMode, setCheckoutMode] = useState<string>(
     !currentCheckoutMode || currentCheckoutMode === "未設定" ? "hosted" : currentCheckoutMode,
   );
+  const [reconcileMode, setReconcileMode] = useState<string>(
+    !currentReconcileMode || currentReconcileMode === "未設定" ? "order_based" : currentReconcileMode,
+  );
   const [saving, setSaving] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
+  const [savingReconcile, setSavingReconcile] = useState(false);
 
   useEffect(() => {
     const val = providerSetting?.maskedValue || "";
@@ -195,6 +214,11 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     const val = checkoutModeSetting?.maskedValue || "";
     setCheckoutMode(!val || val === "未設定" ? "hosted" : val);
   }, [checkoutModeSetting?.maskedValue]);
+
+  useEffect(() => {
+    const val = reconcileModeSetting?.maskedValue || "";
+    setReconcileMode(!val || val === "未設定" ? "order_based" : val);
+  }, [reconcileModeSetting?.maskedValue]);
 
   const handleSave = async () => {
     if (!selected) return;
@@ -215,6 +239,27 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       onSaved(err.message || "保存に失敗しました", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveReconcileMode = async () => {
+    setSavingReconcile(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: "payment", key: "reconcile_mode", value: reconcileMode }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+      }
+      onSaved("振込照合モードを保存しました", "success");
+    } catch (err: any) {
+      onSaved(err.message || "保存に失敗しました", "error");
+    } finally {
+      setSavingReconcile(false);
     }
   };
 
@@ -392,6 +437,45 @@ export default function PaymentSection({ settings, onSaved }: Props) {
           上の保存ボタンを押してからページを再読み込みしてください。
         </div>
       )}
+
+      {/* 振込照合モード */}
+      <div className="px-5 py-4 border-t border-gray-100">
+        <p className="text-sm font-medium text-gray-900 mb-3">振込照合モード</p>
+        <div className="space-y-3">
+          {RECONCILE_MODE_OPTIONS.map((opt) => (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                reconcileMode === opt.value
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="reconcile_mode"
+                value={opt.value}
+                checked={reconcileMode === opt.value}
+                onChange={(e) => setReconcileMode(e.target.value)}
+                className="w-4 h-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">{opt.label}</span>
+                <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="mt-4">
+          <button
+            onClick={handleSaveReconcileMode}
+            disabled={savingReconcile}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {savingReconcile ? "保存中..." : "照合モードを保存"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

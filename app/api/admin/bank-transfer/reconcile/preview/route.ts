@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { getSetting } from "@/lib/settings";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -144,8 +145,13 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Preview] Found ${pendingOrdersWithNames.length} pending orders`);
 
+    // テナント設定から照合モードを取得
+    const reconcileMode = await getSetting("payment", "reconcile_mode", tenantId ?? undefined) || "order_based";
+    console.log(`[Preview] Reconcile mode: ${reconcileMode}`);
+
     // 照合処理（プレビューのみ、DB更新なし）
     const matched: any[] = [];
+    const amountMismatchList: any[] = [];
     const unmatched: any[] = [];
     const usedOrderIds = new Set<string>();
 
@@ -155,6 +161,7 @@ export async function POST(req: NextRequest) {
 
     for (const transfer of transfers) {
       let matchedOrder = null;
+      let amountMismatchOrder = null;
 
       console.log(`\n[Preview] ===== Transfer: ${transfer.description} (¥${transfer.amount}) =====`);
 
@@ -162,37 +169,27 @@ export async function POST(req: NextRequest) {
       for (const order of pendingOrdersWithNames) {
         if (usedOrderIds.has(order.id)) continue;
 
+        const accountName = order.account_name || "";
+        if (!accountName) continue;
+
+        const descNormalized = normalizeKana(transfer.description);
+        const accountNormalized = normalizeKana(accountName);
+
+        const normalizedMatch = descNormalized.includes(accountNormalized);
+        const rawMatch = transfer.description.includes(accountName);
+        const nameMatch = normalizedMatch || rawMatch;
+
+        if (!nameMatch) continue;
+
         if (order.amount === transfer.amount) {
-          const accountName = order.account_name || "";
-
-          if (!accountName) {
-            console.log(`[Preview] Order ${order.id}: amount match (¥${order.amount}), but no account_name - SKIP`);
-            continue;
-          }
-
-          const descNormalized = normalizeKana(transfer.description);
-          const accountNormalized = normalizeKana(accountName);
-
-          console.log(`[Preview] Order ${order.id} (${order.patient_id}):`);
-          console.log(`  amount: ¥${order.amount} (MATCH)`);
-          console.log(`  account_name: "${accountName}"`);
-          console.log(`  accountNormalized: "${accountNormalized}"`);
-          console.log(`  transfer.description: "${transfer.description}"`);
-          console.log(`  descNormalized: "${descNormalized}"`);
-
-          const normalizedMatch = descNormalized.includes(accountNormalized);
-          const rawMatch = transfer.description.includes(accountName);
-
-          console.log(`  normalizedMatch: ${normalizedMatch}`);
-          console.log(`  rawMatch: ${rawMatch}`);
-
-          if (normalizedMatch || rawMatch) {
-            matchedOrder = order;
-            console.log(`  ✅ MATCHED!`);
-            break;
-          } else {
-            console.log(`  ❌ No name match`);
-          }
+          // 金額一致 + 名義人一致 → 完全マッチ
+          matchedOrder = order;
+          console.log(`[Preview] Order ${order.id} (${order.patient_id}): ✅ MATCHED (amount ¥${order.amount}, name "${accountName}")`);
+          break;
+        } else if (!amountMismatchOrder) {
+          // 名義人一致・金額不一致 → 金額違い候補（最初の1件を記録）
+          amountMismatchOrder = order;
+          console.log(`[Preview] Order ${order.id} (${order.patient_id}): ⚠️ Name match but amount mismatch (order ¥${order.amount} vs transfer ¥${transfer.amount})`);
         }
       }
 
@@ -202,18 +199,26 @@ export async function POST(req: NextRequest) {
           order: matchedOrder,
         });
         usedOrderIds.add(matchedOrder.id);
+      } else if (amountMismatchOrder) {
+        amountMismatchList.push({
+          transfer,
+          order: amountMismatchOrder,
+          difference: transfer.amount - amountMismatchOrder.amount,
+        });
       } else {
         console.log(`[Preview] ⚠️ No match found for this transfer`);
         unmatched.push({
           date: transfer.date,
           description: transfer.description,
           amount: transfer.amount,
-          reason: "該当する注文が見つかりませんでした（金額または名義人が一致しません）",
+          reason: reconcileMode === "statement_based"
+            ? "対応する注文が見つかりません（不明な入金）"
+            : "該当する注文が見つかりませんでした（金額または名義人が一致しません）",
         });
       }
     }
 
-    console.log(`[Preview] Matched: ${matched.length}, Unmatched: ${unmatched.length}`);
+    console.log(`[Preview] Matched: ${matched.length}, AmountMismatch: ${amountMismatchList.length}, Unmatched: ${unmatched.length}`);
 
     // ★ デバッグ情報を追加
     const debugInfo = {
@@ -235,6 +240,7 @@ export async function POST(req: NextRequest) {
     };
 
     return NextResponse.json({
+      mode: reconcileMode,
       matched: matched.map((m) => ({
         transfer: m.transfer,
         order: {
@@ -245,10 +251,20 @@ export async function POST(req: NextRequest) {
         newPaymentId: null, // プレビューなので未採番
         updateSuccess: false, // プレビューなので未更新
       })),
+      amountMismatch: amountMismatchList.map((m) => ({
+        transfer: m.transfer,
+        order: {
+          patient_id: m.order.patient_id,
+          product_code: m.order.product_code,
+          amount: m.order.amount,
+        },
+        difference: m.difference,
+      })),
       unmatched,
       summary: {
         total: transfers.length,
         matched: matched.length,
+        amountMismatch: amountMismatchList.length,
         unmatched: unmatched.length,
         updated: 0, // プレビューなので0
       },
