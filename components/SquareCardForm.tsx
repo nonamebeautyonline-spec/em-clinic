@@ -110,7 +110,13 @@ export default function SquareCardForm({
       if (result.status === "OK") {
         onTokenize(result.token);
       } else {
-        onError(`カード検証失敗: status=${result.status}`);
+        const statusMessages: Record<string, string> = {
+          INVALID: "カード情報が正しくありません。入力内容をご確認ください。",
+          ABORT: "カード処理が中断されました。再度お試しください。",
+          CANCEL: "カード処理がキャンセルされました。",
+          ERROR: "カード情報の処理中にエラーが発生しました。再度お試しください。",
+        };
+        onError(statusMessages[result.status] || "カード情報の確認に失敗しました。再度お試しください。");
       }
     } catch (e: any) {
       onError(e?.message || "カード情報の処理中にエラーが発生しました");

@@ -81,7 +81,7 @@ describe("SquarePaymentProvider — createCheckoutLink", () => {
     defaultConfig({ access_token: undefined });
     await expect(
       provider.createCheckoutLink(defaultCheckoutParams()),
-    ).rejects.toThrow("Square configuration missing");
+    ).rejects.toThrow("Square設定が不足しています");
   });
 
   it("APIがエラーレスポンス→Errorをthrow", async () => {
@@ -92,7 +92,7 @@ describe("SquarePaymentProvider — createCheckoutLink", () => {
     });
     await expect(
       provider.createCheckoutLink(defaultCheckoutParams()),
-    ).rejects.toThrow("Failed to create Square checkout link");
+    ).rejects.toThrow("決済リンクの作成に失敗しました");
   });
 
   it("payment_noteにメタデータが埋め込まれる", async () => {

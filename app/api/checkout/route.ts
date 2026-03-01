@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const tenantId = resolveTenantId(req);
     if (!APP_BASE_URL) {
       return NextResponse.json(
-        { error: "Server configuration error. Missing APP_BASE_URL." },
+        { error: "サーバー設定エラーです。管理者にお問い合わせください。" },
         { status: 500 }
       );
     }
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const product = await getProductByCode(productCode, tenantId ?? undefined);
     if (!product) {
       return NextResponse.json(
-        { error: "Invalid productCode." },
+        { error: "無効な商品コードです" },
         { status: 400 }
       );
     }
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const validModes: Mode[] = ["current", "first", "reorder"];
     if (mode && !validModes.includes(mode)) {
       return NextResponse.json(
-        { error: "Invalid mode. Use current | first | reorder." },
+        { error: "無効なモードです" },
         { status: 400 }
       );
     }

@@ -163,7 +163,7 @@ describe("createSquarePayment", () => {
 
   it("決済失敗時はエラーメッセージを返す", async () => {
     mockSquareApi({
-      errors: [{ detail: "カードが拒否されました" }],
+      errors: [{ code: "CARD_DECLINED", detail: "Card declined" }],
     }, false);
 
     const result = await createSquarePayment(BASE_URL, TOKEN, {

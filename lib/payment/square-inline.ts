@@ -3,6 +3,55 @@ import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 
+/** Square APIエラーコードを日本語に変換 */
+const SQUARE_ERROR_MAP: Record<string, string> = {
+  // カード関連
+  CARD_DECLINED: "カードが拒否されました。別のカードをお試しください。",
+  GENERIC_DECLINE: "カードが拒否されました。別のカードをお試しください。",
+  CARD_EXPIRED: "カードの有効期限が切れています。",
+  INVALID_CARD: "カード情報が正しくありません。",
+  CARD_NOT_SUPPORTED: "このカードはサポートされていません。",
+  INVALID_CARD_DATA: "カード情報が正しくありません。",
+  // 入力エラー
+  CVV_FAILURE: "セキュリティコード（CVV）が正しくありません。",
+  INVALID_EXPIRATION: "有効期限が正しくありません。",
+  BAD_EXPIRATION: "有効期限が正しくありません。",
+  EXPIRATION_FAILURE: "有効期限が正しくありません。",
+  PAN_FAILURE: "カード番号が正しくありません。",
+  INVALID_POSTAL_CODE: "郵便番号が正しくありません。",
+  ADDRESS_VERIFICATION_FAILURE: "住所の確認に失敗しました。",
+  // 残高・限度額
+  INSUFFICIENT_FUNDS: "残高が不足しています。",
+  AMOUNT_TOO_HIGH: "金額が取引上限を超えています。",
+  AMOUNT_TOO_LOW: "金額が下限を下回っています。",
+  TRANSACTION_LIMIT: "取引限度額を超えています。",
+  // nonce/token
+  CARD_TOKEN_EXPIRED: "カード情報の有効期限が切れました。ページを再読み込みしてお試しください。",
+  CARD_TOKEN_USED: "カード情報が既に使用されています。ページを再読み込みしてお試しください。",
+  // PIN
+  ALLOWABLE_PIN_TRIES_EXCEEDED: "PINの入力回数が上限を超えました。",
+  CHIP_INSERTION_REQUIRED: "ICチップの挿入が必要です。",
+  // システム
+  TEMPORARILY_UNAVAILABLE: "一時的に利用できません。しばらくしてから再度お試しください。",
+  INVALID_ACCOUNT: "無効なアカウントです。",
+};
+
+/** Square APIエラーを日本語に変換 */
+export function translateSquareError(errors: Array<{ code?: string; detail?: string }> | undefined): string {
+  if (!errors || errors.length === 0) return "決済に失敗しました";
+
+  const err = errors[0];
+  // コードで翻訳マッチ
+  if (err.code && SQUARE_ERROR_MAP[err.code]) {
+    return SQUARE_ERROR_MAP[err.code];
+  }
+  // detail に "nonce" が含まれる場合（コードがなくてもキャッチ）
+  if (err.detail?.toLowerCase().includes("nonce")) {
+    return "カード情報の有効期限が切れました。ページを再読み込みしてお試しください。";
+  }
+  return "決済に失敗しました。時間をおいて再度お試しください。";
+}
+
 /** Square API 共通 fetch */
 async function squareFetch(
   baseUrl: string,
@@ -135,9 +184,8 @@ export async function createSquarePayment(
   });
 
   if (!ok || !json?.payment?.id) {
-    const errDetail = json?.errors?.[0]?.detail || "決済に失敗しました";
     console.error("[square-inline] CreatePayment failed:", json);
-    return { ok: false, error: errDetail };
+    return { ok: false, error: translateSquareError(json?.errors) };
   }
 
   return { ok: true, payment: json.payment };

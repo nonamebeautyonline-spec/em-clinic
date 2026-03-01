@@ -30,7 +30,7 @@ export class SquarePaymentProvider implements PaymentProvider {
     const config = await this.getConfig();
 
     if (!config.accessToken || !config.locationId) {
-      throw new Error("Square configuration missing: access_token or location_id");
+      throw new Error("Square設定が不足しています（access_token または location_id）");
     }
 
     const idempotencyKey = crypto.randomUUID();
@@ -77,7 +77,7 @@ export class SquarePaymentProvider implements PaymentProvider {
 
     if (!res.ok) {
       console.error("Square CreatePaymentLink failed:", res.status);
-      throw new Error("Failed to create Square checkout link");
+      throw new Error("決済リンクの作成に失敗しました");
     }
 
     const json = await res.json();
@@ -85,7 +85,7 @@ export class SquarePaymentProvider implements PaymentProvider {
 
     if (!checkoutUrl) {
       console.error("Square response missing url");
-      throw new Error("Square did not return a payment link URL");
+      throw new Error("決済URLが取得できませんでした");
     }
 
     return {

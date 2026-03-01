@@ -105,7 +105,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
-    expect(json.error).toContain("APP_BASE_URL");
+    expect(json.error).toContain("サーバー設定エラー");
 
     // 環境変数を復元
     process.env.APP_BASE_URL = originalUrl;
@@ -125,7 +125,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
-    expect(json.error).toBe("Invalid productCode.");
+    expect(json.error).toBe("無効な商品コードです");
   });
 
   it("3. NG患者 → 403", async () => {
@@ -223,7 +223,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("Invalid mode");
+    expect(json.error).toContain("無効なモードです");
   });
 
   it("7. provider例外 → 500", async () => {
