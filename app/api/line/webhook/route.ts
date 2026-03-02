@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
+
+// after() 内で Claude API を呼ぶため、デフォルト15秒では不足
+export const maxDuration = 60;
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";

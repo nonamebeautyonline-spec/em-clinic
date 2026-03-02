@@ -313,7 +313,7 @@ export async function scheduleAiReply(
     ts: Date.now(),
   };
   try {
-    await redis.set(debounceKey, JSON.stringify(entry), { ex: DEBOUNCE_SEC * 3 }); // TTL余裕を持たせる
+    await redis.set(debounceKey, JSON.stringify(entry), { ex: 120 }); // cronが60秒間隔なので余裕を持って120秒
     // デバウンスキーの一覧管理用セットにも追加
     await redis.sadd("ai_debounce_keys", patientId);
   } catch (e) {
