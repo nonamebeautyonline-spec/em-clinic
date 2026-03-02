@@ -49,7 +49,18 @@ export async function GET(req: NextRequest) {
 
     const products = await getProducts(tenantId ?? undefined);
     const locations = await getLocations(tenantId ?? undefined);
-    return NextResponse.json({ logs: logs ?? [], products, locations });
+
+    // 最終更新日時を取得
+    let lastUpdatedQuery = supabaseAdmin
+      .from("inventory_logs")
+      .select("updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    lastUpdatedQuery = withTenant(lastUpdatedQuery, tenantId);
+    const { data: lastRow } = await lastUpdatedQuery;
+    const lastUpdatedAt = lastRow?.[0]?.updated_at ?? null;
+
+    return NextResponse.json({ logs: logs ?? [], products, locations, lastUpdatedAt });
   }
 
   if (from && to) {

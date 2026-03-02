@@ -158,6 +158,9 @@ export default function InventoryPage() {
   // 履歴データ（マトリクス用）
   const [historyLogs, setHistoryLogs] = useState<LogEntry[]>([]);
 
+  // 最終更新日時
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+
   // 仕訳: のなめ自動入力
   const [autoFillBase, setAutoFillBase] = useState<Record<string, number>>({});
   const [autoFillLoading, setAutoFillLoading] = useState(false);
@@ -182,6 +185,7 @@ export default function InventoryPage() {
       if (!res.ok) throw new Error("取得失敗");
       const data = await res.json();
       setProducts(data.products || []);
+      setLastUpdatedAt(data.lastUpdatedAt ?? null);
 
       const locs: string[] = data.locations || ["本院"];
       setLocations(locs);
@@ -1077,6 +1081,13 @@ export default function InventoryPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* 最終更新日時 */}
+      {lastUpdatedAt && (
+        <div className="mt-6 text-center text-xs text-slate-400">
+          最終更新: {new Date(lastUpdatedAt).toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
         </div>
       )}
     </div>
