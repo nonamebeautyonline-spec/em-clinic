@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  buildDaySlots,
+  getTimeRange,
+  type WeeklyRule,
+  type DateOverride,
+  type TimeSlot,
+} from "@/lib/schedule-utils";
 
 // === 型定義 ===
 interface CalendarEvent {
@@ -17,32 +24,82 @@ interface CalendarEvent {
   prescription_menu: string;
 }
 
+interface Doctor {
+  doctor_id: string;
+  doctor_name: string;
+  is_active: boolean;
+  sort_order: number;
+  color: string | null;
+}
+
 type CalendarMode = "month" | "week" | "day";
 
+interface CalendarViewProps {
+  initialMode?: CalendarMode;
+  showModeSwitch?: boolean;
+}
+
 // ステータス別の色定義
-const STATUS_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  pending: { bg: "bg-blue-100", text: "text-blue-800", border: "border-blue-300", label: "待機中" },
-  confirmed: { bg: "bg-green-100", text: "text-green-800", border: "border-green-300", label: "確定" },
-  completed: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-300", label: "完了" },
-  OK: { bg: "bg-green-100", text: "text-green-800", border: "border-green-300", label: "OK" },
-  NG: { bg: "bg-red-100", text: "text-red-800", border: "border-red-300", label: "NG" },
-  canceled: { bg: "bg-red-100", text: "text-red-800", border: "border-red-300", label: "キャンセル" },
-  cancelled: { bg: "bg-red-100", text: "text-red-800", border: "border-red-300", label: "キャンセル" },
+const STATUS_COLORS: Record<
+  string,
+  { bg: string; text: string; border: string; label: string }
+> = {
+  pending: {
+    bg: "bg-blue-100",
+    text: "text-blue-800",
+    border: "border-blue-300",
+    label: "待機中",
+  },
+  confirmed: {
+    bg: "bg-green-100",
+    text: "text-green-800",
+    border: "border-green-300",
+    label: "確定",
+  },
+  completed: {
+    bg: "bg-slate-100",
+    text: "text-slate-600",
+    border: "border-slate-300",
+    label: "完了",
+  },
+  OK: {
+    bg: "bg-green-100",
+    text: "text-green-800",
+    border: "border-green-300",
+    label: "OK",
+  },
+  NG: {
+    bg: "bg-red-100",
+    text: "text-red-800",
+    border: "border-red-300",
+    label: "NG",
+  },
+  canceled: {
+    bg: "bg-red-100",
+    text: "text-red-800",
+    border: "border-red-300",
+    label: "キャンセル",
+  },
+  cancelled: {
+    bg: "bg-red-100",
+    text: "text-red-800",
+    border: "border-red-300",
+    label: "キャンセル",
+  },
 };
 
-const DEFAULT_STATUS_COLOR = { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-300", label: "不明" };
-
-// 時間軸の範囲（9:00〜20:00）
-const HOUR_START = 9;
-const HOUR_END = 20;
-const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+const DEFAULT_STATUS_COLOR = {
+  bg: "bg-slate-100",
+  text: "text-slate-700",
+  border: "border-slate-300",
+  label: "不明",
+};
 
 // 曜日ラベル
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 // === ユーティリティ関数 ===
 
-/** YYYY-MM-DD形式の文字列を返す */
 function toDateStr(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -50,63 +107,71 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** 日付文字列からDateオブジェクトを生成（タイムゾーン問題回避） */
 function parseDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-/** 月の初日を取得 */
 function getMonthStart(year: number, month: number): Date {
   return new Date(year, month, 1);
 }
 
-/** 月の最終日を取得 */
 function getMonthEnd(year: number, month: number): Date {
   return new Date(year, month + 1, 0);
 }
 
-/** 週の月曜日を取得 */
 function getWeekMonday(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // 日曜日の場合は前の月曜日
+  const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   return d;
 }
 
-/** 日付を加算 */
 function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
 }
 
-/** 時間文字列を分に変換 */
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + (m || 0);
 }
 
-/** 今日かどうかを判定 */
 function isToday(dateStr: string): boolean {
   return dateStr === toDateStr(new Date());
 }
 
 // === メインコンポーネント ===
-export default function CalendarView() {
-  const [mode, setMode] = useState<CalendarMode>("month");
+export default function CalendarView({
+  initialMode = "month",
+  showModeSwitch = true,
+}: CalendarViewProps) {
+  const [mode, setMode] = useState<CalendarMode>(initialMode);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [popover, setPopover] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
+  const [popover, setPopover] = useState<{
+    event: CalendarEvent;
+    x: number;
+    y: number;
+  } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+
+  // スケジュール関連state
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [weeklyRules, setWeeklyRules] = useState<WeeklyRule[]>([]);
+  const [overrides, setOverrides] = useState<DateOverride[]>([]);
 
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
         setPopover(null);
       }
     };
@@ -121,7 +186,6 @@ export default function CalendarView() {
     if (mode === "month") {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-      // カレンダー表示用に前後の週も含める
       const monthStart = getMonthStart(year, month);
       const monthEnd = getMonthEnd(year, month);
       const calStart = getWeekMonday(monthStart);
@@ -132,28 +196,44 @@ export default function CalendarView() {
       const sunday = addDays(monday, 6);
       return { start: toDateStr(monday), end: toDateStr(sunday) };
     } else {
-      // 日ビュー
       const dateStr = toDateStr(currentDate);
       return { start: dateStr, end: dateStr };
     }
   }, [mode, currentDate]);
 
   // データ取得
-  const fetchEvents = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const { start, end } = getDateRange();
-      const res = await fetch(
-        `/api/admin/reservations/calendar?start=${start}&end=${end}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `取得失敗 (${res.status})`);
+
+      // 予約データ + スケジュールデータを並行取得
+      const [eventsRes, scheduleRes] = await Promise.all([
+        fetch(`/api/admin/reservations/calendar?start=${start}&end=${end}`, {
+          credentials: "include",
+        }),
+        fetch(`/api/admin/schedule?start=${start}&end=${end}`, {
+          credentials: "include",
+        }),
+      ]);
+
+      if (!eventsRes.ok) {
+        const errData = await eventsRes.json().catch(() => ({}));
+        throw new Error(errData.error || `取得失敗 (${eventsRes.status})`);
       }
-      const data = await res.json();
-      setEvents(data.events || []);
+
+      const eventsData = await eventsRes.json();
+      setEvents(eventsData.events || []);
+
+      if (scheduleRes.ok) {
+        const scheduleData = await scheduleRes.json();
+        setDoctors(
+          (scheduleData.doctors || []).filter((d: Doctor) => d.is_active)
+        );
+        setWeeklyRules(scheduleData.weekly_rules || []);
+        setOverrides(scheduleData.overrides || []);
+      }
     } catch (err) {
       console.error("Calendar fetch error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -164,8 +244,8 @@ export default function CalendarView() {
   }, [getDateRange]);
 
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    fetchData();
+  }, [fetchData]);
 
   // ナビゲーション
   const navigate = (direction: -1 | 1) => {
@@ -184,7 +264,6 @@ export default function CalendarView() {
     setCurrentDate(new Date());
   };
 
-  // 月ビューから日ビューへ遷移
   const goToDay = (dateStr: string) => {
     setCurrentDate(parseDate(dateStr));
     setMode("day");
@@ -214,14 +293,54 @@ export default function CalendarView() {
   const showPopover = (event: CalendarEvent, e: React.MouseEvent) => {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // 画面右端に近い場合は左側に表示
-    const x = rect.right + 280 > window.innerWidth ? rect.left - 280 : rect.right + 4;
+    const x =
+      rect.right + 280 > window.innerWidth ? rect.left - 280 : rect.right + 4;
     const y = Math.min(rect.top, window.innerHeight - 220);
     setPopover({ event, x, y });
   };
 
-  // ステータス色取得
-  const getStatusColor = (status: string) => STATUS_COLORS[status] || DEFAULT_STATUS_COLOR;
+  const getStatusColor = (status: string) =>
+    STATUS_COLORS[status] || DEFAULT_STATUS_COLOR;
+
+  // 日ビューのサマリー
+  const daySummary = mode === "day" ? (() => {
+    const dateStr = toDateStr(currentDate);
+    const dayEvents = events.filter((ev) => ev.reserved_date === dateStr);
+    const pending = dayEvents.filter((e) => e.status === "pending").length;
+    const ok = dayEvents.filter((e) => e.status === "OK").length;
+    const ng = dayEvents.filter((e) => e.status === "NG").length;
+    const canceled = dayEvents.filter(
+      (e) => e.status === "canceled" || e.status === "cancelled"
+    ).length;
+
+    // 空き枠の総数を計算
+    let totalAvailable = 0;
+    const activeDoctors = doctors.filter((d) => d.is_active);
+    for (const doc of activeDoctors) {
+      const docEvents = dayEvents.filter(
+        (e) => e.doctor_id === doc.doctor_id
+      );
+      const slots = buildDaySlots(
+        dateStr,
+        doc.doctor_id,
+        weeklyRules,
+        overrides,
+        docEvents
+      );
+      if (slots) {
+        totalAvailable += slots.reduce((sum, s) => sum + s.available, 0);
+      }
+    }
+
+    return {
+      total: dayEvents.length,
+      pending,
+      ok,
+      ng,
+      canceled,
+      totalAvailable,
+    };
+  })() : null;
 
   return (
     <div className="space-y-4">
@@ -251,32 +370,79 @@ export default function CalendarView() {
           </button>
         </div>
 
-        <div className="flex bg-slate-100 rounded-lg p-1">
-          {(["month", "week", "day"] as CalendarMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-                mode === m
-                  ? "bg-white text-slate-900 shadow-sm font-medium"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              {m === "month" ? "月" : m === "week" ? "週" : "日"}
-            </button>
-          ))}
-        </div>
+        {showModeSwitch && (
+          <div className="flex bg-slate-100 rounded-lg p-1">
+            {(["month", "week", "day"] as CalendarMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  mode === m
+                    ? "bg-white text-slate-900 shadow-sm font-medium"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {m === "month" ? "月" : m === "week" ? "週" : "日"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* ステータス凡例 */}
-      <div className="flex flex-wrap gap-3 text-xs">
-        {Object.entries(STATUS_COLORS).filter(([key]) => !["cancelled", "OK", "NG"].includes(key)).map(([key, color]) => (
-          <div key={key} className="flex items-center gap-1">
-            <div className={`w-3 h-3 rounded ${color.bg} border ${color.border}`} />
-            <span className="text-slate-600">{color.label}</span>
+      {/* 日ビュー: サマリー情報 */}
+      {daySummary && (
+        <div className="flex items-center gap-4 flex-wrap text-sm">
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-4 py-2">
+            <span className="text-slate-500">予約</span>
+            <span className="text-xl font-bold text-slate-900">{daySummary.total}</span>
+            <span className="text-slate-400">件</span>
           </div>
-        ))}
-      </div>
+          {daySummary.pending > 0 && (
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="text-blue-800">待機中 {daySummary.pending}</span>
+            </div>
+          )}
+          {daySummary.ok > 0 && (
+            <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-green-800">OK {daySummary.ok}</span>
+            </div>
+          )}
+          {daySummary.ng > 0 && (
+            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span className="text-red-800">NG {daySummary.ng}</span>
+            </div>
+          )}
+          {daySummary.canceled > 0 && (
+            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-red-400" />
+              <span className="text-red-700">キャンセル {daySummary.canceled}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="text-emerald-800">空き {daySummary.totalAvailable}枠</span>
+          </div>
+        </div>
+      )}
+
+      {/* ステータス凡例（月・週ビュー時のみ） */}
+      {mode !== "day" && (
+        <div className="flex flex-wrap gap-3 text-xs">
+          {Object.entries(STATUS_COLORS)
+            .filter(([key]) => !["cancelled", "OK", "NG"].includes(key))
+            .map(([key, color]) => (
+              <div key={key} className="flex items-center gap-1">
+                <div
+                  className={`w-3 h-3 rounded ${color.bg} border ${color.border}`}
+                />
+                <span className="text-slate-600">{color.label}</span>
+              </div>
+            ))}
+        </div>
+      )}
 
       {/* エラー */}
       {error && (
@@ -312,9 +478,12 @@ export default function CalendarView() {
             />
           )}
           {mode === "day" && (
-            <DayView
+            <ScheduleDayView
               currentDate={currentDate}
               events={events}
+              doctors={doctors}
+              weeklyRules={weeklyRules}
+              overrides={overrides}
               onEventClick={showPopover}
               getStatusColor={getStatusColor}
             />
@@ -341,7 +510,9 @@ export default function CalendarView() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-slate-500">患者名</span>
-              <span className="font-medium text-slate-900">{popover.event.patient_name || "-"}</span>
+              <span className="font-medium text-slate-900">
+                {popover.event.patient_name || "-"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">日時</span>
@@ -351,7 +522,9 @@ export default function CalendarView() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">医師</span>
-              <span className="text-slate-900">{popover.event.doctor_name || "-"}</span>
+              <span className="text-slate-900">
+                {popover.event.doctor_name || "-"}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">ステータス</span>
@@ -366,13 +539,17 @@ export default function CalendarView() {
             {popover.event.patient_tel && (
               <div className="flex justify-between">
                 <span className="text-slate-500">電話番号</span>
-                <span className="font-mono text-slate-900">{popover.event.patient_tel}</span>
+                <span className="font-mono text-slate-900">
+                  {popover.event.patient_tel}
+                </span>
               </div>
             )}
             {popover.event.prescription_menu && (
               <div className="flex justify-between">
                 <span className="text-slate-500">処方</span>
-                <span className="text-slate-900">{popover.event.prescription_menu}</span>
+                <span className="text-slate-900">
+                  {popover.event.prescription_menu}
+                </span>
               </div>
             )}
           </div>
@@ -400,7 +577,12 @@ function MonthView({
   currentDate: Date;
   events: CalendarEvent[];
   onDayClick: (dateStr: string) => void;
-  getStatusColor: (status: string) => { bg: string; text: string; border: string; label: string };
+  getStatusColor: (status: string) => {
+    bg: string;
+    text: string;
+    border: string;
+    label: string;
+  };
 }) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -408,7 +590,6 @@ function MonthView({
   const monthEnd = getMonthEnd(year, month);
   const calStart = getWeekMonday(monthStart);
 
-  // 6週間分のグリッドを生成
   const weeks: string[][] = [];
   let day = new Date(calStart);
   for (let w = 0; w < 6; w++) {
@@ -418,11 +599,9 @@ function MonthView({
       day = addDays(day, 1);
     }
     weeks.push(week);
-    // 月末を超えたら終了
     if (parseDate(week[6]) > monthEnd && w >= 4) break;
   }
 
-  // 日付ごとの予約数を集計
   const countByDate = new Map<string, Map<string, number>>();
   for (const ev of events) {
     if (!countByDate.has(ev.reserved_date)) {
@@ -434,13 +613,16 @@ function MonthView({
 
   return (
     <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
-      {/* 曜日ヘッダー */}
       <div className="grid grid-cols-7 border-b border-slate-200">
         {["月", "火", "水", "木", "金", "土", "日"].map((label, i) => (
           <div
             key={label}
             className={`py-2 text-center text-xs font-medium ${
-              i === 5 ? "text-blue-600" : i === 6 ? "text-red-500" : "text-slate-600"
+              i === 5
+                ? "text-blue-600"
+                : i === 6
+                ? "text-red-500"
+                : "text-slate-600"
             }`}
           >
             {label}
@@ -448,9 +630,11 @@ function MonthView({
         ))}
       </div>
 
-      {/* 日付セル */}
       {weeks.map((week, wi) => (
-        <div key={wi} className="grid grid-cols-7 border-b border-slate-100 last:border-b-0">
+        <div
+          key={wi}
+          className="grid grid-cols-7 border-b border-slate-100 last:border-b-0"
+        >
           {week.map((dateStr) => {
             const dateObj = parseDate(dateStr);
             const isCurrentMonth = dateObj.getMonth() === month;
@@ -492,7 +676,6 @@ function MonthView({
                   )}
                 </div>
 
-                {/* ステータス別バッジ（上位3つまで表示） */}
                 {statusMap && (
                   <div className="space-y-0.5">
                     {Array.from(statusMap.entries())
@@ -530,15 +713,26 @@ function WeekView({
   currentDate: Date;
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent, e: React.MouseEvent) => void;
-  getStatusColor: (status: string) => { bg: string; text: string; border: string; label: string };
+  getStatusColor: (status: string) => {
+    bg: string;
+    text: string;
+    border: string;
+    label: string;
+  };
 }) {
+  const HOUR_START = 9;
+  const HOUR_END = 20;
+  const HOURS = Array.from(
+    { length: HOUR_END - HOUR_START + 1 },
+    (_, i) => HOUR_START + i
+  );
+
   const monday = getWeekMonday(currentDate);
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = addDays(monday, i);
     return toDateStr(d);
   });
 
-  // 日付ごとにイベントをグループ化
   const eventsByDate = new Map<string, CalendarEvent[]>();
   for (const ev of events) {
     if (!eventsByDate.has(ev.reserved_date)) {
@@ -550,7 +744,6 @@ function WeekView({
   return (
     <div className="bg-white rounded-lg shadow border border-slate-200 overflow-auto">
       <div className="min-w-[700px]">
-        {/* ヘッダー（曜日 + 日付） */}
         <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-slate-200 sticky top-0 bg-white z-10">
           <div className="py-2 border-r border-slate-200" />
           {days.map((dateStr, i) => {
@@ -563,7 +756,15 @@ function WeekView({
                   today ? "bg-blue-50" : ""
                 }`}
               >
-                <div className={`text-xs ${i === 5 ? "text-blue-600" : i === 6 ? "text-red-500" : "text-slate-500"}`}>
+                <div
+                  className={`text-xs ${
+                    i === 5
+                      ? "text-blue-600"
+                      : i === 6
+                      ? "text-red-500"
+                      : "text-slate-500"
+                  }`}
+                >
                   {WEEKDAY_LABELS[(i + 1) % 7 === 0 ? 0 : (i + 1) % 7]}
                 </div>
                 <div
@@ -580,20 +781,22 @@ function WeekView({
           })}
         </div>
 
-        {/* 時間軸 + イベント */}
         {HOURS.map((hour) => (
-          <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-slate-100 last:border-b-0">
-            {/* 時間ラベル */}
+          <div
+            key={hour}
+            className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-slate-100 last:border-b-0"
+          >
             <div className="py-2 px-2 text-xs text-slate-400 text-right border-r border-slate-200 min-h-[48px]">
               {String(hour).padStart(2, "0")}:00
             </div>
 
-            {/* 各日のスロット */}
             {days.map((dateStr) => {
-              const dayEvents = (eventsByDate.get(dateStr) || []).filter((ev) => {
-                const minutes = timeToMinutes(ev.reserved_time);
-                return minutes >= hour * 60 && minutes < (hour + 1) * 60;
-              });
+              const dayEvents = (eventsByDate.get(dateStr) || []).filter(
+                (ev) => {
+                  const minutes = timeToMinutes(ev.reserved_time);
+                  return minutes >= hour * 60 && minutes < (hour + 1) * 60;
+                }
+              );
               const today = isToday(dateStr);
 
               return (
@@ -611,8 +814,12 @@ function WeekView({
                         onClick={(e) => onEventClick(ev, e)}
                         className={`w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded border mb-0.5 truncate ${color.bg} ${color.text} ${color.border} hover:opacity-80 transition-opacity`}
                       >
-                        <span className="font-mono">{ev.reserved_time}</span>{" "}
-                        <span className="font-medium">{ev.patient_name || "名前なし"}</span>
+                        <span className="font-mono">
+                          {ev.reserved_time}
+                        </span>{" "}
+                        <span className="font-medium">
+                          {ev.patient_name || "名前なし"}
+                        </span>
                       </button>
                     );
                   })}
@@ -626,122 +833,269 @@ function WeekView({
   );
 }
 
-// === 日ビュー ===
-function DayView({
+// === スケジュール日ビュー（空き枠表示付き） ===
+function ScheduleDayView({
   currentDate,
   events,
+  doctors,
+  weeklyRules,
+  overrides,
   onEventClick,
   getStatusColor,
 }: {
   currentDate: Date;
   events: CalendarEvent[];
+  doctors: Doctor[];
+  weeklyRules: WeeklyRule[];
+  overrides: DateOverride[];
   onEventClick: (event: CalendarEvent, e: React.MouseEvent) => void;
-  getStatusColor: (status: string) => { bg: string; text: string; border: string; label: string };
+  getStatusColor: (status: string) => {
+    bg: string;
+    text: string;
+    border: string;
+    label: string;
+  };
 }) {
   const dateStr = toDateStr(currentDate);
   const dayEvents = events.filter((ev) => ev.reserved_date === dateStr);
 
-  // 医師ごとにグループ化
-  const doctorIds = [...new Set(dayEvents.map((ev) => ev.doctor_id || "_none"))];
-  const doctorNames = new Map<string, string>();
-  for (const ev of dayEvents) {
-    const key = ev.doctor_id || "_none";
-    if (!doctorNames.has(key)) {
-      doctorNames.set(key, ev.doctor_name || "未割当");
-    }
+  // 時間範囲を動的に算出
+  const { startHour, endHour } = getTimeRange(
+    dateStr,
+    weeklyRules,
+    overrides
+  );
+
+  // 30分刻みのスロット
+  const halfHourSlots: string[] = [];
+  for (let h = startHour; h < endHour; h++) {
+    halfHourSlots.push(
+      `${String(h).padStart(2, "0")}:00`
+    );
+    halfHourSlots.push(
+      `${String(h).padStart(2, "0")}:30`
+    );
   }
 
-  // 医師がいない場合でもカラムを1つは表示
-  const columns = doctorIds.length > 0 ? doctorIds : ["_none"];
-  if (!doctorNames.has("_none")) {
-    doctorNames.set("_none", "未割当");
+  // 医師カラム: schedule APIのdoctors、なければ予約データから抽出
+  const columns: { id: string; name: string; color: string | null }[] =
+    doctors.length > 0
+      ? doctors
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((d) => ({
+            id: d.doctor_id,
+            name: d.doctor_name,
+            color: d.color,
+          }))
+      : (() => {
+          const ids = [...new Set(dayEvents.map((e) => e.doctor_id || "_none"))];
+          return ids.map((id) => ({
+            id,
+            name:
+              dayEvents.find((e) => (e.doctor_id || "_none") === id)
+                ?.doctor_name || "未割当",
+            color: null,
+          }));
+        })();
+
+  // 最低1カラムは表示
+  const displayColumns =
+    columns.length > 0
+      ? columns
+      : [{ id: "_none", name: "未割当", color: null }];
+
+  // 各医師の空き枠情報を事前計算
+  const slotsByDoctor = new Map<string, Map<string, TimeSlot>>();
+  const closedDoctors = new Set<string>();
+
+  for (const col of displayColumns) {
+    const docEvents = dayEvents.filter(
+      (e) => (e.doctor_id || "_none") === col.id
+    );
+    const daySlots = buildDaySlots(
+      dateStr,
+      col.id,
+      weeklyRules,
+      overrides,
+      docEvents
+    );
+
+    if (daySlots === null) {
+      closedDoctors.add(col.id);
+      continue;
+    }
+
+    const slotsMap = new Map<string, TimeSlot>();
+    for (const slot of daySlots) {
+      slotsMap.set(slot.time, slot);
+    }
+    slotsByDoctor.set(col.id, slotsMap);
   }
 
   return (
     <div className="bg-white rounded-lg shadow border border-slate-200 overflow-auto">
-      <div style={{ minWidth: Math.max(400, columns.length * 200 + 60) }}>
+      <div
+        style={{
+          minWidth: Math.max(500, displayColumns.length * 180 + 70),
+        }}
+      >
         {/* 医師名ヘッダー */}
         <div
           className="border-b border-slate-200 sticky top-0 bg-white z-10"
           style={{
             display: "grid",
-            gridTemplateColumns: `60px repeat(${columns.length}, 1fr)`,
+            gridTemplateColumns: `70px repeat(${displayColumns.length}, 1fr)`,
           }}
         >
-          <div className="py-3 border-r border-slate-200" />
-          {columns.map((docId) => (
-            <div
-              key={docId}
-              className="py-3 text-center border-r border-slate-100 last:border-r-0"
-            >
-              <div className="text-sm font-semibold text-slate-700">
-                {doctorNames.get(docId) || "未割当"}
+          <div className="py-3 border-r border-slate-200 flex items-center justify-center">
+            <span className="text-xs text-slate-400">時間</span>
+          </div>
+          {displayColumns.map((col) => {
+            const docEventCount = dayEvents.filter(
+              (e) => (e.doctor_id || "_none") === col.id
+            ).length;
+            const isClosed = closedDoctors.has(col.id);
+
+            return (
+              <div
+                key={col.id}
+                className="py-3 text-center border-r border-slate-100 last:border-r-0"
+                style={
+                  col.color
+                    ? { borderTop: `3px solid ${col.color}` }
+                    : undefined
+                }
+              >
+                <div className="text-sm font-semibold text-slate-700">
+                  {col.name}
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {isClosed ? (
+                    <span className="text-red-400">休診</span>
+                  ) : (
+                    `${docEventCount}件`
+                  )}
+                </div>
               </div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {dayEvents.filter((ev) => (ev.doctor_id || "_none") === docId).length}件
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* 時間軸 + 医師カラム */}
-        {HOURS.map((hour) => (
-          <div
-            key={hour}
-            className="border-b border-slate-100 last:border-b-0"
-            style={{
-              display: "grid",
-              gridTemplateColumns: `60px repeat(${columns.length}, 1fr)`,
-            }}
-          >
-            {/* 時間ラベル */}
-            <div className="py-2 px-2 text-xs text-slate-400 text-right border-r border-slate-200 min-h-[56px]">
-              {String(hour).padStart(2, "0")}:00
-            </div>
+        {/* 時間軸 + 医師スロット（30分刻み） */}
+        {halfHourSlots.map((slotTime, idx) => {
+          const isHourBoundary = slotTime.endsWith(":00");
+          const slotMinutes = timeToMinutes(slotTime);
 
-            {/* 医師ごとのスロット */}
-            {columns.map((docId) => {
-              const slotEvents = dayEvents.filter((ev) => {
-                const minutes = timeToMinutes(ev.reserved_time);
+          return (
+            <div
+              key={slotTime}
+              className={`${
+                isHourBoundary
+                  ? "border-b border-slate-200"
+                  : "border-b border-slate-100"
+              } last:border-b-0`}
+              style={{
+                display: "grid",
+                gridTemplateColumns: `70px repeat(${displayColumns.length}, 1fr)`,
+              }}
+            >
+              {/* 時間ラベル */}
+              <div
+                className={`px-2 text-right border-r border-slate-200 min-h-[44px] flex items-start pt-1 justify-end ${
+                  isHourBoundary ? "" : ""
+                }`}
+              >
+                {isHourBoundary && (
+                  <span className="text-xs text-slate-400 font-mono">
+                    {slotTime}
+                  </span>
+                )}
+              </div>
+
+              {/* 医師ごとのスロット */}
+              {displayColumns.map((col) => {
+                const isClosed = closedDoctors.has(col.id);
+
+                // 休診の場合
+                if (isClosed) {
+                  return (
+                    <div
+                      key={col.id}
+                      className="border-r border-slate-100 last:border-r-0 min-h-[44px] bg-slate-50"
+                    >
+                      {idx === 0 && (
+                        <div className="flex items-center justify-center h-full text-xs text-slate-300">
+                          休
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const doctorSlots = slotsByDoctor.get(col.id);
+                const slotInfo = doctorSlots?.get(slotTime);
+
+                // このスロットに該当する予約を取得
+                const slotEvents = dayEvents.filter((ev) => {
+                  const evMin = timeToMinutes(ev.reserved_time);
+                  return (
+                    (ev.doctor_id || "_none") === col.id &&
+                    evMin >= slotMinutes &&
+                    evMin < slotMinutes + 30
+                  );
+                });
+
+                // 枠の状態判定
+                const hasSlot = !!slotInfo;
+                const isFull = hasSlot && slotInfo.available === 0;
+
+                let cellBg = "";
+                if (!hasSlot) {
+                  cellBg = "bg-slate-50/50"; // 診療時間外
+                } else if (isFull && slotEvents.length === 0) {
+                  cellBg = "bg-slate-100/50"; // 満枠（他のスロット単位で埋まっている）
+                }
+
                 return (
-                  (ev.doctor_id || "_none") === docId &&
-                  minutes >= hour * 60 &&
-                  minutes < (hour + 1) * 60
+                  <div
+                    key={col.id}
+                    className={`border-r border-slate-100 last:border-r-0 min-h-[44px] p-0.5 ${cellBg}`}
+                  >
+                    {slotEvents.map((ev) => {
+                      const color = getStatusColor(ev.status);
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={(e) => onEventClick(ev, e)}
+                          className={`w-full text-left text-xs leading-tight p-1.5 rounded border mb-0.5 ${color.bg} ${color.text} ${color.border} hover:opacity-80 transition-opacity`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono font-semibold text-[11px]">
+                              {ev.reserved_time}
+                            </span>
+                            <span
+                              className={`text-[9px] px-1 rounded ${color.bg} ${color.text}`}
+                            >
+                              {color.label}
+                            </span>
+                          </div>
+                          <div className="font-medium mt-0.5 truncate">
+                            {ev.patient_name || "名前なし"}
+                          </div>
+                          {ev.prescription_menu && (
+                            <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                              {ev.prescription_menu}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
-              });
-
-              return (
-                <div
-                  key={docId}
-                  className="border-r border-slate-100 last:border-r-0 min-h-[56px] p-1"
-                >
-                  {slotEvents.map((ev) => {
-                    const color = getStatusColor(ev.status);
-                    return (
-                      <button
-                        key={ev.id}
-                        onClick={(e) => onEventClick(ev, e)}
-                        className={`w-full text-left text-xs leading-tight p-1.5 rounded border mb-1 ${color.bg} ${color.text} ${color.border} hover:opacity-80 transition-opacity`}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono font-semibold">{ev.reserved_time}</span>
-                          <span
-                            className={`text-[10px] px-1 rounded ${color.bg} ${color.text}`}
-                          >
-                            {color.label}
-                          </span>
-                        </div>
-                        <div className="font-medium mt-0.5 truncate">
-                          {ev.patient_name || "名前なし"}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+              })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
