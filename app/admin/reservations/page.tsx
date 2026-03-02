@@ -50,7 +50,7 @@ export default function ReservationsPage() {
       </div>
 
       {viewMode === "schedule" ? (
-        <CalendarView initialMode="day" showModeSwitch={false} />
+        <CalendarView initialMode="week" showModeSwitch={false} />
       ) : (
         <CalendarView />
       )}
