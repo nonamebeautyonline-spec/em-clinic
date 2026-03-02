@@ -155,32 +155,22 @@ describe("POST /api/square/pay", () => {
     expect(body.paymentId).toBe("PAY_001");
   });
 
-  it("初回決済でカード保存 → card_id で決済する", async () => {
-    await POST(createRequest());
-
-    expect(ensureSquareCustomer).toHaveBeenCalled();
-    expect(saveCardOnFile).toHaveBeenCalled();
-    // createSquarePayment の sourceId がカードID
-    expect(createSquarePayment).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(String),
-      expect.objectContaining({ sourceId: "ccof:SAVED_CARD" }),
-    );
-  });
-
-  it("カード保存失敗時はエラーを返す（nonceは消費済みのため再利用不可）", async () => {
-    vi.mocked(saveCardOnFile).mockResolvedValue(null);
-
+  it("初回決済はnonceで直接決済する（カード保存はしない）", async () => {
     const res = await POST(createRequest());
     const body = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(body.error).toContain("カードの保存に失敗しました");
-    // 消費済みnonceで決済を試みないこと
-    expect(createSquarePayment).not.toHaveBeenCalled();
+    expect(body.success).toBe(true);
+    expect(ensureSquareCustomer).toHaveBeenCalled();
+    // nonceで直接決済（saveCardOnFileは呼ばれない）
+    expect(saveCardOnFile).not.toHaveBeenCalled();
+    expect(createSquarePayment).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ sourceId: "cnon:CARD_NONCE" }),
+    );
   });
 
-  it("既存の保存済みカードがある場合はnonceを消費せずcard_idで決済する", async () => {
+  it("既存の保存済みカードがある場合はcard_idで決済する", async () => {
     // 患者に既存のsquare_card_idがある状態をセットアップ
     const pChain = createChain({
       data: { square_customer_id: "CUST_001", square_card_id: "ccof:EXISTING_SAVED" },

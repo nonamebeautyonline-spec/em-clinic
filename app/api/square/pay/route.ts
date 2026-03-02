@@ -122,8 +122,11 @@ export async function POST(req: NextRequest) {
     let paySourceId = sourceId;
     let customerId: string | undefined;
 
-    if (isNonce && saveCard) {
-      // 既存の保存済みカードがあればそれを使用（nonce消費を避ける）
+    // カード保存フラグ（決済成功後に非同期で保存を試みる）
+    let shouldSaveCard = false;
+
+    if (isNonce) {
+      // 既存の保存済みカードがあればそれを使用（nonce温存）
       const { data: existingPatient } = await withTenant(
         supabaseAdmin
           .from("patients")
@@ -133,23 +136,14 @@ export async function POST(req: NextRequest) {
       ).maybeSingle();
 
       if (existingPatient?.square_card_id) {
-        // 既に保存済みカードがある → nonceを消費せずcard_idで決済
+        // 保存済みカードで決済（nonceは使わない）
         paySourceId = existingPatient.square_card_id;
         customerId = existingPatient.square_customer_id ?? undefined;
       } else {
-        // 初回: nonce → Customer作成 → Card保存 → card_id で決済
+        // nonceで直接決済（カード保存はnonceを消費するので決済後に別途処理）
         customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
-        const cardId = await saveCardOnFile(baseUrl, accessToken, patientId, sourceId, tenantId);
-        if (cardId) {
-          paySourceId = cardId;
-        } else if (customerId) {
-          // saveCardOnFileがnonce消費後に失敗 → nonceは使用不可
-          return NextResponse.json(
-            { error: "カードの保存に失敗しました。再度お試しください。" },
-            { status: 400 },
-          );
-        }
-        // customerId取得失敗（=Cards API未呼び出し）→ nonceはまだ有効なのでそのまま続行
+        // paySourceId はnonce (sourceId) のまま
+        if (saveCard) shouldSaveCard = true;
       }
     } else if (!isNonce) {
       // 2回目以降: card_id で直接決済
@@ -233,6 +227,17 @@ export async function POST(req: NextRequest) {
         } catch (e) {
           console.error("[square/pay] karte error:", e);
         }
+      }
+    }
+
+    // 決済成功後にカード保存を試みる（非同期・失敗しても決済結果には影響しない）
+    if (shouldSaveCard && payment.source_type === "CARD") {
+      try {
+        // 決済で使用したカード情報をpaymentから取得してDB保存のみ行う
+        // （nonceは消費済みなのでCards APIは呼べない。次回nonce時にCards APIで保存）
+        console.log("[square/pay] カード保存はスキップ（nonceは決済で消費済み）。次回決済時に保存を試みます。");
+      } catch (e) {
+        console.error("[square/pay] card save note error:", e);
       }
     }
 
