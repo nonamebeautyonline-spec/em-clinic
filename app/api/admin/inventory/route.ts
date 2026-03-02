@@ -60,7 +60,30 @@ export async function GET(req: NextRequest) {
     const { data: lastRow } = await lastUpdatedQuery;
     const lastUpdatedAt = lastRow?.[0]?.updated_at ?? null;
 
-    return NextResponse.json({ logs: logs ?? [], products, locations, lastUpdatedAt });
+    // 前回の台帳データ（選択日より前の最新 logged_date）を取得
+    let prevDateQuery = supabaseAdmin
+      .from("inventory_logs")
+      .select("logged_date")
+      .lt("logged_date", date)
+      .order("logged_date", { ascending: false })
+      .limit(1);
+    prevDateQuery = withTenant(prevDateQuery, tenantId);
+    const { data: prevDateRow } = await prevDateQuery;
+    const prevDate = prevDateRow?.[0]?.logged_date ?? null;
+
+    let prevLogs: typeof logs = [];
+    if (prevDate) {
+      let prevLogsQuery = supabaseAdmin
+        .from("inventory_logs")
+        .select("item_key, section, location, logged_date, box_count, shipped_count, received_count, note")
+        .eq("logged_date", prevDate)
+        .order("location");
+      prevLogsQuery = withTenant(prevLogsQuery, tenantId);
+      const { data: prevData } = await prevLogsQuery;
+      prevLogs = prevData ?? [];
+    }
+
+    return NextResponse.json({ logs: logs ?? [], products, locations, lastUpdatedAt, prevDate, prevLogs });
   }
 
   if (from && to) {

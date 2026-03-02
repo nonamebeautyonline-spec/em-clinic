@@ -161,6 +161,10 @@ export default function InventoryPage() {
   // 最終更新日時
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
+  // 前回の台帳データ
+  const [prevDate, setPrevDate] = useState<string | null>(null);
+  const [prevBoxData, setPrevBoxData] = useState<ValMap>({});
+
   // 仕訳: のなめ自動入力
   const [autoFillBase, setAutoFillBase] = useState<Record<string, number>>({});
   const [autoFillLoading, setAutoFillLoading] = useState(false);
@@ -186,6 +190,16 @@ export default function InventoryPage() {
       const data = await res.json();
       setProducts(data.products || []);
       setLastUpdatedAt(data.lastUpdatedAt ?? null);
+
+      // 前回の台帳データ
+      setPrevDate(data.prevDate ?? null);
+      const prevMap: ValMap = {};
+      for (const log of (data.prevLogs || []) as LogEntry[]) {
+        if (log.location === SHARED_LOCATION || log.section === "box") {
+          prevMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+        }
+      }
+      setPrevBoxData(prevMap);
 
       const locs: string[] = data.locations || ["本院"];
       setLocations(locs);
@@ -995,6 +1009,34 @@ export default function InventoryPage() {
                 )}
               </div>
             </>
+          )}
+
+          {/* ===== 前回の更新（台帳タブのみ） ===== */}
+          {mainTab === "ledger" && prevDate && (
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                <h2 className="font-semibold text-slate-700">前回の更新</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {(() => { const d = new Date(prevDate + "T00:00:00"); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; })()}時点の箱在庫
+                </p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {BOX_ITEMS.map((item) => {
+                  const prev = prevBoxData[item.item_key];
+                  const count = prev?.box_count ?? 0;
+                  return (
+                    <div key={item.item_key} className="px-4 py-2.5 flex items-center gap-4">
+                      <div className="w-24">
+                        <span className="text-sm font-semibold text-slate-600">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-700">{count}<span className="text-xs text-slate-400 ml-0.5">箱</span></span>
+                      <span className="text-xs text-slate-400">= {count * item.units}本</span>
+                      {prev?.note && <span className="text-xs text-slate-400">{prev.note}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {/* ===== 在庫推移（ランニングバランス） ===== */}
