@@ -293,10 +293,15 @@ function buildAvailabilityRange(
     .filter((r) => r.doctor_id === doctorId)
     .forEach((r) => weeklyMap.set(Number(r.weekday), r));
 
-  const overrideMap = new Map<string, Override>();
+  const overrideMap = new Map<string, Override[]>();
   overrides
     .filter((o) => o.doctor_id === doctorId)
-    .forEach((o) => overrideMap.set(String(o.date), o));
+    .forEach((o) => {
+      const key = String(o.date);
+      const arr = overrideMap.get(key) || [];
+      arr.push(o);
+      overrideMap.set(key, arr);
+    });
 
   const bookedMap = new Map<string, number>();
   booked.forEach((b) =>
@@ -311,58 +316,87 @@ function buildAvailabilityRange(
     const weekday = dayOfWeek(date);
 
     const base = weeklyMap.get(weekday);
-    const ov = overrideMap.get(date);
+    const ovList = overrideMap.get(date) || [];
 
-    // 休診
-    if (ov?.type === "closed") {
+    // 休診（いずれかのoverrideがclosedなら休診）
+    if (ovList.some((o) => o.type === "closed")) {
       cur = addYmd(cur, 1);
       continue;
     }
 
     // base が休みでも、override が open / modify なら開ける
-    const overrideOpens = ov?.type === "open" || ov?.type === "modify";
+    const overrideOpens = ovList.some(
+      (o) => o.type === "open" || o.type === "modify"
+    );
     if (!base?.enabled && !overrideOpens) {
       cur = addYmd(cur, 1);
       continue;
     }
 
-    const slotMinutes =
-      (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
-      (base?.slot_minutes ?? 15);
+    if (ovList.length > 0) {
+      // 複数時間帯: 各overrideから個別にスロット生成
+      for (const ov of ovList) {
+        const slotMinutes =
+          (typeof ov.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
+          (base?.slot_minutes ?? 15);
 
-    const cap =
-      (typeof ov?.capacity === "number" ? ov.capacity : undefined) ??
-      (base?.capacity ?? 2);
+        const cap =
+          (typeof ov.capacity === "number" ? ov.capacity : undefined) ??
+          (base?.capacity ?? 2);
 
-    const startTime =
-      (ov?.start_time && String(ov.start_time).trim()
-        ? String(ov.start_time)
-        : "") || (base?.start_time || "");
+        const ovStart =
+          ov.start_time && String(ov.start_time).trim()
+            ? String(ov.start_time)
+            : "";
+        const ovEnd =
+          ov.end_time && String(ov.end_time).trim()
+            ? String(ov.end_time)
+            : "";
 
-    const endTime =
-      (ov?.end_time && String(ov.end_time).trim()
-        ? String(ov.end_time)
-        : "") || (base?.end_time || "");
+        const startTime = ovStart || (base?.start_time || "");
+        const endTime = ovEnd || (base?.end_time || "");
 
-    if (!startTime || !endTime) {
-      cur = addYmd(cur, 1);
-      continue;
-    }
+        if (!startTime || !endTime) continue;
 
-    const sMin = parseMinutes(startTime);
-    const eMin = parseMinutes(endTime);
+        const sMin = parseMinutes(startTime);
+        const eMin = parseMinutes(endTime);
+        if (!(sMin < eMin) || slotMinutes <= 0) continue;
 
-    if (!(sMin < eMin) || slotMinutes <= 0) {
-      cur = addYmd(cur, 1);
-      continue;
-    }
+        for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
+          const time = toHHMM(t);
+          const key = `${date}|${time}`;
+          const bookedCount = bookedMap.get(key) ?? 0;
+          const remain = Math.max(0, cap - bookedCount);
+          slots.push({ date, time, count: remain });
+        }
+      }
+    } else {
+      // overrideなし: 週間ルールから生成
+      const slotMinutes = base?.slot_minutes ?? 15;
+      const cap = base?.capacity ?? 2;
+      const startTime = base?.start_time || "";
+      const endTime = base?.end_time || "";
 
-    for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
-      const time = toHHMM(t);
-      const key = `${date}|${time}`;
-      const bookedCount = bookedMap.get(key) ?? 0;
-      const remain = Math.max(0, cap - bookedCount);
-      slots.push({ date, time, count: remain });
+      if (!startTime || !endTime) {
+        cur = addYmd(cur, 1);
+        continue;
+      }
+
+      const sMin = parseMinutes(startTime);
+      const eMin = parseMinutes(endTime);
+
+      if (!(sMin < eMin) || slotMinutes <= 0) {
+        cur = addYmd(cur, 1);
+        continue;
+      }
+
+      for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
+        const time = toHHMM(t);
+        const key = `${date}|${time}`;
+        const bookedCount = bookedMap.get(key) ?? 0;
+        const remain = Math.max(0, cap - bookedCount);
+        slots.push({ date, time, count: remain });
+      }
     }
 
     cur = addYmd(cur, 1);

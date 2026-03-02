@@ -123,10 +123,15 @@ function buildAvailabilityRange(
     .filter((r) => r.doctor_id === doctorId)
     .forEach((r) => weeklyMap.set(Number(r.weekday), r));
 
-  const overrideMap = new Map<string, Override>();
+  const overrideMap = new Map<string, Override[]>();
   overrides
     .filter((o) => o.doctor_id === doctorId)
-    .forEach((o) => overrideMap.set(String(o.date), o));
+    .forEach((o) => {
+      const key = String(o.date);
+      const arr = overrideMap.get(key) || [];
+      arr.push(o);
+      overrideMap.set(key, arr);
+    });
 
   const bookedMap = new Map<string, number>();
   booked.forEach((b) => bookedMap.set(`${b.date}|${b.time}`, Number(b.count || 0)));
@@ -139,55 +144,78 @@ function buildAvailabilityRange(
     const weekday = dayOfWeek(date);
 
     const base = weeklyMap.get(weekday);
-    const ov = overrideMap.get(date);
+    const ovList = overrideMap.get(date) || [];
 
     // 休診
-    if (ov?.type === "closed") {
+    if (ovList.some((o) => o.type === "closed")) {
       cur = addYmd(cur, 1);
       continue;
     }
 
     // base が休みでも、override が open / modify なら開ける
-    const overrideOpens = ov?.type === "open" || ov?.type === "modify";
+    const overrideOpens = ovList.some((o) => o.type === "open" || o.type === "modify");
     if (!base?.enabled && !overrideOpens) {
       cur = addYmd(cur, 1);
       continue;
     }
 
-    const slotMinutes =
-      (typeof ov?.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
-      (base?.slot_minutes ?? 15);
+    if (ovList.length > 0) {
+      for (const ov of ovList) {
+        const slotMinutes =
+          (typeof ov.slot_minutes === "number" ? ov.slot_minutes : undefined) ??
+          (base?.slot_minutes ?? 15);
 
-    const cap =
-      (typeof ov?.capacity === "number" ? ov.capacity : undefined) ?? (base?.capacity ?? 2);
+        const cap =
+          (typeof ov.capacity === "number" ? ov.capacity : undefined) ?? (base?.capacity ?? 2);
 
-    const startTime =
-      (ov?.start_time && String(ov.start_time).trim() ? String(ov.start_time) : "") ||
-      (base?.start_time || "");
+        const ovStart =
+          ov.start_time && String(ov.start_time).trim() ? String(ov.start_time) : "";
+        const ovEnd =
+          ov.end_time && String(ov.end_time).trim() ? String(ov.end_time) : "";
 
-    const endTime =
-      (ov?.end_time && String(ov.end_time).trim() ? String(ov.end_time) : "") ||
-      (base?.end_time || "");
+        const startTime = ovStart || (base?.start_time || "");
+        const endTime = ovEnd || (base?.end_time || "");
 
-    if (!startTime || !endTime) {
-      cur = addYmd(cur, 1);
-      continue;
-    }
+        if (!startTime || !endTime) continue;
 
-    const sMin = parseMinutes(startTime);
-    const eMin = parseMinutes(endTime);
+        const sMin = parseMinutes(startTime);
+        const eMin = parseMinutes(endTime);
+        if (!(sMin < eMin) || slotMinutes <= 0) continue;
 
-    if (!(sMin < eMin) || slotMinutes <= 0) {
-      cur = addYmd(cur, 1);
-      continue;
-    }
+        for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
+          const time = toHHMM(t);
+          const key = `${date}|${time}`;
+          const bookedCount = bookedMap.get(key) ?? 0;
+          const remain = Math.max(0, cap - bookedCount);
+          slots.push({ date, time, count: remain });
+        }
+      }
+    } else {
+      const slotMinutes = base?.slot_minutes ?? 15;
+      const cap = base?.capacity ?? 2;
+      const startTime = base?.start_time || "";
+      const endTime = base?.end_time || "";
 
-    for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
-      const time = toHHMM(t);
-      const key = `${date}|${time}`;
-      const bookedCount = bookedMap.get(key) ?? 0;
-      const remain = Math.max(0, cap - bookedCount);
-      slots.push({ date, time, count: remain });
+      if (!startTime || !endTime) {
+        cur = addYmd(cur, 1);
+        continue;
+      }
+
+      const sMin = parseMinutes(startTime);
+      const eMin = parseMinutes(endTime);
+
+      if (!(sMin < eMin) || slotMinutes <= 0) {
+        cur = addYmd(cur, 1);
+        continue;
+      }
+
+      for (let t = sMin; t + slotMinutes <= eMin; t += slotMinutes) {
+        const time = toHHMM(t);
+        const key = `${date}|${time}`;
+        const bookedCount = bookedMap.get(key) ?? 0;
+        const remain = Math.max(0, cap - bookedCount);
+        slots.push({ date, time, count: remain });
+      }
     }
 
     cur = addYmd(cur, 1);
@@ -2059,6 +2087,175 @@ describe("buildAvailabilityRange — 追加エッジケース", () => {
     );
 
     expect(slots.length).toBe(0);
+  });
+});
+
+// ============================================
+// buildAvailabilityRange — 複数時間帯テスト
+// ============================================
+describe("buildAvailabilityRange — 複数時間帯", () => {
+  // 3/21（土）を想定: 週間ルールは休診、override で 10:00-12:00 + 13:00-19:00 を開放
+  it("同一日に2つのoverride → 両方の時間帯のスロットが生成される", () => {
+    // 土曜は休診
+    const weekly: WeeklyRule[] = [
+      {
+        doctor_id: "dr_default",
+        weekday: 6,
+        enabled: false,
+        start_time: "",
+        end_time: "",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+    ];
+    // 2つの時間帯をoverride
+    const overrides: Override[] = [
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "10:00",
+        end_time: "12:00",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "13:00",
+        end_time: "19:00",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+    ];
+
+    const slots = buildAvailabilityRange(
+      "2026-03-21",
+      "2026-03-21",
+      weekly,
+      overrides,
+      [],
+      "dr_default",
+    );
+
+    // 10:00-12:00 = 8枠, 13:00-19:00 = 24枠 → 合計32枠
+    expect(slots.length).toBe(32);
+    // 午前の最初と最後
+    expect(slots[0]).toEqual({ date: "2026-03-21", time: "10:00", count: 2 });
+    expect(slots[7]).toEqual({ date: "2026-03-21", time: "11:45", count: 2 });
+    // 午後の最初
+    expect(slots[8]).toEqual({ date: "2026-03-21", time: "13:00", count: 2 });
+    // 午後の最後
+    expect(slots[31]).toEqual({ date: "2026-03-21", time: "18:45", count: 2 });
+  });
+
+  it("複数時間帯 + 予約済み → 正しく残り枠が計算される", () => {
+    const weekly: WeeklyRule[] = [
+      {
+        doctor_id: "dr_default",
+        weekday: 6,
+        enabled: false,
+        start_time: "",
+        end_time: "",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+    ];
+    const overrides: Override[] = [
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "10:00",
+        end_time: "12:00",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "13:00",
+        end_time: "15:00",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+    ];
+    const booked: BookedSlot[] = [
+      { date: "2026-03-21", time: "10:00", count: 1 },
+      { date: "2026-03-21", time: "13:00", count: 2 },
+    ];
+
+    const slots = buildAvailabilityRange(
+      "2026-03-21",
+      "2026-03-21",
+      weekly,
+      overrides,
+      booked,
+      "dr_default",
+    );
+
+    // 10:00-12:00 = 8枠, 13:00-15:00 = 8枠 → 合計16枠
+    expect(slots.length).toBe(16);
+    // 10:00 は1名予約済み → 残り1
+    expect(slots.find((s) => s.time === "10:00")?.count).toBe(1);
+    // 13:00 は2名予約済み → 残り0
+    expect(slots.find((s) => s.time === "13:00")?.count).toBe(0);
+    // 他のスロットは残り2
+    expect(slots.find((s) => s.time === "10:15")?.count).toBe(2);
+  });
+
+  it("時間帯ごとに異なるcapacity/slot_minutesが適用される", () => {
+    const weekly: WeeklyRule[] = [
+      {
+        doctor_id: "dr_default",
+        weekday: 6,
+        enabled: false,
+        start_time: "",
+        end_time: "",
+        slot_minutes: 15,
+        capacity: 2,
+      },
+    ];
+    const overrides: Override[] = [
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "10:00",
+        end_time: "11:00",
+        slot_minutes: 30,
+        capacity: 1,
+      },
+      {
+        doctor_id: "dr_default",
+        date: "2026-03-21",
+        type: "open",
+        start_time: "13:00",
+        end_time: "14:00",
+        slot_minutes: 15,
+        capacity: 3,
+      },
+    ];
+
+    const slots = buildAvailabilityRange(
+      "2026-03-21",
+      "2026-03-21",
+      weekly,
+      overrides,
+      [],
+      "dr_default",
+    );
+
+    // 10:00-11:00 (30分間隔) = 2枠, 13:00-14:00 (15分間隔) = 4枠 → 合計6枠
+    expect(slots.length).toBe(6);
+    // 午前: capacity=1
+    expect(slots[0]).toEqual({ date: "2026-03-21", time: "10:00", count: 1 });
+    expect(slots[1]).toEqual({ date: "2026-03-21", time: "10:30", count: 1 });
+    // 午後: capacity=3
+    expect(slots[2]).toEqual({ date: "2026-03-21", time: "13:00", count: 3 });
+    expect(slots[5]).toEqual({ date: "2026-03-21", time: "13:45", count: 3 });
   });
 });
 
