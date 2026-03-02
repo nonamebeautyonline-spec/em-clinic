@@ -164,6 +164,10 @@ export default function CalendarView({
   const [weeklyRules, setWeeklyRules] = useState<WeeklyRule[]>([]);
   const [overrides, setOverrides] = useState<DateOverride[]>([]);
 
+  // キャンセル表示トグル（デフォルト非表示）
+  const [showCanceled, setShowCanceled] = useState(false);
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -221,7 +225,7 @@ export default function CalendarView({
       }
 
       const eventsData = await eventsRes.json();
-      setEvents(eventsData.events || []);
+      setAllEvents(eventsData.events || []);
 
       if (scheduleRes.ok) {
         const scheduleData = await scheduleRes.json();
@@ -234,7 +238,7 @@ export default function CalendarView({
     } catch (err) {
       console.error("Calendar fetch error:", err);
       setError(err instanceof Error ? err.message : "エラーが発生しました");
-      setEvents([]);
+      setAllEvents([]);
     } finally {
       setLoading(false);
     }
@@ -243,6 +247,19 @@ export default function CalendarView({
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // キャンセルフィルタ適用
+  useEffect(() => {
+    if (showCanceled) {
+      setEvents(allEvents);
+    } else {
+      setEvents(
+        allEvents.filter(
+          (e) => e.status !== "canceled" && e.status !== "cancelled"
+        )
+      );
+    }
+  }, [allEvents, showCanceled]);
 
   // ナビゲーション
   const navigate = (direction: -1 | 1) => {
@@ -300,15 +317,19 @@ export default function CalendarView({
         const days = Array.from({ length: 7 }, (_, i) =>
           toDateStr(addDays(monday, i))
         );
+        // サマリーはフィルタ前の全データから算出
+        const allWeekEvents = allEvents.filter((ev) =>
+          days.includes(ev.reserved_date)
+        );
         const weekEvents = events.filter((ev) =>
           days.includes(ev.reserved_date)
         );
-        const pending = weekEvents.filter(
+        const pending = allWeekEvents.filter(
           (e) => e.status === "pending"
         ).length;
-        const ok = weekEvents.filter((e) => e.status === "OK").length;
-        const ng = weekEvents.filter((e) => e.status === "NG").length;
-        const canceled = weekEvents.filter(
+        const ok = allWeekEvents.filter((e) => e.status === "OK").length;
+        const ng = allWeekEvents.filter((e) => e.status === "NG").length;
+        const canceled = allWeekEvents.filter(
           (e) => e.status === "canceled" || e.status === "cancelled"
         ).length;
 
@@ -338,7 +359,7 @@ export default function CalendarView({
         }
 
         return {
-          total: weekEvents.length,
+          total: allWeekEvents.length - canceled,
           pending,
           ok,
           ng,
@@ -376,23 +397,7 @@ export default function CalendarView({
           </button>
         </div>
 
-        {showModeSwitch && (
-          <div className="flex bg-slate-100 rounded-lg p-1">
-            {(["month", "week", "day"] as CalendarMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-                  mode === m
-                    ? "bg-white text-slate-900 shadow-sm font-medium"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {m === "month" ? "月" : m === "week" ? "週" : "日"}
-              </button>
-            ))}
-          </div>
-        )}
+{/* カレンダーモード時はビュー切替不要（月ビューのみ） */}
       </div>
 
       {/* 週サマリー（スケジュールモード時） */}
@@ -426,12 +431,17 @@ export default function CalendarView({
             </div>
           )}
           {weekSummary.canceled > 0 && (
-            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              <div className="w-2 h-2 rounded-full bg-red-400" />
+            <label className="flex items-center gap-1.5 bg-red-50 border border-red-200 rounded-lg px-3 py-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showCanceled}
+                onChange={(e) => setShowCanceled(e.target.checked)}
+                className="w-3.5 h-3.5 accent-red-500"
+              />
               <span className="text-red-700">
                 キャンセル {weekSummary.canceled}
               </span>
-            </div>
+            </label>
           )}
           {weekSummary.totalAvailable > 0 && (
             <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
@@ -481,7 +491,7 @@ export default function CalendarView({
             <MonthView
               currentDate={currentDate}
               events={events}
-              onDayClick={goToDay}
+              onDayClick={showModeSwitch ? undefined : goToDay}
               getStatusColor={getStatusColor}
             />
           )}
@@ -586,7 +596,7 @@ function MonthView({
 }: {
   currentDate: Date;
   events: CalendarEvent[];
-  onDayClick: (dateStr: string) => void;
+  onDayClick?: (dateStr: string) => void;
   getStatusColor: (status: string) => {
     bg: string;
     text: string;
@@ -658,10 +668,10 @@ function MonthView({
             return (
               <div
                 key={dateStr}
-                onClick={() => onDayClick(dateStr)}
-                className={`min-h-[80px] p-1.5 cursor-pointer border-r border-slate-100 last:border-r-0 transition-colors hover:bg-slate-50 ${
-                  !isCurrentMonth ? "bg-slate-50/50" : ""
-                }`}
+                onClick={() => onDayClick?.(dateStr)}
+                className={`min-h-[80px] p-1.5 border-r border-slate-100 last:border-r-0 transition-colors ${
+                  onDayClick ? "cursor-pointer hover:bg-slate-50" : ""
+                } ${!isCurrentMonth ? "bg-slate-50/50" : ""}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span
@@ -850,13 +860,11 @@ function ScheduleWeekView({
                   : "border-b border-slate-100"
               } last:border-b-0`}
             >
-              {/* 時間ラベル */}
+              {/* 時間ラベル（30分刻みで常に表示） */}
               <div className="px-2 text-right border-r border-slate-200 min-h-[40px] flex items-start pt-1 justify-end">
-                {isHourBoundary && (
-                  <span className="text-xs text-slate-400 font-mono">
-                    {slotTime}
-                  </span>
-                )}
+                <span className={`text-xs font-mono ${isHourBoundary ? "text-slate-500 font-medium" : "text-slate-300"}`}>
+                  {slotTime}
+                </span>
               </div>
 
               {/* 各日のスロット */}
