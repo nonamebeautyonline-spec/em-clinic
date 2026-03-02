@@ -765,13 +765,15 @@ export default function TalkPage() {
         );
         const data = await res.json();
         if (data.messages && data.messages.length > 0) {
-          // 既存IDと重複しない新着のみ追加（型不一致防止のためString化）
-          const existingIds = new Set(msgs.map(m => String(m.id)));
-          const newMsgs = (data.messages as MessageLog[]).filter(m => !existingIds.has(String(m.id)));
-          if (newMsgs.length > 0) {
+          const fetched = data.messages as MessageLog[];
+          // setMessages内でprevを使って重複排除（楽観的更新との競合を防止）
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => String(m.id)));
+            const newMsgs = fetched.filter(m => !existingIds.has(String(m.id)));
+            if (newMsgs.length === 0) return prev;
             shouldScrollToBottom.current = true;
-            setMessages(prev => [...prev, ...newMsgs.reverse()]);
-          }
+            return [...prev, ...newMsgs.reverse()];
+          });
         }
       } catch { /* ignore */ }
     }, 5000);
