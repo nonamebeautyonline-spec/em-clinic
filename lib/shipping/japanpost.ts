@@ -1,6 +1,6 @@
 // lib/shipping/japanpost.ts — 日本郵便ゆうパックCSVフォーマッター
 import type { OrderData, JapanPostConfig } from "./types";
-import { normalizePostal, normalizePhoneForYamato as normalizePhone, splitAddressForYamato as splitAddress } from "@/utils/yamato-b2-formatter";
+import { normalizePostal, normalizePhoneForYamato as normalizePhone, splitAddressForYamato as splitAddress, zenWidth, splitAtZenWidth } from "@/utils/yamato-b2-formatter";
 
 /**
  * 日本郵便ゆうパックプリントR用CSVヘッダー（主要30列）
@@ -46,11 +46,20 @@ export function generateJapanPostRow(order: OrderData, config: JapanPostConfig, 
   const { addr1, addr2 } = splitAddress(order.address);
   const senderPhone = normalizePhone(config.senderPhone);
 
+  // 日本郵便: 住所2・住所3ともに25文字制限
+  let jpAddr2 = addr2;
+  let jpAddr3 = "";
+  if (addr2 && zenWidth(addr2) > 25) {
+    const { head, tail } = splitAtZenWidth(addr2, 25);
+    jpAddr2 = head;
+    jpAddr3 = tail;
+  }
+
   return [
     postal,                          // 1: お届け先郵便番号
-    addr1,                           // 2: お届け先住所1
-    addr2,                           // 3: お届け先住所2
-    "",                              // 4: お届け先住所3
+    addr1,                           // 2: お届け先住所1（町・番地, 25文字）
+    jpAddr2,                         // 3: お届け先住所2（建物名, 25文字）
+    jpAddr3,                         // 4: お届け先住所3（溢れ分, 25文字）
     order.name,                      // 5: お届け先名称
     "様",                            // 6: お届け先敬称
     phone,                           // 7: お届け先電話番号

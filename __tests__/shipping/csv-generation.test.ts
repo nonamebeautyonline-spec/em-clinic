@@ -9,6 +9,8 @@ import {
   generateYamatoB2Row,
   YAMATO_B2_HEADER,
   YAMATO_B2_CONFIG,
+  zenWidth,
+  splitAtZenWidth,
 } from "@/utils/yamato-b2-formatter";
 import {
   JAPANPOST_HEADER,
@@ -87,6 +89,7 @@ describe("normalizePostal", () => {
 
 // === 住所分割 ===
 describe("splitAddressForYamato", () => {
+  // 既存回帰テスト
   it("番地 + 建物名を分割", () => {
     const result = splitAddressForYamato("東京都渋谷区神宮前1-2-3 ヒルズタワー101");
     expect(result.addr1).toBeTruthy();
@@ -111,8 +114,125 @@ describe("splitAddressForYamato", () => {
 
   it("全角スペース → 半角スペースに正規化", () => {
     const result = splitAddressForYamato("東京都渋谷区　神宮前1-2-3");
-    // 全角スペースが半角に変換される
     expect(result.addr1).not.toContain("　");
+  });
+
+  // カタカナ長音符ーの保持（旧バグ: ー→-化け）
+  it("アパートの長音符ーが保持される", () => {
+    const r = splitAddressForYamato("東京都大田区南蒲田二丁目26-2第２アパート111号室");
+    expect(r.addr1).toBe("東京都大田区南蒲田二丁目26-2");
+    expect(r.addr2).toBe("第2アパート111号室"); // 全角数字は半角に正規化
+  });
+
+  it("コーポの長音符ーが保持される", () => {
+    const r = splitAddressForYamato("長崎県対馬市美津島町鶏知甲119-2孝美コーポ102");
+    expect(r.addr2).toBe("孝美コーポ102");
+  });
+
+  it("タワーの長音符ーが保持される", () => {
+    const r = splitAddressForYamato("東京都渋谷区神宮前1-2-3 ヒルズタワー101");
+    expect(r.addr2).toContain("タワー");
+  });
+
+  it("数字間の長音符ーはハイフンに変換", () => {
+    const r = splitAddressForYamato("東京都中央区銀座7ー8ー8");
+    expect(r.addr1).toContain("7-8-8");
+  });
+
+  // 建物名全体がaddr2に入る（旧バグ: 建物名の一部がaddr1に残留）
+  it("春陽ハイツ → 建物名全体がaddr2", () => {
+    const r = splitAddressForYamato("東京都練馬区上石神井1-39-27 春陽ハイツ202");
+    expect(r.addr1).toBe("東京都練馬区上石神井1-39-27");
+    expect(r.addr2).toBe("春陽ハイツ202");
+  });
+
+  it("うみそら前マンション → 建物名全体がaddr2", () => {
+    const r = splitAddressForYamato("沖縄県那覇市西3丁目15-27 うみそら前マンション203");
+    expect(r.addr1).toBe("沖縄県那覇市西3丁目15-27");
+    expect(r.addr2).toBe("うみそら前マンション203");
+  });
+
+  it("ガーラレジデンス → 建物名全体がaddr2", () => {
+    const r = splitAddressForYamato("東京都府中市宮西町5-10-1ガーラレジデンス府中宮西町５０３");
+    expect(r.addr1).toBe("東京都府中市宮西町5-10-1");
+    expect(r.addr2).toBe("ガーラレジデンス府中宮西町503"); // 全角数字は半角に正規化
+  });
+
+  // 号室だけがaddr2にならない（旧バグ: 接尾辞のみ分離）
+  it("号室だけのaddr2にならない — M-10 206号室", () => {
+    const r = splitAddressForYamato("東京都小金井市本町5-13-12 M-10 206号室");
+    expect(r.addr1).toBe("東京都小金井市本町5-13-12");
+    expect(r.addr2).toBe("M-10 206号室");
+  });
+
+  it("号室だけのaddr2にならない — パレステージ", () => {
+    const r = splitAddressForYamato("東京都練馬区中村北3-16-13 日神パレステージ中村橋 1001号室");
+    expect(r.addr1).toBe("東京都練馬区中村北3-16-13");
+    expect(r.addr2).toBe("日神パレステージ中村橋 1001号室");
+  });
+
+  // 番地ブロック正規表現の改善（旧バグ: 番地切れ）
+  it("丁目-番-号パターンで正しく分割", () => {
+    const r = splitAddressForYamato("埼玉県さいたま市岩槻区西町1丁目3番2号Kヴェスト505");
+    expect(r.addr1).toBe("埼玉県さいたま市岩槻区西町1丁目3番2号");
+    expect(r.addr2).toBe("Kヴェスト505");
+  });
+
+  it("丁目-番-号 + 改行あり住所", () => {
+    const r = splitAddressForYamato("東京都世田谷区桜3丁目6番18号\nソノ・フェリーチェ101号");
+    expect(r.addr1).toBe("東京都世田谷区桜3丁目6番18号");
+    expect(r.addr2).toBe("ソノ・フェリーチェ101号");
+  });
+
+  it("番地で終わる住所 → addr2は空", () => {
+    const r = splitAddressForYamato("愛知県田原市伊川津町郷中39番地");
+    expect(r.addr1).toBe("愛知県田原市伊川津町郷中39番地");
+    expect(r.addr2).toBe("");
+  });
+
+  // ハイフン連結番地（部屋番号埋め込み）
+  it("ハイフン連結 → addr1にまとまる", () => {
+    const r = splitAddressForYamato("東京都品川区南大井5-13-5-408");
+    expect(r.addr1).toBe("東京都品川区南大井5-13-5-408");
+    expect(r.addr2).toBe("");
+  });
+
+  // 番+号パターン（丁目なし）: 6番21号グリーンコーポ
+  it("番+号パターンで号まで正しくキャプチャ", () => {
+    const r = splitAddressForYamato("宮崎県宮崎市中村東一丁目6番21号グリーンコーポ202");
+    expect(r.addr1).toBe("宮崎県宮崎市中村東一丁目6番21号");
+    expect(r.addr2).toBe("グリーンコーポ202");
+  });
+
+  // 全角数字の正規化: ２丁目 → 2丁目
+  it("全角数字が半角に正規化される", () => {
+    const r = splitAddressForYamato("東京都渋谷区本町２丁目12番3号-405");
+    expect(r.addr1).toBe("東京都渋谷区本町2丁目12番3号-405");
+    expect(r.addr2).toBe("");
+  });
+
+  // 階数記号F: 1-21-7-2F → addr1に番地、addr2に2F
+  it("末尾2Fが階数として正しくaddr2になる", () => {
+    const r = splitAddressForYamato("千葉県船橋市西船1-21-7-2F");
+    expect(r.addr1).toBe("千葉県船橋市西船1-21-7");
+    expect(r.addr2).toBe("2F");
+  });
+});
+
+// === 全角文字幅ヘルパー ===
+describe("zenWidth / splitAtZenWidth", () => {
+  it("全角文字は幅1", () => {
+    expect(zenWidth("あいう")).toBe(3);
+  });
+
+  it("半角文字は幅0.5（切り上げ）", () => {
+    expect(zenWidth("abc")).toBe(2); // 1.5 → 2
+  });
+
+  it("全角16文字で分割", () => {
+    const { head, tail } = splitAtZenWidth("アザーレパッシオ読売ランド前弐番館 106号室", 16);
+    expect(zenWidth(head)).toBeLessThanOrEqual(16);
+    expect(tail.length).toBeGreaterThan(0);
   });
 });
 
@@ -201,6 +321,18 @@ describe("generateYamatoB2Row", () => {
     const row = generateYamatoB2Row(sampleOrder, "2026/02/16");
     // 11列目（index 10）= お届け先郵便番号
     expect(row[10]).toBe("1040061");
+  });
+
+  it("addr2が全角16文字超 → 14列目に溢れる", () => {
+    const longAddr = {
+      ...sampleOrder,
+      address: "神奈川県川崎市多摩区西生田3-14-20 アザーレパッシオ読売ランド前弐番館 106号室",
+    };
+    const row = generateYamatoB2Row(longAddr, "2026/02/16");
+    // 13列目（index 12）= アパマン: 全角16文字以内
+    expect(zenWidth(row[12])).toBeLessThanOrEqual(16);
+    // 14列目（index 13）= 会社部門1: 溢れ分が入っている
+    expect(row[13].length).toBeGreaterThan(0);
   });
 });
 

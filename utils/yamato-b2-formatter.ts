@@ -81,58 +81,82 @@ export function normalizePostal(s: string): string {
 }
 
 /**
+ * 全角換算の文字幅（全角=1, 半角=0.5, 切り上げ）
+ */
+export function zenWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) {
+    w += ch.charCodeAt(0) <= 0x7f ? 0.5 : 1;
+  }
+  return Math.ceil(w);
+}
+
+/**
+ * 全角換算で指定幅の位置で文字列を分割
+ */
+export function splitAtZenWidth(s: string, maxWidth: number): { head: string; tail: string } {
+  let w = 0;
+  for (let i = 0; i < s.length; i++) {
+    const cw = s.charCodeAt(i) <= 0x7f ? 0.5 : 1;
+    if (w + cw > maxWidth) return { head: s.slice(0, i), tail: s.slice(i) };
+    w += cw;
+  }
+  return { head: s, tail: "" };
+}
+
+/**
  * 住所分割（町番地 / 建物部屋）
+ * 番地ブロック優先で分割し、建物キーワードは補助判定にのみ使用
  */
 export function splitAddressForYamato(addressRaw: string): { addr1: string; addr2: string } {
   const a = addressRaw.trim();
   if (!a) return { addr1: "", addr2: "" };
 
-  // 1) 正規化：スペース統一・ハイフン統一
+  // 1) 正規化：スペース統一・全角数字→半角・ダッシュ類のみハイフン化（カタカナ長音符ーは除外）
   let s = a
     .replace(/　+/g, " ")
     .replace(/\s+/g, " ")
-    .replace(/[‐-–—―ー−]/g, "-")
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[\u2010-\u2015\u2212\uFF0D]/g, "-")
+    .replace(/(\d)ー(?=\d)/g, "$1-")
     .trim();
 
-  // 2) 明確に「後段（建物・部屋・会社名）」になりやすいトークンがあれば、そこから addr2
-  const tokenRe = /(号室|室|階|Ｆ|F|棟|寮|ビル|マンション|アパート|ハイツ|メゾン|レジデンス|タワー|コーポ)/;
-  const mt = s.match(tokenRe);
-  if (mt && mt.index != null) {
-    const idx = mt.index;
-    const left = s.slice(0, idx).trim();
-    const right = s.slice(idx).trim();
-
-    if (!left) return { addr1: s, addr2: "" };
-    return { addr1: left, addr2: right };
-  }
-
-  // 3) 「番地ブロック」を探す
+  // 2) 番地ブロックを検出（常に最初に実行）
   const firstNumIdx = s.search(/\d/);
-  if (firstNumIdx < 0) {
-    return { addr1: s, addr2: "" };
-  }
+  if (firstNumIdx < 0) return { addr1: s, addr2: "" };
 
-  // 4) 数字列〜（丁目/番地/号/ハイフン連結数字）をできるだけ含む「番地ブロック末尾」を決める
   const after = s.slice(firstNumIdx);
-  const mBlock = after.match(/^(\d+(?:丁目)?(?:\d+)?(?:番地)?(?:\d+)?(?:号)?(?:-\d+)*(?:-\d+)*)/);
-
-  if (!mBlock) {
-    return { addr1: s, addr2: "" };
-  }
+  // 番地パターン: 1丁目3番2号, 39番地, 1-2-3, 5丁目21-18, 6番21号 等
+  const mBlock = after.match(
+    /^(\d+(?:丁目)?(?:番(?:地)?)?(?:-?\d+(?:番(?:地)?|号)?)?(?:-?\d+(?:号)?)?(?:-\d+)*)/,
+  );
+  if (!mBlock) return { addr1: s, addr2: "" };
 
   const blockEnd = firstNumIdx + mBlock[1].length;
   const left = s.slice(0, blockEnd).trim();
   const tail = s.slice(blockEnd).trim();
 
+  // 3) tail の判定
   if (!tail) return { addr1: left, addr2: "" };
 
-  // 5) tail が「明らかに建物名側」なら addr2
-  if (/^[^\d]/.test(tail)) {
-    return { addr1: left, addr2: tail };
+  // 階数記号の補正: tailがF/Ｆのみで、addr1末尾が-数字の場合、数字+Fを結合してaddr2
+  if (/^[FＦ]$/.test(tail)) {
+    const m = left.match(/^(.*[-\s])(\d+)$/);
+    if (m) {
+      return { addr1: m[1].replace(/[-\s]+$/, "").trim(), addr2: m[2] + tail };
+    }
   }
 
-  // 6) tail が数字で始まる場合：分割せず addr1 に寄せる
-  return { addr1: (left + tail).trim(), addr2: "" };
+  // tail が非数字始まり → 建物名としてaddr2
+  if (/^[^\d]/.test(tail)) return { addr1: left, addr2: tail };
+
+  // tail が数字始まり → 建物キーワードを含むならaddr2（例: 301号室, 3階）
+  const buildingKW =
+    /(?:マンション|レジデンス|アパート|ハイツ|メゾン|タワー|コーポ|ビル|棟|寮|号室|室|階|Ｆ|F)/;
+  if (buildingKW.test(tail)) return { addr1: left, addr2: tail };
+
+  // 建物キーワードなし → addr1に結合
+  return { addr1: (left + " " + tail).trim(), addr2: "" };
 }
 
 /**
@@ -158,6 +182,15 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string, config?:
   // 住所分割
   const { addr1, addr2 } = splitAddressForYamato(addressFull);
 
+  // addr2が全角16文字超の場合、14列目（会社部門1）に溢れさせる
+  let yamatoAddr2 = addr2;
+  let yamatoAddr3 = "";
+  if (addr2 && zenWidth(addr2) > 16) {
+    const { head, tail } = splitAtZenWidth(addr2, 16);
+    yamatoAddr2 = head;
+    yamatoAddr3 = tail;
+  }
+
   // 沖縄判定：住所に「沖縄」が含まれている場合は品名を変更
   const isOkinawa = addressFull.includes("沖縄");
   const itemName = isOkinawa
@@ -176,9 +209,9 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string, config?:
   cols.push(phone); // 9: お届け先電話番号
   cols.push(""); // 10: お届け先電話番号枝番
   cols.push(postal); // 11: お届け先郵便番号
-  cols.push(addr1); // 12: お届け先住所（町番地）
-  cols.push(addr2); // 13: お届け先住所（アパマン）
-  cols.push(""); // 14: お届け先会社部門1
+  cols.push(addr1); // 12: お届け先住所（町番地, 全角32文字）
+  cols.push(yamatoAddr2); // 13: お届け先住所（アパマン, 全角16文字）
+  cols.push(yamatoAddr3); // 14: お届け先会社部門1（addr2溢れ分, 全角25文字）
   cols.push(""); // 15: お届け先会社部門2
   cols.push(name); // 16: お届け先名
   cols.push(""); // 17: お届け先名略称カナ
