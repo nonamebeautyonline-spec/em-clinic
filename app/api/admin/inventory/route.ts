@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     if (prevDate) {
       let prevLogsQuery = supabaseAdmin
         .from("inventory_logs")
-        .select("item_key, section, location, logged_date, box_count, shipped_count, received_count, note")
+        .select("id, product_id, item_key, section, location, logged_date, box_count, shipped_count, received_count, note")
         .eq("logged_date", prevDate)
         .order("location");
       prevLogsQuery = withTenant(prevLogsQuery, tenantId);
