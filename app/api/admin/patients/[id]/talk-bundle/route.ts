@@ -50,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 決済履歴
     withTenant(supabaseAdmin
       .from("orders")
-      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, refund_status")
+      .select("id, product_code, amount, payment_method, shipping_date, tracking_number, created_at, postal_code, address, phone, email, status, refund_status")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(10), tenantId),
@@ -166,10 +166,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     status: formatReorderStatus(r.status),
   }));
 
-  const orderHistory = (allOrders || []).map((o: { shipping_date?: string; created_at?: string; product_code: string; refund_status?: string }) => ({
+  const orderHistory = (allOrders || []).map((o: { shipping_date?: string; created_at?: string; product_code: string; status?: string; refund_status?: string }) => ({
     date: o.shipping_date || o.created_at?.slice(0, 10) || "-",
     product: formatProductCode(o.product_code),
-    refund_status: o.refund_status || null,
+    refund_status: o.refund_status || (o.status === "cancelled" ? "CANCELLED" : null),
   }));
 
   let formattedReservation: string | null = null;
