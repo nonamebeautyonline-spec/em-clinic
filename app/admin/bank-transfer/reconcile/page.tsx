@@ -24,8 +24,10 @@ interface AmountMismatchItem {
     amount: number;
   };
   order: {
+    id: string;
     patient_id: string;
     product_code: string;
+    product_name?: string;
     amount: number;
   };
   difference: number;
@@ -301,6 +303,7 @@ export default function BankTransferReconcilePage() {
       setChangeProductOrder(null);
       setNewProductCode("");
       setChangeProductMemo("");
+      setPreviewResult(null);
       loadPendingOrders();
     } catch (err) {
       console.error("Change product error:", err);
@@ -644,6 +647,9 @@ export default function BankTransferReconcilePage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
                         患者ID
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        操作
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
@@ -685,6 +691,31 @@ export default function BankTransferReconcilePage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                           <button onClick={() => window.open(`/admin/line/talk?pid=${item.order.patient_id}`, '_blank')} className="text-blue-600 hover:text-blue-900 hover:underline">
                             {item.order.patient_id}
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <button
+                            onClick={() => {
+                              setChangeProductOrder({
+                                id: item.order.id,
+                                patient_id: item.order.patient_id,
+                                patient_name: "",
+                                product_code: item.order.product_code,
+                                product_name: item.order.product_name || item.order.product_code,
+                                amount: item.order.amount,
+                                shipping_name: "",
+                                account_name: item.transfer.description,
+                                address: "",
+                                postal_code: "",
+                                phone: "",
+                                created_at: "",
+                              });
+                              setNewProductCode("");
+                              setChangeProductMemo("");
+                            }}
+                            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs"
+                          >
+                            商品変更
                           </button>
                         </td>
                       </tr>
