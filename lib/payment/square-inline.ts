@@ -170,7 +170,7 @@ export async function createSquarePayment(
     customerId?: string;
     idempotencyKey?: string;
   },
-): Promise<{ ok: boolean; payment?: any; error?: string }> {
+): Promise<{ ok: boolean; payment?: Record<string, unknown>; error?: string }> {
   // 冪等性キー: 呼び出し元から渡された場合はそれを使用（二重決済防止）
   const idempotencyKey = params.idempotencyKey || crypto.randomUUID();
   const { ok, json } = await squareFetch(baseUrl, "/v2/payments", "POST", accessToken, {
@@ -184,7 +184,7 @@ export async function createSquarePayment(
   });
 
   if (!ok || !json?.payment?.id) {
-    console.error("[square-inline] CreatePayment failed:", json);
+    console.error("[square-inline] CreatePayment failed:", JSON.stringify(json, null, 2));
     return { ok: false, error: translateSquareError(json?.errors) };
   }
 
@@ -255,7 +255,7 @@ export async function getCardDetails(
   baseUrl: string,
   accessToken: string,
   cardId: string,
-): Promise<{ ok: boolean; card?: any }> {
+): Promise<{ ok: boolean; card?: Record<string, unknown> }> {
   const { ok, json } = await squareFetch(baseUrl, `/v2/cards/${cardId}`, "GET", accessToken);
   if (!ok || !json?.card) return { ok: false };
   return { ok: true, card: json.card };
