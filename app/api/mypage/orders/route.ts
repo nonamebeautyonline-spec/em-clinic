@@ -7,7 +7,7 @@ import { getProductNamesMap } from "@/lib/products";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 
 type OrderForMyPage = {
   id: string;
@@ -76,7 +76,7 @@ function normalizePaymentStatus(v: any): PaymentStatus {
 function normalizeRefundStatus(v: any): RefundStatus | undefined {
   const s = (typeof v === "string" ? v : String(v ?? "")).toUpperCase().trim();
   if (!s) return undefined;
-  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as RefundStatus;
+  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
@@ -150,7 +150,7 @@ export async function GET(_req: NextRequest) {
         trackingNumber: (o.tracking_number ?? o.trackingNumber) || undefined,
         paymentStatus,
         paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
-        refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus),
+        refundStatus: normalizeRefundStatus(o.refund_status ?? o.refundStatus) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount ?? o.refundedAmount),
       };
