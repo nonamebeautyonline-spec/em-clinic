@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const { data: orders, error } = await withTenant(
       supabase
         .from("orders")
-        .select("id, patient_id, product_code, amount, payment_method, status, created_at, paid_at, shipping_date, tracking_number, shipping_name")
+        .select("id, patient_id, product_code, amount, payment_method, status, created_at, paid_at, shipping_date, tracking_number, shipping_name, refund_status")
         .eq("payment_method", "bank_transfer")
         .order("created_at", { ascending: false })
         .limit(limit),
@@ -114,7 +114,9 @@ export async function GET(req: NextRequest) {
         shipping_date: order.shipping_date || "", // ★ ordersテーブルのshipping_date
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 0, // ★ 0件の場合は0を表示
-        status: order.status, // ★ pending_confirmation または confirmed
+        status: order.status,
+        amount: order.amount,
+        refund_status: order.refund_status || null,
       };
     });
 
