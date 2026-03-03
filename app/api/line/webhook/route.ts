@@ -10,7 +10,7 @@ import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepE
 import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
-import { scheduleAiReply, sendAiReply, processAiReply } from "@/lib/ai-reply";
+import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
 import { acquireLock } from "@/lib/distributed-lock";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
@@ -1558,6 +1558,8 @@ export async function POST(req: NextRequest) {
           if (!lock.acquired) continue;
           try {
             await processAiReply(t.lineUid, t.patientId, t.patientName, t.tenantId);
+            // 処理成功 → Redisデバウンスキーを削除してcron重複を防止
+            await clearAiReplyDebounce(t.patientId);
           } catch (err) {
             console.error(`[webhook] after() AI reply error: patient=${t.patientId}`, err);
           } finally {

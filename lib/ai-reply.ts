@@ -325,6 +325,18 @@ export async function scheduleAiReply(
 }
 
 /**
+ * after() で直接処理した後、Redisデバウンスキーを削除してcron重複を防止
+ */
+export async function clearAiReplyDebounce(patientId: string): Promise<void> {
+  try {
+    await redis.del(`ai_debounce:${patientId}`);
+    await redis.srem("ai_debounce_keys", patientId);
+  } catch (e) {
+    console.error("[AI Reply] デバウンスキー削除エラー:", e);
+  }
+}
+
+/**
  * cronから呼ばれる: デバウンス期間が経過したエントリを処理
  */
 export async function processPendingAiReplies(): Promise<number> {
