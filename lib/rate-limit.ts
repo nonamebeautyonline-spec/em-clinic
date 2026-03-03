@@ -20,22 +20,21 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   try {
     const redisKey = `rate:${key}`;
-    const current = await redis.get<number>(redisKey);
-    const count = current ?? 0;
 
-    if (count >= max) {
-      const ttl = await redis.ttl(redisKey);
+    // INCR はアトミック（キーがなければ 1 で作成）
+    const count = await redis.incr(redisKey);
+
+    // TTL が未設定（-1）なら必ずセット（初回 or レースコンディション時の復旧）
+    const ttl = await redis.ttl(redisKey);
+    if (ttl === -1) {
+      await redis.expire(redisKey, windowSec);
+    }
+
+    if (count > max) {
       return { limited: true, remaining: 0, retryAfter: ttl > 0 ? ttl : windowSec };
     }
 
-    // カウント更新
-    if (count === 0) {
-      await redis.set(redisKey, 1, { ex: windowSec });
-    } else {
-      await redis.incr(redisKey);
-    }
-
-    return { limited: false, remaining: max - count - 1 };
+    return { limited: false, remaining: max - count };
   } catch (err) {
     // Redis障害時はレート制限をスキップ（サービス継続優先）
     console.error("[rate-limit] Redis error, skipping:", err);

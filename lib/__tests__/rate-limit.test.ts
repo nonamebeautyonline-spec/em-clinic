@@ -5,6 +5,7 @@ const mockSet = vi.fn();
 const mockIncr = vi.fn();
 const mockDel = vi.fn();
 const mockTtl = vi.fn();
+const mockExpire = vi.fn();
 
 vi.mock("@/lib/redis", () => ({
   redis: {
@@ -13,6 +14,7 @@ vi.mock("@/lib/redis", () => ({
     incr: (...args: any[]) => mockIncr(...args),
     del: (...args: any[]) => mockDel(...args),
     ttl: (...args: any[]) => mockTtl(...args),
+    expire: (...args: any[]) => mockExpire(...args),
   },
 }));
 
@@ -53,28 +55,30 @@ describe("getClientIp", () => {
 // ============================================================
 
 describe("checkRateLimit", () => {
-  it("初回アクセス（current=null） → limited: false, remaining: max-1", async () => {
-    mockGet.mockResolvedValue(null);
-    mockSet.mockResolvedValue("OK");
+  it("初回アクセス（incr=1） → limited: false, TTL設定", async () => {
+    mockIncr.mockResolvedValue(1);
+    mockTtl.mockResolvedValue(-1); // TTL未設定
+    mockExpire.mockResolvedValue(1);
 
     const result = await checkRateLimit("login:test", 5, 60);
     expect(result.limited).toBe(false);
     expect(result.remaining).toBe(4);
-    expect(mockSet).toHaveBeenCalledWith("rate:login:test", 1, { ex: 60 });
+    // TTL が -1 なので expire が呼ばれる
+    expect(mockExpire).toHaveBeenCalledWith("rate:login:test", 60);
   });
 
-  it("2回目アクセス（current=1） → incr で更新", async () => {
-    mockGet.mockResolvedValue(1);
+  it("2回目アクセス（incr=2, TTL残存） → limited: false, expireは呼ばれない", async () => {
     mockIncr.mockResolvedValue(2);
+    mockTtl.mockResolvedValue(55); // TTLあり
 
     const result = await checkRateLimit("login:test", 5, 60);
     expect(result.limited).toBe(false);
     expect(result.remaining).toBe(3);
-    expect(mockIncr).toHaveBeenCalledWith("rate:login:test");
+    expect(mockExpire).not.toHaveBeenCalled();
   });
 
-  it("上限到達（current=max） → limited: true", async () => {
-    mockGet.mockResolvedValue(5);
+  it("上限超過（incr > max） → limited: true", async () => {
+    mockIncr.mockResolvedValue(6);
     mockTtl.mockResolvedValue(30);
 
     const result = await checkRateLimit("login:test", 5, 60);
@@ -83,17 +87,20 @@ describe("checkRateLimit", () => {
     expect(result.retryAfter).toBe(30);
   });
 
-  it("上限到達でTTL<=0 → windowSec をフォールバック", async () => {
-    mockGet.mockResolvedValue(10);
+  it("TTL消失（-1）時はexpireで復旧する", async () => {
+    mockIncr.mockResolvedValue(10);
     mockTtl.mockResolvedValue(-1);
+    mockExpire.mockResolvedValue(1);
 
     const result = await checkRateLimit("login:test", 5, 120);
     expect(result.limited).toBe(true);
     expect(result.retryAfter).toBe(120);
+    // TTLが-1なのでexpireで復旧
+    expect(mockExpire).toHaveBeenCalledWith("rate:login:test", 120);
   });
 
   it("Redis障害 → スキップ（limited: false, remaining: max）", async () => {
-    mockGet.mockRejectedValue(new Error("Connection refused"));
+    mockIncr.mockRejectedValue(new Error("Connection refused"));
 
     const result = await checkRateLimit("login:test", 5, 60);
     expect(result.limited).toBe(false);

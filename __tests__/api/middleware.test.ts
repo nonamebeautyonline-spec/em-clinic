@@ -8,6 +8,7 @@ const mockRedisSet = vi.fn();
 const mockRedisIncr = vi.fn();
 const mockRedisTtl = vi.fn();
 const mockRedisDel = vi.fn();
+const mockRedisExpire = vi.fn();
 
 vi.mock("@/lib/redis", () => ({
   redis: {
@@ -16,6 +17,7 @@ vi.mock("@/lib/redis", () => ({
     incr: (...args: unknown[]) => mockRedisIncr(...args),
     ttl: (...args: unknown[]) => mockRedisTtl(...args),
     del: (...args: unknown[]) => mockRedisDel(...args),
+    expire: (...args: unknown[]) => mockRedisExpire(...args),
   },
 }));
 
@@ -219,22 +221,21 @@ describe("checkRateLimit — レート制限チェック", () => {
   });
 
   it("制限内→limited:false, remaining正確", async () => {
-    // 現在のカウント: 2、上限: 5 → あと2回で制限
-    mockRedisGet.mockResolvedValue(2);
+    // incr後のカウント: 3、上限: 5 → あと2回
     mockRedisIncr.mockResolvedValue(3);
+    mockRedisTtl.mockResolvedValue(55); // TTLあり
 
     const { checkRateLimit } = await import("@/lib/rate-limit");
     const result = await checkRateLimit("test:key", 5, 60);
 
     expect(result.limited).toBe(false);
-    expect(result.remaining).toBe(2); // 5 - 2 - 1 = 2
-    expect(mockRedisGet).toHaveBeenCalledWith("rate:test:key");
+    expect(result.remaining).toBe(2); // 5 - 3 = 2
     expect(mockRedisIncr).toHaveBeenCalledWith("rate:test:key");
   });
 
   it("制限超過→limited:true, retryAfter返却", async () => {
-    // 現在のカウント: 5、上限: 5 → 制限超過
-    mockRedisGet.mockResolvedValue(5);
+    // incr後のカウント: 6、上限: 5 → 制限超過
+    mockRedisIncr.mockResolvedValue(6);
     mockRedisTtl.mockResolvedValue(42);
 
     const { checkRateLimit } = await import("@/lib/rate-limit");
@@ -256,8 +257,8 @@ describe("checkRateLimit — レート制限チェック", () => {
   });
 
   it("Redis障害→制限スキップ（limited:false）", async () => {
-    // Redis.get がエラーを投げる
-    mockRedisGet.mockRejectedValue(new Error("Redis connection refused"));
+    // Redis.incr がエラーを投げる
+    mockRedisIncr.mockRejectedValue(new Error("Redis connection refused"));
 
     const { checkRateLimit } = await import("@/lib/rate-limit");
     const result = await checkRateLimit("test:key", 5, 60);
