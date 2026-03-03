@@ -7,7 +7,7 @@ import Image from "next/image";
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 type Carrier = "japanpost" | "yamato";
 
 interface PatientInfo {
@@ -77,8 +77,8 @@ interface PatientDashboardData {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
-  // 返金済みは非表示
-  if (order.refundStatus === "COMPLETED") return false;
+  // 返金済み・キャンセル済みは非表示
+  if (order.refundStatus === "COMPLETED" || order.refundStatus === "CANCELLED") return false;
 
   // 追跡番号がない場合は表示（発送前）
   if (!order.trackingNumber) return true;
@@ -922,12 +922,13 @@ export default function AdminMypageView({ data }: { data: any }) {
                 const paidLabel = formatDateSafe(o.paidAt);
                 const isRefunded =
                   o.refundStatus === "COMPLETED" || o.paymentStatus === "refunded";
+                const isCancelled = o.refundStatus === "CANCELLED";
                 const refundedLabel = formatDateSafe(o.refundedAt);
 
                 return (
                   <div
                     key={o.id}
-                    className="flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3"
+                    className={`flex items-start justify-between gap-3 border border-slate-100 rounded-xl px-3 py-3 ${isCancelled ? "opacity-50" : ""}`}
                   >
                     <div className="min-w-0">
                       <div className="text-[11px] text-slate-500">
@@ -952,6 +953,14 @@ export default function AdminMypageView({ data }: { data: any }) {
                               返金額：¥{o.refundedAmount.toLocaleString()}
                             </span>
                           )}
+                        </div>
+                      )}
+
+                      {isCancelled && (
+                        <div className="mt-2 text-[11px]">
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-500">
+                            キャンセル
+                          </span>
                         </div>
                       )}
                     </div>

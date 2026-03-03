@@ -9,7 +9,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 type ReservationStatus = "scheduled" | "completed" | "canceled";
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 type Carrier = "japanpost" | "yamato";
 
 
@@ -97,8 +97,8 @@ interface QueryPatientParams {
 
 // ------------------------- util -------------------------
 const isActiveOrder = (order: Order) => {
-  // 返金済みは非表示
-  if (order.refundStatus === "COMPLETED") return false;
+  // 返金済み・キャンセル済みは非表示
+  if (order.refundStatus === "COMPLETED" || order.refundStatus === "CANCELLED") return false;
 
   // 追跡番号がない＝未発送（常にアクティブ表示）
   if (!order.trackingNumber) return true;

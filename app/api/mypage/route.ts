@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 type Carrier = "japanpost" | "yamato";
 
 type OrderForMyPage = {
@@ -67,7 +67,7 @@ function normalizePaymentStatus(v: any): PaymentStatus {
 function normalizeRefundStatus(v: any): RefundStatus | undefined {
   const s = safeStr(v).toUpperCase();
   if (!s) return undefined;
-  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as RefundStatus;
+  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
@@ -257,7 +257,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
 
     return (data || []).map((o: any) => {
       const paidAt = o.paid_at || o.created_at || "";
-      const refundStatus = normalizeRefundStatus(o.refund_status);
+      const refundStatus = normalizeRefundStatus(o.refund_status) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined);
       const refundedAt = o.refunded_at || "";
 
       const shippingEta = o.shipping_date || undefined;
@@ -431,7 +431,7 @@ export async function POST(_req: NextRequest) {
         displayName: patientInfo?.displayName || "",
       },
       nextReservation,
-      activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED"),
+      activeOrders: ordersAll.filter((o) => o.refundStatus !== "COMPLETED" && o.refundStatus !== "CANCELLED"),
       orders: ordersAll,
       ordersFlags,
       reorders,

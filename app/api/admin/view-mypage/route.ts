@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 type ShippingStatus = "pending" | "preparing" | "shipped" | "delivered";
 type PaymentStatus = "paid" | "pending" | "failed" | "refunded";
-type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN";
+type RefundStatus = "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED" | "UNKNOWN";
 
 type OrderForMyPage = {
   id: string;
@@ -67,7 +67,7 @@ function normalizePaymentStatus(v: any): PaymentStatus {
 function normalizeRefundStatus(v: any): RefundStatus | undefined {
   const s = (typeof v === "string" ? v : String(v ?? "")).toUpperCase().trim();
   if (!s) return undefined;
-  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as RefundStatus;
+  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
@@ -246,7 +246,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
         trackingNumber: o.tracking_number ?? undefined,
         paymentStatus,
         paymentMethod: (o.payment_method === "bank_transfer" ? "bank_transfer" : "credit_card") as "credit_card" | "bank_transfer",
-        refundStatus: normalizeRefundStatus(o.refund_status),
+        refundStatus: normalizeRefundStatus(o.refund_status) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined),
         refundedAt: toIsoFlexible(refundedRaw) || undefined,
         refundedAmount: toNumberOrUndefined(o.refunded_amount),
         postalCode: o.postal_code ?? undefined,
@@ -333,7 +333,7 @@ export async function GET(req: NextRequest) {
       getReordersFromSupabase(patientId, tenantId),
     ]);
 
-    const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED");
+    const activeOrders = orders.filter((o) => o.refundStatus !== "COMPLETED" && o.refundStatus !== "CANCELLED");
     const isNG = patientInfo.intakeStatus === "NG";
     const hasAnyPaidOrder = orders.length > 0;
     const flags = {
