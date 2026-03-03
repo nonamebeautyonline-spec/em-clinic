@@ -17,6 +17,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "location_id", label: "Location ID", envFallback: "SQUARE_LOCATION_ID" },
     { key: "webhook_signature_key", label: "Webhook Signature Key", envFallback: "SQUARE_WEBHOOK_SIGNATURE_KEY" },
     { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV", sensitive: false },
+    { key: "3ds_enabled", label: "3Dセキュア (true / false)", sensitive: false },
   ],
   gmo: [
     { key: "shop_id", label: "ショップID", envFallback: "GMO_SHOP_ID" },
