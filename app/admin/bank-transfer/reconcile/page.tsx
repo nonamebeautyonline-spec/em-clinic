@@ -399,7 +399,9 @@ export default function BankTransferReconcilePage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {order.patient_name || "-"}
                       {order.account_name && (
-                        <span className="text-slate-500">（{order.account_name}）</span>
+                        <span className={/[\u30A0-\u30FF]/.test(order.account_name) ? "text-slate-500" : "text-red-500 font-medium"}>
+                          （{order.account_name}）
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
