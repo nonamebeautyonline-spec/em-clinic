@@ -77,12 +77,9 @@ export async function POST(req: NextRequest) {
     const updateData: Record<string, unknown> = {
       status: "cancelled",
       updated_at: now,
+      refund_status: action === "refund" ? "PENDING" : "CANCELLED",
+      ...(action === "refund" ? { refunded_amount: order.amount } : {}),
     };
-
-    if (action === "refund") {
-      updateData.refund_status = "PENDING";
-      updateData.refunded_amount = order.amount;
-    }
 
     const { error: updateError } = await withTenant(
       supabaseAdmin

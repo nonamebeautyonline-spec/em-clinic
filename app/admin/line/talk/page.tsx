@@ -2170,8 +2170,12 @@ export default function TalkPage() {
                 <InfoRow label="日時">{patientDetail.latestOrder.date}</InfoRow>
                 {patientDetail.latestOrder.refund_status && (
                   <div className="flex items-center justify-between py-[3px]">
-                    <span className="text-[11px] text-gray-400">返金</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium">{patientDetail.latestOrder.refund_status}</span>
+                    <span className="text-[11px] text-gray-400">{patientDetail.latestOrder.refund_status === "CANCELLED" ? "状態" : "返金"}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      patientDetail.latestOrder.refund_status === "CANCELLED" ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-600"
+                    }`}>
+                      {patientDetail.latestOrder.refund_status === "CANCELLED" ? "キャンセル" : patientDetail.latestOrder.refund_status === "PENDING" ? "返金待ち" : "返金済み"}
+                    </span>
                   </div>
                 )}
                 <InfoRow label="追跡番号" mono>{patientDetail.latestOrder.tracking && patientDetail.latestOrder.tracking !== "-" ? (
@@ -2201,14 +2205,16 @@ export default function TalkPage() {
               <div className="px-4 py-3 border-b border-gray-100">
                 <SectionLabel>処方履歴</SectionLabel>
                 {patientDetail.orderHistory.map((o, i) => (
-                  <div key={i} className="flex items-center justify-between py-[3px]">
+                  <div key={i} className={`flex items-center justify-between py-[3px] ${o.refund_status === "CANCELLED" ? "opacity-50" : ""}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-gray-300 font-mono">{o.date}</span>
                       <span className="text-[11px] text-gray-700">{o.product}</span>
                     </div>
                     {o.refund_status && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 font-medium">
-                        {o.refund_status === "refunded" ? "返金済" : o.refund_status === "pending" ? "返金中" : o.refund_status}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                        o.refund_status === "CANCELLED" ? "bg-gray-100 text-gray-500" : "bg-red-50 text-red-500"
+                      }`}>
+                        {o.refund_status === "CANCELLED" ? "キャンセル" : o.refund_status === "PENDING" ? "返金待ち" : "返金済み"}
                       </span>
                     )}
                   </div>
