@@ -314,6 +314,15 @@ export const bankTransferManualConfirmSchema = z
   })
   .passthrough();
 
+/** 銀行振込キャンセル・返金 POST /api/admin/bank-transfer/cancel */
+export const bankTransferCancelSchema = z
+  .object({
+    order_id: z.string().min(1, "order_idは必須です"),
+    action: z.enum(["cancel", "refund"]),
+    memo: z.string().optional(),
+  })
+  .passthrough();
+
 /** 銀行振込照合確定 POST /api/admin/bank-transfer/reconcile/confirm */
 export const bankTransferReconcileConfirmSchema = z
   .object({
