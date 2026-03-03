@@ -112,6 +112,7 @@ type SdkConfig = {
   applicationId?: string;
   locationId?: string;
   environment?: "sandbox" | "production";
+  threeDsEnabled?: boolean;
 };
 
 type SavedCard = {
@@ -288,9 +289,9 @@ function PurchaseConfirmContent() {
         throw new Error("決済画面のURLを取得できませんでした。");
       }
       window.location.href = data.checkoutUrl;
-    } catch (e: any) {
+    } catch (e) {
       setError(
-        e?.message || "決済の準備中にエラーが発生しました。時間をおいて再度お試しください。",
+        e instanceof Error ? e.message : "決済の準備中にエラーが発生しました。時間をおいて再度お試しください。",
       );
       setSubmitting(false);
     }
@@ -322,8 +323,8 @@ function PurchaseConfirmContent() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "決済に失敗しました");
         router.push(`/mypage/purchase/complete?code=${product.code}`);
-      } catch (e: any) {
-        setError(e?.message || "決済処理中にエラーが発生しました");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "決済処理中にエラーが発生しました");
         setSubmitting(false);
         // カードフォームを再マウントして新しいnonceを取得可能にする
         setCardFormKey((k) => k + 1);
@@ -678,6 +679,20 @@ function PurchaseConfirmContent() {
                   onTokenize={handleNonceReady}
                   onError={handleCardFormError}
                   disabled={submitting || !patientId || !shippingValid}
+                  threeDsEnabled={sdkConfig.threeDsEnabled}
+                  verificationDetails={product ? {
+                    amount: String(product.price),
+                    currencyCode: "JPY",
+                    intent: "CHARGE",
+                    billingContact: {
+                      givenName: shipping.name || undefined,
+                      phone: shipping.phone || undefined,
+                      email: shipping.email || undefined,
+                      addressLines: fullAddress ? [fullAddress] : undefined,
+                      postalCode: shipping.postalCode?.replace("-", "") || undefined,
+                      countryCode: "JP",
+                    },
+                  } : undefined}
                 />
               )}
             </div>

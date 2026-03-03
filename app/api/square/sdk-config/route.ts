@@ -28,10 +28,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ enabled: false });
   }
 
+  const threeDsEnabled = settings.get("square:3ds_enabled") === "true";
+
   return NextResponse.json({
     enabled: true,
     applicationId,
     locationId,
     environment: env,
+    threeDsEnabled,
   });
 }

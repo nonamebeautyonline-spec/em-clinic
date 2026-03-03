@@ -13,12 +13,26 @@ declare global {
       ) => Promise<{
         card: () => Promise<{
           attach: (container: HTMLElement) => Promise<void>;
-          tokenize: () => Promise<{ status: string; token: string }>;
+          tokenize: (verificationDetails?: Record<string, unknown>) => Promise<{ status: string; token: string }>;
           destroy: () => void;
         }>;
       }>;
     };
   }
+}
+
+export interface VerificationDetails {
+  amount: string;
+  currencyCode: string;
+  intent: "CHARGE" | "STORE" | "CHARGE_AND_STORE";
+  billingContact?: {
+    givenName?: string;
+    phone?: string;
+    email?: string;
+    addressLines?: string[];
+    postalCode?: string;
+    countryCode?: string;
+  };
 }
 
 interface Props {
@@ -28,6 +42,8 @@ interface Props {
   onTokenize: (nonce: string) => void;
   onError: (msg: string) => void;
   disabled?: boolean;
+  threeDsEnabled?: boolean;
+  verificationDetails?: VerificationDetails;
 }
 
 export default function SquareCardForm({
@@ -37,8 +53,14 @@ export default function SquareCardForm({
   onTokenize,
   onError,
   disabled,
+  threeDsEnabled,
+  verificationDetails,
 }: Props) {
-  const cardRef = useRef<any>(null);
+  const cardRef = useRef<{
+    attach: (container: HTMLElement) => Promise<void>;
+    tokenize: (verificationDetails?: Record<string, unknown>) => Promise<{ status: string; token: string }>;
+    destroy: () => void;
+  } | null>(null);
   const initStarted = useRef(false);
   const [loading, setLoading] = useState(true);
 
@@ -66,8 +88,8 @@ export default function SquareCardForm({
           await card.attach(node);
           cardRef.current = card;
           setLoading(false);
-        } catch (e: any) {
-          onError(e?.message || "カードフォーム初期化に失敗しました");
+        } catch (e) {
+          onError((e as Error)?.message || "カードフォーム初期化に失敗しました");
         }
       };
 
@@ -99,14 +121,16 @@ export default function SquareCardForm({
     [applicationId, locationId, environment, onError],
   );
 
-  // tokenize
+  // tokenize（3DS有効時は verificationDetails を渡す）
   const handleTokenize = useCallback(async () => {
     if (!cardRef.current) {
       onError("カードフォームが初期化されていません");
       return;
     }
     try {
-      const result = await cardRef.current.tokenize();
+      const result = threeDsEnabled && verificationDetails
+        ? await cardRef.current.tokenize(verificationDetails as unknown as Record<string, unknown>)
+        : await cardRef.current.tokenize();
       if (result.status === "OK") {
         onTokenize(result.token);
       } else {
@@ -118,10 +142,10 @@ export default function SquareCardForm({
         };
         onError(statusMessages[result.status] || "カード情報の確認に失敗しました。再度お試しください。");
       }
-    } catch (e: any) {
-      onError(e?.message || "カード情報の処理中にエラーが発生しました");
+    } catch (e) {
+      onError((e as Error)?.message || "カード情報の処理中にエラーが発生しました");
     }
-  }, [onTokenize, onError]);
+  }, [onTokenize, onError, threeDsEnabled, verificationDetails]);
 
   return (
     <div className="space-y-3">
