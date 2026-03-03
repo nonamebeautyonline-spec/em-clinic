@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
     const updateData: Record<string, unknown> = {
       status: "cancelled",
       updated_at: now,
-      notes: notesText,
     };
 
     if (action === "refund") {
