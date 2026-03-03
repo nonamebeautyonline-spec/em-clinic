@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     const payment = payResult.payment!;
-    const paymentId = payment.id;
+    const paymentId = payment.id as string;
 
     // orders INSERT（配送先は自前フォームから取得）
     const finalPhone = normalizeJPPhone(shipping.phone);
