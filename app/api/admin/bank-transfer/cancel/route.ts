@@ -76,7 +76,6 @@ export async function POST(req: NextRequest) {
     // DB更新
     const updateData: Record<string, unknown> = {
       status: "cancelled",
-      cancelled_at: now,
       updated_at: now,
       notes: notesText,
     };
