@@ -8,20 +8,22 @@ import { parseBody } from "@/lib/validations/helpers";
 import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
 
 // 管理可能な設定キーの定義
-const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string; envFallback?: string }[]> = {
+// sensitive: false → 値をマスクせずにそのまま返す（checkout_mode等の選択肢型設定）
+type SettingDef = { key: string; label: string; envFallback?: string; sensitive?: boolean };
+const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
   square: [
     { key: "access_token", label: "Access Token", envFallback: "SQUARE_ACCESS_TOKEN" },
     { key: "application_id", label: "Application ID", envFallback: "SQUARE_APPLICATION_ID" },
     { key: "location_id", label: "Location ID", envFallback: "SQUARE_LOCATION_ID" },
     { key: "webhook_signature_key", label: "Webhook Signature Key", envFallback: "SQUARE_WEBHOOK_SIGNATURE_KEY" },
-    { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV" },
+    { key: "env", label: "環境 (sandbox / production)", envFallback: "SQUARE_ENV", sensitive: false },
   ],
   gmo: [
     { key: "shop_id", label: "ショップID", envFallback: "GMO_SHOP_ID" },
     { key: "shop_pass", label: "ショップパスワード", envFallback: "GMO_SHOP_PASS" },
     { key: "site_id", label: "サイトID", envFallback: "GMO_SITE_ID" },
     { key: "site_pass", label: "サイトパスワード", envFallback: "GMO_SITE_PASS" },
-    { key: "env", label: "環境 (sandbox / production)", envFallback: "GMO_ENV" },
+    { key: "env", label: "環境 (sandbox / production)", envFallback: "GMO_ENV", sensitive: false },
   ],
   line: [
     { key: "channel_id", label: "Channel ID (OAuth)", envFallback: "LINE_CHANNEL_ID" },
@@ -34,15 +36,15 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   ],
   gas: [],
   general: [
-    { key: "clinic_name", label: "クリニック名" },
-    { key: "app_base_url", label: "App Base URL", envFallback: "APP_BASE_URL" },
+    { key: "clinic_name", label: "クリニック名", sensitive: false },
+    { key: "app_base_url", label: "App Base URL", envFallback: "APP_BASE_URL", sensitive: false },
   ],
   payment: [
-    { key: "provider", label: "決済プロバイダー" },
-    { key: "checkout_mode", label: "チェックアウトモード (hosted / inline)" },
-    { key: "reconcile_mode", label: "振込照合モード (order_based / statement_based)" },
-    { key: "bank_accounts", label: "振込先口座情報（JSON）" },
-    { key: "active_bank_account_id", label: "アクティブ口座ID" },
+    { key: "provider", label: "決済プロバイダー", sensitive: false },
+    { key: "checkout_mode", label: "チェックアウトモード (hosted / inline)", sensitive: false },
+    { key: "reconcile_mode", label: "振込照合モード (order_based / statement_based)", sensitive: false },
+    { key: "bank_accounts", label: "振込先口座情報（JSON）", sensitive: false },
+    { key: "active_bank_account_id", label: "アクティブ口座ID", sensitive: false },
   ],
   mypage: [
     { key: "config", label: "マイページ設定（JSON）" },
@@ -58,13 +60,13 @@ const SETTING_DEFINITIONS: Record<SettingCategory, { key: string; label: string;
   dashboard: [],
   feature_flags: [],
   consultation: [
-    { key: "type", label: "診察モード" },
-    { key: "line_call_url", label: "LINEコールURL" },
+    { key: "type", label: "診察モード", sensitive: false },
+    { key: "line_call_url", label: "LINEコールURL", sensitive: false },
   ],
   ehr: [
-    { key: "provider", label: "連携プロバイダー" },
-    { key: "sync_direction", label: "同期方向" },
-    { key: "auto_sync", label: "自動同期" },
+    { key: "provider", label: "連携プロバイダー", sensitive: false },
+    { key: "sync_direction", label: "同期方向", sensitive: false },
+    { key: "auto_sync", label: "自動同期", sensitive: false },
     { key: "orca_host", label: "ORCAホスト" },
     { key: "orca_port", label: "ORCAポート" },
     { key: "orca_user", label: "ORCAユーザー" },
@@ -110,11 +112,13 @@ export async function GET(req: NextRequest) {
     const defs = SETTING_DEFINITIONS[cat] || [];
     result[cat] = defs.map((def) => {
       const dbValue = bulk.get(`${cat}:${def.key}`);
+      const shouldMask = def.sensitive !== false;
       if (dbValue) {
-        return { key: def.key, label: def.label, maskedValue: maskValue(dbValue), source: "db" as const };
+        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(dbValue) : dbValue, source: "db" as const };
       }
       if (def.envFallback && process.env[def.envFallback]) {
-        return { key: def.key, label: def.label, maskedValue: maskValue(process.env[def.envFallback]!), source: "env" as const };
+        const envVal = process.env[def.envFallback]!;
+        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(envVal) : envVal, source: "env" as const };
       }
       return { key: def.key, label: def.label, maskedValue: null, source: "none" as const };
     });
