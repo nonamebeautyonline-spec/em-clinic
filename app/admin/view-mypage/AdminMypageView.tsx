@@ -272,7 +272,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 // ------------------------- Component -------------------------
-export default function AdminMypageView({ data }: { data: any }) {
+export default function AdminMypageView({ data }: { data: PatientDashboardData & Record<string, unknown> }) {
   const [showAllHistory, setShowAllHistory] = React.useState(false);
   const [editingAddressOrderId, setEditingAddressOrderId] = React.useState<string | null>(null);
   const [editPostalCode, setEditPostalCode] = React.useState("");
@@ -294,7 +294,7 @@ export default function AdminMypageView({ data }: { data: any }) {
   const isNG = intakeStatus === "NG";
 
   // ★ APIから来たordersをマッピング（snake_case → camelCase）
-  const mapOrder = (o: any): Order => {
+  const mapOrder = (o: Record<string, unknown>): Order => {
     // payment_status: COMPLETED → paid, PENDING → pending, etc.
     const mapPaymentStatus = (s: string): PaymentStatus => {
       const upper = String(s || "").toUpperCase();
@@ -306,28 +306,28 @@ export default function AdminMypageView({ data }: { data: any }) {
     };
 
     return {
-      id: o.id || o.payment_id || "",
-      productName: o.product_name || o.productName || "",
+      id: String(o.id || o.payment_id || ""),
+      productName: String(o.product_name || o.productName || ""),
       shippingStatus: (o.shipping_status || o.shippingStatus || "pending") as ShippingStatus,
-      shippingEta: o.shipping_eta || o.shippingEta,
-      trackingNumber: o.tracking_number || o.trackingNumber,
-      paymentStatus: mapPaymentStatus(o.payment_status || o.paymentStatus),
+      shippingEta: (o.shipping_eta || o.shippingEta) as string | undefined,
+      trackingNumber: (o.tracking_number || o.trackingNumber) as string | undefined,
+      paymentStatus: mapPaymentStatus(String(o.payment_status || o.paymentStatus || "")),
       refundStatus: (o.refund_status || o.refundStatus) as RefundStatus,
-      refundedAt: o.refunded_at_jst || o.refundedAt,
-      refundedAmount: o.refunded_amount || o.refundedAmount,
-      paidAt: o.paid_at_jst || o.paidAt || o.created_at || o.createdAt || "",
+      refundedAt: (o.refunded_at_jst || o.refundedAt) as string | undefined,
+      refundedAmount: (o.refunded_amount || o.refundedAmount) as number | undefined,
+      paidAt: String(o.paid_at_jst || o.paidAt || o.created_at || o.createdAt || ""),
       carrier: (o.carrier || "yamato") as Carrier,
       paymentMethod: ((o.payment_method || o.paymentMethod) === "bank_transfer" ? "bank_transfer" : "credit_card") as Order["paymentMethod"],
-      postalCode: o.postal_code || o.postalCode || undefined,
-      address: o.address || undefined,
-      shippingName: (o.shipping_name || o.shippingName) && (o.shipping_name || o.shippingName) !== "null" ? (o.shipping_name || o.shippingName) : undefined,
-      shippingListCreatedAt: o.shipping_list_created_at || o.shippingListCreatedAt || undefined,
+      postalCode: (o.postal_code || o.postalCode || undefined) as string | undefined,
+      address: (o.address || undefined) as string | undefined,
+      shippingName: ((o.shipping_name || o.shippingName) && (o.shipping_name || o.shippingName) !== "null" ? (o.shipping_name || o.shippingName) : undefined) as string | undefined,
+      shippingListCreatedAt: (o.shipping_list_created_at || o.shippingListCreatedAt || undefined) as string | undefined,
     };
   };
 
-  const [orders, setOrders] = React.useState<Order[]>(() => (data.orders || []).map(mapOrder));
+  const [orders, setOrders] = React.useState<Order[]>(() => ((data.orders || []) as unknown as Record<string, unknown>[]).map(mapOrder));
 
-  const ordersFlags = data.ordersFlags || data.flags;
+  const ordersFlags: OrdersFlags | undefined = data.ordersFlags || (data.flags as OrdersFlags | undefined);
 
   const handleSaveAddress = async (orderId: string) => {
     setAddressSaving(true);
@@ -343,7 +343,7 @@ export default function AdminMypageView({ data }: { data: any }) {
           shippingName: editShippingName,
         }),
       });
-      const json = await res.json().catch(() => ({} as any));
+      const json = await res.json().catch(() => ({} as Record<string, unknown>));
       if (!res.ok || !json.ok) {
         alert(json.error || "更新に失敗しました");
         return;
@@ -371,7 +371,7 @@ export default function AdminMypageView({ data }: { data: any }) {
 
   // Reorders
   const reorders: ReorderItem[] = Array.isArray(data.reorders)
-    ? data.reorders.map((r: any) => {
+    ? (data.reorders as unknown as Record<string, unknown>[]).map((r: Record<string, unknown>) => {
         const code = String(r.product_code ?? r.productCode ?? "").trim();
         const label = PRODUCT_LABELS[code] || code || "マンジャロ";
         return {

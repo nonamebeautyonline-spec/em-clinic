@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
@@ -52,15 +52,16 @@ export default function NpsPage() {
     responses: NpsResponse[];
   } | null>(null);
 
-  const load = useCallback(async () => {
+  const load = async () => {
     setLoading(true);
     const res = await fetch("/api/admin/line/nps", { credentials: "include" });
     const data = await res.json();
     if (data.surveys) setSurveys(data.surveys);
     setLoading(false);
-  }, []);
+  };
 
-  useEffect(() => { load(); }, [load]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ（初回マウント時のみ実行）
+  useEffect(() => { load(); }, []);
 
   const loadDetail = async (surveyId: number) => {
     setDetailSurvey(surveyId);
@@ -185,7 +186,7 @@ export default function NpsPage() {
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => `${value}件`} />
+                    <Tooltip formatter={(value: unknown) => `${value}件`} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -212,7 +213,7 @@ export default function NpsPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="score" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
-                  <Tooltip formatter={(value: any) => `${value}件`} />
+                  <Tooltip formatter={(value: unknown) => `${value}件`} />
                   <Bar dataKey="count" fill="url(#indigo-gradient)" radius={[4, 4, 0, 0]} />
                   <defs>
                     <linearGradient id="indigo-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -237,7 +238,7 @@ export default function NpsPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[-100, 100]} />
-                  <Tooltip formatter={(value: any) => value} />
+                  <Tooltip formatter={(value) => String(value)} />
                   <Line type="monotone" dataKey="nps" stroke="#6366f1" strokeWidth={2} dot={{ r: 4, fill: "#6366f1" }} />
                 </LineChart>
               </ResponsiveContainer>
