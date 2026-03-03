@@ -126,26 +126,10 @@ export async function POST(req: NextRequest) {
     let shouldSaveCard = false;
 
     if (isNonce) {
-      // 既存の保存済みカードがあればそれを使用（nonce温存）
-      const { data: existingPatient } = await withTenant(
-        supabaseAdmin
-          .from("patients")
-          .select("square_customer_id, square_card_id")
-          .eq("patient_id", patientId),
-        tenantId,
-      ).maybeSingle();
-
-      if (existingPatient?.square_card_id) {
-        // 保存済みカードで決済（nonceは使わない）
-        paySourceId = existingPatient.square_card_id;
-        customerId = existingPatient.square_customer_id ?? undefined;
-      } else {
-        // nonceで直接決済（カード保存はnonceを消費するので決済後に別途処理）
-        customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
-        // paySourceId はnonce (sourceId) のまま
-        if (saveCard) shouldSaveCard = true;
-      }
-    } else if (!isNonce) {
+      // nonceで直接決済（フロントが送ったnonceをそのまま使う）
+      customerId = (await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId)) ?? undefined;
+      if (saveCard) shouldSaveCard = true;
+    } else {
       // 2回目以降: card_id で直接決済
       // customer_id 取得 + カードID所有権検証
       const { data: patient } = await withTenant(
@@ -247,7 +231,7 @@ export async function POST(req: NextRequest) {
       paymentId,
       receiptUrl: payment.receipt_url,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[square/pay] error:", err);
     return NextResponse.json(
       { error: "決済処理中にエラーが発生しました。時間をおいて再度お試しください。" },

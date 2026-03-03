@@ -4,23 +4,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // --- モックチェーン ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gte",
     "is", "not", "order", "limit", "maybeSingle", "single", "upsert",
   ].forEach((m) => {
-    chain[m] = vi.fn().mockReturnValue(chain);
+    (chain as Record<string, ReturnType<typeof vi.fn>>)[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn((...args: any[]) => {
-      const chains = (globalThis as any).__testTableChains || {};
-      const table = args[0];
+    from: vi.fn((...args: unknown[]) => {
+      const g = globalThis as unknown as Record<string, Record<string, Record<string, unknown>>>;
+      const chains = g.__testTableChains || {};
+      const table = args[0] as string;
       if (!chains[table]) chains[table] = createChain();
       return chains[table];
     }),
@@ -29,7 +30,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -79,8 +80,9 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: Record<string, unknown>) {
+  const g = globalThis as unknown as Record<string, Record<string, Record<string, unknown>>>;
+  g.__testTableChains[table] = chain;
 }
 
 const validBody = {
@@ -99,7 +101,7 @@ const validBody = {
   },
 };
 
-function createRequest(body: any = validBody, cookies: Record<string, string> = { patient_id: "PID_001" }) {
+function createRequest(body: unknown = validBody, cookies: Record<string, string> = { patient_id: "PID_001" }) {
   const req = new NextRequest("http://localhost:3000/api/square/pay", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -114,7 +116,7 @@ function createRequest(body: any = validBody, cookies: Record<string, string> = 
 describe("POST /api/square/pay", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    (globalThis as unknown as Record<string, Record<string, unknown>>).__testTableChains = {};
 
     // デフォルトモック設定
     vi.mocked(checkRateLimit).mockResolvedValue({ limited: false, remaining: 5 });
@@ -186,8 +188,8 @@ describe("POST /api/square/pay", () => {
     expect(body.paymentId).toBe("PAY_001");
   });
 
-  it("既存の保存済みカードがある場合はcard_idで決済する", async () => {
-    // 患者に既存のsquare_card_idがある状態をセットアップ
+  it("既存の保存済みカードがあってもnonceが来たらnonceで決済する", async () => {
+    // 患者に既存のsquare_card_idがある状態でもnonceを優先
     const pChain = createChain({
       data: { square_customer_id: "CUST_001", square_card_id: "ccof:EXISTING_SAVED" },
       error: null,
@@ -198,13 +200,11 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // 既存カードがある場合はカード保存不要
-    expect(saveCardOnFile).not.toHaveBeenCalled();
-    // 既存のcard_idで決済
+    // nonceで決済（保存済みカードを勝手に使わない）
     expect(createSquarePayment).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
-      expect.objectContaining({ sourceId: "ccof:EXISTING_SAVED" }),
+      expect.objectContaining({ sourceId: "cnon:CARD_NONCE" }),
     );
   });
 
@@ -333,7 +333,7 @@ describe("POST /api/square/pay", () => {
 
   it("parseBody エラー時はバリデーションエラーを返す", async () => {
     const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as any);
+    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const res = await POST(createRequest());
     expect(res.status).toBe(400);
