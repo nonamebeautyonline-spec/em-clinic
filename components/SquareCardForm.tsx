@@ -25,6 +25,8 @@ export interface VerificationDetails {
   amount: string;
   currencyCode: string;
   intent: "CHARGE" | "STORE" | "CHARGE_AND_STORE";
+  customerInitiated?: boolean;
+  sellerKeyedIn?: boolean;
   billingContact?: {
     givenName?: string;
     phone?: string;
@@ -129,11 +131,16 @@ export default function SquareCardForm({
     }
     try {
       const result = threeDsEnabled && verificationDetails
-        ? await cardRef.current.tokenize(verificationDetails as unknown as Record<string, unknown>)
+        ? await cardRef.current.tokenize({
+            ...verificationDetails,
+            customerInitiated: true,
+            sellerKeyedIn: false,
+          } as unknown as Record<string, unknown>)
         : await cardRef.current.tokenize();
       if (result.status === "OK") {
         onTokenize(result.token);
       } else {
+        console.error("[SquareCardForm] tokenize failed:", JSON.stringify(result));
         const statusMessages: Record<string, string> = {
           INVALID: "カード情報が正しくありません。入力内容をご確認ください。",
           ABORT: "カード処理が中断されました。再度お試しください。",
@@ -143,6 +150,7 @@ export default function SquareCardForm({
         onError(statusMessages[result.status] || "カード情報の確認に失敗しました。再度お試しください。");
       }
     } catch (e) {
+      console.error("[SquareCardForm] tokenize exception:", e);
       onError((e as Error)?.message || "カード情報の処理中にエラーが発生しました");
     }
   }, [onTokenize, onError, threeDsEnabled, verificationDetails]);
