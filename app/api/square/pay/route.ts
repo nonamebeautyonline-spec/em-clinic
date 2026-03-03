@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: payResult.error || "決済に失敗しました" }, { status: 400 });
     }
 
-    const payment = payResult.payment;
+    const payment = payResult.payment!;
     const paymentId = payment.id;
 
     // orders INSERT（配送先は自前フォームから取得）
