@@ -230,14 +230,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 決済成功後にカード保存を試みる（非同期・失敗しても決済結果には影響しない）
-    if (shouldSaveCard && payment.source_type === "CARD") {
+    // 決済成功後に payment_id でカード保存（失敗しても決済結果には影響しない）
+    if (shouldSaveCard) {
       try {
-        // 決済で使用したカード情報をpaymentから取得してDB保存のみ行う
-        // （nonceは消費済みなのでCards APIは呼べない。次回nonce時にCards APIで保存）
-        console.log("[square/pay] カード保存はスキップ（nonceは決済で消費済み）。次回決済時に保存を試みます。");
+        await saveCardOnFile(baseUrl, accessToken, patientId, paymentId, tenantId);
       } catch (e) {
-        console.error("[square/pay] card save note error:", e);
+        console.error("[square/pay] card save error:", e);
       }
     }
 

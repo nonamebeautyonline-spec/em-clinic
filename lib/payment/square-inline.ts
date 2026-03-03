@@ -119,12 +119,12 @@ export async function ensureSquareCustomer(
   return customerId;
 }
 
-/** nonce からカードを保存（Cards API: CreateCard） → card_id を返す */
+/** カードを保存（Cards API: CreateCard）— source_id は nonce or payment_id */
 export async function saveCardOnFile(
   baseUrl: string,
   accessToken: string,
   patientId: string,
-  nonce: string,
+  sourceId: string,
   tenantId: string | null,
 ): Promise<string | null> {
   const customerId = await ensureSquareCustomer(baseUrl, accessToken, patientId, tenantId);
@@ -132,7 +132,7 @@ export async function saveCardOnFile(
 
   const { ok, json } = await squareFetch(baseUrl, "/v2/cards", "POST", accessToken, {
     idempotency_key: crypto.randomUUID(),
-    source_id: nonce,
+    source_id: sourceId,
     card: {
       customer_id: customerId,
       reference_id: patientId,

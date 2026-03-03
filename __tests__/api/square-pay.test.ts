@@ -155,19 +155,35 @@ describe("POST /api/square/pay", () => {
     expect(body.paymentId).toBe("PAY_001");
   });
 
-  it("初回決済はnonceで直接決済する（カード保存はしない）", async () => {
+  it("初回決済成功後にpayment_idでカード保存される", async () => {
     const res = await POST(createRequest());
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    expect(ensureSquareCustomer).toHaveBeenCalled();
-    // nonceで直接決済（saveCardOnFileは呼ばれない）
-    expect(saveCardOnFile).not.toHaveBeenCalled();
+    // nonceで決済
     expect(createSquarePayment).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       expect.objectContaining({ sourceId: "cnon:CARD_NONCE" }),
     );
+    // 決済成功後にpayment_idでカード保存
+    expect(saveCardOnFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "PID_001",
+      "PAY_001",
+      "test-tenant",
+    );
+  });
+
+  it("カード保存失敗でも決済成功が返る", async () => {
+    vi.mocked(saveCardOnFile).mockRejectedValue(new Error("Cards API error"));
+
+    const res = await POST(createRequest());
+    const body = await res.json();
+
+    expect(body.success).toBe(true);
+    expect(body.paymentId).toBe("PAY_001");
   });
 
   it("既存の保存済みカードがある場合はcard_idで決済する", async () => {
@@ -182,7 +198,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(body.success).toBe(true);
-    // saveCardOnFileは呼ばれない（nonce消費を回避）
+    // 既存カードがある場合はカード保存不要
     expect(saveCardOnFile).not.toHaveBeenCalled();
     // 既存のcard_idで決済
     expect(createSquarePayment).toHaveBeenCalledWith(
