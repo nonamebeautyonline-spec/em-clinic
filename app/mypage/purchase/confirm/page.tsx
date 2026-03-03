@@ -440,7 +440,21 @@ function PurchaseConfirmContent() {
           {!showCardForm ? (
             /* ===== 決済方法選択ボタン（初期画面） ===== */
             <>
-              {isInline ? (
+              {sdkConfig === null ? (
+                /* SDK設定読み込み中 */
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
+                  >
+                    クレジットカードで決済
+                  </button>
+                  <p className="text-[10px] text-slate-500 px-2">
+                    即時決済完了で発送手続きがスムーズ｜Squareの安全な決済システム
+                  </p>
+                </div>
+              ) : isInline ? (
                 <div className="space-y-2">
                   <button
                     type="button"
