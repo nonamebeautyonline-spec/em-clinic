@@ -323,6 +323,15 @@ export const bankTransferCancelSchema = z
   })
   .passthrough();
 
+/** 銀行振込商品変更 POST /api/admin/bank-transfer/change-product */
+export const bankTransferChangeProductSchema = z
+  .object({
+    order_id: z.string().min(1, "order_idは必須です"),
+    new_product_code: z.string().min(1, "新しい商品コードは必須です"),
+    memo: z.string().optional(),
+  })
+  .passthrough();
+
 /** 銀行振込照合確定 POST /api/admin/bank-transfer/reconcile/confirm */
 export const bankTransferReconcileConfirmSchema = z
   .object({

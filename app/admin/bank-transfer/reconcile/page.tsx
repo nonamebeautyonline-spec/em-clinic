@@ -86,6 +86,12 @@ export default function BankTransferReconcilePage() {
   const [manualConfirmOrder, setManualConfirmOrder] = useState<PendingOrder | null>(null);
   const [manualConfirmMemo, setManualConfirmMemo] = useState("");
   const [manualConfirming, setManualConfirming] = useState(false);
+  // 商品変更モーダル用
+  const [changeProductOrder, setChangeProductOrder] = useState<PendingOrder | null>(null);
+  const [newProductCode, setNewProductCode] = useState("");
+  const [changeProductMemo, setChangeProductMemo] = useState("");
+  const [changingProduct, setChangingProduct] = useState(false);
+  const [products, setProducts] = useState<Array<{ code: string; title: string; price: number }>>([]);
   // 照合モード
   const [reconcileMode, setReconcileMode] = useState<"order_based" | "statement_based">("order_based");
   // CSVフォーマット
@@ -101,6 +107,15 @@ export default function BankTransferReconcilePage() {
       .then((data) => {
         if (data.settings?.reconcile_mode) {
           setReconcileMode(data.settings.reconcile_mode as "order_based" | "statement_based");
+        }
+      })
+      .catch(() => {});
+    // 商品一覧を取得（商品変更ドロップダウン用）
+    fetch("/api/admin/products", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.products) {
+          setProducts((data.products as Array<{ code: string; title: string; price: number }>).map((p) => ({ code: p.code, title: p.title, price: p.price })));
         }
       })
       .catch(() => {});
@@ -259,6 +274,42 @@ export default function BankTransferReconcilePage() {
     }
   };
 
+  // 商品変更処理
+  const handleChangeProduct = async () => {
+    if (!changeProductOrder || !newProductCode) return;
+
+    setChangingProduct(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/bank-transfer/change-product", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: changeProductOrder.id,
+          new_product_code: newProductCode,
+          memo: changeProductMemo || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `エラー (${res.status})`);
+      }
+
+      setChangeProductOrder(null);
+      setNewProductCode("");
+      setChangeProductMemo("");
+      loadPendingOrders();
+    } catch (err) {
+      console.error("Change product error:", err);
+      setError(err instanceof Error ? err.message : "商品変更に失敗しました");
+    } finally {
+      setChangingProduct(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -357,7 +408,17 @@ export default function BankTransferReconcilePage() {
                     <td className="px-6 py-4 text-sm text-slate-600">
                       〒{order.postal_code} {order.address}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                      <button
+                        onClick={() => {
+                          setChangeProductOrder(order);
+                          setNewProductCode("");
+                          setChangeProductMemo("");
+                        }}
+                        className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs"
+                      >
+                        商品変更
+                      </button>
                       <button
                         onClick={() => {
                           setManualConfirmOrder(order);
@@ -1036,6 +1097,133 @@ export default function BankTransferReconcilePage() {
                 }`}
               >
                 {manualConfirming ? "処理中..." : "確認済みにする"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 商品変更モーダル */}
+      {changeProductOrder && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => !changingProduct && setChangeProductOrder(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">商品変更</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                この注文の商品を変更します（金額も自動更新されます）
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {/* 注文情報 */}
+              <div className="bg-slate-50 rounded p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">患者ID:</span>
+                  <button
+                    onClick={() => window.open(`/admin/line/talk?pid=${changeProductOrder.patient_id}`, "_blank")}
+                    className="font-mono text-blue-600 hover:text-blue-900 hover:underline"
+                  >
+                    {changeProductOrder.patient_id}
+                  </button>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">氏名:</span>
+                  <span className="text-slate-900">{changeProductOrder.patient_name || changeProductOrder.shipping_name || "-"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">現在の商品:</span>
+                  <span className="text-slate-900">{changeProductOrder.product_name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">現在の金額:</span>
+                  <span className="font-medium text-slate-900">¥{changeProductOrder.amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 新商品選択 */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">変更先の商品</label>
+                <select
+                  value={newProductCode}
+                  onChange={(e) => setNewProductCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">選択してください</option>
+                  {products
+                    .filter((p) => p.code !== changeProductOrder.product_code)
+                    .map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.title} (¥{p.price.toLocaleString()})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* 変更後の金額・差額表示 */}
+              {newProductCode && (() => {
+                const newPrice = products.find((p) => p.code === newProductCode)?.price || 0;
+                const diff = newPrice - changeProductOrder.amount;
+                return (
+                  <div className="bg-orange-50 border border-orange-200 rounded p-3 space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-orange-800">変更後の金額:</span>
+                      <span className="font-bold text-orange-900">¥{newPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-orange-800">差額:</span>
+                      <span className={`font-bold ${diff >= 0 ? "text-blue-600" : "text-red-600"}`}>
+                        {diff >= 0 ? "+" : ""}¥{diff.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* メモ */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">メモ（任意）</label>
+                <input
+                  type="text"
+                  value={changeProductMemo}
+                  onChange={(e) => setChangeProductMemo(e.target.value)}
+                  placeholder="例: 患者から電話で2.5mg→5mgに変更依頼"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>注意:</strong> 商品コード・商品名・金額が一括変更されます。振込金額との差額がある場合は別途確認してください。
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setChangeProductOrder(null);
+                  setNewProductCode("");
+                  setChangeProductMemo("");
+                }}
+                className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
+                disabled={changingProduct}
+              >
+                閉じる
+              </button>
+              <button
+                onClick={handleChangeProduct}
+                disabled={changingProduct || !newProductCode}
+                className={`px-4 py-2 text-sm rounded-lg font-medium ${
+                  changingProduct || !newProductCode
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-orange-500 text-white hover:bg-orange-600"
+                }`}
+              >
+                {changingProduct ? "処理中..." : "商品を変更する"}
               </button>
             </div>
           </div>
