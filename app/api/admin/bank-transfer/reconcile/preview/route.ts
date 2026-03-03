@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
         },
         difference: m.difference,
       })),
-      unmatched,
+      unmatched: unmatched.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")),
       summary: {
         total: transfers.length,
         matched: matched.length,
@@ -406,6 +406,11 @@ function normalizeKana(str: string): string {
   for (const [small, large] of Object.entries(smallToLarge)) {
     normalized = normalized.replace(new RegExp(small, "g"), large);
   }
+
+  // ひらがな→カタカナ変換（ぁ-ん → ァ-ン）
+  normalized = normalized.replace(/[\u3041-\u3096]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) + 0x60)
+  );
 
   // スペース、記号を削除
   normalized = normalized.replace(/[\s\-\(\)（）・．.、，,。]/g, "");
