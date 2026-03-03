@@ -184,7 +184,18 @@ export async function createSquarePayment(
   });
 
   if (!ok || !json?.payment?.id) {
-    console.error("[square-inline] CreatePayment failed:", JSON.stringify(json, null, 2));
+    const p = json?.payment;
+    const cd = p?.card_details;
+    console.error("[square-inline] CreatePayment failed:", JSON.stringify({
+      errors: json?.errors,
+      card_errors: cd?.errors,
+      card: cd?.card,           // brand, last_4, exp_month, exp_year, card_type, prepaid_type
+      entry_method: cd?.entry_method,
+      location_id: p?.location_id,
+      application_id: p?.application_details?.application_id,
+      amount: p?.amount_money?.amount,
+      note: p?.note,
+    }));
     return { ok: false, error: translateSquareError(json?.errors) };
   }
 
