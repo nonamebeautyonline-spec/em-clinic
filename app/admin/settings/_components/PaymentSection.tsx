@@ -197,12 +197,15 @@ const RECONCILE_MODE_OPTIONS = [
 
 export default function PaymentSection({ settings, onSaved }: Props) {
   const paymentSettings = settings?.payment ?? [];
+  const squareSettings = settings?.square ?? [];
   const providerSetting = paymentSettings.find((s) => s.key === "provider");
   const checkoutModeSetting = paymentSettings.find((s) => s.key === "checkout_mode");
   const reconcileModeSetting = paymentSettings.find((s) => s.key === "reconcile_mode");
+  const threeDsSetting = squareSettings.find((s) => s.key === "3ds_enabled");
   const currentProvider = providerSetting?.maskedValue || "";
   const currentCheckoutMode = checkoutModeSetting?.maskedValue || "";
   const currentReconcileMode = reconcileModeSetting?.maskedValue || "";
+  const currentThreeDs = threeDsSetting?.maskedValue === "true";
 
   const [selected, setSelected] = useState<string>(
     currentProvider === "未設定" ? "" : currentProvider,
@@ -213,9 +216,11 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [reconcileMode, setReconcileMode] = useState<string>(
     !currentReconcileMode || currentReconcileMode === "未設定" ? "order_based" : currentReconcileMode,
   );
+  const [threeDsEnabled, setThreeDsEnabled] = useState(currentThreeDs);
   const [saving, setSaving] = useState(false);
   const [savingMode, setSavingMode] = useState(false);
   const [savingReconcile, setSavingReconcile] = useState(false);
+  const [savingThreeDs, setSavingThreeDs] = useState(false);
 
   // 口座情報（複数口座対応）
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -242,6 +247,10 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     const val = reconcileModeSetting?.maskedValue || "";
     setReconcileMode(!val || val === "未設定" ? "order_based" : val);
   }, [reconcileModeSetting?.maskedValue]);
+
+  useEffect(() => {
+    setThreeDsEnabled(threeDsSetting?.maskedValue === "true");
+  }, [threeDsSetting?.maskedValue]);
 
   // 口座情報の取得
   const loadBankAccounts = useCallback(async () => {
@@ -277,8 +286,8 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         throw new Error(data.error || `保存に失敗しました (${res.status})`);
       }
       onSaved("決済プロバイダーを保存しました", "success");
-    } catch (err: any) {
-      onSaved(err.message || "保存に失敗しました", "error");
+    } catch (err) {
+      onSaved((err instanceof Error ? err.message : null) || "保存に失敗しました", "error");
     } finally {
       setSaving(false);
     }
@@ -298,10 +307,33 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         throw new Error(data.error || `保存に失敗しました (${res.status})`);
       }
       onSaved("振込照合モードを保存しました", "success");
-    } catch (err: any) {
-      onSaved(err.message || "保存に失敗しました", "error");
+    } catch (err) {
+      onSaved((err instanceof Error ? err.message : null) || "保存に失敗しました", "error");
     } finally {
       setSavingReconcile(false);
+    }
+  };
+
+  const handleSaveThreeDs = async (enabled: boolean) => {
+    setSavingThreeDs(true);
+    setThreeDsEnabled(enabled);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: "square", key: "3ds_enabled", value: enabled ? "true" : "false" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+      }
+      onSaved(enabled ? "3Dセキュアを有効にしました" : "3Dセキュアを無効にしました", "success");
+    } catch (err) {
+      setThreeDsEnabled(!enabled);
+      onSaved((err instanceof Error ? err.message : null) || "保存に失敗しました", "error");
+    } finally {
+      setSavingThreeDs(false);
     }
   };
 
@@ -319,8 +351,8 @@ export default function PaymentSection({ settings, onSaved }: Props) {
         throw new Error(data.error || `保存に失敗しました (${res.status})`);
       }
       onSaved("チェックアウトモードを保存しました", "success");
-    } catch (err: any) {
-      onSaved(err.message || "保存に失敗しました", "error");
+    } catch (err) {
+      onSaved((err instanceof Error ? err.message : null) || "保存に失敗しました", "error");
     } finally {
       setSavingMode(false);
     }
@@ -343,8 +375,8 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       setSavedActiveId(activeId);
       setShowBankConfirm(false);
       onSaved("口座情報を保存しました", "success");
-    } catch (err: any) {
-      onSaved(err.message || "口座情報の保存に失敗しました", "error");
+    } catch (err) {
+      onSaved((err instanceof Error ? err.message : null) || "口座情報の保存に失敗しました", "error");
     } finally {
       setSavingBank(false);
     }
@@ -495,12 +527,42 @@ export default function PaymentSection({ settings, onSaved }: Props) {
             </button>
           </div>
           {checkoutMode === "inline" && (
-            <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
-              <p className="text-xs text-amber-800 leading-relaxed">
-                アプリ内決済を使用するには、Square Developer Dashboard で <strong>Application ID</strong> を取得し、
-                下の「Square API設定」セクションに入力してください。
-              </p>
-            </div>
+            <>
+              <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  アプリ内決済を使用するには、Square Developer Dashboard で <strong>Application ID</strong> を取得し、
+                  下の「Square API設定」セクションに入力してください。
+                </p>
+              </div>
+
+              {/* 3Dセキュア設定 */}
+              <div className="mt-3 rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">3Dセキュア認証（SCA）</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      カード発行会社による本人認証を有効にします。デビットカードの決済成功率が向上します
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={threeDsEnabled}
+                    disabled={savingThreeDs}
+                    onClick={() => handleSaveThreeDs(!threeDsEnabled)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out disabled:opacity-50 ${
+                      threeDsEnabled ? "bg-blue-600" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        threeDsEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
