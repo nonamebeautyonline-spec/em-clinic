@@ -578,18 +578,19 @@ export default function InventoryPage() {
 
     const matrix: Array<{
       date: string;
-      cells: Record<string, { opening: number; received: number; shipped: number; total: number }>;
+      cells: Record<string, { opening: number; received: number; shipped: number; total: number; isLedger: boolean }>;
     }> = [];
 
     for (const day of dailyRaw) {
-      const cells: Record<string, { opening: number; received: number; shipped: number; total: number }> = {};
+      const cells: Record<string, { opening: number; received: number; shipped: number; total: number; isLedger: boolean }> = {};
 
       for (const dose of DOSAGES) {
         const raw = day.cells[dose];
         // 台帳が入力済み（boxCount > 0）ならその値を使用、なければ前日の繰越
-        const opening = raw.boxCount > 0 ? raw.boxCount : (prevClosing[dose] ?? 0);
+        const isLedger = raw.boxCount > 0;
+        const opening = isLedger ? raw.boxCount : (prevClosing[dose] ?? 0);
         const total = opening + raw.received - raw.shipped;
-        cells[dose] = { opening, received: raw.received, shipped: raw.shipped, total };
+        cells[dose] = { opening, received: raw.received, shipped: raw.shipped, total, isLedger };
         prevClosing[dose] = total;
       }
 
@@ -1131,8 +1132,8 @@ export default function InventoryPage() {
                               <td key={dose} className="px-3 py-2 text-center">
                                 {hasData ? (
                                   <div className="space-y-0.5">
-                                    <div className="text-[10px] text-slate-400">
-                                      繰越 <span className="font-medium text-slate-600">{cell.opening}</span>
+                                    <div className={`text-[10px] ${cell.isLedger ? "text-blue-500" : "text-slate-400"}`}>
+                                      {cell.isLedger ? "更新" : "繰越"} <span className={`font-medium ${cell.isLedger ? "text-blue-700" : "text-slate-600"}`}>{cell.opening}</span>
                                     </div>
                                     {cell.received > 0 && (
                                       <div className="text-[10px] text-green-600">
