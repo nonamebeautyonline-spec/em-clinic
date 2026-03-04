@@ -12,6 +12,7 @@ import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
 import { acquireLock } from "@/lib/distributed-lock";
+import { checkSpamBurst } from "@/lib/spam-burst";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
@@ -1530,6 +1531,28 @@ export async function POST(req: NextRequest) {
 
       // ===== 個人ユーザーからのイベント =====
       if (sourceType === "user" && lineUid) {
+        // 連打防止（message / postback のみ対象）
+        if (ev.type === "message" || ev.type === "postback") {
+          const burst = await checkSpamBurst(lineUid);
+          if (burst.blocked) {
+            console.log("[webhook] burst blocked:", lineUid, ev.type);
+            if (burst.shouldNotify) {
+              const patient = await findOrCreatePatient(lineUid, tenantId, LINE_ACCESS_TOKEN);
+              await logEvent({
+                tenantId,
+                patient_id: patient?.patient_id,
+                line_uid: lineUid,
+                direction: "incoming",
+                event_type: "system",
+                message_type: "system",
+                content: "リッチメニューなどの連打が検知されたためメッセージの処理をスキップします。",
+                status: "skipped",
+              });
+            }
+            continue;
+          }
+        }
+
         switch (ev.type) {
           case "follow":
             await handleFollow(lineUid, tenantId, LINE_ACCESS_TOKEN);

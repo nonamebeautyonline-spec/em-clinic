@@ -135,7 +135,7 @@ BEGIN
       )
   LOOP
     EXECUTE format(
-      'ALTER FUNCTION %I.%I(%s) SET search_path = ''''',
+      'ALTER FUNCTION %I.%I(%s) SET search_path = ''public''',
       r.nspname, r.proname, r.args
     );
     RAISE NOTICE 'Set search_path for %.%(%)', r.nspname, r.proname, r.args;

@@ -95,6 +95,11 @@ vi.mock("@/lib/ai-reply", () => ({
   sendAiReply: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockCheckSpamBurst = vi.fn().mockResolvedValue({ blocked: false, shouldNotify: false });
+vi.mock("@/lib/spam-burst", () => ({
+  checkSpamBurst: (...args: unknown[]) => mockCheckSpamBurst(...args),
+}));
+
 // fetch をグローバルモック
 const mockFetch = vi.fn().mockResolvedValue({
   ok: true,
@@ -1215,6 +1220,90 @@ describe("LINE Webhook POST API", () => {
       const { supabaseAdmin } = await import("@/lib/supabase");
       expect(supabaseAdmin.from).toHaveBeenCalledWith("patients");
       expect(supabaseAdmin.from).toHaveBeenCalledWith("intake");
+    });
+  });
+
+  // ===== 連打防止 =====
+  describe("連打防止（spam burst）", () => {
+    it("連打ブロック時はアクション実行をスキップする", async () => {
+      mockCheckSpamBurst.mockResolvedValueOnce({ blocked: true, shouldNotify: false });
+
+      tableChains["patients"] = createChain({ data: { line_picture_url: "https://pic.url" }, error: null });
+      tableChains["message_log"] = createChain({ data: null, error: null });
+      tableChains["keyword_auto_replies"] = createChain({ data: [], error: null });
+
+      const res = await POST(makeWebhookReq({
+        events: [messageEvent("U_BURST_01", { type: "text", text: "テスト" })],
+      }));
+      expect(res.status).toBe(200);
+
+      // handleMessage が呼ばれていない = pushMessage も呼ばれない
+      expect(pushMessage).not.toHaveBeenCalled();
+      // checkSpamBurst は呼ばれている
+      expect(mockCheckSpamBurst).toHaveBeenCalledWith("U_BURST_01");
+    });
+
+    it("初回ブロック時（shouldNotify=true）はスキップログを記録する", async () => {
+      mockCheckSpamBurst.mockResolvedValueOnce({ blocked: true, shouldNotify: true });
+
+      tableChains["patients"] = createChain({ data: { line_picture_url: "https://pic.url" }, error: null });
+      tableChains["message_log"] = createChain({ data: null, error: null });
+      tableChains["orders"] = createChain({ data: null, error: null });
+      tableChains["tag_definitions"] = createChain({ data: null, error: null });
+      tableChains["patient_tags"] = createChain({ data: null, error: null });
+      tableChains["patient_marks"] = createChain({ data: null, error: null });
+      tableChains["rich_menus"] = createChain({ data: null, error: null });
+      tableChains["keyword_auto_replies"] = createChain({ data: [], error: null });
+
+      const res = await POST(makeWebhookReq({
+        events: [postbackEvent("U_BURST_02", '{"type":"rich_menu_action","actions":[{"type":"text_send","value":"hello"}]}')],
+      }));
+      expect(res.status).toBe(200);
+
+      // message_log にスキップログが記録される
+      const { supabaseAdmin } = await import("@/lib/supabase");
+      expect(supabaseAdmin.from).toHaveBeenCalledWith("message_log");
+      const insertCall = tableChains["message_log"]!.insert as ReturnType<typeof vi.fn>;
+      expect(insertCall).toHaveBeenCalled();
+      const insertedData = insertCall.mock.calls[0][0];
+      expect(insertedData.content).toContain("連打が検知された");
+      expect(insertedData.status).toBe("skipped");
+      expect(insertedData.event_type).toBe("system");
+
+      // アクション（text_send）は実行されない
+      expect(pushMessage).not.toHaveBeenCalled();
+    });
+
+    it("follow/unfollowイベントは連打チェック対象外", async () => {
+      const res = await POST(makeWebhookReq({
+        events: [followEvent("U_BURST_03")],
+      }));
+      expect(res.status).toBe(200);
+
+      // checkSpamBurst は呼ばれない（follow は対象外）
+      expect(mockCheckSpamBurst).not.toHaveBeenCalled();
+    });
+
+    it("連打ブロックされなければ通常のpostback処理が実行される", async () => {
+      mockCheckSpamBurst.mockResolvedValueOnce({ blocked: false, shouldNotify: false });
+
+      tableChains["patients"] = createChain({ data: { line_picture_url: "https://pic.url" }, error: null });
+      tableChains["message_log"] = createChain({ data: null, error: null });
+      tableChains["orders"] = createChain({ data: null, error: null });
+      tableChains["tag_definitions"] = createChain({ data: null, error: null });
+      tableChains["patient_tags"] = createChain({ data: null, error: null });
+      tableChains["patient_marks"] = createChain({ data: null, error: null });
+      tableChains["rich_menus"] = createChain({ data: null, error: null });
+      tableChains["keyword_auto_replies"] = createChain({ data: [], error: null });
+
+      const res = await POST(makeWebhookReq({
+        events: [postbackEvent("U_BURST_04")],
+      }));
+      expect(res.status).toBe(200);
+
+      // postback は正常に処理される（message_log にログ記録）
+      const { supabaseAdmin } = await import("@/lib/supabase");
+      expect(supabaseAdmin.from).toHaveBeenCalledWith("message_log");
     });
   });
 
