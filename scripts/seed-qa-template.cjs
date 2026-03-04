@@ -10,6 +10,52 @@ const supabase = createClient(
 
 const QA_PAGE_URL = "https://noname-beauty.l-ope.jp/mypage/qa";
 
+// ── 共通カード ──
+
+const PAYMENT_CARD = {
+  categoryId: "payment",
+  title: "お支払い",
+  subtitle: "決済方法とお手続きの流れ",
+  items: [
+    "クレジットカードと銀行振込の2種類に対応",
+    "診察後、マイページに決済ボタンが表示されます",
+    "カード決済は即時確認・銀行振込は発送直前に確認",
+    "銀行振込の場合、お振込後に表示される配送先入力フォームの記入まで必要です（未入力だと配送が遅れます）",
+    "お振込のみでフォーム未入力の場合は、再度決済フォームから配送先をご入力ください",
+    "届け先住所もマイページから入力・変更できます",
+  ],
+  color: "#f59e0b",
+};
+
+const SHIPPING_CARD = {
+  categoryId: "shipping",
+  title: "配送・お届け",
+  subtitle: "発送スケジュールと届け先",
+  items: [
+    "ヤマト運輸のクール便（チルド）で温度管理してお届け",
+    "土日祝も発送対応しております",
+    "12時までの決済確認で当日発送、以降は翌日発送",
+    "発送後はLINEで追跡番号をお知らせします",
+    "届け先の変更はマイページまたはヤマト運輸サイトから",
+  ],
+  color: "#06b6d4",
+};
+
+const TROUBLE_CARD = {
+  categoryId: "sms-account",
+  title: "お困りの方へ",
+  subtitle: "よくあるトラブルと解決方法",
+  items: [
+    "SMS認証コードが届かない → 受信拒否設定をご確認ください",
+    "ログインできない → LINEアプリの更新・キャッシュ削除をお試しください",
+    "電話番号やLINEアカウントの変更 → LINEメッセージでご相談ください",
+    "解決しない場合はLINEトーク画面からお気軽にご相談ください",
+  ],
+  color: "#8b5cf6",
+};
+
+// ── 通常版カード ──
+
 const QA_CARDS = [
   {
     categoryId: "getting-started",
@@ -38,44 +84,44 @@ const QA_CARDS = [
     ],
     color: "#3b82f6",
   },
-  {
-    categoryId: "payment",
-    title: "お支払い",
-    subtitle: "決済方法とお手続きの流れ",
-    items: [
-      "クレジットカードと銀行振込の2種類に対応",
-      "診察後、マイページに決済ボタンが表示されます",
-      "カード決済は即時確認・銀行振込は発送直前に確認",
-      "届け先住所もマイページから入力・変更できます",
-    ],
-    color: "#f59e0b",
-  },
-  {
-    categoryId: "shipping",
-    title: "配送・お届け",
-    subtitle: "発送スケジュールと届け先",
-    items: [
-      "ヤマト運輸のクール便（チルド）で温度管理してお届け",
-      "土日祝も発送対応しております",
-      "12時までの決済確認で当日発送、以降は翌日発送",
-      "発送後はLINEで追跡番号をお知らせします",
-      "届け先の変更はマイページまたはヤマト運輸サイトから",
-    ],
-    color: "#06b6d4",
-  },
-  {
-    categoryId: "sms-account",
-    title: "お困りの方へ",
-    subtitle: "よくあるトラブルと解決方法",
-    items: [
-      "SMS認証コードが届かない → 受信拒否設定をご確認ください",
-      "ログインできない → LINEアプリの更新・キャッシュ削除をお試しください",
-      "電話番号やLINEアカウントの変更 → LINEメッセージでご相談ください",
-      "解決しない場合はLINEトーク画面からお気軽にご相談ください",
-    ],
-    color: "#8b5cf6",
-  },
+  PAYMENT_CARD,
+  SHIPPING_CARD,
+  TROUBLE_CARD,
 ];
+
+// ── 処方後版カード ──
+
+const QA_CARDS_POST = [
+  {
+    categoryId: "getting-started",
+    title: "ご利用の流れ",
+    subtitle: "処方後のお手続き",
+    items: [
+      "再処方を希望される場合はマイページより再処方申請",
+      "医師の承認後、LINEで通知が届きます",
+      "マイページから決済のお手続き",
+      "決済確認後、ご自宅へ発送",
+    ],
+    color: "#ec4899",
+  },
+  {
+    categoryId: "reorder",
+    title: "再処方について",
+    subtitle: "再処方の申請方法",
+    items: [
+      "マイページの「再処方申請」から申請できます",
+      "ご希望の用量・月数を選択して申請",
+      "医師の承認後、LINEで通知が届きます",
+      "承認後、マイページから決済のお手続きをお願いします",
+    ],
+    color: "#6366f1",
+  },
+  PAYMENT_CARD,
+  SHIPPING_CARD,
+  TROUBLE_CARD,
+];
+
+// ── Flex生成関数 ──
 
 function buildBubble(card) {
   return {
@@ -159,7 +205,7 @@ function buildMoreBubble() {
         },
         {
           type: "text",
-          text: "Q&Aで解決しない場合は\nこのトーク画面からお気軽にご相談ください",
+          text: "Q&Aで解決しない場合や、薬に関する\n医学的な相談はトーク画面からお気軽にご相談ください",
           size: "xs",
           color: "#888888",
           align: "center",
@@ -177,58 +223,66 @@ const flexContent = {
   contents: [...QA_CARDS.map(buildBubble), buildMoreBubble()],
 };
 
+const flexContentPost = {
+  type: "carousel",
+  contents: [...QA_CARDS_POST.map(buildBubble), buildMoreBubble()],
+};
+
 // デフォルトテナントID（環境変数で上書き可能）
 const TENANT_ID = process.env.TENANT_ID || "00000000-0000-0000-0000-000000000001";
 
-async function main() {
-  // 既に同名テンプレートが存在するか確認
+async function upsertTemplate(name, flex) {
   const { data: existing } = await supabase
     .from("message_templates")
     .select("id")
-    .eq("name", "よくある質問（Q&Aカルーセル）")
+    .eq("name", name)
     .eq("tenant_id", TENANT_ID)
     .maybeSingle();
 
   if (existing) {
-    // 既存テンプレートを更新
     const { data, error } = await supabase
       .from("message_templates")
       .update({
         content: "",
         message_type: "flex",
         category: "未分類",
-        flex_content: flexContent,
+        flex_content: flex,
       })
       .eq("id", existing.id)
       .select()
       .single();
 
     if (error) {
-      console.error("更新失敗:", error.message);
+      console.error(`更新失敗 [${name}]:`, error.message);
       process.exit(1);
     }
-    console.log("既存テンプレートを更新しました:", data.id);
+    console.log(`既存テンプレートを更新: ${data.id} — ${name}`);
   } else {
-    // 新規作成
     const { data, error } = await supabase
       .from("message_templates")
       .insert({
-        name: "よくある質問（Q&Aカルーセル）",
+        name,
         content: "",
         message_type: "flex",
         category: "未分類",
-        flex_content: flexContent,
+        flex_content: flex,
         tenant_id: TENANT_ID,
       })
       .select()
       .single();
 
     if (error) {
-      console.error("登録失敗:", error.message);
+      console.error(`登録失敗 [${name}]:`, error.message);
       process.exit(1);
     }
-    console.log("テンプレート登録完了:", data.id, data.name);
+    console.log(`テンプレート登録完了: ${data.id} — ${name}`);
   }
+}
+
+async function main() {
+  await upsertTemplate("よくある質問（Q&Aカルーセル）", flexContent);
+  await upsertTemplate("よくある質問（Q&Aカルーセル）（処方後）", flexContentPost);
+  console.log("完了");
 }
 
 main();

@@ -51,10 +51,157 @@ interface CarouselPanel {
   body: string;
   imageUrl: string;
   buttons: PanelButton[];
+  // Q&Aカルーセル用フィールド
+  qaMode?: boolean;
+  subtitle?: string;
+  headerColor?: string;
+  items?: string[];
+  categoryId?: string;
 }
 
 const EMPTY_BUTTON: PanelButton = { label: "", actionType: "url", actionValue: "" };
 const EMPTY_PANEL: CarouselPanel = { title: "", body: "", imageUrl: "", buttons: [{ ...EMPTY_BUTTON }] };
+
+const QA_PAGE_URL = "https://noname-beauty.l-ope.jp/mypage/qa";
+const QA_COLOR_PRESETS = [
+  { label: "ピンク", value: "#ec4899" },
+  { label: "青", value: "#3b82f6" },
+  { label: "オレンジ", value: "#f59e0b" },
+  { label: "シアン", value: "#06b6d4" },
+  { label: "紫", value: "#8b5cf6" },
+  { label: "インディゴ", value: "#6366f1" },
+];
+
+/** Q&AスタイルのFlexか判定 */
+function isQaStyleFlex(flex: Record<string, unknown> | null): boolean {
+  if (!flex) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = flex as any;
+  if (f.type !== "carousel" || !Array.isArray(f.contents) || f.contents.length < 2) return false;
+  const first = f.contents[0];
+  if (!first.header || !first.body) return false;
+  const hdr = first.header;
+  if (!hdr.backgroundColor) return false;
+  // body内にhorizontal boxがある → Q&Aスタイル
+  const bodyItems = first.body.contents;
+  if (!Array.isArray(bodyItems) || bodyItems.length === 0) return false;
+  return bodyItems[0]?.layout === "horizontal" && bodyItems[0]?.contents?.length === 2;
+}
+
+/** Q&A Flex JSON → CarouselPanel[] に変換（最終バブル「すべて見る」はスキップ） */
+function qaFlexToPanels(flex: Record<string, unknown>): CarouselPanel[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = flex as any;
+  const bubbles = f.contents as any[];
+  const panels: CarouselPanel[] = [];
+  for (const b of bubbles) {
+    // 「すべて見る」バブル = headerなし → スキップ
+    if (!b.header) continue;
+    const title = b.header.contents?.[0]?.text || "";
+    const subtitle = b.header.contents?.[1]?.text || "";
+    const headerColor = b.header.backgroundColor || "#ec4899";
+    // body → items
+    const items: string[] = [];
+    if (b.body?.contents) {
+      for (const row of b.body.contents) {
+        if (row.layout === "horizontal" && row.contents?.[1]?.text) {
+          items.push(row.contents[1].text);
+        }
+      }
+    }
+    // footer → categoryId
+    let categoryId = "";
+    if (b.footer?.contents) {
+      for (const fc of b.footer.contents) {
+        if (fc.action?.uri) {
+          const match = fc.action.uri.match(/[?&]c=([^&]+)/);
+          if (match) categoryId = match[1];
+        }
+      }
+    }
+    panels.push({
+      title, body: "", imageUrl: "", buttons: [],
+      qaMode: true, subtitle, headerColor, items, categoryId,
+    });
+  }
+  return panels;
+}
+
+/** Q&A CarouselPanel[] → Flex JSON に変換 */
+function qaPanelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
+  const bubbles = panels.map(p => ({
+    type: "bubble",
+    size: "mega",
+    header: {
+      type: "box", layout: "vertical",
+      contents: [
+        { type: "text", text: p.title || "タイトル", weight: "bold", size: "xl", color: "#ffffff" },
+        { type: "text", text: p.subtitle || "", size: "sm", color: "#ffffffcc", margin: "sm" },
+      ],
+      backgroundColor: p.headerColor || "#ec4899",
+      paddingAll: "20px",
+    },
+    body: {
+      type: "box", layout: "vertical",
+      contents: (p.items || []).map((item, i) => ({
+        type: "box", layout: "horizontal",
+        contents: [
+          { type: "box", layout: "vertical", contents: [{ type: "text", text: "●", size: "xxs", color: p.headerColor || "#ec4899" }], width: "16px", paddingTop: "4px" },
+          { type: "text", text: item, size: "sm", color: "#444444", wrap: true, flex: 1 },
+        ],
+        ...(i > 0 ? { margin: "12px" } : {}),
+      })),
+      paddingAll: "20px", spacing: "none",
+    },
+    footer: {
+      type: "box", layout: "vertical",
+      contents: [
+        { type: "separator", color: "#f0f0f0" },
+        {
+          type: "button",
+          action: { type: "uri", label: "詳しく見る →", uri: `${QA_PAGE_URL}?c=${p.categoryId || "getting-started"}` },
+          style: "link", color: p.headerColor || "#ec4899", height: "sm", margin: "sm",
+        },
+      ],
+      paddingAll: "12px",
+    },
+  }));
+
+  // 「すべてのQ&Aを見る」バブルを自動付与
+  const moreBubble = {
+    type: "bubble", size: "mega",
+    body: {
+      type: "box", layout: "vertical",
+      contents: [
+        { type: "box", layout: "vertical", contents: [{ type: "text", text: "💬", size: "4xl", align: "center" }], paddingTop: "20px" },
+        { type: "text", text: "すべてのQ&Aを見る", weight: "bold", size: "lg", align: "center", margin: "xl", color: "#333333" },
+        { type: "text", text: "7カテゴリ・全25問の\nよくある質問をまとめています", size: "sm", align: "center", color: "#888888", wrap: true, margin: "lg" },
+        { type: "separator", margin: "xl", color: "#f1f5f9" },
+        { type: "box", layout: "vertical", contents: [
+          { type: "text", text: "ご利用の流れ｜予約・診察", size: "xs", align: "center", color: "#94a3b8" },
+          { type: "text", text: "お支払い｜配送｜再処方", size: "xs", align: "center", color: "#94a3b8", margin: "xs" },
+          { type: "text", text: "SMS認証・アカウント｜問診", size: "xs", align: "center", color: "#94a3b8", margin: "xs" },
+        ], margin: "lg" },
+      ],
+      justifyContent: "center", paddingAll: "20px",
+    },
+    footer: {
+      type: "box", layout: "vertical",
+      contents: [
+        { type: "button", action: { type: "uri", label: "Q&Aページを開く", uri: QA_PAGE_URL }, style: "primary", color: "#ec4899", height: "sm" },
+        { type: "text", text: "Q&Aで解決しない場合や、薬に関する\n医学的な相談はトーク画面からお気軽にご相談ください", size: "xs", color: "#888888", align: "center", wrap: true, margin: "lg" },
+      ],
+      paddingAll: "16px",
+    },
+  };
+
+  return { type: "carousel", contents: [...bubbles, moreBubble] };
+}
+
+const EMPTY_QA_PANEL: CarouselPanel = {
+  title: "", body: "", imageUrl: "", buttons: [],
+  qaMode: true, subtitle: "", headerColor: "#ec4899", items: [""], categoryId: "",
+};
 
 /** カルーセルパネルからLINE Flex Message JSONを生成 */
 function panelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
@@ -442,11 +589,18 @@ export default function TemplateManagementPage() {
       saveContent = imageUrl;
       saveType = "image";
     } else if (activeTab === "carousel") {
-      const validPanels = panels.filter(p => p.title.trim() || p.body.trim() || p.imageUrl);
-      if (validPanels.length === 0) { alert("パネルを1つ以上作成してください"); return; }
-      flexContent = panelsToFlex(validPanels);
+      const isQa = panels.some(p => p.qaMode);
+      if (isQa) {
+        const validPanels = panels.filter(p => p.qaMode && p.title.trim());
+        if (validPanels.length === 0) { alert("カードを1つ以上作成してください"); return; }
+        flexContent = qaPanelsToFlex(validPanels);
+      } else {
+        const validPanels = panels.filter(p => p.title.trim() || p.body.trim() || p.imageUrl);
+        if (validPanels.length === 0) { alert("パネルを1つ以上作成してください"); return; }
+        flexContent = panelsToFlex(validPanels);
+      }
       saveType = "flex";
-      saveContent = `[カルーセル: ${validPanels.length}パネル]`;
+      saveContent = "";
     } else if (activeTab === "flex") {
       if (!flexJson.trim()) { alert("Flex JSONを入力してください"); return; }
       try {
@@ -526,9 +680,16 @@ export default function TemplateManagementPage() {
       setImageUrl(t.content);
       setContent("");
     } else if (t.message_type === "flex" && t.flex_content) {
-      // Flexテンプレート → JSON直接編集で開く
-      setActiveTab("flex");
-      setFlexJson(JSON.stringify(t.flex_content, null, 2));
+      if (isQaStyleFlex(t.flex_content)) {
+        // Q&Aカルーセル → カルーセルビルダーで開く
+        setActiveTab("carousel");
+        setPanels(qaFlexToPanels(t.flex_content));
+        setFlexJson(JSON.stringify(t.flex_content, null, 2));
+      } else {
+        // 通常Flex → JSON直接編集で開く
+        setActiveTab("flex");
+        setFlexJson(JSON.stringify(t.flex_content, null, 2));
+      }
       setContent("");
       setImageUrl("");
     } else {
@@ -560,7 +721,7 @@ export default function TemplateManagementPage() {
   const canSave = name.trim() && (
     activeTab === "text" ? content.trim() :
     activeTab === "image" ? imageUrl :
-    activeTab === "carousel" ? panels.some(p => p.title.trim() || p.body.trim()) :
+    activeTab === "carousel" ? panels.some(p => p.qaMode ? p.title.trim() : (p.title.trim() || p.body.trim())) :
     activeTab === "flex" ? flexJson.trim() && !flexError :
     false
   );
@@ -991,205 +1152,304 @@ export default function TemplateManagementPage() {
               {/* ボタン・カルーセル ビルダー */}
               {activeTab === "carousel" && (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">
-                      パネル {panels.length}/10（1枚ならボタン型、複数枚でカルーセル）
-                    </p>
-                    {panels.length < 10 && (
-                      <button
-                        onClick={() => setPanels([...panels, { ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }])}
-                        className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                        パネル追加
-                      </button>
-                    )}
-                  </div>
-
-                  {panels.map((panel, pi) => (
-                    <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
-                      {/* パネルヘッダー */}
-                      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
-                        <span className="text-xs font-bold text-gray-600">パネル {pi + 1}/{panels.length}</span>
-                        <div className="flex items-center gap-1">
-                          {pi > 0 && (
-                            <button
-                              onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }}
-                              className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                              title="前に移動"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                            </button>
-                          )}
-                          {pi < panels.length - 1 && (
-                            <button
-                              onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }}
-                              className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                              title="後に移動"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                            </button>
-                          )}
-                          {panels.length > 1 && (
-                            <button
-                              onClick={() => setPanels(panels.filter((_, i) => i !== pi))}
-                              className="p-1 text-gray-400 hover:text-red-500 rounded"
-                              title="削除"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
-                          )}
-                        </div>
+                  {/* Q&Aモード or 通常モード */}
+                  {panels.some(p => p.qaMode) ? (
+                    <>
+                      {/* ── Q&Aカルーセルエディタ ── */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">Q&Aカード {panels.length}枚（末尾に「すべて見る」が自動付与）</p>
+                        {panels.length < 10 && (
+                          <button
+                            onClick={() => setPanels([...panels, { ...EMPTY_QA_PANEL }])}
+                            className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            カード追加
+                          </button>
+                        )}
                       </div>
 
-                      <div className="p-4 space-y-3">
-                        {/* 画像URL */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">画像URL</label>
-                          <input
-                            type="url"
-                            value={panel.imageUrl}
-                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], imageUrl: e.target.value }; setPanels(n); }}
-                            placeholder="https://example.com/image.jpg"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30"
-                          />
-                        </div>
-
-                        {/* タイトル */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
-                          <input
-                            type="text"
-                            value={panel.title}
-                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }}
-                            placeholder="タイトルを入力"
-                            maxLength={40}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30"
-                          />
-                          <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.title.length}/40</div>
-                        </div>
-
-                        {/* 本文 */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">本文</label>
-                          <textarea
-                            value={panel.body}
-                            onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], body: e.target.value }; setPanels(n); }}
-                            placeholder="本文を入力"
-                            rows={2}
-                            maxLength={60}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none"
-                          />
-                          <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.body.length}/60</div>
-                        </div>
-
-                        {/* ボタン */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="text-xs font-medium text-gray-600">ボタン</label>
-                            {panel.buttons.length < (panels.length === 1 ? 4 : 3) && (
-                              <button
-                                onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: [...n[pi].buttons, { ...EMPTY_BUTTON }] }; setPanels(n); }}
-                                className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium"
-                              >
-                                + 追加
-                              </button>
-                            )}
-                          </div>
-                          {panel.buttons.map((btn, bi) => (
-                            <div key={bi} className="flex items-center gap-2 mb-2">
-                              <input
-                                type="text"
-                                value={btn.label}
-                                onChange={(e) => {
-                                  const n = [...panels];
-                                  const btns = [...n[pi].buttons];
-                                  btns[bi] = { ...btns[bi], label: e.target.value };
-                                  n[pi] = { ...n[pi], buttons: btns };
-                                  setPanels(n);
-                                }}
-                                placeholder="ボタン名"
-                                maxLength={20}
-                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30"
-                              />
-                              <select
-                                value={btn.actionType}
-                                onChange={(e) => {
-                                  const n = [...panels];
-                                  const btns = [...n[pi].buttons];
-                                  btns[bi] = { ...btns[bi], actionType: e.target.value as PanelButton["actionType"] };
-                                  n[pi] = { ...n[pi], buttons: btns };
-                                  setPanels(n);
-                                }}
-                                className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none"
-                              >
-                                <option value="url">URL</option>
-                                <option value="postback">ポストバック</option>
-                                <option value="message">メッセージ</option>
-                              </select>
-                              <input
-                                type="text"
-                                value={btn.actionValue}
-                                onChange={(e) => {
-                                  const n = [...panels];
-                                  const btns = [...n[pi].buttons];
-                                  btns[bi] = { ...btns[bi], actionValue: e.target.value };
-                                  n[pi] = { ...n[pi], buttons: btns };
-                                  setPanels(n);
-                                }}
-                                placeholder={btn.actionType === "url" ? "https://..." : btn.actionType === "postback" ? "action=xxx" : "返信テキスト"}
-                                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30"
-                              />
-                              {panel.buttons.length > 1 && (
-                                <button
-                                  onClick={() => {
-                                    const n = [...panels];
-                                    n[pi] = { ...n[pi], buttons: n[pi].buttons.filter((_, i) => i !== bi) };
-                                    setPanels(n);
-                                  }}
-                                  className="p-1 text-gray-400 hover:text-red-500"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      {panels.map((panel, pi) => (
+                        <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100" style={{ backgroundColor: panel.headerColor || "#ec4899" }}>
+                            <span className="text-xs font-bold text-white">カード {pi + 1} — {panel.title || "未設定"}</span>
+                            <div className="flex items-center gap-1">
+                              {pi > 0 && (
+                                <button onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }} className="p-1 text-white/70 hover:text-white rounded" title="前に移動">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                              )}
+                              {pi < panels.length - 1 && (
+                                <button onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }} className="p-1 text-white/70 hover:text-white rounded" title="後に移動">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                              )}
+                              {panels.length > 1 && (
+                                <button onClick={() => setPanels(panels.filter((_, i) => i !== pi))} className="p-1 text-white/70 hover:text-white rounded" title="削除">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                          </div>
 
-                  {/* カルーセルプレビュー */}
-                  {panels.some(p => p.title || p.body || p.imageUrl) && (
-                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                        <span className="text-xs font-medium text-gray-600">プレビュー</span>
-                      </div>
-                      <div className="p-4 bg-[#7494c0]">
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                          {panels.filter(p => p.title || p.body || p.imageUrl).map((panel, i) => (
-                            <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
-                              {panel.imageUrl && (
-                                <div className="w-full h-28 bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${panel.imageUrl})` }} />
-                              )}
-                              <div className="px-3 py-2">
-                                {panel.title && <p className="text-sm font-bold text-gray-900">{panel.title}</p>}
-                                {panel.body && <p className="text-xs text-gray-500 mt-0.5">{panel.body}</p>}
+                          <div className="p-4 space-y-3">
+                            {/* ヘッダー色 */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">ヘッダー色</label>
+                              <div className="flex gap-2">
+                                {QA_COLOR_PRESETS.map(c => (
+                                  <button
+                                    key={c.value}
+                                    onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], headerColor: c.value }; setPanels(n); }}
+                                    className={`w-7 h-7 rounded-full border-2 transition-all ${panel.headerColor === c.value ? "border-gray-800 scale-110" : "border-transparent hover:scale-105"}`}
+                                    style={{ backgroundColor: c.value }}
+                                    title={c.label}
+                                  />
+                                ))}
                               </div>
-                              {panel.buttons.filter(b => b.label).length > 0 && (
-                                <div className="px-3 pb-2 space-y-1">
-                                  {panel.buttons.filter(b => b.label).map((btn, bi) => (
-                                    <div key={bi} className="py-1.5 text-center text-xs font-medium text-white rounded-lg" style={{ backgroundColor: "#06C755" }}>
-                                      {btn.label}
-                                    </div>
-                                  ))}
+                            </div>
+
+                            {/* タイトル */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
+                              <input
+                                type="text"
+                                value={panel.title}
+                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }}
+                                placeholder="例: ご利用の流れ"
+                                maxLength={40}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              />
+                            </div>
+
+                            {/* サブタイトル */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">サブタイトル</label>
+                              <input
+                                type="text"
+                                value={panel.subtitle || ""}
+                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], subtitle: e.target.value }; setPanels(n); }}
+                                placeholder="例: 初めての方はこちら"
+                                maxLength={40}
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              />
+                            </div>
+
+                            {/* 箇条書き項目 */}
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-gray-600">箇条書き項目</label>
+                                <button
+                                  onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], items: [...(n[pi].items || []), ""] }; setPanels(n); }}
+                                  className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium"
+                                >
+                                  + 追加
+                                </button>
+                              </div>
+                              {(panel.items || []).map((item, ii) => (
+                                <div key={ii} className="flex items-start gap-2 mb-2">
+                                  <span className="text-xs mt-2.5 flex-shrink-0" style={{ color: panel.headerColor || "#ec4899" }}>●</span>
+                                  <input
+                                    type="text"
+                                    value={item}
+                                    onChange={(e) => {
+                                      const n = [...panels];
+                                      const items = [...(n[pi].items || [])];
+                                      items[ii] = e.target.value;
+                                      n[pi] = { ...n[pi], items };
+                                      setPanels(n);
+                                    }}
+                                    placeholder="項目を入力"
+                                    className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                                  />
+                                  {(panel.items || []).length > 1 && (
+                                    <button
+                                      onClick={() => {
+                                        const n = [...panels];
+                                        n[pi] = { ...n[pi], items: (n[pi].items || []).filter((_, i) => i !== ii) };
+                                        setPanels(n);
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-red-500 mt-0.5"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                  )}
                                 </div>
+                              ))}
+                            </div>
+
+                            {/* カテゴリID */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">カテゴリID（QAページリンク用）</label>
+                              <input
+                                type="text"
+                                value={panel.categoryId || ""}
+                                onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], categoryId: e.target.value }; setPanels(n); }}
+                                placeholder="例: getting-started, payment, shipping"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Q&Aプレビュー */}
+                      {panels.some(p => p.title) && (
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                            <span className="text-xs font-medium text-gray-600">プレビュー</span>
+                          </div>
+                          <div className="p-4 bg-[#7494c0]">
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {panels.filter(p => p.title).map((panel, i) => (
+                                <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
+                                  <div className="px-3 py-2" style={{ backgroundColor: panel.headerColor || "#ec4899" }}>
+                                    <p className="text-sm font-bold text-white">{panel.title}</p>
+                                    {panel.subtitle && <p className="text-[10px] text-white/80 mt-0.5">{panel.subtitle}</p>}
+                                  </div>
+                                  <div className="px-3 py-2 space-y-1">
+                                    {(panel.items || []).filter(Boolean).map((item, ii) => (
+                                      <div key={ii} className="flex gap-1.5 items-start">
+                                        <span className="text-[8px] mt-0.5 flex-shrink-0" style={{ color: panel.headerColor || "#ec4899" }}>●</span>
+                                        <p className="text-[10px] text-gray-600 leading-tight">{item}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="px-3 pb-2">
+                                    <div className="py-1 text-center text-[10px] font-medium rounded" style={{ color: panel.headerColor || "#ec4899" }}>
+                                      詳しく見る →
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              {/* すべて見るバブル */}
+                              <div className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg flex flex-col items-center justify-center py-6 px-3">
+                                <span className="text-2xl">💬</span>
+                                <p className="text-xs font-bold text-gray-800 mt-2">すべてのQ&Aを見る</p>
+                                <p className="text-[9px] text-gray-400 mt-1 text-center">自動付与</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* ── 通常カルーセルエディタ ── */}
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">
+                          パネル {panels.length}/10（1枚ならボタン型、複数枚でカルーセル）
+                        </p>
+                        {panels.length < 10 && (
+                          <button
+                            onClick={() => setPanels([...panels, { ...EMPTY_PANEL, buttons: [{ ...EMPTY_BUTTON }] }])}
+                            className="text-xs text-[#06C755] hover:text-[#05a648] font-medium flex items-center gap-1"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                            パネル追加
+                          </button>
+                        )}
+                      </div>
+
+                      {panels.map((panel, pi) => (
+                        <div key={pi} className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                            <span className="text-xs font-bold text-gray-600">パネル {pi + 1}/{panels.length}</span>
+                            <div className="flex items-center gap-1">
+                              {pi > 0 && (
+                                <button onClick={() => { const n = [...panels]; [n[pi-1], n[pi]] = [n[pi], n[pi-1]]; setPanels(n); }} className="p-1 text-gray-400 hover:text-gray-600 rounded" title="前に移動">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                              )}
+                              {pi < panels.length - 1 && (
+                                <button onClick={() => { const n = [...panels]; [n[pi], n[pi+1]] = [n[pi+1], n[pi]]; setPanels(n); }} className="p-1 text-gray-400 hover:text-gray-600 rounded" title="後に移動">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                              )}
+                              {panels.length > 1 && (
+                                <button onClick={() => setPanels(panels.filter((_, i) => i !== pi))} className="p-1 text-gray-400 hover:text-red-500 rounded" title="削除">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
                               )}
                             </div>
-                          ))}
+                          </div>
+
+                          <div className="p-4 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">画像URL</label>
+                              <input type="url" value={panel.imageUrl} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], imageUrl: e.target.value }; setPanels(n); }} placeholder="https://example.com/image.jpg" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">タイトル</label>
+                              <input type="text" value={panel.title} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], title: e.target.value }; setPanels(n); }} placeholder="タイトルを入力" maxLength={40} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                              <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.title.length}/40</div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">本文</label>
+                              <textarea value={panel.body} onChange={(e) => { const n = [...panels]; n[pi] = { ...n[pi], body: e.target.value }; setPanels(n); }} placeholder="本文を入力" rows={2} maxLength={60} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 resize-none" />
+                              <div className="text-right text-[10px] text-gray-400 mt-0.5">{panel.body.length}/60</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-gray-600">ボタン</label>
+                                {panel.buttons.length < (panels.length === 1 ? 4 : 3) && (
+                                  <button onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: [...n[pi].buttons, { ...EMPTY_BUTTON }] }; setPanels(n); }} className="text-[10px] text-[#06C755] hover:text-[#05a648] font-medium">+ 追加</button>
+                                )}
+                              </div>
+                              {panel.buttons.map((btn, bi) => (
+                                <div key={bi} className="flex items-center gap-2 mb-2">
+                                  <input type="text" value={btn.label} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], label: e.target.value }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} placeholder="ボタン名" maxLength={20} className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                                  <select value={btn.actionType} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], actionType: e.target.value as PanelButton["actionType"] }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs bg-white focus:outline-none">
+                                    <option value="url">URL</option>
+                                    <option value="postback">ポストバック</option>
+                                    <option value="message">メッセージ</option>
+                                  </select>
+                                  <input type="text" value={btn.actionValue} onChange={(e) => { const n = [...panels]; const btns = [...n[pi].buttons]; btns[bi] = { ...btns[bi], actionValue: e.target.value }; n[pi] = { ...n[pi], buttons: btns }; setPanels(n); }} placeholder={btn.actionType === "url" ? "https://..." : btn.actionType === "postback" ? "action=xxx" : "返信テキスト"} className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-500/30" />
+                                  {panel.buttons.length > 1 && (
+                                    <button onClick={() => { const n = [...panels]; n[pi] = { ...n[pi], buttons: n[pi].buttons.filter((_, i) => i !== bi) }; setPanels(n); }} className="p-1 text-gray-400 hover:text-red-500">
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      ))}
+
+                      {/* 通常カルーセルプレビュー */}
+                      {panels.some(p => p.title || p.body || p.imageUrl) && (
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                            <span className="text-xs font-medium text-gray-600">プレビュー</span>
+                          </div>
+                          <div className="p-4 bg-[#7494c0]">
+                            <div className="flex gap-2 overflow-x-auto pb-2">
+                              {panels.filter(p => p.title || p.body || p.imageUrl).map((panel, i) => (
+                                <div key={i} className="flex-shrink-0 w-[220px] bg-white rounded-xl overflow-hidden shadow-lg">
+                                  {panel.imageUrl && (
+                                    <div className="w-full h-28 bg-gray-200 bg-cover bg-center" style={{ backgroundImage: `url(${panel.imageUrl})` }} />
+                                  )}
+                                  <div className="px-3 py-2">
+                                    {panel.title && <p className="text-sm font-bold text-gray-900">{panel.title}</p>}
+                                    {panel.body && <p className="text-xs text-gray-500 mt-0.5">{panel.body}</p>}
+                                  </div>
+                                  {panel.buttons.filter(b => b.label).length > 0 && (
+                                    <div className="px-3 pb-2 space-y-1">
+                                      {panel.buttons.filter(b => b.label).map((btn, bi) => (
+                                        <div key={bi} className="py-1.5 text-center text-xs font-medium text-white rounded-lg" style={{ backgroundColor: "#06C755" }}>
+                                          {btn.label}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
