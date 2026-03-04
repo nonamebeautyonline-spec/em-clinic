@@ -59,6 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingReorderCount, setPendingReorderCount] = useState(0);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const [tenantRole, setTenantRole] = useState<string>("admin");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
@@ -71,6 +72,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (res.ok) {
         const data = await res.json();
         setUnreadCount(data.count ?? 0);
+      }
+    } catch { /* 無視 */ }
+  }, []);
+
+  // 再処方の未処理件数取得
+  const fetchPendingReorderCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/reorders/pending-count", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingReorderCount(data.count ?? 0);
       }
     } catch { /* 無視 */ }
   }, []);
@@ -179,13 +191,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
 
-  // 未読カウントのポーリング（30秒間隔）
+  // 未読カウント・再処方件数のポーリング（30秒間隔）
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    fetchPendingReorderCount();
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+      fetchPendingReorderCount();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, fetchUnreadCount]);
+  }, [isAuthenticated, fetchUnreadCount, fetchPendingReorderCount]);
 
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
@@ -397,6 +413,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="再処方リスト"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/reorders"}
+            badge={pendingReorderCount}
             feature="reorder"
           />
           <MenuItem
