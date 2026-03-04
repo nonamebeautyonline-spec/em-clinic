@@ -101,7 +101,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ logs: logs ?? [] });
+    // シードデータ: from より前の最新日のデータ（ランニングバランスの初期値用）
+    let seedDateQuery = supabaseAdmin
+      .from("inventory_logs")
+      .select("logged_date")
+      .lt("logged_date", from)
+      .order("logged_date", { ascending: false })
+      .limit(1);
+    seedDateQuery = withTenant(seedDateQuery, tenantId);
+    const { data: seedDateRow } = await seedDateQuery;
+    const seedDate = seedDateRow?.[0]?.logged_date ?? null;
+
+    let seedLogs: typeof logs = [];
+    if (seedDate) {
+      let seedLogsQuery = supabaseAdmin
+        .from("inventory_logs")
+        .select("item_key, section, location, logged_date, box_count, shipped_count, received_count")
+        .eq("logged_date", seedDate);
+      seedLogsQuery = withTenant(seedLogsQuery, tenantId);
+      const { data: seedData } = await seedLogsQuery;
+      seedLogs = seedData ?? [];
+    }
+
+    return NextResponse.json({ logs: logs ?? [], seedLogs });
   }
 
   return NextResponse.json({ error: "date または from/to パラメータが必要です" }, { status: 400 });
