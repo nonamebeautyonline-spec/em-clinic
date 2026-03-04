@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface MatchedItem {
   transfer: {
@@ -101,7 +101,7 @@ export default function BankTransferReconcilePage() {
   // 金額不一致の選択状態
   const [selectedMismatches, setSelectedMismatches] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileOpeningRef = useRef(false);
+  const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
 
   useEffect(() => {
@@ -146,15 +146,16 @@ export default function BankTransferReconcilePage() {
     }
   };
 
-  const handleFileClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
-    if (fileOpeningRef.current) { e.preventDefault(); return; }
-    fileOpeningRef.current = true;
-    const reset = () => { fileOpeningRef.current = false; window.removeEventListener("focus", reset); };
+  const handleUploadClick = () => {
+    if (fileDialogOpen) return;
+    setFileDialogOpen(true);
+    fileInputRef.current?.click();
+    const reset = () => { setFileDialogOpen(false); window.removeEventListener("focus", reset); };
     window.addEventListener("focus", reset);
-  }, []);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    fileOpeningRef.current = false;
+    setFileDialogOpen(false);
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
@@ -515,15 +516,17 @@ export default function BankTransferReconcilePage() {
             ref={fileInputRef}
             type="file"
             accept=".csv"
-            onClick={handleFileClick}
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-lg file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100"
+            className="hidden"
           />
+          <button
+            type="button"
+            onClick={handleUploadClick}
+            disabled={fileDialogOpen}
+            className="inline-flex items-center py-2 px-4 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            CSVファイルを選択
+          </button>
           {file && (
             <p className="mt-2 text-sm text-slate-600">
               選択中: {file.name} ({(file.size / 1024).toFixed(1)} KB)
