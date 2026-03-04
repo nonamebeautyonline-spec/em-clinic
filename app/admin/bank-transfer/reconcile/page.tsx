@@ -479,10 +479,7 @@ export default function BankTransferReconcilePage() {
                 onChange={() => setCsvFormat("paypay")}
                 className="w-4 h-4 text-blue-600"
               />
-              <div>
-                <span className="text-sm font-medium text-slate-900">PayPay銀行</span>
-                <p className="text-xs text-slate-500">年/月/日 分割、摘要、お預り金額</p>
-              </div>
+              <span className="text-sm font-medium text-slate-900">PayPay銀行</span>
             </label>
             <label
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 cursor-pointer transition-all ${
@@ -499,12 +496,12 @@ export default function BankTransferReconcilePage() {
                 onChange={() => setCsvFormat("gmo")}
                 className="w-4 h-4 text-blue-600"
               />
-              <div>
-                <span className="text-sm font-medium text-slate-900">住信SBIネット銀行</span>
-                <p className="text-xs text-slate-500">日付, 摘要, 出金, 入金</p>
-              </div>
+              <span className="text-sm font-medium text-slate-900">住信SBIネット銀行</span>
             </label>
           </div>
+          {csvFormat === "paypay" && (
+            <p className="mt-2 text-xs text-slate-500">「お預り金額」が0より大きい行が照合対象です</p>
+          )}
         </div>
 
         <div className="mb-4">
