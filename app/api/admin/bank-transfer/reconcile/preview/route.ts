@@ -274,7 +274,7 @@ function parseTransfers(parsedRows: string[][], format: string): Transfer[] {
   }
 }
 
-/** GMOあおぞらネット銀行フォーマット: [日付, 摘要, 出金, 入金, ...] */
+/** 住信SBIネット銀行フォーマット: [日付, 摘要, 出金, 入金, ...] */
 function parseGmoCSV(parsedRows: string[][]): Transfer[] {
   const dataRows = parsedRows.slice(1); // ヘッダースキップ
   return dataRows

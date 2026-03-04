@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface MatchedItem {
   transfer: {
@@ -100,6 +100,9 @@ export default function BankTransferReconcilePage() {
   const [csvFormat, setCsvFormat] = useState<"gmo" | "paypay">("paypay");
   // 金額不一致の選択状態
   const [selectedMismatches, setSelectedMismatches] = useState<Set<number>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileOpeningRef = useRef(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   useEffect(() => {
     loadPendingOrders();
@@ -143,7 +146,15 @@ export default function BankTransferReconcilePage() {
     }
   };
 
+  const handleFileClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    if (fileOpeningRef.current) { e.preventDefault(); return; }
+    fileOpeningRef.current = true;
+    const reset = () => { fileOpeningRef.current = false; window.removeEventListener("focus", reset); };
+    window.addEventListener("focus", reset);
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    fileOpeningRef.current = false;
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
@@ -229,6 +240,7 @@ export default function BankTransferReconcilePage() {
       setResult(data);
       setPreviewResult(null);
       setFile(null);
+      setFileInputKey((k) => k + 1);
       setSelectedMismatches(new Set());
       loadPendingOrders(); // 未照合一覧を更新
     } catch (err) {
@@ -487,7 +499,7 @@ export default function BankTransferReconcilePage() {
                 className="w-4 h-4 text-blue-600"
               />
               <div>
-                <span className="text-sm font-medium text-slate-900">GMOあおぞらネット銀行</span>
+                <span className="text-sm font-medium text-slate-900">住信SBIネット銀行</span>
                 <p className="text-xs text-slate-500">日付, 摘要, 出金, 入金</p>
               </div>
             </label>
@@ -499,8 +511,11 @@ export default function BankTransferReconcilePage() {
             CSVファイル
           </label>
           <input
+            key={fileInputKey}
+            ref={fileInputRef}
             type="file"
             accept=".csv"
+            onClick={handleFileClick}
             onChange={handleFileChange}
             className="block w-full text-sm text-slate-500
               file:mr-4 file:py-2 file:px-4
@@ -528,23 +543,6 @@ export default function BankTransferReconcilePage() {
           {loading ? "照合確認中..." : "照合確認"}
         </button>
 
-        <div className="mt-4 p-4 bg-slate-50 rounded-lg text-sm text-slate-600">
-          <h3 className="font-semibold mb-2">CSVフォーマット要件</h3>
-          {csvFormat === "paypay" ? (
-            <ul className="list-disc list-inside space-y-1">
-              <li>1行目: 口座識別子（スキップ）</li>
-              <li>2行目: ヘッダー（操作日(年), 操作日(月), ..., 摘要, ..., お預り金額, ...）</li>
-              <li>3行目以降: データ行</li>
-              <li>「お預り金額」が0より大きい行が照合対象です</li>
-            </ul>
-          ) : (
-            <ul className="list-disc list-inside space-y-1">
-              <li>1行目: ヘッダー（スキップされます）</li>
-              <li>2行目以降: [日付, 摘要, 出金額, 入金額, 残高] など</li>
-              <li>入金額が0より大きい行のみが照合対象です</li>
-            </ul>
-          )}
-        </div>
       </div>
 
       {error && (

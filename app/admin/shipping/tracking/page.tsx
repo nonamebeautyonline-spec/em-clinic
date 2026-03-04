@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface TrackingEntry {
   payment_id: string;
@@ -52,6 +52,9 @@ export default function TrackingNumberPage() {
     patient_name: "",
     tracking_number: "",
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileOpeningRef = useRef(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   // 発送通知一斉送信
   const [notifyPreview, setNotifyPreview] = useState<{ patients: { patient_id: string; patient_name: string; line_id: string | null }[]; summary: { total: number; sendable: number; no_uid: number } } | null>(null);
@@ -143,7 +146,15 @@ export default function TrackingNumberPage() {
     }
   };
 
+  const handleFileClick = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    if (fileOpeningRef.current) { e.preventDefault(); return; }
+    fileOpeningRef.current = true;
+    const reset = () => { fileOpeningRef.current = false; window.removeEventListener("focus", reset); };
+    window.addEventListener("focus", reset);
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    fileOpeningRef.current = false;
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
@@ -327,6 +338,7 @@ export default function TrackingNumberPage() {
       setResult(data);
       setPreviewResult(null);
       setFile(null);
+      setFileInputKey((k) => k + 1);
       setEditedEntries(new Map());
       setManualEntries([]);
     } catch (err) {
@@ -445,8 +457,11 @@ export default function TrackingNumberPage() {
             追跡番号CSVファイル
           </label>
           <input
+            key={fileInputKey}
+            ref={fileInputRef}
             type="file"
             accept=".csv"
+            onClick={handleFileClick}
             onChange={handleFileChange}
             className="block w-full text-sm text-slate-500
               file:mr-4 file:py-2 file:px-4
