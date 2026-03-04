@@ -1,7 +1,7 @@
 // app/intake/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { IntakeFormField, IntakeFormSettings } from "@/lib/intake-form-defaults";
 import { DEFAULT_INTAKE_FIELDS, DEFAULT_INTAKE_SETTINGS } from "@/lib/intake-form-defaults";
@@ -104,22 +104,26 @@ export default function IntakePage() {
   const [formLoading, setFormLoading] = useState(true);
 
   // フォーム定義をAPIから取得
-  useEffect(() => {
-    fetch("/api/intake/form-definition")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.fields?.length) {
-          setQuestionItems(data.fields);
-        }
-        if (data.settings) {
-          setFormSettings({ ...DEFAULT_INTAKE_SETTINGS, ...data.settings });
-        }
-      })
-      .catch(() => {
-        // フォールバック: デフォルト値を使用
-      })
-      .finally(() => setFormLoading(false));
+  const fetchFormDefinition = useCallback(async () => {
+    try {
+      const r = await fetch("/api/intake/form-definition");
+      const data = await r.json();
+      if (data.fields?.length) {
+        setQuestionItems(data.fields);
+      }
+      if (data.settings) {
+        setFormSettings({ ...DEFAULT_INTAKE_SETTINGS, ...data.settings });
+      }
+    } catch {
+      // フォールバック: デフォルト値を使用
+    } finally {
+      setFormLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchFormDefinition();
+  }, [fetchFormDefinition]);
 
   const total = questionItems.length;
   const current = questionItems[currentIndex];
@@ -136,22 +140,23 @@ export default function IntakePage() {
     return !!v;
   };
 
-  const getNextIndex = (index: number) => {
+  const getNextIndex = useCallback((index: number) => {
     let next = index + 1;
     while (next < total && !isVisible(questionItems[next])) next++;
     return next;
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isVisibleはanswersに依存するため間接的に含まれる
+  }, [total, questionItems, answers]);
 
-  const getPrevIndex = (index: number) => {
+  const getPrevIndex = useCallback((index: number) => {
     let prev = index - 1;
     while (prev >= 0 && !isVisible(questionItems[prev])) prev--;
     return prev;
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isVisibleはanswersに依存するため間接的に含まれる
+  }, [questionItems, answers]);
 
   const isLastVisible = useMemo(
     () => getNextIndex(currentIndex) >= total,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentIndex, answers, questionItems]
+    [getNextIndex, currentIndex, total]
   );
 
   const progressPercent = ((currentIndex + 1) / total) * 100;
@@ -160,7 +165,7 @@ export default function IntakePage() {
     router.push("/mypage");
   };
 
-const runPidCheck = async () => {
+const runPidCheck = useCallback(async () => {
   setChecking(true);
   setCheckError("");
 
@@ -179,7 +184,7 @@ const runPidCheck = async () => {
       return;
     }
 
-    const j = await res.json().catch(() => ({} as any));
+    const j = await res.json().catch(() => ({} as Record<string, unknown>));
 
     if (!res.ok || !j?.ok) {
       setCheckError("サーバーとの通信に失敗しました。");
@@ -196,7 +201,7 @@ const runPidCheck = async () => {
   } finally {
     setChecking(false);
   }
-};
+}, []);
 
   useEffect(() => {
     let canceled = false;
@@ -207,8 +212,7 @@ const runPidCheck = async () => {
     return () => {
       canceled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [runPidCheck]);
 
   const handleNext = async () => {
     if (!validate()) {
@@ -254,7 +258,7 @@ const runPidCheck = async () => {
         }
 
         if (!res.ok) throw new Error("failed");
-        const data = await res.json().catch(() => ({} as any));
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
         if (!data.ok) throw new Error("failed");
 
         // 問診済みフラグ（真偽値だけ）

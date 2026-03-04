@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ checkoutUrl: result.checkoutUrl });
-  } catch (err: any) {
+  } catch (err) {
     console.error("Checkout API error:", err);
     return NextResponse.json(
       {

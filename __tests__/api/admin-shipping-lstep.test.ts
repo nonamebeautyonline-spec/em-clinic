@@ -11,17 +11,17 @@ vi.mock("iconv-lite", () => ({
 
 const mockVerifyAdminAuth = vi.fn().mockResolvedValue(true);
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
-  withTenant: vi.fn((query) => query),
+  withTenant: vi.fn((query: unknown) => query),
 }));
 
 const mockParseBody = vi.fn();
 vi.mock("@/lib/validations/helpers", () => ({
-  parseBody: (...args: any[]) => mockParseBody(...args),
+  parseBody: (...args: unknown[]) => mockParseBody(...args),
 }));
 
 vi.mock("@/lib/validations/shipping", () => ({
@@ -57,13 +57,13 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 
 // --- ヘルパー ---
-function createMockRequest(url: string, options?: { method?: string; body?: any }) {
+function createMockRequest(url: string, options?: { method?: string; body?: Record<string, unknown> }) {
   return {
     method: options?.method || "GET",
     url,
     headers: { get: vi.fn(() => null) },
     json: async () => options?.body || {},
-  } as any;
+  } as unknown as Request;
 }
 
 async function parseJson(res: Response) {
@@ -191,7 +191,7 @@ describe("export-lstep-tags API テスト", () => {
 
   it("8. orders 0件 → 404", async () => {
     const { withTenant } = await import("@/lib/tenant");
-    vi.mocked(withTenant).mockResolvedValueOnce({ data: [], error: null } as any);
+    vi.mocked(withTenant).mockResolvedValueOnce({ data: [], error: null } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -207,11 +207,11 @@ describe("export-lstep-tags API テスト", () => {
       .mockResolvedValueOnce({
         data: [{ id: 1, patient_id: "p1" }],
         error: null,
-      } as any)
+      } as unknown as ReturnType<typeof withTenant>)
       .mockResolvedValueOnce({
         data: [],
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -227,14 +227,14 @@ describe("export-lstep-tags API テスト", () => {
       .mockResolvedValueOnce({
         data: [{ id: 1, patient_id: "p1" }],
         error: null,
-      } as any)
+      } as unknown as ReturnType<typeof withTenant>)
       .mockResolvedValueOnce({
         data: [
           { patient_id: "p1", answerer_id: null },
           { patient_id: "p2", answerer_id: null },
         ],
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -253,14 +253,14 @@ describe("export-lstep-tags API テスト", () => {
           { id: 2, patient_id: "p2" },
         ],
         error: null,
-      } as any)
+      } as unknown as ReturnType<typeof withTenant>)
       .mockResolvedValueOnce({
         data: [
           { patient_id: "p1", answerer_id: "lstep_001" },
           { patient_id: "p2", answerer_id: "lstep_002" },
         ],
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -282,7 +282,7 @@ describe("export-lstep-tags API テスト", () => {
     vi.mocked(withTenant).mockResolvedValueOnce({
       data: null,
       error: { message: "DB接続エラー" },
-    } as any);
+    } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -302,14 +302,14 @@ describe("export-lstep-tags API テスト", () => {
           { id: 3, patient_id: "p2" },
         ],
         error: null,
-      } as any)
+      } as unknown as ReturnType<typeof withTenant>)
       .mockResolvedValueOnce({
         data: [
           { patient_id: "p1", answerer_id: "lstep_001" },
           { patient_id: "p2", answerer_id: "lstep_002" },
         ],
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);
@@ -326,11 +326,11 @@ describe("export-lstep-tags API テスト", () => {
       .mockResolvedValueOnce({
         data: [{ id: 1, patient_id: "p1" }],
         error: null,
-      } as any)
+      } as unknown as ReturnType<typeof withTenant>)
       .mockResolvedValueOnce({
         data: [{ patient_id: "p1", answerer_id: "999888777" }],
         error: null,
-      } as any);
+      } as unknown as ReturnType<typeof withTenant>);
 
     const req = createMockRequest("https://example.com/api/admin/shipping/export-lstep-tags");
     const res = await exportLstepTagsGet(req);

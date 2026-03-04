@@ -41,8 +41,8 @@ export async function GET(
     }
 
     return NextResponse.json({ data: share.data });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Share] Error:", e);
-    return NextResponse.json({ error: e?.message || "サーバーエラー" }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
   }
 }

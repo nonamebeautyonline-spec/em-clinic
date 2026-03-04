@@ -36,7 +36,7 @@ interface ConversionData {
   };
 }
 
-function ConversionTooltip({ active, payload, label }: any) {
+function ConversionTooltip({ active, payload, label }: { active?: boolean; payload?: { payload: CohortData }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   const data = payload[0]?.payload as CohortData;
   if (!data) return null;

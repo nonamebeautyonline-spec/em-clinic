@@ -2,19 +2,25 @@
 // アカウント管理API（パスワード変更・メールアドレス変更）テスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// --- Supabase チェーンモック用型定義 ---
+interface ChainResult { data: unknown; error: unknown }
+interface SupabaseChain extends Record<string, ReturnType<typeof vi.fn>> {
+  then: ReturnType<typeof vi.fn>;
+}
+
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: ChainResult = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
     "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -29,13 +35,13 @@ const mockVerifyAdminAuth = vi.fn();
 const mockGetAdminUserId = vi.fn();
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
-  getAdminUserId: (...args: any[]) => mockGetAdminUserId(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
+  getAdminUserId: (...args: unknown[]) => mockGetAdminUserId(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn(<T>(q: T) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -50,19 +56,19 @@ const mockBcryptCompare = vi.fn();
 const mockBcryptHash = vi.fn().mockResolvedValue("hashed-new-pw");
 
 vi.mock("bcryptjs", () => ({
-  default: { compare: (...args: any[]) => mockBcryptCompare(...args), hash: (...args: any[]) => mockBcryptHash(...args) },
-  compare: (...args: any[]) => mockBcryptCompare(...args),
-  hash: (...args: any[]) => mockBcryptHash(...args),
+  default: { compare: (...args: unknown[]) => mockBcryptCompare(...args), hash: (...args: unknown[]) => mockBcryptHash(...args) },
+  compare: (...args: unknown[]) => mockBcryptCompare(...args),
+  hash: (...args: unknown[]) => mockBcryptHash(...args),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
+  return req as unknown as import("next/server").NextRequest;
 }
 
 import { PUT, PATCH } from "@/app/api/admin/account/route";
@@ -110,7 +116,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
 
   it("ユーザーが見つからない → 404", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "Not found" } }));
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: null, error: { message: "Not found" } }));
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
       currentPassword: "old-pass",
@@ -125,7 +131,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
   it("現在のパスワードが不一致 → 400", async () => {
     const chain = getOrCreateChain("admin_users");
     // select → single の結果: ユーザーが見つかる
-    chain.then = vi.fn((resolve: any) => resolve({ data: { password_hash: "existing-hash" }, error: null }));
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: { password_hash: "existing-hash" }, error: null }));
     mockBcryptCompare.mockResolvedValue(false);
 
     const req = createMockRequest("PUT", "http://localhost/api/admin/account", {
@@ -142,7 +148,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const chain = getOrCreateChain("admin_users");
     // 1回目: select→single（ユーザー取得）、2回目: update→eq（更新）
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
       callCount++;
       if (callCount === 1) {
         return resolve({ data: { password_hash: "existing-hash" }, error: null });
@@ -165,7 +171,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
   it("パスワード更新DBエラー → 500", async () => {
     const chain = getOrCreateChain("admin_users");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
       callCount++;
       if (callCount === 1) {
         return resolve({ data: { password_hash: "existing-hash" }, error: null });
@@ -226,7 +232,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
 
   it("ユーザーが見つからない → 404", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "Not found" } }));
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: null, error: { message: "Not found" } }));
 
     const req = createMockRequest("PATCH", "http://localhost/api/admin/account", {
       newEmail: "new@example.com",
@@ -238,7 +244,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
 
   it("パスワードが不一致 → 400", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({ data: { password_hash: "hash", tenant_id: "t1" }, error: null }));
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: { password_hash: "hash", tenant_id: "t1" }, error: null }));
     mockBcryptCompare.mockResolvedValue(false);
 
     const req = createMockRequest("PATCH", "http://localhost/api/admin/account", {
@@ -254,7 +260,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
   it("メールアドレス重複 → 409", async () => {
     const chain = getOrCreateChain("admin_users");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
       callCount++;
       if (callCount === 1) {
         // ユーザー取得成功
@@ -281,7 +287,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
   it("メールアドレス変更成功 → 200", async () => {
     const chain = getOrCreateChain("admin_users");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
       callCount++;
       if (callCount === 1) {
         return resolve({ data: { password_hash: "hash", tenant_id: "t1" }, error: null });
@@ -309,7 +315,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
   it("メール更新DBエラー → 500", async () => {
     const chain = getOrCreateChain("admin_users");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
       callCount++;
       if (callCount === 1) {
         return resolve({ data: { password_hash: "hash", tenant_id: "t1" }, error: null });

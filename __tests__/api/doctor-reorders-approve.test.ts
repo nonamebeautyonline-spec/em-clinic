@@ -1,20 +1,25 @@
 // __tests__/api/doctor-reorders-approve.test.ts
 // 再処方承認 API (app/api/doctor/reorders/approve/route.ts) のテスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンモックの型定義 ---
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // --- チェーンビルダー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -37,7 +42,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -54,12 +59,12 @@ vi.mock("@/lib/menu-auto-rules", () => ({
 }));
 
 // --- ヘルパー ---
-function createMockRequest(body: any) {
+function createMockRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/doctor/reorders/approve", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  }) as unknown as Request;
 }
 
 import { POST } from "@/app/api/doctor/reorders/approve/route";
@@ -97,7 +102,7 @@ describe("POST /api/doctor/reorders/approve", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "INVALID_JSON",
-    }) as any;
+    }) as unknown as Request;
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
@@ -140,35 +145,16 @@ describe("POST /api/doctor/reorders/approve", () => {
     });
     const updateChain = createChain({ data: null, error: { message: "update failed" } });
 
-    let callCount = 0;
-    tableChains["reorders"] = new Proxy({}, {
-      get: (_, prop) => {
-        // 最初のfromはselect用、次はupdate用
-        if (prop === "select") {
-          return (...args: any[]) => {
-            callCount++;
-            return selectChain.select(...args);
-          };
-        }
-        if (prop === "update") {
-          return (...args: any[]) => {
-            return updateChain.update(...args);
-          };
-        }
-        return selectChain[prop as string];
-      }
-    });
-
     // reordersチェーンを単純化: from が呼ばれる度に別チェーンを返す
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return selectChain; // select
-        return updateChain; // update
+        if (reorderCallCount === 1) return selectChain as ReturnType<typeof supabaseAdmin.from>;
+        return updateChain as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     const req = createMockRequest({ id: 1 });
@@ -191,19 +177,19 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
-        return createChain({ data: { line_id: "U_LINE_001" }, error: null });
+        return createChain({ data: { line_id: "U_LINE_001" }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "message_log") {
-        return createChain();
+        return createChain() as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     mockPushMessage.mockResolvedValue({ ok: true });
@@ -225,16 +211,16 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
-        return createChain({ data: { line_id: "U_LINE_001" }, error: null });
+        return createChain({ data: { line_id: "U_LINE_001" }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     const req = createMockRequest({ id: 1 });
@@ -251,17 +237,17 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
         // line_id が null
-        return createChain({ data: { line_id: null }, error: null });
+        return createChain({ data: { line_id: null }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     const req = createMockRequest({ id: 1 });
@@ -280,16 +266,16 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
-        return createChain({ data: { line_id: "U_LINE_001" }, error: null });
+        return createChain({ data: { line_id: "U_LINE_001" }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     mockPushMessage.mockRejectedValue(new Error("LINE API error"));
@@ -310,16 +296,16 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
-        return createChain({ data: { line_id: null }, error: null });
+        return createChain({ data: { line_id: null }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     const req = createMockRequest({ id: 1 });
@@ -336,16 +322,16 @@ describe("POST /api/doctor/reorders/approve", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
-        if (reorderCallCount === 1) return reorderSelectChain;
-        return reorderUpdateChain;
+        if (reorderCallCount === 1) return reorderSelectChain as ReturnType<typeof supabaseAdmin.from>;
+        return reorderUpdateChain as ReturnType<typeof supabaseAdmin.from>;
       }
       if (table === "patients") {
-        return createChain({ data: { line_id: null }, error: null });
+        return createChain({ data: { line_id: null }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
       }
-      return getOrCreateChain(table);
+      return getOrCreateChain(table) as ReturnType<typeof supabaseAdmin.from>;
     });
 
     const req = createMockRequest({ id: "42" });

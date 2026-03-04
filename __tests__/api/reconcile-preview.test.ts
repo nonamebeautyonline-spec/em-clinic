@@ -10,7 +10,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 let mockReconcileMode: string | null = null;
@@ -23,7 +23,7 @@ vi.mock("@/lib/settings", () => ({
 
 // --- Supabase チェーンモック ---
 function createChain(defaultResolve = { data: [], error: null }) {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq",
     "in", "is", "not", "order", "limit", "range", "single",
@@ -31,16 +31,16 @@ function createChain(defaultResolve = { data: [], error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let fromResults: any[] = [];
+let fromResults: ReturnType<typeof createChain>[] = [];
 let fromCallIndex = 0;
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn((..._args: any[]) => {
+    from: vi.fn((..._args: unknown[]) => {
       const result = fromResults[fromCallIndex] || createChain();
       fromCallIndex++;
       return result;

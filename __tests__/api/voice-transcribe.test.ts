@@ -135,7 +135,7 @@ describe("POST /api/voice/transcribe", () => {
   it("音声ファイルがない場合は400を返す", async () => {
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(); // ファイルなし
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.ok).toBe(false);
@@ -146,7 +146,7 @@ describe("POST /api/voice/transcribe", () => {
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const bigFile = createAudioFile(5 * 1024 * 1024); // 5MB
     const req = createRequest(bigFile);
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("4MB");
@@ -159,7 +159,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -179,7 +179,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.transcript).toBe("マンジャロを処方します");
@@ -195,7 +195,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.transcript).toBe("フィナステリド1mgを継続");
@@ -208,7 +208,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(500);
   });
 
@@ -219,7 +219,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toContain("認識できません");
@@ -234,7 +234,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(200);
     // Redis GET が呼ばれていることを確認
     expect(mockRedisGet).toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe("POST /api/voice/transcribe", () => {
 
     const { POST } = await import("@/app/api/voice/transcribe/route");
     const req = createRequest(createAudioFile());
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as Request);
     expect(res.status).toBe(200);
     // Redis SET でキャッシュされたことを確認
     expect(mockRedisSet).toHaveBeenCalled();

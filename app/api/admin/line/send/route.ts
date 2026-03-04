@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // サニタイズ（無効プロパティ修正 + 不要キー除去 + type補完 + 配列→carousel変換）
     const contents = sanitizeFlexContents(rawContents);
 
-    const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents };
+    const flexMsg = { type: "flex" as const, altText: (rawFlex.altText as string) || "Flex Message", contents: contents as Record<string, unknown> };
 
     const res = await pushMessage(patient.line_id, [flexMsg], tenantId ?? undefined);
 

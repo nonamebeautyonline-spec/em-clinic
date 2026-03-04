@@ -2,24 +2,30 @@
 // lib/payment/square-inline.ts のヘルパー関数テスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import type { Mock } from "vitest";
+
 // --- モックチェーン ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq",
     "is", "not", "order", "limit", "maybeSingle", "single", "upsert",
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
+const globalStore = globalThis as unknown as { __testTableChains: Record<string, SupabaseChain> };
+
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn((...args: any[]) => {
-      const chains = (globalThis as any).__testTableChains || {};
-      const table = args[0];
+    from: vi.fn((...args: unknown[]) => {
+      const chains = globalStore.__testTableChains || {};
+      const table = args[0] as string;
       if (!chains[table]) chains[table] = createChain();
       return chains[table];
     }),
@@ -27,7 +33,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // fetch モック
@@ -41,16 +47,16 @@ import {
   getCardDetails,
 } from "@/lib/payment/square-inline";
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: SupabaseChain) {
+  globalStore.__testTableChains[table] = chain;
 }
 
-function mockSquareApi(response: any, ok = true) {
+function mockSquareApi(response: Record<string, unknown>, ok = true) {
   vi.mocked(fetch).mockResolvedValueOnce({
     ok,
     status: ok ? 200 : 400,
     json: () => Promise.resolve(response),
-  } as any);
+  } as unknown as Response);
 }
 
 const BASE_URL = "https://connect.squareupsandbox.com";
@@ -59,7 +65,7 @@ const TOKEN = "sq-test-token";
 describe("ensureSquareCustomer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    globalStore.__testTableChains = {};
   });
 
   it("DB に既存 customer_id がある場合はそれを返す", async () => {
@@ -107,7 +113,7 @@ describe("ensureSquareCustomer", () => {
 describe("saveCardOnFile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    globalStore.__testTableChains = {};
   });
 
   it("nonce からカードを保存して card_id を返す", async () => {
@@ -196,7 +202,7 @@ describe("createSquarePayment", () => {
 describe("markReorderPaid", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    globalStore.__testTableChains = {};
   });
 
   it("reorder_number で更新成功する", async () => {

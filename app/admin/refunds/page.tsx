@@ -44,8 +44,8 @@ export default function RefundsPage() {
 
       const data = await response.json();
       setRefunds(data.refunds || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }

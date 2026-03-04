@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // 患者名をpatientsテーブルから取得
-  const patientIds = [...new Set((data || []).map((e: any) => e.patient_id))];
+  const patientIds = [...new Set((data || []).map((e: { patient_id: string }) => e.patient_id))];
   const nameMap: Record<string, string> = {};
   if (patientIds.length > 0) {
     const { data: pData } = await withTenant(
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
 
-  const enriched = (data || []).map((e: any) => ({
+  const enriched = (data || []).map((e: { patient_id: string; [key: string]: unknown }) => ({
     ...e,
     patient_name: nameMap[e.patient_id] || "",
   }));

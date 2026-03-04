@@ -22,15 +22,15 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 // === Supabase モック ===
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, ReturnType<typeof createChain>> = {};
 
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "upsert",
    "order", "limit", "single", "maybeSingle", "in", "is", "not"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
@@ -125,7 +125,7 @@ describe("executeLifecycleActions", () => {
 
     const result = await executeLifecycleActions(baseParams);
     expect(result.executed).toBe(true);
-    expect((supabaseAdmin.from as any)).toHaveBeenCalledWith("patient_tags");
+    expect(vi.mocked(supabaseAdmin.from)).toHaveBeenCalledWith("patient_tags");
     expect(result.actionDetails).toContain("タグ追加[個人情報提出ずみ]");
   });
 

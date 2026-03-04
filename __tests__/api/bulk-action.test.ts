@@ -12,7 +12,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -23,14 +23,14 @@ vi.mock("@/lib/line-push", () => ({
 }));
 
 // テーブル別結果制御
-type MockResult = { data: any; error?: any; count?: number | null };
+type MockResult = { data: unknown; error?: unknown; count?: number | null };
 let mockResultsByTable: Record<string, MockResult> = {};
-let insertCalls: { table: string; data: any }[] = [];
-let upsertCalls: { table: string; data: any }[] = [];
+let insertCalls: { table: string; data: unknown }[] = [];
+let upsertCalls: { table: string; data: unknown }[] = [];
 let deleteCalls: { table: string }[] = [];
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
@@ -40,12 +40,12 @@ function createChain(table: string) {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
 
-  chain.insert = vi.fn().mockImplementation((data: any) => {
+  chain.insert = vi.fn().mockImplementation((data: unknown) => {
     insertCalls.push({ table, data });
     return chain;
   });
 
-  chain.upsert = vi.fn().mockImplementation((data: any) => {
+  chain.upsert = vi.fn().mockImplementation((data: unknown) => {
     upsertCalls.push({ table, data });
     return chain;
   });
@@ -55,7 +55,7 @@ function createChain(table: string) {
     return chain;
   });
 
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject: (v: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: null, error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -73,7 +73,7 @@ vi.mock("@/lib/supabase", () => ({
 import { POST } from "@/app/api/admin/patients/bulk/action/route";
 import { NextRequest } from "next/server";
 
-function createReq(body: any) {
+function createReq(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/admin/patients/bulk/action", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

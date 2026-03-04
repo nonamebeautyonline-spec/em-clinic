@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 患者IDのリストを取得
-    const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
+    const patientIds = [...new Set((orders || []).map((o: { patient_id: string }) => o.patient_id))];
 
     // 患者名を取得（patientsテーブルから）
     const patientNameMap: Record<string, string> = {};
@@ -63,13 +63,13 @@ export async function GET(req: NextRequest) {
         tenantId
       );
 
-      (patients || []).forEach((p: any) => {
+      (patients || []).forEach((p: { patient_id: string; name: string | null }) => {
         patientNameMap[p.patient_id] = p.name || "";
       });
     }
 
     // データを整形
-    const formattedOrders = (orders || []).map((order: any) => ({
+    const formattedOrders = (orders || []).map((order: { id: string; patient_id: string; product_code: string; amount: number; shipping_name: string | null; account_name: string | null; address: string | null; postal_code: string | null; phone: string | null; created_at: string }) => ({
       id: order.id,
       patient_id: order.patient_id,
       patient_name: patientNameMap[order.patient_id] || "",

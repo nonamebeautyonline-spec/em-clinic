@@ -85,8 +85,8 @@ function Inner() {
       setDone(true);
       // マイページへ遷移（tel未登録ならマイページ側で /mypage/init にリダイレクト）
       setTimeout(() => router.push("/mypage"), 1500);
-    } catch (e: any) {
-      setError(e?.message || "エラーが発生しました。");
+    } catch (e) {
+      setError((e as Error)?.message || "エラーが発生しました。");
     } finally {
       setSaving(false);
     }

@@ -78,7 +78,7 @@ describe("mergePatientSchema", () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect((result.data as any).extra_field).toBe("test");
+      expect((result.data as Record<string, unknown>).extra_field).toBe("test");
     }
   });
 

@@ -5,6 +5,77 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 
+// フローグラフの型定義
+interface FlowNodeData {
+  step_type: string;
+  delay_type: string;
+  delay_value: number;
+  send_time: string | null;
+  content: string | null;
+  template_id: number | null;
+  tag_id: number | null;
+  mark: string | null;
+  menu_id: number | null;
+  condition_rules: Record<string, unknown>[];
+  branch_true_step: number | null;
+  branch_false_step: number | null;
+  exit_condition_rules: Record<string, unknown>[];
+  exit_action: string;
+  exit_jump_to: number | null;
+}
+
+interface FlowNode {
+  id: string;
+  type: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  data: FlowNodeData;
+}
+
+interface FlowEdge {
+  id: string;
+  from: string;
+  to: string;
+  fromPort: string;
+  toPort: string;
+  label?: string;
+  color?: string;
+}
+
+interface FlowGraph {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+}
+
+interface StepItem {
+  id: number;
+  scenario_id: number;
+  sort_order: number;
+  delay_type: string;
+  delay_value: number;
+  send_time: string | null;
+  step_type: string;
+  content: string | null;
+  template_id: number | null;
+  tag_id: number | null;
+  mark: string | null;
+  menu_id: number | null;
+  condition_rules: Record<string, unknown>[];
+  branch_true_step: number | null;
+  branch_false_step: number | null;
+  exit_condition_rules: Record<string, unknown>[];
+  exit_action: string;
+  exit_jump_to: number | null;
+}
+
+interface PutRequestBody {
+  scenario_id: number;
+  graph: FlowGraph;
+}
+
 // step_items のフィールド定義（フロー変換に必要な全カラム）
 const STEP_ITEM_COLUMNS = `
   id, scenario_id, sort_order,
@@ -84,9 +155,9 @@ export async function PUT(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  let body: any;
+  let body: PutRequestBody;
   try {
-    body = await req.json();
+    body = await req.json() as PutRequestBody;
   } catch {
     return NextResponse.json({ error: "リクエストボディが不正です" }, { status: 400 });
   }
@@ -132,7 +203,7 @@ export async function PUT(req: NextRequest) {
 
   // 新しい step_items を挿入
   if (steps.length > 0) {
-    const stepRows = steps.map((s: any, i: number) => ({
+    const stepRows = steps.map((s: Omit<StepItem, 'id' | 'scenario_id'>, i: number) => ({
       ...tenantPayload(tenantId),
       scenario_id,
       sort_order: i,
@@ -207,13 +278,13 @@ function getNodeType(stepType: string): string {
 }
 
 /** step_items → フローグラフへ変換（サーバーサイド版） */
-function convertStepsToGraph(items: any[]): { nodes: any[]; edges: any[] } {
+function convertStepsToGraph(items: StepItem[]): FlowGraph {
   if (!items || items.length === 0) {
     return { nodes: [], edges: [] };
   }
 
-  const nodes: any[] = [];
-  const edges: any[] = [];
+  const nodes: FlowNode[] = [];
+  const edges: FlowEdge[] = [];
   const branchOffsets = new Map<number, number>();
 
   items.forEach((item, index) => {
@@ -382,22 +453,22 @@ function convertStepsToGraph(items: any[]): { nodes: any[]; edges: any[] } {
 }
 
 /** フローグラフ → step_items に変換（サーバーサイド版） */
-function convertGraphToSteps(graph: { nodes: any[]; edges: any[] }): any[] {
+function convertGraphToSteps(graph: FlowGraph): Omit<StepItem, 'id' | 'scenario_id'>[] {
   // wait ノードを除外し、sort_order 順でソート
   const mainNodes = graph.nodes
-    .filter((n: any) => n.type !== "wait")
-    .sort((a: any, b: any) => {
+    .filter((n: FlowNode) => n.type !== "wait")
+    .sort((a: FlowNode, b: FlowNode) => {
       const aIdx = parseInt(a.id.replace("node-", ""));
       const bIdx = parseInt(b.id.replace("node-", ""));
       return aIdx - bIdx;
     });
 
-  return mainNodes.map((node: any, sortOrder: number) => {
-    const data = node.data || {};
+  return mainNodes.map((node: FlowNode, sortOrder: number) => {
+    const data = node.data || {} as FlowNodeData;
 
     // 待機ノードから delay 情報を取得
     const waitNodeId = `wait-${node.id.replace("node-", "")}`;
-    const waitNode = graph.nodes.find((n: any) => n.id === waitNodeId && n.type === "wait");
+    const waitNode = graph.nodes.find((n: FlowNode) => n.id === waitNodeId && n.type === "wait");
 
     const delayType = waitNode?.data?.delay_type || data.delay_type || "days";
     const delayValue = waitNode?.data?.delay_value ?? data.delay_value ?? 1;
@@ -408,8 +479,8 @@ function convertGraphToSteps(graph: { nodes: any[]; edges: any[] }): any[] {
     let branchFalseStep = data.branch_false_step;
 
     if (data.step_type === "condition") {
-      const trueEdge = graph.edges.find((e: any) => e.from === node.id && e.fromPort === "true");
-      const falseEdge = graph.edges.find((e: any) => e.from === node.id && e.fromPort === "false");
+      const trueEdge = graph.edges.find((e: FlowEdge) => e.from === node.id && e.fromPort === "true");
+      const falseEdge = graph.edges.find((e: FlowEdge) => e.from === node.id && e.fromPort === "false");
 
       if (trueEdge) {
         const targetIdx = parseInt(trueEdge.to.replace("node-", ""));

@@ -134,9 +134,9 @@ describe("crypto — 鍵フォーマット", () => {
       const mod = await import("@/lib/crypto");
       // encrypt を呼ぶと getEncryptionKey で throw
       expect(() => mod.encrypt("test")).toThrow("SETTINGS_ENCRYPTION_KEY");
-    } catch (e: any) {
+    } catch (e) {
       // モジュール読み込み時にthrowする可能性もある
-      expect(e.message).toContain("SETTINGS_ENCRYPTION_KEY");
+      expect((e as Error).message).toContain("SETTINGS_ENCRYPTION_KEY");
     }
   });
 });

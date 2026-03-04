@@ -181,7 +181,7 @@ describe("menu-auto-rules matchesCondition", () => {
 
   it("未知のtype → false", () => {
     expect(matchesCondition(
-      { type: "unknown" as any },
+      { type: "unknown" as unknown as MenuRuleCondition["type"] },
       tagIds, mark, fields
     )).toBe(false);
   });
@@ -292,7 +292,7 @@ vi.mock("@/lib/settings", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
@@ -304,15 +304,15 @@ vi.mock("@/lib/behavior-filters", () => ({
 }));
 
 // --- Supabase チェーンモック ---
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "upsert",
    "order", "limit", "single", "maybeSingle", "in", "is", "not"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
   return chain;
 }
 

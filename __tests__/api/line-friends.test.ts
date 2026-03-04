@@ -22,18 +22,18 @@ mockChain.insert.mockReturnValue(mockChain);
 mockChain.select.mockReturnValue(mockChain);
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: vi.fn(() => mockChain) },
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : {})),
 }));
 vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: (...args: any[]) => mockGetSettingOrEnv(...args),
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
 }));
 
 // fetch モック
@@ -46,7 +46,7 @@ function createMockRequest(method: string, url: string) {
     method,
     headers: { "Content-Type": "application/json" },
   });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET } from "@/app/api/admin/line/check-block/route";
@@ -110,17 +110,18 @@ describe("LINEブロック確認 API (app/api/admin/line/check-block/route.ts)",
     await GET(req);
 
     // message_log への insert が呼ばれることを確認
-    const fromMock = (supabaseAdmin.from as any);
-    const fromCalls = fromMock.mock.calls.map((c: any[]) => c[0]);
+    const fromMock = vi.mocked(supabaseAdmin.from);
+    const fromCalls = fromMock.mock.calls.map((c: unknown[]) => c[0]);
     expect(fromCalls).toContain("message_log");
 
     const insertCalls = mockChain.insert.mock.calls;
-    const logInsert = insertCalls.find((c: any[]) =>
-      c[0]?.event_type === "unfollow"
+    const logInsert = insertCalls.find((c: unknown[]) =>
+      (c[0] as Record<string, unknown>)?.event_type === "unfollow"
     );
     expect(logInsert).toBeTruthy();
-    expect(logInsert[0].direction).toBe("incoming");
-    expect(logInsert[0].content).toContain("ブロック");
+    const logData = logInsert![0] as Record<string, unknown>;
+    expect(logData.direction).toBe("incoming");
+    expect(logData.content).toContain("ブロック");
   });
 
   it("既にunfollow記録済み → 重複INSERT回避", async () => {
@@ -138,8 +139,8 @@ describe("LINEブロック確認 API (app/api/admin/line/check-block/route.ts)",
 
     // insert が呼ばれていないことを確認
     const insertCalls = mockChain.insert.mock.calls;
-    const logInsert = insertCalls.find((c: any[]) =>
-      c[0]?.event_type === "unfollow"
+    const logInsert = insertCalls.find((c: unknown[]) =>
+      (c[0] as Record<string, unknown>)?.event_type === "unfollow"
     );
     expect(logInsert).toBeUndefined();
   });

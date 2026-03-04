@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     console.log(`[ReminderPreview] Reservations (non-canceled): ${(resvData || []).length}`);
 
     // patientsテーブルからpatient_name, line_idを取得
-    const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const patientIds = [...new Set((resvData || []).map((r: { patient_id: string }) => r.patient_id).filter(Boolean))];
     const pMap = new Map<string, { name: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // intakeからcall_status, answerer_idを取得（reserve_id で紐付け）
     // ※ phone は patients.tel が正のため intake からは取得しない
-    const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
+    const reserveIds = (resvData || []).map((r: { reserve_id: string }) => r.reserve_id).filter(Boolean);
     const intakeMap = new Map<string, { call_status: string; answerer_id: string }>();
     if (reserveIds.length > 0) {
       const { data: intakeData } = await withTenant(

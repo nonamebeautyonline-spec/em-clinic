@@ -14,19 +14,19 @@ vi.mock("@/lib/patient-utils", () => ({
 }));
 
 // Supabaseチェーンモック生成ヘルパー
-function createChain(defaultResolve: any = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: { data: unknown; error: unknown } = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["select", "eq", "neq", "in", "is", "not", "order", "limit", "update", "insert", "maybeSingle", "single"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
 // テストケースごとに差し替え可能なチェーン配列
 // reorders テーブルは1回の関数呼出しで2回 from("reorders") される
 // 1回目: 前回reorder取得（select）、2回目: karte_note更新（update）
-let reordersChains: any[] = [];
+let reordersChains: ReturnType<typeof createChain>[] = [];
 let reordersCallIndex = 0;
 
 function getReordersChain() {

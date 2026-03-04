@@ -32,7 +32,7 @@ async function createTestJwt(payload: Record<string, unknown> = {}): Promise<str
 function mockRequest(opts: {
   cookie?: string;
   bearer?: string;
-} = {}): any {
+} = {}): Record<string, unknown> {
   const headers = new Map<string, string>();
   if (opts.bearer) headers.set("authorization", `Bearer ${opts.bearer}`);
 

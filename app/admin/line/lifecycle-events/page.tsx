@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -117,7 +117,7 @@ export default function LifecycleEventsPage() {
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
   // 初回は設定データのみ取得（高速表示）
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/admin/line/friend-settings", { credentials: "include" });
     const data = await res.json();
     if (data.settings) {
@@ -126,7 +126,7 @@ export default function LifecycleEventsPage() {
       ));
     }
     setLoading(false);
-  };
+  }, []);
 
   // モーダル用データは編集時に遅延取得
   const modalDataLoaded = useRef(false);
@@ -152,7 +152,10 @@ export default function LifecycleEventsPage() {
     setModalLoading(false);
   };
 
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleEdit = async (setting: EventSetting) => {
     setEditingKey(setting.setting_key);

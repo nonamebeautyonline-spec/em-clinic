@@ -332,8 +332,9 @@ export async function POST(req: Request) {
     console.warn("[gmo/webhook] 未対応ステータス:", status, { orderId });
     await idem.markCompleted();
     return new NextResponse("ok", { status: 200 });
-  } catch (err: any) {
-    console.error("[gmo/webhook] handler error:", err?.stack || err?.message || err);
+  } catch (err) {
+    const e = err instanceof Error ? err : null;
+    console.error("[gmo/webhook] handler error:", e?.stack || e?.message || err);
     // GMO には200返してリトライを防止
     return new NextResponse("ok", { status: 200 });
   }

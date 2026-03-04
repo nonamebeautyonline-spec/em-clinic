@@ -53,12 +53,19 @@ export default function FormsPage() {
     if (data.forms) setForms(data.forms);
   }, [selectedFolder]);
 
-  useEffect(() => {
+  const initFolders = useCallback(async () => {
     setLoading(true);
-    fetchFolders().then(() => setLoading(false));
+    await fetchFolders();
+    setLoading(false);
   }, [fetchFolders]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    initFolders();
+  }, [initFolders]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
     fetchForms();
   }, [fetchForms]);
 

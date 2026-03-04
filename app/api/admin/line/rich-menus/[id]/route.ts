@@ -170,8 +170,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     console.log(`${tag} DONE`);
     return NextResponse.json({ menu: data, sync_ok: true, sync_log: syncLog });
-  } catch (e: any) {
-    console.error("[Rich Menu PUT] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[Rich Menu PUT] Unhandled error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }
@@ -201,8 +201,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    console.error("[Rich Menu DELETE] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[Rich Menu DELETE] Unhandled error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

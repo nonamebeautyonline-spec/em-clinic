@@ -53,27 +53,59 @@ function fail(code: string, status: number) {
   return NextResponse.json({ ok: false, error: code }, { status, headers: noCacheHeaders });
 }
 
-function safeStr(v: any) {
+function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function normalizePaymentStatus(v: any): PaymentStatus {
+function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = safeStr(v).toLowerCase();
   if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
   if (safeStr(v).toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
 
-function normalizeRefundStatus(v: any): RefundStatus | undefined {
+function normalizeRefundStatus(v: unknown): RefundStatus | undefined {
   const s = safeStr(v).toUpperCase();
   if (!s) return undefined;
   if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
+interface OrderDbRow {
+  id: string;
+  patient_id: string;
+  product_code: string | null;
+  product_name: string | null;
+  amount: number | null;
+  paid_at: string | null;
+  created_at: string | null;
+  shipping_status: string | null;
+  shipping_date: string | null;
+  tracking_number: string | null;
+  payment_status: string | null;
+  payment_method: string | null;
+  status: string | null;
+  carrier: string | null;
+  refund_status: string | null;
+  refunded_at: string | null;
+  refunded_amount: number | null;
+  postal_code: string | null;
+  address: string | null;
+  shipping_name: string | null;
+  shipping_list_created_at: string | null;
+}
+
+interface ReorderDbRow {
+  id: string;
+  status: string | null;
+  created_at: string | null;
+  product_code: string | null;
+  reorder_number: number | null;
+}
+
 const TRACKING_SWITCH_AT = new Date("2025-12-22T00:00:00+09:00").getTime();
 
-function normalizeCarrier(v: any): Carrier | undefined {
+function normalizeCarrier(v: unknown): Carrier | undefined {
   const s = safeStr(v).toLowerCase();
   if (s === "japanpost" || s === "yamato") return s as Carrier;
   return undefined;
@@ -216,9 +248,9 @@ async function getConsultationHistoryFromSupabase(
       return [];
     }
 
-    const resMap = new Map((resRes.data || []).map((r: any) => [r.reserve_id, r]));
+    const resMap = new Map((resRes.data || []).map((r: { reserve_id: string; reserved_date: string | null; reserved_time: string | null; prescription_menu: string | null }) => [r.reserve_id, r]));
 
-    return (intakeRes.data || []).map((row: any) => {
+    return (intakeRes.data || []).map((row: { reserve_id: string | null; status: string | null; note: string | null; updated_at: string | null }) => {
       const res = row.reserve_id ? resMap.get(row.reserve_id) : null;
       const date = res?.reserved_date || row.updated_at?.split("T")[0] || "";
       const prescriptionMenu = res?.prescription_menu || "";
@@ -229,7 +261,7 @@ async function getConsultationHistoryFromSupabase(
         date,
         title,
         detail: row.note || "",
-        status: row.status,
+        status: row.status || "",
         prescriptionMenu,
       };
     });
@@ -255,7 +287,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
       return [];
     }
 
-    return (data || []).map((o: any) => {
+    return (data || []).map((o: OrderDbRow) => {
       const paidAt = o.paid_at || o.created_at || "";
       const refundStatus = normalizeRefundStatus(o.refund_status) || (o.status === "cancelled" ? "CANCELLED" as RefundStatus : undefined);
       const refundedAt = o.refunded_at || "";
@@ -320,7 +352,7 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
       return [];
     }
 
-    return (data || []).map((r: any) => {
+    return (data || []).map((r: ReorderDbRow) => {
       const productCode = String(r.product_code || "");
       const mgMatch = productCode.match(/(\d+\.?\d*mg)/);
       const monthsMatch = productCode.match(/(\d+)m$/);

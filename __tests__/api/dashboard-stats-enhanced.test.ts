@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーン生成ヘルパー ---
 function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,7 +13,7 @@ function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
   ].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -39,7 +39,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // jose モック（JWT検証）
@@ -49,7 +49,7 @@ vi.mock("jose", () => ({
 
 // NextRequest互換のモック
 function createMockRequest(url: string, options: { cookie?: string; bearer?: string } = {}) {
-  const req: any = {
+  return {
     method: "GET",
     nextUrl: { searchParams: new URL(url).searchParams },
     cookies: {
@@ -69,7 +69,6 @@ function createMockRequest(url: string, options: { cookie?: string; bearer?: str
       }),
     },
   };
-  return req;
 }
 
 import { GET } from "@/app/api/admin/dashboard-stats-enhanced/route";
@@ -80,7 +79,7 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
 
     // 全チェーンの then をリセット（デフォルト: 空データ）
     [reservationsChain, ordersChain, intakeChain, patientsChain].forEach(chain => {
-      chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null, count: 0 }));
+      chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
       // 全メソッドを再モック
       [
         "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
@@ -286,7 +285,7 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
   describe("データありの集計", () => {
     it("売上集計が正しく計算される", async () => {
       // ordersチェーンを上書き: カード決済と銀行振込の注文がある場合
-      ordersChain.then = vi.fn((resolve: any) => {
+      ordersChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
         // デフォルトでは空データを返す（各並列クエリに対応するため簡略化）
         return resolve({ data: [], error: null, count: 0 });
       });
@@ -334,7 +333,7 @@ describe("ダッシュボード拡張統計API (dashboard-stats-enhanced/route.t
   describe("JWT検証失敗", () => {
     it("無効なJWT + Bearerトークンなし → 401", async () => {
       const { jwtVerify } = await import("jose");
-      (jwtVerify as any).mockRejectedValueOnce(new Error("invalid token"));
+      vi.mocked(jwtVerify).mockRejectedValueOnce(new Error("invalid token"));
 
       const req = createMockRequest(
         "http://localhost/api/admin/dashboard-stats-enhanced",

@@ -9,7 +9,7 @@ const mockFrom = vi.fn();
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: (...args: any[]) => mockFrom(...args),
+    from: (...args: unknown[]) => mockFrom(...args),
   },
 }));
 
@@ -34,7 +34,7 @@ function createMockRequest(url: string) {
     url,
     headers: { get: vi.fn(() => null) },
     cookies: { get: vi.fn(() => undefined) },
-  } as any;
+  } as unknown as Request;
 }
 
 // テナント一覧のモックを含むfromヘルパー

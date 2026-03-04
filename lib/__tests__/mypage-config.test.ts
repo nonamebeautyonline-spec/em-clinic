@@ -6,8 +6,8 @@ const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 
 vi.mock("@/lib/settings", () => ({
-  getSetting: (...args: any[]) => mockGetSetting(...args),
-  setSetting: (...args: any[]) => mockSetSetting(...args),
+  getSetting: (...args: unknown[]) => mockGetSetting(...args),
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 import { getMypageConfig, setMypageConfig } from "@/lib/mypage/config";

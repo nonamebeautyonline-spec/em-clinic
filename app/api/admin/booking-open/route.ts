@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
       is_open: data?.is_open ?? false,
       opened_at: data?.opened_at ?? null,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
 }
 
@@ -95,9 +95,9 @@ export async function POST(req: NextRequest) {
       message: `${month}の予約を開放しました`,
       data,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
 }
 
@@ -137,8 +137,8 @@ export async function DELETE(req: NextRequest) {
       ok: true,
       message: `${month}の早期開放を取り消しました`,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ const mockDelete = vi.fn();
 
 // Supabase チェインモック
 function createChainMock(finalData: unknown = null, finalError: unknown = null) {
-  const chain: Record<string, any> = {};
+  const chain: Record<string, unknown> = {};
   chain.select = vi.fn(() => chain);
   chain.insert = vi.fn(() => chain);
   chain.update = vi.fn(() => chain);
@@ -75,7 +75,7 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tenantId: string) => ({ tenant_id: tenantId })),
 }));
 
@@ -110,7 +110,7 @@ describe("GET /api/admin/voice/vocabulary", () => {
 
     const { GET } = await import("@/app/api/admin/voice/vocabulary/route");
     const req = createRequest("GET");
-    const res = await GET(req as any);
+    const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.items).toEqual(items);
@@ -145,7 +145,7 @@ describe("POST /api/admin/voice/vocabulary", () => {
       specialty: "beauty",
       boost_weight: 2.0,
     });
-    const res = await POST(req as any);
+    const res = await POST(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -155,21 +155,21 @@ describe("POST /api/admin/voice/vocabulary", () => {
   it("バリデーションエラー: 空のterm", async () => {
     const { POST } = await import("@/app/api/admin/voice/vocabulary/route");
     const req = createRequest("POST", { term: "", category: "drug" });
-    const res = await POST(req as any);
+    const res = await POST(req);
     expect(res.status).toBe(400);
   });
 
   it("バリデーションエラー: 不正なcategory", async () => {
     const { POST } = await import("@/app/api/admin/voice/vocabulary/route");
     const req = createRequest("POST", { term: "テスト", category: "invalid" });
-    const res = await POST(req as any);
+    const res = await POST(req);
     expect(res.status).toBe(400);
   });
 
   it("バリデーションエラー: boost_weight 範囲外", async () => {
     const { POST } = await import("@/app/api/admin/voice/vocabulary/route");
     const req = createRequest("POST", { term: "テスト", boost_weight: 5.0 });
-    const res = await POST(req as any);
+    const res = await POST(req);
     expect(res.status).toBe(400);
   });
 });
@@ -191,7 +191,7 @@ describe("PUT /api/admin/voice/vocabulary", () => {
       term: "更新済み",
       boost_weight: 2.5,
     });
-    const res = await PUT(req as any);
+    const res = await PUT(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -207,7 +207,7 @@ describe("DELETE /api/admin/voice/vocabulary", () => {
     const req = createRequest("DELETE", {
       id: "550e8400-e29b-41d4-a716-446655440000",
     });
-    const res = await DELETE(req as any);
+    const res = await DELETE(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -216,7 +216,7 @@ describe("DELETE /api/admin/voice/vocabulary", () => {
   it("バリデーションエラー: 不正なUUID", async () => {
     const { DELETE } = await import("@/app/api/admin/voice/vocabulary/route");
     const req = createRequest("DELETE", { id: "not-a-uuid" });
-    const res = await DELETE(req as any);
+    const res = await DELETE(req);
     expect(res.status).toBe(400);
   });
 });

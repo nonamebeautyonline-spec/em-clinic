@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 const mockGetSettingsBulk = vi.fn();
 
 vi.mock("@/lib/settings", () => ({
-  getSettingsBulk: (...args: any[]) => mockGetSettingsBulk(...args),
+  getSettingsBulk: (...args: unknown[]) => mockGetSettingsBulk(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({

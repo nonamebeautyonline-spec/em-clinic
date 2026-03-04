@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Supabase チェーンモック ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
     "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -32,18 +32,18 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 function createMockRequest(method: string, url: string) {
   const req = new Request(url, { method });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET } from "@/app/api/admin/daily-revenue/route";
@@ -81,7 +81,7 @@ describe("日別売上 API - GET", () => {
   it("データなし → 全日が0値で返る", async () => {
     const chain = getOrCreateChain("orders");
     // Promise.all で3回呼ばれる（カード、銀行振込、返金）
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-02");
     const res = await GET(req);
@@ -101,7 +101,7 @@ describe("日別売上 API - GET", () => {
   it("カード決済+銀行振込+返金の正常集計", async () => {
     const chain = getOrCreateChain("orders");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => {
       callCount++;
       if (callCount === 1) {
         // カード決済（paid_at を JST 2/15 にする）
@@ -138,7 +138,7 @@ describe("日別売上 API - GET", () => {
     const json = await res.json();
 
     // 2/15のデータを確認
-    const feb15 = json.data.find((d: any) => d.date === "2026-02-15");
+    const feb15 = json.data.find((d: Record<string, unknown>) => d.date === "2026-02-15");
     expect(feb15).toBeDefined();
     expect(feb15.square).toBe(80000); // 30000 + 50000
     expect(feb15.bank).toBe(40000);
@@ -160,7 +160,7 @@ describe("日別売上 API - GET", () => {
 
   it("日付の昇順でソートされる", async () => {
     const chain = getOrCreateChain("orders");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const req = createMockRequest("GET", "http://localhost/api/admin/daily-revenue?year_month=2026-01");
     const res = await GET(req);

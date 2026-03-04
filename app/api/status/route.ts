@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 過去30日のインシデント取得
-  let incidents: any[] = [];
+  let incidents: { id: string; title: string; description: string; severity: string; status: string; started_at: string; resolved_at: string | null }[] = [];
   try {
     const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data } = await supabaseAdmin

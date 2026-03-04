@@ -7,29 +7,29 @@ const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 
 vi.mock("@/lib/settings", () => ({
-  getSetting: (...args: any[]) => mockGetSetting(...args),
-  setSetting: (...args: any[]) => mockSetSetting(...args),
+  getSetting: (...args: unknown[]) => mockGetSetting(...args),
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET, PUT, WIDGET_DEFINITIONS, getDefaultLayout } from "@/app/api/admin/dashboard-layout/route";
@@ -55,7 +55,7 @@ describe("ダッシュボードレイアウト API - GET", () => {
     const json = await res.json();
     // 全ウィジェットがvisible=trueで返る
     expect(json.widgets).toHaveLength(WIDGET_DEFINITIONS.length);
-    json.widgets.forEach((w: any) => {
+    json.widgets.forEach((w: Record<string, unknown>) => {
       expect(w.visible).toBe(true);
     });
   });
@@ -86,7 +86,7 @@ describe("ダッシュボードレイアウト API - GET", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     // shippingはfalse
-    const shipping = json.widgets.find((w: any) => w.id === "shipping");
+    const shipping = json.widgets.find((w: Record<string, unknown>) => w.id === "shipping");
     expect(shipping?.visible).toBe(false);
   });
 
@@ -107,7 +107,7 @@ describe("ダッシュボードレイアウト API - GET", () => {
     // 保存されていなかったウィジェットも追加される
     expect(json.widgets.length).toBe(WIDGET_DEFINITIONS.length);
     // revenue は追加されているはず
-    const revenue = json.widgets.find((w: any) => w.id === "revenue");
+    const revenue = json.widgets.find((w: Record<string, unknown>) => w.id === "revenue");
     expect(revenue).toBeDefined();
     expect(revenue?.visible).toBe(true);
   });
@@ -209,7 +209,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: "INVALID_JSON{{{",
-    }) as any;
+    }) as unknown as Request;
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();

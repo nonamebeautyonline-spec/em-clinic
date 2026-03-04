@@ -45,7 +45,7 @@ interface SegmentData {
 /**
  * カスタムツールチップ
  */
-function SegmentTooltip({ active, payload }: any) {
+function SegmentTooltip({ active, payload }: { active?: boolean; payload?: { payload: SegmentData }[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const data = payload[0].payload as SegmentData;
 
@@ -73,9 +73,10 @@ function renderCustomLabel({
   innerRadius,
   outerRadius,
   percent,
-}: any) {
+}: { cx?: number; cy?: number; midAngle?: number; innerRadius?: number; outerRadius?: number; percent?: number }) {
   // 5%未満はラベルを省略
-  if (percent < 0.05) return null;
+  if (!percent || percent < 0.05) return null;
+  if (cx == null || cy == null || midAngle == null || innerRadius == null || outerRadius == null) return null;
 
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;

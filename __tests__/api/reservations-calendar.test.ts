@@ -10,7 +10,7 @@ const mockFrom = vi.fn();
 function createChainMock(
   resolvedValue: { data: unknown; error: unknown } = { data: null, error: null }
 ) {
-  const chain: Record<string, any> = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   const methods = [
     "select",
     "insert",
@@ -30,7 +30,7 @@ function createChainMock(
   chain.maybeSingle = vi.fn().mockResolvedValue(resolvedValue);
   chain.single = vi.fn().mockResolvedValue(resolvedValue);
   // thenable: await chain で { data, error } が返る
-  chain.then = (resolve: (v: any) => any, reject?: (e: any) => any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
     return Promise.resolve(resolvedValue).then(resolve, reject);
   };
   return chain;
@@ -72,12 +72,12 @@ vi.mock("@/lib/session", () => ({
 import { GET } from "@/app/api/admin/reservations/calendar/route";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 
-function createRequest(url: string): any {
+function createRequest(url: string) {
   return {
     nextUrl: new URL(url, "http://localhost"),
     headers: new Headers(),
     cookies: { get: () => undefined },
-  } as any;
+  } as unknown as Request;
 }
 
 describe("GET /api/admin/reservations/calendar", () => {
@@ -87,7 +87,7 @@ describe("GET /api/admin/reservations/calendar", () => {
   });
 
   it("認証なしで401を返す", async () => {
-    (verifyAdminAuth as any).mockResolvedValueOnce(false);
+    vi.mocked(verifyAdminAuth).mockResolvedValueOnce(false);
 
     const req = createRequest("http://localhost/api/admin/reservations/calendar?start=2026-03-01&end=2026-03-31");
     const res = await GET(req);
@@ -135,7 +135,7 @@ describe("GET /api/admin/reservations/calendar", () => {
   it("正常時に期間内の予約をeventsとして返す", async () => {
     // reservationsチェーンの設定
     const reservationsChain = getOrCreateChain("reservations");
-    reservationsChain.then = (resolve: any) =>
+    reservationsChain.then = (resolve: (v: unknown) => unknown) =>
       resolve({
         data: [
           {
@@ -166,7 +166,7 @@ describe("GET /api/admin/reservations/calendar", () => {
 
     // patientsチェーンの設定
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = (resolve: any) =>
+    patientsChain.then = (resolve: (v: unknown) => unknown) =>
       resolve({
         data: [
           { patient_id: "P001", name: "テスト太郎", tel: "09012345678" },
@@ -177,7 +177,7 @@ describe("GET /api/admin/reservations/calendar", () => {
 
     // doctorsチェーンの設定
     const doctorsChain = getOrCreateChain("doctors");
-    doctorsChain.then = (resolve: any) =>
+    doctorsChain.then = (resolve: (v: unknown) => unknown) =>
       resolve({
         data: [
           { doctor_id: "dr_001", doctor_name: "山田先生" },
@@ -215,7 +215,7 @@ describe("GET /api/admin/reservations/calendar", () => {
   it("予約がない期間では空配列を返す", async () => {
     // 全テーブルで空データ
     const reservationsChain = getOrCreateChain("reservations");
-    reservationsChain.then = (resolve: any) =>
+    reservationsChain.then = (resolve: (v: unknown) => unknown) =>
       resolve({ data: [], error: null });
 
     const req = createRequest("http://localhost/api/admin/reservations/calendar?start=2026-04-01&end=2026-04-30");
@@ -229,7 +229,7 @@ describe("GET /api/admin/reservations/calendar", () => {
 
   it("DBエラー時に500を返す", async () => {
     const reservationsChain = getOrCreateChain("reservations");
-    reservationsChain.then = (resolve: any) =>
+    reservationsChain.then = (resolve: (v: unknown) => unknown) =>
       resolve({
         data: null,
         error: { message: "connection timeout" },

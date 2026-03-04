@@ -206,8 +206,25 @@ export function calculateNextSendAt(
  * ステップの条件ルールを評価（条件分岐・離脱条件用）
  * ConditionRule形式のJSONBを受け取り、全条件(AND)を満たすか判定
  */
+export interface ConditionRule {
+  type: string;
+  tag_ids?: number[];
+  tag_id?: number;
+  tag_match?: string;
+  mark_values?: string[];
+  values?: string[];
+  behavior_date_range?: string;
+  date_range?: string;
+  behavior_operator?: string;
+  operator?: string;
+  behavior_value?: string;
+  value?: string;
+  behavior_value_end?: string;
+  value_end?: string;
+}
+
 export async function evaluateStepConditions(
-  rules: any[],
+  rules: ConditionRule[],
   patientId: string,
   tenantId: string | null
 ): Promise<boolean> {

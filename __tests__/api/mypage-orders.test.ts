@@ -12,8 +12,8 @@ vi.mock("next/headers", () => ({
 }));
 
 // ─── Supabaseチェーンモック ───
-const mockOrderResult = { data: [] as any[], error: null as any };
-const mockChain: any = {};
+const mockOrderResult: { data: Record<string, unknown>[]; error: { message: string } | null } = { data: [], error: null };
+const mockChain: Record<string, ReturnType<typeof vi.fn>> = {};
 ["select", "eq", "neq", "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "insert", "update", "delete"].forEach((m) => {
   mockChain[m] = vi.fn().mockReturnValue(mockChain);
 });
@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase", () => ({
 // ─── テナントモック ───
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // ─── ルートインポート ───

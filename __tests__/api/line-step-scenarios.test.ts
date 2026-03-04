@@ -1,22 +1,55 @@
 // __tests__/api/line-step-scenarios.test.ts
 // ステップ配信シナリオ CRUD API のテスト
 // 対象: app/api/admin/line/step-scenarios/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンの型定義 ---
+interface SupabaseChain {
+  insert: Mock;
+  update: Mock;
+  delete: Mock;
+  select: Mock;
+  eq: Mock;
+  neq: Mock;
+  gt: Mock;
+  gte: Mock;
+  lt: Mock;
+  lte: Mock;
+  in: Mock;
+  is: Mock;
+  not: Mock;
+  order: Mock;
+  limit: Mock;
+  range: Mock;
+  single: Mock;
+  maybeSingle: Mock;
+  upsert: Mock;
+  ilike: Mock;
+  or: Mock;
+  count: Mock;
+  csv: Mock;
+  then: Mock;
+}
+
+interface ChainResolveResult {
+  data: unknown;
+  error: unknown;
+}
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
-  ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
+function createChain(defaultResolve: ChainResolveResult = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
+  (["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
-   "ilike","or","count","csv"].forEach(m => {
+   "ilike","or","count","csv"] as const).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: ChainResolveResult) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
-function getOrCreateChain(table: string) {
+let tableChains: Record<string, SupabaseChain> = {};
+function getOrCreateChain(table: string): SupabaseChain {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
 }
@@ -31,7 +64,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -40,7 +73,16 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+interface MockRequest {
+  method: string;
+  url: string;
+  nextUrl: { searchParams: URLSearchParams };
+  cookies: { get: Mock };
+  headers: { get: Mock };
+  json: Mock;
+}
+
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>): MockRequest {
   return {
     method,
     url,
@@ -48,7 +90,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  };
 }
 
 import { GET, POST, PUT, DELETE } from "@/app/api/admin/line/step-scenarios/route";
@@ -59,7 +101,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
@@ -67,9 +109,9 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
   // ========================================
   describe("GET: シナリオ一覧取得", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/line/step-scenarios");
-      const res = await GET(req);
+      const res = await GET(req as unknown as Parameters<typeof GET>[0]);
       expect(res.status).toBe(401);
     });
 
@@ -91,7 +133,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       });
 
       const req = createMockRequest("GET", "http://localhost/api/admin/line/step-scenarios");
-      const res = await GET(req);
+      const res = await GET(req as unknown as Parameters<typeof GET>[0]);
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(json.scenarios).toHaveLength(2);
@@ -103,7 +145,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
     it("DBエラー → 500", async () => {
       tableChains["step_scenarios"] = createChain({ data: null, error: { message: "DB error" } });
       const req = createMockRequest("GET", "http://localhost/api/admin/line/step-scenarios");
-      const res = await GET(req);
+      const res = await GET(req as unknown as Parameters<typeof GET>[0]);
       expect(res.status).toBe(500);
     });
   });
@@ -113,23 +155,23 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
   // ========================================
   describe("POST: シナリオ作成", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/line/step-scenarios");
-      const res = await POST(req);
+      const res = await POST(req as unknown as Parameters<typeof POST>[0]);
       expect(res.status).toBe(401);
     });
 
     it("バリデーション失敗 → parseBody のエラーレスポンス", async () => {
       const mockErrorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: mockErrorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse } as { data?: never; error: Response });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/line/step-scenarios");
-      const res = await POST(req);
+      const res = await POST(req as unknown as Parameters<typeof POST>[0]);
       expect(res.status).toBe(400);
     });
 
     it("正常作成（ステップなし）", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テストシナリオ",
           folder_id: null,
@@ -141,7 +183,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
           is_enabled: true,
           steps: [],
         },
-      });
+      } as { data: Record<string, unknown> });
 
       tableChains["step_scenarios"] = createChain({
         data: { id: 1, name: "テストシナリオ" },
@@ -149,7 +191,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/line/step-scenarios");
-      const res = await POST(req);
+      const res = await POST(req as unknown as Parameters<typeof POST>[0]);
       const json = await res.json();
       expect(res.status).toBe(200);
       expect(json.ok).toBe(true);
@@ -157,7 +199,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
     });
 
     it("正常作成（ステップあり）", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "ステップ付きシナリオ",
           folder_id: null,
@@ -171,7 +213,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
             { delay_type: "days", delay_value: 1, step_type: "send_text", content: "テスト" },
           ],
         },
-      });
+      } as { data: Record<string, unknown> });
 
       tableChains["step_scenarios"] = createChain({
         data: { id: 1, name: "ステップ付きシナリオ" },
@@ -180,19 +222,19 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       tableChains["step_items"] = createChain({ data: null, error: null });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/line/step-scenarios");
-      const res = await POST(req);
+      const res = await POST(req as unknown as Parameters<typeof POST>[0]);
       const json = await res.json();
       expect(json.ok).toBe(true);
     });
 
     it("DBエラー → 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "テスト", steps: [] },
-      });
+      } as { data: Record<string, unknown> });
       tableChains["step_scenarios"] = createChain({ data: null, error: { message: "insert error" } });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/line/step-scenarios");
-      const res = await POST(req);
+      const res = await POST(req as unknown as Parameters<typeof POST>[0]);
       expect(res.status).toBe(500);
     });
   });
@@ -202,26 +244,26 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
   // ========================================
   describe("PUT: シナリオ更新", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/step-scenarios");
-      const res = await PUT(req);
+      const res = await PUT(req as unknown as Parameters<typeof PUT>[0]);
       expect(res.status).toBe(401);
     });
 
     it("IDなし → 400", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "テスト" }, // id なし
-      });
+      } as { data: Record<string, unknown> });
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/step-scenarios");
-      const res = await PUT(req);
+      const res = await PUT(req as unknown as Parameters<typeof PUT>[0]);
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toBe("IDは必須です");
     });
 
     it("正常更新（ステップ再挿入）", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           id: 1,
           name: "更新後シナリオ",
@@ -236,7 +278,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
             { delay_type: "days", delay_value: 2, step_type: "send_text", content: "更新" },
           ],
         },
-      });
+      } as { data: Record<string, unknown> });
 
       tableChains["step_scenarios"] = createChain({
         data: { id: 1, name: "更新後シナリオ" },
@@ -245,20 +287,20 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       tableChains["step_items"] = createChain({ data: null, error: null });
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/step-scenarios");
-      const res = await PUT(req);
+      const res = await PUT(req as unknown as Parameters<typeof PUT>[0]);
       const json = await res.json();
       expect(json.ok).toBe(true);
       expect(json.scenario.name).toBe("更新後シナリオ");
     });
 
     it("DBエラー → 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { id: 1, name: "テスト", steps: [] },
-      });
+      } as { data: Record<string, unknown> });
       tableChains["step_scenarios"] = createChain({ data: null, error: { message: "update error" } });
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/step-scenarios");
-      const res = await PUT(req);
+      const res = await PUT(req as unknown as Parameters<typeof PUT>[0]);
       expect(res.status).toBe(500);
     });
   });
@@ -268,15 +310,15 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
   // ========================================
   describe("DELETE: シナリオ削除", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("DELETE", "http://localhost/api/admin/line/step-scenarios?id=1");
-      const res = await DELETE(req);
+      const res = await DELETE(req as unknown as Parameters<typeof DELETE>[0]);
       expect(res.status).toBe(401);
     });
 
     it("IDなし → 400", async () => {
       const req = createMockRequest("DELETE", "http://localhost/api/admin/line/step-scenarios");
-      const res = await DELETE(req);
+      const res = await DELETE(req as unknown as Parameters<typeof DELETE>[0]);
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toBe("IDは必須です");
@@ -285,7 +327,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
     it("正常削除 → ok: true", async () => {
       tableChains["step_scenarios"] = createChain({ data: null, error: null });
       const req = createMockRequest("DELETE", "http://localhost/api/admin/line/step-scenarios?id=1");
-      const res = await DELETE(req);
+      const res = await DELETE(req as unknown as Parameters<typeof DELETE>[0]);
       const json = await res.json();
       expect(json.ok).toBe(true);
     });
@@ -293,7 +335,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
     it("DBエラー → 500", async () => {
       tableChains["step_scenarios"] = createChain({ data: null, error: { message: "delete error" } });
       const req = createMockRequest("DELETE", "http://localhost/api/admin/line/step-scenarios?id=1");
-      const res = await DELETE(req);
+      const res = await DELETE(req as unknown as Parameters<typeof DELETE>[0]);
       expect(res.status).toBe(500);
     });
   });

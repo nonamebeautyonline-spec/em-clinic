@@ -2,10 +2,17 @@
 // ABテスト管理API のテスト
 // 対象: app/api/admin/line/ab-test/route.ts, app/api/admin/line/ab-test/[id]/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "fs";
+import path from "path";
+
+// --- Supabaseチェーンモック型 ---
+type MockChain = Record<string, ReturnType<typeof vi.fn>> & {
+  then: ReturnType<typeof vi.fn>;
+};
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): MockChain {
+  const chain = {} as MockChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,11 +20,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, MockChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -33,7 +40,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -52,7 +59,7 @@ vi.mock("@/lib/ab-test-stats", () => ({
   }),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -60,7 +67,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Parameters<typeof GET>[0];
 }
 
 import { GET, POST } from "@/app/api/admin/line/ab-test/route";
@@ -75,13 +82,13 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // --- GET ---
   describe("GET: テスト一覧取得", () => {
     it("認証失敗で 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/line/ab-test");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -110,7 +117,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
   // --- POST ---
   describe("POST: テスト新規作成", () => {
     it("認証失敗で 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/line/ab-test");
       const res = await POST(req);
       expect(res.status).toBe(401);
@@ -118,14 +125,14 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
 
     it("バリデーションエラーで 400", async () => {
       const errorResp = { status: 400, json: async () => ({ error: "入力値が不正" }) };
-      (parseBody as any).mockResolvedValue({ error: errorResp });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResp } as unknown as Awaited<ReturnType<typeof parseBody>>);
       const req = createMockRequest("POST", "http://localhost/api/admin/line/ab-test");
       const res = await POST(req);
       expect(res.status).toBe(400);
     });
 
     it("配分比率合計が100%でないとき 400", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テスト",
           winner_criteria: "open_rate",
@@ -136,7 +143,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
             { name: "B", allocation_ratio: 30, message_type: "text" },
           ],
         },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       const req = createMockRequest("POST", "http://localhost/api/admin/line/ab-test");
       const res = await POST(req);
       const json = await res.json();
@@ -145,7 +152,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
     });
 
     it("正常作成", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "ABテスト 3月",
           winner_criteria: "open_rate",
@@ -156,7 +163,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
             { name: "B", allocation_ratio: 50, message_content: "メッセージB", message_type: "text" },
           ],
         },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       tableChains["ab_tests"] = createChain({
         data: { id: "test-1", name: "ABテスト 3月", status: "draft" },
         error: null,
@@ -176,7 +183,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
     });
 
     it("テスト作成DBエラーで 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テスト",
           winner_criteria: "open_rate",
@@ -187,7 +194,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
             { name: "B", allocation_ratio: 50, message_type: "text" },
           ],
         },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       tableChains["ab_tests"] = createChain({ data: null, error: { message: "DB error" } });
       const req = createMockRequest("POST", "http://localhost/api/admin/line/ab-test");
       const res = await POST(req);
@@ -195,7 +202,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
     });
 
     it("バリアント作成DBエラーでロールバック", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テスト",
           winner_criteria: "open_rate",
@@ -206,7 +213,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
             { name: "B", allocation_ratio: 50, message_type: "text" },
           ],
         },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       tableChains["ab_tests"] = createChain({
         data: { id: "test-1", name: "テスト", status: "draft" },
         error: null,
@@ -233,13 +240,13 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // --- GET ---
   describe("GET: テスト詳細取得", () => {
     it("認証失敗で 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/line/ab-test/test-1");
       const res = await GET_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(401);
@@ -276,7 +283,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
   // --- PUT ---
   describe("PUT: テスト更新", () => {
     it("認証失敗で 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/ab-test/test-1");
       const res = await PUT_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(401);
@@ -284,14 +291,14 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
 
     it("バリデーションエラーで 400", async () => {
       const errorResp = { status: 400, json: async () => ({ error: "入力値が不正" }) };
-      (parseBody as any).mockResolvedValue({ error: errorResp });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResp } as unknown as Awaited<ReturnType<typeof parseBody>>);
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/ab-test/test-1");
       const res = await PUT_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(400);
     });
 
     it("テストが見つからないとき 404", async () => {
-      (parseBody as any).mockResolvedValue({ data: { status: "running" } });
+      vi.mocked(parseBody).mockResolvedValue({ data: { status: "running" } } as unknown as Awaited<ReturnType<typeof parseBody>>);
       tableChains["ab_tests"] = createChain({ data: null, error: null });
       const req = createMockRequest("PUT", "http://localhost/api/admin/line/ab-test/test-1");
       const res = await PUT_DETAIL(req, ctxFactory("test-1"));
@@ -299,7 +306,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
     });
 
     it("無効なステータス遷移で 400", async () => {
-      (parseBody as any).mockResolvedValue({ data: { status: "running" } });
+      vi.mocked(parseBody).mockResolvedValue({ data: { status: "running" } } as unknown as Awaited<ReturnType<typeof parseBody>>);
       // completed → running は不可
       tableChains["ab_tests"] = createChain({
         data: { id: "test-1", status: "completed", auto_select_winner: false },
@@ -313,7 +320,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
     });
 
     it("draft → running は正常更新", async () => {
-      (parseBody as any).mockResolvedValue({ data: { status: "running" } });
+      vi.mocked(parseBody).mockResolvedValue({ data: { status: "running" } } as unknown as Awaited<ReturnType<typeof parseBody>>);
       // 最初のsingle: 既存テスト取得
       const testChain = createChain({
         data: { id: "test-1", status: "draft", auto_select_winner: false, winner_criteria: "open_rate" },
@@ -330,7 +337,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
   // --- DELETE ---
   describe("DELETE: テスト削除", () => {
     it("認証失敗で 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("DELETE", "http://localhost/api/admin/line/ab-test/test-1");
       const res = await DELETE_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(401);
@@ -376,9 +383,6 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
 // ソースコードレベルのチェック
 // ========================================
 describe("ABテストAPI: ソースコード品質チェック", () => {
-  const fs = require("fs");
-  const path = require("path");
-
   function readSource(relativePath: string): string {
     return fs.readFileSync(path.resolve(process.cwd(), relativePath), "utf-8");
   }

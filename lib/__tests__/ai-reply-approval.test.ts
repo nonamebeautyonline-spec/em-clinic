@@ -5,12 +5,12 @@ import type { TimedMessage } from "@/lib/ai-reply-approval";
 // --- モック定義 ---
 const mockGetSettingOrEnv = vi.fn();
 vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: (...args: any[]) => mockGetSettingOrEnv(...args),
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
 }));
 
 const mockBuildEditUrl = vi.fn(() => "https://example.com/ai-reply/edit?id=1&exp=999&sig=abc");
 vi.mock("@/lib/ai-reply-sign", () => ({
-  buildEditUrl: (...args: any[]) => mockBuildEditUrl(...args),
+  buildEditUrl: (...args: unknown[]) => mockBuildEditUrl(...args),
 }));
 
 // fetch モック
@@ -18,6 +18,15 @@ const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
 import { sendApprovalFlexMessage } from "@/lib/ai-reply-approval";
+
+// Flex Messageコンテンツの型定義
+interface FlexContent {
+  type: string;
+  text?: string;
+  color?: string;
+  action?: { label?: string; type?: string; data?: string; uri?: string };
+  contents?: FlexContent[];
+}
 
 // ============================================================
 // ヘルパー: 設定を有効化
@@ -117,7 +126,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const header = body.messages[0].contents.header;
-    const texts = header.contents.map((c: any) => c.text);
+    const texts = header.contents.map((c: FlexContent) => c.text);
     expect(texts).toContain("AI返信案");
     expect(texts).toContain("手続き系");
   });
@@ -128,7 +137,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const header = body.messages[0].contents.header;
-    const categoryContent = header.contents.find((c: any) => c.text === "医学系");
+    const categoryContent = header.contents.find((c: FlexContent) => c.text === "医学系");
     expect(categoryContent).toBeDefined();
     expect(categoryContent.color).toBe("#DC2626");
   });
@@ -139,7 +148,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const header = body.messages[0].contents.header;
-    const categoryContent = header.contents.find((c: any) => c.text === "その他");
+    const categoryContent = header.contents.find((c: FlexContent) => c.text === "その他");
     expect(categoryContent).toBeDefined();
   });
 
@@ -149,7 +158,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const header = body.messages[0].contents.header;
-    const categoryContent = header.contents.find((c: any) => c.text === "unknown_cat");
+    const categoryContent = header.contents.find((c: FlexContent) => c.text === "unknown_cat");
     expect(categoryContent).toBeDefined();
   });
 
@@ -161,7 +170,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const bodyContents = body.messages[0].contents.body.contents;
-    const confidenceText = bodyContents.find((c: any) => c.text?.startsWith("信頼度:"));
+    const confidenceText = bodyContents.find((c: FlexContent) => c.text?.startsWith("信頼度:"));
     expect(confidenceText.text).toBe("信頼度: ★★★★★");
   });
 
@@ -171,7 +180,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const bodyContents = body.messages[0].contents.body.contents;
-    const confidenceText = bodyContents.find((c: any) => c.text?.startsWith("信頼度:"));
+    const confidenceText = bodyContents.find((c: FlexContent) => c.text?.startsWith("信頼度:"));
     expect(confidenceText.text).toBe("信頼度: ☆☆☆☆☆");
   });
 
@@ -181,7 +190,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const bodyContents = body.messages[0].contents.body.contents;
-    const confidenceText = bodyContents.find((c: any) => c.text?.startsWith("信頼度:"));
+    const confidenceText = bodyContents.find((c: FlexContent) => c.text?.startsWith("信頼度:"));
     expect(confidenceText.text).toBe("信頼度: ★★★☆☆");
   });
 
@@ -191,7 +200,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const bodyContents = body.messages[0].contents.body.contents;
-    const confidenceText = bodyContents.find((c: any) => c.text?.startsWith("信頼度:"));
+    const confidenceText = bodyContents.find((c: FlexContent) => c.text?.startsWith("信頼度:"));
     expect(confidenceText.text).toBe("信頼度: ★★★★☆");
   });
 
@@ -245,8 +254,8 @@ describe("sendApprovalFlexMessage", () => {
     const bodyContents = body.messages[0].contents.body.contents;
     // 時刻ラベルが含まれる（12:00）
     const timeLabelTexts = bodyContents
-      .filter((c: any) => c.text && c.text.includes("──"))
-      .map((c: any) => c.text);
+      .filter((c: FlexContent) => c.text && c.text.includes("──"))
+      .map((c: FlexContent) => c.text);
     expect(timeLabelTexts.length).toBeGreaterThan(0);
     expect(timeLabelTexts.some((t: string) => t.includes("12:00"))).toBe(true);
   });
@@ -259,7 +268,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const bodyContents = body.messages[0].contents.body.contents;
-    const msgContent = bodyContents.find((c: any) => c.text === "短いメッセージ");
+    const msgContent = bodyContents.find((c: FlexContent) => c.text === "短いメッセージ");
     expect(msgContent).toBeDefined();
   });
 
@@ -274,7 +283,7 @@ describe("sendApprovalFlexMessage", () => {
     const bodyContents = body.messages[0].contents.body.contents;
     // 患者メッセージラベルの後にある長文テキスト
     const patientMsgLabels = bodyContents.filter(
-      (c: any) => c.text && c.text.startsWith("あ")
+      (c: FlexContent) => c.text && c.text.startsWith("あ")
     );
     expect(patientMsgLabels.length).toBeGreaterThan(0);
     expect(patientMsgLabels[0].text).toContain("...");
@@ -311,7 +320,7 @@ describe("sendApprovalFlexMessage", () => {
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     const footer = body.messages[0].contents.footer;
-    const editButton = footer.contents.find((c: any) => c.action?.label === "修正する");
+    const editButton = footer.contents.find((c: FlexContent) => c.action?.label === "修正する");
     expect(editButton.action.uri).toBe("https://test.com/edit?id=99");
   });
 });

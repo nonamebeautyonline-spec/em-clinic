@@ -14,7 +14,7 @@ const mockMaybeSingle = vi.fn();
 
 // チェーン用モック
 function createChain() {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.order = vi.fn().mockReturnValue(chain);
@@ -68,7 +68,7 @@ describe("createSession — セッション作成", () => {
     // select → セッション数が上限以下
     mockChain.order.mockReturnValue({
       ...mockChain,
-      then: (resolve: any) => resolve({ data: [{ id: "s1", created_at: "2026-02-17" }] }),
+      then: (resolve: (value: unknown) => unknown) => resolve({ data: [{ id: "s1", created_at: "2026-02-17" }] }),
     });
     // Promise.allを模擬するため、selectの返り値を調整
     mockChain.select.mockImplementation(() => mockChain);

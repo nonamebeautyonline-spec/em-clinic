@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode, type CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -27,7 +27,7 @@ interface MessageLog {
   event_type?: string;
   sent_at: string;
   direction?: "incoming" | "outgoing";
-  flex_json?: any;
+  flex_json?: Record<string, unknown>;
 }
 
 interface Template {
@@ -154,14 +154,43 @@ function linkifyContent(text: string): ReactNode {
 const FLEX_SIZE: Record<string, string> = { xxs: "10px", xs: "12px", sm: "13px", md: "14px", lg: "16px", xl: "18px", xxl: "22px", "3xl": "26px", "4xl": "32px", "5xl": "38px" };
 const FLEX_MARGIN: Record<string, string> = { none: "0", xs: "2px", sm: "4px", md: "8px", lg: "12px", xl: "16px", xxl: "20px" };
 
+/** Flex ノードの型定義 */
+interface FlexNode {
+  type: string;
+  contents?: FlexNode[];
+  text?: string;
+  url?: string;
+  label?: string;
+  color?: string;
+  size?: string;
+  weight?: string;
+  decoration?: string;
+  align?: string;
+  margin?: string;
+  wrap?: boolean;
+  aspectMode?: string;
+  aspectRatio?: string;
+  style?: string;
+  action?: { type?: string; label?: string; uri?: string };
+  backgroundColor?: string;
+}
+
+/** Flex Bubble の型定義 */
+interface FlexBubble {
+  type: string;
+  header?: FlexNode;
+  body?: FlexNode;
+  footer?: FlexNode;
+}
+
 /** Flex Bubble をフラット方式でレンダリング（ツリーを1回走査→リーフ化→描画） */
-function renderFlexBubble(bubble: any): ReactNode {
+function renderFlexBubble(bubble: FlexBubble): ReactNode {
   if (!bubble || bubble.type !== "bubble") return null;
 
   // ツリーからリーフノードをフラット配列に収集（各ノードは厳密に1回だけ追加）
-  type Leaf = { node: any; section: "header" | "body" | "footer" };
+  type Leaf = { node: FlexNode; section: "header" | "body" | "footer" };
   const leaves: Leaf[] = [];
-  function collect(node: any, section: Leaf["section"]) {
+  function collect(node: FlexNode, section: Leaf["section"]) {
     if (!node) return;
     if (node.type === "box") {
       for (const c of (node.contents || [])) collect(c, section);
@@ -182,21 +211,21 @@ function renderFlexBubble(bubble: any): ReactNode {
     const mt = n.margin ? FLEX_MARGIN[n.margin] || n.margin : undefined;
 
     if (n.type === "text") {
-      const s: any = { lineHeight: 1.5 };
+      const s: CSSProperties = { lineHeight: 1.5 };
       if (leaf.section === "header") { s.color = "#fff"; s.fontWeight = 700; s.fontSize = "16px"; }
       else {
         if (n.color) s.color = n.color;
         if (n.size) s.fontSize = FLEX_SIZE[n.size] || n.size;
         if (n.weight === "bold") s.fontWeight = 700;
         if (n.decoration === "line-through") s.textDecoration = "line-through";
-        if (n.align) s.textAlign = n.align;
+        if (n.align) s.textAlign = n.align as CSSProperties["textAlign"];
       }
       if (mt) s.marginTop = mt;
       if (n.wrap) { s.whiteSpace = "pre-wrap"; s.wordBreak = "break-word"; }
       return <div key={idx} style={s}>{n.text}</div>;
     }
     if (n.type === "image") {
-      const s: any = { maxWidth: "100%", display: "block" };
+      const s: CSSProperties = { maxWidth: "100%", display: "block" };
       if (mt) s.marginTop = mt;
       s.objectFit = n.aspectMode === "cover" ? "cover" : "contain";
       if (n.size === "full") s.width = "100%";
@@ -207,7 +236,7 @@ function renderFlexBubble(bubble: any): ReactNode {
       return <div key={idx} style={{ borderTop: "1px solid #ddd", marginTop: mt || "8px" }} />;
     }
     if (n.type === "button") {
-      const s: any = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
+      const s: CSSProperties = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
       if (mt) s.marginTop = mt;
       if (n.style === "primary") { s.backgroundColor = n.color || "#06C755"; s.color = "#fff"; }
       else if (n.style === "secondary") { s.backgroundColor = "#f0f0f0"; s.color = n.color || "#333"; }
@@ -394,59 +423,59 @@ export default function TalkPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   // LINEコールURL取得（設定 → 環境変数フォールバック）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-        const data = await res.json();
-        const t = data.settings?.type || "online_all";
-        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-        if (data.settings?.line_call_url) {
-          setLineCallUrl(data.settings.line_call_url);
-          return;
-        }
-      } catch {}
-      // 設定未登録の場合は環境変数をフォールバック
-      if (process.env.NEXT_PUBLIC_LINE_CALL_URL) {
-        setLineCallUrl(process.env.NEXT_PUBLIC_LINE_CALL_URL);
+  const fetchLineCallSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+      const data = await res.json();
+      const t = data.settings?.type || "online_all";
+      setLineCallEnabled(t !== "online_phone" && t !== "in_person");
+      if (data.settings?.line_call_url) {
+        setLineCallUrl(data.settings.line_call_url);
+        return;
       }
-    })();
+    } catch {}
+    // 設定未登録の場合は環境変数をフォールバック
+    if (process.env.NEXT_PUBLIC_LINE_CALL_URL) {
+      setLineCallUrl(process.env.NEXT_PUBLIC_LINE_CALL_URL);
+    }
   }, []);
 
+  useEffect(() => { fetchLineCallSettings(); }, [fetchLineCallSettings]);
+
   // ピン留め初期化（DB）& 既読タイムスタンプ初期化（DB）& 右カラム表示設定
-  useEffect(() => {
-    (async () => {
-      try {
-        const [pinsRes, readsRes, colRes] = await Promise.all([
-          fetch("/api/admin/pins", { credentials: "include" }),
-          fetch("/api/admin/chat-reads", { credentials: "include" }),
-          fetch("/api/admin/line/column-settings", { credentials: "include" }),
-        ]);
-        const pinsData = await pinsRes.json();
-        if (Array.isArray(pinsData.pins) && pinsData.pins.length > 0) {
-          setPinnedIds(pinsData.pins);
-        } else {
-          const local = localStorage.getItem("talk_pinned_patients");
-          if (local) {
-            const ids = JSON.parse(local) as string[];
-            if (ids.length > 0) {
-              setPinnedIds(ids);
-              fetch("/api/admin/pins", {
-                method: "PUT",
-                credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pins: ids }),
-              }).then(() => localStorage.removeItem("talk_pinned_patients")).catch(() => {});
-            }
+  const initPinsAndReads = useCallback(async () => {
+    try {
+      const [pinsRes, readsRes, colRes] = await Promise.all([
+        fetch("/api/admin/pins", { credentials: "include" }),
+        fetch("/api/admin/chat-reads", { credentials: "include" }),
+        fetch("/api/admin/line/column-settings", { credentials: "include" }),
+      ]);
+      const pinsData = await pinsRes.json();
+      if (Array.isArray(pinsData.pins) && pinsData.pins.length > 0) {
+        setPinnedIds(pinsData.pins);
+      } else {
+        const local = localStorage.getItem("talk_pinned_patients");
+        if (local) {
+          const ids = JSON.parse(local) as string[];
+          if (ids.length > 0) {
+            setPinnedIds(ids);
+            fetch("/api/admin/pins", {
+              method: "PUT",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pins: ids }),
+            }).then(() => localStorage.removeItem("talk_pinned_patients")).catch(() => {});
           }
         }
-        const readsData = await readsRes.json();
-        if (readsData.reads) setReadTimestamps(readsData.reads);
-        const colData = await colRes.json();
-        if (colData.sections) setVisibleSections(colData.sections);
-      } catch { /* ignore */ }
-    })();
+      }
+      const readsData = await readsRes.json();
+      if (readsData.reads) setReadTimestamps(readsData.reads);
+      const colData = await colRes.json();
+      if (colData.sections) setVisibleSections(colData.sections);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
 
   const savePins = (ids: string[]) => {
     setPinnedIds(ids);
@@ -492,23 +521,13 @@ export default function TalkPage() {
     setFriendsLoading(false);
   }, []);
 
-  useEffect(() => {
-    // キャッシュがあれば即表示（体感0秒）
+  const loadTagsAndFields = useCallback(async () => {
     try {
-      const cached = sessionStorage.getItem(FRIENDS_CACHE_KEY);
-      if (cached) {
-        setFriends(JSON.parse(cached));
-        setFriendsLoading(false);
-      }
-    } catch { /* ignore */ }
-    // バックグラウンドで最新データを取得
-    fetchFriends();
-
-    Promise.all([
-      fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, fieldsData, marksData]) => {
+      const [tagsData, fieldsData, marksData] = await Promise.all([
+        fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
+        fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
+      ]);
       if (tagsData.tags) setAllTags(tagsData.tags);
       if (fieldsData.fields) setAllFieldDefs(fieldsData.fields);
       if (marksData.marks) {
@@ -519,8 +538,26 @@ export default function TalkPage() {
           icon: m.icon || "●",
         })));
       }
-    });
+    } catch { /* ignore */ }
   }, []);
+
+  const restoreFriendsCache = useCallback(() => {
+    try {
+      const cached = sessionStorage.getItem(FRIENDS_CACHE_KEY);
+      if (cached) {
+        setFriends(JSON.parse(cached));
+        setFriendsLoading(false);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    // キャッシュがあれば即表示（体感0秒）
+    restoreFriendsCache();
+    // バックグラウンドで最新データを取得
+    fetchFriends();
+    loadTagsAndFields();
+  }, [restoreFriendsCache, fetchFriends, loadTagsAndFields]);
 
   // プルダウンリフレッシュ（スマホのみ）
   const PULL_THRESHOLD = 60;
@@ -574,28 +611,36 @@ export default function TalkPage() {
     setDisplayCount(DISPLAY_BATCH);
   }, [searchId, searchName]);
 
+  // メッセージ検索実行
+  const executeMessageSearch = useCallback(async (q: string) => {
+    try {
+      const res = await fetch(`/api/admin/messages/log?search=${encodeURIComponent(q)}&limit=30`, { credentials: "include" });
+      const data = await res.json();
+      if (data.messages) {
+        setMsgSearchResults(data.messages);
+      }
+    } catch { /* ignore */ }
+    setMsgSearching(false);
+  }, []);
+
+  // メッセージ検索結果クリア
+  const clearMessageSearch = useCallback(() => {
+    setMsgSearchResults([]);
+    setMsgSearching(false);
+  }, []);
+
   // メッセージ検索（デバウンス）
   useEffect(() => {
     if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current);
     const q = searchMessage.trim();
     if (!q) {
-      setMsgSearchResults([]);
-      setMsgSearching(false);
+      clearMessageSearch();
       return;
     }
     setMsgSearching(true);
-    msgSearchTimer.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/admin/messages/log?search=${encodeURIComponent(q)}&limit=30`, { credentials: "include" });
-        const data = await res.json();
-        if (data.messages) {
-          setMsgSearchResults(data.messages);
-        }
-      } catch { /* ignore */ }
-      setMsgSearching(false);
-    }, 400);
+    msgSearchTimer.current = setTimeout(() => { executeMessageSearch(q); }, 400);
     return () => { if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current); };
-  }, [searchMessage]);
+  }, [searchMessage, executeMessageSearch, clearMessageSearch]);
 
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
@@ -749,50 +794,53 @@ export default function TalkPage() {
   selectedPatientRef.current = selectedPatient;
   messagesRef.current = messages;
 
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const patient = selectedPatientRef.current;
-      const msgs = messagesRef.current;
-      if (!patient || msgs.length === 0) return;
+  // ポーリング: 選択中の患者の新着メッセージをチェック
+  const pollNewMessages = useCallback(async () => {
+    const patient = selectedPatientRef.current;
+    const msgs = messagesRef.current;
+    if (!patient || msgs.length === 0) return;
 
-      const lastMsg = msgs[msgs.length - 1];
-      if (!lastMsg?.sent_at) return;
+    const lastMsg = msgs[msgs.length - 1];
+    if (!lastMsg?.sent_at) return;
 
-      try {
-        const res = await fetch(
-          `/api/admin/messages/log?patient_id=${encodeURIComponent(patient.patient_id)}&since=${encodeURIComponent(lastMsg.sent_at)}`,
-          { credentials: "include" }
-        );
-        const data = await res.json();
-        if (data.messages && data.messages.length > 0) {
-          const fetched = data.messages as MessageLog[];
-          // setMessages内でprevを使って重複排除（楽観的更新との競合を防止）
-          setMessages(prev => {
-            const existingIds = new Set(prev.map(m => String(m.id)));
-            const newMsgs = fetched.filter(m => !existingIds.has(String(m.id)));
-            if (newMsgs.length === 0) return prev;
-            shouldScrollToBottom.current = true;
-            return [...prev, ...newMsgs.reverse()];
-          });
-        }
-      } catch { /* ignore */ }
-    }, 5000);
-
-    return () => clearInterval(interval);
+    try {
+      const res = await fetch(
+        `/api/admin/messages/log?patient_id=${encodeURIComponent(patient.patient_id)}&since=${encodeURIComponent(lastMsg.sent_at)}`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      if (data.messages && data.messages.length > 0) {
+        const fetched = data.messages as MessageLog[];
+        // setMessages内でprevを使って重複排除（楽観的更新との競合を防止）
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => String(m.id)));
+          const newMsgs = fetched.filter(m => !existingIds.has(String(m.id)));
+          if (newMsgs.length === 0) return prev;
+          shouldScrollToBottom.current = true;
+          return [...prev, ...newMsgs.reverse()];
+        });
+      }
+    } catch { /* ignore */ }
   }, []);
 
-  // ポーリング: 左カラムの友だちリストを15秒ごとに更新
   useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
-        const data = await res.json();
-        if (data.patients) setFriends(data.patients);
-      } catch { /* ignore */ }
-    }, 15000);
-
+    const interval = setInterval(pollNewMessages, 5000);
     return () => clearInterval(interval);
+  }, [pollNewMessages]);
+
+  // ポーリング: 左カラムの友だちリストを更新
+  const pollFriendsList = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
+      const data = await res.json();
+      if (data.patients) setFriends(data.patients);
+    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(pollFriendsList, 15000);
+    return () => clearInterval(interval);
+  }, [pollFriendsList]);
 
   // メッセージ送信
   const handleSend = async () => {
@@ -1240,6 +1288,7 @@ export default function TalkPage() {
       console.log(`[pins] マイグレーション: ${migrated.size}件変換, ${pinnedIds.length - newPins.length}件除去`);
       savePins(newPins);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- savePins/pinnedIds/friends/allPatientIdsを依存配列に含めると無限ループになるため、.lengthで制御
   }, [friends.length, pinnedIds.length]);
 
   const pinnedFriends = useMemo(() => filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds]);
@@ -2428,7 +2477,7 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
               <div className="text-[9px] text-purple-500 mb-0.5 text-right mr-1 font-medium">AI返信</div>
             )}
             {(() => {
-              if (m.flex_json) return renderFlexBubble(m.flex_json);
+              if (m.flex_json) return renderFlexBubble(m.flex_json as unknown as FlexBubble);
               const mt = m.message_type || "";
               const isReservation = mt.startsWith("reservation_");
               const isShipping = mt === "shipping_notify";

@@ -4,6 +4,11 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
+interface NpsResponse {
+  score: number;
+  created_at: string;
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,12 +39,12 @@ export async function GET(
     tenantId
   );
 
-  const allResponses = responses || [];
+  const allResponses = (responses || []) as NpsResponse[];
 
   // NPSスコア算出
-  const promoters = allResponses.filter((r: any) => r.score >= 9).length;
-  const passives = allResponses.filter((r: any) => r.score >= 7 && r.score <= 8).length;
-  const detractors = allResponses.filter((r: any) => r.score <= 6).length;
+  const promoters = allResponses.filter((r) => r.score >= 9).length;
+  const passives = allResponses.filter((r) => r.score >= 7 && r.score <= 8).length;
+  const detractors = allResponses.filter((r) => r.score <= 6).length;
   const total = allResponses.length;
 
   const npsScore = total > 0
@@ -49,14 +54,14 @@ export async function GET(
   // 月次推移
   const monthlyMap = new Map<string, { promoters: number; passives: number; detractors: number; total: number }>();
   for (const r of allResponses) {
-    const month = (r as any).created_at?.slice(0, 7) || "unknown";
+    const month = r.created_at?.slice(0, 7) || "unknown";
     if (!monthlyMap.has(month)) {
       monthlyMap.set(month, { promoters: 0, passives: 0, detractors: 0, total: 0 });
     }
     const m = monthlyMap.get(month)!;
     m.total++;
-    if ((r as any).score >= 9) m.promoters++;
-    else if ((r as any).score >= 7) m.passives++;
+    if (r.score >= 9) m.promoters++;
+    else if (r.score >= 7) m.passives++;
     else m.detractors++;
   }
 
@@ -71,7 +76,7 @@ export async function GET(
   // スコア分布
   const distribution = Array.from({ length: 11 }, (_, i) => ({
     score: i,
-    count: allResponses.filter((r: any) => r.score === i).length,
+    count: allResponses.filter((r) => r.score === i).length,
   }));
 
   return NextResponse.json({

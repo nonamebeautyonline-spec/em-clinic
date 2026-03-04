@@ -1,7 +1,7 @@
 // LINE通知設定セクション（配色・予約通知・発送通知 + FLEXプレビュー）
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 // --- 型定義 ---
 interface FlexColorConfig {
@@ -92,17 +92,19 @@ export default function FlexSection({ onToast }: Props) {
   const [activeTab, setActiveTab] = useState<TabType>("reservation");
   const [reservationSubTab, setReservationSubTab] = useState<"created" | "changed" | "canceled">("created");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/flex-settings", { credentials: "include" });
-      const data = await res.json();
-      if (data.config) setConfig(data.config);
-    } catch { /* デフォルト値を維持 */ }
-    setLoading(false);
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/flex-settings", { credentials: "include" });
+        const data = await res.json();
+        if (!ignore && data.config) setConfig(data.config);
+      } catch { /* デフォルト値を維持 */ }
+      if (!ignore) setLoading(false);
+    })();
+    return () => { ignore = true; };
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
     setSaving(true);

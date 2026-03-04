@@ -7,15 +7,20 @@
 //        noname-master/recreate-label, noname-master/update-tracking,
 //        noname-master/square, noname-master/add-to-shipping, ehr/export-csv
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // ============================================================
 // 共通モック
 // ============================================================
 
+// Supabaseチェーンモックの型定義
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
 // Supabaseチェーンビルダー
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -23,11 +28,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -49,13 +54,13 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : {})),
 }));
 
 vi.mock("@/lib/menu-auto-rules", () => ({
@@ -93,8 +98,8 @@ vi.mock("jose", () => ({
 
 // EHR関連モック
 vi.mock("@/lib/ehr/mapper", () => ({
-  toEhrPatient: vi.fn((p: any) => ({ id: p?.patient_id || "p1", name: p?.name || "" })),
-  toEhrKarte: vi.fn((i: any) => ({ id: i?.id || "k1", note: i?.note || "" })),
+  toEhrPatient: vi.fn((p: Record<string, unknown>) => ({ id: p?.patient_id || "p1", name: p?.name || "" })),
+  toEhrKarte: vi.fn((i: Record<string, unknown>) => ({ id: i?.id || "k1", note: i?.note || "" })),
 }));
 
 vi.mock("@/lib/ehr/csv-adapter", () => ({
@@ -109,7 +114,7 @@ vi.stubGlobal("fetch", mockFetch);
 // ============================================================
 // リクエストヘルパー
 // ============================================================
-function createReq(method: string, url: string, body?: any) {
+function createReq(method: string, url: string, body?: unknown) {
   const req = new Request(url, {
     method,
     headers: {
@@ -117,7 +122,7 @@ function createReq(method: string, url: string, body?: any) {
       Authorization: "Bearer test-admin-token",
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  }) as any;
+  }) as Request & { nextUrl: URL; cookies: { get: Mock } };
   req.nextUrl = new URL(url);
   req.cookies = { get: vi.fn(() => undefined) };
   return req;
@@ -184,7 +189,7 @@ describe("patients/[id]/tags", () => {
 
   it("GET: タグ一覧を返す", async () => {
     const chain = getOrCreateChain("patient_tags");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: [{ id: 1, tag_id: 10 }], error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: [{ id: 1, tag_id: 10 }], error: null }));
     const res = await tagsGET(createReq("GET", "http://localhost/api/admin/patients/p1/tags"), createParams("p1"));
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -193,7 +198,7 @@ describe("patients/[id]/tags", () => {
 
   it("POST: タグを付与", async () => {
     const chain = getOrCreateChain("patient_tags");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: null, error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await tagsPOST(
       createReq("POST", "http://localhost/api/admin/patients/p1/tags", { tag_id: 5 }),
       createParams("p1"),
@@ -203,7 +208,7 @@ describe("patients/[id]/tags", () => {
 
   it("DELETE: タグを解除", async () => {
     const chain = getOrCreateChain("patient_tags");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: null, error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await tagsDELETE(
       createReq("DELETE", "http://localhost/api/admin/patients/p1/tags?tag_id=5"),
       createParams("p1"),
@@ -224,14 +229,14 @@ describe("patients/[id]/mark", () => {
 
   it("GET: マーク取得", async () => {
     const chain = getOrCreateChain("patient_marks");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: { mark: "star", note: null }, error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: { mark: "star", note: null }, error: null }));
     const res = await markGET(createReq("GET", "http://localhost/api/admin/patients/p1/mark"), createParams("p1"));
     expect(res.status).toBe(200);
   });
 
   it("PUT: マーク更新（none）", async () => {
     const markChain = getOrCreateChain("patient_marks");
-    markChain.then.mockImplementationOnce((resolve: any) => resolve({ data: null, error: null }));
+    markChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await markPUT(
       createReq("PUT", "http://localhost/api/admin/patients/p1/mark", { mark: "none" }),
       createParams("p1"),
@@ -252,7 +257,7 @@ describe("patients/[id]/fields", () => {
 
   it("GET: フィールド一覧を返す", async () => {
     const chain = getOrCreateChain("friend_field_values");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: [{ field_id: 1, value: "test" }], error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: [{ field_id: 1, value: "test" }], error: null }));
     const res = await fieldsGET(createReq("GET", "http://localhost/api/admin/patients/p1/fields"), createParams("p1"));
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -261,7 +266,7 @@ describe("patients/[id]/fields", () => {
 
   it("PUT: フィールド更新", async () => {
     const chain = getOrCreateChain("friend_field_values");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: null, error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await fieldsPUT(
       createReq("PUT", "http://localhost/api/admin/patients/p1/fields", {
         values: [{ field_id: 1, value: "new_val" }],
@@ -288,7 +293,7 @@ describe("patients/bulk/tags", () => {
 
   it("POST: 一括タグ追加", async () => {
     const chain = getOrCreateChain("patient_tags");
-    chain.then.mockImplementation((resolve: any) => resolve({ data: null, error: null }));
+    chain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await bulkTagsPOST(
       createReq("POST", "http://localhost/api/admin/patients/bulk/tags", {
         patient_ids: ["p1", "p2"], tag_id: 1, action: "add",
@@ -317,10 +322,10 @@ describe("patients/bulk/fields", () => {
   it("POST: 一括フィールド更新", async () => {
     // friend_field_definitions の存在確認
     const defChain = getOrCreateChain("friend_field_definitions");
-    defChain.then.mockImplementationOnce((resolve: any) => resolve({ data: { id: 1, name: "field1" }, error: null }));
+    defChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: { id: 1, name: "field1" }, error: null }));
     // friend_field_values upsert
     const valChain = getOrCreateChain("friend_field_values");
-    valChain.then.mockImplementation((resolve: any) => resolve({ data: null, error: null }));
+    valChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await bulkFieldsPOST(
       createReq("POST", "http://localhost/api/admin/patients/bulk/fields", {
         patient_ids: ["p1", "p2"], field_id: 1, value: "test",
@@ -349,10 +354,10 @@ describe("patients/bulk/mark", () => {
   it("POST: 一括マーク更新", async () => {
     // mark_definitions 存在確認
     const markDefChain = getOrCreateChain("mark_definitions");
-    markDefChain.then.mockImplementationOnce((resolve: any) => resolve({ data: { value: "star" }, error: null }));
+    markDefChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: { value: "star" }, error: null }));
     // patient_marks upsert
     const markChain = getOrCreateChain("patient_marks");
-    markChain.then.mockImplementation((resolve: any) => resolve({ data: null, error: null }));
+    markChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await bulkMarkPOST(
       createReq("POST", "http://localhost/api/admin/patients/bulk/mark", {
         patient_ids: ["p1", "p2"], mark: "star",
@@ -381,17 +386,17 @@ describe("patients/bulk/send", () => {
   it("POST: テンプレートメッセージ一括送信", async () => {
     // テンプレート取得
     const tmplChain = getOrCreateChain("message_templates");
-    tmplChain.then.mockImplementationOnce((resolve: any) =>
+    tmplChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: { id: 1, name: "tmpl", content: "Hello {name}" }, error: null }),
     );
     // 患者LINE UID取得
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then.mockImplementationOnce((resolve: any) =>
+    patientsChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ patient_id: "p1", line_id: "U001", name: "太郎" }], error: null }),
     );
     // message_log insert
     const logChain = getOrCreateChain("message_log");
-    logChain.then.mockImplementation((resolve: any) => resolve({ data: null, error: null }));
+    logChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await bulkSendPOST(
       createReq("POST", "http://localhost/api/admin/patients/bulk/send", {
@@ -422,12 +427,12 @@ describe("patients/bulk/menu", () => {
   it("POST: リッチメニュー一括割当", async () => {
     // リッチメニュー取得
     const menuChain = getOrCreateChain("rich_menus");
-    menuChain.then.mockImplementationOnce((resolve: any) =>
+    menuChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: { id: 1, name: "menu1", line_rich_menu_id: "rm-001" }, error: null }),
     );
     // 患者LINE UID取得
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then.mockImplementationOnce((resolve: any) =>
+    patientsChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ patient_id: "p1", line_id: "U001" }], error: null }),
     );
     // LINE API fetch成功
@@ -457,7 +462,7 @@ describe("shipping/share", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: [{ id: "1" }] }),
-    }) as any;
+    }) as Request & { nextUrl: URL; cookies: { get: Mock } };
     reqNoAuth.nextUrl = new URL("http://localhost/api/admin/shipping/share");
     reqNoAuth.cookies = { get: vi.fn(() => undefined) };
     const res = await sharePOST(reqNoAuth);
@@ -471,7 +476,7 @@ describe("shipping/share", () => {
     const origToken = process.env.ADMIN_TOKEN;
     process.env.ADMIN_TOKEN = "test-admin-token";
     const chain = getOrCreateChain("shipping_shares");
-    chain.then.mockImplementationOnce((resolve: any) => resolve({ data: null, error: null }));
+    chain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
     const res = await sharePOST(
       createReq("POST", "http://localhost/api/admin/shipping/share", { data: [{ id: "1" }] }),
     );
@@ -494,7 +499,7 @@ describe("shipping/today-shipped", () => {
 
   it("GET: 注文がない場合は空を返す", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementationOnce((resolve: any) => resolve({ data: [], error: null }));
+    orderChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     const res = await todayShippedGET(createReq("GET", "http://localhost/api/admin/shipping/today-shipped"));
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -525,7 +530,7 @@ describe("shipping/history", () => {
 
   it("GET: 正常系（空データ）", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementationOnce((resolve: any) => resolve({ data: [], error: null }));
+    orderChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     const res = await historyGET(
       createReq("GET", "http://localhost/api/admin/shipping/history?from=2026-01-01&to=2026-01-31"),
     );
@@ -547,7 +552,7 @@ describe("shipping/export-lstep-tags", () => {
 
   it("GET: 注文がない場合は404", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementationOnce((resolve: any) => resolve({ data: [], error: null }));
+    orderChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     const res = await exportLstepTagsGET(createReq("GET", "http://localhost/api/admin/shipping/export-lstep-tags"));
     expect(res.status).toBe(404);
   });
@@ -579,7 +584,7 @@ describe("shipping/update-tracking", () => {
   it("POST: 正常なCSV処理", async () => {
     const csvContent = "お客様管理番号\t伝票番号\nORD-001\t1234567890";
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: any) =>
+    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ id: "ORD-001", patient_id: "p1" }], error: null }),
     );
     const res = await updateTrackingPOST(
@@ -607,7 +612,7 @@ describe("shipping/update-tracking/confirm", () => {
 
   it("POST: 正常に追跡番号を確定", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: any) =>
+    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ id: "ORD-001", patient_id: "p1" }], error: null }),
     );
     // キャッシュ無効化のfetchモック
@@ -637,7 +642,7 @@ describe("noname-master/bank-transfer", () => {
 
   it("GET: 銀行振込注文一覧（空）", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: any) => resolve({ data: [], error: null }));
+    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     const res = await bankTransferGET(
       createReq("GET", "http://localhost/api/admin/noname-master/bank-transfer"),
     );
@@ -663,7 +668,7 @@ describe("noname-master/recreate-label", () => {
 
   it("POST: ラベル再作成", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementationOnce((resolve: any) =>
+    orderChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ id: "ORD-001", tracking_number: null, shipping_date: null, shipping_list_created_at: null }], error: null }),
     );
     const res = await recreateLabelPOST(
@@ -693,7 +698,7 @@ describe("noname-master/update-tracking", () => {
 
   it("POST: 追跡番号を個別更新", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementationOnce((resolve: any) =>
+    orderChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ id: "ORD-001", patient_id: "p1", tracking_number: "123", shipping_date: "2026-02-23" }], error: null }),
     );
     // キャッシュ無効化のfetchモック
@@ -723,7 +728,7 @@ describe("noname-master/square", () => {
 
   it("GET: クレジットカード決済一覧（空）", async () => {
     const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: any) => resolve({ data: [], error: null }));
+    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     const res = await squareGET(
       createReq("GET", "http://localhost/api/admin/noname-master/square"),
     );
@@ -773,7 +778,7 @@ describe("ehr/export-csv", () => {
 
   it("POST: 患者CSVエクスポート", async () => {
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then.mockImplementationOnce((resolve: any) =>
+    patientsChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ patient_id: "p1", name: "テスト太郎" }], error: null }),
     );
     const res = await ehrExportCsvPOST(
@@ -785,7 +790,7 @@ describe("ehr/export-csv", () => {
 
   it("POST: カルテCSVエクスポート", async () => {
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then.mockImplementationOnce((resolve: any) =>
+    intakeChain.then.mockImplementationOnce((resolve: (val: unknown) => unknown) =>
       resolve({ data: [{ id: 1, patient_id: "p1", note: "test", patients: { patient_id: "p1", name: "テスト" } }], error: null }),
     );
     const res = await ehrExportCsvPOST(

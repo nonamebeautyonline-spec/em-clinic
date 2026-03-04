@@ -69,8 +69,8 @@ export default function WeeklyRulesPage() {
         setDoctors(json.doctors || []);
         const first = (json.doctors || []).find((d: Doctor) => d.is_active)?.doctor_id || "";
         setDoctorId(first);
-      } catch (e: any) {
-        setMsg({ type: "error", text: `読込エラー: ${e?.message || e}` });
+      } catch (e) {
+        setMsg({ type: "error", text: `読込エラー: ${e instanceof Error ? e.message : e}` });
       } finally {
         setLoading(false);
       }
@@ -140,8 +140,8 @@ export default function WeeklyRulesPage() {
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error || "save_failed");
       setMsg({ type: "success", text: "設定を保存しました" });
-    } catch (e: any) {
-      setMsg({ type: "error", text: e?.message || "エラーが発生しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: e instanceof Error ? e.message : "エラーが発生しました" });
     } finally {
       setSaving(false);
     }

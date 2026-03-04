@@ -69,13 +69,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const user = resetToken.admin_users as any;
+  const user = resetToken.admin_users as unknown as { email: string; name: string } | null;
 
   return NextResponse.json({
     ok: true,
     user: {
-      email: user.email,
-      name: user.name,
+      email: user?.email ?? "",
+      name: user?.name ?? "",
     },
   });
 }

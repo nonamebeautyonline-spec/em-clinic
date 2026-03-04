@@ -6,14 +6,19 @@
 //        media, media-folders, segments, check-block, refresh-profile,
 //        send-image, friend-settings, user-richmenu, broadcast/preview
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // ============================================================
 // 共通モック
 // ============================================================
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+// Supabaseチェーンモックの型定義
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -21,11 +26,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -51,38 +56,38 @@ vi.mock("@/lib/supabase", () => ({
     rpc: vi.fn(() => createChain({ data: [], error: null })),
     storage: {
       listBuckets: () => mockStorageListBuckets(),
-      createBucket: (...args: any[]) => mockStorageCreateBucket(...args),
+      createBucket: (...args: unknown[]) => mockStorageCreateBucket(...args),
       from: () => ({
-        upload: (...args: any[]) => mockStorageUpload(...args),
-        getPublicUrl: (...args: any[]) => mockStorageGetPublicUrl(...args),
-        remove: (...args: any[]) => mockStorageRemove(...args),
+        upload: (...args: unknown[]) => mockStorageUpload(...args),
+        getPublicUrl: (...args: unknown[]) => mockStorageGetPublicUrl(...args),
+        remove: (...args: unknown[]) => mockStorageRemove(...args),
       }),
     },
   },
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : {})),
 }));
 
 vi.mock("@/lib/line-push", () => ({
-  pushMessage: (...args: any[]) => mockPushMessage(...args),
+  pushMessage: (...args: unknown[]) => mockPushMessage(...args),
 }));
 
 vi.mock("@/lib/line-richmenu", () => ({
-  setDefaultRichMenu: (...args: any[]) => mockSetDefaultRichMenu(...args),
+  setDefaultRichMenu: (...args: unknown[]) => mockSetDefaultRichMenu(...args),
 }));
 
 vi.mock("@/lib/settings", () => ({
-  getSetting: (...args: any[]) => mockGetSetting(...args),
-  setSetting: (...args: any[]) => mockSetSetting(...args),
-  getSettingOrEnv: (...args: any[]) => mockGetSettingOrEnv(...args),
+  getSetting: (...args: unknown[]) => mockGetSetting(...args),
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
@@ -101,12 +106,12 @@ vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
 }));
 
 // NextRequest互換のモック生成
-function createReq(method: string, url: string, body?: any) {
+function createReq(method: string, url: string, body?: unknown) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  }) as any;
+  }) as Request & { nextUrl: URL };
   req.nextUrl = new URL(url);
   return req;
 }
@@ -116,7 +121,7 @@ function createFormDataReq(url: string, formData: FormData) {
   const req = new Request(url, {
     method: "POST",
     body: formData,
-  }) as any;
+  }) as Request & { nextUrl: URL };
   req.nextUrl = new URL(url);
   return req;
 }
@@ -158,11 +163,11 @@ beforeEach(() => {
   mockSetSetting.mockResolvedValue(true);
   mockGetSettingOrEnv.mockResolvedValue("mock-line-token");
   mockStorageListBuckets.mockResolvedValue({ data: [{ name: "line-images" }] });
-  (globalThis.fetch as any).mockResolvedValue({
+  vi.mocked(globalThis.fetch).mockResolvedValue({
     ok: true,
     json: vi.fn().mockResolvedValue({}),
     text: vi.fn().mockResolvedValue(""),
-  });
+  } as unknown as Response);
 });
 
 // ============================================================
@@ -177,7 +182,7 @@ describe("schedule API", () => {
 
   it("GET 正常系 → 予約送信一覧を返す", async () => {
     const chain = getOrCreateChain("scheduled_messages");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1 }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1 }], error: null }));
 
     const res = await scheduleGET(createReq("GET", "http://localhost/api/admin/line/schedule"));
     expect(res.status).toBe(200);
@@ -188,10 +193,10 @@ describe("schedule API", () => {
   it("POST 正常系 → 予約送信を登録", async () => {
     // 患者取得チェーン
     const pChain = getOrCreateChain("patients");
-    pChain.then = vi.fn((r: any) => r({ data: { line_id: "U123" }, error: null }));
+    pChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { line_id: "U123" }, error: null }));
     // 登録チェーン
     const sChain = getOrCreateChain("scheduled_messages");
-    sChain.then = vi.fn((r: any) => r({ data: { id: 1 }, error: null }));
+    sChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1 }, error: null }));
 
     const res = await schedulePOST(createReq("POST", "http://localhost/api/admin/line/schedule", {
       patient_id: "P001",
@@ -219,7 +224,7 @@ describe("schedule/[id] API", () => {
 
   it("DELETE 正常系 → キャンセル成功", async () => {
     const chain = getOrCreateChain("scheduled_messages");
-    chain.then = vi.fn((r: any) => r({ data: null, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: null, error: null }));
 
     const res = await scheduleIdDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/schedule/1"),
@@ -243,7 +248,7 @@ describe("template-categories API", () => {
 
   it("GET 正常系 → カテゴリ一覧を返す", async () => {
     const chain = getOrCreateChain("template_categories");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, name: "テスト" }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, name: "テスト" }], error: null }));
 
     const res = await templateCategoriesGET(createReq("GET", "http://localhost/api/admin/line/template-categories"));
     expect(res.status).toBe(200);
@@ -253,7 +258,7 @@ describe("template-categories API", () => {
 
   it("POST 正常系 → カテゴリを作成", async () => {
     const chain = getOrCreateChain("template_categories");
-    chain.then = vi.fn((r: any) => r({ data: { sort_order: 1 }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { sort_order: 1 }, error: null }));
 
     const res = await templateCategoriesPOST(createReq("POST", "http://localhost/api/admin/line/template-categories", {
       name: "新規カテゴリ",
@@ -276,7 +281,7 @@ describe("templates API", () => {
 
   it("GET 正常系 → テンプレート一覧を返す", async () => {
     const chain = getOrCreateChain("message_templates");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, name: "テスト" }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, name: "テスト" }], error: null }));
 
     const res = await templatesGET(createReq("GET", "http://localhost/api/admin/line/templates"));
     expect(res.status).toBe(200);
@@ -286,7 +291,7 @@ describe("templates API", () => {
 
   it("POST 正常系 → テンプレートを作成", async () => {
     const chain = getOrCreateChain("message_templates");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, name: "テスト" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "テスト" }, error: null }));
 
     const res = await templatesPOST(createReq("POST", "http://localhost/api/admin/line/templates", {
       name: "テンプレート1",
@@ -314,7 +319,7 @@ describe("templates/[id] API", () => {
 
   it("PUT 正常系 → テンプレートを更新", async () => {
     const chain = getOrCreateChain("message_templates");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, name: "変更後" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "変更後" }, error: null }));
 
     const res = await templatesIdPUT(
       createReq("PUT", "http://localhost/api/admin/line/templates/1", { name: "変更後" }),
@@ -327,7 +332,7 @@ describe("templates/[id] API", () => {
 
   it("DELETE 正常系 → テンプレートを削除", async () => {
     const chain = getOrCreateChain("message_templates");
-    chain.then = vi.fn((r: any) => r({ data: null, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: null, error: null }));
 
     const res = await templatesIdDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/templates/1"),
@@ -435,7 +440,7 @@ describe("flex-presets API", () => {
 
   it("GET 正常系 → プリセット一覧を返す", async () => {
     const chain = getOrCreateChain("flex_presets");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1 }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1 }], error: null }));
 
     const res = await flexPresetsGET(createReq("GET", "http://localhost/api/admin/line/flex-presets"));
     expect(res.status).toBe(200);
@@ -456,7 +461,7 @@ describe("click-track API", () => {
 
   it("GET 正常系 → リンク一覧を返す", async () => {
     const chain = getOrCreateChain("click_tracking_links");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, click_events: [{ count: 5 }] }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, click_events: [{ count: 5 }] }], error: null }));
 
     const res = await clickTrackGET(createReq("GET", "http://localhost/api/admin/line/click-track"));
     expect(res.status).toBe(200);
@@ -466,7 +471,7 @@ describe("click-track API", () => {
 
   it("POST 正常系 → クリック計測リンクを作成", async () => {
     const chain = getOrCreateChain("click_tracking_links");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, tracking_code: "abc123" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, tracking_code: "abc123" }, error: null }));
 
     const res = await clickTrackPOST(createReq("POST", "http://localhost/api/admin/line/click-track", {
       original_url: "https://example.com",
@@ -491,7 +496,7 @@ describe("click-track/stats API", () => {
 
   it("GET 正常系（全体統計） → 統計を返す", async () => {
     const chain = getOrCreateChain("click_tracking_links");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, tracking_code: "abc", original_url: "https://example.com", label: null, broadcast_id: null, created_at: "2026-01-01", click_tracking_events: [{ count: 3 }] }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, tracking_code: "abc", original_url: "https://example.com", label: null, broadcast_id: null, created_at: "2026-01-01", click_tracking_events: [{ count: 3 }] }], error: null }));
 
     const res = await clickTrackStatsGET(createReq("GET", "http://localhost/api/admin/line/click-track/stats"));
     expect(res.status).toBe(200);
@@ -501,7 +506,7 @@ describe("click-track/stats API", () => {
 
   it("GET 正常系（link_id指定） → イベント詳細を返す", async () => {
     const chain = getOrCreateChain("click_tracking_events");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, clicked_at: "2026-01-01" }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, clicked_at: "2026-01-01" }], error: null }));
 
     const res = await clickTrackStatsGET(createReq("GET", "http://localhost/api/admin/line/click-track/stats?link_id=1"));
     expect(res.status).toBe(200);
@@ -522,7 +527,7 @@ describe("media API", () => {
 
   it("GET 正常系 → メディア一覧を返す", async () => {
     const chain = getOrCreateChain("media_files");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1 }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1 }], error: null }));
 
     const res = await mediaGET(createReq("GET", "http://localhost/api/admin/line/media"));
     expect(res.status).toBe(200);
@@ -532,7 +537,7 @@ describe("media API", () => {
 
   it("PUT 正常系 → メディア名を変更", async () => {
     const chain = getOrCreateChain("media_files");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, name: "更新後" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "更新後" }, error: null }));
 
     const res = await mediaPUT(createReq("PUT", "http://localhost/api/admin/line/media", {
       id: 1,
@@ -550,7 +555,7 @@ describe("media API", () => {
 
   it("DELETE 正常系 → メディアを削除", async () => {
     const chain = getOrCreateChain("media_files");
-    chain.then = vi.fn((r: any) => r({ data: { file_url: "https://example.com/storage/v1/object/public/line-images/media/image/test.jpg" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { file_url: "https://example.com/storage/v1/object/public/line-images/media/image/test.jpg" }, error: null }));
 
     const res = await mediaDELETE(createReq("DELETE", "http://localhost/api/admin/line/media?id=1"));
     expect(res.status).toBe(200);
@@ -571,7 +576,7 @@ describe("media-folders API", () => {
 
   it("GET 正常系 → フォルダ一覧を返す", async () => {
     const chain = getOrCreateChain("media_folders");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, name: "テスト", media_files: [{ count: 3 }] }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, name: "テスト", media_files: [{ count: 3 }] }], error: null }));
 
     const res = await mediaFoldersGET(createReq("GET", "http://localhost/api/admin/line/media-folders"));
     expect(res.status).toBe(200);
@@ -581,7 +586,7 @@ describe("media-folders API", () => {
 
   it("POST 正常系 → フォルダを作成", async () => {
     const chain = getOrCreateChain("media_folders");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, name: "新規" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "新規" }, error: null }));
 
     const res = await mediaFoldersPOST(createReq("POST", "http://localhost/api/admin/line/media-folders", {
       name: "新規フォルダ",
@@ -593,7 +598,7 @@ describe("media-folders API", () => {
 
   it("PUT 正常系 → フォルダ名を変更", async () => {
     const chain = getOrCreateChain("media_folders");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, name: "変更後" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "変更後" }, error: null }));
 
     const res = await mediaFoldersPUT(createReq("PUT", "http://localhost/api/admin/line/media-folders", {
       id: 1,
@@ -665,10 +670,10 @@ describe("check-block API", () => {
 
   it("GET 正常系 → ブロック状態を返す", async () => {
     const chain = getOrCreateChain("patients");
-    chain.then = vi.fn((r: any) => r({ data: { line_id: "U123" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { line_id: "U123" }, error: null }));
 
     // LINE Profile API成功 = ブロックされていない
-    (globalThis.fetch as any).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({}) });
+    vi.mocked(globalThis.fetch).mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue({}) } as unknown as Response);
 
     const res = await checkBlockGET(createReq("GET", "http://localhost/api/admin/line/check-block?patient_id=P001"));
     expect(res.status).toBe(200);
@@ -691,12 +696,12 @@ describe("refresh-profile API", () => {
 
   it("POST 正常系 → プロフィールを更新", async () => {
     const chain = getOrCreateChain("patients");
-    chain.then = vi.fn((r: any) => r({ data: { line_id: "U123" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { line_id: "U123" }, error: null }));
 
-    (globalThis.fetch as any).mockResolvedValue({
+    vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ displayName: "テスト太郎", pictureUrl: "https://example.com/pic.jpg" }),
-    });
+    } as unknown as Response);
 
     const res = await refreshProfilePOST(createReq("POST", "http://localhost/api/admin/line/refresh-profile", {
       patient_id: "P001",
@@ -727,7 +732,7 @@ describe("friend-settings API", () => {
 
   it("GET 正常系 → 設定一覧を返す", async () => {
     const chain = getOrCreateChain("friend_add_settings");
-    chain.then = vi.fn((r: any) => r({ data: [{ id: 1, setting_key: "new_friend" }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ id: 1, setting_key: "new_friend" }], error: null }));
 
     const res = await friendSettingsGET(createReq("GET", "http://localhost/api/admin/line/friend-settings"));
     expect(res.status).toBe(200);
@@ -737,7 +742,7 @@ describe("friend-settings API", () => {
 
   it("PUT 正常系 → 設定を更新", async () => {
     const chain = getOrCreateChain("friend_add_settings");
-    chain.then = vi.fn((r: any) => r({ data: { id: 1, setting_key: "greeting" }, error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, setting_key: "greeting" }, error: null }));
 
     const res = await friendSettingsPUT(createReq("PUT", "http://localhost/api/admin/line/friend-settings", {
       setting_key: "greeting",
@@ -767,17 +772,17 @@ describe("user-richmenu API", () => {
 
   it("GET 正常系 → ユーザーのリッチメニューを返す", async () => {
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((r: any) => r({ data: { line_id: "U123" }, error: null }));
+    patientsChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { line_id: "U123" }, error: null }));
 
     // LINE APIでリッチメニューIDを返す
-    (globalThis.fetch as any).mockResolvedValue({
+    vi.mocked(globalThis.fetch).mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({ richMenuId: "rm-123" }),
-    });
+    } as unknown as Response);
 
     // DBでメニュー情報を返す
     const richMenusChain = getOrCreateChain("rich_menus");
-    richMenusChain.then = vi.fn((r: any) => r({ data: { id: 1, name: "テストメニュー", image_url: "/test.png", line_rich_menu_id: "rm-123" }, error: null }));
+    richMenusChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "テストメニュー", image_url: "/test.png", line_rich_menu_id: "rm-123" }, error: null }));
 
     const res = await userRichmenuGET(createReq("GET", "http://localhost/api/admin/line/user-richmenu?patient_id=P001"));
     expect(res.status).toBe(200);
@@ -797,14 +802,14 @@ describe("user-richmenu API", () => {
   it("POST 正常系 → リッチメニューを割り当て", async () => {
     // rich_menusからメニュー情報を返す
     const richMenusChain = getOrCreateChain("rich_menus");
-    richMenusChain.then = vi.fn((r: any) => r({ data: { id: 1, name: "テスト", line_rich_menu_id: "rm-123", image_url: "/test.png" }, error: null }));
+    richMenusChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { id: 1, name: "テスト", line_rich_menu_id: "rm-123", image_url: "/test.png" }, error: null }));
 
     // patientsからline_idを返す
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((r: any) => r({ data: { line_id: "U123" }, error: null }));
+    patientsChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: { line_id: "U123" }, error: null }));
 
     // LINE API成功
-    (globalThis.fetch as any).mockResolvedValue({ ok: true });
+    vi.mocked(globalThis.fetch).mockResolvedValue({ ok: true } as Response);
 
     const res = await userRichmenuPOST(createReq("POST", "http://localhost/api/admin/line/user-richmenu", {
       patient_id: "P001",
@@ -831,11 +836,11 @@ describe("broadcast/preview API", () => {
   it("POST 正常系 → プレビューを返す", async () => {
     // resolveTargets内でpatientsテーブルを参照
     const chain = getOrCreateChain("patients");
-    chain.then = vi.fn((r: any) => r({ data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U123" }], error: null }));
+    chain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U123" }], error: null }));
 
     // patient_tagsチェーン
     const tagsChain = getOrCreateChain("patient_tags");
-    tagsChain.then = vi.fn((r: any) => r({ data: [], error: null }));
+    tagsChain.then = vi.fn((r: (val: unknown) => unknown) => r({ data: [], error: null }));
 
     const res = await broadcastPreviewPOST(createReq("POST", "http://localhost/api/admin/line/broadcast/preview", {
       filter_rules: {},

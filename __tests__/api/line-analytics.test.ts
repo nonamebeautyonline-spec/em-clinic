@@ -11,7 +11,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // getSettingOrEnv モック
@@ -21,11 +21,11 @@ vi.mock("@/lib/settings", () => ({
 }));
 
 // テーブル別結果制御
-type MockResult = { data: any; error?: any; count?: number | null };
+type MockResult = { data: unknown; error?: unknown; count?: number | null };
 let mockResultsByTable: Record<string, MockResult> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
@@ -42,15 +42,14 @@ function createChain(table: string) {
   });
 
   // select で count:exact, head:true のパターン（CVR算出用）
-  const origSelect = chain.select;
-  chain.select = vi.fn().mockImplementation((_cols?: string, opts?: any) => {
+  chain.select = vi.fn().mockImplementation((_cols?: string, opts?: Record<string, unknown>) => {
     if (opts?.count === "exact" && opts?.head === true) {
       // count用: Promise.resolve({ count: N }) を返す
-      const countChain: any = {};
+      const countChain: Record<string, ReturnType<typeof vi.fn>> = {};
       methods.forEach((m) => {
         countChain[m] = vi.fn().mockReturnValue(countChain);
       });
-      countChain.then = (resolve: any, reject: any) => {
+      countChain.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
         return Promise.resolve({ count: 0, data: null, error: null }).then(resolve, reject);
       };
       return countChain;
@@ -59,7 +58,7 @@ function createChain(table: string) {
   });
 
   // Promiseとして扱えるように
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: [], error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -75,7 +74,7 @@ vi.mock("@/lib/supabase", () => ({
 
 // global.fetch モック（LINE Insight API用）
 const originalFetch = global.fetch;
-let mockFetchResponses: any[] = [];
+let mockFetchResponses: { ok?: boolean; data?: Record<string, unknown> }[] = [];
 
 function setupMockFetch() {
   global.fetch = vi.fn().mockImplementation(async (url: string) => {
@@ -103,7 +102,7 @@ function setupMockFetch() {
 import { GET } from "@/app/api/admin/line/analytics/route";
 
 // --- ヘルパー ---
-function createReq(url: string): any {
+function createReq(url: string) {
   const reqUrl = new URL(url);
   return {
     url,
@@ -111,7 +110,7 @@ function createReq(url: string): any {
     nextUrl: {
       searchParams: reqUrl.searchParams,
     },
-  } as any;
+  } as unknown as Request;
 }
 
 // --- テスト本体 ---

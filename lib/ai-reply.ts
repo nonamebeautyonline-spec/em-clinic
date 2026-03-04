@@ -641,6 +641,14 @@ export async function sendAiReply(
       content: replyText,
       status: "sent",
     });
+
+    // AI返信送信後、未読マークを消す（outgoingメッセージなので既読扱い）
+    await supabaseAdmin
+      .from("chat_reads")
+      .upsert(
+        { ...tenantPayload(tenantId), patient_id: patientId, read_at: new Date().toISOString() },
+        { onConflict: "patient_id" }
+      );
   }
 }
 
@@ -671,7 +679,7 @@ export async function handleImplicitAiFeedback(
     if (!pendingDrafts || pendingDrafts.length === 0) return;
 
     // pending ドラフトを expired（暗黙の却下）に更新
-    const draftIds = pendingDrafts.map((d: any) => d.id);
+    const draftIds = pendingDrafts.map((d: { id: number }) => d.id);
     await supabaseAdmin
       .from("ai_reply_drafts")
       .update({

@@ -77,10 +77,10 @@ const handleSubmit = async () => {
       "再処方の申請を受け付けました。\n\nDrが処方内容を確認し、処方が可能と判断された後に決済フォームをお送りさせていただきます。"
     );
     router.push("/mypage");
-  } catch (e: any) {
+  } catch (e) {
     console.error(e);
     setError(
-      e?.message ||
+      (e as Error)?.message ||
         "再処方申請の送信中にエラーが発生しました。時間をおいて再度お試しください。"
     );
     setSubmitting(false);

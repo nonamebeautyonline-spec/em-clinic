@@ -23,6 +23,23 @@ import { CSS } from "@dnd-kit/utilities";
 
 type SortMode = "dosage" | "date_asc" | "date_desc" | "name" | "price_desc" | "price_asc" | "manual";
 
+interface PendingOrder {
+  id: string;
+  lstep_id?: string;
+  patient_id: string;
+  patient_name?: string;
+  postal_code?: string;
+  address?: string;
+  email?: string;
+  phone?: string;
+  product_name: string;
+  product_code: string;
+  amount?: number;
+  payment_date: string;
+  status: string;
+  shipping_list_created_at?: string | null;
+}
+
 interface ShippingItem {
   id: string;
   user_id: string;
@@ -67,11 +84,7 @@ export default function CreateShippingListPage() {
   const [sortMode, setSortMode] = useState<SortMode>("dosage");
   const tableRef = useRef<HTMLTableElement>(null);
 
-  useEffect(() => {
-    loadPendingOrders();
-  }, []);
-
-  const loadPendingOrders = async () => {
+  const loadPendingOrders = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/shipping/pending", {
@@ -93,15 +106,15 @@ export default function CreateShippingListPage() {
 
       // 用量を計算してフォーマット
       const formattedItems: ShippingItem[] = orders
-        .filter((o: any) => o.status === "confirmed") // 確認済みのみ
-        .filter((o: any) => {
+        .filter((o: PendingOrder) => o.status === "confirmed") // 確認済みのみ
+        .filter((o: PendingOrder) => {
           // ★ idsパラメータがある場合は、そのIDだけをフィルタ
           if (selectedIds && selectedIds.length > 0) {
             return selectedIds.includes(o.id);
           }
           return true; // idsパラメータがない場合は全て表示
         })
-        .map((order: any) => {
+        .map((order: PendingOrder) => {
           const dosages = calculateDosage(order.product_code);
           return {
             id: order.id,
@@ -143,7 +156,12 @@ export default function CreateShippingListPage() {
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadPendingOrders();
+  }, [loadPendingOrders]);
 
   const calculateDosage = (productCode: string): Record<string, number> => {
     const dosages: Record<string, number> = { "2.5mg": 0, "5mg": 0, "7.5mg": 0, "10mg": 0 };
@@ -253,6 +271,7 @@ export default function CreateShippingListPage() {
       case "manual": return currentItems; // 手動並び替え時はそのまま
       default: return currentItems;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortByDosage等は安定した関数だが参照が毎回変わるため除外
   }, []);
 
   const handleApplySort = (mode: SortMode) => {
@@ -372,7 +391,7 @@ export default function CreateShippingListPage() {
           const freshData = await freshRes.json();
           const freshOrders = freshData.orders || [];
           const freshMap = new Map<string, { postal_code: string; address: string; patient_name: string }>();
-          freshOrders.forEach((o: any) => {
+          freshOrders.forEach((o: PendingOrder) => {
             freshMap.set(o.id, { postal_code: o.postal_code || "", address: o.address || "", patient_name: o.patient_name || "" });
           });
           // ローカルstateの郵便番号・住所・名義を最新に更新（管理者が手動編集していない場合のみ）

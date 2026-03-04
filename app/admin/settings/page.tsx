@@ -102,8 +102,8 @@ export function SettingRow({
       onSaved(`${item.label} を保存しました`, "success");
       setValue("");
       setExpanded(false);
-    } catch (err: any) {
-      onSaved(err.message || "保存に失敗しました", "error");
+    } catch (err) {
+      onSaved(err instanceof Error ? err.message : "保存に失敗しました", "error");
     } finally {
       setSaving(false);
     }
@@ -175,8 +175,8 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(`データ取得失敗 (${res.status})`);
       const data = await res.json();
       setSettings(data.settings);
-    } catch (err: any) {
-      setError(err.message || "エラーが発生しました");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }

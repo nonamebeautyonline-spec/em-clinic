@@ -4,10 +4,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- モック定義 ---
 
+// Supabase チェーンモック用型定義
+interface MockResult { data?: unknown; error?: unknown; count?: number | null }
+interface SupabaseChain {
+  update: (data: Record<string, unknown>) => { eq: (key: string, val: string) => MockResult };
+  delete: () => { eq: (key: string, val: string) => MockResult };
+  select: (cols?: string) => { eq: (key: string, val: string) => { maybeSingle: () => MockResult } };
+}
+interface UpdateCall { table: string; data: Record<string, unknown>; eq: [string, string] }
+interface DeleteCall { table: string; eq: [string, string] }
+interface SelectCall { table: string; eq: [string, string] }
+
 // withTenant はクエリをそのまま返す（テナントフィルタ無効化）
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue(null),
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn(<T>(query: T) => query),
 }));
 
 let mockAuthorized = true;
@@ -16,19 +27,16 @@ vi.mock("@/lib/admin-auth", () => ({
 }));
 
 // Supabase モック: チェーンビルダー
-type MockResult = { data?: any; error?: any; count?: number | null };
 let mockResults: Record<string, MockResult> = {};
-let updateCalls: { table: string; data: any; eq: [string, any] }[] = [];
-let deleteCalls: { table: string; eq: [string, any] }[] = [];
-let selectCalls: { table: string; eq: [string, any] }[] = [];
+let updateCalls: UpdateCall[] = [];
+let deleteCalls: DeleteCall[] = [];
+let selectCalls: SelectCall[] = [];
 
-function createChain(table: string) {
-  let eqKey = "";
-  let eqVal: any;
-  const chain: any = {
-    update: (data: any) => {
-      const inner: any = {
-        eq: (key: string, val: any) => {
+function createChain(table: string): SupabaseChain {
+  const chain: SupabaseChain = {
+    update: (data: Record<string, unknown>) => {
+      const inner = {
+        eq: (key: string, val: string) => {
           updateCalls.push({ table, data, eq: [key, val] });
           return mockResults[`update:${table}`] ?? { error: null, count: 0 };
         },
@@ -36,8 +44,8 @@ function createChain(table: string) {
       return inner;
     },
     delete: () => {
-      const inner: any = {
-        eq: (key: string, val: any) => {
+      const inner = {
+        eq: (key: string, val: string) => {
           deleteCalls.push({ table, eq: [key, val] });
           return mockResults[`delete:${table}`] ?? { error: null };
         },
@@ -45,10 +53,8 @@ function createChain(table: string) {
       return inner;
     },
     select: (_cols?: string) => {
-      const inner: any = {
-        eq: (key: string, val: any) => {
-          eqKey = key;
-          eqVal = val;
+      const inner = {
+        eq: (key: string, val: string) => {
           selectCalls.push({ table, eq: [key, val] });
           const result = mockResults[`select:${table}:${val}`];
           return {
@@ -71,11 +77,11 @@ vi.mock("@/lib/supabase", () => ({
 // --- ルートインポート ---
 import { POST } from "@/app/api/admin/merge-patients/route";
 
-function makeRequest(body: any): any {
+function makeRequest(body: Record<string, unknown>) {
   return {
     json: async () => body,
     headers: new Headers(),
-  } as any;
+  } as unknown as Request;
 }
 
 // --- テスト本体 ---
@@ -270,12 +276,12 @@ describe("merge-patients API", () => {
     const badReq = {
       json: async () => { throw new Error("parse error"); },
       headers: new Headers(),
-    } as any;
+    } as unknown as Request;
 
     // ただし route.ts は req.json().catch(() => ({})) でキャッチするため、
     // verifyAdminAuth を例外送出に変更
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockRejectedValueOnce(new Error("unexpected"));
+    vi.mocked(verifyAdminAuth).mockRejectedValueOnce(new Error("unexpected"));
 
     const res = await POST(makeRequest({ old_patient_id: OLD_PID, new_patient_id: NEW_PID }));
     const json = await res.json();

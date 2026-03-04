@@ -26,15 +26,15 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // テーブル別結果制御
-type MockResult = { data: any; error?: any; count?: number | null };
+type MockResult = { data: unknown; error?: unknown; count?: number | null };
 let mockResultsByTable: Record<string, MockResult> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
@@ -44,7 +44,7 @@ function createChain(table: string) {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
 
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: [], error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -186,7 +186,7 @@ describe("追跡番号一括更新プレビュー API", () => {
       expect(body.summary.notFound).toBe(0);
 
       // 1件目の照合結果
-      const entry1 = body.entries.find((e: any) => e.payment_id === "ORD001");
+      const entry1 = body.entries.find((e: Record<string, unknown>) => e.payment_id === "ORD001");
       expect(entry1.matched).toBe(true);
       expect(entry1.patient_name).toBe("山田太郎");
       expect(entry1.tracking_number).toBe("1234567890");

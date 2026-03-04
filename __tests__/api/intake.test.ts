@@ -4,9 +4,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+// --- Supabaseチェーンモック型 ---
+type MockChain = Record<string, ReturnType<typeof vi.fn>> & {
+  then: ReturnType<typeof vi.fn>;
+};
+
 // --- モックチェーン ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): MockChain {
+  const chain = {} as MockChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -14,28 +19,33 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
+
+// globalThis に型安全にアクセスするためのキャスト
+const testGlobal = globalThis as typeof globalThis & {
+  __testTableChains: Record<string, MockChain>;
+};
 
 vi.mock("@/lib/supabase", () => {
   return {
     supabase: {
       from: vi.fn(() => {
-        const c: any = {};
+        const c = {} as MockChain;
         ["insert", "update", "delete", "select", "eq", "neq", "maybeSingle", "single", "order", "limit"].forEach((m) => {
           c[m] = vi.fn().mockReturnValue(c);
         });
-        c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+        c.then = vi.fn((resolve: (value: unknown) => unknown) => resolve({ data: null, error: null }));
         return c;
       }),
     },
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const chains = testGlobal.__testTableChains || {};
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
+          const c = {} as MockChain;
           [
             "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
             "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -43,7 +53,7 @@ vi.mock("@/lib/supabase", () => {
           ].forEach((m) => {
             c[m] = vi.fn().mockReturnValue(c);
           });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+          c.then = vi.fn((resolve: (value: unknown) => unknown) => resolve({ data: null, error: null }));
           chains[table] = c;
         }
         return chains[table];
@@ -54,7 +64,7 @@ vi.mock("@/lib/supabase", () => {
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -85,7 +95,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { invalidateDashboardCache } from "@/lib/redis";
 
 // --- ヘルパー ---
-function createRequest(body: any = {}, cookies: Record<string, string> = {}) {
+function createRequest(body: Record<string, unknown> = {}, cookies: Record<string, string> = {}) {
   const req = new NextRequest("http://localhost:3000/api/intake", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -98,14 +108,14 @@ function createRequest(body: any = {}, cookies: Record<string, string> = {}) {
   return req;
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: MockChain) {
+  testGlobal.__testTableChains[table] = chain;
 }
 
 describe("POST /api/intake", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    testGlobal.__testTableChains = {};
   });
 
   // --- 認証テスト ---
@@ -113,7 +123,7 @@ describe("POST /api/intake", () => {
     it("patient_id Cookieがない場合は401を返す", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createRequest({});
       const res = await POST(req);
@@ -126,7 +136,7 @@ describe("POST /api/intake", () => {
     it("__Host-patient_id Cookieで認証成功", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: { 身長: "170" }, name: "太郎" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       // intake の既存レコード
       const intakeChain = createChain({ data: [{ id: 1, answers: {}, reserve_id: "res-1", status: null, note: null }], error: null });
@@ -152,7 +162,7 @@ describe("POST /api/intake", () => {
         headers: { "Content-Type": "application/json" },
       });
       // NextResponse互換のモック
-      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse as any });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createRequest({}, { "__Host-patient_id": "pid-001" });
       const res = await POST(req);
@@ -170,7 +180,7 @@ describe("POST /api/intake", () => {
           sex: "男",
           birth: "1990-01-01",
         },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       // 既存intakeレコード（reserve_id付き）
       const intakeChain = createChain({
@@ -206,7 +216,7 @@ describe("POST /api/intake", () => {
           answers: { 身長: "170" },
           name: "新規太郎",
         },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       // 既存レコードなし
       const intakeChain = createChain({ data: [], error: null });
@@ -233,7 +243,7 @@ describe("POST /api/intake", () => {
           name: "", // 空文字 → 既存値を保持
           sex: "",
         },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const intakeChain = createChain({
         data: [{
@@ -264,7 +274,7 @@ describe("POST /api/intake", () => {
     it("LINE_で始まるpatient_idの場合は仮レコード統合をスキップ", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const intakeChain = createChain({ data: [], error: null });
       setTableChain("intake", intakeChain);
@@ -284,7 +294,7 @@ describe("POST /api/intake", () => {
     it("正規patient_idの場合、LINE_仮レコードがあればマージ・削除", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: { 身長: "170" }, name: "太郎" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const intakeChain = createChain({ data: [], error: null });
       setTableChain("intake", intakeChain);
@@ -330,7 +340,7 @@ describe("POST /api/intake", () => {
     it("問診送信後にダッシュボードキャッシュが削除される", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { answers: {} },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const intakeChain = createChain({ data: [], error: null });
       setTableChain("intake", intakeChain);

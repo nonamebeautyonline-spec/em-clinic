@@ -5,22 +5,22 @@ import { NextRequest } from "next/server";
 
 // --- モックチェーン ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq",
     "is", "not", "order", "limit", "maybeSingle", "single", "upsert",
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: vi.fn((...args: any[]) => {
-      const chains = (globalThis as any).__testTableChains || {};
-      const table = args[0];
+    from: vi.fn((...args: unknown[]) => {
+      const chains = (globalThis as Record<string, Record<string, Record<string, unknown>>>).__testTableChains || {};
+      const table = args[0] as string;
       if (!chains[table]) chains[table] = createChain();
       return chains[table];
     }),
@@ -29,7 +29,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 vi.mock("@/lib/settings", () => ({
@@ -44,8 +44,8 @@ import { GET } from "@/app/api/square/saved-card/route";
 import { getSettingOrEnv } from "@/lib/settings";
 import { getCardDetails } from "@/lib/payment/square-inline";
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: Record<string, unknown>) {
+  (globalThis as Record<string, Record<string, Record<string, unknown>>>).__testTableChains[table] = chain;
 }
 
 function createRequest(cookies: Record<string, string> = {}) {
@@ -59,7 +59,7 @@ function createRequest(cookies: Record<string, string> = {}) {
 describe("GET /api/square/saved-card", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    (globalThis as Record<string, unknown>).__testTableChains = {};
     vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
       if (key === "access_token") return "sq-test-token";
       if (key === "env") return "sandbox";

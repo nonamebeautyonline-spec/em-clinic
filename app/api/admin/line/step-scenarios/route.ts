@@ -25,11 +25,14 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // ステップ数を付与
-  const enriched = (scenarios || []).map((s: any) => ({
-    ...s,
-    step_count: s.step_items?.[0]?.count || 0,
-    trigger_tag: s.trigger_tag || null,
-  }));
+  const enriched = (scenarios || []).map((s: Record<string, unknown>) => {
+    const stepItems = Array.isArray(s.step_items) ? s.step_items as { count?: number }[] : [];
+    return {
+      ...s,
+      step_count: stepItems[0]?.count || 0,
+      trigger_tag: s.trigger_tag || null,
+    };
+  });
 
   return NextResponse.json({ scenarios: enriched });
 }
@@ -66,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   // ステップ一括挿入
   if (Array.isArray(steps) && steps.length > 0) {
-    const stepRows = steps.map((s: any, i: number) => ({
+    const stepRows = steps.map((s: Record<string, unknown>, i: number) => ({
       ...tenantPayload(tenantId),
       scenario_id: scenario.id,
       sort_order: i,
@@ -109,13 +112,13 @@ export async function PUT(req: NextRequest) {
 
   const parsed = await parseBody(req, stepScenarioSchema);
   if ("error" in parsed) return parsed.error;
-  const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = parsed.data as any;
+  const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = parsed.data as Record<string, unknown>;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 
   const { data: scenario, error } = await withTenant(
     supabaseAdmin.from("step_scenarios").update({
-      name: name?.trim() || "",
+      name: typeof name === "string" ? name.trim() : "",
       folder_id: folder_id || null,
       trigger_type: trigger_type || "follow",
       trigger_tag_id: trigger_tag_id || null,
@@ -124,7 +127,7 @@ export async function PUT(req: NextRequest) {
       condition_rules: condition_rules || [],
       is_enabled: is_enabled !== false,
       updated_at: new Date().toISOString(),
-    }).eq("id", id).select(),
+    }).eq("id", id as number).select(),
     tenantId
   ).single();
 
@@ -138,7 +141,7 @@ export async function PUT(req: NextRequest) {
     );
 
     if (steps.length > 0) {
-      const stepRows = steps.map((s: any, i: number) => ({
+      const stepRows = (steps as Record<string, unknown>[]).map((s: Record<string, unknown>, i: number) => ({
         ...tenantPayload(tenantId),
         scenario_id: id,
         sort_order: i,

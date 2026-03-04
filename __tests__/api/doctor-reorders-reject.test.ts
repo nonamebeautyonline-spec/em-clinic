@@ -2,19 +2,23 @@
 // 再処方却下 API (app/api/doctor/reorders/reject/route.ts) のテスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import type { Mock } from "vitest";
+
 // --- チェーンビルダー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -35,7 +39,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -44,12 +48,12 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 // --- ヘルパー ---
-function createMockRequest(body: any) {
+function createMockRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/doctor/reorders/reject", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  }) as unknown as Request;
 }
 
 import { POST } from "@/app/api/doctor/reorders/reject/route";
@@ -88,7 +92,7 @@ describe("POST /api/doctor/reorders/reject", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "INVALID_JSON",
-    }) as any;
+    }) as unknown as Request;
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
@@ -142,7 +146,7 @@ describe("POST /api/doctor/reorders/reject", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain;
@@ -170,7 +174,7 @@ describe("POST /api/doctor/reorders/reject", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain;
@@ -195,7 +199,7 @@ describe("POST /api/doctor/reorders/reject", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain;
@@ -218,7 +222,7 @@ describe("POST /api/doctor/reorders/reject", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain;
@@ -241,7 +245,7 @@ describe("POST /api/doctor/reorders/reject", () => {
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain;

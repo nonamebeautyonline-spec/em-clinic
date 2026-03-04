@@ -299,8 +299,8 @@ export default function MonthlySchedulePage() {
 
       setMsg({ type: "success", text: "設定を保存しました" });
       setSelectedDate(null);
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message || "保存に失敗しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "保存に失敗しました" });
     } finally {
       setSaving(false);
     }
@@ -362,8 +362,8 @@ export default function MonthlySchedulePage() {
       setWeeklyRules(editingWeeklyRules);
       setMsg({ type: "success", text: "週間スケジュールを保存しました" });
       setShowWeeklyEditor(false);
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message || "保存に失敗しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "保存に失敗しました" });
     } finally {
       setSaving(false);
     }
@@ -390,8 +390,8 @@ export default function MonthlySchedulePage() {
       } else {
         throw new Error(json.error);
       }
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message || "開放に失敗しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "開放に失敗しました" });
     } finally {
       setSaving(false);
     }
@@ -412,8 +412,8 @@ export default function MonthlySchedulePage() {
         setIsMonthOpen(false);
         setMsg({ type: "success", text: `${monthDisplay}の早期開放を取り消しました` });
       }
-    } catch (e: any) {
-      setMsg({ type: "error", text: e.message || "失敗しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "失敗しました" });
     } finally {
       setSaving(false);
     }

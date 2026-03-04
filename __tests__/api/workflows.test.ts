@@ -142,7 +142,7 @@ describe("ワークフロー ステップ設定検証", () => {
   });
 
   it("send_message: テキストもテンプレートもなければ無効", () => {
-    const config: Record<string, any> = { message_type: "text" };
+    const config: Record<string, unknown> = { message_type: "text" };
     expect(!config.text && !config.template_id).toBe(true);
   });
 
@@ -153,7 +153,7 @@ describe("ワークフロー ステップ設定検証", () => {
   });
 
   it("add_tag: tag_idがなければ無効", () => {
-    const config: Record<string, any> = {};
+    const config: Record<string, unknown> = {};
     expect(!config.tag_id).toBe(true);
   });
 
@@ -175,7 +175,7 @@ describe("ワークフロー ステップ設定検証", () => {
   });
 
   it("webhook: URLがなければ無効", () => {
-    const config: Record<string, any> = {};
+    const config: Record<string, unknown> = {};
     expect(!config.url).toBe(true);
   });
 });
@@ -206,8 +206,8 @@ describe("ワークフロー 削除可否ルール", () => {
 /* ======== トリガー設定マッチングテスト ======== */
 describe("ワークフロー トリガー設定マッチング", () => {
   function matchesTriggerConfig(
-    triggerConfig: Record<string, any> | null,
-    triggerData: Record<string, any>,
+    triggerConfig: Record<string, unknown> | null,
+    triggerData: Record<string, unknown>,
   ): boolean {
     if (!triggerConfig || Object.keys(triggerConfig).length === 0) {
       return true;

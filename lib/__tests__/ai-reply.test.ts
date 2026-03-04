@@ -1,8 +1,9 @@
 // lib/__tests__/ai-reply.test.ts — AI返信テスト
 
 // --- テーブルごとの独立チェーン生成 ---
-function createChain(defaultResolve: any = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, ReturnType<typeof vi.fn>>;
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: SupabaseChain = {};
   const methods = [
     "insert", "update", "delete", "select", "eq", "neq", "in",
     "is", "not", "order", "limit", "range", "single", "maybeSingle",
@@ -11,7 +12,7 @@ function createChain(defaultResolve: any = { data: null, error: null }) {
   for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -45,7 +46,7 @@ vi.mock("@/lib/ai-reply-approval", () => ({ sendApprovalFlexMessage: vi.fn() }))
 vi.mock("@/lib/settings", () => ({ getSettingOrEnv: vi.fn() }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({})),
 }));
 vi.mock("@/lib/supabase", () => ({
@@ -101,7 +102,7 @@ function mockAnthropicCreate(responseText: string, inputTokens = 100, outputToke
     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
   });
   // new Anthropic() でインスタンス化されるのでclassとしてモック
-  vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+  vi.mocked(Anthropic as unknown as ReturnType<typeof vi.fn>).mockImplementation(function (this: Record<string, unknown>) {
     this.messages = { create: mockCreate };
   });
   return mockCreate;
@@ -242,7 +243,7 @@ describe("scheduleAiReply", () => {
   });
 
   it("設定が無効（is_enabled=false）→ 早期リターン", async () => {
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: false }, error: null })
     );
     await scheduleAiReply("uid1", "p1", "田中", "こんにちは", null);
@@ -250,7 +251,7 @@ describe("scheduleAiReply", () => {
   });
 
   it("設定がnull → 早期リターン", async () => {
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: null, error: null })
     );
     await scheduleAiReply("uid1", "p1", "田中", "こんにちは", null);
@@ -258,7 +259,7 @@ describe("scheduleAiReply", () => {
   });
 
   it("フィルタリングでスキップ → Redis保存されない", async () => {
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: true }, error: null })
     );
     vi.mocked(shouldProcessWithAI).mockReturnValue({ process: false, reason: "too_short" });
@@ -267,7 +268,7 @@ describe("scheduleAiReply", () => {
   });
 
   it("フィルタリング通過 → Redisにデバウンス情報が保存される", async () => {
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: true }, error: null })
     );
     vi.mocked(shouldProcessWithAI).mockReturnValue({ process: true });
@@ -285,7 +286,7 @@ describe("scheduleAiReply", () => {
   });
 
   it("Redis set失敗 → エラーをキャッチしてリターン", async () => {
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: true }, error: null })
     );
     vi.mocked(shouldProcessWithAI).mockReturnValue({ process: true });
@@ -314,7 +315,7 @@ describe("processPendingAiReplies", () => {
   });
 
   it("デバウンスキーがnull → 0件処理", async () => {
-    vi.mocked(redis.smembers).mockResolvedValue(null as any);
+    vi.mocked(redis.smembers).mockResolvedValue(null as unknown as string[]);
     const result = await processPendingAiReplies();
     expect(result).toBe(0);
   });
@@ -371,7 +372,7 @@ describe("processPendingAiReplies", () => {
     };
     vi.mocked(redis.smembers).mockResolvedValue(["p1"]);
     // rawがオブジェクトとして返る（Upstash Redisの挙動）
-    vi.mocked(redis.get).mockResolvedValue(entry as any);
+    vi.mocked(redis.get).mockResolvedValue(entry as unknown as string);
 
     const result = await processPendingAiReplies();
     expect(result).toBe(0);
@@ -383,7 +384,7 @@ describe("processPendingAiReplies", () => {
     setupDebounceEntry();
 
     // processAiReply内: settings無効で早期リターンさせる
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: false }, error: null })
     );
 
@@ -429,7 +430,7 @@ describe("processPendingAiReplies", () => {
     });
 
     // p1のprocessAiReplyが実行される: settings無効で早期リターン
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: false }, error: null })
     );
 
@@ -457,7 +458,7 @@ describe("processAiReply（間接テスト）", () => {
 
   it("設定が無効（is_enabled=false）→ 早期リターン", async () => {
     setupForProcessAiReply();
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: { is_enabled: false }, error: null })
     );
 
@@ -467,7 +468,7 @@ describe("processAiReply（間接テスト）", () => {
 
   it("設定がnull → 早期リターン", async () => {
     setupForProcessAiReply();
-    tableChains.ai_reply_settings.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_settings.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: null, error: null })
     );
 
@@ -635,7 +636,7 @@ describe("processAiReply（間接テスト）", () => {
     vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
     mockAnthropicCreate(aiResponse);
     // autoモードなのでpushMessageが呼ばれる
-    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     const result = await processPendingAiReplies();
     expect(result).toBe(1);
@@ -713,7 +714,7 @@ describe("processAiReply（間接テスト）", () => {
     });
     vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
     // Anthropicがエラーをスロー
-    vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+    vi.mocked(Anthropic as unknown as ReturnType<typeof vi.fn>).mockImplementation(function (this: Record<string, unknown>) {
       this.messages = { create: vi.fn().mockRejectedValue(new Error("API rate limit")) };
     });
 
@@ -893,7 +894,7 @@ describe("processAiReply（間接テスト）", () => {
     });
     vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
     mockAnthropicCreate(aiResponse);
-    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     const result = await processPendingAiReplies();
     expect(result).toBe(1);
@@ -1146,7 +1147,7 @@ describe("processAiReply（間接テスト）", () => {
     });
     vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
     // content typeがtool_useの場合
-    vi.mocked(Anthropic as any).mockImplementation(function (this: any) {
+    vi.mocked(Anthropic as unknown as ReturnType<typeof vi.fn>).mockImplementation(function (this: Record<string, unknown>) {
       this.messages = {
         create: vi.fn().mockResolvedValue({
           content: [{ type: "tool_use", id: "toolu_xxx", name: "test", input: {} }],
@@ -1268,7 +1269,7 @@ describe("sendAiReply", () => {
   });
 
   it("pushMessage成功 → ドラフトをsent更新 & message_logにinsert", async () => {
-    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     await sendAiReply(1, "uid1", "返信テキスト", "p1", null);
 
@@ -1289,7 +1290,7 @@ describe("sendAiReply", () => {
   });
 
   it("pushMessage失敗（ok=false）→ ドラフトをpendingに戻し、message_logにinsertしない", async () => {
-    vi.mocked(pushMessage).mockResolvedValue({ ok: false } as any);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: false } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     await sendAiReply(2, "uid1", "テスト", "p1", null);
 
@@ -1300,7 +1301,7 @@ describe("sendAiReply", () => {
   });
 
   it("pushMessage戻り値がnull（res?.ok → false）→ pending", async () => {
-    vi.mocked(pushMessage).mockResolvedValue(null as any);
+    vi.mocked(pushMessage).mockResolvedValue(null as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     await sendAiReply(3, "uid1", "テスト", "p1", null);
 
@@ -1309,7 +1310,7 @@ describe("sendAiReply", () => {
   });
 
   it("tenantIdあり → pushMessageにtenantIdが渡る", async () => {
-    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
     await sendAiReply(1, "uid1", "返信", "p1", "tenant1");
 
@@ -1333,7 +1334,7 @@ describe("handleImplicitAiFeedback", () => {
 
   it("pendingドラフトなし → 何もしない", async () => {
     // ai_reply_drafts select → 空
-    tableChains.ai_reply_drafts.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_drafts.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: [], error: null })
     );
 
@@ -1344,7 +1345,7 @@ describe("handleImplicitAiFeedback", () => {
   });
 
   it("pendingドラフトがnull → 何もしない", async () => {
-    tableChains.ai_reply_drafts.then.mockImplementation((r: any) =>
+    tableChains.ai_reply_drafts.then.mockImplementation((r: (val: unknown) => unknown) =>
       r({ data: null, error: null })
     );
 

@@ -35,12 +35,31 @@ export interface StepItemData {
   tag_id: number | null;
   mark: string | null;
   menu_id: number | null;
-  condition_rules: any[];
+  condition_rules: Record<string, unknown>[];
   branch_true_step: number | null;
   branch_false_step: number | null;
-  exit_condition_rules: any[];
+  exit_condition_rules: Record<string, unknown>[];
   exit_action: string;
   exit_jump_to: number | null;
+}
+
+/** step_items の入力型（DBからの生データ） */
+export interface StepItemInput {
+  step_type: string;
+  delay_type?: string;
+  delay_value?: number;
+  send_time?: string | null;
+  content?: string | null;
+  template_id?: number | null;
+  tag_id?: number | null;
+  mark?: string | null;
+  menu_id?: number | null;
+  condition_rules?: Record<string, unknown>[];
+  branch_true_step?: number | null;
+  branch_false_step?: number | null;
+  exit_condition_rules?: Record<string, unknown>[];
+  exit_action?: string;
+  exit_jump_to?: number | null;
 }
 
 /** フローエッジ */
@@ -99,7 +118,7 @@ const NODE_TYPE_LABELS: Record<string, string> = {
  * @param items step_items の配列（sort_order昇順）
  * @returns フローグラフ
  */
-export function stepsToFlowGraph(items: any[]): FlowGraph {
+export function stepsToFlowGraph(items: StepItemInput[]): FlowGraph {
   if (!items || items.length === 0) {
     return { nodes: [], edges: [] };
   }
@@ -117,7 +136,7 @@ export function stepsToFlowGraph(items: any[]): FlowGraph {
     const label = NODE_TYPE_LABELS[item.step_type] || item.step_type;
 
     // 待機ノードを挿入するかどうか（delay_value > 0 かつ条件分岐でない場合）
-    const hasWait = item.step_type !== "condition" && item.delay_value > 0;
+    const hasWait = item.step_type !== "condition" && (item.delay_value ?? 0) > 0;
 
     // X位置: 分岐オフセットを考慮
     const xOffset = branchOffsets.get(index) || 0;
@@ -132,16 +151,16 @@ export function stepsToFlowGraph(items: any[]): FlowGraph {
       nodes.push({
         id: waitId,
         type: "wait",
-        label: formatDelay(item.delay_type, item.delay_value, item.send_time),
+        label: formatDelay(item.delay_type || "days", item.delay_value ?? 1, item.send_time ?? null),
         x,
         y: y - NODE_GAP_Y / 3,
         width: NODE_WIDTH,
         height: 50,
         data: {
           step_type: "wait",
-          delay_type: item.delay_type,
-          delay_value: item.delay_value,
-          send_time: item.send_time,
+          delay_type: item.delay_type || "days",
+          delay_value: item.delay_value ?? 1,
+          send_time: item.send_time ?? null,
           content: null,
           template_id: null,
           tag_id: null,
@@ -261,7 +280,7 @@ export function stepsToFlowGraph(items: any[]): FlowGraph {
  * @param graph フローグラフ
  * @returns step_items に相当する配列
  */
-export function flowGraphToSteps(graph: FlowGraph): any[] {
+export function flowGraphToSteps(graph: FlowGraph): Record<string, unknown>[] {
   // wait ノードを除外し、sort_order 順（node-N の N）でソート
   const mainNodes = graph.nodes
     .filter(n => n.type !== "wait")
@@ -325,7 +344,7 @@ export function flowGraphToSteps(graph: FlowGraph): any[] {
 /* ---------- ヘルパー関数 ---------- */
 
 /** ステップデータを StepItemData に変換 */
-function extractStepData(item: any): StepItemData {
+function extractStepData(item: StepItemInput): StepItemData {
   return {
     step_type: item.step_type,
     delay_type: item.delay_type || "days",
@@ -356,7 +375,7 @@ function formatDelay(delayType: string, delayValue: number, sendTime: string | n
 }
 
 /** ノードのラベルを構築 */
-function buildNodeLabel(item: any, baseLabel: string): string {
+function buildNodeLabel(item: StepItemInput, baseLabel: string): string {
   switch (item.step_type) {
     case "send_text":
       return item.content
@@ -367,8 +386,8 @@ function buildNodeLabel(item: any, baseLabel: string): string {
         ? `${baseLabel}\nID: ${item.template_id}`
         : baseLabel;
     case "condition":
-      return item.condition_rules?.length > 0
-        ? `${baseLabel}\n${item.condition_rules.length}件の条件`
+      return (item.condition_rules?.length ?? 0) > 0
+        ? `${baseLabel}\n${item.condition_rules!.length}件の条件`
         : baseLabel;
     case "tag_add":
     case "tag_remove":

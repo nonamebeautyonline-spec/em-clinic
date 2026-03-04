@@ -31,7 +31,7 @@ vi.mock("@/lib/ai-reply", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((query) => query),
+  withTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/settings", () => ({
@@ -69,10 +69,10 @@ describe("AI Reply Send API", () => {
 
   it("draftIdが非数値の場合は400を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "s", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "s", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "abc" }) });
     expect(res.status).toBe(400);
@@ -83,10 +83,10 @@ describe("AI Reply Send API", () => {
   it("parseBody失敗時はエラーレスポンスを返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
     const mockErrorResponse = { json: async () => ({ error: "バリデーションエラー" }), status: 422 };
-    vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse } as any);
+    vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res).toBe(mockErrorResponse);
@@ -94,13 +94,13 @@ describe("AI Reply Send API", () => {
 
   it("署名無効の場合は403を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "invalid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "invalid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(false);
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(403);
@@ -110,7 +110,7 @@ describe("AI Reply Send API", () => {
 
   it("ドラフトが見つからない場合は404を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
@@ -118,7 +118,7 @@ describe("AI Reply Send API", () => {
     mockSingle.mockReturnValue({ data: null, error: { message: "not found" } });
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(404);
@@ -128,7 +128,7 @@ describe("AI Reply Send API", () => {
 
   it("ドラフトstatusがpending以外の場合は400を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
@@ -136,7 +136,7 @@ describe("AI Reply Send API", () => {
     mockSingle.mockReturnValue({ data: { ...baseDraft, status: "sent" }, error: null });
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(400);
@@ -146,13 +146,13 @@ describe("AI Reply Send API", () => {
 
   it("正常系ではsendAiReplyが呼ばれて200を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
 
     const { sendAiReply } = await import("@/lib/ai-reply");
-    vi.mocked(sendAiReply).mockResolvedValue(undefined as any);
+    vi.mocked(sendAiReply).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof sendAiReply>>);
 
     // 1回目: ドラフト取得（pending）、2回目: 送信後ステータス確認（sent）
     mockSingle
@@ -162,7 +162,7 @@ describe("AI Reply Send API", () => {
     mockMaybeSingle.mockReturnValue({ data: null, error: null });
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(200);
@@ -173,13 +173,13 @@ describe("AI Reply Send API", () => {
 
   it("正常系でstatus=sentの場合modified_replyが更新される", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
 
     const { sendAiReply } = await import("@/lib/ai-reply");
-    vi.mocked(sendAiReply).mockResolvedValue(undefined as any);
+    vi.mocked(sendAiReply).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof sendAiReply>>);
 
     // 1回目: ドラフト取得、2回目: 送信後ステータス確認
     mockSingle
@@ -189,7 +189,7 @@ describe("AI Reply Send API", () => {
     mockMaybeSingle.mockReturnValue({ data: { id: "settings-1", knowledge_base: "既存KB" }, error: null });
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(200);
@@ -199,13 +199,13 @@ describe("AI Reply Send API", () => {
 
   it("ナレッジ追記エラーでも200を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
 
     const { sendAiReply } = await import("@/lib/ai-reply");
-    vi.mocked(sendAiReply).mockResolvedValue(undefined as any);
+    vi.mocked(sendAiReply).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof sendAiReply>>);
 
     mockSingle
       .mockReturnValueOnce({ data: { ...baseDraft }, error: null })
@@ -215,7 +215,7 @@ describe("AI Reply Send API", () => {
     mockMaybeSingle.mockImplementation(() => { throw new Error("KB error"); });
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(200);
@@ -225,13 +225,13 @@ describe("AI Reply Send API", () => {
 
   it("管理通知エラーでも200を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
 
     const { sendAiReply } = await import("@/lib/ai-reply");
-    vi.mocked(sendAiReply).mockResolvedValue(undefined as any);
+    vi.mocked(sendAiReply).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof sendAiReply>>);
 
     const { getSettingOrEnv } = await import("@/lib/settings");
     vi.mocked(getSettingOrEnv).mockResolvedValue("some-token");
@@ -246,7 +246,7 @@ describe("AI Reply Send API", () => {
     mockFetch.mockRejectedValue(new Error("LINE API error"));
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(200);
@@ -256,13 +256,13 @@ describe("AI Reply Send API", () => {
 
   it("sendAiReplyが正しい引数で呼ばれる", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as any);
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid-sig", exp: 9999999999 } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
     vi.mocked(verifyDraftSignature).mockReturnValue(true);
 
     const { sendAiReply } = await import("@/lib/ai-reply");
-    vi.mocked(sendAiReply).mockResolvedValue(undefined as any);
+    vi.mocked(sendAiReply).mockResolvedValue(undefined as unknown as Awaited<ReturnType<typeof sendAiReply>>);
 
     const draft = { ...baseDraft };
     mockSingle
@@ -270,7 +270,7 @@ describe("AI Reply Send API", () => {
       .mockReturnValueOnce({ data: { status: "pending" }, error: null }); // sent以外→modified_reply処理スキップ
 
     const { POST } = await import("@/app/api/ai-reply/[draftId]/send/route");
-    const req = { json: vi.fn() } as any;
+    const req = { json: vi.fn() } as unknown as Request;
 
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(200);

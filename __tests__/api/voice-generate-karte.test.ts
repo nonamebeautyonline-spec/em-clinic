@@ -71,7 +71,7 @@ describe("POST /api/voice/generate-karte", () => {
     const req = createRequest({
       transcript: "はい、前回のお薬で副作用は特になかったですか？ はい、大丈夫でした。効果も感じています。では同じ用量で続けましょう。",
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -85,7 +85,7 @@ describe("POST /api/voice/generate-karte", () => {
   it("テキストなしの場合は400を返す", async () => {
     const { POST } = await import("@/app/api/voice/generate-karte/route");
     const req = createRequest({});
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("テキスト");
@@ -94,7 +94,7 @@ describe("POST /api/voice/generate-karte", () => {
   it("テキストが短すぎる場合は400を返す", async () => {
     const { POST } = await import("@/app/api/voice/generate-karte/route");
     const req = createRequest({ transcript: "短い" });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("10文字");
@@ -107,7 +107,7 @@ describe("POST /api/voice/generate-karte", () => {
     const req = createRequest({
       transcript: "マンジャロ2.5mgを処方します。副作用はありませんでしたか？",
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(500);
   });
 
@@ -123,7 +123,7 @@ describe("POST /api/voice/generate-karte", () => {
     const req = createRequest({
       transcript: "前回のお薬で副作用はありませんでしたか",
     });
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
@@ -146,7 +146,7 @@ describe("POST /api/voice/generate-karte", () => {
     const req = createRequest({
       transcript: "テスト用の十分な長さのテキストです",
     });
-    await POST(req as any);
+    await POST(req as unknown as import("next/server").NextRequest);
 
     expect(mockMessagesCreate).toHaveBeenCalledWith(
       expect.objectContaining({

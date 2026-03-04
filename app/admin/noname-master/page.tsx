@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 
 interface Order {
   id: string;
@@ -23,7 +22,6 @@ interface Order {
 }
 
 export default function NonameMasterPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
@@ -45,11 +43,7 @@ export default function NonameMasterPage() {
   const [shippedTracking, setShippedTracking] = useState("");
   const [savingShippedInfo, setSavingShippedInfo] = useState(false);
 
-  useEffect(() => {
-    loadOrders();
-  }, [page, filter, limit]);
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -72,7 +66,11 @@ export default function NonameMasterPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, filter, limit]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   const handleTrackingChange = (orderId: string, value: string) => {
     setEditingTracking((prev) => ({ ...prev, [orderId]: value }));

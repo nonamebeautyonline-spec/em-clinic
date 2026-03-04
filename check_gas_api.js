@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const https = require('https');
 
 const GAS_RESERVATIONS_URL = 'https://script.google.com/macros/s/AKfycbwX4RihUris1ZN-Ungo8D1QOhNCGQHiPq9XK7W33F7p6DVVJFFdsZ0MU5lHZitEevBqnA/exec';

@@ -69,8 +69,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ blocked });
-  } catch (e: any) {
-    console.error("[Check Block] error:", e?.message || e);
-    return NextResponse.json({ blocked: false, error: e?.message });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Check Block] error:", msg);
+    return NextResponse.json({ blocked: false, error: msg });
   }
 }

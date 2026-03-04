@@ -107,24 +107,29 @@ export default function ActionsPage() {
     if (data.actions) setActions(data.actions);
   }, [selectedFolder]);
 
-  useEffect(() => {
+  const fetchMasterData = useCallback(async () => {
     setLoading(true);
-    Promise.all([
+    const [, tagsData, tmplData, marksData, rmData] = await Promise.all([
       fetchFolders(),
       fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/rich-menus", { credentials: "include" }).then(r => r.json()),
-    ]).then(([, tagsData, tmplData, marksData, rmData]) => {
-      if (tagsData.tags) setAllTags(tagsData.tags);
-      if (tmplData.templates) setAllTemplates(tmplData.templates);
-      if (marksData.marks) setAllMarks(marksData.marks);
-      if (rmData.menus) setAllRichMenus(rmData.menus);
-      setLoading(false);
-    });
+    ]);
+    if (tagsData.tags) setAllTags(tagsData.tags);
+    if (tmplData.templates) setAllTemplates(tmplData.templates);
+    if (marksData.marks) setAllMarks(marksData.marks);
+    if (rmData.menus) setAllRichMenus(rmData.menus);
+    setLoading(false);
   }, [fetchFolders]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    fetchMasterData();
+  }, [fetchMasterData]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
     fetchActions();
   }, [fetchActions]);
 

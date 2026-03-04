@@ -85,20 +85,35 @@ function formatYenShort(value: number): string {
 }
 
 /**
+ * ツールチップのペイロード型
+ */
+interface TooltipPayloadEntry {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+}
+
+/**
  * ツールチップの内容をカスタマイズ
  */
-function RevenueTooltip({ active, payload, label }: any) {
+function RevenueTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
 
   const total = payload.reduce(
-    (sum: number, entry: any) => sum + (entry.value || 0),
+    (sum: number, entry: TooltipPayloadEntry) => sum + (entry.value || 0),
     0,
   );
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-slate-900 mb-2">{label}</p>
-      {payload.map((entry: any) => (
+      {payload.map((entry: TooltipPayloadEntry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span
             className="inline-block w-3 h-3 rounded-sm"
@@ -120,13 +135,13 @@ function RevenueTooltip({ active, payload, label }: any) {
   );
 }
 
-function OrderTooltip({ active, payload, label }: any) {
+function OrderTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
       <p className="font-semibold text-slate-900 mb-2">{label}</p>
-      {payload.map((entry: any) => (
+      {payload.map((entry: TooltipPayloadEntry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
           <span
             className="inline-block w-3 h-3 rounded-sm"

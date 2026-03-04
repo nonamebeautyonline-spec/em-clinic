@@ -3,6 +3,18 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
+interface ReservationRow {
+  id: string;
+  reserve_id: string;
+  patient_id: string;
+  patient_name: string | null;
+  reserved_date: string | null;
+  reserved_time: string | null;
+  status: string | null;
+  prescription_menu: string | null;
+  created_at: string | null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     // 認証チェック（クッキーまたはBearerトークン）
@@ -43,7 +55,7 @@ export async function GET(req: NextRequest) {
       }
 
       // 患者情報を取得
-      const pIds = [...new Set((createdReservations || []).map((r: any) => r.patient_id).filter(Boolean))];
+      const pIds = [...new Set((createdReservations || []).map((r: ReservationRow) => r.patient_id).filter(Boolean))];
       const pMap2 = new Map<string, { name: string; kana: string; sex: string; birthday: string }>();
       if (pIds.length > 0) {
         const { data: pData } = await withTenant(
@@ -58,7 +70,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         created_date: createdDateParam,
-        reservations: (createdReservations || []).map((r: any) => {
+        reservations: (createdReservations || []).map((r: ReservationRow) => {
           const patient = pMap2.get(r.patient_id);
           return {
             id: r.id || r.reserve_id,
@@ -100,7 +112,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         from: fromParam,
-        reservations: (futureReservations || []).map((r: any) => ({
+        reservations: (futureReservations || []).map((r: ReservationRow) => ({
           id: r.id,
           reserve_id: r.reserve_id,
           patient_id: r.patient_id,
@@ -144,7 +156,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         month: monthParam,
-        reservations: (monthReservations || []).map((r: any) => ({
+        reservations: (monthReservations || []).map((r: ReservationRow) => ({
           id: r.id,
           reserve_id: r.reserve_id,
           patient_id: r.patient_id,
@@ -184,12 +196,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         error: "Database error",
         details: resvError.message || String(resvError),
-        hint: (resvError as any).hint || null
+        hint: (resvError as unknown as Record<string, unknown>).hint || null
       }, { status: 500 });
     }
 
     // 患者IDリストからpatientsテーブルで名前・カナ・性別・生年月日・line_idを取得
-    const patientIds = [...new Set((resvData || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const patientIds = [...new Set((resvData || []).map((r: ReservationRow) => r.patient_id).filter(Boolean))];
     const pMap = new Map<string, { name: string; kana: string; sex: string; birthday: string; line_id: string; tel: string }>();
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
@@ -205,7 +217,7 @@ export async function GET(req: NextRequest) {
     }
 
     // intakeからcall_status, note, answerer_id, statusを取得（reserve_id で紐付け）
-    const reserveIds = (resvData || []).map((r: any) => r.reserve_id).filter(Boolean);
+    const reserveIds = (resvData || []).map((r: ReservationRow) => r.reserve_id).filter(Boolean);
     const intakeMap = new Map<string, { call_status: string; note: string; answerer_id: string; intake_status: string | null }>();
     if (reserveIds.length > 0) {
       const { data: intakeData } = await withTenant(
@@ -230,7 +242,7 @@ export async function GET(req: NextRequest) {
     console.log(`[Admin Reservations] Reservations for ${targetDate}: ${(resvData || []).length}`);
 
     // レスポンス用に整形
-    const reservations = (resvData || []).map((row: any) => {
+    const reservations = (resvData || []).map((row: ReservationRow) => {
       const patient = pMap.get(row.patient_id);
       const intake = intakeMap.get(row.reserve_id);
       return {

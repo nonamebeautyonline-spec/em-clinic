@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { VoiceRecordButton } from "@/components/voice-record-button";
 import { VoiceKarteButton } from "@/components/voice-karte-button";
 
-type IntakeRow = { [key: string]: any };
+type IntakeRow = { [key: string]: unknown };
 
 function parseDateToAge(birth: string | undefined): string {
   if (!birth) return "";
@@ -62,7 +62,7 @@ function pickReserveId(row: IntakeRow): string {
 }
 
 // 日付文字列を "YYYY-MM-DD" に正規化
-function normalizeDateStr(raw: any): string {
+function normalizeDateStr(raw: unknown): string {
   if (raw == null) return "";
   const s = String(raw).trim();
   if (!s) return "";
@@ -151,7 +151,7 @@ export default function DoctorPage() {
   // =========================
   // 一覧取得（関数化）
   // =========================
-  const fetchList = async (fromIso?: string, toIso?: string) => {
+  const fetchList = useCallback(async (fromIso?: string, toIso?: string) => {
     try {
       // デフォルト：当日-2日～+5日
       if (!fromIso || !toIso) {
@@ -217,7 +217,7 @@ export default function DoctorPage() {
       setErrorMsg("一覧取得に失敗しました");
       setLoading(false);
     }
-  };
+  }, []);
 
   const closeModalAndRefresh = () => {
     setSelected(null);
@@ -249,20 +249,21 @@ export default function DoctorPage() {
   // 初回ロード
   useEffect(() => {
     fetchList();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchList]);
 
   // 診察モード取得（LINE通話フォームボタン表示制御）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-        const data = await res.json();
-        const t = data.settings?.type || "online_all";
-        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-      } catch {}
-    })();
+  const fetchConsultationMode = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+      const data = await res.json();
+      const t = data.settings?.type || "online_all";
+      setLineCallEnabled(t !== "online_phone" && t !== "in_person");
+    } catch { /* 取得失敗時はデフォルト値を維持 */ }
   }, []);
+
+  useEffect(() => {
+    fetchConsultationMode();
+  }, [fetchConsultationMode]);
 
 
   const handleOpenDetail = (row: IntakeRow) => {
@@ -277,7 +278,7 @@ export default function DoctorPage() {
         if (raw) {
           const d = JSON.parse(raw);
           if (typeof d.note === "string") setNote(d.note);
-          else setNote(row.doctor_note || row["doctor_note"] || "");
+          else setNote(String(row.doctor_note || row["doctor_note"] || ""));
 
           const menu = d.selectedMenu;
           setSelectedMenu(
@@ -291,8 +292,8 @@ export default function DoctorPage() {
     }
 
     // 下書きがなければ既存データを表示
-    setNote(row.doctor_note || row["doctor_note"] || "");
-    const menu = row.prescription_menu || row["prescription_menu"] || "";
+    setNote(String(row.doctor_note || row["doctor_note"] || ""));
+    const menu = String(row.prescription_menu || row["prescription_menu"] || "");
     setSelectedMenu(
       menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
     );
@@ -314,7 +315,6 @@ export default function DoctorPage() {
     } catch (e) {
       console.warn("draft save failed", e);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, note, selectedMenu]);
 
   const updateRowLocal = (reserveId: string, updates: Partial<IntakeRow>) => {

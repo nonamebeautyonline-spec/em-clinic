@@ -8,11 +8,11 @@ const mockVerifyAdminAuth = vi.fn();
 const mockParseBody = vi.fn();
 
 // ─── Supabaseチェーンモック（テーブル別） ───
-type MockResult = { data: any; error?: any };
+type MockResult = { data: unknown; error?: unknown };
 let mockResultsByTable: Record<string, MockResult[]> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "gte", "lte",
@@ -24,7 +24,7 @@ function createChain(table: string) {
 
   // range() の呼び出しでページネーション結果を返す
   let rangeCallCount = 0;
-  chain.range.mockImplementation(() => {
+  (chain.range as ReturnType<typeof vi.fn>).mockImplementation(() => {
     const results = mockResultsByTable[table] || [];
     const result = results[rangeCallCount] || { data: [], error: null };
     rangeCallCount++;
@@ -32,13 +32,13 @@ function createChain(table: string) {
   });
 
   // select().single() のチェーンで結果を返す
-  chain.single.mockImplementation(() => {
+  (chain.single as ReturnType<typeof vi.fn>).mockImplementation(() => {
     const results = mockResultsByTable[table] || [];
     return results[0] || { data: null, error: null };
   });
 
   // Promise として解決できるように（withTenant + await 対応）
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject: (v: unknown) => unknown) => {
     const results = mockResultsByTable[table] || [];
     const result = results[0] || { data: null, error: null };
     return Promise.resolve(result).then(resolve, reject);
@@ -48,7 +48,7 @@ function createChain(table: string) {
 }
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -59,11 +59,11 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 vi.mock("@/lib/validations/helpers", () => ({
-  parseBody: (...args: any[]) => mockParseBody(...args),
+  parseBody: (...args: unknown[]) => mockParseBody(...args),
 }));
 
 vi.mock("@/lib/validations/admin-operations", () => ({
@@ -74,13 +74,12 @@ vi.mock("@/lib/validations/admin-operations", () => ({
 import { GET, PUT, DELETE } from "@/app/api/admin/tags/[id]/route";
 
 // ─── ヘルパー ───
-function createMockRequest(method: string, url: string, body?: any) {
-  const req = new Request(url, {
+function createMockRequest(method: string, url: string, body?: unknown) {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return req as any;
 }
 
 function makeParams(id: string) {
@@ -213,7 +212,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
         JSON.stringify({ ok: false, error: "入力値が不正です", details: ["name: 必須"] }),
         { status: 400 },
       );
-      mockParseBody.mockResolvedValueOnce({ error: errorResponse as any });
+      mockParseBody.mockResolvedValueOnce({ error: errorResponse as unknown as Response });
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/tags/1", {});
       const res = await PUT(req, makeParams("1"));

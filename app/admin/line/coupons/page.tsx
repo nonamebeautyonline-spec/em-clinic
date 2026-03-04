@@ -27,6 +27,21 @@ export default function CouponsPage() {
   const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
   const [showDistribute, setShowDistribute] = useState<Coupon | null>(null);
 
+  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/admin/line/coupons", { credentials: "include" });
+      const data = await res.json();
+      if (!cancelled) {
+        if (data.coupons) setCoupons(data.coupons);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 手動再読み込み用
   const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/line/coupons", { credentials: "include" });
@@ -34,8 +49,6 @@ export default function CouponsPage() {
     if (data.coupons) setCoupons(data.coupons);
     setLoading(false);
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("このクーポンを削除しますか？")) return;

@@ -107,9 +107,9 @@ export async function POST(req: NextRequest) {
     console.log(`[Preview] Reconcile mode: ${reconcileMode}`);
 
     // 照合処理（プレビューのみ、DB更新なし）
-    const matched: any[] = [];
-    const amountMismatchList: any[] = [];
-    const unmatched: any[] = [];
+    const matched: { transfer: Transfer; order: typeof pendingOrdersWithNames[number] }[] = [];
+    const amountMismatchList: { transfer: Transfer; order: typeof pendingOrdersWithNames[number]; difference: number }[] = [];
+    const unmatched: { date: string; description: string; amount: number; reason: string }[] = [];
     const usedOrderIds = new Set<string>();
 
     console.log(`[Preview] Starting reconciliation...`);
@@ -227,10 +227,10 @@ export async function POST(req: NextRequest) {
       },
       debug: debugInfo, // ★ デバッグ情報を追加
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Preview] Error:", e);
     return NextResponse.json(
-      { error: e?.message || "サーバーエラー" },
+      { error: (e instanceof Error ? e.message : null) || "サーバーエラー" },
       { status: 500 }
     );
   }

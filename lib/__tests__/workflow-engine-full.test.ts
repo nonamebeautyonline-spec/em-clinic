@@ -7,7 +7,7 @@ const mockFrom = vi.fn();
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: (...args: any[]) => mockFrom(...args),
+    from: (...args: unknown[]) => mockFrom(...args),
   },
 }));
 
@@ -34,8 +34,8 @@ const { executeWorkflow, fireWorkflowTrigger } = await import(
 
 /* ---------- ヘルパー ---------- */
 
-function createChain(overrides: Record<string, any> = {}) {
-  const chain: any = {
+function createChain(overrides: Record<string, unknown> = {}) {
+  const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),

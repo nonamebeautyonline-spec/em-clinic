@@ -7,13 +7,13 @@ const mockIs = vi.fn();
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn(() => ({
-      insert: (...args: any[]) => mockInsert(...args),
-      select: (...args: any[]) => {
+      insert: (...args: unknown[]) => mockInsert(...args),
+      select: (...args: unknown[]) => {
         mockSelect(...args);
         return {
-          is: (...isArgs: any[]) => {
+          is: (...isArgs: unknown[]) => {
             mockIs(...isArgs);
-            return mockIs._resolveValue;
+            return (mockIs as unknown as { _resolveValue: Promise<{ count: number | null }> })._resolveValue;
           },
         };
       },
@@ -27,7 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockInsert.mockResolvedValue({ error: null });
   // デフォルトの解決値
-  (mockIs as any)._resolveValue = Promise.resolve({ count: 0 });
+  (mockIs as unknown as { _resolveValue: Promise<{ count: number | null }> })._resolveValue = Promise.resolve({ count: 0 });
 });
 
 describe("createAlert", () => {
@@ -84,7 +84,7 @@ describe("createAlert", () => {
 
 describe("getUnacknowledgedCount", () => {
   it("正常にカウントを返す", async () => {
-    (mockIs as any)._resolveValue = Promise.resolve({ count: 3 });
+    (mockIs as unknown as { _resolveValue: Promise<{ count: number | null }> })._resolveValue = Promise.resolve({ count: 3 });
 
     const count = await getUnacknowledgedCount();
     expect(count).toBe(3);
@@ -93,14 +93,14 @@ describe("getUnacknowledgedCount", () => {
   });
 
   it("count が null の場合は 0 を返す", async () => {
-    (mockIs as any)._resolveValue = Promise.resolve({ count: null });
+    (mockIs as unknown as { _resolveValue: Promise<{ count: number | null }> })._resolveValue = Promise.resolve({ count: null });
 
     const count = await getUnacknowledgedCount();
     expect(count).toBe(0);
   });
 
   it("count が 0 の場合は 0 を返す", async () => {
-    (mockIs as any)._resolveValue = Promise.resolve({ count: 0 });
+    (mockIs as unknown as { _resolveValue: Promise<{ count: number | null }> })._resolveValue = Promise.resolve({ count: 0 });
 
     const count = await getUnacknowledgedCount();
     expect(count).toBe(0);

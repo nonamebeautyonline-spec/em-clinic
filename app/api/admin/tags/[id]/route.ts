@@ -6,9 +6,8 @@ import { parseBody } from "@/lib/validations/helpers";
 import { tagUpdateSchema } from "@/lib/validations/admin-operations";
 
 // ページネーション付き全件取得
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
+  const all: Record<string, unknown>[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -34,16 +33,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     () => withTenant(
       supabaseAdmin.from("patient_tags").select("patient_id, assigned_at").eq("tag_id", Number(id)).order("assigned_at", { ascending: false }),
       tenantId
-    ),
+    ) as unknown as { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> },
   );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const patientIds = (ptRows || []).map((r: any) => r.patient_id);
+  const patientIds = (ptRows || []).map((r) => r.patient_id as string);
   if (patientIds.length === 0) return NextResponse.json({ patients: [] });
 
   // patientsテーブルから患者名・line_idを取得（patient_idsが大量の場合バッチ分割）
-  const patientRows: any[] = [];
+  const patientRows: { patient_id: string; name: string; line_id: string | null }[] = [];
   const BATCH = 500;
   for (let i = 0; i < patientIds.length; i += BATCH) {
     const chunk = patientIds.slice(i, i + BATCH);
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .in("patient_id", chunk),
       tenantId
     );
-    if (data) patientRows.push(...data);
+    if (data) patientRows.push(...(data as typeof patientRows));
   }
 
   // patient_idでマップ化

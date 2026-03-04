@@ -1,10 +1,12 @@
 // lib/__tests__/products.test.ts
 // 商品マスタ共通ライブラリのテスト（DBフォールバック・テナント対応・マップ生成）
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "fs";
+import path from "path";
 
 // Supabase モック
 const mockMaybeSingle = vi.fn();
-const mockIs = vi.fn().mockReturnValue({ data: null, error: null, then: (cb: any) => Promise.resolve(cb({ data: null, error: null })) });
+const mockIs = vi.fn().mockReturnValue({ data: null, error: null, then: (cb: (value: { data: unknown; error: unknown }) => unknown) => Promise.resolve(cb({ data: null, error: null })) });
 const mockEq = vi.fn().mockReturnThis();
 const mockOrder = vi.fn().mockReturnThis();
 const mockSelect = vi.fn().mockReturnThis();
@@ -231,8 +233,6 @@ describe("フォールバック商品データ整合性", () => {
 // ソースコード構造チェック
 // ===================================================================
 describe("products: ソースコード構造", () => {
-  const fs = require("fs");
-  const path = require("path");
   const src = fs.readFileSync(path.resolve(process.cwd(), "lib/products.ts"), "utf-8");
 
   it("supabaseAdmin を使用している", () => {

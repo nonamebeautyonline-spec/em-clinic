@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーンビルダー ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, ReturnType<typeof createChain>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -34,17 +34,17 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
 // --- ヘルパー ---
-function createMockRequest(body: any) {
+function createMockRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/doctor/callstatus", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  });
 }
 
 import { POST } from "@/app/api/doctor/callstatus/route";
@@ -88,7 +88,7 @@ describe("POST /api/doctor/callstatus", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "INVALID_JSON",
-    }) as any;
+    });
     const res = await POST(req);
     expect(res.status).toBe(400);
   });

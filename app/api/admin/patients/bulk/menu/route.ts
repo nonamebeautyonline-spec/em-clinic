@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
 
     const noUid = patient_ids.length - lineUserIds.length;
     return NextResponse.json({ ok: linked > 0, linked, failed, no_uid: noUid, total: patient_ids.length });
-  } catch (e: any) {
-    console.error("[Rich Menu Bulk Link] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[Rich Menu Bulk Link] Unhandled error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

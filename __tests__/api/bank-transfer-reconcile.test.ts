@@ -1,6 +1,6 @@
 // __tests__/api/bank-transfer-reconcile.test.ts
 // 銀行振込CSV一括照合API（reconcile/route.ts）のテスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 // --- モック定義 ---
 
@@ -11,28 +11,19 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
-// Supabase チェーンモック
-const mockChain: any = {};
-[
-  "insert", "update", "delete", "select", "eq", "neq",
-  "in", "is", "not", "order", "limit", "range", "single",
-  "maybeSingle", "upsert", "like", "gte", "lte",
-].forEach((m) => {
-  mockChain[m] = vi.fn().mockReturnValue(mockChain);
-});
-// デフォルト: select は空配列を返す
-mockChain.select.mockReturnValue(mockChain);
-mockChain.eq.mockReturnValue(mockChain);
-mockChain.like.mockReturnValue(mockChain);
+// Supabase チェーンモック型
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // 結果を制御するための変数
-let pendingOrdersResult: any = { data: [], error: null };
-let pendingOrdersWithNamesResult: any = { data: [], error: null };
-let allBtOrdersResult: any = { data: [], error: null };
-let updateResult: any = { error: null };
+let pendingOrdersResult: { data: unknown; error: unknown } = { data: [], error: null };
+let pendingOrdersWithNamesResult: { data: unknown; error: unknown } = { data: [], error: null };
+let allBtOrdersResult: { data: unknown; error: unknown } = { data: [], error: null };
+let updateResult: { error: unknown } = { error: null };
 
 // from の呼び出し回数でどのクエリかを判定
 let fromCallCount = 0;
@@ -40,7 +31,7 @@ let fromCallCount = 0;
 const mockFrom = vi.fn(() => {
   fromCallCount++;
   // チェーンモックを返す
-  const chain: any = {};
+  const chain = {} as SupabaseChain;
   const methods = [
     "insert", "update", "delete", "select", "eq", "neq",
     "in", "is", "not", "order", "limit", "range", "single",
@@ -52,13 +43,9 @@ const mockFrom = vi.fn(() => {
 
   // select → eq("status", "pending_confirmation") → eq("payment_method", "bank_transfer")
   // 1回目: pendingOrders, 2回目: pendingOrdersWithNames, 3回目以降: allBtOrders / update
-  let eqCount = 0;
-  let isSelectQuery = false;
   let isUpdateQuery = false;
-  let isLikeQuery = false;
 
   chain.select = vi.fn().mockImplementation(() => {
-    isSelectQuery = true;
     return chain;
   });
 
@@ -68,13 +55,11 @@ const mockFrom = vi.fn(() => {
   });
 
   chain.like = vi.fn().mockImplementation(() => {
-    isLikeQuery = true;
     // allBtOrders の結果を返す（Promiseを模倣）
     return allBtOrdersResult;
   });
 
-  chain.eq = vi.fn().mockImplementation((key: string, val: any) => {
-    eqCount++;
+  chain.eq = vi.fn().mockImplementation((key: string, val: unknown) => {
     if (isUpdateQuery) {
       // update().eq() → 更新結果を返す
       return updateResult;
@@ -110,9 +95,14 @@ import { POST } from "@/app/api/admin/bank-transfer/reconcile/route";
 
 // --- ヘルパー ---
 
+// FormDataファイルの型
+interface MockFile {
+  text: () => Promise<string>;
+}
+
 // CSVファイル付きFormDataリクエスト作成
-function createFormDataRequest(csvContent: string, hasFile = true): any {
-  const formData = new Map<string, any>();
+function createFormDataRequest(csvContent: string, hasFile = true) {
+  const formData = new Map<string, MockFile | null>();
   if (hasFile && csvContent !== "") {
     formData.set("file", {
       text: async () => csvContent,
@@ -125,7 +115,7 @@ function createFormDataRequest(csvContent: string, hasFile = true): any {
     }),
     headers: new Headers(),
     nextUrl: { origin: "http://localhost:3000" },
-  } as any;
+  } as unknown as Request;
 }
 
 // --- テスト本体 ---
@@ -168,12 +158,8 @@ describe("bank-transfer reconcile API", () => {
 
   // 3. 空CSV
   it("空のCSV → 400", async () => {
-    const req = createFormDataRequest("   \n   \n   ");
-    // CSVの行が全て空白のみ→filter後空→lines.length === 0
-    // ただし " \n " はtrimするとemptyになりfilterで除外される
-    const req2 = createFormDataRequest("");
     // 空文字列のFile
-    const formData = new Map<string, any>();
+    const formData = new Map<string, MockFile>();
     formData.set("file", { text: async () => "" });
     const emptyReq = {
       formData: async () => ({
@@ -181,7 +167,7 @@ describe("bank-transfer reconcile API", () => {
       }),
       headers: new Headers(),
       nextUrl: { origin: "http://localhost:3000" },
-    } as any;
+    } as unknown as Request;
     const res = await POST(emptyReq);
     expect(res.status).toBe(400);
   });
@@ -436,7 +422,7 @@ describe("bank-transfer reconcile API", () => {
       },
       headers: new Headers(),
       nextUrl: { origin: "http://localhost:3000" },
-    } as any;
+    } as unknown as Request;
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();

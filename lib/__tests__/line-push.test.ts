@@ -22,7 +22,7 @@ const testMessages = [{ type: "text" as const, text: "テストメッセージ" 
 describe("pushMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (getSettingOrEnv as any).mockResolvedValue("test-line-token");
+    vi.mocked(getSettingOrEnv).mockResolvedValue("test-line-token");
     mockFetch.mockResolvedValue({
       ok: true,
       text: vi.fn().mockResolvedValue(""),
@@ -50,7 +50,7 @@ describe("pushMessage", () => {
 
   // 2. token空 → null
   it("token空 → nullを返す", async () => {
-    (getSettingOrEnv as any).mockResolvedValue("");
+    vi.mocked(getSettingOrEnv).mockResolvedValue("");
 
     const res = await pushMessage("U_user_001", testMessages);
 
@@ -95,7 +95,7 @@ describe("pushMessage", () => {
 describe("multicastMessage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (getSettingOrEnv as any).mockResolvedValue("test-line-token");
+    vi.mocked(getSettingOrEnv).mockResolvedValue("test-line-token");
     mockFetch.mockResolvedValue({
       ok: true,
       text: vi.fn().mockResolvedValue(""),
@@ -148,7 +148,7 @@ describe("multicastMessage", () => {
 
   // 8. token空 → null
   it("token空 → nullを返す", async () => {
-    (getSettingOrEnv as any).mockResolvedValue("");
+    vi.mocked(getSettingOrEnv).mockResolvedValue("");
 
     const results = await multicastMessage(["U_001"], testMessages);
 

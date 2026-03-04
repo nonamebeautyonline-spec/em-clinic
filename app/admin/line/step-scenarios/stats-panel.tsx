@@ -98,8 +98,8 @@ export default function StatsPanel({ scenario_id, onClose }: StatsPanelProps) {
         throw new Error(json.error);
       }
       setData(json);
-    } catch (e: any) {
-      setError(e.message || "データ取得に失敗しました");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "データ取得に失敗しました");
     } finally {
       setLoading(false);
     }

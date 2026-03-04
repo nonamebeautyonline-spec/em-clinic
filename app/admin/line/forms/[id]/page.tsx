@@ -436,19 +436,23 @@ export default function FormEditorPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    Promise.all([
+  const initFormEditor = useCallback(async () => {
+    const [, folderData, actionData, fieldData] = await Promise.all([
       fetchForm(),
       fetch("/api/admin/line/form-folders", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/actions", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-    ]).then(([, folderData, actionData, fieldData]) => {
-      if (folderData.folders) setFolders(folderData.folders);
-      if (actionData.actions) setActions(actionData.actions);
-      if (fieldData.fields) setFriendFields(fieldData.fields);
-      setLoading(false);
-    });
+    ]);
+    if (folderData.folders) setFolders(folderData.folders);
+    if (actionData.actions) setActions(actionData.actions);
+    if (fieldData.fields) setFriendFields(fieldData.fields);
+    setLoading(false);
   }, [fetchForm]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    initFormEditor();
+  }, [initFormEditor]);
 
   // 保存
   const save = async () => {

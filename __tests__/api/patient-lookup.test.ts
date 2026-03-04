@@ -11,16 +11,16 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // Supabase チェーンモック
 // テーブル別に結果を制御するための設定
-type MockResult = { data: any; error?: any; count?: number | null };
+type MockResult = { data: unknown; error?: unknown; count?: number | null };
 let mockResultsByTable: Record<string, MockResult> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "maybeSingle", "single",
@@ -37,7 +37,7 @@ function createChain(table: string) {
   });
 
   // thenableにする（Promise.allで使えるように）
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: null, error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -62,7 +62,7 @@ vi.mock("@/lib/patient-utils", () => ({
 import { GET } from "@/app/api/admin/patient-lookup/route";
 
 // --- ヘルパー ---
-function createReq(url: string): any {
+function createReq(url: string) {
   return new Request(url, {
     method: "GET",
     headers: { "Content-Type": "application/json" },

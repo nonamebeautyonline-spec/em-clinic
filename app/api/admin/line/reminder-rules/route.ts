@@ -96,8 +96,10 @@ export async function PUT(req: NextRequest) {
 
   const parsed = await parseBody(req, reminderRuleSchema);
   if ("error" in parsed) return parsed.error;
-  const { id, name, timing_type, timing_value, message_template, is_enabled,
-          send_hour, send_minute, target_day_offset, message_format } = parsed.data as any;
+  const body = parsed.data as Record<string, unknown>;
+  const id = body.id as string | undefined;
+  const { name, timing_type, timing_value, message_template, is_enabled,
+          send_hour, send_minute, target_day_offset, message_format } = parsed.data;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 

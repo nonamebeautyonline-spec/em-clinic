@@ -1,20 +1,24 @@
 // __tests__/api/booking-open.test.ts
 // 予約早期開放API（GET/POST/DELETE）テスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
     "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -34,25 +38,25 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   // nextUrl を模倣
-  (req as any).nextUrl = new URL(url);
-  return req as any;
+  (req as unknown as { nextUrl: URL }).nextUrl = new URL(url);
+  return req as unknown as Request;
 }
 
 import { GET, POST, DELETE } from "@/app/api/admin/booking-open/route";
@@ -87,7 +91,7 @@ describe("予約早期開放 API - GET", () => {
 
   it("レコードあり → is_open=true を返す", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { is_open: true, opened_at: "2026-02-20T00:00:00Z" },
       error: null,
     }));
@@ -104,7 +108,7 @@ describe("予約早期開放 API - GET", () => {
 
   it("レコードなし（PGRST116）→ is_open=false を返す", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: null,
       error: { code: "PGRST116", message: "no rows" },
     }));
@@ -120,7 +124,7 @@ describe("予約早期開放 API - GET", () => {
 
   it("DBエラー（PGRST116以外）→ 500", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: null,
       error: { code: "XXXXX", message: "DB connection failed" },
     }));
@@ -157,7 +161,7 @@ describe("予約早期開放 API - POST", () => {
 
   it("正常に開放 → 200 + メッセージ", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { target_month: "2026-03", is_open: true },
       error: null,
     }));
@@ -175,7 +179,7 @@ describe("予約早期開放 API - POST", () => {
 
   it("DBエラー → 500", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: null,
       error: { message: "Upsert failed" },
     }));
@@ -210,7 +214,7 @@ describe("予約早期開放 API - DELETE", () => {
 
   it("正常に取消 → 200", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const req = createMockRequest("DELETE", "http://localhost/api/admin/booking-open?month=2026-03");
     const res = await DELETE(req);
@@ -222,7 +226,7 @@ describe("予約早期開放 API - DELETE", () => {
 
   it("DBエラー → 500", async () => {
     const chain = getOrCreateChain("booking_open_settings");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: null,
       error: { message: "Delete failed" },
     }));

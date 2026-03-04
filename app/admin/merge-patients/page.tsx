@@ -141,8 +141,8 @@ function NameChangeSection() {
       } else {
         setError("該当する患者が見つかりませんでした");
       }
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e) {
+      setError((e as Error).message || String(e));
     } finally {
       setLoading(false);
     }
@@ -173,8 +173,8 @@ function NameChangeSection() {
       });
       setNewName(data.patient.name || "");
       setNewNameKana(data.patient.kana || "");
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e) {
+      setError((e as Error).message || String(e));
       setSelectedPatient(null);
     } finally {
       setLoading(false);
@@ -233,8 +233,8 @@ function NameChangeSection() {
           ? { ...prev, name: newName.trim(), kana: newNameKana.trim() }
           : null
       );
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e) {
+      setError((e as Error).message || String(e));
     } finally {
       setExecuting(false);
     }
@@ -527,8 +527,8 @@ function MergeSection() {
           paidAt: latest.paidAt || "",
         } : undefined,
       });
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e) {
+      setError((e as Error).message || String(e));
       setPatient(null);
     } finally {
       setLoading(false);
@@ -599,8 +599,8 @@ function MergeSection() {
       // 旧患者情報をクリア
       setOldPatientId("");
       setOldPatient(null);
-    } catch (e: any) {
-      setError(String(e?.message || e));
+    } catch (e) {
+      setError((e as Error).message || String(e));
     } finally {
       setMerging(false);
     }

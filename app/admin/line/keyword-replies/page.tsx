@@ -14,7 +14,7 @@ interface KeywordRule {
   reply_text: string | null;
   reply_template_id: number | null;
   reply_action_id: number | null;
-  condition_rules: any[];
+  condition_rules: unknown[];
   created_at: string;
 }
 
@@ -71,7 +71,7 @@ export default function KeywordRepliesPage() {
   const [editRule, setEditRule] = useState<Partial<KeywordRule> | null>(null);
   const [saving, setSaving] = useState(false);
   const [testText, setTestText] = useState("");
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<{ matched: boolean; rule?: { id: number; name: string; keyword: string; reply_text?: string } } | null>(null);
   const [testing, setTesting] = useState(false);
 
   // 統計データ（キーワードごとのトリガー回数）
@@ -202,8 +202,7 @@ export default function KeywordRepliesPage() {
     setTestSending(true);
     setTestSendMsg(null);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const body: any = { patient_id: testAccount.patient_id };
+      const body: { patient_id: string; message?: string } = { patient_id: testAccount.patient_id };
 
       if (rule.reply_type === "template" && rule.reply_template_id) {
         // テンプレートの内容を取得して送信

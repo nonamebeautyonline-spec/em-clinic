@@ -137,7 +137,7 @@ export default function PatientLookupWidget() {
         ]);
         const tagsData = await tagsRes.json();
         const markData = await markRes.json();
-        patientResult.tags = (tagsData.tags || []).map((t: any) => ({
+        patientResult.tags = (tagsData.tags || []).map((t: { tag_definitions?: { id?: number; name?: string; color?: string }; tag_id?: number }) => ({
           id: t.tag_definitions?.id || t.tag_id,
           name: t.tag_definitions?.name || "",
           color: t.tag_definitions?.color || "#6B7280",

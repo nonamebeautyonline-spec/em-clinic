@@ -54,9 +54,9 @@ export async function GET(req: NextRequest) {
     await setSetting("payment", "bank_accounts", JSON.stringify(defaults), tenantId);
     await setSetting("payment", "active_bank_account_id", DEFAULT_BANK_ACCOUNT.id, tenantId);
     return NextResponse.json({ accounts: defaults, activeId: DEFAULT_BANK_ACCOUNT.id });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[BankAccounts GET] Error:", e);
-    return NextResponse.json({ error: e?.message || "サーバーエラー" }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
   }
 }
 
@@ -89,8 +89,8 @@ export async function PUT(req: NextRequest) {
     await setSetting("payment", "active_bank_account_id", activeId, tenantId);
 
     return NextResponse.json({ success: true, accounts, activeId });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[BankAccounts PUT] Error:", e);
-    return NextResponse.json({ error: e?.message || "サーバーエラー" }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
   }
 }

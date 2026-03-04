@@ -91,12 +91,20 @@ export default function FriendsListPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
-    const close = () => setOpenMarkDropdown(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    fetchData();
+  }, [fetchData]);
+
+  // マークドロップダウンを閉じるハンドラ（useEffect外で定義）
+  const handleGlobalClick = useCallback(() => {
+    setOpenMarkDropdown(null);
   }, []);
+
+  useEffect(() => {
+    window.addEventListener("click", handleGlobalClick);
+    return () => window.removeEventListener("click", handleGlobalClick);
+  }, [handleGlobalClick]);
 
   // マーク定義から色・ラベルを取得
   const getMarkStyle = (mark: string) => {
@@ -384,7 +392,10 @@ export default function FriendsListPage() {
   });
 
   // フィルタ変更時にページリセット
-  useEffect(() => { setPage(0); }, [searchName, filterTag, filterMark, filterLine, advActive]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- フィルタ変更時のページリセット
+    setPage(0);
+  }, [searchName, filterTag, filterMark, filterLine, advActive]);
 
   // ページネーション
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);

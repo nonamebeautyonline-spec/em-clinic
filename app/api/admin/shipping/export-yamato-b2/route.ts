@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 患者IDを取得
-    const patientIds = [...new Set(orders.map((o: any) => o.patient_id))];
+    const patientIds = [...new Set(orders.map((o) => o.patient_id))];
 
     // 患者情報を取得（patientsテーブルから）
     const { data: patients, error: patientsError } = await withTenant(
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     // 患者情報のマップを作成（住所等は orders テーブルから取得するため最小限）
     const patientMap = new Map();
-    (patients || []).forEach((p: any) => {
+    (patients || []).forEach((p) => {
       patientMap.set(p.patient_id, {
         name: p.name || "",
         postal: "",
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     });
 
     // CSV用のデータを準備
-    const csvData = orders.map((order: any) => {
+    const csvData = orders.map((order) => {
       const patient = patientMap.get(order.patient_id) || {};
       return {
         payment_id: order.id,

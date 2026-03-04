@@ -20,7 +20,7 @@ type LineMessage = {
 } | {
   type: "flex";
   altText: string;
-  contents: any;
+  contents: Record<string, unknown>;
 };
 
 /**

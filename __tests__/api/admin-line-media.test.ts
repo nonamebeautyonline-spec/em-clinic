@@ -35,18 +35,18 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockVerifyAdminAuth = vi.fn().mockResolvedValue(true);
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
-  withTenant: vi.fn((query) => query),
+  withTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((id: string) => ({ tenant_id: id })),
 }));
 
 const mockParseBody = vi.fn();
 vi.mock("@/lib/validations/helpers", () => ({
-  parseBody: (...args: any[]) => mockParseBody(...args),
+  parseBody: (...args: unknown[]) => mockParseBody(...args),
 }));
 
 vi.mock("@/lib/validations/line-management", () => ({
@@ -54,14 +54,14 @@ vi.mock("@/lib/validations/line-management", () => ({
 }));
 
 // --- ヘルパー ---
-function createMockRequest(url: string, options?: { method?: string; body?: any; formData?: any }) {
+function createMockRequest(url: string, options?: { method?: string; body?: Record<string, unknown>; formData?: ReturnType<typeof createMockFormData> }) {
   return {
     method: options?.method || "GET",
     url,
     headers: { get: vi.fn(() => null) },
     json: async () => options?.body || {},
     formData: options?.formData ? async () => options.formData : async () => new Map(),
-  } as any;
+  } as unknown as Request;
 }
 
 function createMockFile(name: string, type: string, size: number) {
@@ -73,8 +73,8 @@ function createMockFile(name: string, type: string, size: number) {
   } as unknown as File;
 }
 
-function createMockFormData(entries: Record<string, any>) {
-  return { get: (key: string) => entries[key] ?? null } as any;
+function createMockFormData(entries: Record<string, unknown>) {
+  return { get: (key: string) => entries[key] ?? null };
 }
 
 async function parseJson(res: Response) {
@@ -113,7 +113,7 @@ describe("admin/line/media API テスト", () => {
 
     it("2. 全件取得 → 200", async () => {
       const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 1, name: "file1.jpg" }], error: null } as any);
+      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 1, name: "file1.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media");
       const res = await GET(req);
@@ -125,7 +125,7 @@ describe("admin/line/media API テスト", () => {
 
     it("3. folder_idフィルタ", async () => {
       const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 2, name: "folder_file.jpg" }], error: null } as any);
+      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 2, name: "folder_file.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media?folder_id=5");
       const res = await GET(req);
@@ -137,7 +137,7 @@ describe("admin/line/media API テスト", () => {
 
     it("4. searchフィルタ", async () => {
       const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 3, name: "search_match.jpg" }], error: null } as any);
+      vi.mocked(withTenant).mockResolvedValueOnce({ data: [{ id: 3, name: "search_match.jpg" }], error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media?search=match");
       const res = await GET(req);
@@ -149,7 +149,7 @@ describe("admin/line/media API テスト", () => {
 
     it("5. DBエラー → 500", async () => {
       const { withTenant } = await import("@/lib/tenant");
-      vi.mocked(withTenant).mockResolvedValueOnce({ data: null, error: { message: "DB接続エラー" } } as any);
+      vi.mocked(withTenant).mockResolvedValueOnce({ data: null, error: { message: "DB接続エラー" } } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media");
       const res = await GET(req);
@@ -303,7 +303,7 @@ describe("admin/line/media API テスト", () => {
             error: null,
           }),
         }),
-      } as any);
+      } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media", {
         method: "PUT",
@@ -349,9 +349,9 @@ describe("admin/line/media API テスト", () => {
             data: { file_url: "https://storage.example.com/storage/v1/object/public/line-images/media/image/test.jpg" },
             error: null,
           }),
-        } as any)
+        } as unknown as Promise<{ data: unknown; error: unknown }>)
         // 2回目のwithTenant呼出: 削除
-        .mockResolvedValueOnce({ error: null } as any);
+        .mockResolvedValueOnce({ error: null } as unknown as Promise<{ data: unknown; error: unknown }>);
 
       const req = createMockRequest("https://example.com/api/admin/line/media?id=5");
       const res = await DELETE(req);

@@ -10,7 +10,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -19,9 +19,9 @@ const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 const mockGetSettingsBulk = vi.fn();
 vi.mock("@/lib/settings", () => ({
-  getSetting: (...args: any[]) => mockGetSetting(...args),
-  setSetting: (...args: any[]) => mockSetSetting(...args),
-  getSettingsBulk: (...args: any[]) => mockGetSettingsBulk(...args),
+  getSetting: (...args: unknown[]) => mockGetSetting(...args),
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
+  getSettingsBulk: (...args: unknown[]) => mockGetSettingsBulk(...args),
 }));
 
 // crypto のモック
@@ -35,7 +35,7 @@ vi.mock("@/lib/validations/helpers", () => ({
 }));
 
 // NextRequest互換のモック
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const parsedUrl = new URL(url);
   return {
     method,
@@ -44,7 +44,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Parameters<typeof GET>[0];
 }
 
 import { GET, PUT } from "@/app/api/admin/settings/route";
@@ -52,10 +52,17 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { parseBody } from "@/lib/validations/helpers";
 import { maskValue } from "@/lib/crypto";
 
+// 設定項目の型
+interface SettingItem {
+  key: string;
+  source: string;
+  maskedValue: string | null;
+}
+
 describe("テナント設定 API (admin/settings/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
@@ -63,7 +70,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
   // ========================================
   describe("GET: 設定一覧取得", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/settings");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -114,7 +121,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       const res = await GET(req);
       const json = await res.json();
       const squareSettings = json.settings.square;
-      const tokenSetting = squareSettings.find((s: any) => s.key === "access_token");
+      const tokenSetting = squareSettings.find((s: SettingItem) => s.key === "access_token");
       expect(tokenSetting.source).toBe("db");
       expect(tokenSetting.maskedValue).toBeTruthy();
       // maskValue が呼ばれたことを確認
@@ -135,7 +142,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
         const res = await GET(req);
         const json = await res.json();
         const squareSettings = json.settings.square;
-        const tokenSetting = squareSettings.find((s: any) => s.key === "access_token");
+        const tokenSetting = squareSettings.find((s: SettingItem) => s.key === "access_token");
         expect(tokenSetting.source).toBe("env");
         expect(tokenSetting.maskedValue).toBeTruthy();
       } finally {
@@ -158,7 +165,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
         const res = await GET(req);
         const json = await res.json();
         const squareSettings = json.settings.square;
-        const tokenSetting = squareSettings.find((s: any) => s.key === "access_token");
+        const tokenSetting = squareSettings.find((s: SettingItem) => s.key === "access_token");
         expect(tokenSetting.source).toBe("none");
         expect(tokenSetting.maskedValue).toBeNull();
       } finally {
@@ -180,7 +187,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
   // ========================================
   describe("PUT: 設定更新", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
       const res = await PUT(req);
       expect(res.status).toBe(401);
@@ -188,7 +195,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
 
     it("バリデーションエラー → parseBody のエラーレスポンスを返す", async () => {
       const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: errorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
       const res = await PUT(req);
@@ -196,9 +203,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("不正な設定キー → 400", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "square", key: "nonexistent_key", value: "test" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
       const res = await PUT(req);
@@ -208,9 +215,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("不正なカテゴリ → 400", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "invalid_category", key: "test", value: "test" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
       const res = await PUT(req);
@@ -220,9 +227,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("正常な設定更新 → success: true + maskedValue", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "general", key: "clinic_name", value: "新しいクリニック名" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -234,9 +241,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("setSetting に正しい引数が渡される", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "line", key: "channel_id", value: "123456" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -246,9 +253,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("setSetting 失敗 → 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "general", key: "clinic_name", value: "テスト" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(false);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -260,9 +267,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
 
     // 各カテゴリの有効なキーのテスト
     it("square カテゴリの有効キー → 保存成功", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "square", key: "access_token", value: "sk_test_new" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -271,9 +278,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("consultation カテゴリの有効キー → 保存成功", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "consultation", key: "type", value: "video" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -282,9 +289,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("sms カテゴリの有効キー → 保存成功", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "sms", key: "account_sid", value: "ACxxxx" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});
@@ -293,9 +300,9 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
     });
 
     it("ehr カテゴリの有効キー → 保存成功", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { category: "ehr", key: "provider", value: "orca" },
-      });
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
       mockSetSetting.mockResolvedValue(true);
 
       const req = createMockRequest("PUT", "http://localhost/api/admin/settings", {});

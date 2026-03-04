@@ -5,8 +5,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- Supabase モック ---
 const mockQueryResult = { data: [], error: null };
 
-function createChainableQuery(result: { data: any; error: any }) {
-  const chain: any = {
+function createChainableQuery(result: { data: unknown; error: unknown }) {
+  const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
@@ -20,12 +20,12 @@ function createChainableQuery(result: { data: any; error: any }) {
       return Promise.resolve(result);
     }),
     // await query で結果を返せるようにする
-    then: (resolve: any) => resolve(result),
+    then: (resolve: (v: unknown) => void) => resolve(result),
   };
   return chain;
 }
 
-let currentMockResult = { data: [] as any[], error: null as any };
+let currentMockResult: { data: unknown; error: unknown } = { data: [] as unknown[], error: null };
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
@@ -35,7 +35,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // Redis モック
@@ -48,17 +48,16 @@ vi.mock("@upstash/redis", () => ({
 // platform-auth モック
 const mockVerifyPlatformAdmin = vi.fn();
 vi.mock("@/lib/platform-auth", () => ({
-  verifyPlatformAdmin: (...args: any[]) => mockVerifyPlatformAdmin(...args),
+  verifyPlatformAdmin: (...args: unknown[]) => mockVerifyPlatformAdmin(...args),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
-  const req = new Request(url, {
+function createMockRequest(method: string, url: string, body?: unknown) {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
 }
 
 // ===== 公開ステータスAPI テスト =====
@@ -215,7 +214,7 @@ describe("インシデントAPI (/api/platform/incidents)", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "INVALID{{{",
-      }) as any;
+      });
       const res = await incidentPOST(req);
       expect(res.status).toBe(400);
     });

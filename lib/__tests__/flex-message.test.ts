@@ -99,7 +99,7 @@ describe("Flex Message 設定マージ", () => {
 
   it("reservation テキスト個別上書き", () => {
     const merged = mergeFlexConfig(DEFAULT_FLEX_CONFIG, {
-      reservation: { createdHeader: "カスタム予約確定" } as any,
+      reservation: { createdHeader: "カスタム予約確定" } as unknown as FlexMessageConfig["reservation"],
     });
     expect(merged.reservation.createdHeader).toBe("カスタム予約確定");
     expect(merged.reservation.canceledHeader).toBe("予約がキャンセルされました"); // デフォルト維持

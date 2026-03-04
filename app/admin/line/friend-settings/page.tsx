@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -114,7 +114,37 @@ export default function FriendAddSettingsPage() {
   // 条件ビルダーモーダル
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
-  const fetchData = async () => {
+  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [sRes, mRes, tRes, rmRes, tmplRes] = await Promise.all([
+        fetch("/api/admin/line/friend-settings", { credentials: "include" }),
+        fetch("/api/admin/line/marks", { credentials: "include" }),
+        fetch("/api/admin/tags", { credentials: "include" }),
+        fetch("/api/admin/line/rich-menus", { credentials: "include" }),
+        fetch("/api/admin/line/templates", { credentials: "include" }),
+      ]);
+      const sData = await sRes.json();
+      const mData = await mRes.json();
+      const tData = await tRes.json();
+      const rmData = await rmRes.json();
+      const tmplData = await tmplRes.json();
+
+      if (!cancelled) {
+        if (sData.settings) setSettings(sData.settings);
+        if (mData.marks) setMarks(mData.marks);
+        if (tData.tags) setTags(tData.tags);
+        if (rmData.menus) setRichMenus(rmData.menus);
+        if (tmplData.templates) setTemplates(tmplData.templates);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 手動再読み込み用
+  const fetchData = useCallback(async () => {
     const [sRes, mRes, tRes, rmRes, tmplRes] = await Promise.all([
       fetch("/api/admin/line/friend-settings", { credentials: "include" }),
       fetch("/api/admin/line/marks", { credentials: "include" }),
@@ -134,9 +164,7 @@ export default function FriendAddSettingsPage() {
     if (rmData.menus) setRichMenus(rmData.menus);
     if (tmplData.templates) setTemplates(tmplData.templates);
     setLoading(false);
-  };
-
-  useEffect(() => { fetchData(); }, []);
+  }, []);
 
   const handleEdit = (setting: FriendSetting) => {
     setEditingKey(setting.setting_key);

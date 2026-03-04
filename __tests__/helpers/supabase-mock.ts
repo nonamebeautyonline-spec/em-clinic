@@ -3,14 +3,14 @@
 // チェーンメソッド（.from().select().eq().order().limit()...）を再現
 
 export interface MockQueryResult {
-  data: any;
-  error: any;
+  data: unknown;
+  error: unknown;
 }
 
 export function createMockQueryBuilder(defaultResult: MockQueryResult = { data: null, error: null }) {
   let result = { ...defaultResult };
 
-  const builder: any = {};
+  const builder: Record<string, (...args: unknown[]) => unknown> = {};
 
   // 全チェーンメソッドを自身を返すように設定
   const chainMethods = [
@@ -21,7 +21,7 @@ export function createMockQueryBuilder(defaultResult: MockQueryResult = { data: 
   ];
 
   for (const method of chainMethods) {
-    builder[method] = (..._args: any[]) => builder;
+    builder[method] = (..._args: unknown[]) => builder;
   }
 
   // 最終結果を返すために then を実装（await 対応）

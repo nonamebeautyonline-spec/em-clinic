@@ -61,11 +61,11 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : {})),
 }));
 
-const makePatient = (overrides: Partial<any> = {}) => ({
+const makePatient = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
   patient_id: "P-0001",
   name: null,
@@ -97,7 +97,7 @@ describe("calculateSimilarity", () => {
     const b = makePatient({ patient_id: "P-0002", tel: "08012345678" });
     const result = calculateSimilarity(a, b);
     expect(result.similarity).toBe(90);
-    expect(result.matchReasons.some((r: any) => r.type === "phone_normalized")).toBe(true);
+    expect(result.matchReasons.some((r: Record<string, unknown>) => r.type === "phone_normalized")).toBe(true);
   });
 
   it("名前類似（距離<=2）+ 生年月日一致で確度80%", async () => {
@@ -106,7 +106,7 @@ describe("calculateSimilarity", () => {
     const b = makePatient({ patient_id: "P-0002", name: "田中太朗", birthday: "1985-03-15" });
     const result = calculateSimilarity(a, b);
     expect(result.similarity).toBe(80);
-    expect(result.matchReasons.some((r: any) => r.type === "name_birthday")).toBe(true);
+    expect(result.matchReasons.some((r: Record<string, unknown>) => r.type === "name_birthday")).toBe(true);
   });
 
   it("名前カナ一致 + 性別一致で確度70%", async () => {
@@ -115,7 +115,7 @@ describe("calculateSimilarity", () => {
     const b = makePatient({ patient_id: "P-0002", name_kana: "タナカタロウ", sex: "male" });
     const result = calculateSimilarity(a, b);
     expect(result.similarity).toBe(70);
-    expect(result.matchReasons.some((r: any) => r.type === "name_kana_sex")).toBe(true);
+    expect(result.matchReasons.some((r: Record<string, unknown>) => r.type === "name_kana_sex")).toBe(true);
   });
 
   it("一致条件なしで確度0%", async () => {
@@ -156,7 +156,7 @@ describe("calculateSimilarity", () => {
     const a = makePatient({ patient_id: "P-0001", tel: null });
     const b = makePatient({ patient_id: "P-0002", tel: null });
     const result = calculateSimilarity(a, b);
-    expect(result.matchReasons.filter((r: any) => r.type.startsWith("phone"))).toHaveLength(0);
+    expect(result.matchReasons.filter((r: Record<string, unknown>) => (r.type as string).startsWith("phone"))).toHaveLength(0);
   });
 
   it("名前距離が3以上の場合はname_birthday不一致", async () => {
@@ -164,7 +164,7 @@ describe("calculateSimilarity", () => {
     const a = makePatient({ patient_id: "P-0001", name: "田中太郎", birthday: "1985-03-15" });
     const b = makePatient({ patient_id: "P-0002", name: "佐藤花子", birthday: "1985-03-15" });
     const result = calculateSimilarity(a, b);
-    expect(result.matchReasons.some((r: any) => r.type === "name_birthday")).toBe(false);
+    expect(result.matchReasons.some((r: Record<string, unknown>) => r.type === "name_birthday")).toBe(false);
   });
 });
 

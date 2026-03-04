@@ -47,7 +47,6 @@ export default function MenuRulesPage() {
   const [showEditor, setShowEditor] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     const [rulesRes, tagsRes, marksRes, fieldsRes, menusRes] = await Promise.all([
       fetch("/api/admin/line/menu-rules", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/tags?simple=true", { credentials: "include" }).then(r => r.json()),
@@ -63,6 +62,7 @@ export default function MenuRulesPage() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
   useEffect(() => { load(); }, [load]);
 
   const handleDelete = async (id: string) => {

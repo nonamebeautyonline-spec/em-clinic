@@ -3,14 +3,19 @@
 // 対象: friends-list, reminder-rules, coupons, keyword-replies,
 //        ai-reply-settings, send, actions, marks, followers, nps
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // ============================================================
 // 共通モック
 // ============================================================
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+// Supabaseチェーンモックの型定義
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -18,11 +23,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -40,21 +45,21 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : {})),
 }));
 
 vi.mock("@/lib/line-push", () => ({
-  pushMessage: (...args: any[]) => mockPushMessage(...args),
+  pushMessage: (...args: unknown[]) => mockPushMessage(...args),
 }));
 
 vi.mock("@/lib/ai-reply", () => ({
-  handleImplicitAiFeedback: (...args: any[]) => mockHandleImplicitAiFeedback(...args),
+  handleImplicitAiFeedback: (...args: unknown[]) => mockHandleImplicitAiFeedback(...args),
 }));
 
 vi.mock("@/lib/settings", () => ({
@@ -66,12 +71,12 @@ vi.mock("@/lib/settings", () => ({
 vi.stubGlobal("fetch", vi.fn());
 
 // NextRequest互換のモック生成
-function createReq(method: string, url: string, body?: any) {
+function createReq(method: string, url: string, body?: unknown) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  }) as any;
+  }) as Request & { nextUrl: URL };
   req.nextUrl = new URL(url);
   return req;
 }
@@ -115,17 +120,17 @@ describe("friends-list API", () => {
   it("GET 正常系 → 友達一覧を返す", async () => {
     // intake
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     // patients
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     // patient_marks
     const marksChain = getOrCreateChain("patient_marks");
-    marksChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    marksChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
     // rpc結果
     const { supabaseAdmin } = await import("@/lib/supabase");
-    (supabaseAdmin.rpc as any).mockReturnValue(
-      Promise.resolve({ data: [], error: null }),
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: [], error: null }) as never,
     );
 
     const res = await friendsListGET(createReq("GET", "http://localhost/api/admin/line/friends-list"));
@@ -137,7 +142,7 @@ describe("friends-list API", () => {
 
   it("outgoing のみの患者 → last_message に outgoing 内容が表示、ソート順は変わらない", async () => {
     const { supabaseAdmin } = await import("@/lib/supabase");
-    (supabaseAdmin.rpc as any).mockReturnValue(
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
       Promise.resolve({
         data: [{
           patient_id: "P001",
@@ -156,7 +161,7 @@ describe("friends-list API", () => {
           last_outgoing_at: "2026-03-01T10:00:00Z",
         }],
         error: null,
-      }),
+      }) as never,
     );
 
     const res = await friendsListGET(createReq("GET", "http://localhost/api/admin/line/friends-list"));
@@ -178,7 +183,7 @@ describe("reminder-rules API", () => {
 
   it("GET 正常系 → ルール一覧を返す", async () => {
     const rulesChain = getOrCreateChain("reminder_rules");
-    rulesChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    rulesChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const res = await reminderRulesGET(createReq("GET", "http://localhost/api/admin/line/reminder-rules"));
     expect(res.status).toBe(200);
@@ -188,7 +193,7 @@ describe("reminder-rules API", () => {
 
   it("POST 正常系 → ルール作成成功", async () => {
     const rulesChain = getOrCreateChain("reminder_rules");
-    rulesChain.then = vi.fn((resolve: any) => resolve({
+    rulesChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, name: "テストルール" },
       error: null,
     }));
@@ -213,7 +218,7 @@ describe("reminder-rules API", () => {
 
   it("DELETE 正常系 → 削除成功", async () => {
     const rulesChain = getOrCreateChain("reminder_rules");
-    rulesChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    rulesChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await reminderRulesDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/reminder-rules?id=1"),
@@ -236,7 +241,7 @@ describe("coupons API", () => {
 
   it("GET 正常系 → クーポン一覧を返す", async () => {
     const couponsChain = getOrCreateChain("coupons");
-    couponsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    couponsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const res = await couponsGET(createReq("GET", "http://localhost/api/admin/line/coupons"));
     expect(res.status).toBe(200);
@@ -246,7 +251,7 @@ describe("coupons API", () => {
 
   it("POST 正常系 → クーポン作成成功", async () => {
     const couponsChain = getOrCreateChain("coupons");
-    couponsChain.then = vi.fn((resolve: any) => resolve({
+    couponsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, name: "テストクーポン", code: "TEST01" },
       error: null,
     }));
@@ -267,7 +272,7 @@ describe("coupons API", () => {
 
   it("POST コード重複 → 400", async () => {
     const couponsChain = getOrCreateChain("coupons");
-    couponsChain.then = vi.fn((resolve: any) => resolve({
+    couponsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: [{ id: 1 }],
       error: null,
     }));
@@ -284,7 +289,7 @@ describe("coupons API", () => {
 
   it("DELETE 正常系 → 削除成功", async () => {
     const couponsChain = getOrCreateChain("coupons");
-    couponsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    couponsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await couponsDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/coupons?id=1"),
@@ -307,7 +312,7 @@ describe("keyword-replies API", () => {
 
   it("GET 正常系 → ルール一覧を返す", async () => {
     const chain = getOrCreateChain("keyword_auto_replies");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const res = await keywordRepliesGET(createReq("GET", "http://localhost/api/admin/line/keyword-replies"));
     expect(res.status).toBe(200);
@@ -317,7 +322,7 @@ describe("keyword-replies API", () => {
 
   it("POST 正常系 → ルール作成成功", async () => {
     const chain = getOrCreateChain("keyword_auto_replies");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, name: "テストルール", keyword: "予約" },
       error: null,
     }));
@@ -348,7 +353,7 @@ describe("keyword-replies API", () => {
 
   it("DELETE 正常系 → 削除成功", async () => {
     const chain = getOrCreateChain("keyword_auto_replies");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await keywordRepliesDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/keyword-replies?id=1"),
@@ -371,10 +376,10 @@ describe("ai-reply-settings API", () => {
 
   it("GET 正常系 → 設定なしの場合デフォルト値を返す", async () => {
     const settingsChain = getOrCreateChain("ai_reply_settings");
-    settingsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    settingsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const draftsChain = getOrCreateChain("ai_reply_drafts");
-    draftsChain.then = vi.fn((resolve: any) => resolve({ count: 0, error: null }));
+    draftsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ count: 0, error: null }));
 
     const res = await aiReplySettingsGET(createReq("GET", "http://localhost/api/admin/line/ai-reply-settings"));
     expect(res.status).toBe(200);
@@ -387,7 +392,7 @@ describe("ai-reply-settings API", () => {
   it("PUT 正常系（新規作成） → 設定保存成功", async () => {
     // 既存設定なし
     const settingsChain = getOrCreateChain("ai_reply_settings");
-    settingsChain.then = vi.fn((resolve: any) => resolve({
+    settingsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, is_enabled: true },
       error: null,
     }));
@@ -423,21 +428,21 @@ describe("line/send API", () => {
   it("POST 正常系 → テキストメッセージ送信成功", async () => {
     // patients取得
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { name: "テスト患者", line_id: "U1234567890" },
       error: null,
     }));
 
     // reservations（次回予約）
     const reservationsChain = getOrCreateChain("reservations");
-    reservationsChain.then = vi.fn((resolve: any) => resolve({
+    reservationsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: null,
       error: null,
     }));
 
     // message_log insert
     const msgLogChain = getOrCreateChain("message_log");
-    msgLogChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    msgLogChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     mockPushMessage.mockResolvedValue({ ok: true });
 
@@ -455,13 +460,13 @@ describe("line/send API", () => {
 
   it("POST LINE UID未登録 → 400", async () => {
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { name: "テスト患者", line_id: null },
       error: null,
     }));
 
     const msgLogChain = getOrCreateChain("message_log");
-    msgLogChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    msgLogChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await lineSendPOST(
       createReq("POST", "http://localhost/api/admin/line/send", {
@@ -487,7 +492,7 @@ describe("actions API", () => {
 
   it("GET 正常系 → アクション一覧を返す", async () => {
     const chain = getOrCreateChain("actions");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const res = await actionsGET(createReq("GET", "http://localhost/api/admin/line/actions"));
     expect(res.status).toBe(200);
@@ -497,7 +502,7 @@ describe("actions API", () => {
 
   it("POST 正常系 → アクション作成成功", async () => {
     const chain = getOrCreateChain("actions");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, name: "テストアクション" },
       error: null,
     }));
@@ -523,7 +528,7 @@ describe("actions API", () => {
 
   it("DELETE 正常系 → 削除成功", async () => {
     const chain = getOrCreateChain("actions");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await actionsDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/actions?id=1"),
@@ -546,10 +551,10 @@ describe("marks API", () => {
 
   it("GET 正常系 → マーク定義一覧を返す", async () => {
     const markDefChain = getOrCreateChain("mark_definitions");
-    markDefChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    markDefChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ count: 0, error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ count: 0, error: null }));
 
     const res = await marksGET(createReq("GET", "http://localhost/api/admin/line/marks"));
     expect(res.status).toBe(200);
@@ -560,7 +565,7 @@ describe("marks API", () => {
   it("POST 正常系 → マーク作成成功", async () => {
     // max sort_order 取得
     const markDefChain = getOrCreateChain("mark_definitions");
-    markDefChain.then = vi.fn((resolve: any) => resolve({
+    markDefChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { sort_order: 5, value: "custom_test", label: "テストマーク" },
       error: null,
     }));
@@ -646,7 +651,7 @@ describe("nps API", () => {
 
   it("GET 正常系 → 調査一覧を返す", async () => {
     const chain = getOrCreateChain("nps_surveys");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const res = await npsGET(createReq("GET", "http://localhost/api/admin/line/nps"));
     expect(res.status).toBe(200);
@@ -656,7 +661,7 @@ describe("nps API", () => {
 
   it("POST 正常系 → 調査作成成功", async () => {
     const chain = getOrCreateChain("nps_surveys");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
       data: { id: 1, title: "テスト調査" },
       error: null,
     }));
@@ -681,7 +686,7 @@ describe("nps API", () => {
 
   it("DELETE 正常系 → 削除成功", async () => {
     const chain = getOrCreateChain("nps_surveys");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const res = await npsDELETE(
       createReq("DELETE", "http://localhost/api/admin/line/nps?id=1"),

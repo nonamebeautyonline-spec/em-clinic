@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ===== チェーンモック =====
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, ReturnType<typeof createChain>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -169,7 +169,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
 
     it("バリデーションエラーでparseBodyのエラーを返す", async () => {
       const errorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as any });
+      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as unknown as Response });
       const res = await POST(makeReq("POST"), makeCtx());
       expect(res.status).toBe(400);
     });
@@ -204,7 +204,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       // admin_users: メール重複なし → ユーザー作成成功
       let adminCallCount = 0;
       const adminChain = createChain();
-      adminChain.then = vi.fn((resolve: any) => {
+      adminChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
         adminCallCount++;
         if (adminCallCount === 1) return resolve({ data: null, error: null }); // メール重複チェック: なし
         if (adminCallCount === 2) return resolve({ data: { id: "new-user-1", username: "LP-TEST1" }, error: null }); // INSERT成功
@@ -232,7 +232,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
 
       let adminCallCount = 0;
       const adminChain = createChain();
-      adminChain.then = vi.fn((resolve: any) => {
+      adminChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
         adminCallCount++;
         if (adminCallCount === 1) return resolve({ data: null, error: null }); // 重複なし
         if (adminCallCount === 2) return resolve({ data: null, error: { message: "insert failed" } }); // INSERT失敗
@@ -252,7 +252,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
 
       let adminCallCount = 0;
       const adminChain = createChain();
-      adminChain.then = vi.fn((resolve: any) => {
+      adminChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
         adminCallCount++;
         if (adminCallCount === 1) return resolve({ data: null, error: null }); // 重複なし
         if (adminCallCount === 2) return resolve({ data: { id: "new-user-1", username: "LP-TEST1" }, error: null }); // INSERT成功

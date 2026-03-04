@@ -4,7 +4,12 @@ import { useState, useEffect, use } from "react";
 
 export default function NpsResponsePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: surveyId } = use(params);
-  const [survey, setSurvey] = useState<any>(null);
+  const [survey, setSurvey] = useState<{
+    title: string;
+    question_text: string;
+    comment_label: string;
+    thank_you_message: string;
+  } | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);

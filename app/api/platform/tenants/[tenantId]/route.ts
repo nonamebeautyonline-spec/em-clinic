@@ -59,20 +59,20 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     }
 
     // メンバー情報を個別取得（リレーション解決問題を回避）
-    let tenantMembers: any[] = [];
+    let tenantMembers: { id: string; role: string; created_at: string; admin_users: Record<string, unknown> | null }[] = [];
     try {
       const { data: members } = await supabaseAdmin
         .from("tenant_members")
         .select("id, role, created_at, admin_user_id")
         .eq("tenant_id", tenantId);
       if (members && members.length > 0) {
-        const userIds = members.map((m: any) => m.admin_user_id);
+        const userIds = members.map((m) => m.admin_user_id);
         const { data: users } = await supabaseAdmin
           .from("admin_users")
           .select("id, name, email, platform_role, is_active, created_at")
           .in("id", userIds);
-        const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-        tenantMembers = members.map((m: any) => ({
+        const userMap = new Map((users || []).map((u) => [u.id, u]));
+        tenantMembers = members.map((m) => ({
           id: m.id,
           role: m.role,
           created_at: m.created_at,
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     }
 
     // プラン情報を個別取得
-    let tenantPlans: any[] = [];
+    let tenantPlans: Record<string, unknown>[] = [];
     try {
       const { data: plans } = await supabaseAdmin
         .from("tenant_plans")
@@ -128,7 +128,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 
   try {
     // テナント存在確認（deleted_atカラム未作成時も動作するよう保護）
-    let existing: any = null;
+    let existing: { id: string; slug: string } | null = null;
     const { data: ex1, error: exErr1 } = await supabaseAdmin
       .from("tenants")
       .select("id, slug")

@@ -83,10 +83,10 @@ function ShippingFormContent() {
 
       // 成功したらマイページに戻る
       router.push("/mypage");
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
       setError(
-        e?.message ||
+        (e as Error)?.message ||
           "配送先情報の保存中にエラーが発生しました。時間をおいて再度お試しください。"
       );
       setSubmitting(false);

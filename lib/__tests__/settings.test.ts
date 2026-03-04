@@ -3,9 +3,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ---------- モック用チェーンビルダー ----------
-let mockChainResult: any = {};
+let mockChainResult: Record<string, unknown> = {};
 
-const mockQueryBuilder: any = {
+const mockQueryBuilder: Record<string, unknown> = {
   select: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
@@ -13,7 +13,7 @@ const mockQueryBuilder: any = {
   delete: vi.fn().mockReturnThis(),
   upsert: vi.fn().mockReturnThis(),
   maybeSingle: vi.fn(async () => mockChainResult),
-  then: vi.fn(async (resolve: any) => resolve(mockChainResult)),
+  then: vi.fn(async (resolve: (value: unknown) => unknown) => resolve(mockChainResult)),
 };
 
 // supabaseAdmin.from() が呼ばれるたびにリセット済みチェーンを返す

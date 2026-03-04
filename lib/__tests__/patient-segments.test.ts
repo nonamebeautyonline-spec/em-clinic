@@ -28,8 +28,8 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : { tenant_id: null })),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : { tenant_id: null })),
 }));
 
 vi.mock("@/lib/behavior-filters", () => ({
@@ -255,7 +255,7 @@ describe("classifyPatients", () => {
       ["P002", 1],
       ["P003", 0],
     ]);
-    (getVisitCounts as any).mockResolvedValue(visitMap);
+    vi.mocked(getVisitCounts).mockResolvedValue(visitMap);
 
     // 購入金額
     const purchaseMap = new Map([
@@ -263,7 +263,7 @@ describe("classifyPatients", () => {
       ["P002", 5000],
       ["P003", 0],
     ]);
-    (getPurchaseAmounts as any).mockResolvedValue(purchaseMap);
+    vi.mocked(getPurchaseAmounts).mockResolvedValue(purchaseMap);
 
     // 最終来院日（P001: 10日前、P002: 100日前、P003: null）
     const now = new Date();
@@ -274,7 +274,7 @@ describe("classifyPatients", () => {
       ["P002", hundredDaysAgo],
       ["P003", null],
     ]);
-    (getLastVisitDates as any).mockResolvedValue(lastVisitMap);
+    vi.mocked(getLastVisitDates).mockResolvedValue(lastVisitMap);
 
     const results = await classifyPatients(null);
     expect(results).toHaveLength(3);

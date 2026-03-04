@@ -25,7 +25,7 @@ async function squareGet(path: string, token: string, squareEnv: string) {
   });
 
   const text = await res.text();
-  let json: any = null;
+  let json: Record<string, unknown> | null = null;
   try { json = text ? JSON.parse(text) : null; } catch {}
   return { ok: res.ok, status: res.status, json, text };
 }
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
 
     let cursor = "";
     let processed = 0;
-    const results: any[] = [];
+    const results: { payment_id: string; refund_id: string; status: string; db_status: string }[] = [];
 
     while (processed < limit) {
       const qs = new URLSearchParams();
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
         );
       }
 
-      const refunds = rRes.json?.refunds || [];
+      const refunds = (rRes.json?.refunds as Record<string, unknown>[] | undefined) || [];
       for (const r of refunds) {
         if (processed >= limit) break;
 
@@ -78,7 +78,8 @@ export async function GET(req: Request) {
         if (!paymentId) continue;
 
         const refundStatus = String(r?.status || "");
-        const refundAmount = (r?.amount_money?.amount != null) ? parseFloat(String(r.amount_money.amount)) : null;
+        const amountMoney = r?.amount_money as Record<string, unknown> | undefined;
+        const refundAmount = (amountMoney?.amount != null) ? parseFloat(String(amountMoney.amount)) : null;
         const refundedAt = String(r?.updated_at || r?.created_at || "");
         const refundId = String(r?.id || "");
 
@@ -98,8 +99,8 @@ export async function GET(req: Request) {
             tenantId
           );
           dbStatus = updateErr ? `error: ${updateErr.message}` : "ok";
-        } catch (e: any) {
-          dbStatus = `error: ${e?.message || String(e)}`;
+        } catch (e) {
+          dbStatus = `error: ${(e as Error).message || String(e)}`;
         }
 
         results.push({
@@ -111,12 +112,12 @@ export async function GET(req: Request) {
         processed++;
       }
 
-      cursor = String(rRes.json?.cursor || "");
+      cursor = String((rRes.json as Record<string, unknown> | null)?.cursor || "");
       if (!cursor) break;
     }
 
     return NextResponse.json({ ok: true, processed, begin, end, results }, { status: 200 });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || String(e) }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: (e as Error).message || String(e) }, { status: 500 });
   }
 }

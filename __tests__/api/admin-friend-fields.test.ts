@@ -1,11 +1,16 @@
 // __tests__/api/admin-friend-fields.test.ts
 // 友達情報欄 定義 CRUD API のテスト
 // 対象: app/api/admin/friend-fields/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンモックの型定義 ---
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,11 +18,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -33,7 +38,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -42,7 +47,7 @@ vi.mock("@/lib/validations/helpers", () => ({
 }));
 
 // NextRequest互換のモック
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const parsedUrl = new URL(url);
   return {
     method,
@@ -51,7 +56,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { GET, POST } from "@/app/api/admin/friend-fields/route";
@@ -62,7 +67,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
@@ -70,7 +75,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
   // ========================================
   describe("GET: 友達情報欄の定義一覧", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/friend-fields");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -120,7 +125,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
   // ========================================
   describe("POST: 友達情報欄の定義作成", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/friend-fields", {});
       const res = await POST(req);
       expect(res.status).toBe(401);
@@ -128,7 +133,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
 
     it("バリデーションエラー → parseBody のエラーを返す", async () => {
       const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: errorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/friend-fields", {});
       const res = await POST(req);
@@ -144,7 +149,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
         sort_order: 0,
         tenant_id: "test-tenant",
       };
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: " アレルギー ", field_type: "text", options: null, sort_order: 0 },
       });
 
@@ -159,7 +164,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("name がトリムされる", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "  カスタム欄  ", field_type: "text" },
       });
 
@@ -175,7 +180,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("field_type 省略時 → デフォルトで 'text'", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "メモ" },
       });
 
@@ -190,7 +195,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("sort_order 省略時 → デフォルトで 0", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "メモ" },
       });
 
@@ -205,7 +210,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("重複名エラー（23505） → 409", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "既存フィールド" },
       });
 
@@ -220,7 +225,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("その他のDBエラー → 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "テスト" },
       });
 
@@ -235,7 +240,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
     });
 
     it("tenantPayload が insert データに含まれる", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { name: "テスト欄" },
       });
 

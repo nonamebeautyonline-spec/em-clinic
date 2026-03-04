@@ -8,7 +8,7 @@ export default function AdminViewMypagePage() {
   const [adminToken, setAdminToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{ patientId: string; source: string; data: unknown } | null>(null);
   const [showJson, setShowJson] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,7 +210,7 @@ export default function AdminViewMypagePage() {
           </pre>
         </div>
       ) : (
-        <AdminMypageView data={data.data} />
+        <AdminMypageView data={data.data as Parameters<typeof AdminMypageView>[0]["data"]} />
       )}
     </div>
   );

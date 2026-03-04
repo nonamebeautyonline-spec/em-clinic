@@ -63,8 +63,8 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
-      onToast(err.message || "パスワード変更に失敗しました", "error");
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "パスワード変更に失敗しました", "error");
     } finally {
       setSavingPassword(false);
     }
@@ -90,8 +90,8 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
       setCurrentEmail(newEmail);
       setNewEmail("");
       setEmailPassword("");
-    } catch (err: any) {
-      onToast(err.message || "メールアドレス変更に失敗しました", "error");
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "メールアドレス変更に失敗しました", "error");
     } finally {
       setSavingEmail(false);
     }

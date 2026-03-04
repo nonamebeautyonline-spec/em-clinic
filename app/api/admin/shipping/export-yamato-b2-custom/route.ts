@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       console.log(`[ExportYamatoB2Custom] Updated ${updatedOrders.length} orders`);
 
       // ★ キャッシュ無効化
-      const patientIds = Array.from(new Set(updatedOrders.map((o: any) => o.patient_id)));
+      const patientIds = Array.from(new Set(updatedOrders.map((o: { patient_id: string }) => o.patient_id)));
       console.log(`[ExportYamatoB2Custom] Invalidating cache for ${patientIds.length} patients`);
 
       const invalidateUrl = `${req.nextUrl.origin}/api/admin/invalidate-cache`;

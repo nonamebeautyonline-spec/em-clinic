@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- モック定義 ---
 
-let mockJwtVerifyResult: { payload: any } | null = null;
+let mockJwtVerifyResult: { payload: Record<string, unknown> } | null = null;
 let mockJwtError = false;
 
 vi.mock("jose", () => ({
@@ -16,10 +16,10 @@ vi.mock("jose", () => ({
 }));
 
 // Supabase クライアント モック
-let mockSupabaseResults: Record<string, any> = {};
+let mockSupabaseResults: Record<string, { data: unknown; error: unknown; count: number }> = {};
 
 function createMockQuery(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
@@ -29,7 +29,7 @@ function createMockQuery(table: string) {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
 
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (val: unknown) => unknown, reject: (err: unknown) => unknown) => {
     const result = mockSupabaseResults[table] || { data: null, error: null, count: 0 };
     return Promise.resolve(result).then(resolve, reject);
   };

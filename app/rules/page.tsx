@@ -55,8 +55,8 @@ export default function AdminRulesPage() {
         setDoctors(json.doctors || []);
         const first = (json.doctors || []).find((d: Doctor) => d.is_active)?.doctor_id || "";
         setDoctorId(first);
-      } catch (e: any) {
-        setMsg(`読込エラー: ${String(e?.message || e)}`);
+      } catch (e) {
+        setMsg(`読込エラー: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         setLoading(false);
       }
@@ -122,8 +122,8 @@ export default function AdminRulesPage() {
       if (!json?.ok) throw new Error(json?.error || "save_failed");
       setMsg("保存しました。");
       setRules(json.rules || rules);
-    } catch (e: any) {
-      setMsg(`保存エラー: ${String(e?.message || e)}`);
+    } catch (e) {
+      setMsg(`保存エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSaving(false);
     }

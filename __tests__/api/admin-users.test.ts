@@ -23,10 +23,10 @@ vi.mock("@/lib/username", () => ({
 }));
 
 // === Supabase モック（createClient経由） ===
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "upsert",
    "ilike", "or", "count", "csv"].forEach(m => {
@@ -34,7 +34,7 @@ function createChain(defaultResolve = { data: null, error: null }) {
   });
   chain.single = vi.fn().mockReturnValue(chain);
   chain.maybeSingle = vi.fn().mockReturnValue(chain);
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -190,7 +190,7 @@ describe("admin/users POST", () => {
     // single呼び出し: 1回目（重複チェック）-> null, 2回目（insert結果）-> 新規ユーザー
     let singleCallCount = 0;
     chain.single = vi.fn().mockReturnValue(chain);
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => {
       singleCallCount++;
       if (singleCallCount === 1) {
         // 重複チェック: 存在しない
@@ -229,7 +229,7 @@ describe("admin/users POST", () => {
     const chain = createChain();
     let singleCallCount = 0;
     chain.single = vi.fn().mockReturnValue(chain);
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => {
       singleCallCount++;
       if (singleCallCount === 1) return resolve({ data: null, error: null });
       if (singleCallCount === 2) return resolve({ data: { id: "uid", email: "a@b.com", name: "X", username: "LP-X1Y2Z" }, error: null });
@@ -258,7 +258,7 @@ describe("admin/users POST", () => {
     const chain = createChain();
     let singleCallCount = 0;
     chain.single = vi.fn().mockReturnValue(chain);
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => {
       singleCallCount++;
       if (singleCallCount === 1) return resolve({ data: null, error: null });
       // insert失敗

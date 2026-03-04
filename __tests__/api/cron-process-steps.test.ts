@@ -2,22 +2,27 @@
 // ステップ配信 Cron API のテスト
 // 対象: app/api/cron/process-steps/route.ts
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { NextRequest } from "next/server";
 
+// === Supabaseチェーンモックの型定義 ===
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
 // === モックヘルパー ===
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -29,7 +34,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -45,7 +50,7 @@ vi.mock("@/lib/step-enrollment", () => ({
 
 const mockAcquireLock = vi.fn();
 vi.mock("@/lib/distributed-lock", () => ({
-  acquireLock: (...args: any[]) => mockAcquireLock(...args),
+  acquireLock: (...args: unknown[]) => mockAcquireLock(...args),
 }));
 
 import { GET } from "@/app/api/cron/process-steps/route";
@@ -131,8 +136,8 @@ describe("GET /api/cron/process-steps", () => {
       // enrollmentsのupdateが呼ばれ、status: "paused" が設定されている
       const updateCalls = enrollmentsChain.update.mock.calls;
       expect(updateCalls.length).toBeGreaterThan(0);
-      const pausedCall = updateCalls.find((c: any[]) =>
-        c[0] && c[0].status === "paused"
+      const pausedCall = updateCalls.find((c: unknown[]) =>
+        c[0] && (c[0] as Record<string, unknown>).status === "paused"
       );
       expect(pausedCall).toBeDefined();
     });
@@ -168,8 +173,8 @@ describe("GET /api/cron/process-steps", () => {
 
       // completedステータスに更新される
       const updateCalls = enrollmentsChain.update.mock.calls;
-      const completedCall = updateCalls.find((c: any[]) =>
-        c[0] && c[0].status === "completed"
+      const completedCall = updateCalls.find((c: unknown[]) =>
+        c[0] && (c[0] as Record<string, unknown>).status === "completed"
       );
       expect(completedCall).toBeDefined();
     });
@@ -204,7 +209,7 @@ describe("GET /api/cron/process-steps", () => {
       tableChains["step_items"] = stepsChain;
 
       // 離脱条件にマッチ
-      (evaluateStepConditions as any).mockResolvedValue(true);
+      vi.mocked(evaluateStepConditions).mockResolvedValue(true);
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -214,8 +219,8 @@ describe("GET /api/cron/process-steps", () => {
 
       // exitedに更新される
       const updateCalls = enrollmentsChain.update.mock.calls;
-      const exitedCall = updateCalls.find((c: any[]) =>
-        c[0] && c[0].status === "exited"
+      const exitedCall = updateCalls.find((c: unknown[]) =>
+        c[0] && (c[0] as Record<string, unknown>).status === "exited"
       );
       expect(exitedCall).toBeDefined();
     });
@@ -244,7 +249,7 @@ describe("GET /api/cron/process-steps", () => {
       });
       tableChains["step_items"] = stepsChain;
 
-      (evaluateStepConditions as any).mockResolvedValue(true);
+      vi.mocked(evaluateStepConditions).mockResolvedValue(true);
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -278,7 +283,7 @@ describe("GET /api/cron/process-steps", () => {
       });
       tableChains["step_items"] = stepsChain;
 
-      (evaluateStepConditions as any).mockResolvedValue(true);
+      vi.mocked(evaluateStepConditions).mockResolvedValue(true);
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -318,7 +323,7 @@ describe("GET /api/cron/process-steps", () => {
       tableChains["step_items"] = stepsChain;
 
       // 離脱条件はfalse（通過）、条件分岐はtrue
-      (evaluateStepConditions as any).mockResolvedValue(true);
+      vi.mocked(evaluateStepConditions).mockResolvedValue(true);
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -352,7 +357,7 @@ describe("GET /api/cron/process-steps", () => {
       tableChains["step_items"] = stepsChain;
 
       // 条件分岐はfalse
-      (evaluateStepConditions as any).mockResolvedValue(false);
+      vi.mocked(evaluateStepConditions).mockResolvedValue(false);
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -700,7 +705,7 @@ describe("GET /api/cron/process-steps", () => {
       const tagChain = createChain({ data: null, error: null });
       tableChains["patient_tags"] = tagChain;
 
-      (calculateNextSendAt as any).mockReturnValue("2026-03-01T12:00:00Z");
+      vi.mocked(calculateNextSendAt).mockReturnValue("2026-03-01T12:00:00Z");
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);
@@ -810,7 +815,7 @@ describe("GET /api/cron/process-steps", () => {
 
       // 空の結果を返す
       const chain = getOrCreateChain("step_enrollments");
-      chain.then.mockImplementation((resolve: any) => resolve({ data: [], error: null }));
+      chain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = new NextRequest("http://localhost/api/cron/process-steps");
       const res = await GET(req);

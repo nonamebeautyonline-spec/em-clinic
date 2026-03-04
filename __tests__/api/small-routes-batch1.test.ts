@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Supabaseチェーンビルダー
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -17,11 +17,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -30,7 +30,7 @@ function getOrCreateChain(table: string) {
 // 認証モック
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 // Supabase モック
@@ -41,7 +41,7 @@ vi.mock("@/lib/supabase", () => ({
 // テナントモック
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -113,7 +113,7 @@ vi.mock("@supabase/supabase-js", () => ({
 // ============================================================
 // リクエストヘルパー
 // ============================================================
-function createRequest(method: string, url: string, body?: any, cookies?: Record<string, string>) {
+function createRequest(method: string, url: string, body?: unknown, cookies?: Record<string, string>) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const req = new Request(url, {
     method,
@@ -123,12 +123,14 @@ function createRequest(method: string, url: string, body?: any, cookies?: Record
 
   // cookies プロパティを追加（NextRequest互換）
   const cookieMap = cookies || {};
-  (req as any).cookies = {
-    get: (name: string) => cookieMap[name] ? { value: cookieMap[name] } : undefined,
-  };
-  (req as any).nextUrl = new URL(url);
+  Object.assign(req, {
+    cookies: {
+      get: (name: string) => cookieMap[name] ? { value: cookieMap[name] } : undefined,
+    },
+    nextUrl: new URL(url),
+  });
 
-  return req as any;
+  return req as unknown as import("next/server").NextRequest;
 }
 
 // ============================================================
@@ -155,7 +157,7 @@ describe("admin/chat-reads", () => {
 
   it("GET: 既読データをオブジェクト形式で返す", async () => {
     const chain = getOrCreateChain("chat_reads");
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({ data: [{ patient_id: "p1", read_at: "2026-01-01T00:00:00Z" }], error: null }),
     );
     const req = createRequest("GET", "http://localhost/api/admin/chat-reads");
@@ -167,7 +169,7 @@ describe("admin/chat-reads", () => {
 
   it("PUT: 既読マーク成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("chat_reads");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
     const req = createRequest("PUT", "http://localhost/api/admin/chat-reads", { patient_id: "p1" });
     const res = await chatReadsPUT(req);
     expect(res.status).toBe(200);
@@ -195,7 +197,7 @@ describe("admin/update-line-user-id", () => {
 
   it("POST: LINE UID更新成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("patients");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
     const req = createRequest("POST", "http://localhost/api/admin/update-line-user-id", {
       patient_id: "p1",
       line_user_id: "U123",
@@ -231,7 +233,7 @@ describe("admin/update-order-address", () => {
       data: { id: "order-1", patient_id: "p1" },
       error: null,
     });
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
 
     const req = createRequest(
       "POST",
@@ -288,7 +290,7 @@ describe("admin/pins", () => {
 
   it("GET: ピン一覧を返す", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [{ pinned_patients: ["p1", "p2"] }, { pinned_patients: ["p2", "p3"] }],
         error: null,
@@ -305,7 +307,7 @@ describe("admin/pins", () => {
   it("PUT: ピン更新成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("admin_users");
     // selectでユーザー一覧、updateでピン書き込み
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({ data: [{ id: "u1" }], error: null }),
     );
     const req = createRequest("PUT", "http://localhost/api/admin/pins", { pins: ["p1"] });
@@ -331,7 +333,7 @@ describe("admin/refunds", () => {
 
   it("GET: 返金一覧を返す", async () => {
     const ordersChain = getOrCreateChain("orders");
-    ordersChain.then = vi.fn((resolve: any) =>
+    ordersChain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [
           {
@@ -351,7 +353,7 @@ describe("admin/refunds", () => {
       }),
     );
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) =>
+    patientsChain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [{ patient_id: "p1", name: "テスト太郎" }],
         error: null,
@@ -385,12 +387,12 @@ describe("admin/unread-count", () => {
   it("GET: 未読カウントを返す", async () => {
     // chat_reads: 既読情報
     const chatReadsChain = getOrCreateChain("chat_reads");
-    chatReadsChain.then = vi.fn((resolve: any) =>
+    chatReadsChain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({ data: [{ patient_id: "p1", read_at: "2026-01-01T00:00:00Z" }], error: null }),
     );
     // message_log: メッセージ一覧（1ページ分で終了）
     const msgChain = getOrCreateChain("message_log");
-    msgChain.then = vi.fn((resolve: any) =>
+    msgChain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [
           { patient_id: "p1", sent_at: "2026-01-02T00:00:00Z" }, // 未読（read_atより後）
@@ -590,7 +592,7 @@ describe("admin/messages/log", () => {
   it("GET: メッセージ一覧を返す", async () => {
     const chain = getOrCreateChain("message_log");
     // selectで count: "exact" を使うため、countプロパティも返す
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [
           { id: 1, patient_id: "p1", content: "こんにちは", status: "sent", direction: "outgoing", sent_at: "2026-01-01T00:00:00Z" },
@@ -636,7 +638,7 @@ describe("admin/intake-form", () => {
   it("PUT: 新規作成成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("intake_form_definitions");
     chain.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null }); // 既存なし
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null })); // insert成功
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null })); // insert成功
     const req = createRequest("PUT", "http://localhost/api/admin/intake-form", {
       fields: [{ id: "name", type: "text", label: "名前", required: true, sort_order: 0 }],
       settings: { step_by_step: false, header_title: "問診フォーム" },
@@ -664,7 +666,7 @@ describe("admin/intake-form/reset", () => {
   it("POST: リセット成功でデフォルト値を返す", async () => {
     const chain = getOrCreateChain("intake_form_definitions");
     chain.maybeSingle = vi.fn().mockResolvedValue({ data: { id: 1 }, error: null }); // 既存あり
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null })); // update成功
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null })); // update成功
     const req = createRequest("POST", "http://localhost/api/admin/intake-form/reset");
     const res = await intakeFormResetPOST(req);
     expect(res.status).toBe(200);
@@ -692,7 +694,7 @@ describe("admin/date_override", () => {
 
   it("POST: オーバーライド作成成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("doctor_date_overrides");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
     const req = createRequest("POST", "http://localhost/api/admin/date_override", {
       override: {
         doctor_id: "d1",
@@ -711,7 +713,7 @@ describe("admin/date_override", () => {
 
   it("DELETE: オーバーライド削除成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("doctor_date_overrides");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
     const req = createRequest("DELETE", "http://localhost/api/admin/date_override", {
       doctor_id: "d1",
       date: "2026-03-01",
@@ -738,7 +740,7 @@ describe("admin/segments", () => {
 
   it("GET: セグメント一覧を返す（空データ）", async () => {
     const chain = getOrCreateChain("patient_segments");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], error: null }));
     const req = createRequest("GET", "http://localhost/api/admin/segments");
     const res = await segmentsGET(req);
     expect(res.status).toBe(200);
@@ -766,7 +768,7 @@ describe("admin/doctors", () => {
 
   it("POST: 医師登録成功で ok:true を返す", async () => {
     const chain = getOrCreateChain("doctors");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
     const req = createRequest("POST", "http://localhost/api/admin/doctors", {
       doctor: { doctor_id: "d1", doctor_name: "テスト医師", is_active: true, sort_order: 1 },
     });
@@ -794,7 +796,7 @@ describe("admin/bank-transfer-orders", () => {
 
   it("GET: 銀行振込注文一覧を返す", async () => {
     const chain = getOrCreateChain("orders");
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => void) =>
       resolve({
         data: [
           { id: "o1", patient_id: "p1", payment_method: "bank_transfer", amount: 50000 },

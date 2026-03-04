@@ -188,7 +188,7 @@ describe("saveMonthlyUsage", () => {
   function setupSaveChains(overrides: {
     messageCount?: number;
     broadcastCount?: number;
-    upsertError?: any;
+    upsertError?: unknown;
   } = {}) {
     const { messageCount = 100, broadcastCount = 5, upsertError = null } = overrides;
 

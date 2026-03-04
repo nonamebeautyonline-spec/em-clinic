@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       }
 
       // patient_idリストを取得
-      const patientIds = orders ? Array.from(new Set(orders.map((o: any) => o.patient_id))) : [];
+      const patientIds = orders ? Array.from(new Set(orders.map((o: { patient_id: string }) => o.patient_id))) : [];
 
       // patientsテーブルから患者名を取得、intakeからLステップIDを取得
       let patientInfoMap: Record<string, { patient_name: string; lstep_id: string }> = {};

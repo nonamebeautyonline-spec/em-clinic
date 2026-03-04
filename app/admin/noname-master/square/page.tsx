@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 
 interface Order {
   id: string;
@@ -16,17 +15,12 @@ interface Order {
 }
 
 export default function NonameMasterSquarePage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState("");
   const [limit, setLimit] = useState(100);
 
-  useEffect(() => {
-    loadOrders();
-  }, [limit]);
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -47,7 +41,11 @@ export default function NonameMasterSquarePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";

@@ -28,7 +28,7 @@ export async function GET(
   if (!form) return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
 
   // 回答一覧（1000行制限回避のためページネーション）
-  const allResponses: any[] = [];
+  const allResponses: { id: string; submitted_at: string; line_user_id: string | null; respondent_name: string | null; answers: Record<string, unknown> | null; [key: string]: unknown }[] = [];
   let offset = 0;
   const pageSize = 5000;
   for (;;) {

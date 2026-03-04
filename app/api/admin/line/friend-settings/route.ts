@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, updateFriendSettingsSchema);
   if ("error" in parsed) return parsed.error;
-  const { setting_key, setting_value, enabled } = parsed.data as { setting_key: string; setting_value: any; enabled?: boolean };
+  const { setting_key, setting_value, enabled } = parsed.data as { setting_key: string; setting_value: unknown; enabled?: boolean };
 
   const { data, error } = await withTenant(
     supabaseAdmin
@@ -46,12 +46,14 @@ export async function PUT(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // 新規友だち設定のメニュー変更 → LINE APIデフォルトリッチメニューも連動
-  if (setting_key === "new_friend" && setting_value?.menu_change) {
+  const sv = setting_value as Record<string, unknown> | null | undefined;
+  if (setting_key === "new_friend" && sv?.menu_change) {
+    const menuChangeId = sv.menu_change;
     const { data: menu } = await withTenant(
       supabaseAdmin
         .from("rich_menus")
         .select("line_rich_menu_id")
-        .eq("id", Number(setting_value.menu_change)),
+        .eq("id", Number(menuChangeId)),
       tenantId
     ).maybeSingle();
 
@@ -61,14 +63,14 @@ export async function PUT(req: NextRequest) {
       if (ok) {
         // DB上の selected フラグも更新（旧デフォルトを解除 → 新デフォルトを設定）
         await withTenant(
-          supabaseAdmin.from("rich_menus").update({ selected: false }).neq("id", Number(setting_value.menu_change)),
+          supabaseAdmin.from("rich_menus").update({ selected: false }).neq("id", Number(menuChangeId)),
           tenantId
         );
         await withTenant(
-          supabaseAdmin.from("rich_menus").update({ selected: true }).eq("id", Number(setting_value.menu_change)),
+          supabaseAdmin.from("rich_menus").update({ selected: true }).eq("id", Number(menuChangeId)),
           tenantId
         );
-        console.log("[friend-settings] LINE APIデフォルトメニューを更新:", setting_value.menu_change);
+        console.log("[friend-settings] LINE APIデフォルトメニューを更新:", menuChangeId);
       } else {
         console.error("[friend-settings] LINE APIデフォルトメニュー更新失敗");
       }

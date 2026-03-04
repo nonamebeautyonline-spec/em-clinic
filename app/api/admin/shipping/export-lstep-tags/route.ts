@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     console.log(`[ExportLstepTags] Found ${orders.length} shipped orders`);
 
     // patient_idのユニークリストを取得
-    const patientIds = Array.from(new Set(orders.map((o: any) => o.patient_id)));
+    const patientIds = Array.from(new Set(orders.map((o) => o.patient_id)));
 
     // intakeテーブルからLステップID（answerer_id）を取得
     const { data: patients, error: patientsError } = await withTenant(
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     }
 
     // LステップIDが存在する患者のみフィルタリング
-    const validPatients = patients.filter((p: any) => p.answerer_id);
+    const validPatients = patients.filter((p) => p.answerer_id);
 
     if (validPatients.length === 0) {
       return NextResponse.json(
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     const csvRows = [
       "登録ID,タグ_9217653", // ヘッダー行1: タグIDを含む
       "ID,発送したよ", // ヘッダー行2: タグ名
-      ...validPatients.map((p: any) => `${p.answerer_id},1`), // データ行: 友だちID,1
+      ...validPatients.map((p) => `${p.answerer_id},1`), // データ行: 友だちID,1
     ];
 
     const csvContent = csvRows.join("\n");

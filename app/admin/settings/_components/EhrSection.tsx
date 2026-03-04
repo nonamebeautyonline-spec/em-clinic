@@ -1,7 +1,7 @@
 // 外部カルテ連携（EHR）設定セクション
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 // --- 型定義 ---
 type EhrProvider = "orca" | "csv" | "fhir";
@@ -75,36 +75,38 @@ export default function EhrSection({ onToast }: EhrSectionProps) {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   // --- 初期読み込み ---
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/settings?category=ehr", { credentials: "include" });
-      const data = await res.json();
-      if (data.settings && typeof data.settings === "object") {
-        // APIから返された設定をマージ
-        setConfig(prev => {
-          const merged = { ...prev };
-          for (const key of CONFIG_KEYS) {
-            if (key in data.settings && data.settings[key] !== undefined) {
-              // boolean型のキーは文字列 "true"/"false" から変換
-              if (key === "orcaWebOrca") {
-                (merged as Record<string, unknown>)[key] =
-                  data.settings[key] === true || data.settings[key] === "true";
-              } else {
-                (merged as Record<string, unknown>)[key] = data.settings[key];
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/settings?category=ehr", { credentials: "include" });
+        const data = await res.json();
+        if (!ignore && data.settings && typeof data.settings === "object") {
+          // APIから返された設定をマージ
+          setConfig(prev => {
+            const merged = { ...prev };
+            for (const key of CONFIG_KEYS) {
+              if (key in data.settings && data.settings[key] !== undefined) {
+                // boolean型のキーは文字列 "true"/"false" から変換
+                if (key === "orcaWebOrca") {
+                  (merged as Record<string, unknown>)[key] =
+                    data.settings[key] === true || data.settings[key] === "true";
+                } else {
+                  (merged as Record<string, unknown>)[key] = data.settings[key];
+                }
               }
             }
-          }
-          return merged;
-        });
+            return merged;
+          });
+        }
+      } catch {
+        /* デフォルト値を維持 */
       }
-    } catch {
-      /* デフォルト値を維持 */
-    }
-    setLoading(false);
+      if (!ignore) setLoading(false);
+    })();
+    return () => { ignore = true; };
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   // --- 保存 ---
   const handleSave = async () => {

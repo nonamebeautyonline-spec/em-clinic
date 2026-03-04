@@ -9,8 +9,8 @@ vi.mock("@/lib/supabase", () => ({
     from: (table: string) => {
       if (table === "webhook_events") {
         return {
-          insert: (data: any) => mockInsert(data),
-          update: (data: any) => ({
+          insert: (data: unknown) => mockInsert(data),
+          update: (data: unknown) => ({
             eq: (col1: string, val1: string) => ({
               eq: (col2: string, val2: string) => {
                 mockUpdate(data);

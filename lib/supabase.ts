@@ -52,7 +52,7 @@ export type Intake = {
   answerer_id: string | null
   line_id: string | null
   patient_name: string | null
-  answers: any
+  answers: Record<string, unknown> | null
   reserved_date: string | null
   reserved_time: string | null
   status: string | null

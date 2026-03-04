@@ -276,7 +276,7 @@ const ReserveInner: React.FC = () => {
           }),
         });
 
-        const data = (await res.json().catch(() => ({}))) as any;
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; reserveId?: string };
 
         if (!res.ok || !data.ok) {
           if (data.error === "slot_full") {
@@ -339,7 +339,7 @@ body: JSON.stringify({
 
       });
 
-      const data = (await res.json().catch(() => ({}))) as any;
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; reserveId?: string };
 
       if (!res.ok || !data.ok) {
         if (data.error === "slot_full") {

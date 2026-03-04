@@ -3,19 +3,23 @@
 // 対象: app/api/reorder/cancel/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import type { Mock } from "vitest";
+
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -27,7 +31,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -55,7 +59,7 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -63,7 +67,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { POST } from "@/app/api/reorder/cancel/route";
@@ -97,7 +101,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   it("バリデーション失敗 → parseBody のエラーレスポンス", async () => {
     mockCookies = { patient_id: "p1" };
     const mockErrorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-    (parseBody as any).mockResolvedValue({ error: mockErrorResponse });
+    vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse });
 
     const req = createMockRequest("POST", "http://localhost/api/reorder/cancel");
     const res = await POST(req);
@@ -109,7 +113,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // ========================================
   it("pending のキャンセル → 成功", async () => {
     mockCookies = { patient_id: "p1" };
-    (parseBody as any).mockResolvedValue({ data: { reorder_id: 1 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 1 } });
 
     // reorders: キャンセル対象あり
     tableChains["reorders"] = createChain({
@@ -129,7 +133,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
 
   it("confirmed のキャンセル → 成功", async () => {
     mockCookies = { patient_id: "p1" };
-    (parseBody as any).mockResolvedValue({ data: { reorder_id: 2 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 2 } });
 
     tableChains["reorders"] = createChain({
       data: { id: 2, reorder_number: 102, status: "confirmed", product_code: "ED-001" },
@@ -147,7 +151,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // ========================================
   it("キャンセル対象なし → 400 not_found", async () => {
     mockCookies = { patient_id: "p1" };
-    (parseBody as any).mockResolvedValue({ data: { reorder_id: 999 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 999 } });
 
     // reorders: 対象なし
     tableChains["reorders"] = createChain({ data: null, error: null });
@@ -164,7 +168,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // ========================================
   it("reorders SELECT エラー → 500", async () => {
     mockCookies = { patient_id: "p1" };
-    (parseBody as any).mockResolvedValue({ data: { reorder_id: 1 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 1 } });
 
     tableChains["reorders"] = createChain({ data: null, error: { message: "DB error" } });
 
@@ -180,7 +184,7 @@ describe("再処方キャンセルAPI (reorder/cancel/route.ts)", () => {
   // ========================================
   it("__Host-patient_id Cookie で認証できる", async () => {
     mockCookies = { "__Host-patient_id": "p2" };
-    (parseBody as any).mockResolvedValue({ data: { reorder_id: 3 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { reorder_id: 3 } });
 
     tableChains["reorders"] = createChain({
       data: { id: 3, reorder_number: 103, status: "pending", product_code: "AGA-001" },

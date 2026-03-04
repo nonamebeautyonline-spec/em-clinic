@@ -37,7 +37,7 @@ describe("withTenant", () => {
     const mockQuery = {
       eq: (col: string, val: string) => ({ _filtered: true, col, val }),
     };
-    const result = withTenant(mockQuery, "tenant_abc") as any;
+    const result = withTenant(mockQuery, "tenant_abc") as unknown as Record<string, unknown>;
     expect(result._filtered).toBe(true);
     expect(result.col).toBe("tenant_id");
     expect(result.val).toBe("tenant_abc");

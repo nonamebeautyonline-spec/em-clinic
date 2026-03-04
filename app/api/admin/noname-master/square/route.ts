@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 全患者IDを取得
-    const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
+    const patientIds = [...new Set((orders || []).map((o: { patient_id: string }) => o.patient_id))];
 
     // 患者名を取得（patientsテーブルから）
     const patientNameMap: Record<string, string> = {};
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
         tenantId
       );
 
-      (patients || []).forEach((p: any) => {
+      (patients || []).forEach((p: { patient_id: string; name: string | null }) => {
         patientNameMap[p.patient_id] = p.name || "";
       });
     }
@@ -84,13 +84,24 @@ export async function GET(req: NextRequest) {
       );
 
       // 患者IDごとにカウント
-      (allOrders || []).forEach((order: any) => {
+      (allOrders || []).forEach((order: { patient_id: string }) => {
         purchaseCountMap[order.patient_id] = (purchaseCountMap[order.patient_id] || 0) + 1;
       });
     }
 
     // データを整形
-    const formattedOrders = (orders || []).map((order: any) => {
+    interface OrderRow {
+      id: string;
+      patient_id: string;
+      product_code: string;
+      amount: number;
+      payment_method: string;
+      paid_at: string | null;
+      shipping_date: string | null;
+      tracking_number: string | null;
+      shipping_name: string | null;
+    }
+    const formattedOrders = (orders || []).map((order: OrderRow) => {
       // ★ shipping_nameの正規化（"null"文字列や空文字をnullとして扱う）
       const shippingName = order.shipping_name && order.shipping_name !== "null" ? order.shipping_name : "";
 

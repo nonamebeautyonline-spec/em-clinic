@@ -184,7 +184,7 @@ export class GmoPaymentProvider implements PaymentProvider {
       }
 
       // Step 2: 取引変更（返金）
-      const changeParams: Record<string, any> = {
+      const changeParams: Record<string, string | number> = {
         ShopID: config.shopId,
         ShopPass: config.shopPass,
         AccessID: accessId,
@@ -210,9 +210,9 @@ export class GmoPaymentProvider implements PaymentProvider {
         refundId: paymentId,
         status: changeRes.Status || "RETURN",
       };
-    } catch (e: any) {
+    } catch (e) {
       console.error("[GMO] processRefund error:", e);
-      return { success: false, status: e.message || "返金処理でエラーが発生しました" };
+      return { success: false, status: (e instanceof Error ? e.message : null) || "返金処理でエラーが発生しました" };
     }
   }
 
@@ -222,7 +222,7 @@ export class GmoPaymentProvider implements PaymentProvider {
   private async callApi(
     baseUrl: string,
     path: string,
-    params: Record<string, any>,
+    params: Record<string, string | number>,
   ): Promise<Record<string, string>> {
     const body = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) {

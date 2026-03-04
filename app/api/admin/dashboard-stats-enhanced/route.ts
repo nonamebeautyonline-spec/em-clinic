@@ -3,6 +3,12 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from "jose";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
+// Supabaseクエリ結果用の型定義
+interface PatientIdRow { patient_id: string }
+interface LineIdRow { line_id: string }
+interface OrderAmountRow { amount: number; product_code: string; patient_id: string; created_at: string; paid_at?: string }
+interface RefundRow { amount: number; refunded_amount: number }
+
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
 
 // 管理者認証チェック（クッキーまたはBearerトークン）
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest) {
     const tenantId = resolveTenantId(request);
 
     // 日付範囲を計算
-    const { startISO, endISO, startDate: reservationStartDate, endDate: reservationEndDate } = calculateDateRange(range, customStart, customEnd);
+    const { startISO, endISO, startDate: reservationStartDate, endDate: reservationEndDate, prevStartISO, prevEndISO } = calculateDateRange(range, customStart, customEnd);
 
     // 配送日付の計算（JST基準）
     const startDateObj = new Date(startISO);
@@ -77,6 +83,8 @@ export async function GET(request: NextRequest) {
       lineIdResult,
       todayActiveResult,
       todayNewReservationsResult,
+      prevPeriodSquareResult,
+      prevPeriodBTResult,
     ] = await Promise.all([
       // 1. 予約総数
       withTenant(
@@ -197,6 +205,24 @@ export async function GET(request: NextRequest) {
           .gte("created_at", startISO).lt("created_at", endISO),
         tenantId
       ),
+      // 18. 前期間のカード決済患者（リピート率計算用）
+      withTenant(
+        supabaseAdmin.from("orders").select("patient_id")
+          .eq("payment_method", "credit_card")
+          .not("paid_at", "is", null)
+          .gte("paid_at", prevStartISO).lt("paid_at", prevEndISO)
+          .limit(50000),
+        tenantId
+      ),
+      // 19. 前期間の銀行振込患者（リピート率計算用）
+      withTenant(
+        supabaseAdmin.from("orders").select("patient_id")
+          .eq("payment_method", "bank_transfer")
+          .in("status", ["pending_confirmation", "confirmed"])
+          .gte("created_at", prevStartISO).lt("created_at", prevEndISO)
+          .limit(50000),
+        tenantId
+      ),
     ]);
 
     // バッチ1の結果を展開
@@ -214,12 +240,18 @@ export async function GET(request: NextRequest) {
     const allRefundedOrders = refundedResult.data || [];
     const shippingOrders = shippingOrdersResult.data || [];
 
+    // 前期間の顧客ID（リピート率計算用）
+    const prevPeriodPatientIds = [...new Set([
+      ...(prevPeriodSquareResult.data || []).map((o: PatientIdRow) => o.patient_id),
+      ...(prevPeriodBTResult.data || []).map((o: PatientIdRow) => o.patient_id),
+    ].filter((id): id is string => !!id))];
+
     // 診察完了患者数
     const allCompletedPatientIds = [
-      ...(completedOKResult.data?.map((r: any) => r.patient_id) || []),
-      ...(completedNGResult.data?.map((r: any) => r.patient_id) || []),
+      ...(completedOKResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
+      ...(completedNGResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
     ];
-    const completedReservations = new Set(allCompletedPatientIds.filter((id: any) => id)).size;
+    const completedReservations = new Set(allCompletedPatientIds.filter((id: string | null) => id)).size;
 
     const cancelRate = totalReservations > 0
       ? Math.round((cancelledReservations / totalReservations) * 100) : 0;
@@ -228,30 +260,30 @@ export async function GET(request: NextRequest) {
     const newPatients = intakeIdsResult.data?.length ?? 0;
 
     // LINE登録者数
-    const lineRegisteredCount = new Set(lineIdResult.data?.map((r: any) => r.line_id) || []).size;
+    const lineRegisteredCount = new Set(lineIdResult.data?.map((r: LineIdRow) => r.line_id) || []).size;
 
     // 売上集計
-    const squareRevenue = allSquareOrders.reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
-    const bankTransferRevenue = allBankTransferOrders.reduce((sum: number, o: any) => sum + (o.amount || 0), 0);
+    const squareRevenue = allSquareOrders.reduce((sum: number, o: OrderAmountRow) => sum + (o.amount || 0), 0);
+    const bankTransferRevenue = allBankTransferOrders.reduce((sum: number, o: OrderAmountRow) => sum + (o.amount || 0), 0);
     const grossRevenue = squareRevenue + bankTransferRevenue;
     const orderCount = allSquareOrders.length + allBankTransferOrders.length;
-    const totalRefunded = allRefundedOrders.reduce((sum: number, o: any) => sum + (o.refunded_amount ?? o.amount ?? 0), 0);
+    const totalRefunded = allRefundedOrders.reduce((sum: number, o: RefundRow) => sum + (o.refunded_amount ?? o.amount ?? 0), 0);
     const totalRevenue = grossRevenue - totalRefunded;
     const avgOrderAmount = orderCount > 0 ? Math.round(grossRevenue / orderCount) : 0;
 
     // 全決済注文の結合
     const allPaidOrders = [
-      ...allSquareOrders.map((o: any) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: o.paid_at || null })),
-      ...allBankTransferOrders.map((o: any) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: null as string | null })),
+      ...allSquareOrders.map((o: OrderAmountRow) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: o.paid_at || null })),
+      ...allBankTransferOrders.map((o: OrderAmountRow) => ({ patient_id: o.patient_id || null, created_at: o.created_at || null, paid_at: null as string | null })),
     ];
 
     // ────────────────────────────────────────────────────────────
     // バッチ2: バッチ1の結果に依存するクエリを並列実行
     // ────────────────────────────────────────────────────────────
-    const shippingPatientIds = [...new Set(shippingOrders.map((o: any) => o.patient_id).filter((id: any) => id))];
+    const shippingPatientIds = [...new Set(shippingOrders.map((o: PatientIdRow) => o.patient_id).filter((id: string | null) => id))];
     const paidPatientIds = [...new Set(allPaidOrders.map(o => o.patient_id).filter((id): id is string => !!id))];
-    const consultedPatientIds = [...new Set((consultedIdsResult.data || []).map((i: any) => i.patient_id).filter((id: any) => id))];
-    const intakePatientIds = [...new Set((intakeIdsResult.data || []).map((i: any) => i.patient_id).filter((id: any) => id))];
+    const consultedPatientIds = [...new Set((consultedIdsResult.data || []).map((i: PatientIdRow) => i.patient_id).filter((id: string | null) => id))];
+    const intakePatientIds = [...new Set((intakeIdsResult.data || []).map((i: PatientIdRow) => i.patient_id).filter((id: string | null) => id))];
 
     const [
       prevShippingResult,
@@ -300,40 +332,39 @@ export async function GET(request: NextRequest) {
     let shippingFirst = 0;
     let shippingReorder = 0;
     if (shippingOrders.length > 0) {
-      const prevShippingSet = new Set((prevShippingResult.data || []).map((o: any) => o.patient_id));
+      const prevShippingSet = new Set((prevShippingResult.data || []).map((o: PatientIdRow) => o.patient_id));
       for (const order of shippingOrders) {
         if (prevShippingSet.has(order.patient_id)) shippingReorder++;
         else shippingFirst++;
       }
     }
 
-    // リピート率・再処方決済数
+    // リピート率（リテンション型: 前期間顧客のうち当期間も注文した割合）
+    const currentPeriodPatientSet = new Set(paidPatientIds);
+    const repeatPatientCount = prevPeriodPatientIds.filter(id => currentPeriodPatientSet.has(id)).length;
+    const repeatRate = prevPeriodPatientIds.length > 0
+      ? Math.round((repeatPatientCount / prevPeriodPatientIds.length) * 100) : 0;
+
+    // 再処方注文数（当期間の注文のうち過去にも注文歴がある患者の注文）
     let reorderOrderCount = 0;
-    let repeatPatientCount = 0;
     const totalUniquePatients = paidPatientIds.length;
-    const previousPatientSet = new Set((prevPaidResult.data || []).map((o: any) => o.patient_id));
+    const previousPatientSet = new Set((prevPaidResult.data || []).map((o: PatientIdRow) => o.patient_id));
 
-    if (totalUniquePatients > 0) {
-      repeatPatientCount = paidPatientIds.filter(id => previousPatientSet.has(id)).length;
-      for (const order of allPaidOrders) {
-        if (order.patient_id && previousPatientSet.has(order.patient_id)) reorderOrderCount++;
-      }
+    for (const order of allPaidOrders) {
+      if (order.patient_id && previousPatientSet.has(order.patient_id)) reorderOrderCount++;
     }
-
-    const repeatRate = totalUniquePatients > 0
-      ? Math.round((repeatPatientCount / totalUniquePatients) * 100) : 0;
 
     // アクティブ患者
     const activePatients = new Set(allPaidOrders.map(o => o.patient_id).filter(id => id)).size;
 
     // KPI: 診療後の決済率
-    const paidPatientCount = new Set((paidForConsultedResult.data || []).map((o: any) => o.patient_id)).size;
+    const paidPatientCount = new Set((paidForConsultedResult.data || []).map((o: PatientIdRow) => o.patient_id)).size;
     const consultedCount = consultedPatientIds.length;
     const paymentRateAfterConsultation = consultedCount > 0
       ? Math.round((paidPatientCount / consultedCount) * 100) : 0;
 
     // KPI: 問診後の予約率
-    const reservedPatientCount = new Set((reservedForIntakeResult.data || []).map((r: any) => r.patient_id)).size;
+    const reservedPatientCount = new Set((reservedForIntakeResult.data || []).map((r: PatientIdRow) => r.patient_id)).size;
     const intakeCount = intakePatientIds.length;
     const reservationRateAfterIntake = intakeCount > 0
       ? Math.round((reservedPatientCount / intakeCount) * 100) : 0;
@@ -451,6 +482,7 @@ export async function GET(request: NextRequest) {
         repeatRate,
         repeatPatients: repeatPatientCount,
         totalOrderPatients: totalUniquePatients,
+        prevPeriodPatients: prevPeriodPatientIds.length,
       },
       bankTransfer: {
         pending: pendingBankTransfer,
@@ -481,7 +513,7 @@ function calculateDateRange(
   range: string,
   customStart: string | null,
   customEnd: string | null
-): { startISO: string; endISO: string; startDate: string; endDate: string } {
+): { startISO: string; endISO: string; startDate: string; endDate: string; prevStartISO: string; prevEndISO: string } {
   const now = new Date();
   const jstOffset = 9 * 60 * 60 * 1000;
   const jstNowMs = now.getTime() + jstOffset;
@@ -494,59 +526,64 @@ function calculateDateRange(
 
   let start: Date;
   let end: Date;
+  let prevStart: Date;
 
   switch (range) {
     case "yesterday":
-      // 昨日0:00 JST = UTC - 9時間
       start = new Date(Date.UTC(year, month, date - 1, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month, date - 2, 0, 0, 0) - jstOffset);
       break;
 
     case "this_week":
       const dayOfWeek = jstNow.getUTCDay();
       start = new Date(Date.UTC(year, month, date - dayOfWeek, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month, date - dayOfWeek - 7, 0, 0, 0) - jstOffset);
       break;
 
     case "last_week":
       const lastWeekDay = jstNow.getUTCDay();
       start = new Date(Date.UTC(year, month, date - lastWeekDay - 7, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date - lastWeekDay, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month, date - lastWeekDay - 14, 0, 0, 0) - jstOffset);
       break;
 
     case "this_month":
       start = new Date(Date.UTC(year, month, 1, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) - jstOffset);
       break;
 
     case "last_month":
       start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, 1, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month - 2, 1, 0, 0, 0) - jstOffset);
       break;
 
     case "custom":
       if (customStart && customEnd) {
-        // カスタム範囲は JST で指定されると仮定
         const [sy, sm, sd] = customStart.split("-").map(Number);
         const [ey, em, ed] = customEnd.split("-").map(Number);
         start = new Date(Date.UTC(sy, sm - 1, sd, 0, 0, 0) - jstOffset);
-        end = new Date(Date.UTC(ey, em - 1, ed + 1, 0, 0, 0) - jstOffset); // 終了日を含める
+        end = new Date(Date.UTC(ey, em - 1, ed + 1, 0, 0, 0) - jstOffset);
+        const duration = end.getTime() - start.getTime();
+        prevStart = new Date(start.getTime() - duration);
       } else {
-        // デフォルトは今日
         start = new Date(Date.UTC(year, month, date, 0, 0, 0) - jstOffset);
         end = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
+        prevStart = new Date(Date.UTC(year, month, date - 1, 0, 0, 0) - jstOffset);
       }
       break;
 
     case "today":
     default:
-      // 今日0:00 JST = UTC - 9時間
       start = new Date(Date.UTC(year, month, date, 0, 0, 0) - jstOffset);
       end = new Date(Date.UTC(year, month, date + 1, 0, 0, 0) - jstOffset);
+      prevStart = new Date(Date.UTC(year, month, date - 1, 0, 0, 0) - jstOffset);
       break;
   }
 
-  // reserved_date はJST日付（DATE型）で保存されているため、JSTの日付文字列を返す
   const jstStartForDate = new Date(start.getTime() + jstOffset);
   const jstEndForDate = new Date(end.getTime() + jstOffset);
   return {
@@ -554,5 +591,7 @@ function calculateDateRange(
     endISO: end.toISOString(),
     startDate: jstStartForDate.toISOString().split("T")[0],
     endDate: jstEndForDate.toISOString().split("T")[0],
+    prevStartISO: prevStart.toISOString(),
+    prevEndISO: start.toISOString(), // 前期間の終了 = 当期間の開始
   };
 }

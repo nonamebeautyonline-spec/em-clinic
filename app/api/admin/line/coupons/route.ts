@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   // 各クーポンの配布数・利用数を取得
   const enriched = await Promise.all(
-    (coupons || []).map(async (c: any) => {
+    (coupons || []).map(async (c: { id: number; [key: string]: unknown }) => {
       const { count: issuedCount } = await withTenant(
         supabaseAdmin.from("coupon_issues").select("*", { count: "exact", head: true }).eq("coupon_id", c.id),
         tenantId
@@ -90,7 +90,12 @@ export async function PUT(req: NextRequest) {
 
   const parsed = await parseBody(req, createCouponSchema);
   if ("error" in parsed) return parsed.error;
-  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description } = parsed.data as any;
+  const body = parsed.data as Record<string, unknown>;
+  const { id, name, code, discount_type, discount_value, min_purchase, max_uses, max_uses_per_patient, valid_from, valid_until, is_active, description } = body as {
+    id?: number; name?: string; code?: string; discount_type?: string; discount_value?: number;
+    min_purchase?: number; max_uses?: number; max_uses_per_patient?: number;
+    valid_from?: string; valid_until?: string; is_active?: boolean; description?: string;
+  };
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 

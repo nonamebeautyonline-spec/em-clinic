@@ -16,7 +16,13 @@ export async function POST(req: NextRequest) {
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, abTestSchema);
   if ("error" in parsed) return parsed.error;
-  const { name, filter_rules, message_a, message_b, split_ratio } = parsed.data as any;
+  const { name, filter_rules, message_a, message_b, split_ratio } = parsed.data as unknown as {
+    name?: string;
+    filter_rules?: Record<string, unknown>;
+    message_a: string;
+    message_b: string;
+    split_ratio?: number;
+  };
 
   const ratio = Math.min(Math.max(split_ratio || 50, 10), 90); // 10〜90%
 

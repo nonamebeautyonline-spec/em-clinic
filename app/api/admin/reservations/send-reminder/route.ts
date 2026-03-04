@@ -25,7 +25,7 @@ async function getTargetPatients(date: string, tenantId: string | null) {
   if (resvError) throw new Error("DB error");
 
   // patientsテーブルからpatient_name, line_idを取得
-  const patientIds = [...new Set((reservationsData || []).map((r: any) => r.patient_id).filter(Boolean))];
+  const patientIds = [...new Set((reservationsData || []).map((r: { patient_id: string }) => r.patient_id).filter(Boolean))];
   const pMap = new Map<string, { name: string; line_id: string }>();
   if (patientIds.length > 0) {
     const { data: pData } = await withTenant(
@@ -40,7 +40,7 @@ async function getTargetPatients(date: string, tenantId: string | null) {
     }
   }
 
-  return (reservationsData || []).map((r: any) => {
+  return (reservationsData || []).map((r: { patient_id: string; reserve_id: string; reserved_time: string }) => {
     const patient = pMap.get(r.patient_id);
     return {
       patient_id: r.patient_id,
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   try {
     const targets = await getTargetPatients(date, tenantId);
 
-    const patients = targets.map((p: any) => ({
+    const patients = targets.map((p) => ({
       patient_id: p.patient_id,
       patient_name: p.patient_name || "",
       line_id: p.line_id || null,
@@ -74,8 +74,8 @@ export async function GET(req: NextRequest) {
       formatted_time: p.reserved_time ? formatReservationTime(date, p.reserved_time) : "",
     }));
 
-    const sendable = patients.filter((p: any) => p.line_id);
-    const noUid = patients.filter((p: any) => !p.line_id);
+    const sendable = patients.filter((p) => p.line_id);
+    const noUid = patients.filter((p) => !p.line_id);
 
     // サンプルメッセージ（最初の患者の時間で生成）
     const sampleTime = sendable.length > 0 ? sendable[0].formatted_time : formatReservationTime(date, "13:00:00");
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     const TEST_PID = "20251200128";
     let sendTargets;
     if (testOnly) {
-      const testInTargets = targets.find((p: any) => p.patient_id === TEST_PID);
+      const testInTargets = targets.find((p) => p.patient_id === TEST_PID);
       if (testInTargets) {
         sendTargets = [testInTargets];
       } else {
@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
     } else if (patient_ids && Array.isArray(patient_ids) && patient_ids.length > 0) {
       // チェックされた患者のみ送信
       const pidSet = new Set(patient_ids);
-      sendTargets = targets.filter((p: any) => pidSet.has(p.patient_id));
+      sendTargets = targets.filter((p) => pidSet.has(p.patient_id));
     } else {
       sendTargets = targets;
     }

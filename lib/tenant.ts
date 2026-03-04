@@ -30,7 +30,7 @@ export function resolveTenantId(request?: Request | { headers?: Headers }): stri
  */
 export function withTenant<T>(query: T, tenantId: string | null): T {
   if (tenantId) {
-    return (query as any).eq("tenant_id", tenantId);
+    return (query as T & { eq: (col: string, val: string) => T }).eq("tenant_id", tenantId);
   }
   return query;
 }
@@ -43,7 +43,7 @@ export function strictWithTenant<T>(query: T, tenantId: string | null): T {
   if (!tenantId) {
     throw new Error("tenantId is required but was null");
   }
-  return (query as any).eq("tenant_id", tenantId);
+  return (query as T & { eq: (col: string, val: string) => T }).eq("tenant_id", tenantId);
 }
 
 /**

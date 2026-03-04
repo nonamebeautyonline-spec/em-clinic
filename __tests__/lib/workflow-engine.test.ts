@@ -68,17 +68,17 @@ vi.mock("@/lib/line-richmenu", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tenantId: string | null) => ({ tenant_id: tenantId })),
 }));
 
 vi.mock("@/lib/flex-sanitize", () => ({
-  sanitizeFlexContents: vi.fn((content: any) => content),
+  sanitizeFlexContents: vi.fn((content: unknown) => content),
 }));
 
 // executeStep を直接テストするため import
 import { executeStep } from "@/lib/workflow-engine";
-import type { TriggerData } from "@/lib/workflow-engine";
+import type { TriggerData, StepType } from "@/lib/workflow-engine";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -498,7 +498,7 @@ describe("executeStep: 不明なステップタイプ", () => {
       id: "step-1",
       workflow_id: "wf-1",
       sort_order: 0,
-      step_type: "unknown_type" as any,
+      step_type: "unknown_type" as unknown as StepType,
       config: {},
     };
     const result = await executeStep(step, {}, null);

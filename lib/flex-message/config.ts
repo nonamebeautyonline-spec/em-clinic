@@ -2,7 +2,7 @@
 import { getSetting, setSetting } from "@/lib/settings";
 import { DEFAULT_FLEX_CONFIG, type FlexMessageConfig } from "./types";
 
-const CATEGORY = "flex" as any;
+const CATEGORY = "flex" as const;
 const SETTING_KEY = "config";
 
 /** DB からFLEX設定を取得（なければデフォルト） */

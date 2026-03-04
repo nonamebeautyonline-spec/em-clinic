@@ -2,22 +2,28 @@
 // 電話認証完了API（患者紐付け・自動マージ・リッチメニュー切替）のテスト
 // 対象: app/api/register/complete/route.ts
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { NextRequest } from "next/server";
 
 // === モックヘルパー ===
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+
+// Supabaseチェーンモックの型定義
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -30,7 +36,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -70,7 +76,7 @@ import { POST } from "@/app/api/register/complete/route";
 import { parseBody } from "@/lib/validations/helpers";
 
 // クッキー付きリクエストのヘルパー
-function createReqWithCookies(body: any, cookies: Record<string, string> = {}) {
+function createReqWithCookies(body: unknown, cookies: Record<string, string> = {}) {
   const req = new NextRequest("http://localhost/api/register/complete", {
     method: "POST",
     body: JSON.stringify(body),
@@ -89,12 +95,12 @@ describe("POST /api/register/complete", () => {
     tableChains = {};
 
     // デフォルト: parseBody成功
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { phone: "09012345678" },
-    });
+    } as never);
 
     // デフォルト: fetch成功
-    (fetch as any).mockResolvedValue({ ok: true, json: () => Promise.resolve({ displayName: "テストユーザー", pictureUrl: "https://example.com/pic.jpg" }) });
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve({ displayName: "テストユーザー", pictureUrl: "https://example.com/pic.jpg" }) } as Response);
   });
 
   // ------------------------------------------------------------------
@@ -103,7 +109,7 @@ describe("POST /api/register/complete", () => {
   describe("入力バリデーション", () => {
     it("parseBodyエラー時はエラーレスポンスを返す", async () => {
       const errorResponse = Response.json({ ok: false, error: "入力値が不正です" }, { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: errorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as never);
 
       const req = createReqWithCookies({});
       const res = await POST(req);
@@ -184,9 +190,9 @@ describe("POST /api/register/complete", () => {
         patientsCallCount++;
         if (patientsCallCount <= 2) {
           // 最初2回（LINE UID/電話番号前のnull）
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-PHONE" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-PHONE" }, error: null }) };
         }
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-PHONE" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-PHONE" }, error: null }) };
       });
       tableChains["patients"] = patientsChain;
 
@@ -230,9 +236,9 @@ describe("POST /api/register/complete", () => {
   // ------------------------------------------------------------------
   describe("電話番号正規化", () => {
     it("+81形式が0始まりに正規化される", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { phone: "+819012345678" },
-      });
+      } as never);
 
       const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
       tableChains["patients"] = patientsChain;
@@ -291,7 +297,7 @@ describe("POST /api/register/complete", () => {
   // ------------------------------------------------------------------
   describe("例外処理", () => {
     it("予期しないエラーは500を返す", async () => {
-      (parseBody as any).mockRejectedValue(new Error("unexpected"));
+      vi.mocked(parseBody).mockRejectedValue(new Error("unexpected"));
 
       const req = createReqWithCookies({ phone: "09012345678" });
 
@@ -314,7 +320,7 @@ describe("POST /api/register/complete", () => {
         patientsCallCount++;
         // 各呼び出しの返り値を設定
         return {
-          then: (fn: any) => fn({
+          then: (fn: (val: unknown) => unknown) => fn({
             data: patientsCallCount === 1
               ? { patient_id: "PT-001" }
               : patientsCallCount <= 3
@@ -328,7 +334,7 @@ describe("POST /api/register/complete", () => {
 
       // 重複チェック結果: LINE_仮レコードあり
       // limit()の後にthenが呼ばれるので、limit時にdataを返す
-      const dupData = [
+      const _dupData = [
         { patient_id: "LINE_abc123", name: "仮ユーザー", name_kana: null, line_id: "U123" },
       ];
 
@@ -443,10 +449,10 @@ describe("POST /api/register/complete", () => {
       tableChains["rich_menus"] = menuChain;
 
       // 現在のリッチメニュー確認fetch
-      (fetch as any)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ displayName: "テスト" }) }) // プロフィール取得
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ richMenuId: "richmenu-before" }) }) // 現在のメニュー
-        .mockResolvedValueOnce({ ok: true }); // メニュー切替
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ displayName: "テスト" }) } as Response) // プロフィール取得
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ richMenuId: "richmenu-before" }) } as Response) // 現在のメニュー
+        .mockResolvedValueOnce({ ok: true } as Response); // メニュー切替
 
       const req = createReqWithCookies(
         { phone: "09012345678" },
@@ -472,10 +478,10 @@ describe("POST /api/register/complete", () => {
       const menuChain = createChain({ data: { line_rich_menu_id: "richmenu-after-register" }, error: null });
       tableChains["rich_menus"] = menuChain;
 
-      (fetch as any)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ displayName: "テスト" }) })
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ richMenuId: "richmenu-other" }) })
-        .mockResolvedValueOnce({ ok: true });
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ displayName: "テスト" }) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ richMenuId: "richmenu-other" }) } as Response)
+        .mockResolvedValueOnce({ ok: true } as Response);
 
       const req = createReqWithCookies(
         { phone: "09012345678" },
@@ -518,7 +524,7 @@ describe("POST /api/register/complete", () => {
       // patients チェーン: then の呼び出し回数で返り値を制御
       const patientsChain = createChain();
       let patientsThenCount = 0;
-      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+      patientsChain.then = vi.fn().mockImplementation((fn: (val: unknown) => unknown) => {
         patientsThenCount++;
         if (patientsThenCount === 1) {
           // ステップ1: LINE UID検索 → 見つかる
@@ -572,7 +578,7 @@ describe("POST /api/register/complete", () => {
       tableChains["intake"] = intakeChain;
 
       // プロフィール取得失敗（ok: false）
-      (fetch as any).mockResolvedValue({ ok: false });
+      vi.mocked(fetch).mockResolvedValue({ ok: false } as Response);
 
       const req = createReqWithCookies(
         { phone: "09012345678" },
@@ -592,7 +598,7 @@ describe("POST /api/register/complete", () => {
       tableChains["intake"] = intakeChain;
 
       // fetch で例外発生
-      (fetch as any).mockRejectedValue(new Error("Network error"));
+      vi.mocked(fetch).mockRejectedValue(new Error("Network error"));
 
       const req = createReqWithCookies(
         { phone: "09012345678" },
@@ -612,10 +618,10 @@ describe("POST /api/register/complete", () => {
       tableChains["intake"] = intakeChain;
 
       // displayName も pictureUrl も空文字
-      (fetch as any).mockResolvedValue({
+      vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ displayName: "", pictureUrl: "" }),
-      });
+      } as Response);
 
       const req = createReqWithCookies(
         { phone: "09012345678" },
@@ -635,7 +641,7 @@ describe("POST /api/register/complete", () => {
   describe("LINE_ACCESS_TOKENが空の場合", () => {
     it("トークンが空でもプロフィール取得をスキップして正常完了する", async () => {
       const { getSettingOrEnv } = await import("@/lib/settings");
-      (getSettingOrEnv as any).mockResolvedValueOnce("");
+      vi.mocked(getSettingOrEnv).mockResolvedValueOnce("");
 
       const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
       tableChains["patients"] = patientsChain;
@@ -745,14 +751,14 @@ describe("POST /api/register/complete", () => {
         patientsMaybeSingleCount++;
         if (patientsMaybeSingleCount === 1) {
           // ステップ1: LINE UID検索
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
         }
         if (patientsMaybeSingleCount === 2) {
           // 電話番号重複: 現在の患者情報取得
-          return { then: (fn: any) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
         }
         // 既存患者チェック
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
       });
 
       // limit(5)で重複データを返す: 電話番号重複検出用
@@ -762,7 +768,7 @@ describe("POST /api/register/complete", () => {
         if (n === 5 && patientsLimitCount === 2) {
           // 電話番号重複データ: line_id=null、名前一致
           return {
-            then: (fn: any) => fn({
+            then: (fn: (val: unknown) => unknown) => fn({
               data: [
                 { patient_id: "PT-OLD", name: "田中太郎", name_kana: "タナカタロウ", line_id: null },
               ],
@@ -799,9 +805,9 @@ describe("POST /api/register/complete", () => {
       patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
         patientsMaybeSingleCount++;
         if (patientsMaybeSingleCount === 1) {
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
         }
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
       });
 
       const originalLimit = patientsChain.limit;
@@ -810,7 +816,7 @@ describe("POST /api/register/complete", () => {
         if (n === 5 && patientsLimitCount === 2) {
           // line_id有りの別アカウント → マージスキップ
           return {
-            then: (fn: any) => fn({
+            then: (fn: (val: unknown) => unknown) => fn({
               data: [
                 { patient_id: "PT-OTHER", name: "田中太郎", name_kana: null, line_id: "U999other" },
               ],
@@ -843,13 +849,13 @@ describe("POST /api/register/complete", () => {
       patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
         patientsMaybeSingleCount++;
         if (patientsMaybeSingleCount === 1) {
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
         }
         if (patientsMaybeSingleCount === 2) {
           // 現在の患者: 名前が異なる
-          return { then: (fn: any) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { name: "田中太郎", name_kana: "タナカタロウ" }, error: null }) };
         }
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-MAIN" }, error: null }) };
       });
 
       const originalLimit = patientsChain.limit;
@@ -858,7 +864,7 @@ describe("POST /api/register/complete", () => {
         if (n === 5 && patientsLimitCount === 2) {
           // line_id=null だが名前が異なる
           return {
-            then: (fn: any) => fn({
+            then: (fn: (val: unknown) => unknown) => fn({
               data: [
                 { patient_id: "PT-DIFF", name: "鈴木花子", name_kana: "スズキハナコ", line_id: null },
               ],
@@ -892,7 +898,7 @@ describe("POST /api/register/complete", () => {
     it("正規レコード同士の重複は手動対応として警告のみ", async () => {
       const patientsChain = createChain();
       let patientsThenCount = 0;
-      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+      patientsChain.then = vi.fn().mockImplementation((fn: (val: unknown) => unknown) => {
         patientsThenCount++;
         if (patientsThenCount === 1) {
           // ステップ1: LINE UID検索 → 見つかる
@@ -947,9 +953,9 @@ describe("POST /api/register/complete", () => {
       patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
         patientsMaybeSingleCount++;
         if (patientsMaybeSingleCount === 1) {
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-001" }, error: null }) };
         }
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-001" }, error: null }) };
       });
 
       const originalLimit = patientsChain.limit;
@@ -958,7 +964,7 @@ describe("POST /api/register/complete", () => {
         if (n === 5 && patientsLimitCount === 1) {
           // LINE_仮レコード → 自動マージ対象
           return {
-            then: (fn: any) => fn({
+            then: (fn: (val: unknown) => unknown) => fn({
               data: [
                 { patient_id: "LINE_err123", name: "仮ユーザー", name_kana: null, line_id: "U123merr" },
               ],
@@ -971,7 +977,7 @@ describe("POST /api/register/complete", () => {
       tableChains["patients"] = patientsChain;
 
       // マージ対象テーブルでエラーを返す
-      const errorChain = createChain({ data: null, error: { code: "42P01", message: "テーブルが存在しません" } });
+      const errorChain = createChain({ data: null, error: { code: "42P01", message: "テーブルが存在しません" } } as never);
       tableChains["reservations"] = errorChain;
       tableChains["orders"] = errorChain;
       tableChains["reorders"] = errorChain;
@@ -1005,9 +1011,9 @@ describe("POST /api/register/complete", () => {
       patientsChain.maybeSingle = vi.fn().mockImplementation(() => {
         patientsMaybeSingleCount++;
         if (patientsMaybeSingleCount === 1) {
-          return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+          return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-001" }, error: null }) };
         }
-        return { then: (fn: any) => fn({ data: { patient_id: "PT-001" }, error: null }) };
+        return { then: (fn: (val: unknown) => unknown) => fn({ data: { patient_id: "PT-001" }, error: null }) };
       });
 
       const originalLimit = patientsChain.limit;
@@ -1015,7 +1021,7 @@ describe("POST /api/register/complete", () => {
         patientsLimitCount++;
         if (n === 5 && patientsLimitCount === 1) {
           return {
-            then: (fn: any) => fn({
+            then: (fn: (val: unknown) => unknown) => fn({
               data: [
                 { patient_id: "LINE_uniq123", name: "仮ユーザー", name_kana: null, line_id: "U123uniq" },
               ],
@@ -1028,7 +1034,7 @@ describe("POST /api/register/complete", () => {
       tableChains["patients"] = patientsChain;
 
       // UNIQUE制約違反（23505）→ 無視されるはず
-      const uniqueErrorChain = createChain({ data: null, error: { code: "23505", message: "UNIQUE violation" } });
+      const uniqueErrorChain = createChain({ data: null, error: { code: "23505", message: "UNIQUE violation" } } as never);
       tableChains["reservations"] = uniqueErrorChain;
       tableChains["orders"] = uniqueErrorChain;
       tableChains["reorders"] = uniqueErrorChain;
@@ -1059,9 +1065,8 @@ describe("POST /api/register/complete", () => {
     it("patients updateエラーでもレスポンスは200で返る", async () => {
       const patientsChain = createChain({ data: { patient_id: "PT-001" }, error: null });
       // updateのthenでエラーを返すように設定
-      const originalThen = patientsChain.then;
       let thenCallCount = 0;
-      patientsChain.then = vi.fn().mockImplementation((fn: any) => {
+      patientsChain.then = vi.fn().mockImplementation((fn: (val: unknown) => unknown) => {
         thenCallCount++;
         // update完了時のthen（後半の呼び出し）でエラーを返す
         return fn({ data: { patient_id: "PT-001" }, error: { message: "更新エラー" } });
@@ -1101,7 +1106,7 @@ describe("POST /api/register/complete", () => {
       );
 
       // fetch が呼ばれる前にカウントをリセット
-      (fetch as any).mockClear();
+      vi.mocked(fetch).mockClear();
 
       const res = await POST(req);
       expect(res.status).toBe(200);

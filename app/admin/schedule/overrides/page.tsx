@@ -230,8 +230,8 @@ export default function OverridesPage() {
       );
       const j = await r.json();
       setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
-    } catch (e: any) {
-      setMsg({ type: "error", text: e?.message || "エラーが発生しました" });
+    } catch (e) {
+      setMsg({ type: "error", text: e instanceof Error ? e.message : "エラーが発生しました" });
     } finally {
       setSaving(false);
     }
@@ -478,7 +478,7 @@ export default function OverridesPage() {
                               <select
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white"
                                 value={draft.type}
-                                onChange={(e) => updateSlot(index, { type: e.target.value as any })}
+                                onChange={(e) => updateSlot(index, { type: e.target.value as Override["type"] })}
                               >
                                 <option value="open">臨時オープン</option>
                                 <option value="modify">時間変更</option>

@@ -1,7 +1,7 @@
 // 診察設定セクション — 診察モード・LINEコールURL
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 // --- 型定義 ---
 type ConsultationType =
@@ -44,25 +44,27 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
   const [saved, setSaved] = useState(false);
 
   // --- 初期読み込み ---
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-      const data = await res.json();
-      if (data.settings && typeof data.settings === "object") {
-        setConfig(prev => ({
-          ...prev,
-          type: data.settings.type || prev.type,
-          lineCallUrl: data.settings.line_call_url || prev.lineCallUrl,
-        }));
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
+        const data = await res.json();
+        if (!ignore && data.settings && typeof data.settings === "object") {
+          setConfig(prev => ({
+            ...prev,
+            type: data.settings.type || prev.type,
+            lineCallUrl: data.settings.line_call_url || prev.lineCallUrl,
+          }));
+        }
+      } catch {
+        /* デフォルト値を維持 */
       }
-    } catch {
-      /* デフォルト値を維持 */
-    }
-    setLoading(false);
+      if (!ignore) setLoading(false);
+    })();
+    return () => { ignore = true; };
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   // --- 保存 ---
   const handleSave = async () => {

@@ -112,28 +112,28 @@ function SidebarNav({ pathname, isSidebarOpen, onItemClick }: { pathname: string
   );
 }
 
+// 認証状態の初期値をlocalStorageから同期的に取得（クライアント専用コンポーネント）
+function readDemoSession(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("demo_session") === "true";
+}
+
 export default function DemoLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isLoginPage = pathname === `${BASE}/login`;
+  const hasSession = readDemoSession();
+  const [isAuthenticated, setIsAuthenticated] = useState(hasSession);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const loading = !isLoginPage && !hasSession && !isAuthenticated;
 
+  // 未認証の場合はログインページへリダイレクト
   useEffect(() => {
-    if (pathname === `${BASE}/login`) {
-      setLoading(false);
-      return;
-    }
-
-    const session = localStorage.getItem("demo_session");
-    if (session === "true") {
-      setIsAuthenticated(true);
-      setLoading(false);
-    } else {
+    if (!isLoginPage && !readDemoSession()) {
       router.push(`${BASE}/login`);
     }
-  }, [pathname, router]);
+  }, [isLoginPage, router]);
 
   const handleLogout = () => {
     localStorage.removeItem("demo_session");

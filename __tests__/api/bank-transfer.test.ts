@@ -173,7 +173,7 @@ describe("bank-transfer 金額パース", () => {
   });
 
   it("null相当 → 0", () => {
-    expect(parseAmount(undefined as any)).toBe(0);
+    expect(parseAmount(undefined as unknown as string)).toBe(0);
   });
 });
 

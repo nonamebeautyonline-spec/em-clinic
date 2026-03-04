@@ -372,7 +372,7 @@ async function handleFollow(lineUid: string, tenantId: string | null, accessToke
     assign_tags?: number[];
     assign_mark?: string;
     menu_change?: string;
-    actions?: any[];
+    actions?: Record<string, unknown>[];
   };
 
   // アクション詳細を記録する配列
@@ -646,7 +646,7 @@ async function autoAssignStatusByPatient(
 // =================================================================
 // message イベント処理（ユーザーからのテキスト等）
 // =================================================================
-async function handleMessage(lineUid: string, message: any, tenantId: string | null, accessToken: string) {
+async function handleMessage(lineUid: string, message: { type: string; id?: string; text?: string; fileName?: string; title?: string; address?: string; packageId?: string; stickerId?: string }, tenantId: string | null, accessToken: string) {
   // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
   const patient = await findOrCreatePatient(lineUid, tenantId, accessToken);
 
@@ -692,7 +692,7 @@ async function handleMessage(lineUid: string, message: any, tenantId: string | n
       break;
     case "image": {
       const imageUrl = await downloadAndSaveImage(
-        message.id,
+        message.id!,
         patient?.patient_id || `uid_${lineUid.slice(-8)}`,
         accessToken
       );
@@ -852,7 +852,7 @@ async function checkAndReplyKeyword(
           await pushMessage(lineUid, [{
             type: "flex",
             altText: tpl.content || "テンプレートメッセージ",
-            contents: sanitizeFlexContents(tpl.flex_content),
+            contents: sanitizeFlexContents(tpl.flex_content) as Record<string, unknown>,
           }], tenantId ?? undefined);
 
           await logEvent({
@@ -913,7 +913,7 @@ async function checkAndReplyKeyword(
 }
 
 // 条件ルール評価（タグベース）
-async function evaluateConditionRules(patientId: string, rules: any[], tenantId: string | null): Promise<boolean> {
+async function evaluateConditionRules(patientId: string, rules: { type: string; tag_id?: number; operator?: string }[], tenantId: string | null): Promise<boolean> {
   try {
     // 患者のタグIDを取得
     const { data: patientTags } = await withTenant(
@@ -924,10 +924,10 @@ async function evaluateConditionRules(patientId: string, rules: any[], tenantId:
       tenantId
     );
 
-    const tagIds = new Set((patientTags || []).map((t: any) => t.tag_id));
+    const tagIds = new Set((patientTags || []).map((t: { tag_id: number }) => t.tag_id));
 
     for (const rule of rules) {
-      if (rule.type === "tag") {
+      if (rule.type === "tag" && rule.tag_id != null) {
         const hasTag = tagIds.has(rule.tag_id);
         if (rule.operator === "has" && !hasTag) return false;
         if (rule.operator === "not_has" && hasTag) return false;
@@ -942,6 +942,14 @@ async function evaluateConditionRules(patientId: string, rules: any[], tenantId:
 // =================================================================
 // postback イベント処理（ユーザーからのリッチメニュー操作等）
 // =================================================================
+interface RichMenuAction {
+  type: string;
+  value?: string;
+  mode?: string;
+  fieldName?: string;
+  operation?: string;
+}
+
 async function handleUserPostback(lineUid: string, postbackData: string, tenantId: string | null, accessToken: string) {
   const patient = await findOrCreatePatient(lineUid, tenantId, accessToken);
 
@@ -951,7 +959,7 @@ async function handleUserPostback(lineUid: string, postbackData: string, tenantI
   }
 
   // JSON形式（リッチメニューのaction type）を試行
-  let parsed: any = null;
+  let parsed: { type?: string; actions?: RichMenuAction[]; userMessage?: string; provider?: string; [key: string]: unknown } | null = null;
   try {
     parsed = JSON.parse(postbackData);
   } catch {
@@ -999,7 +1007,7 @@ async function handleUserPostback(lineUid: string, postbackData: string, tenantI
 async function executeRichMenuActions(
   lineUid: string,
   patient: { patient_id: string; patient_name: string } | null,
-  actions: any[],
+  actions: RichMenuAction[],
   tenantId: string | null,
   accessToken: string
 ) {
@@ -1030,7 +1038,7 @@ async function executeRichMenuActions(
             await pushMessage(lineUid, [{
               type: "flex",
               altText: tmpl.name || "メッセージ",
-              contents: sanitizeFlexContents(tmpl.flex_content),
+              contents: sanitizeFlexContents(tmpl.flex_content) as Record<string, unknown>,
             }], tenantId ?? undefined);
             await logEvent({
               tenantId,
@@ -1080,7 +1088,7 @@ async function executeRichMenuActions(
 
         case "text_send": {
           if (!action.value) break;
-          const text = action.value
+          const text = String(action.value)
             .replace(/\{name\}/g, patient?.patient_name || "")
             .replace(/\{patient_id\}/g, patient?.patient_id || "");
 

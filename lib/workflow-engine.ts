@@ -88,7 +88,7 @@ interface WorkflowStepRow {
   workflow_id: string;
   sort_order: number;
   step_type: StepType;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 /** トリガーデータ（実行時のコンテキスト） */
@@ -288,19 +288,19 @@ export async function executeStep(
 ): Promise<StepResult> {
   switch (step.step_type) {
     case "send_message":
-      return executeSendMessage(step.config as SendMessageConfig, triggerData, tenantId);
+      return executeSendMessage(step.config as unknown as SendMessageConfig, triggerData, tenantId);
     case "add_tag":
-      return executeAddTag(step.config as TagConfig, triggerData, tenantId);
+      return executeAddTag(step.config as unknown as TagConfig, triggerData, tenantId);
     case "remove_tag":
-      return executeRemoveTag(step.config as TagConfig, triggerData, tenantId);
+      return executeRemoveTag(step.config as unknown as TagConfig, triggerData, tenantId);
     case "switch_richmenu":
-      return executeSwitchRichmenu(step.config as SwitchRichmenuConfig, triggerData, tenantId);
+      return executeSwitchRichmenu(step.config as unknown as SwitchRichmenuConfig, triggerData, tenantId);
     case "wait":
-      return executeWait(step.config as WaitConfig);
+      return executeWait(step.config as unknown as WaitConfig);
     case "condition":
-      return executeCondition(step.config as ConditionConfig, triggerData, tenantId);
+      return executeCondition(step.config as unknown as ConditionConfig, triggerData, tenantId);
     case "webhook":
-      return executeWebhook(step.config as WebhookConfig, triggerData);
+      return executeWebhook(step.config as unknown as WebhookConfig, triggerData);
     default:
       return { success: false, error: `不明なステップタイプ: ${step.step_type}` };
   }
@@ -340,7 +340,7 @@ async function executeSendMessage(
             {
               type: "flex",
               altText: tmpl.content || "メッセージ",
-              contents: sanitizeFlexContents(tmpl.flex_content),
+              contents: sanitizeFlexContents(tmpl.flex_content) as Record<string, unknown>,
             },
           ],
           tenantId ?? undefined,
@@ -640,7 +640,7 @@ export async function fireWorkflowTrigger(
  * トリガー設定と実際のデータが一致するかチェック
  */
 function matchesTriggerConfig(
-  triggerConfig: Record<string, any> | null,
+  triggerConfig: Record<string, unknown> | null,
   triggerData: TriggerData,
 ): boolean {
   if (!triggerConfig || Object.keys(triggerConfig).length === 0) {

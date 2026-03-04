@@ -7,17 +7,17 @@ import { NextRequest } from "next/server";
 
 // === モックヘルパー ===
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv","like"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -30,7 +30,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -80,12 +80,12 @@ describe("POST /api/reorder/apply", () => {
     tableChains = {};
 
     // デフォルト: parseBody成功
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "MJL_5mg_1m" },
     });
 
     // デフォルト: fetch成功
-    (fetch as any).mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("ok") });
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("ok") });
   });
 
   // ------------------------------------------------------------------
@@ -94,7 +94,7 @@ describe("POST /api/reorder/apply", () => {
   describe("認証チェック", () => {
     it("patient_idがない場合は401を返す", async () => {
       // cookies モックを上書き: patient_idなし
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn(() => undefined),
       });
 
@@ -111,7 +111,7 @@ describe("POST /api/reorder/apply", () => {
 
     it("patient_idがある場合は処理が継続される", async () => {
       // cookies モック: patient_idあり
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-001" };
           if (name === "patient_id") return { value: "PT-001" };
@@ -127,7 +127,7 @@ describe("POST /api/reorder/apply", () => {
       tableChains["reorders"] = reordersChain;
       // reorder_number取得
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: { id: 1 }, error: null }),
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
       });
       // 患者名・処方歴
       const patientsChain = createChain({ data: { name: "田中太郎" }, error: null });
@@ -150,7 +150,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("入力バリデーション", () => {
     it("parseBodyエラー時はエラーレスポンスを返す", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-001" };
           if (name === "patient_id") return { value: "PT-001" };
@@ -159,7 +159,7 @@ describe("POST /api/reorder/apply", () => {
       });
 
       const errorResponse = Response.json({ ok: false, error: "入力値が不正です" }, { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: errorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse });
 
       const req = new NextRequest("http://localhost/api/reorder/apply", {
         method: "POST",
@@ -176,7 +176,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("NG患者ブロック", () => {
     it("NG患者は再処方申請がブロックされる", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NG" };
           if (name === "patient_id") return { value: "PT-NG" };
@@ -199,7 +199,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("OK患者は通過する", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-OK" };
           if (name === "patient_id") return { value: "PT-OK" };
@@ -212,7 +212,7 @@ describe("POST /api/reorder/apply", () => {
       const reordersChain = createChain({ data: null, error: null });
       tableChains["reorders"] = reordersChain;
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: { id: 1 }, error: null }),
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
       });
       const patientsChain = createChain({ data: { name: "田中" }, error: null });
       tableChains["patients"] = patientsChain;
@@ -229,7 +229,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("statusがnullのintakeは無視される（NG判定しない）", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NULL" };
           if (name === "patient_id") return { value: "PT-NULL" };
@@ -243,7 +243,7 @@ describe("POST /api/reorder/apply", () => {
       const reordersChain = createChain({ data: null, error: null });
       tableChains["reorders"] = reordersChain;
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: { id: 1 }, error: null }),
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
       });
       const patientsChain = createChain({ data: { name: "田中" }, error: null });
       tableChains["patients"] = patientsChain;
@@ -265,7 +265,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("重複申請チェック", () => {
     it("pending状態の既存申請がある場合は400を返す", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-DUP" };
           if (name === "patient_id") return { value: "PT-DUP" };
@@ -296,7 +296,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("重複チェックDBエラーの場合は500を返す", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-ERR" };
           if (name === "patient_id") return { value: "PT-ERR" };
@@ -331,7 +331,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("DB挿入", () => {
     function setupDefaultChains() {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-NEW" };
           if (name === "patient_id") return { value: "PT-NEW" };
@@ -347,7 +347,7 @@ describe("POST /api/reorder/apply", () => {
       // 重複なし + reorder_number取得用
       const reordersChain = createChain({ data: null, error: null });
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: { id: 1 }, error: null }),
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
       });
       tableChains["reorders"] = reordersChain;
 
@@ -372,7 +372,7 @@ describe("POST /api/reorder/apply", () => {
     });
 
     it("DB挿入失敗時は500を返す", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-FAIL" };
           if (name === "patient_id") return { value: "PT-FAIL" };
@@ -386,7 +386,7 @@ describe("POST /api/reorder/apply", () => {
       const reordersChain = createChain({ data: null, error: null });
       // 重複チェック: なし → singleでエラー
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: null, error: { message: "insert failed" } }),
+        then: (fn: (val: unknown) => void) => fn({ data: null, error: { message: "insert failed" } }),
       });
       tableChains["reorders"] = reordersChain;
 
@@ -407,7 +407,7 @@ describe("POST /api/reorder/apply", () => {
   // ------------------------------------------------------------------
   describe("キャッシュ削除", () => {
     it("挿入成功時にinvalidateDashboardCacheが呼ばれる", async () => {
-      (cookies as any).mockResolvedValue({
+      vi.mocked(cookies).mockResolvedValue({
         get: vi.fn((name: string) => {
           if (name === "__Host-patient_id") return { value: "PT-CACHE" };
           if (name === "patient_id") return { value: "PT-CACHE" };
@@ -419,7 +419,7 @@ describe("POST /api/reorder/apply", () => {
       tableChains["intake"] = intakeChain;
       const reordersChain = createChain({ data: null, error: null });
       reordersChain.single = vi.fn().mockReturnValue({
-        then: (fn: any) => fn({ data: { id: 99 }, error: null }),
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 99 }, error: null }),
       });
       tableChains["reorders"] = reordersChain;
       const patientsChain = createChain({ data: { name: "田中" }, error: null });
@@ -451,7 +451,7 @@ describe("POST /api/reorder/apply", () => {
 
     it("既存データなしの場合はreorder_number=2になる", () => {
       const maxRow = null;
-      const reorderNumber = ((maxRow as any)?.reorder_number || 1) + 1;
+      const reorderNumber = ((maxRow as { reorder_number?: number } | null)?.reorder_number || 1) + 1;
       expect(reorderNumber).toBe(2);
     });
   });
@@ -509,7 +509,7 @@ describe("POST /api/reorder/apply", () => {
   describe("例外処理", () => {
     it("予期しないエラーは500を返す", async () => {
       // cookiesでエラーを発生させる
-      (cookies as any).mockRejectedValue(new Error("unexpected cookies error"));
+      vi.mocked(cookies).mockRejectedValue(new Error("unexpected cookies error"));
 
       const req = new NextRequest("http://localhost/api/reorder/apply", {
         method: "POST",

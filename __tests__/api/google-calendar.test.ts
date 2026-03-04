@@ -21,13 +21,13 @@ vi.mock("@/lib/supabase", () => ({
     from: (table: string) => {
       mockSupabaseFrom(table);
       return {
-        select: (...args: any[]) => {
+        select: (...args: unknown[]) => {
           mockSupabaseSelect(...args);
           return {
-            eq: (...eqArgs: any[]) => {
+            eq: (...eqArgs: unknown[]) => {
               mockSupabaseEq(...eqArgs);
               return {
-                eq: (...eqArgs2: any[]) => {
+                eq: (...eqArgs2: unknown[]) => {
                   mockSupabaseEq(...eqArgs2);
                   return {
                     single: () => {
@@ -50,13 +50,13 @@ vi.mock("@/lib/supabase", () => ({
                 },
               };
             },
-            gte: (...args2: any[]) => {
+            gte: (...args2: unknown[]) => {
               mockSupabaseGte(...args2);
               return {
-                lte: (...args3: any[]) => {
+                lte: (...args3: unknown[]) => {
                   mockSupabaseLte(...args3);
                   return {
-                    neq: (...args4: any[]) => {
+                    neq: (...args4: unknown[]) => {
                       mockSupabaseNeq(...args4);
                       return { data: [], error: null };
                     },
@@ -67,10 +67,10 @@ vi.mock("@/lib/supabase", () => ({
             in: () => ({ data: [], error: null }),
           };
         },
-        update: (...args: any[]) => {
+        update: (...args: unknown[]) => {
           mockSupabaseUpdate(...args);
           return {
-            eq: (...eqArgs: any[]) => {
+            eq: (...eqArgs: unknown[]) => {
               mockSupabaseEq(...eqArgs);
               return {
                 eq: () => ({ data: null, error: null }),
@@ -78,7 +78,7 @@ vi.mock("@/lib/supabase", () => ({
             },
           };
         },
-        insert: (...args: any[]) => {
+        insert: (...args: unknown[]) => {
           mockSupabaseInsert(...args);
           return { data: null, error: null };
         },
@@ -134,7 +134,7 @@ function createMockRequest(url: string, options?: { method?: string; body?: stri
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: options?.body ? async () => JSON.parse(options.body!) : async () => ({}),
-  } as any;
+  } as unknown as import("next/server").NextRequest;
 }
 
 describe("Google Calendar Auth API", () => {
@@ -145,7 +145,7 @@ describe("Google Calendar Auth API", () => {
   it("認証済みの管理者がOAuth2認証URLを取得できる", async () => {
     const { GET } = await import("@/app/api/admin/google-calendar/auth/route");
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
     const req = createMockRequest(
       "http://localhost:3000/api/admin/google-calendar/auth?doctor_id=dr_001"
@@ -162,7 +162,7 @@ describe("Google Calendar Auth API", () => {
   it("未認証の場合は401を返す", async () => {
     const { GET } = await import("@/app/api/admin/google-calendar/auth/route");
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockResolvedValue(false);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(false);
 
     const req = createMockRequest(
       "http://localhost:3000/api/admin/google-calendar/auth?doctor_id=dr_001"
@@ -175,7 +175,7 @@ describe("Google Calendar Auth API", () => {
   it("doctor_idがない場合は400を返す", async () => {
     const { GET } = await import("@/app/api/admin/google-calendar/auth/route");
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
     const req = createMockRequest(
       "http://localhost:3000/api/admin/google-calendar/auth"
@@ -246,7 +246,7 @@ describe("Google Calendar Sync API", () => {
   it("未認証の場合は401を返す", async () => {
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockResolvedValue(false);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(false);
 
     const req = createMockRequest(
       "http://localhost:3000/api/admin/google-calendar/sync",
@@ -260,7 +260,7 @@ describe("Google Calendar Sync API", () => {
   it("doctor_idがない場合は400を返す", async () => {
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const { verifyAdminAuth } = await import("@/lib/admin-auth");
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
     const req = createMockRequest(
       "http://localhost:3000/api/admin/google-calendar/sync",
@@ -307,20 +307,21 @@ describe("Google Calendar 連携フロー統合テスト", () => {
 describe("Google Calendar Sync 詳細テスト", () => {
   // sync 用に Supabase モックを上書きするヘルパー
   // テストごとに from() の振る舞いを細かく制御する
-  let mockFromBehavior: (table: string) => any;
+  type ChainMock = Record<string, ReturnType<typeof vi.fn>>;
+  let mockFromBehavior: (table: string) => ChainMock;
 
-  async function setupSupabaseMock(behavior: (table: string) => any) {
+  async function setupSupabaseMock(behavior: (table: string) => ChainMock) {
     mockFromBehavior = behavior;
     const { supabaseAdmin } = await import("@/lib/supabase");
-    (supabaseAdmin as any).from = (table: string) => {
+    (supabaseAdmin as unknown as { from: (table: string) => ChainMock }).from = (table: string) => {
       mockSupabaseFrom(table);
       return mockFromBehavior(table);
     };
   }
 
   // テーブルごとのデフォルトチェーンビルダー
-  function chainBuilder(overrides: Record<string, any> = {}) {
-    const chain: any = {
+  function chainBuilder(overrides: Record<string, unknown> = {}) {
+    const chain: ChainMock = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
@@ -345,11 +346,11 @@ describe("Google Calendar Sync 詳細テスト", () => {
 
     const gcal = await import("@/lib/google-calendar");
     vi.mocked(gcal.listEvents).mockResolvedValue([]);
-    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "event-1" } as any);
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "event-1" } as unknown as Awaited<ReturnType<typeof gcal.insertEvent>>);
     vi.mocked(gcal.refreshAccessToken).mockResolvedValue({
       access_token: "new-access-token",
       expires_in: 3600,
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof gcal.refreshAccessToken>>);
     vi.mocked(gcal.calculateTokenExpiry).mockReturnValue("2026-02-27T19:00:00.000Z");
   });
 
@@ -493,7 +494,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
         start: { dateTime: "2026-03-01T10:00:00+09:00" },
         end: { dateTime: "2026-03-01T11:00:00+09:00" },
       },
-    ] as any);
+    ] as unknown as Awaited<ReturnType<typeof gcal.listEvents>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
@@ -538,7 +539,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
     vi.mocked(gcal.listEvents).mockResolvedValue([
       { id: "evt-1", status: "cancelled", summary: "キャンセル済", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: { dateTime: "2026-03-01T11:00:00+09:00" } },
       { id: "evt-2", status: "confirmed", summary: "有効な予定", start: { dateTime: "2026-03-02T10:00:00+09:00" }, end: { dateTime: "2026-03-02T11:00:00+09:00" } },
-    ] as any);
+    ] as unknown as Awaited<ReturnType<typeof gcal.listEvents>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
@@ -594,7 +595,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
     const gcal = await import("@/lib/google-calendar");
     vi.mocked(gcal.listEvents).mockResolvedValue([
       { id: "evt-1", status: "confirmed", summary: "更新予定", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: { dateTime: "2026-03-01T11:00:00+09:00" } },
-    ] as any);
+    ] as unknown as Awaited<ReturnType<typeof gcal.listEvents>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
@@ -644,7 +645,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
 
     const gcal = await import("@/lib/google-calendar");
     vi.mocked(gcal.listEvents).mockResolvedValue([]); // Googleイベントなし
-    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new-event" } as any);
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new-event" } as unknown as Awaited<ReturnType<typeof gcal.insertEvent>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
@@ -696,7 +697,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
     // 1件目失敗、2件目成功
     vi.mocked(gcal.insertEvent)
       .mockRejectedValueOnce(new Error("API limit"))
-      .mockResolvedValueOnce({ id: "new-event" } as any);
+      .mockResolvedValueOnce({ id: "new-event" } as unknown as Awaited<ReturnType<typeof gcal.insertEvent>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {
@@ -748,8 +749,8 @@ describe("Google Calendar Sync 詳細テスト", () => {
       { id: "e1", status: "cancelled", summary: "C", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: {} },
       { id: "e2", status: "confirmed", summary: "A", start: { dateTime: "2026-03-01T10:00:00+09:00" }, end: {} },
       { id: "e3", status: "confirmed", summary: "B", start: { date: "2026-03-02" }, end: {}, description: "reserve_id:rsv-001" },
-    ] as any);
-    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new" } as any);
+    ] as unknown as Awaited<ReturnType<typeof gcal.listEvents>>);
+    vi.mocked(gcal.insertEvent).mockResolvedValue({ id: "new" } as unknown as Awaited<ReturnType<typeof gcal.insertEvent>>);
 
     const { POST } = await import("@/app/api/admin/google-calendar/sync/route");
     const req = createMockRequest("http://localhost:3000/api/admin/google-calendar/sync", {

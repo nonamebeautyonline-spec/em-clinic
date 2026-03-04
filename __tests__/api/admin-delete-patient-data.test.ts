@@ -1,21 +1,26 @@
 // __tests__/api/admin-delete-patient-data.test.ts
 // 患者データ削除 API のテスト
 // 対象: app/api/admin/delete-patient-data/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンモックの型定義 ---
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -31,7 +36,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -48,7 +53,7 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -56,7 +61,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { POST, GET } from "@/app/api/admin/delete-patient-data/route";
@@ -69,7 +74,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
@@ -77,7 +82,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
   // ========================================
   describe("POST: 患者データ削除", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/delete-patient-data");
       const res = await POST(req);
       expect(res.status).toBe(401);
@@ -85,7 +90,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
 
     it("バリデーション失敗 → parseBody のエラーレスポンス", async () => {
       const mockErrorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: mockErrorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/delete-patient-data");
       const res = await POST(req);
@@ -93,19 +98,9 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
     });
 
     it("予約キャンセル + 問診削除 → 成功", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { patient_id: "p1", delete_intake: true, delete_reservation: true },
       });
-
-      // 予約取得（有効な予約あり）
-      const reservationsChain = createChain({
-        data: [{ id: 1, reserve_id: "r1", reserved_date: "2026-02-10", reserved_time: "10:00", status: "confirmed" }],
-        error: null,
-      });
-      // 予約キャンセル更新
-      const reservationUpdateChain = createChain({ data: null, error: null });
-      // intake 削除
-      const intakeChain = createChain({ data: null, error: null });
 
       // テーブルチェーンのセットアップ
       // reservations は selectとupdateの両方で使われるので、
@@ -128,7 +123,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
     });
 
     it("予約なし → reservation_canceled なし", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { patient_id: "p1", delete_intake: false, delete_reservation: true },
       });
 
@@ -143,7 +138,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
     });
 
     it("予約取得エラー → errors に追加", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { patient_id: "p1", delete_intake: false, delete_reservation: true },
       });
 
@@ -157,7 +152,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
     });
 
     it("問診削除エラー → errors に追加", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { patient_id: "p1", delete_intake: true, delete_reservation: false },
       });
 
@@ -171,7 +166,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
     });
 
     it("delete_reservation=false → 予約キャンセルスキップ", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { patient_id: "p1", delete_intake: false, delete_reservation: false },
       });
 
@@ -188,7 +183,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
   // ========================================
   describe("GET: 患者情報取得", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/delete-patient-data?patient_id=p1");
       const res = await GET(req);
       expect(res.status).toBe(401);

@@ -9,12 +9,12 @@ const mockExpire = vi.fn();
 
 vi.mock("@/lib/redis", () => ({
   redis: {
-    get: (...args: any[]) => mockGet(...args),
-    set: (...args: any[]) => mockSet(...args),
-    incr: (...args: any[]) => mockIncr(...args),
-    del: (...args: any[]) => mockDel(...args),
-    ttl: (...args: any[]) => mockTtl(...args),
-    expire: (...args: any[]) => mockExpire(...args),
+    get: (...args: unknown[]) => mockGet(...args),
+    set: (...args: unknown[]) => mockSet(...args),
+    incr: (...args: unknown[]) => mockIncr(...args),
+    del: (...args: unknown[]) => mockDel(...args),
+    ttl: (...args: unknown[]) => mockTtl(...args),
+    expire: (...args: unknown[]) => mockExpire(...args),
   },
 }));
 

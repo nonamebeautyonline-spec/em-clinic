@@ -2,19 +2,23 @@
 // ダッシュボード統計API テスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import type { Mock } from "vitest";
+
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: [], error: null, count: 0 }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
     "ilike", "or", "count", "csv", "head"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -32,18 +36,18 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 function createMockRequest(method: string, url: string) {
   const req = new Request(url, { method });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET } from "@/app/api/admin/dashboard-stats/route";
@@ -67,15 +71,15 @@ describe("ダッシュボード統計 API - GET", () => {
   it("DB空 → 全0値を返す", async () => {
     // reservationsチェーン
     const resChain = getOrCreateChain("reservations");
-    resChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 0 }));
+    resChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 0 }));
 
     // ordersチェーン: fetchAll が range を呼ぶので空配列を返す
     const ordChain = getOrCreateChain("orders");
-    ordChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null, count: 0 }));
+    ordChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
 
     // intakeチェーン
     const intChain = getOrCreateChain("intake");
-    intChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 0 }));
+    intChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 0 }));
 
     const req = createMockRequest("GET", "http://localhost/api/admin/dashboard-stats");
     const res = await GET(req);
@@ -94,12 +98,12 @@ describe("ダッシュボード統計 API - GET", () => {
   it("正常データ → 集計結果を返す", async () => {
     // reservations: 予約2件
     const resChain = getOrCreateChain("reservations");
-    resChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 2 }));
+    resChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 2 }));
 
     // orders: 多数のクエリに対応
     const ordChain = getOrCreateChain("orders");
     let ordCallCount = 0;
-    ordChain.then = vi.fn((resolve: any) => {
+    ordChain.then = vi.fn((resolve: (val: unknown) => unknown) => {
       ordCallCount++;
       // fetchAll は range を使う。最初のバッチで返してから空で終了
       // 配送データ（1回目の fetchAll）
@@ -118,7 +122,7 @@ describe("ダッシュボード統計 API - GET", () => {
 
     // intake
     const intChain = getOrCreateChain("intake");
-    intChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 10 }));
+    intChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null, count: 10 }));
 
     const req = createMockRequest("GET", "http://localhost/api/admin/dashboard-stats");
     const res = await GET(req);

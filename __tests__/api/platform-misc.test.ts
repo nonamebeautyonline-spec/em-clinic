@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ============================================================
 
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -18,11 +18,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -38,13 +38,13 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/platform-auth", () => ({
-  verifyPlatformAdmin: (...args: any[]) => mockVerifyPlatformAdmin(...args),
+  verifyPlatformAdmin: (...args: unknown[]) => mockVerifyPlatformAdmin(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : {})),
 }));
 
 vi.mock("@/lib/audit", () => ({
@@ -60,7 +60,7 @@ vi.mock("@/lib/session", () => ({
 // SignJWT は `new SignJWT(payload)` で呼ばれるため class で定義
 vi.mock("jose", () => ({
   SignJWT: class MockSignJWT {
-    constructor(_payload: any) {}
+    constructor(_payload: unknown) {}
     setProtectedHeader() { return this; }
     setIssuedAt() { return this; }
     setExpirationTime() { return this; }
@@ -93,22 +93,24 @@ vi.mock("@upstash/redis", () => ({
 }));
 
 // NextRequest互換のモック生成（cookies対応）
-function createReq(method: string, url: string, body?: any, cookies?: Record<string, string>) {
+function createReq(method: string, url: string, body?: unknown, cookies?: Record<string, string>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  }) as any;
-  req.nextUrl = new URL(url);
+  });
   // cookies モック
   const cookieMap = new Map(Object.entries(cookies || {}));
-  req.cookies = {
-    get: (name: string) => {
-      const val = cookieMap.get(name);
-      return val ? { value: val } : undefined;
+  Object.assign(req, {
+    nextUrl: new URL(url),
+    cookies: {
+      get: (name: string) => {
+        const val = cookieMap.get(name);
+        return val ? { value: val } : undefined;
+      },
     },
-  };
-  return req;
+  });
+  return req as unknown as import("next/server").NextRequest;
 }
 
 // ============================================================
@@ -155,7 +157,7 @@ describe("impersonate API", () => {
 
   it("POST テナント存在しない → 404", async () => {
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "not found" } }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: { message: "not found" } }));
 
     const res = await impersonatePOST(
       createReq("POST", "http://localhost/api/platform/impersonate", {
@@ -167,7 +169,7 @@ describe("impersonate API", () => {
 
   it("POST 無効テナント → 400", async () => {
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: { id: "tenant-1", name: "テスト", slug: "test", is_active: false },
       error: null,
     }));
@@ -183,14 +185,14 @@ describe("impersonate API", () => {
   it("POST 正常系 → インパーソネーション開始", async () => {
     // テナント取得
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: { id: "tenant-1", name: "テストクリニック", slug: "test-clinic", is_active: true },
       error: null,
     }));
 
     // テナントメンバー取得
     const membersChain = getOrCreateChain("tenant_members");
-    membersChain.then = vi.fn((resolve: any) => resolve({
+    membersChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: [{
         admin_user_id: "user-1",
         admin_users: { id: "user-1", name: "テスト医師", email: "dr@test.com", username: "dr_test" },
@@ -225,7 +227,7 @@ describe("members API", () => {
   it("GET 正常系 → メンバー一覧を返す", async () => {
     // admin_users
     const usersChain = getOrCreateChain("admin_users");
-    usersChain.then = vi.fn((resolve: any) => resolve({
+    usersChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: [{ id: "u1", email: "a@test.com", name: "管理者A", is_active: true, platform_role: null, tenant_id: "t1", created_at: "2026-01-01", updated_at: "2026-01-01" }],
       count: 1,
       error: null,
@@ -233,14 +235,14 @@ describe("members API", () => {
 
     // tenants
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: [{ id: "t1", name: "テナントA", slug: "tenant-a" }],
       error: null,
     }));
 
     // tenant_members
     const membersChain = getOrCreateChain("tenant_members");
-    membersChain.then = vi.fn((resolve: any) => resolve({
+    membersChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: [{ admin_user_id: "u1", tenant_id: "t1", role: "admin" }],
       error: null,
     }));
@@ -271,11 +273,11 @@ describe("errors API", () => {
   it("GET 正常系 → エラーログを返す", async () => {
     // audit_logs (2回呼ばれる: ページング + 集計)
     const auditChain = getOrCreateChain("audit_logs");
-    auditChain.then = vi.fn((resolve: any) => resolve({ data: [], count: 0, error: null }));
+    auditChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], count: 0, error: null }));
 
     // tenants（集計用）
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], error: null }));
 
     const res = await errorsGET(
       createReq("GET", "http://localhost/api/platform/errors"),
@@ -304,15 +306,15 @@ describe("health API", () => {
   it("GET 正常系 → ヘルスチェック結果を返す", async () => {
     // tenants (DB check)
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: [{ id: "t1" }], error: null }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [{ id: "t1" }], error: null }));
 
     // admin_sessions (アクティブセッション数)
     const sessionsChain = getOrCreateChain("admin_sessions");
-    sessionsChain.then = vi.fn((resolve: any) => resolve({ count: 5, error: null }));
+    sessionsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ count: 5, error: null }));
 
     // audit_logs (直近24h)
     const auditChain = getOrCreateChain("audit_logs");
-    auditChain.then = vi.fn((resolve: any) => resolve({ count: 100, error: null }));
+    auditChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ count: 100, error: null }));
 
     // Redis環境変数設定
     process.env.UPSTASH_REDIS_REST_URL = "https://test.upstash.io";
@@ -368,7 +370,7 @@ describe("audit API", () => {
 
   it("GET 正常系 → 監査ログ一覧を返す", async () => {
     const auditChain = getOrCreateChain("audit_logs");
-    auditChain.then = vi.fn((resolve: any) => resolve({ data: [], count: 0, error: null }));
+    auditChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], count: 0, error: null }));
 
     const res = await auditGET(
       createReq("GET", "http://localhost/api/platform/audit"),
@@ -382,7 +384,7 @@ describe("audit API", () => {
 
   it("GET フィルター付き → 正常レスポンス", async () => {
     const auditChain = getOrCreateChain("audit_logs");
-    auditChain.then = vi.fn((resolve: any) => resolve({ data: [], count: 0, error: null }));
+    auditChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], count: 0, error: null }));
 
     const res = await auditGET(
       createReq("GET", "http://localhost/api/platform/audit?tenant_id=t1&action=login&start=2026-01-01&end=2026-01-31&search=test"),
@@ -407,7 +409,7 @@ describe("alerts API", () => {
 
   it("GET 正常系 → アラート一覧を返す", async () => {
     const alertsChain = getOrCreateChain("security_alerts");
-    alertsChain.then = vi.fn((resolve: any) => resolve({ data: [], count: 0, error: null }));
+    alertsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], count: 0, error: null }));
 
     const res = await alertsGET(
       createReq("GET", "http://localhost/api/platform/alerts"),
@@ -422,7 +424,7 @@ describe("alerts API", () => {
 
   it("GET フィルター付き → 正常レスポンス", async () => {
     const alertsChain = getOrCreateChain("security_alerts");
-    alertsChain.then = vi.fn((resolve: any) => resolve({ data: [], count: 0, error: null }));
+    alertsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: [], count: 0, error: null }));
 
     const res = await alertsGET(
       createReq("GET", "http://localhost/api/platform/alerts?severity=high&acknowledged=false"),
@@ -447,7 +449,7 @@ describe("sessions API", () => {
 
   it("GET 正常系 → セッション一覧を返す", async () => {
     const sessionsChain = getOrCreateChain("admin_sessions");
-    sessionsChain.then = vi.fn((resolve: any) => resolve({
+    sessionsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: [
         {
           id: "sess-1",
@@ -476,7 +478,7 @@ describe("sessions API", () => {
 
   it("GET DB エラー → 500", async () => {
     const sessionsChain = getOrCreateChain("admin_sessions");
-    sessionsChain.then = vi.fn((resolve: any) => resolve({
+    sessionsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: null,
       error: { message: "DB error" },
     }));

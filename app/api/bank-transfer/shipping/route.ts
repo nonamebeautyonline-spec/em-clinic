@@ -148,10 +148,10 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[BankTransfer] Error:", e);
     return NextResponse.json(
-      { error: e?.message || "サーバーエラーが発生しました" },
+      { error: e instanceof Error ? e.message : "サーバーエラーが発生しました" },
       { status: 500 }
     );
   }

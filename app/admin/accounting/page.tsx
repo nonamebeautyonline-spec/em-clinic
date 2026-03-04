@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -77,6 +77,7 @@ export default function AccountingPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
+  const dailyDataRef = useRef<DailyData[]>([]);
   const [dailySummary, setDailySummary] = useState({
     totalSquare: 0,
     totalBank: 0,
@@ -132,6 +133,7 @@ export default function AccountingPage() {
         const json = await res.json();
         if (json.ok) {
           setDailyData(json.data);
+          dailyDataRef.current = json.data;
           setDailySummary(json.summary);
           extractDateSummary(json.data, dateStr);
         }
@@ -177,19 +179,19 @@ export default function AccountingPage() {
   useEffect(() => {
     loadDailyData(selectedMonth, selectedDate);
     loadAnalyticsData(analyticsTab, selectedMonth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedDate変更時の再取得は別のuseEffectで行う
   }, [selectedMonth, loadDailyData, loadAnalyticsData, analyticsTab]);
 
   // 日付変更時: 同月内ならキャッシュ済みのdailyDataから抽出（API呼び出し不要）
   useEffect(() => {
     const dateMonth = selectedDate.slice(0, 7);
-    if (dateMonth === selectedMonth && dailyData.length > 0) {
-      extractDateSummary(dailyData, selectedDate);
+    if (dateMonth === selectedMonth && dailyDataRef.current.length > 0) {
+      extractDateSummary(dailyDataRef.current, selectedDate);
     } else if (dateMonth !== selectedMonth) {
       // 別月の日付が選ばれた場合のみAPI呼び出し
       loadDailyData(dateMonth, selectedDate);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, selectedMonth, extractDateSummary, loadDailyData]);
 
   // 分析タブ変更時
   useEffect(() => {

@@ -180,10 +180,10 @@ export async function POST(req: NextRequest) {
         updated: successCount,
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Confirm] Error:", e);
     return NextResponse.json(
-      { error: e?.message || "サーバーエラー" },
+      { error: e instanceof Error ? e.message : "サーバーエラー" },
       { status: 500 }
     );
   }

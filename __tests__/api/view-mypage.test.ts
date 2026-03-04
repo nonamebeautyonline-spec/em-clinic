@@ -11,15 +11,15 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // テーブル別結果制御
-type MockResult = { data: any; error?: any };
+type MockResult = { data: unknown; error?: unknown };
 let mockResultsByTable: Record<string, MockResult> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "gte", "lte",
@@ -36,7 +36,7 @@ function createChain(table: string) {
   });
 
   // Promiseとして扱えるように（Promise.allで使用される）
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: null, error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -54,7 +54,7 @@ vi.mock("@/lib/supabase", () => ({
 import { GET } from "@/app/api/admin/view-mypage/route";
 
 // --- ヘルパー ---
-function createReq(url: string): any {
+function createReq(url: string) {
   return new Request(url, {
     method: "GET",
     headers: { "Content-Type": "application/json" },

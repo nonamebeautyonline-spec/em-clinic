@@ -796,9 +796,9 @@ export function NodeSettingsPanel({ node, allNodes, onUpdate, onClose }: NodeSet
               <label className="block text-xs font-medium text-gray-500 mb-1">条件ルール</label>
               {(data.condition_rules?.length || 0) > 0 ? (
                 <div className="space-y-1">
-                  {data.condition_rules.map((rule: any, i: number) => (
+                  {data.condition_rules.map((rule, i) => (
                     <div key={i} className="text-xs bg-yellow-50 px-2 py-1.5 rounded border border-yellow-200">
-                      {rule.type}: {JSON.stringify(rule).substring(0, 60)}...
+                      {String(rule.type || "")}: {JSON.stringify(rule).substring(0, 60)}...
                     </div>
                   ))}
                 </div>
@@ -831,9 +831,9 @@ export function NodeSettingsPanel({ node, allNodes, onUpdate, onClose }: NodeSet
             <label className="block text-xs font-medium text-gray-500 mb-1">離脱条件</label>
             {(data.exit_condition_rules?.length || 0) > 0 ? (
               <div className="space-y-1 mb-2">
-                {data.exit_condition_rules.map((rule: any, i: number) => (
+                {data.exit_condition_rules.map((rule, i) => (
                   <div key={i} className="text-xs bg-orange-50 px-2 py-1.5 rounded border border-orange-200">
-                    {rule.type}: {JSON.stringify(rule).substring(0, 60)}...
+                    {String(rule.type || "")}: {JSON.stringify(rule).substring(0, 60)}...
                   </div>
                 ))}
               </div>

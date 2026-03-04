@@ -27,7 +27,7 @@ type OrderForMyPage = {
   refundedAmount?: number;
 };
 
-function toIsoFlexible(v: any): string {
+function toIsoFlexible(v: unknown): string {
   const s = (typeof v === "string" ? v : String(v ?? "")).trim();
   if (!s) return "";
 
@@ -57,24 +57,61 @@ function toIsoFlexible(v: any): string {
   return "";
 }
 
-function normalizePaymentStatus(v: any): PaymentStatus {
+function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = (typeof v === "string" ? v : String(v ?? "")).toLowerCase();
   if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
   if (String(v ?? "").toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
 
-function normalizeRefundStatus(v: any): RefundStatus | undefined {
+function normalizeRefundStatus(v: unknown): RefundStatus | undefined {
   const s = (typeof v === "string" ? v : String(v ?? "")).toUpperCase().trim();
   if (!s) return undefined;
   if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
-function toNumberOrUndefined(v: any): number | undefined {
+function toNumberOrUndefined(v: unknown): number | undefined {
   if (v == null || v === "") return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
+}
+
+interface OrderDbRow {
+  id: string;
+  patient_id: string;
+  product_code: string | null;
+  product_name: string | null;
+  amount: number | null;
+  paid_at: string | null;
+  created_at: string | null;
+  shipping_status: string | null;
+  shipping_date: string | null;
+  tracking_number: string | null;
+  payment_status: string | null;
+  payment_method: string | null;
+  status: string | null;
+  refund_status: string | null;
+  refunded_at: string | null;
+  refunded_amount: number | null;
+  postal_code: string | null;
+  address: string | null;
+  shipping_name: string | null;
+  shipping_list_created_at: string | null;
+}
+
+interface ReorderDbRow {
+  id: string;
+  status: string | null;
+  created_at: string | null;
+  product_code: string | null;
+}
+
+interface IntakeHistoryRow {
+  reserve_id: string | null;
+  status: string | null;
+  note: string | null;
+  updated_at: string | null;
 }
 
 // ─── Supabase クエリ ───
@@ -195,8 +232,8 @@ async function getConsultationHistoryFromSupabase(
       }
     }
 
-    return (intakeData || []).map((row: any) => {
-      const resv = resvMap.get(row.reserve_id);
+    return (intakeData || []).map((row: IntakeHistoryRow) => {
+      const resv = row.reserve_id ? resvMap.get(row.reserve_id) : undefined;
       const date = resv?.reserved_date || row.updated_at?.split("T")[0] || "";
       const prescriptionMenu = resv?.prescription_menu || "";
       const title = `診察完了${prescriptionMenu ? ` (${prescriptionMenu})` : ""}`;
@@ -226,7 +263,7 @@ async function getOrdersFromSupabase(patientId: string, tenantId: string | null)
 
     if (error) return [];
 
-    return (data || []).map((o: any) => {
+    return (data || []).map((o: OrderDbRow) => {
       const paidRaw = o.paid_at ?? o.created_at ?? "";
       const refundedRaw = o.refunded_at ?? "";
 
@@ -280,7 +317,7 @@ async function getReordersFromSupabase(patientId: string, tenantId: string | nul
 
     if (error) return [];
 
-    return (data || []).map((r: any) => {
+    return (data || []).map((r: ReorderDbRow) => {
       const productCode = String(r.product_code || "");
       const mgMatch = productCode.match(/(\d+\.?\d*mg)/);
       const monthsMatch = productCode.match(/(\d+)m$/);

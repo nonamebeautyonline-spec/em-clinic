@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -360,14 +360,20 @@ const [mpLabels, setMpLabels] = useState({
   cancelNotice: "※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。",
 });
 
-useEffect(() => {
-  fetch("/api/mypage/settings").then(r => r.json()).then(d => {
+const fetchMypageSettings = useCallback(async () => {
+  try {
+    const r = await fetch("/api/mypage/settings");
+    const d = await r.json();
     if (d.config?.colors) setMpColors(d.config.colors);
     if (d.config?.sections) setMpSections(d.config.sections);
     if (d.config?.content) setMpContent(d.config.content);
     if (d.config?.labels) setMpLabels(d.config.labels);
-  }).catch(() => {});
+  } catch { /* 設定取得失敗時はデフォルト値を維持 */ }
 }, []);
+
+useEffect(() => {
+  fetchMypageSettings();
+}, [fetchMypageSettings]);
 
 const showToast = (msg: string) => {
   setToast(msg);
@@ -379,181 +385,179 @@ const showToast = (msg: string) => {
 const [cancelingReorder, setCancelingReorder] = useState(false);
 const [showReorderCancelSuccess, setShowReorderCancelSuccess] = useState(false);
 
-useEffect(() => {
-  const init = async () => {
-    setLoading(true);
+const initDashboard = useCallback(async () => {
+  setLoading(true);
 
-    // local state（最終的に setData に入れる）
-    let finalData: PatientDashboardData = {
-      patient: { id: "unknown", displayName: "ゲスト" },
-      nextReservation: null,
+  // local state（最終的に setData に入れる）
+  let finalData: PatientDashboardData = {
+    patient: { id: "unknown", displayName: "ゲスト" },
+    nextReservation: null,
+    activeOrders: [],
+    orders: [],
+    history: [],
+  };
+
+  try {
+    // ① localStorage の読み込み（予約だけ）
+    let storedReservation: { date?: string; start?: string; reserveId?: string; title?: string } | null = null;
+
+    if (typeof window !== "undefined") {
+      const rawResv = window.localStorage.getItem("last_reservation");
+      if (rawResv) {
+        try {
+          storedReservation = JSON.parse(rawResv);
+        } catch {
+          storedReservation = null;
+        }
+      }
+    }
+
+    // ③ Patient 情報（仮。/api/mypage の結果で上書き）
+    const patient: PatientInfo = {
+      id: "unknown",
+      displayName: "ゲスト",
+    };
+
+    // ④ localStorage の予約情報（診察前だけ）
+    let nextReservation: Reservation | null = null;
+    if (storedReservation?.date && storedReservation?.start) {
+      const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
+      nextReservation = {
+        id:
+          storedReservation.reserveId ||
+          `local-${storedReservation.date}-${storedReservation.start}`,
+        datetime: iso,
+        title: storedReservation.title || "オンライン診察予約",
+        status: "scheduled",
+      };
+    }
+
+    // 初期データ（仮）
+    finalData = {
+      patient,
+      nextReservation,
       activeOrders: [],
-      orders: [], // ★追加
+      orders: [],
       history: [],
     };
 
-    try {
-      // ① localStorage の読み込み（予約だけ）
-      let storedReservation: any = null;
+    // ⑤ /api/mypage を1本だけ叩く
+    // ★ refresh=1の場合はキャッシュをスキップ（決済完了後の強制リフレッシュ）
+    const forceRefresh = searchParams.get("refresh") === "1";
+    const mpRes = await fetch("/api/mypage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ refresh: forceRefresh }),
+    });
 
-      if (typeof window !== "undefined") {
-        const rawResv = window.localStorage.getItem("last_reservation");
-        if (rawResv) {
-          try {
-            storedReservation = JSON.parse(rawResv);
-          } catch {
-            storedReservation = null;
-          }
-        }
-      }
-
-      // ③ Patient 情報（仮。/api/mypage の結果で上書き）
-      const patient: PatientInfo = {
-        id: "unknown",
-        displayName: "ゲスト",
-      };
-
-      // ④ localStorage の予約情報（診察前だけ）
-      let nextReservation: Reservation | null = null;
-      if (storedReservation?.date && storedReservation?.start) {
-        const iso = `${storedReservation.date}T${storedReservation.start}:00+09:00`;
-        nextReservation = {
-          id:
-            storedReservation.reserveId ||
-            `local-${storedReservation.date}-${storedReservation.start}`,
-          datetime: iso,
-          title: storedReservation.title || "オンライン診察予約",
-          status: "scheduled",
-        };
-      }
-
-      // 初期データ（仮）
-      finalData = {
-        patient,
-        nextReservation,
-        activeOrders: [],
-        orders: [],   // ★追加
-        history: [],
-      };
-
-      // ⑤ /api/mypage を1本だけ叩く
-      // ★ refresh=1の場合はキャッシュをスキップ（決済完了後の強制リフレッシュ）
-      const forceRefresh = searchParams.get("refresh") === "1";
-      const mpRes = await fetch("/api/mypage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ refresh: forceRefresh }),
-      });
-
-      // ★ 未連携なら init へ
-      if (mpRes.status === 401) {
-        router.push("/mypage/init");
-        return;
-      }
-
-      if (!mpRes.ok) {
-        console.error("api/mypage response not ok:", mpRes.status);
-        setError("データの取得に失敗しました。");
-        return;
-      }
-
-      const api = (await mpRes.json()) as {
-        ok: boolean;
-        patient?: PatientInfo;
-        nextReservation?: Reservation | null;
-        activeOrders?: Order[];
-        orders?: Order[]; // ★追加
-        history?: PrescriptionHistoryItem[];
-        ordersFlags?: OrdersFlags;
-        reorders?: any[];
-          hasIntake?: boolean; // ★追加
-  intakeId?: string;   // ★任意
-  intakeStatus?: string | null; // ★NG判定用
-      };
-      console.log(
-  "[mypage api]",
-  "activeOrders=",
-  api.activeOrders?.length,
-  "orders=",
-  api.orders?.length
-);
-// ★★★ ここに入れる ★★★
-const exists = api.hasIntake === true;
-setHasIntake(exists);
-setIntakeStatus(api.intakeStatus ?? null);
-
-if (typeof window !== "undefined") {
-  if (exists) window.localStorage.setItem("has_intake", "1");
-  else window.localStorage.removeItem("has_intake");
-}
-// ★★★ ここまで ★★★
-
-      if (api?.ok === false) {
-        console.error("api/mypage returned ok:false");
-        setError("データの取得に失敗しました。");
-        return;
-      }
-
-      // ⑥ 反映
-      finalData = {
-        patient: {
-          id: api.patient?.id || patient.id,
-          displayName: api.patient?.displayName || patient.displayName,
-        },
-        nextReservation:
-          typeof api.nextReservation !== "undefined"
-            ? api.nextReservation
-            : nextReservation,
-        activeOrders: api.activeOrders ?? [],
-        orders: api.orders ?? [], // ★追加
-        history: api.history ?? [],
-        ordersFlags: api.ordersFlags,
-      };
-
-      // 診察履歴が1件でもあれば「次回予約」は消す
-      if (finalData.history.length > 0) {
-        finalData.nextReservation = null;
-        if (typeof window !== "undefined") {
-          window.localStorage.removeItem("last_reservation");
-          window.localStorage.setItem("has_intake", "1");
-        }
-      }
-
-      // 再処方（配列が来たときだけ）
-      if (Array.isArray(api.reorders)) {
-        const mapped: ReorderItem[] = api.reorders.map((r: any) => {
-          const code = String(r.product_code ?? r.productCode ?? "").trim();
-          const label = PRODUCT_LABELS[code] || code || "マンジャロ";
-          return {
-            id: String(r.id ?? ""),
-            reorder_number: r.reorder_number != null ? Number(r.reorder_number) : null,
-timestamp: String(r.timestamp ?? r.createdAt ?? ""),
-            product_code: code,
-            productCode: code,
-            productLabel: label,
-            status: (r.status ?? "pending") as ReorderItem["status"],
-            note: r.note ? String(r.note) : undefined,
-          };
-        });
-        setReorders(mapped);
-      }
-      // ★ 問診提出済みチェック（has_pid を真実源にする）
-
-      // 最終反映（成功時のみ）
-      setData(finalData);
-      setError(null);
-
-    } catch (e) {
-      console.error(e);
-      setError("データの取得に失敗しました。");
-    } finally {
-      setLoading(false);
+    // ★ 未連携なら init へ
+    if (mpRes.status === 401) {
+      router.push("/mypage/init");
+      return;
     }
-  };
 
-  init();
-}, [router]);
+    if (!mpRes.ok) {
+      console.error("api/mypage response not ok:", mpRes.status);
+      setError("データの取得に失敗しました。");
+      return;
+    }
+
+    const api = (await mpRes.json()) as {
+      ok: boolean;
+      patient?: PatientInfo;
+      nextReservation?: Reservation | null;
+      activeOrders?: Order[];
+      orders?: Order[];
+      history?: PrescriptionHistoryItem[];
+      ordersFlags?: OrdersFlags;
+      reorders?: { id?: unknown; reorder_number?: unknown; timestamp?: unknown; createdAt?: unknown; product_code?: unknown; productCode?: unknown; status?: unknown; note?: unknown }[];
+      hasIntake?: boolean;
+      intakeId?: string;
+      intakeStatus?: string | null;
+    };
+    console.log(
+      "[mypage api]",
+      "activeOrders=",
+      api.activeOrders?.length,
+      "orders=",
+      api.orders?.length
+    );
+
+    const exists = api.hasIntake === true;
+    setHasIntake(exists);
+    setIntakeStatus(api.intakeStatus ?? null);
+
+    if (typeof window !== "undefined") {
+      if (exists) window.localStorage.setItem("has_intake", "1");
+      else window.localStorage.removeItem("has_intake");
+    }
+
+    if (api?.ok === false) {
+      console.error("api/mypage returned ok:false");
+      setError("データの取得に失敗しました。");
+      return;
+    }
+
+    // ⑥ 反映
+    finalData = {
+      patient: {
+        id: api.patient?.id || patient.id,
+        displayName: api.patient?.displayName || patient.displayName,
+      },
+      nextReservation:
+        typeof api.nextReservation !== "undefined"
+          ? api.nextReservation
+          : nextReservation,
+      activeOrders: api.activeOrders ?? [],
+      orders: api.orders ?? [],
+      history: api.history ?? [],
+      ordersFlags: api.ordersFlags,
+    };
+
+    // 診察履歴が1件でもあれば「次回予約」は消す
+    if (finalData.history.length > 0) {
+      finalData.nextReservation = null;
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem("last_reservation");
+        window.localStorage.setItem("has_intake", "1");
+      }
+    }
+
+    // 再処方（配列が来たときだけ）
+    if (Array.isArray(api.reorders)) {
+      const mapped: ReorderItem[] = api.reorders.map((r) => {
+        const code = String(r.product_code ?? r.productCode ?? "").trim();
+        const label = PRODUCT_LABELS[code] || code || "マンジャロ";
+        return {
+          id: String(r.id ?? ""),
+          reorder_number: r.reorder_number != null ? Number(r.reorder_number) : null,
+          timestamp: String(r.timestamp ?? r.createdAt ?? ""),
+          product_code: code,
+          productCode: code,
+          productLabel: label,
+          status: (r.status ?? "pending") as ReorderItem["status"],
+          note: r.note ? String(r.note) : undefined,
+        };
+      });
+      setReorders(mapped);
+    }
+
+    // 最終反映（成功時のみ）
+    setData(finalData);
+    setError(null);
+
+  } catch (e) {
+    console.error(e);
+    setError("データの取得に失敗しました。");
+  } finally {
+    setLoading(false);
+  }
+}, [router, searchParams]);
+
+useEffect(() => {
+  initDashboard();
+}, [initDashboard]);
 
   // ▼ 日時変更
   const handleChangeReservation = () => {
@@ -597,7 +601,7 @@ timestamp: String(r.timestamp ?? r.createdAt ?? ""),
         }),
       });
 
-      const result = await res.json().catch(() => ({} as any));
+      const result = await res.json().catch(() => ({} as Record<string, unknown>));
 
       if (!res.ok || result.ok === false) {
         alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
@@ -679,7 +683,7 @@ const handleSaveAddress = async (orderId: string) => {
         shippingName: editShippingName,
       }),
     });
-    const json = await res.json().catch(() => ({} as any));
+    const json = await res.json().catch(() => ({} as Record<string, unknown>));
     if (!res.ok || !json.ok) {
       alert(json.message || json.error || "住所の更新に失敗しました");
       return;
@@ -733,7 +737,7 @@ const handleReorderCancel = async () => {
       body: JSON.stringify({ reorder_id: targetId }),
     });
 
-    const json = await res.json().catch(() => ({} as any));
+    const json = await res.json().catch(() => ({} as Record<string, unknown>));
 
     if (!res.ok || json.ok === false) {
       alert("申請のキャンセルに失敗しました。時間をおいて再度お試しください。");
@@ -764,7 +768,7 @@ const handleShowAllHistory = async () => {
 
   try {
     const res = await fetch("/api/mypage/orders", { method: "GET", cache: "no-store" });
-    const json = await res.json().catch(() => ({} as any));
+    const json = await res.json().catch(() => ({} as Record<string, unknown>));
 
     if (!res.ok || json?.ok !== true) {
       setHistoryError("履歴の取得に失敗しました。");

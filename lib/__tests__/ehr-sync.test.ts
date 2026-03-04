@@ -3,8 +3,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: [], error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, ReturnType<typeof vi.fn>>;
+function createChain(defaultResolve: Record<string, unknown> = { data: [], error: null }) {
+  const chain: SupabaseChain = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -12,11 +13,11 @@ function createChain(defaultResolve = { data: [], error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -32,7 +33,7 @@ vi.mock("@/lib/settings", () => ({
 
 // アダプターモック（classとしてnew可能にする）
 vi.mock("@/lib/ehr/orca-adapter", () => {
-  const OrcaAdapter = function(this: any, config: any) {
+  const OrcaAdapter = function(this: Record<string, unknown>, config: unknown) {
     this.provider = "orca";
     this.config = config;
     this.testConnection = vi.fn(async () => ({ ok: true, message: "OK" }));
@@ -41,12 +42,12 @@ vi.mock("@/lib/ehr/orca-adapter", () => {
     this.pushPatient = vi.fn(async () => ({ externalId: "EXT-1" }));
     this.getKarteList = vi.fn(async () => []);
     this.pushKarte = vi.fn(async () => {});
-  } as any;
+  } as unknown as new (config: unknown) => Record<string, unknown>;
   return { OrcaAdapter };
 });
 
 vi.mock("@/lib/ehr/csv-adapter", () => {
-  const CsvAdapter = function(this: any) {
+  const CsvAdapter = function(this: Record<string, unknown>) {
     this.provider = "csv";
     this.testConnection = vi.fn(async () => ({ ok: true, message: "OK" }));
     this.getPatient = vi.fn(async () => null);
@@ -54,12 +55,12 @@ vi.mock("@/lib/ehr/csv-adapter", () => {
     this.pushPatient = vi.fn(async () => ({ externalId: "CSV-1" }));
     this.getKarteList = vi.fn(async () => []);
     this.pushKarte = vi.fn(async () => {});
-  } as any;
+  } as unknown as new () => Record<string, unknown>;
   return { CsvAdapter };
 });
 
 vi.mock("@/lib/ehr/fhir-adapter", () => {
-  const FhirAdapter = function(this: any, config: any) {
+  const FhirAdapter = function(this: Record<string, unknown>, config: unknown) {
     this.provider = "fhir";
     this.config = config;
     this.testConnection = vi.fn(async () => ({ ok: true, message: "OK" }));
@@ -68,25 +69,25 @@ vi.mock("@/lib/ehr/fhir-adapter", () => {
     this.pushPatient = vi.fn(async () => ({ externalId: "FHIR-1" }));
     this.getKarteList = vi.fn(async () => []);
     this.pushKarte = vi.fn(async () => {});
-  } as any;
+  } as unknown as new (config: unknown) => Record<string, unknown>;
   return { FhirAdapter };
 });
 
 // mapper モック
 vi.mock("@/lib/ehr/mapper", () => ({
-  toEhrPatient: vi.fn((patient: any, intake: any) => ({
+  toEhrPatient: vi.fn((patient: Record<string, unknown> | null, _intake: unknown) => ({
     externalId: "",
     name: patient?.name || "テスト太郎",
   })),
-  fromEhrPatient: vi.fn((ehrPatient: any) => ({
+  fromEhrPatient: vi.fn((ehrPatient: Record<string, unknown> | null) => ({
     name: ehrPatient?.name || "外部太郎",
   })),
-  toEhrKarte: vi.fn((intake: any, patient: any) => ({
+  toEhrKarte: vi.fn((intake: Record<string, unknown> | null, _patient: unknown) => ({
     patientExternalId: "",
     date: intake?.created_at || "2026-01-01",
     content: intake?.note || "テストカルテ",
   })),
-  fromEhrKarte: vi.fn((karte: any) => ({
+  fromEhrKarte: vi.fn((karte: Record<string, unknown> | null) => ({
     note: karte?.content || "インポートカルテ",
   })),
 }));
@@ -155,10 +156,10 @@ describe("createAdapter", () => {
 // pushPatient
 // ============================================================
 describe("pushPatient", () => {
-  const mockAdapter: any = {
-    provider: "orca",
+  const mockAdapter = {
+    provider: "orca" as const,
     pushPatient: vi.fn(async () => ({ externalId: "EXT-100" })),
-  };
+  } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
   it("正常: 患者を外部カルテにプッシュ", async () => {
     // patients テーブル
@@ -242,10 +243,10 @@ describe("pushPatient", () => {
     const logChain = createChain({ error: null });
     tableChains["ehr_sync_logs"] = logChain;
 
-    const errorAdapter: any = {
-      provider: "orca",
+    const errorAdapter = {
+      provider: "orca" as const,
       pushPatient: vi.fn(async () => { throw new Error("接続失敗"); }),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const result = await pushPatient("P-1", errorAdapter, "tenant-1");
 
@@ -259,13 +260,13 @@ describe("pushPatient", () => {
 // ============================================================
 describe("pullPatient", () => {
   it("正常: 外部カルテから患者をプル（既存マッピング）", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getPatient: vi.fn(async () => ({
         externalId: "EXT-1",
         name: "外部太郎",
       })),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // getMappingByExternalId
     const mappingChain = createChain({
@@ -289,13 +290,13 @@ describe("pullPatient", () => {
   });
 
   it("マッピングなし → 新規患者として登録", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getPatient: vi.fn(async () => ({
         externalId: "EXT-NEW",
         name: "新規太郎",
       })),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // マッピングなし
     const mappingChain = createChain({ data: null, error: null });
@@ -316,10 +317,10 @@ describe("pullPatient", () => {
   });
 
   it("外部カルテに患者なし → skipped", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getPatient: vi.fn(async () => null),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const logChain = createChain({ error: null });
     tableChains["ehr_sync_logs"] = logChain;
@@ -331,10 +332,10 @@ describe("pullPatient", () => {
   });
 
   it("adapter.getPatient エラー → error", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getPatient: vi.fn(async () => { throw new Error("タイムアウト"); }),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const logChain = createChain({ error: null });
     tableChains["ehr_sync_logs"] = logChain;
@@ -351,10 +352,10 @@ describe("pullPatient", () => {
 // ============================================================
 describe("pushKarte", () => {
   it("正常: カルテを外部にプッシュ", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       pushKarte: vi.fn(async () => {}),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // patients
     const patientChain = createChain({
@@ -391,7 +392,7 @@ describe("pushKarte", () => {
   });
 
   it("患者なし → skipped", async () => {
-    const mockAdapter: any = { provider: "orca" };
+    const mockAdapter = { provider: "orca" as const } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const patientChain = createChain({ data: null, error: null });
     tableChains["patients"] = patientChain;
@@ -406,7 +407,7 @@ describe("pushKarte", () => {
   });
 
   it("外部IDマッピングなし → skipped", async () => {
-    const mockAdapter: any = { provider: "orca" };
+    const mockAdapter = { provider: "orca" as const } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const patientChain = createChain({
       data: { patient_id: "P-1", name: "テスト太郎" },
@@ -427,10 +428,10 @@ describe("pushKarte", () => {
   });
 
   it("pushKarte エラー → error", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       pushKarte: vi.fn(async () => { throw new Error("送信失敗"); }),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const patientChain = createChain({
       data: { patient_id: "P-1", name: "テスト太郎" },
@@ -465,12 +466,12 @@ describe("pushKarte", () => {
 // ============================================================
 describe("pullKarte", () => {
   it("正常: カルテをインポート", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getKarteList: vi.fn(async () => [
         { externalId: "K-1", patientExternalId: "EXT-1", date: "2026-01-01", content: "カルテ内容" },
       ]),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // getMapping
     const mappingChain = createChain({
@@ -493,7 +494,7 @@ describe("pullKarte", () => {
   });
 
   it("外部IDマッピングなし → skipped", async () => {
-    const mockAdapter: any = { provider: "orca" };
+    const mockAdapter = { provider: "orca" as const } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const mappingChain = createChain({ data: null, error: null });
     tableChains["ehr_patient_mappings"] = mappingChain;
@@ -508,10 +509,10 @@ describe("pullKarte", () => {
   });
 
   it("外部カルテにデータなし → skipped", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getKarteList: vi.fn(async () => []),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const mappingChain = createChain({
       data: { external_id: "EXT-1" },
@@ -529,10 +530,10 @@ describe("pullKarte", () => {
   });
 
   it("getKarteList エラー → error", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getKarteList: vi.fn(async () => { throw new Error("取得失敗"); }),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const mappingChain = createChain({
       data: { external_id: "EXT-1" },
@@ -555,10 +556,10 @@ describe("pullKarte", () => {
 // ============================================================
 describe("syncBatch", () => {
   it("5件 push → 1バッチで処理", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       pushPatient: vi.fn(async () => ({ externalId: "EXT-1" })),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // patients
     const patientChain = createChain({
@@ -583,10 +584,10 @@ describe("syncBatch", () => {
   });
 
   it("60件 push → 50件ずつ2バッチ", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       pushPatient: vi.fn(async () => ({ externalId: "EXT-1" })),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const patientChain = createChain({
       data: { patient_id: "P-1", name: "テスト太郎" },
@@ -610,10 +611,10 @@ describe("syncBatch", () => {
   });
 
   it("pull 方向: マッピングなし → skipped", async () => {
-    const mockAdapter: any = {
-      provider: "orca",
+    const mockAdapter = {
+      provider: "orca" as const,
       getPatient: vi.fn(async () => null),
-    };
+    } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     // マッピングなし
     const mappingChain = createChain({ data: null, error: null });
@@ -630,7 +631,7 @@ describe("syncBatch", () => {
   });
 
   it("空配列 → 結果も空", async () => {
-    const mockAdapter: any = { provider: "orca" };
+    const mockAdapter = { provider: "orca" as const } as unknown as import("@/lib/ehr/types").EhrAdapter;
 
     const results = await syncBatch([], "push", mockAdapter, "tenant-1");
     expect(results).toEqual([]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
@@ -148,7 +148,7 @@ export default function TemplateManagementPage() {
   const [patientSearching, setPatientSearching] = useState(false);
   const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     const [tRes, cRes, fpRes, taRes] = await Promise.all([
       fetch("/api/admin/line/templates", { credentials: "include" }),
       fetch("/api/admin/line/template-categories", { credentials: "include" }),
@@ -160,9 +160,9 @@ export default function TemplateManagementPage() {
     if (tData.templates) setTemplates(tData.templates);
     if (cData.categories) {
       setCategories(cData.categories);
-      if (cData.categories.length > 0 && selectedCategory === null) {
-        setSelectedCategory(cData.categories[0].name);
-      }
+      setSelectedCategory((prev) =>
+        prev === null && cData.categories.length > 0 ? cData.categories[0].name : prev,
+      );
     }
     // Flexプリセット取得
     if (fpRes.ok) {
@@ -180,9 +180,9 @@ export default function TemplateManagementPage() {
       }
     }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // 患者検索（デバウンス付き）
   const searchPatients = async (query: string) => {

@@ -28,7 +28,7 @@ export interface WebhookEvent {
     phone?: string;
     email?: string;
   };
-  rawEvent: any;
+  rawEvent: unknown;
 }
 
 export interface RefundResult {

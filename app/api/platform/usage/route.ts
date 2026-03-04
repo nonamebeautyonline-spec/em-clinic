@@ -88,8 +88,24 @@ export async function GET(req: NextRequest) {
     // 成功した結果のみを返す
     const tenantUsages = usageResults
       .filter(
-        (r): r is PromiseFulfilledResult<ReturnType<typeof getAlertLevel> extends never ? never : any> =>
-          r.status === "fulfilled",
+        (r): r is PromiseFulfilledResult<{
+          tenantId: string;
+          tenantName: string;
+          slug: string;
+          isActive: boolean;
+          messageCount: number;
+          messageQuota: number;
+          percentUsed: number;
+          remaining: number;
+          overageCount: number;
+          storageMb: number;
+          storageQuotaMb: number;
+          storagePercent: number;
+          apiCallCount: number;
+          alertLevel: ReturnType<typeof getAlertLevel>;
+          alertLabel: string;
+          month: string;
+        }> => r.status === "fulfilled",
       )
       .map((r) => r.value);
 

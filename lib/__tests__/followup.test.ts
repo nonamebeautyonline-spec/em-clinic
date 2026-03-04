@@ -12,24 +12,24 @@ vi.mock("@/lib/line-push", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn((query: unknown) => query),
   tenantPayload: vi.fn((tid: string | null) => ({ tenant_id: tid || null })),
 }));
 
 // Supabaseチェーンモック生成ヘルパー
-function createChain(defaultResolve: any = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["select", "eq", "neq", "in", "is", "not", "lte", "gte",
    "order", "limit", "update", "insert", "upsert",
    "maybeSingle", "single"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
 // テーブルごとにチェーンキューを管理（同一テーブルへの複数回アクセスに対応）
-let tableChainQueues: Record<string, any[]> = {};
+let tableChainQueues: Record<string, Record<string, ReturnType<typeof vi.fn>>[]> = {};
 let tableChainIndex: Record<string, number> = {};
 
 function getNextChain(table: string) {
@@ -106,7 +106,7 @@ describe("scheduleFollowups", () => {
     const insertedLogs = logsInsertChain.insert.mock.calls[0][0];
     expect(insertedLogs).toHaveLength(3);
     // 全件に共通の値が含まれる
-    insertedLogs.forEach((log: any) => {
+    insertedLogs.forEach((log: Record<string, unknown>) => {
       expect(log.patient_id).toBe("patient-1");
       expect(log.order_id).toBe(100);
       expect(log.status).toBe("pending");

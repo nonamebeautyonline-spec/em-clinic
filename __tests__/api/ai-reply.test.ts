@@ -17,16 +17,16 @@ vi.mock("@/lib/supabase", () => ({
     from: (table: string) => {
       mockSupabaseFrom(table);
       return {
-        select: (...args: any[]) => { mockSelect(...args); return { maybeSingle: () => { mockMaybeSingle(); return { data: null, error: null }; }, eq: mockEq, in: mockIn, order: mockOrder, single: () => { mockSingle(); return { data: null, error: null }; } }; },
-        insert: (...args: any[]) => { mockInsert(...args); return { select: () => ({ single: () => ({ data: { id: 1 }, error: null }) }) }; },
-        update: (...args: any[]) => { mockUpdate(...args); return { eq: () => ({ data: null, error: null }) }; },
+        select: (...args: unknown[]) => { mockSelect(...args); return { maybeSingle: () => { mockMaybeSingle(); return { data: null, error: null }; }, eq: mockEq, in: mockIn, order: mockOrder, single: () => { mockSingle(); return { data: null, error: null }; } }; },
+        insert: (...args: unknown[]) => { mockInsert(...args); return { select: () => ({ single: () => ({ data: { id: 1 }, error: null }) }) }; },
+        update: (...args: unknown[]) => { mockUpdate(...args); return { eq: () => ({ data: null, error: null }) }; },
       };
     },
   },
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: (query: any) => query,
+  withTenant: (query: unknown) => query,
   tenantPayload: (tid: string | null) => ({ tenant_id: tid || null }),
 }));
 
@@ -126,7 +126,7 @@ describe("AI返信設定API", () => {
     const req = new Request("http://localhost/api/admin/line/ai-reply-settings", {
       method: "GET",
       headers: new Headers(),
-    }) as any;
+    }) as unknown as Request;
     const res = await mod.GET(req);
     expect(res.status).toBe(401);
   });

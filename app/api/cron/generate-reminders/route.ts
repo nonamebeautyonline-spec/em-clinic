@@ -13,6 +13,40 @@ import {
 } from "@/lib/auto-reminder";
 import { acquireLock } from "@/lib/distributed-lock";
 
+// リマインダールールの型定義
+interface ReminderRule {
+  id: number;
+  tenant_id: string | null;
+  target_day_offset: number;
+  is_enabled: boolean;
+  message_format: string;
+  message_template: string | null;
+}
+
+// 予約レコードの型定義
+interface ReservationRow {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  reserved_date: string;
+  reserved_time: string;
+}
+
+// 送信済みログの型定義
+interface SentLogRow {
+  reservation_id: string;
+}
+
+// 患者レコードの型定義
+interface PatientRow {
+  patient_id: string;
+  name: string;
+  line_id: string | null;
+}
+
+// pushMessage の引数型を抽出
+type LineMessage = Parameters<typeof pushMessage>[1][number];
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -65,29 +99,29 @@ export async function GET(req: NextRequest) {
       try {
         const targetDate = getTargetDate(rule);
         totalSent += await sendReminders(rule, tenantId, targetDate);
-      } catch (e: any) {
-        console.error(`[reminders] error rule=${rule.id}:`, e.message);
+      } catch (e) {
+        console.error(`[reminders] error rule=${rule.id}:`, (e as Error).message);
       }
     }
 
     if (totalSent > 0) console.log(`[reminders] sent=${totalSent}`);
     return NextResponse.json({ ok: true, sent: totalSent });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[reminders] cron error:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }
 }
 
 /** ルールの target_day_offset から対象日を算出 */
-function getTargetDate(rule: any): string {
+function getTargetDate(rule: ReminderRule): string {
   const today = getJSTToday();
   return rule.target_day_offset === 0 ? today : addOneDay(today);
 }
 
 /** 対象日の予約を取得 → 未送信分を並列送信 */
-async function sendReminders(rule: any, tenantId: string | null, targetDate: string): Promise<number> {
+async function sendReminders(rule: ReminderRule, tenantId: string | null, targetDate: string): Promise<number> {
   const { data: reservations } = await withTenant(
     supabaseAdmin
       .from("reservations")
@@ -100,7 +134,7 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
   if (!reservations?.length) return 0;
 
   // 送信済みチェック
-  const reservationIds = reservations.map((r: any) => r.id);
+  const reservationIds = reservations.map((r: ReservationRow) => r.id);
   const { data: sentLogs } = await withTenant(
     supabaseAdmin
       .from("reminder_sent_log")
@@ -109,12 +143,12 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
       .in("reservation_id", reservationIds),
     tenantId
   );
-  const sentSet = new Set((sentLogs || []).map((l: any) => l.reservation_id));
-  const unsent = reservations.filter((r: any) => !sentSet.has(r.id));
+  const sentSet = new Set((sentLogs || []).map((l: SentLogRow) => l.reservation_id));
+  const unsent = reservations.filter((r: ReservationRow) => !sentSet.has(r.id));
   if (!unsent.length) return 0;
 
   // 患者のLINE UID取得
-  const patientIds = [...new Set(unsent.map((r: any) => r.patient_id))];
+  const patientIds = [...new Set(unsent.map((r: ReservationRow) => r.patient_id))];
   const { data: patients } = await withTenant(
     supabaseAdmin
       .from("patients")
@@ -128,12 +162,12 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
   }
 
   // 送信対象を事前にメッセージ付きで準備
-  const tasks: { reservation: any; patient: any; messages: any[] }[] = [];
+  const tasks: { reservation: ReservationRow; patient: { name: string; line_id: string | null }; messages: LineMessage[] }[] = [];
   for (const reservation of unsent) {
     const patient = patientMap.get(reservation.patient_id);
     if (!patient?.line_id) continue;
 
-    let messages: any[];
+    let messages: LineMessage[];
     if (rule.message_format === "flex") {
       const flex = await buildReminderFlex(reservation.reserved_date, reservation.reserved_time, tenantId ?? undefined);
       messages = [{ type: "flex", altText: flex.altText, contents: flex.contents }];
@@ -158,11 +192,11 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
     const results = await Promise.all(
       batch.map(async ({ reservation, patient, messages }) => {
         try {
-          const res = await pushMessage(patient.line_id, messages, tenantId ?? undefined);
+          const res = await pushMessage(patient.line_id!, messages, tenantId ?? undefined);
           const ok = res?.ok ?? false;
 
           // sent_log（二重送信防止）とmessage_log を並列insert
-          const inserts: PromiseLike<any>[] = [
+          const inserts: PromiseLike<unknown>[] = [
             supabaseAdmin.from("reminder_sent_log").insert({
               ...tenantPayload(tenantId),
               rule_id: rule.id,
@@ -176,8 +210,8 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
                 patient_id: reservation.patient_id,
                 line_uid: patient.line_id,
                 message_type: "reminder",
-                content: messages[0].type === "text" ? messages[0].text : messages[0].altText,
-                flex_json: messages[0].type === "flex" ? messages[0].contents : null,
+                content: messages[0].type === "text" ? (messages[0] as { type: "text"; text: string }).text : (messages[0] as { altText?: string }).altText,
+                flex_json: messages[0].type === "flex" ? (messages[0] as { type: "flex"; contents: Record<string, unknown> }).contents : null,
                 status: "sent",
                 direction: "outgoing",
               }),
@@ -189,8 +223,8 @@ async function sendReminders(rule: any, tenantId: string | null, targetDate: str
             console.error(`[reminders] LINE送信失敗 rule=${rule.id} reservation=${reservation.id}`);
           }
           return ok ? 1 : 0;
-        } catch (e: any) {
-          console.error(`[reminders] error reservation=${reservation.id}:`, e.message);
+        } catch (e) {
+          console.error(`[reminders] error reservation=${reservation.id}:`, (e as Error).message);
           return 0;
         }
       }),

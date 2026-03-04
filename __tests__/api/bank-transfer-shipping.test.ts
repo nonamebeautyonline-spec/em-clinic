@@ -1,21 +1,26 @@
 // __tests__/api/bank-transfer-shipping.test.ts
 // 銀行振込配送 API のテスト
 // 対象: app/api/bank-transfer/shipping/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンモックの型定義 ---
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -27,7 +32,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -41,7 +46,7 @@ vi.mock("@/lib/phone", () => ({
 
 const mockCreateReorderPaymentKarte = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/reorder-karte", () => ({
-  createReorderPaymentKarte: (...args: any[]) => mockCreateReorderPaymentKarte(...args),
+  createReorderPaymentKarte: (...args: unknown[]) => mockCreateReorderPaymentKarte(...args),
 }));
 
 vi.mock("@/lib/products", () => ({
@@ -54,7 +59,7 @@ vi.mock("@/lib/validations/helpers", () => ({
   parseBody: vi.fn(),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -62,7 +67,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { POST } from "@/app/api/bank-transfer/shipping/route";
@@ -94,7 +99,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   // ========================================
   it("バリデーション失敗 → parseBody のエラーレスポンス", async () => {
     const mockErrorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-    (parseBody as any).mockResolvedValue({ error: mockErrorResponse });
+    vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse });
 
     const req = createMockRequest("POST", "http://localhost/api/bank-transfer/shipping");
     const res = await POST(req);
@@ -105,7 +110,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   // NG患者ブロック
   // ========================================
   it("NG患者 → 403", async () => {
-    (parseBody as any).mockResolvedValue({ data: { ...baseData } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { ...baseData } });
 
     // intake: NG ステータス
     tableChains["intake"] = createChain({
@@ -124,7 +129,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   // 正常系: 初回注文
   // ========================================
   it("初回注文 → orders に挿入成功", async () => {
-    (parseBody as any).mockResolvedValue({ data: { ...baseData } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { ...baseData } });
 
     // intake: OK ステータス（NG ではない）
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
@@ -143,7 +148,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   // 正常系: 再処方注文
   // ========================================
   it("再処方モード → reorders 更新 + カルテ作成", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { ...baseData, mode: "reorder", reorderId: 5 },
     });
 
@@ -168,7 +173,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   });
 
   it("再処方: reorder_number 0件 → id フォールバック", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { ...baseData, mode: "reorder", reorderId: 3 },
     });
 
@@ -189,7 +194,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   // エラー系
   // ========================================
   it("orders挿入失敗 → 500", async () => {
-    (parseBody as any).mockResolvedValue({ data: { ...baseData } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { ...baseData } });
 
     tableChains["intake"] = createChain({ data: { status: "OK" }, error: null });
     tableChains["orders"] = createChain({ data: null, error: { message: "insert error" } });
@@ -202,7 +207,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
   });
 
   it("intakeデータなし（NG判定なし）→ 正常に進む", async () => {
-    (parseBody as any).mockResolvedValue({ data: { ...baseData } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { ...baseData } });
 
     // intake: null（レコードなし）→ NG ではないので通過
     tableChains["intake"] = createChain({ data: null, error: null });

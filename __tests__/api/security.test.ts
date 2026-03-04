@@ -1,6 +1,7 @@
 // __tests__/api/security.test.ts
 // セキュリティ関連テスト（CSRF, Rate Limiting, セッション管理, 監査ログ, CSP）
 import { describe, it, expect } from "vitest";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 
@@ -267,21 +268,18 @@ describe("セッション管理: ソースコード検証", () => {
 // === セッション管理: 純粋ロジックテスト ===
 describe("セッション管理: ハッシュ・有効期限ロジック", () => {
   it("JWTハッシュはSHA-256で64文字", () => {
-    const { createHash } = require("crypto");
     const hash = createHash("sha256").update("test-jwt-token").digest("hex");
     expect(hash).toHaveLength(64);
     expect(hash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("同じJWTは同じハッシュを返す", () => {
-    const { createHash } = require("crypto");
     const h1 = createHash("sha256").update("jwt-abc").digest("hex");
     const h2 = createHash("sha256").update("jwt-abc").digest("hex");
     expect(h1).toBe(h2);
   });
 
   it("異なるJWTは異なるハッシュを返す", () => {
-    const { createHash } = require("crypto");
     const h1 = createHash("sha256").update("jwt-abc").digest("hex");
     const h2 = createHash("sha256").update("jwt-xyz").digest("hex");
     expect(h1).not.toBe(h2);

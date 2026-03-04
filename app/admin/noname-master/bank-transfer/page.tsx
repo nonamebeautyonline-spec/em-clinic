@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 
 interface BankTransferOrder {
   id: string;
@@ -20,7 +19,6 @@ interface BankTransferOrder {
 }
 
 export default function NonameMasterBankTransferPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<BankTransferOrder[]>([]);
   const [error, setError] = useState("");
@@ -32,11 +30,7 @@ export default function NonameMasterBankTransferPage() {
   const [cancelMemo, setCancelMemo] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
-    loadOrders();
-  }, [limit]);
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -57,7 +51,11 @@ export default function NonameMasterBankTransferPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [limit]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   const handleCancel = async () => {
     if (!cancelTarget) return;

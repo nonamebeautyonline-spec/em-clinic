@@ -20,7 +20,7 @@ export type ReservationStatus = "pending" | "canceled";
  * intakeテーブルのstatus値を検証
  * 不正な値（"pending"など）が入らないようにする
  */
-export function validateIntakeStatus(status: any): IntakeStatus {
+export function validateIntakeStatus(status: unknown): IntakeStatus {
   if (status === null || status === undefined) return null;
   if (status === "OK" || status === "NG") return status;
 
@@ -31,7 +31,7 @@ export function validateIntakeStatus(status: any): IntakeStatus {
 /**
  * reservationsテーブルのstatus値を検証
  */
-export function validateReservationStatus(status: any): ReservationStatus {
+export function validateReservationStatus(status: unknown): ReservationStatus {
   if (status === "pending" || status === "canceled") return status;
 
   console.error(`[validateReservationStatus] Invalid status value: "${status}". Defaulting to "pending".`);

@@ -1,7 +1,8 @@
 // __tests__/api/checkout-integration.test.ts
 // checkout API の統合テスト（POSTハンドラ全体をテスト）
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, type Mock } from "vitest";
 import { NextResponse } from "next/server";
+import type { PaymentProvider } from "@/lib/payment/types";
 
 // --- モック ---
 const mockMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
@@ -29,7 +30,7 @@ vi.mock("@/lib/payment", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
-  withTenant: vi.fn((query) => query),
+  withTenant: vi.fn((query: unknown) => query),
 }));
 
 vi.mock("@/lib/validations/helpers", () => ({
@@ -50,13 +51,20 @@ beforeAll(async () => {
 });
 
 // --- テストヘルパー ---
-function createMockRequest(body?: Record<string, unknown>) {
+interface MockRequest {
+  method: string;
+  url: string;
+  headers: { get: Mock };
+  json: () => Promise<Record<string, unknown>>;
+}
+
+function createMockRequest(body?: Record<string, unknown>): MockRequest {
   return {
     method: "POST",
     url: "https://example.com/api/checkout",
     headers: { get: vi.fn(() => null) },
     json: async () => body || {},
-  } as any;
+  };
 }
 
 async function parseJson(res: Response) {
@@ -94,14 +102,14 @@ describe("checkout API 統合テスト", () => {
     vi.mock("@/lib/payment", () => ({ getPaymentProvider: vi.fn() }));
     vi.mock("@/lib/tenant", () => ({
       resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
-      withTenant: vi.fn((query) => query),
+      withTenant: vi.fn((query: unknown) => query),
     }));
     vi.mock("@/lib/validations/helpers", () => ({ parseBody: vi.fn() }));
     vi.mock("@/lib/validations/checkout", () => ({ checkoutSchema: {} }));
 
     const mod = await import("@/app/api/checkout/route");
     const req = createMockRequest();
-    const res = await mod.POST(req);
+    const res = await mod.POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
@@ -117,11 +125,11 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "INVALID", mode: "current", patientId: null, reorderId: null },
-    } as any);
-    vi.mocked(getProductByCode).mockResolvedValue(null as any);
+    } as { data: Record<string, unknown> });
+    vi.mocked(getProductByCode).mockResolvedValue(null);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
@@ -134,12 +142,12 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: "patient-ng", reorderId: null },
-    } as any);
+    } as { data: Record<string, unknown> });
     // withTenantがintakeクエリ結果としてNG statusを返すようにする
-    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "NG" }, error: null } as any);
+    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "NG" }, error: null } as never);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(403);
@@ -154,21 +162,21 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: "patient-ok", reorderId: null },
-    } as any);
+    } as { data: Record<string, unknown> });
     // withTenantがintakeクエリ結果としてOK statusを返す
-    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "OK" }, error: null } as any);
+    vi.mocked(withTenant).mockResolvedValueOnce({ data: { status: "OK" }, error: null } as never);
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "PROD1",
       title: "テスト商品",
       price: 1000,
-    } as any);
-    const mockProvider = {
+    } as Awaited<ReturnType<typeof getProductByCode>>);
+    const mockProvider: Pick<PaymentProvider, "createCheckoutLink"> = {
       createCheckoutLink: vi.fn().mockResolvedValue({ checkoutUrl: "https://pay.example.com/checkout/123" }),
     };
-    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as any);
+    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as PaymentProvider);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(200);
@@ -183,19 +191,19 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "first", patientId: null, reorderId: null },
-    } as any);
+    } as { data: Record<string, unknown> });
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "PROD1",
       title: "テスト商品",
       price: 1000,
-    } as any);
-    const mockProvider = {
+    } as Awaited<ReturnType<typeof getProductByCode>>);
+    const mockProvider: Pick<PaymentProvider, "createCheckoutLink"> = {
       createCheckoutLink: vi.fn().mockResolvedValue({ checkoutUrl: "https://pay.example.com/checkout/456" }),
     };
-    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as any);
+    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as PaymentProvider);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(200);
@@ -211,15 +219,15 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "invalid_mode", patientId: null, reorderId: null },
-    } as any);
+    } as { data: Record<string, unknown> });
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "PROD1",
       title: "テスト商品",
       price: 1000,
-    } as any);
+    } as Awaited<ReturnType<typeof getProductByCode>>);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
@@ -233,19 +241,19 @@ describe("checkout API 統合テスト", () => {
 
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "PROD1", mode: "current", patientId: null, reorderId: null },
-    } as any);
+    } as { data: Record<string, unknown> });
     vi.mocked(getProductByCode).mockResolvedValue({
       code: "PROD1",
       title: "テスト商品",
       price: 1000,
-    } as any);
-    const mockProvider = {
+    } as Awaited<ReturnType<typeof getProductByCode>>);
+    const mockProvider: Pick<PaymentProvider, "createCheckoutLink"> = {
       createCheckoutLink: vi.fn().mockRejectedValue(new Error("決済プロバイダーエラー")),
     };
-    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as any);
+    vi.mocked(getPaymentProvider).mockResolvedValue(mockProvider as PaymentProvider);
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
@@ -256,10 +264,10 @@ describe("checkout API 統合テスト", () => {
     const { parseBody } = await import("@/lib/validations/helpers");
 
     const errorResponse = NextResponse.json({ error: "バリデーションエラー" }, { status: 400 });
-    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as any);
+    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as { data?: never; error: NextResponse });
 
     const req = createMockRequest();
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);

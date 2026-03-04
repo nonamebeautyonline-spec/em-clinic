@@ -2,14 +2,20 @@
 // 小規模APIルートの一括テスト（バッチ4）
 // カバレッジ向上のため、各ルートに認証テスト+正常系1件のみ
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { NextRequest } from "next/server";
 
 // ============================================================
 // 共通モックヘルパー
 // ============================================================
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+
+// Supabaseチェーンモックの型定義
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -17,11 +23,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -39,7 +45,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -173,11 +179,11 @@ function makeReq(
     method?: string;
     headers?: Record<string, string>;
     cookies?: Record<string, string>;
-    body?: any;
+    body?: unknown;
   } = {},
 ): NextRequest {
   const { method = "GET", headers = {}, cookies = {}, body } = opts;
-  const init: any = { method, headers: new Headers(headers) };
+  const init: RequestInit & { headers: Headers } = { method, headers: new Headers(headers) };
   if (body) {
     init.body = JSON.stringify(body);
     init.headers.set("content-type", "application/json");
@@ -204,7 +210,7 @@ beforeEach(() => {
 describe("cron/generate-reminders", () => {
   it("正常系: ルールがない場合 sent=0 を返す", async () => {
     const chain = getOrCreateChain("reminder_rules");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
     const req = makeReq("http://localhost:3000/api/cron/generate-reminders", {
@@ -219,7 +225,7 @@ describe("cron/generate-reminders", () => {
 
   it("DBエラー時は500を返す", async () => {
     const chain = getOrCreateChain("reminder_rules");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "DB error" } }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: { message: "DB error" } }));
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
     const req = makeReq("http://localhost:3000/api/cron/generate-reminders", {
@@ -237,10 +243,10 @@ describe("cron/collect-line-stats", () => {
   it("正常系: 既に収集済みの場合 skipped=1 を返す", async () => {
     // テナント一覧
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: [{ id: "test-tenant" }], error: null }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [{ id: "test-tenant" }], error: null }));
     // 既存データあり
     const chain = getOrCreateChain("line_daily_stats");
-    chain.then = vi.fn((resolve: any) => resolve({ data: { id: "existing" }, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: { id: "existing" }, error: null }));
 
     const { GET } = await import("@/app/api/cron/collect-line-stats/route");
     const req = makeReq("http://localhost:3000/api/cron/collect-line-stats", {
@@ -268,7 +274,7 @@ describe("cron/send-scheduled", () => {
 
   it("正常系: メッセージがない場合 processed=0 を返す", async () => {
     const chain = getOrCreateChain("scheduled_messages");
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const { GET } = await import("@/app/api/cron/send-scheduled/route");
     const req = makeReq("http://localhost:3000/api/cron/send-scheduled", {
@@ -347,7 +353,7 @@ describe("cron/segment-recalculate", () => {
 
   it("正常系: テナント0件でも正常に返す", async () => {
     const tenantsChain = getOrCreateChain("tenants");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const { GET } = await import("@/app/api/cron/segment-recalculate/route");
     const req = makeReq("http://localhost:3000/api/cron/segment-recalculate", {
@@ -376,11 +382,11 @@ describe("cron/health-report", () => {
   it("正常系: 全項目OKで issues=[] を返す", async () => {
     // patients テーブルクエリ
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
     // intake テーブルクエリ
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ count: 0, error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ count: 0, error: null }));
 
     const { GET } = await import("@/app/api/cron/health-report/route");
     const req = makeReq("http://localhost:3000/api/cron/health-report", {
@@ -400,7 +406,7 @@ describe("cron/health-report", () => {
 describe("health", () => {
   it("正常系: Supabase/Redis両方OKで healthy を返す", async () => {
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ data: [{ id: 1 }], error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [{ id: 1 }], error: null }));
 
     const { GET } = await import("@/app/api/health/route");
     const res = await GET();
@@ -439,9 +445,6 @@ describe("profile", () => {
 // ============================================================
 describe("repair", () => {
   it("Cookie未設定で401", async () => {
-    const { parseBody } = await import("@/lib/validations/helpers");
-    // parseBodyが呼ばれる前にreturnするのでモック不要
-
     const { POST } = await import("@/app/api/repair/route");
     const req = makeReq("http://localhost:3000/api/repair", {
       method: "POST",
@@ -453,18 +456,18 @@ describe("repair", () => {
 
   it("正常系: Cookie付きで200", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { name_kana: "テストタロウ", sex: "男性", birth: "1990-01-01", tel: "09012345678" },
-    });
+    } as never);
 
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ data: { answers: {} }, error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: { answers: {} }, error: null }));
     // update用
     const intakeChain2 = getOrCreateChain("intake");
-    intakeChain2.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    intakeChain2.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const { POST } = await import("@/app/api/repair/route");
     const req = makeReq("http://localhost:3000/api/repair", {
@@ -499,7 +502,7 @@ describe("csrf-token", () => {
 describe("verify/send", () => {
   it("正常系: 認証コード送信成功", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({ data: { phone: "+819012345678" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { phone: "+819012345678" } } as never);
 
     const { POST } = await import("@/app/api/verify/send/route");
     const req = makeReq("http://localhost:3000/api/verify/send", {
@@ -519,7 +522,7 @@ describe("verify/send", () => {
 describe("verify/check", () => {
   it("正常系: 認証コード確認成功", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({ data: { phone: "+819012345678", code: "123456" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { phone: "+819012345678", code: "123456" } } as never);
 
     const { POST } = await import("@/app/api/verify/check/route");
     const req = makeReq("http://localhost:3000/api/verify/check", {
@@ -549,7 +552,7 @@ describe("register/check", () => {
 
   it("正常系: 患者が未登録の場合 registered=false", async () => {
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const { GET } = await import("@/app/api/register/check/route");
     const req = makeReq("http://localhost:3000/api/register/check", {
@@ -568,7 +571,7 @@ describe("register/check", () => {
 describe("intake/form-definition", () => {
   it("正常系: DB未定義でもデフォルトフィールドを返す", async () => {
     const chain = getOrCreateChain("intake_form_definitions");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const { GET } = await import("@/app/api/intake/form-definition/route");
     const req = makeReq("http://localhost:3000/api/intake/form-definition");
@@ -602,7 +605,7 @@ describe("intake/has", () => {
 
   it("正常系: 問診なしの場合 exists=false", async () => {
     const intakeChain = getOrCreateChain("intake");
-    intakeChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const { GET } = await import("@/app/api/intake/has/route");
     const req = makeReq("http://localhost:3000/api/intake/has?reserveId=R001", {
@@ -622,7 +625,7 @@ describe("shipping/share/[id]", () => {
   it("正常系: 共有データを返す", async () => {
     const chain = getOrCreateChain("shipping_shares");
     const futureDate = new Date(Date.now() + 86400000).toISOString();
-    chain.then = vi.fn((resolve: any) =>
+    chain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { data: { items: [] }, expires_at: futureDate }, error: null })
     );
 
@@ -658,7 +661,7 @@ describe("ai-reply/[draftId]", () => {
 
   it("署名不正で403", async () => {
     const { verifyDraftSignature } = await import("@/lib/ai-reply-sign");
-    (verifyDraftSignature as any).mockReturnValue(false);
+    vi.mocked(verifyDraftSignature).mockReturnValue(false);
 
     const { GET } = await import("@/app/api/ai-reply/[draftId]/route");
     const req = new Request("http://localhost:3000/api/ai-reply/1?sig=bad&exp=0");
@@ -667,12 +670,12 @@ describe("ai-reply/[draftId]", () => {
     expect(res.status).toBe(403);
 
     // 元に戻す
-    (verifyDraftSignature as any).mockReturnValue(true);
+    vi.mocked(verifyDraftSignature).mockReturnValue(true);
   });
 
   it("正常系: ドラフト情報を返す", async () => {
     const draftsChain = getOrCreateChain("ai_reply_drafts");
-    draftsChain.then = vi.fn((resolve: any) =>
+    draftsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1, patient_id: "P001", original_message: "元メッセージ",
@@ -682,7 +685,7 @@ describe("ai-reply/[draftId]", () => {
       })
     );
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) =>
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { name: "テスト太郎" }, error: null })
     );
 
@@ -714,11 +717,11 @@ describe("ai-reply/[draftId]/send", () => {
 
   it("正常系: 送信成功でok=true", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({ data: { sig: "valid", exp: 9999999999 } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { sig: "valid", exp: 9999999999 } } as never);
 
     const draftsChain = getOrCreateChain("ai_reply_drafts");
     // 最初のselect: ドラフト取得
-    draftsChain.then = vi.fn((resolve: any) =>
+    draftsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1, patient_id: "P001", line_uid: "U123",
@@ -730,7 +733,7 @@ describe("ai-reply/[draftId]/send", () => {
     );
 
     const settingsChain = getOrCreateChain("ai_reply_settings");
-    settingsChain.then = vi.fn((resolve: any) =>
+    settingsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { id: 1, knowledge_base: "" }, error: null })
     );
 
@@ -764,12 +767,12 @@ describe("ai-reply/[draftId]/reject", () => {
 
   it("正常系: 却下成功でok=true", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { sig: "valid", exp: 9999999999, reason: "不正確", reject_category: "inaccurate" },
-    });
+    } as never);
 
     const draftsChain = getOrCreateChain("ai_reply_drafts");
-    draftsChain.then = vi.fn((resolve: any) =>
+    draftsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { status: "pending" }, error: null })
     );
 
@@ -803,12 +806,12 @@ describe("ai-reply/[draftId]/regenerate", () => {
 
   it("正常系: 再生成成功で新しい返信を返す", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { instruction: "もっと丁寧に", sig: "valid", exp: 9999999999 },
-    });
+    } as never);
 
     const draftsChain = getOrCreateChain("ai_reply_drafts");
-    draftsChain.then = vi.fn((resolve: any) =>
+    draftsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1, patient_id: "P001", original_message: "質問",
@@ -819,7 +822,7 @@ describe("ai-reply/[draftId]/regenerate", () => {
     );
 
     const settingsChain = getOrCreateChain("ai_reply_settings");
-    settingsChain.then = vi.fn((resolve: any) =>
+    settingsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { knowledge_base: "", custom_instructions: "" }, error: null })
     );
 
@@ -842,7 +845,7 @@ describe("ai-reply/[draftId]/regenerate", () => {
 describe("forms/[slug]", () => {
   it("フォーム未発見で404", async () => {
     const formsChain = getOrCreateChain("forms");
-    formsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "not found" } }));
+    formsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: { message: "not found" } }));
 
     const { GET } = await import("@/app/api/forms/[slug]/route");
     const req = makeReq("http://localhost:3000/api/forms/test-form");
@@ -853,7 +856,7 @@ describe("forms/[slug]", () => {
 
   it("正常系: 公開フォーム情報を返す", async () => {
     const formsChain = getOrCreateChain("forms");
-    formsChain.then = vi.fn((resolve: any) =>
+    formsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1, title: "テストフォーム", description: "説明",
@@ -880,7 +883,7 @@ describe("forms/[slug]", () => {
 describe("forms/[slug]/submit", () => {
   it("非公開フォームで403", async () => {
     const formsChain = getOrCreateChain("forms");
-    formsChain.then = vi.fn((resolve: any) =>
+    formsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: { id: 1, fields: [], settings: {}, is_published: false },
         error: null,
@@ -899,12 +902,12 @@ describe("forms/[slug]/submit", () => {
 
   it("正常系: 回答送信成功", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { answers: { q1: "回答" }, line_user_id: null, respondent_name: null },
-    });
+    } as never);
 
     const formsChain = getOrCreateChain("forms");
-    formsChain.then = vi.fn((resolve: any) =>
+    formsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1,
@@ -917,7 +920,7 @@ describe("forms/[slug]/submit", () => {
     );
 
     const responsesChain = getOrCreateChain("form_responses");
-    responsesChain.then = vi.fn((resolve: any) =>
+    responsesChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { id: "resp-1" }, error: null })
     );
 
@@ -940,7 +943,7 @@ describe("forms/[slug]/submit", () => {
 describe("nps/[id]", () => {
   it("GET: 調査未発見で404", async () => {
     const npsChain = getOrCreateChain("nps_surveys");
-    npsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+    npsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
     const { GET } = await import("@/app/api/nps/[id]/route");
     const req = makeReq("http://localhost:3000/api/nps/999");
@@ -951,7 +954,7 @@ describe("nps/[id]", () => {
 
   it("GET: 正常系: 調査情報を返す", async () => {
     const npsChain = getOrCreateChain("nps_surveys");
-    npsChain.then = vi.fn((resolve: any) =>
+    npsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({
         data: {
           id: 1, title: "NPS調査", question_text: "お勧め度は？",
@@ -972,17 +975,17 @@ describe("nps/[id]", () => {
 
   it("POST: 正常系: 回答送信成功", async () => {
     const { parseBody } = await import("@/lib/validations/helpers");
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { score: 9, comment: "とても良い", patient_id: "P001" },
-    });
+    } as never);
 
     const npsChain = getOrCreateChain("nps_surveys");
-    npsChain.then = vi.fn((resolve: any) =>
+    npsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: { id: 1 }, error: null })
     );
 
     const responsesChain = getOrCreateChain("nps_responses");
-    responsesChain.then = vi.fn((resolve: any) =>
+    responsesChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: null, error: null })
     );
 

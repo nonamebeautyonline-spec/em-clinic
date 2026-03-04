@@ -1,5 +1,8 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { google } = require('googleapis');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const path = require('path');
 
 const SPREADSHEET_ID = '1j932bAhjOAN1fF55gU07F4VRMWi9yTphoejCGJHFwuo';

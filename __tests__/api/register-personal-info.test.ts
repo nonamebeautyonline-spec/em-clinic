@@ -26,18 +26,18 @@ vi.mock("@/lib/merge-tables", () => ({
 }));
 
 // === Supabase モック（テーブル名ベース） ===
-let tableChains: Record<string, any> = {};
-let rpcResult: { data: any; error: any } = { data: null, error: null };
+let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
+let rpcResult: { data: unknown; error: unknown } = { data: null, error: null };
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "single", "upsert",
    "ilike", "or", "count", "csv", "like"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
   chain.maybeSingle = vi.fn().mockReturnValue(chain);
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -313,7 +313,7 @@ describe("register/personal-info UNIQUE違反フォールバック", () => {
     // patients.insert -> UNIQUE違反
     const patientsChain = createChain({ data: null, error: null });
     // maybeSingle: 1回目（line_id検索）null -> 2回目（patient_id検索）null
-    patientsChain.then = vi.fn((resolve: any) => resolve({ data: null, error: { code: "23505", message: "duplicate" } }));
+    patientsChain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve({ data: null, error: { code: "23505", message: "duplicate" } }));
     tableChains["patients"] = patientsChain;
 
     tableChains["intake"] = createChain({ data: null, error: null });

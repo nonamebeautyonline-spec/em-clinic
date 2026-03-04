@@ -34,7 +34,7 @@ const { mockSingle, mockFrom } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: (...args: any[]) => mockFrom(...args) },
+  supabaseAdmin: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
@@ -74,7 +74,7 @@ describe("platform-auth", () => {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload,
       protectedHeader: { alg: "HS256" },
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     mockSingle.mockResolvedValue({ data: { id: "user-1", platform_role: "platform_admin" } });
 
     const req = createRequest("valid-jwt-token");
@@ -92,7 +92,7 @@ describe("platform-auth", () => {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: { platformRole: "tenant_admin" },
       protectedHeader: { alg: "HS256" },
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
     const req = createRequest("valid-jwt-token");
     const result = await verifyPlatformAdmin(req);
@@ -108,7 +108,7 @@ describe("platform-auth", () => {
         platformRole: "platform_admin",
       },
       protectedHeader: { alg: "HS256" },
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     mockSingle.mockResolvedValue({ data: null });
 
     const req = createRequest("valid-jwt-token");
@@ -133,7 +133,7 @@ describe("platform-auth", () => {
         platformRole: "platform_admin",
       },
       protectedHeader: { alg: "HS256" },
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
     vi.mocked(validateSession).mockResolvedValue(false);
 
     const req = createRequest("expired-token");

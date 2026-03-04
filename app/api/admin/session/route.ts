@@ -24,9 +24,9 @@ export async function GET(req: NextRequest) {
         email: payload.email,
         name: payload.name,
         role: payload.role,
-        tenantId: (payload as any).tenantId || null,
-        platformRole: (payload as any).platformRole || "tenant_admin",
-        tenantRole: (payload as any).tenantRole || "admin",
+        tenantId: (payload as Record<string, unknown>).tenantId || null,
+        platformRole: (payload as Record<string, unknown>).platformRole || "tenant_admin",
+        tenantRole: (payload as Record<string, unknown>).tenantRole || "admin",
       },
       expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
     });

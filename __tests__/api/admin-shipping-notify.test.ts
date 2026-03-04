@@ -4,18 +4,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+import type { Mock } from "vitest";
+
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -31,7 +35,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -44,8 +48,8 @@ const mockBuildShippingFlex = vi.fn().mockResolvedValue({
 const mockSendShippingNotification = vi.fn().mockResolvedValue({ ok: true });
 
 vi.mock("@/lib/shipping-flex", () => ({
-  buildShippingFlex: (...args: any[]) => mockBuildShippingFlex(...args),
-  sendShippingNotification: (...args: any[]) => mockSendShippingNotification(...args),
+  buildShippingFlex: (...args: unknown[]) => mockBuildShippingFlex(...args),
+  sendShippingNotification: (...args: unknown[]) => mockSendShippingNotification(...args),
 }));
 
 // settings モック
@@ -53,7 +57,7 @@ vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: vi.fn().mockResolvedValue("test-line-token"),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -61,7 +65,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { GET, POST } from "@/app/api/admin/shipping/notify-shipped/route";
@@ -71,7 +75,7 @@ describe("発送通知API (notify-shipped/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
     vi.stubGlobal("fetch", vi.fn());
   });
 
@@ -80,7 +84,7 @@ describe("発送通知API (notify-shipped/route.ts)", () => {
   // ========================================
   describe("GET: 送信対象プレビュー", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/shipping/notify-shipped");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -138,7 +142,7 @@ describe("発送通知API (notify-shipped/route.ts)", () => {
   // ========================================
   describe("POST: 一斉送信", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/shipping/notify-shipped");
       const res = await POST(req);
       expect(res.status).toBe(401);
@@ -175,7 +179,7 @@ describe("発送通知API (notify-shipped/route.ts)", () => {
       tableChains["rich_menus"] = createChain({ data: { line_rich_menu_id: "rm-123" }, error: null });
 
       // LINE API モック（現在のリッチメニュー取得 → 別メニュー → 切替）
-      (fetch as any)
+      vi.mocked(fetch)
         .mockResolvedValueOnce({ ok: true, json: async () => ({ richMenuId: "rm-other" }) })
         .mockResolvedValueOnce({ ok: true });
 
@@ -245,7 +249,7 @@ describe("発送通知API (notify-shipped/route.ts)", () => {
       tableChains["rich_menus"] = createChain({ data: { line_rich_menu_id: "rm-123" }, error: null });
 
       // 現在のリッチメニューが同じ
-      (fetch as any).mockResolvedValueOnce({
+      vi.mocked(fetch).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ richMenuId: "rm-123" }),
       });

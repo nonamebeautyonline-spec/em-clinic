@@ -53,7 +53,7 @@ function ShippingViewContent() {
       const idParam = searchParams.get("id");
       const dataParam = searchParams.get("data");
 
-      let shareData: any[];
+      let shareData: Record<string, unknown>[];
 
       if (idParam) {
         // 新方式：IDから取得
@@ -89,21 +89,21 @@ function ShippingViewContent() {
       }
 
       // 管理画面から渡されたデータをそのまま使用
-      const formattedItems: ShippingItem[] = shareData.map((item: any) => ({
-        id: item.id,
-        patient_id: item.patient_id || "",
-        payment_date: item.payment_date || "",
-        name: item.name || "",
-        postal_code: item.postal_code || "",
-        address: item.address || "",
-        email: item.email || "",
-        phone: item.phone || "",
-        product_name: item.product_name || "",
-        price: item.price || 0,
-        dosage_2_5mg: item.dosage_2_5mg || 0,
-        dosage_5mg: item.dosage_5mg || 0,
-        dosage_7_5mg: item.dosage_7_5mg || 0,
-        dosage_10mg: item.dosage_10mg || 0,
+      const formattedItems: ShippingItem[] = shareData.map((item: Record<string, unknown>) => ({
+        id: String(item.id ?? ""),
+        patient_id: String(item.patient_id ?? ""),
+        payment_date: String(item.payment_date ?? ""),
+        name: String(item.name ?? ""),
+        postal_code: String(item.postal_code ?? ""),
+        address: String(item.address ?? ""),
+        email: String(item.email ?? ""),
+        phone: String(item.phone ?? ""),
+        product_name: String(item.product_name ?? ""),
+        price: Number(item.price ?? 0),
+        dosage_2_5mg: Number(item.dosage_2_5mg ?? 0),
+        dosage_5mg: Number(item.dosage_5mg ?? 0),
+        dosage_7_5mg: Number(item.dosage_7_5mg ?? 0),
+        dosage_10mg: Number(item.dosage_10mg ?? 0),
       }));
 
       setItems(formattedItems);

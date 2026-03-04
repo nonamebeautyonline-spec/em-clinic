@@ -1,7 +1,7 @@
 // app/questionnaire/page.tsx
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import QuestionnairePage from "./QuestionnairePage";
 
@@ -119,7 +119,7 @@ function QuestionnaireInner() {
   const [exists, setExists] = useState(false);
   const [error, setError] = useState<string>("");
 
-  const runCheck = async (rid: string) => {
+  const runCheck = useCallback(async (rid: string) => {
     setChecking(true);
     setError("");
     setExists(false);
@@ -130,7 +130,7 @@ function QuestionnaireInner() {
         cache: "no-store",
       });
 
-      const j = await res.json().catch(() => ({} as any));
+      const j = await res.json().catch(() => ({} as Record<string, unknown>));
 
       if (!res.ok || !j?.ok) {
         const msg =
@@ -142,12 +142,12 @@ function QuestionnaireInner() {
       }
 
       setExists(!!j.exists);
-    } catch (e) {
+    } catch {
       setError("通信エラーが発生しました。");
     } finally {
       setChecking(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let canceled = false;
@@ -164,8 +164,7 @@ function QuestionnaireInner() {
     return () => {
       canceled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reserveId]);
+  }, [reserveId, runCheck]);
 
   // reserveId が無い / 空のときは問診を出さない
   if (!reserveId) {

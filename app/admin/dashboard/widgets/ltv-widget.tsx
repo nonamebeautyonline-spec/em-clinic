@@ -49,7 +49,7 @@ const SEGMENT_COLORS: Record<string, string> = {
   unknown: "#CBD5E1",
 };
 
-function DistributionTooltip({ active, payload, label }: any) {
+function DistributionTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">

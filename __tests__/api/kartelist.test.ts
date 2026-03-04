@@ -3,9 +3,15 @@
 // 対象: app/api/admin/kartelist/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// --- Supabase チェーンモック用型定義 ---
+interface ChainResult { data: unknown; error: unknown; count?: number }
+interface SupabaseChain extends Record<string, ReturnType<typeof vi.fn>> {
+  then: ReturnType<typeof vi.fn>;
+}
+
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
-  const chain: any = {};
+function createChain(defaultResolve: ChainResult = { data: [], error: null, count: 0 }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,7 +19,7 @@ function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
   ].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -41,7 +47,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn(<T>(q: T) => q),
 }));
 
 // NextRequest互換のモック
@@ -53,7 +59,7 @@ function createMockRequest(url: string) {
     nextUrl: { searchParams: parsedUrl.searchParams },
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
-  } as any;
+  } as unknown as import("next/server").NextRequest;
 }
 
 import { GET } from "@/app/api/admin/kartelist/route";
@@ -62,11 +68,11 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 describe("カルテ一覧API (kartelist/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
     // 全チェーンリセット
     [intakeChain, patientsChain, reservationsChain].forEach(chain => {
-      chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null, count: 0 }));
+      chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: [], error: null, count: 0 }));
       [
         "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
         "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -80,7 +86,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
   // === 認証テスト ===
   describe("認証", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("http://localhost/api/admin/kartelist");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -140,7 +146,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
       // intakeデータ（countクエリ用 + データクエリ用で2回呼ばれる）
       // count用のthen
       let callCount = 0;
-      intakeChain.then = vi.fn((resolve: any) => {
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         callCount++;
         if (callCount <= 1) {
           // count クエリ
@@ -157,7 +163,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
         });
       });
 
-      patientsChain.then = vi.fn((resolve: any) => resolve({
+      patientsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({
         data: [
           { patient_id: "p-001", name: "患者A", tel: "09011111111", sex: "male", birthday: "1990-01-01" },
           { patient_id: "p-002", name: "患者B", tel: "09022222222", sex: "female", birthday: "1985-06-15" },
@@ -165,7 +171,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
         error: null,
       }));
 
-      reservationsChain.then = vi.fn((resolve: any) => resolve({
+      reservationsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({
         data: [
           { reserve_id: "res-001", reserved_date: "2026-02-23", reserved_time: "10:00", prescription_menu: "マンジャロ 2.5mg" },
           { reserve_id: "res-002", reserved_date: "2026-02-22", reserved_time: "09:00", prescription_menu: "マンジャロ 5mg" },
@@ -205,7 +211,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
     it("名前検索で一致 → 該当患者のカルテのみ返却", async () => {
       // patients検索結果
       let patientCallCount = 0;
-      patientsChain.then = vi.fn((resolve: any) => {
+      patientsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         patientCallCount++;
         if (patientCallCount === 1) {
           // 名前検索ヒット
@@ -223,7 +229,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
 
       // patient_id 直接検索結果
       let intakeCallCount = 0;
-      intakeChain.then = vi.fn((resolve: any) => {
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         intakeCallCount++;
         if (intakeCallCount === 1) {
           // patient_id 直接検索
@@ -242,7 +248,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
         });
       });
 
-      reservationsChain.then = vi.fn((resolve: any) => resolve({
+      reservationsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({
         data: [{ reserve_id: "res-s1", reserved_date: "2026-02-20", reserved_time: "08:00", prescription_menu: "" }],
         error: null,
       }));
@@ -256,9 +262,9 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
 
     it("検索結果0件 → 空配列", async () => {
       // 名前検索ヒットなし
-      patientsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      patientsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: [], error: null }));
       // patient_id 直接検索もヒットなし
-      intakeChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/kartelist?q=存在しない名前");
       const res = await GET(req);
@@ -275,7 +281,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
     it("date パラメータ指定 → 予約日でフィルタリング", async () => {
       // reservationsから対象日のpatient_idを取得（count用 + data用で2回）
       let resvCallCount = 0;
-      reservationsChain.then = vi.fn((resolve: any) => {
+      reservationsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         resvCallCount++;
         if (resvCallCount <= 2) {
           // count用 + data用のreservationsクエリ
@@ -292,7 +298,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
       });
 
       let intakeCallCount = 0;
-      intakeChain.then = vi.fn((resolve: any) => {
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         intakeCallCount++;
         if (intakeCallCount === 1) {
           return resolve({ data: null, error: null, count: 1 });
@@ -303,7 +309,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
         });
       });
 
-      patientsChain.then = vi.fn((resolve: any) => resolve({
+      patientsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({
         data: [{ patient_id: "p-date", name: "日付太郎", tel: "09044444444", sex: "male", birthday: "2000-12-25" }],
         error: null,
       }));
@@ -316,7 +322,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
     });
 
     it("date指定で予約が0件 → 空配列", async () => {
-      reservationsChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      reservationsChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/kartelist?date=2026-12-31");
       const res = await GET(req);
@@ -331,7 +337,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
   // === DBエラー ===
   describe("DBエラー", () => {
     it("intakeデータ取得エラー → 500", async () => {
-      intakeChain.then = vi.fn((resolve: any) => resolve({
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve({
         data: null,
         error: { message: "Database connection error" },
       }));
@@ -348,7 +354,7 @@ describe("カルテ一覧API (kartelist/route.ts)", () => {
   describe("レスポンスフィールド", () => {
     it("items の各フィールドが正しい型を持つ", async () => {
       let callCount = 0;
-      intakeChain.then = vi.fn((resolve: any) => {
+      intakeChain.then = vi.fn((resolve: (value: ChainResult) => unknown) => {
         callCount++;
         if (callCount <= 1) {
           return resolve({ data: null, error: null, count: 1 });

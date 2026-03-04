@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 interface Reorder {
@@ -39,12 +39,7 @@ export default function ReordersPage() {
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [processing, setProcessing] = useState<string | null>(null);
 
-  useEffect(() => {
-    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
-    loadReorders();
-  }, [filter]);
-
-  const loadReorders = async () => {
+  const loadReorders = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -65,7 +60,12 @@ export default function ReordersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
+    loadReorders();
+  }, [loadReorders]);
 
   const [lineNotifyResult, setLineNotifyResult] = useState<{ id: string; status: "sent" | "no_uid" | "failed" } | null>(null);
 

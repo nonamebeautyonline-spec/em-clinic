@@ -10,7 +10,7 @@ const mockRpc = vi.fn();
 // Supabaseチェーンモック用ヘルパー
 // Supabase QueryBuilder は thenable なので、await chain で { data, error } を返す
 function createChainMock(resolvedValue: { data: unknown; error: unknown } = { data: null, error: null }) {
-  const chain: Record<string, any> = {};
+  const chain: Record<string, unknown> = {};
   const methods = ["select", "insert", "update", "eq", "neq", "not", "gte", "lte", "limit", "order", "in"];
   methods.forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
@@ -18,7 +18,7 @@ function createChainMock(resolvedValue: { data: unknown; error: unknown } = { da
   chain.maybeSingle = vi.fn().mockResolvedValue(resolvedValue);
   chain.single = vi.fn().mockResolvedValue(resolvedValue);
   // thenable: await chain で { data, error } が返る
-  chain.then = (resolve: (v: any) => any, reject?: (e: any) => any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
     return Promise.resolve(resolvedValue).then(resolve, reject);
   };
   return chain;
@@ -438,7 +438,7 @@ describe("POST createReservation", () => {
       headers: {
         get: () => null,
       },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // ============================================
@@ -691,7 +691,7 @@ describe("POST cancelReservation", () => {
       headers: {
         get: () => null,
       },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // ============================================
@@ -769,7 +769,7 @@ describe("POST updateReservation", () => {
       headers: {
         get: () => null,
       },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // ============================================
@@ -910,7 +910,7 @@ describe("GET /api/reservations", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${startDate}&end=${endDate}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -930,7 +930,7 @@ describe("GET /api/reservations", () => {
     const req = {
       url: "http://localhost:3000/api/reservations",
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -992,7 +992,7 @@ describe("GET /api/reservations", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?date=${dateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -1024,7 +1024,7 @@ describe("GET /api/reservations", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${dateStr}&end=${dateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -1053,7 +1053,7 @@ describe("POST createReservation — エッジケース", () => {
       headers: {
         get: () => null,
       },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // JSTで今月の日付文字列を生成するヘルパー
@@ -1343,7 +1343,7 @@ describe("POST createReservation — エッジケース", () => {
       headers: {
         get: () => null,
       },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     // jsonパース失敗後、body.typeはundefinedになり
     // createReservation（type無し時のデフォルト）に入るが
@@ -1440,7 +1440,7 @@ describe("POST createReservation — エッジケース", () => {
         },
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await POST(req);
     const json = await res.json();
@@ -1467,7 +1467,7 @@ describe("POST cancelReservation — エッジケース", () => {
         get: (name: string) => (cookies[name] ? { value: cookies[name] } : undefined),
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // ============================================
@@ -1634,7 +1634,7 @@ describe("POST updateReservation — エッジケース", () => {
         get: (name: string) => (cookies[name] ? { value: cookies[name] } : undefined),
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   function getTodayStr() {
@@ -2276,7 +2276,7 @@ describe("booking_not_open — 予約開放日チェック", () => {
         get: (name: string) => (cookies[name] ? { value: cookies[name] } : undefined),
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
   }
 
   // 翌々月の日付を取得（確実に予約不可な日付）
@@ -2379,7 +2379,7 @@ describe("booking_not_open — 予約開放日チェック", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?date=${futureDate}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -2478,7 +2478,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${dateStr}&end=${dateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -2517,7 +2517,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${dateStr}&end=${dateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -2576,7 +2576,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${dateStr}&end=${dateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -2622,7 +2622,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
         get: (name: string) => (name === "patient_id" ? { value: "p_001" } : undefined),
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await POST(req);
     const json = await res.json();
@@ -2683,7 +2683,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
         get: (name: string) => (name === "patient_id" ? { value: "p_001" } : undefined),
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await POST(req);
     const json = await res.json();
@@ -2737,7 +2737,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
     const req = {
       url: `http://localhost:3000/api/reservations?start=${futureDateStr}&end=${futureDateStr}`,
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await GET(req);
     const json = await res.json();
@@ -2755,7 +2755,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
   it("POST内部で例外スロー → server_error (500)", async () => {
     // resolveTenantIdがスローする
     const { resolveTenantId } = await import("@/lib/tenant");
-    (resolveTenantId as any).mockImplementation(() => {
+    vi.mocked(resolveTenantId).mockImplementation(() => {
       throw new Error("unexpected error");
     });
 
@@ -2768,7 +2768,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
         get: () => undefined,
       },
       headers: { get: () => null },
-    } as any;
+    } as unknown as import("next/server").NextRequest;
 
     const res = await POST(req);
     const json = await res.json();

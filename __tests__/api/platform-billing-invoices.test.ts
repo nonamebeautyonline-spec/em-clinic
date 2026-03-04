@@ -4,36 +4,79 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+// --- モックチェイン用型定義 ---
+interface MockChainResult {
+  data: unknown;
+  error: unknown;
+  count?: number;
+}
+
+interface MockChain {
+  insert: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  neq: ReturnType<typeof vi.fn>;
+  gt: ReturnType<typeof vi.fn>;
+  gte: ReturnType<typeof vi.fn>;
+  lt: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+  is: ReturnType<typeof vi.fn>;
+  not: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
+  upsert: ReturnType<typeof vi.fn>;
+  ilike: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
+  count: ReturnType<typeof vi.fn>;
+  csv: ReturnType<typeof vi.fn>;
+  like: ReturnType<typeof vi.fn>;
+  then: ReturnType<typeof vi.fn>;
+  [key: string]: ReturnType<typeof vi.fn>;
+}
+
+// テスト用のglobalThis拡張
+declare const globalThis: typeof global & {
+  __testTableChains: Record<string, MockChain>;
+};
+
 // --- モックチェーン ---
-function createChain(defaultResolve: any = { data: null, error: null, count: 0 }) {
-  const chain: any = {};
-  [
+function createChain(defaultResolve: MockChainResult = { data: null, error: null, count: 0 }): MockChain {
+  const chain = {} as MockChain;
+  const methods = [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
     "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
-  ].forEach((m) => {
+  ];
+  for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain);
-  });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  }
+  chain.then = vi.fn((resolve: (value: MockChainResult) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
 vi.mock("@/lib/supabase", () => {
   return {
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const chains = (globalThis as typeof global & { __testTableChains?: Record<string, MockChain> }).__testTableChains || {};
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
-          [
+          const c = {} as MockChain;
+          const methods = [
             "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
             "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
             "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
-          ].forEach((m) => {
+          ];
+          for (const m of methods) {
             c[m] = vi.fn().mockReturnValue(c);
-          });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 0 }));
+          }
+          c.then = vi.fn((resolve: (value: MockChainResult) => unknown) => resolve({ data: null, error: null, count: 0 }));
           chains[table] = c;
         }
         return chains[table];
@@ -82,7 +125,7 @@ function createGetRequest(params: Record<string, string> = {}) {
   return new NextRequest(url.toString(), { method: "GET" });
 }
 
-function createPostRequest(body: any = {}) {
+function createPostRequest(body: Record<string, unknown> = {}) {
   return new NextRequest("http://localhost:3000/api/platform/billing/invoices", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,14 +133,14 @@ function createPostRequest(body: any = {}) {
   });
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: MockChain) {
+  globalThis.__testTableChains[table] = chain;
 }
 
 describe("platform/billing/invoices API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    globalThis.__testTableChains = {};
     vi.mocked(verifyPlatformAdmin).mockResolvedValue({
       userId: "platform-admin-1",
       email: "admin@lope.jp",
@@ -167,7 +210,7 @@ describe("platform/billing/invoices API", () => {
         setTableChain("billing_invoices", invoicesChain);
 
         const res = await GET(createGetRequest({ tenant_id: "t-1" }));
-        const body = await res.json();
+        const _body = await res.json();
 
         expect(res.status).toBe(200);
         // eq が tenant_id でフィルターされたことを確認
@@ -179,7 +222,7 @@ describe("platform/billing/invoices API", () => {
         setTableChain("billing_invoices", invoicesChain);
 
         const res = await GET(createGetRequest({ status: "pending" }));
-        const body = await res.json();
+        const _body = await res.json();
 
         expect(res.status).toBe(200);
         expect(invoicesChain.eq).toHaveBeenCalledWith("status", "pending");
@@ -190,7 +233,7 @@ describe("platform/billing/invoices API", () => {
         setTableChain("billing_invoices", invoicesChain);
 
         const res = await GET(createGetRequest({ status: "all" }));
-        const body = await res.json();
+        const _body = await res.json();
 
         expect(res.status).toBe(200);
         // "all" の場合、eq("status", ...) が呼ばれないこと（tenant_id 以外の eq）
@@ -312,7 +355,7 @@ describe("platform/billing/invoices API", () => {
     describe("バリデーション", () => {
       it("parseBody がエラーを返した場合はそのエラーを返す", async () => {
         const errorRes = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-        vi.mocked(parseBody).mockResolvedValue({ error: errorRes } as any);
+        vi.mocked(parseBody).mockResolvedValue({ error: errorRes } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         const res = await POST(createPostRequest({}));
         expect(res.status).toBe(400);
@@ -331,7 +374,7 @@ describe("platform/billing/invoices API", () => {
             billingPeriodEnd: "2026-02-28",
             notes: "2月分請求書",
           },
-        } as any);
+        } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         // テナント存在確認
         const tenantsChain = createChain({ data: { id: "tenant-uuid-1", name: "テストクリニック" }, error: null });
@@ -380,7 +423,7 @@ describe("platform/billing/invoices API", () => {
             billingPeriodStart: "2026-02-01",
             billingPeriodEnd: "2026-02-28",
           },
-        } as any);
+        } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         // テナント存在確認 → null
         const tenantsChain = createChain({ data: null, error: null });
@@ -404,7 +447,7 @@ describe("platform/billing/invoices API", () => {
             billingPeriodStart: "2026-02-01",
             billingPeriodEnd: "2026-02-28",
           },
-        } as any);
+        } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         // テナント存在確認 → OK
         const tenantsChain = createChain({ data: { id: "tenant-uuid-1", name: "テスト" }, error: null });
@@ -436,7 +479,7 @@ describe("platform/billing/invoices API", () => {
             billingPeriodStart: "2026-02-01",
             billingPeriodEnd: "2026-02-28",
           },
-        } as any);
+        } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         const tenantsChain = createChain({ data: { id: "tenant-uuid-1", name: "テスト" }, error: null });
         setTableChain("tenants", tenantsChain);
@@ -476,7 +519,7 @@ describe("platform/billing/invoices API", () => {
             billingPeriodStart: "2026-02-01",
             billingPeriodEnd: "2026-02-28",
           },
-        } as any);
+        } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
         // テナント存在確認で例外を投げる（try-catch内）
         const tenantsChain = createChain({ data: null, error: null });

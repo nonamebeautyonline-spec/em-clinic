@@ -4,11 +4,28 @@ import { useState, useEffect, useCallback } from "react";
 
 /* ---------- 型定義 ---------- */
 
+type StepConfig = Record<string, string | number | undefined>;
+
 interface WorkflowStep {
   id?: string;
   sort_order: number;
   step_type: string;
-  config: Record<string, any>;
+  config: StepConfig;
+}
+
+interface WorkflowStepRaw {
+  id?: string;
+  sort_order: number;
+  step_type: string;
+  config?: StepConfig;
+}
+
+interface WorkflowExecution {
+  id: string;
+  started_at: string;
+  status: string;
+  current_step: number;
+  error?: string;
 }
 
 interface Workflow {
@@ -17,7 +34,7 @@ interface Workflow {
   description: string | null;
   status: string;
   trigger_type: string;
-  trigger_config: Record<string, any>;
+  trigger_config: StepConfig;
   step_count: number;
   execution_count: number;
   created_at: string;
@@ -81,9 +98,9 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
-  const [detailWorkflow, setDetailWorkflow] = useState<any>(null);
+  const [detailWorkflow, setDetailWorkflow] = useState<Workflow | null>(null);
   const [detailSteps, setDetailSteps] = useState<WorkflowStep[]>([]);
-  const [detailExecutions, setDetailExecutions] = useState<any[]>([]);
+  const [detailExecutions, setDetailExecutions] = useState<WorkflowExecution[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -343,7 +360,7 @@ function WorkflowModal({
   const [name, setName] = useState(workflow?.name || "");
   const [description, setDescription] = useState(workflow?.description || "");
   const [triggerType, setTriggerType] = useState(workflow?.trigger_type || "manual");
-  const [triggerConfig, setTriggerConfig] = useState<Record<string, any>>(
+  const [triggerConfig, setTriggerConfig] = useState<StepConfig>(
     workflow?.trigger_config || {},
   );
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
@@ -358,7 +375,7 @@ function WorkflowModal({
         .then((r) => r.json())
         .then((d) => {
           setSteps(
-            (d.steps || []).map((s: any) => ({
+            (d.steps || []).map((s: WorkflowStepRaw) => ({
               id: s.id,
               sort_order: s.sort_order,
               step_type: s.step_type,
@@ -382,12 +399,12 @@ function WorkflowModal({
     setSteps((prev) => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, sort_order: i })));
   };
 
-  const updateStep = (idx: number, field: string, value: any) => {
+  const updateStep = (idx: number, field: string, value: string | number | undefined) => {
     setSteps((prev) =>
       prev.map((s, i) => {
         if (i !== idx) return s;
         if (field === "step_type") {
-          return { ...s, step_type: value, config: {} };
+          return { ...s, step_type: value as string, config: {} };
         }
         return { ...s, config: { ...s.config, [field]: value } };
       }),
@@ -598,7 +615,7 @@ function StepEditor({
 }: {
   index: number;
   step: WorkflowStep;
-  onUpdate: (idx: number, field: string, value: any) => void;
+  onUpdate: (idx: number, field: string, value: string | number | undefined) => void;
   onRemove: (idx: number) => void;
 }) {
   return (
@@ -779,9 +796,9 @@ function DetailModal({
   executions,
   onClose,
 }: {
-  workflow: any;
+  workflow: Workflow;
   steps: WorkflowStep[];
-  executions: any[];
+  executions: WorkflowExecution[];
   onClose: () => void;
 }) {
   const EXEC_STATUS_LABELS: Record<string, string> = {
@@ -925,9 +942,11 @@ function DetailModal({
 function formatStepConfig(step: WorkflowStep): string {
   const c = step.config;
   switch (step.step_type) {
-    case "send_message":
+    case "send_message": {
       if (c.message_type === "template") return `テンプレート #${c.template_id}`;
-      return c.text ? `"${c.text.substring(0, 30)}${c.text.length > 30 ? "..." : ""}"` : "";
+      const text = String(c.text || "");
+      return text ? `"${text.substring(0, 30)}${text.length > 30 ? "..." : ""}"` : "";
+    }
     case "add_tag":
     case "remove_tag":
       return `タグID: ${c.tag_id || "未設定"}`;
@@ -942,7 +961,7 @@ function formatStepConfig(step: WorkflowStep): string {
           ? `セグメント #${c.segment_id}`
           : `${c.field_name} ${c.operator} ${c.field_value}`;
     case "webhook":
-      return c.url || "URL未設定";
+      return String(c.url || "URL未設定");
     default:
       return "";
   }

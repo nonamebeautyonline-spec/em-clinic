@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     // simple=true: id/name/is_active のみ返す（メニュー自動切替ページ等の軽量取得用）
     if (simple) {
-      const menus = (data || []).map((m: any) => ({ id: m.id, name: m.name, is_active: m.is_active }));
+      const menus = (data || []).map((m: { id: number; name: string; is_active: boolean }) => ({ id: m.id, name: m.name, is_active: m.is_active }));
       return NextResponse.json({ menus });
     }
 
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     const preRegCount = allLineCount - registeredCount;
 
     // メニュー名に基づいてカウントをマッピング
-    const menus = (data || []).map((menu: any) => {
+    const menus = (data || []).map((menu: Record<string, unknown>) => {
       let user_count = 0;
       if (menu.name === "処方後") {
         user_count = rxCount;
@@ -91,8 +91,8 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ menus });
-  } catch (e: any) {
-    console.error("[Rich Menu GET] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[Rich Menu GET] Unhandled error:", (e as Error).message || e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }
@@ -160,8 +160,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ menu: data });
-  } catch (e: any) {
-    console.error("[Rich Menu POST] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[Rich Menu POST] Unhandled error:", (e as Error).message || e);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

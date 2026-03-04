@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   }
 
   // 更新データ組み立て
-  const updateData: Record<string, any> = {
+  const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
   if (name !== undefined) updateData.name = name.trim();
@@ -203,7 +203,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
 
-  let body: Record<string, any> = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
@@ -211,9 +211,9 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
   }
 
   const result = await executeWorkflow(id, {
-    patient_id: body.patient_id,
-    line_user_id: body.line_user_id,
-    patient_name: body.patient_name,
+    patient_id: body.patient_id as string | undefined,
+    line_user_id: body.line_user_id as string | undefined,
+    patient_name: body.patient_name as string | undefined,
   }, tenantId);
 
   return NextResponse.json({ ok: true, result });

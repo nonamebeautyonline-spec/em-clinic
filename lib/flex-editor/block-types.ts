@@ -37,9 +37,8 @@ export interface ButtonBlockProps {
   action: BlockAction;
 }
 
-export interface SeparatorBlockProps {
-  // 設定項目なし（シンプル）
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface SeparatorBlockProps {}
 
 export type BlockProps =
   | ({ blockType: "title" } & TitleBlockProps)

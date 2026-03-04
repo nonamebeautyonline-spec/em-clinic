@@ -48,7 +48,7 @@ export async function buildShippingFlex(
   const trackingUrl = buildTrackingUrl(primary.carrier, primary.number);
 
   // 追跡番号セクション
-  const trackingContents: any[] = [
+  const trackingContents: Record<string, unknown>[] = [
     { type: "text", text: "追跡番号", size: "sm", color: colors.bodyText, align: "center" },
     { type: "text", text: formatted, size: "xl", weight: "bold", margin: "sm", color: colors.accentColor, align: "center" },
   ];
@@ -108,7 +108,7 @@ export async function buildShippingFlex(
     paddingEnd: "0px",
   };
 
-  const bodyContents: any[] = [
+  const bodyContents: Record<string, unknown>[] = [
     progressSection,
     { type: "box", layout: "vertical", contents: trackingContents, margin: "lg" },
     { type: "separator", margin: "md" },
@@ -172,7 +172,7 @@ export async function buildShippingFlex(
 export async function sendShippingNotification(params: {
   patientId: string;
   lineUid: string;
-  flex: { type: "flex"; altText: string; contents: any };
+  flex: { type: "flex"; altText: string; contents: Record<string, unknown> };
   tenantId?: string;
 }): Promise<{ ok: boolean }> {
   const { patientId, lineUid, flex, tenantId } = params;

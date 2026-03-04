@@ -838,7 +838,7 @@ function DetailModal({
                     <YAxis tick={{ fontSize: 12, fill: "#6B7280" }} unit="%" />
                     <Tooltip
                       contentStyle={{ borderRadius: "12px", border: "1px solid #E5E7EB", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                      formatter={((value: number, name: string) => [`${value}%`, name === "openRate" ? "開封率" : "クリック率"]) as any}
+                      formatter={(value: unknown, name: unknown) => [`${Number(value)}%`, String(name) === "openRate" ? "開封率" : "クリック率"]}
                     />
                     <Legend formatter={(value) => (value === "openRate" ? "開封率" : "クリック率")} />
                     <Bar dataKey="openRate" name="openRate" radius={[4, 4, 0, 0]}>

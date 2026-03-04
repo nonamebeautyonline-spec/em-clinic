@@ -3,7 +3,7 @@
 const mockGetFlexConfig = vi.fn();
 
 vi.mock("@/lib/flex-message/config", () => ({
-  getFlexConfig: (...args: any[]) => mockGetFlexConfig(...args),
+  getFlexConfig: (...args: unknown[]) => mockGetFlexConfig(...args),
 }));
 
 vi.mock("@/lib/flex-message/types", () => ({

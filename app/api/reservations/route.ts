@@ -110,7 +110,7 @@ async function retrySupabaseWrite<T>(
   maxRetries: number = 3,
   delayMs: number = 1000
 ): Promise<T> {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -204,7 +204,7 @@ async function getBookedSlotsFromDB(
 
   // 日時ごとにカウント
   const countMap = new Map<string, number>();
-  (data || []).forEach((r: any) => {
+  (data || []).forEach((r: { reserved_date: string; reserved_time: string }) => {
     const key = `${r.reserved_date}|${r.reserved_time}`;
     countMap.set(key, (countMap.get(key) || 0) + 1);
   });
@@ -256,25 +256,25 @@ async function getScheduleFromDB(
     console.error("[getScheduleFromDB] overrides error:", overridesError);
   }
 
-  const weekly_rules: WeeklyRule[] = (rulesData || []).map((r: any) => ({
-    doctor_id: r.doctor_id,
-    weekday: r.weekday,
-    enabled: r.enabled,
-    start_time: r.start_time || "",
-    end_time: r.end_time || "",
-    slot_minutes: r.slot_minutes || 15,
-    capacity: r.capacity || 2,
+  const weekly_rules: WeeklyRule[] = (rulesData || []).map((r: Record<string, unknown>) => ({
+    doctor_id: String(r.doctor_id),
+    weekday: Number(r.weekday),
+    enabled: Boolean(r.enabled),
+    start_time: String(r.start_time || ""),
+    end_time: String(r.end_time || ""),
+    slot_minutes: Number(r.slot_minutes) || 15,
+    capacity: Number(r.capacity) || 2,
   }));
 
-  const overrides: Override[] = (overridesData || []).map((o: any) => ({
-    doctor_id: o.doctor_id,
-    date: o.date,
-    type: o.type,
-    start_time: o.start_time || undefined,
-    end_time: o.end_time || undefined,
-    slot_minutes: o.slot_minutes ?? undefined,
-    capacity: o.capacity ?? undefined,
-    memo: o.memo || undefined,
+  const overrides: Override[] = (overridesData || []).map((o: Record<string, unknown>) => ({
+    doctor_id: String(o.doctor_id),
+    date: String(o.date),
+    type: o.type as "closed" | "open" | "modify",
+    start_time: o.start_time ? String(o.start_time) : undefined,
+    end_time: o.end_time ? String(o.end_time) : undefined,
+    slot_minutes: o.slot_minutes != null ? (Number(o.slot_minutes) as number | "") : undefined,
+    capacity: o.capacity != null ? (Number(o.capacity) as number | "") : undefined,
+    memo: o.memo ? String(o.memo) : undefined,
   }));
 
   return { weekly_rules, overrides };
@@ -498,7 +498,7 @@ export async function GET(req: NextRequest) {
 // =============================
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({} as any));
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const patientId =
       req.cookies.get("__Host-patient_id")?.value ||
       req.cookies.get("patient_id")?.value ||

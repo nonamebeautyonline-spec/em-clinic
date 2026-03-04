@@ -7,29 +7,28 @@ const mockGetSetting = vi.fn();
 const mockSetSetting = vi.fn();
 
 vi.mock("@/lib/settings", () => ({
-  getSetting: (...args: any[]) => mockGetSetting(...args),
-  setSetting: (...args: any[]) => mockSetSetting(...args),
+  getSetting: (...args: unknown[]) => mockGetSetting(...args),
+  setSetting: (...args: unknown[]) => mockSetSetting(...args),
 }));
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
-  const req = new Request(url, {
+function createMockRequest(method: string, url: string, body?: unknown) {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
 }
 
 import {
@@ -60,7 +59,7 @@ describe("ダッシュボードレイアウト API - GET 拡張テスト", () =>
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.widgets).toHaveLength(WIDGET_DEFINITIONS.length);
-    json.widgets.forEach((w: any) => {
+    json.widgets.forEach((w: { id: string; visible: boolean }) => {
       expect(w.visible).toBe(true);
     });
   });
@@ -79,17 +78,17 @@ describe("ダッシュボードレイアウト API - GET 拡張テスト", () =>
     const json = await res.json();
 
     // 非表示ウィジェットの確認
-    const hiddenWidgets = json.widgets.filter((w: any) => !w.visible);
+    const hiddenWidgets = json.widgets.filter((w: { id: string; visible: boolean }) => !w.visible);
     expect(hiddenWidgets).toHaveLength(2);
-    expect(hiddenWidgets.map((w: any) => w.id)).toContain("shipping");
-    expect(hiddenWidgets.map((w: any) => w.id)).toContain("product_sales");
+    expect(hiddenWidgets.map((w: { id: string; visible: boolean }) => w.id)).toContain("shipping");
+    expect(hiddenWidgets.map((w: { id: string; visible: boolean }) => w.id)).toContain("product_sales");
   });
 
   it("削除済みウィジェットIDは除外される", async () => {
     const saved = {
       widgets: [
         { id: "reservations", visible: true },
-        { id: "deleted_widget_xyz" as any, visible: true },
+        { id: "deleted_widget_xyz" as unknown as typeof WIDGET_DEFINITIONS[number]["id"], visible: true },
         { id: "shipping", visible: true },
       ],
     };
@@ -100,7 +99,7 @@ describe("ダッシュボードレイアウト API - GET 拡張テスト", () =>
     const json = await res.json();
 
     // 不正なIDは除外される
-    const ids = json.widgets.map((w: any) => w.id);
+    const ids = json.widgets.map((w: { id: string; visible: boolean }) => w.id);
     expect(ids).not.toContain("deleted_widget_xyz");
     // 全ウィジェット分になる（未知のIDを除外し、不足分を補完）
     expect(json.widgets).toHaveLength(WIDGET_DEFINITIONS.length);

@@ -6,9 +6,9 @@ const mockDel = vi.fn();
 
 vi.mock("@/lib/redis", () => ({
   redis: {
-    set: (...args: any[]) => mockSet(...args),
-    get: (...args: any[]) => mockGet(...args),
-    del: (...args: any[]) => mockDel(...args),
+    set: (...args: unknown[]) => mockSet(...args),
+    get: (...args: unknown[]) => mockGet(...args),
+    del: (...args: unknown[]) => mockDel(...args),
   },
 }));
 

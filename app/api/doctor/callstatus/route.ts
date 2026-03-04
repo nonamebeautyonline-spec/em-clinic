@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     console.log(`[doctor/callstatus] DB updated: reserve_id=${reserveId}, call_status=${callStatus}`);
 
     return NextResponse.json({ ok: true, updated_at: updatedAt });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[doctor/callstatus] error:", e);
     return NextResponse.json(
       { ok: false, error: String(e) },

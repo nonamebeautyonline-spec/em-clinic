@@ -1,6 +1,8 @@
 // lib/__tests__/behavior-filters.test.ts
 // 行動データフィルタリング（セグメント配信・リッチメニュー出し分け用）のテスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import fs from "fs";
+import path from "path";
 
 // Supabase モック
 const mockSelect = vi.fn().mockReturnThis();
@@ -23,7 +25,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 vi.mock("@/lib/tenant", () => ({
-  withTenant: (query: any, _tenantId: string | null) => query,
+  withTenant: <T>(query: T, _tenantId: string | null): T => query,
 }));
 
 import {
@@ -132,7 +134,7 @@ describe("matchBehaviorCondition — エッジケース", () => {
   });
 
   it("NaN value → false", () => {
-    expect(matchBehaviorCondition("abc" as any, ">", "5")).toBe(false);
+    expect(matchBehaviorCondition("abc" as unknown as number, ">", "5")).toBe(false);
   });
 
   it("未知のオペレーター → false", () => {
@@ -155,8 +157,6 @@ describe("matchBehaviorCondition — エッジケース", () => {
 // ソースコード構造チェック
 // ===================================================================
 describe("behavior-filters: ソースコード構造", () => {
-  const fs = require("fs");
-  const path = require("path");
   const src = fs.readFileSync(path.resolve(process.cwd(), "lib/behavior-filters.ts"), "utf-8");
 
   it("withTenant を使用してテナント分離している", () => {
@@ -195,7 +195,7 @@ describe("behavior-filters: ソースコード構造", () => {
 // DB関連関数テスト用ヘルパー
 // ===================================================================
 // Supabaseチェーンメソッドが await 可能になるよう thenable を設定する
-function setupMockChainData(data: any[] | null, error: any = null) {
+function setupMockChainData(data: Record<string, unknown>[] | null, error: unknown = null) {
   // 各チェーンメソッドをリセット
   mockSelect.mockReset();
   mockIn.mockReset();
@@ -205,7 +205,7 @@ function setupMockChainData(data: any[] | null, error: any = null) {
   mockOrder.mockReset();
 
   // thenableなチェーンオブジェクト
-  const chainObj: Record<string, any> = {
+  const chainObj: Record<string, unknown> = {
     select: mockSelect,
     in: mockIn,
     neq: mockNeq,
@@ -213,7 +213,7 @@ function setupMockChainData(data: any[] | null, error: any = null) {
     gte: mockGte,
     order: mockOrder,
     // await 時に data/error を返す
-    then: (resolve: any) => resolve({ data, error }),
+    then: (resolve: (value: { data: typeof data; error: typeof error }) => void) => resolve({ data, error }),
   };
 
   mockSelect.mockReturnValue(chainObj);

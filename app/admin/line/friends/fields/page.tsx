@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface FieldDef {
   id: number;
@@ -29,14 +29,27 @@ export default function FriendFieldsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  const fetchFields = async () => {
+  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/admin/friend-fields", { credentials: "include" });
+      const data = await res.json();
+      if (!cancelled) {
+        if (data.fields) setFields(data.fields);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 手動再読み込み用
+  const fetchFields = useCallback(async () => {
     const res = await fetch("/api/admin/friend-fields", { credentials: "include" });
     const data = await res.json();
     if (data.fields) setFields(data.fields);
     setLoading(false);
-  };
-
-  useEffect(() => { fetchFields(); }, []);
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;

@@ -7,7 +7,7 @@ const mockVerifyAdminAuth = vi.fn();
 
 // Supabase チェーン用モック — 各メソッドはデフォルトで自身を返す
 function createMockChain() {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   const methods = [
     "insert", "update", "delete", "select",
     "eq", "gt", "order", "limit", "single", "maybeSingle",
@@ -24,24 +24,24 @@ function createMockChain() {
 const mockChain = createMockChain();
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: vi.fn(() => mockChain) },
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : {})),
 }));
 
 // NextRequest互換のモック生成
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: unknown) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  }) as any;
+  }) as Request & { nextUrl: URL };
   // NextRequestのnextUrlプロパティを模擬
   req.nextUrl = new URL(url);
   return req;

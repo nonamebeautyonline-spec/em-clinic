@@ -6,8 +6,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockVerifyAdminAuth = vi.fn();
 
 // Supabase チェーン用モック
-const mockSingleResult = { data: null as any, error: null as any };
-const mockSelectResult = { data: null as any, error: null as any };
+const mockSingleResult = { data: null as unknown, error: null as unknown };
+const mockSelectResult = { data: null as unknown, error: null as unknown };
 
 const mockChain = {
   insert: vi.fn().mockReturnThis(),
@@ -24,25 +24,25 @@ mockChain.insert.mockReturnValue(mockChain);
 mockChain.select.mockReturnValue(mockChain);
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: vi.fn(() => mockChain) },
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : {})),
 }));
 
 // NextRequest互換のモック生成
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET, POST } from "@/app/api/admin/tags/route";

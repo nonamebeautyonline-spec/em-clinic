@@ -7,18 +7,18 @@ import crypto from "crypto";
 // ===== vi.hoisted でモック用変数をホイスティング =====
 const { mockRpc, mockStorage, TC, getOrCreateChain, createChain } = vi.hoisted(() => {
   function createChain(defaultResolve = { data: null, error: null }) {
-    const chain: any = {};
+    const chain: Record<string, unknown> = {};
     ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
      "in","is","not","order","limit","range","single","maybeSingle","upsert",
      "ilike","or","count","csv"].forEach(m => {
       chain[m] = vi.fn().mockReturnValue(chain);
     });
-    chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+    chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
     return chain;
   }
 
   // オブジェクトの参照を保持（プロパティ操作でクリア）
-  const TC: Record<string, any> = {};
+  const TC: Record<string, ReturnType<typeof createChain>> = {};
   function getOrCreateChain(table: string) {
     if (!TC[table]) TC[table] = createChain();
     return TC[table];
@@ -53,14 +53,14 @@ vi.mock("next/server", async (importOriginal) => {
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => getOrCreateChain(table)),
-    rpc: (...args: any[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
     storage: mockStorage,
   },
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "00000000-0000-0000-0000-000000000001" })),
   DEFAULT_TENANT_ID: "00000000-0000-0000-0000-000000000001",
 }));
@@ -142,7 +142,7 @@ function unfollowEvent(userId = "U1234567890") {
   return { type: "unfollow", source: { type: "user", userId } };
 }
 
-function messageEvent(userId = "U1234567890", message: any = { type: "text", text: "こんにちは" }) {
+function messageEvent(userId = "U1234567890", message: Record<string, unknown> = { type: "text", text: "こんにちは" }) {
   return { type: "message", source: { type: "user", userId }, message };
 }
 
@@ -629,7 +629,7 @@ describe("LINE Webhook POST API", () => {
       // reorders テーブル
       let reorderCallCount = 0;
       const reorderChain = createChain();
-      reorderChain.then = vi.fn((resolve: any) => {
+      reorderChain.then = vi.fn((resolve: (value: unknown) => unknown) => {
         reorderCallCount++;
         if (reorderCallCount === 1) return resolve({ data: { id: 1, patient_id: "p001", status: "pending" }, error: null });
         return resolve({ data: null, error: null });

@@ -1,39 +1,77 @@
 // __tests__/api/square-webhook.test.ts
 // Square Webhook API (app/api/square/webhook/route.ts) の統合テスト
 // 署名検証、支払い処理、返金処理、reorder更新、注文INSERT/UPDATEをテスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import crypto from "crypto";
 
+// Supabaseチェーンモックの型定義
+interface MockChain {
+  insert: Mock;
+  update: Mock;
+  delete: Mock;
+  select: Mock;
+  eq: Mock;
+  neq: Mock;
+  gt: Mock;
+  gte: Mock;
+  lt: Mock;
+  lte: Mock;
+  in: Mock;
+  is: Mock;
+  not: Mock;
+  order: Mock;
+  limit: Mock;
+  range: Mock;
+  single: Mock;
+  maybeSingle: Mock;
+  upsert: Mock;
+  ilike: Mock;
+  or: Mock;
+  count: Mock;
+  csv: Mock;
+  like: Mock;
+  then: Mock;
+}
+
 // --- モックチェーン ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
-    "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
-    "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
-  ].forEach((m) => {
+function createChain(defaultResolve = { data: null, error: null }): MockChain {
+  const chain = {} as MockChain;
+  (
+    [
+      "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
+      "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
+      "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
+    ] as const
+  ).forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
+}
+
+// globalThis上のテーブルチェーンの型
+interface TestGlobal {
+  __testTableChains: Record<string, MockChain>;
 }
 
 vi.mock("@/lib/supabase", () => {
   return {
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const chains = ((globalThis as unknown as TestGlobal).__testTableChains) || {};
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
-          [
-            "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
-            "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
-            "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
-          ].forEach((m) => {
+          const c = {} as MockChain;
+          (
+            [
+              "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
+              "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
+              "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
+            ] as const
+          ).forEach((m) => {
             c[m] = vi.fn().mockReturnValue(c);
           });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+          c.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
           chains[table] = c;
         }
         return chains[table];
@@ -44,7 +82,7 @@ vi.mock("@/lib/supabase", () => {
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -82,7 +120,7 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { getSettingOrEnv } from "@/lib/settings";
 
 // --- ヘルパー ---
-function createWebhookRequest(body: any, headers: Record<string, string> = {}) {
+function createWebhookRequest(body: unknown, headers: Record<string, string> = {}) {
   const bodyStr = JSON.stringify(body);
   return new Request("http://localhost:3000/api/square/webhook", {
     method: "POST",
@@ -94,12 +132,12 @@ function createWebhookRequest(body: any, headers: Record<string, string> = {}) {
   });
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: MockChain) {
+  (globalThis as unknown as TestGlobal).__testTableChains[table] = chain;
 }
 
 // fetch レスポンス生成
-function mockFetchResponse(data: any, ok = true) {
+function mockFetchResponse(data: unknown, ok = true) {
   return Promise.resolve({
     ok,
     status: ok ? 200 : 400,
@@ -110,13 +148,13 @@ function mockFetchResponse(data: any, ok = true) {
 describe("Square Webhook API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    (globalThis as unknown as TestGlobal).__testTableChains = {};
     vi.mocked(getSettingOrEnv).mockResolvedValue("");
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       status: 200,
       text: () => Promise.resolve("{}"),
-    } as any);
+    } as unknown as Response);
   });
 
   // --- GET テスト ---
@@ -210,7 +248,7 @@ describe("Square Webhook API", () => {
             note: "PID:pid-001;Product:MJL_5mg_1m",
           },
         })),
-      } as any);
+      } as unknown as Response);
 
       const req = createWebhookRequest(body);
       const res = await POST(req);
@@ -258,7 +296,7 @@ describe("Square Webhook API", () => {
               customer_id: "cust-001",
             },
           })),
-        } as any)
+        } as unknown as Response)
         // Square API: order 詳細
         .mockResolvedValueOnce({
           ok: true, status: 200,
@@ -281,7 +319,7 @@ describe("Square Webhook API", () => {
               }],
             }],
           })),
-        } as any);
+        } as unknown as Response);
 
       const body = {
         type: "payment.created",
@@ -355,7 +393,7 @@ describe("Square Webhook API", () => {
               amount_money: { amount: 45000 },
             },
           })),
-        } as any);
+        } as unknown as Response);
 
       const body = {
         type: "payment.created",
@@ -398,7 +436,7 @@ describe("Square Webhook API", () => {
               amount_money: { amount: 15000 },
             },
           })),
-        } as any);
+        } as unknown as Response);
 
       const body = {
         type: "payment.updated",
@@ -448,7 +486,7 @@ describe("Square Webhook API", () => {
   describe("冪等チェック", () => {
     it("重複イベントはスキップされる", async () => {
       const { checkIdempotency } = await import("@/lib/idempotency");
-      (checkIdempotency as any).mockResolvedValueOnce({
+      vi.mocked(checkIdempotency).mockResolvedValueOnce({
         duplicate: true,
         markCompleted: vi.fn(),
         markFailed: vi.fn(),

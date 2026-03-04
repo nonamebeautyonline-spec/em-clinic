@@ -1,6 +1,6 @@
 // カルテ画面で共通利用するヘルパー関数・型定義
 
-export type IntakeRow = { [key: string]: any };
+export type IntakeRow = Record<string, string | number | boolean | null | undefined>;
 export type PrescriptionMenu = "2.5mg" | "5mg" | "7.5mg" | "";
 export type StatusFilter = "pending" | "all" | "ok" | "ng";
 
@@ -57,7 +57,7 @@ export function pickReserveId(row: IntakeRow): string {
 }
 
 /** 日付文字列を "YYYY-MM-DD" に正規化 */
-export function normalizeDateStr(raw: any): string {
+export function normalizeDateStr(raw: unknown): string {
   if (raw == null) return "";
   const s = String(raw).trim();
   if (!s) return "";

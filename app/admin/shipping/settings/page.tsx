@@ -47,6 +47,7 @@ export default function ShippingSettingsPage() {
     setLoading(false);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ
   useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {

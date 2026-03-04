@@ -4,8 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, ReturnType<typeof vi.fn>>;
+function createChain(defaultResolve: Record<string, unknown> = { data: [], error: null, count: 0 }) {
+  const chain: SupabaseChain = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,7 +14,7 @@ function createChain(defaultResolve = { data: [], error: null, count: 0 }) {
   ].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
@@ -31,7 +32,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // NextRequest互換のモック
@@ -43,7 +44,7 @@ function createMockRequest(url: string) {
     nextUrl: { searchParams: parsedUrl.searchParams },
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
-  } as any;
+  } as unknown as import("next/server").NextRequest;
 }
 
 import { GET } from "@/app/api/admin/analytics/route";
@@ -52,7 +53,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 describe("売上分析API (analytics/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
     // チェーンリセット
     [
@@ -62,13 +63,13 @@ describe("売上分析API (analytics/route.ts)", () => {
     ].forEach(m => {
       ordersChain[m] = vi.fn().mockReturnValue(ordersChain);
     });
-    ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null, count: 0 }));
+    ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null, count: 0 }));
   });
 
   // === 認証テスト ===
   describe("認証", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -99,7 +100,7 @@ describe("売上分析API (analytics/route.ts)", () => {
   // ========================================
   describe("type=daily: 日別売上推移", () => {
     it("データなし → daily空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
@@ -109,7 +110,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("data=null → daily空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily");
       const res = await GET(req);
@@ -119,7 +120,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("注文データあり → 日別で集計される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { amount: 10000, paid_at: "2026-02-20T10:00:00Z", refund_status: null, refunded_amount: null },
           { amount: 15000, paid_at: "2026-02-20T14:00:00Z", refund_status: null, refunded_amount: null },
@@ -152,7 +153,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("from/to パラメータが適用される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=daily&from=2026-01-01&to=2026-01-31");
       const res = await GET(req);
@@ -168,7 +169,7 @@ describe("売上分析API (analytics/route.ts)", () => {
   // ========================================
   describe("type=ltv: 患者LTV", () => {
     it("データなし → 空LTV", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=ltv");
       const res = await GET(req);
@@ -181,7 +182,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("data=null → 空LTVオブジェクト", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=ltv");
       const res = await GET(req);
@@ -191,7 +192,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("注文データあり → LTV・分布・リピーター分布が計算される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           // 患者A: 2回購入、合計30000
           { patient_id: "pa", amount: 10000, paid_at: "2026-01-10T00:00:00Z", refund_status: null, refunded_amount: null },
@@ -242,7 +243,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("patient_id=null の注文は無視される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { patient_id: null, amount: 10000, paid_at: "2026-01-10T00:00:00Z", refund_status: null, refunded_amount: null },
           { patient_id: "pa", amount: 20000, paid_at: "2026-02-10T00:00:00Z", refund_status: null, refunded_amount: null },
@@ -263,7 +264,7 @@ describe("売上分析API (analytics/route.ts)", () => {
   // ========================================
   describe("type=cohort: コホート分析", () => {
     it("データなし → cohort空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
@@ -273,7 +274,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("data=null → cohort空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
@@ -283,7 +284,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("注文データあり → コホートとリテンション率が計算される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           // 患者A: 2026-01に初回、2026-02にリピート
           { patient_id: "pa", paid_at: "2026-01-05T00:00:00Z" },
@@ -304,7 +305,7 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(json.cohort.length).toBeGreaterThanOrEqual(2);
 
       // 2026-01コホート: pa, pb = 2人
-      const jan = json.cohort.find((c: any) => c.month === "2026-01");
+      const jan = json.cohort.find((c: Record<string, unknown>) => c.month === "2026-01");
       expect(jan).toBeDefined();
       expect(jan.size).toBe(2);
       // month=0（初月）: 2人とも購入 → 100%
@@ -315,13 +316,13 @@ describe("売上分析API (analytics/route.ts)", () => {
       expect(jan.retention[1].rate).toBe(50);
 
       // 2026-02コホート: pc = 1人（paは2026-01が初回なのでここには含まれない）
-      const feb = json.cohort.find((c: any) => c.month === "2026-02");
+      const feb = json.cohort.find((c: Record<string, unknown>) => c.month === "2026-02");
       expect(feb).toBeDefined();
       expect(feb.size).toBe(1);
     });
 
     it("patient_id=null の注文は無視される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { patient_id: null, paid_at: "2026-01-05T00:00:00Z" },
           { patient_id: "pa", paid_at: "2026-01-10T00:00:00Z" },
@@ -339,7 +340,7 @@ describe("売上分析API (analytics/route.ts)", () => {
 
     it("最大12ヶ月分のコホートに制限される", async () => {
       // 15ヶ月分のデータを生成
-      const orders: any[] = [];
+      const orders: Record<string, unknown>[] = [];
       for (let i = 0; i < 15; i++) {
         const month = String(i + 1).padStart(2, "0");
         const year = i < 12 ? "2025" : "2026";
@@ -350,7 +351,7 @@ describe("売上分析API (analytics/route.ts)", () => {
         });
       }
 
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: orders, error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: orders, error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=cohort");
       const res = await GET(req);
@@ -365,7 +366,7 @@ describe("売上分析API (analytics/route.ts)", () => {
   // ========================================
   describe("type=products: 商品別売上内訳", () => {
     it("データなし → products空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products");
       const res = await GET(req);
@@ -375,7 +376,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("data=null → products空配列", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: null, error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products");
       const res = await GET(req);
@@ -385,7 +386,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("注文データあり → 商品コード別に集計され売上降順", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { product_code: "MJL_2.5mg_1m", amount: 10000, refund_status: null, refunded_amount: null },
           { product_code: "MJL_2.5mg_1m", amount: 10000, refund_status: null, refunded_amount: null },
@@ -412,7 +413,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("product_code=null → '不明' として集計", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { product_code: null, amount: 5000, refund_status: null, refunded_amount: null },
         ],
@@ -426,7 +427,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("from/to パラメータが適用される", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
 
       const req = createMockRequest("http://localhost/api/admin/analytics?type=products&from=2026-01-01&to=2026-01-31");
       const res = await GET(req);
@@ -436,7 +437,7 @@ describe("売上分析API (analytics/route.ts)", () => {
     });
 
     it("全額返金の場合 → revenue=0", async () => {
-      ordersChain.then = vi.fn((resolve: any) => resolve({
+      ordersChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
         data: [
           { product_code: "TEST", amount: 10000, refund_status: "COMPLETED", refunded_amount: 10000 },
         ],

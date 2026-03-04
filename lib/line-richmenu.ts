@@ -20,7 +20,7 @@ interface RichMenuArea {
     text?: string;
     label?: string;
     displayMethod?: string;
-    actions?: any[];
+    actions?: Record<string, unknown>[];
     userMessage?: string;
     formSlug?: string;
   };

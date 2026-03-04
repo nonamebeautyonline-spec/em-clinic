@@ -3,8 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: [], error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: [], error: null }) {
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -12,11 +12,11 @@ function createChain(defaultResolve = { data: [], error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: Record<string, unknown>) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, ReturnType<typeof vi.fn>>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -28,7 +28,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -554,7 +554,7 @@ describe("evaluateStepConditions", () => {
   });
 
   it("null のルール → false", async () => {
-    const result = await evaluateStepConditions(null as any, "patient-1", "test-tenant");
+    const result = await evaluateStepConditions(null as unknown as never[], "patient-1", "test-tenant");
     expect(result).toBe(false);
   });
 

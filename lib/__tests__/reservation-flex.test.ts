@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockPushMessage = vi.fn();
 vi.mock("@/lib/line-push", () => ({
-  pushMessage: (...args: any[]) => mockPushMessage(...args),
+  pushMessage: (...args: unknown[]) => mockPushMessage(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -84,7 +84,7 @@ describe("reservation-flex: buildReservationChangedFlex", () => {
 
     // 旧日時と新日時のボックスを探す
     const dateBox = bodyContents.find(
-      (c: any) => c.type === "box" && c.contents?.length >= 2,
+      (c: Record<string, unknown>) => c.type === "box" && Array.isArray(c.contents) && c.contents.length >= 2,
     );
     expect(dateBox).toBeDefined();
 
@@ -116,11 +116,11 @@ describe("reservation-flex: buildReservationCanceledFlex", () => {
     const bodyContents = bubble.body.contents;
 
     // decoration: "line-through" を持つテキストを探す
-    function findLineThrough(contents: any[]): any {
+    function findLineThrough(contents: Record<string, unknown>[]): Record<string, unknown> | null {
       for (const c of contents) {
         if (c.decoration === "line-through") return c;
-        if (c.contents) {
-          const found = findLineThrough(c.contents);
+        if (Array.isArray(c.contents)) {
+          const found = findLineThrough(c.contents as Record<string, unknown>[]);
           if (found) return found;
         }
       }

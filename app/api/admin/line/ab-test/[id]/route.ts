@@ -32,13 +32,13 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   }
 
   // バリアントデータから勝者判定を実施
-  const variants: VariantStats[] = (test.ab_test_variants || []).map((v: any) => ({
-    id: v.id,
-    name: v.name,
-    sent_count: v.sent_count || 0,
-    open_count: v.open_count || 0,
-    click_count: v.click_count || 0,
-    conversion_count: v.conversion_count || 0,
+  const variants: VariantStats[] = (test.ab_test_variants || []).map((v: Record<string, unknown>) => ({
+    id: String(v.id),
+    name: String(v.name || ""),
+    sent_count: Number(v.sent_count) || 0,
+    open_count: Number(v.open_count) || 0,
+    click_count: Number(v.click_count) || 0,
+    conversion_count: Number(v.conversion_count) || 0,
   }));
 
   const winnerResult = variants.length >= 2
@@ -93,7 +93,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   }
 
   // 更新データ組み立て
-  const updateData: Record<string, any> = { ...updateFields, updated_at: new Date().toISOString() };
+  const updateData: Record<string, unknown> = { ...updateFields, updated_at: new Date().toISOString() };
   if (status) {
     updateData.status = status;
     if (status === "running") {
@@ -115,13 +115,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       .eq("ab_test_id", id);
 
     if (variantData && variantData.length >= 2) {
-      const variantStats: VariantStats[] = variantData.map((v: any) => ({
-        id: v.id,
-        name: v.name,
-        sent_count: v.sent_count || 0,
-        open_count: v.open_count || 0,
-        click_count: v.click_count || 0,
-        conversion_count: v.conversion_count || 0,
+      const variantStats: VariantStats[] = variantData.map((v: Record<string, unknown>) => ({
+        id: String(v.id),
+        name: String(v.name || ""),
+        sent_count: Number(v.sent_count) || 0,
+        open_count: Number(v.open_count) || 0,
+        click_count: Number(v.click_count) || 0,
+        conversion_count: Number(v.conversion_count) || 0,
       }));
       const result = determineWinner(variantStats, existing.winner_criteria);
       if (result.winnerId) {
@@ -143,7 +143,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (variants && variants.length > 0) {
     for (const v of variants) {
       if (v.id) {
-        const variantUpdate: Record<string, any> = {};
+        const variantUpdate: Record<string, unknown> = {};
         if (v.name !== undefined) variantUpdate.name = v.name;
         if (v.template_id !== undefined) variantUpdate.template_id = v.template_id;
         if (v.message_content !== undefined) variantUpdate.message_content = v.message_content;

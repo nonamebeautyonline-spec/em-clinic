@@ -5,35 +5,36 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 // --- モックチェーン ---
-function createChain(defaultResolve: any = { data: null, error: null, count: 0 }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null, count: 0 }) {
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
     "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
   ].forEach((m) => {
-    chain[m] = vi.fn().mockReturnValue(chain);
+    (chain as Record<string, ReturnType<typeof vi.fn>>)[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
 vi.mock("@/lib/supabase", () => {
   return {
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const g = globalThis as unknown as Record<string, Record<string, Record<string, unknown>>>;
+        const chains = g.__testTableChains || {};
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
+          const c: Record<string, unknown> = {};
           [
             "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
             "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
             "maybeSingle", "upsert", "ilike", "or", "count", "csv", "like",
           ].forEach((m) => {
-            c[m] = vi.fn().mockReturnValue(c);
+            (c as Record<string, ReturnType<typeof vi.fn>>)[m] = vi.fn().mockReturnValue(c);
           });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null, count: 0 }));
+          c.then = vi.fn((resolve: (v: unknown) => void) => resolve({ data: null, error: null, count: 0 }));
           chains[table] = c;
         }
         return chains[table];
@@ -64,14 +65,15 @@ function createRequest() {
   });
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: Record<string, unknown>) {
+  const g = globalThis as unknown as Record<string, Record<string, Record<string, unknown>>>;
+  g.__testTableChains[table] = chain;
 }
 
 describe("GET /api/platform/dashboard-stats", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    (globalThis as unknown as Record<string, Record<string, unknown>>).__testTableChains = {};
   });
 
   // --- 認証テスト ---

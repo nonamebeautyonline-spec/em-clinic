@@ -438,26 +438,19 @@ function CategoryAccordion({
   );
 }
 
-// ── メインページ ──
-export default function PatientQAPage() {
-  return (
-    <Suspense>
-      <PatientQAPageInner />
-    </Suspense>
-  );
-}
-
+// ── メインページ（内部） ──
 function PatientQAPageInner() {
   const searchParams = useSearchParams();
-  const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const initialCategory = searchParams.get("c");
+  const [openCategory, setOpenCategory] = useState<string | null>(
+    initialCategory && CATEGORIES.some((cat) => cat.id === initialCategory) ? initialCategory : null,
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
-  // URLパラメータ ?c=categoryId からカテゴリを自動展開
+  // URLパラメータ ?c=categoryId から該当カテゴリまでスクロール
   useEffect(() => {
     const c = searchParams.get("c");
     if (c && CATEGORIES.some((cat) => cat.id === c)) {
-      setOpenCategory(c);
-      // 該当カテゴリまでスクロール
       setTimeout(() => {
         document.getElementById(`qa-${c}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 300);
@@ -655,5 +648,14 @@ function PatientQAPageInner() {
         </div>
       </div>
     </>
+  );
+}
+
+// ── メインページ（export） ──
+export default function PatientQAPage() {
+  return (
+    <Suspense>
+      <PatientQAPageInner />
+    </Suspense>
   );
 }

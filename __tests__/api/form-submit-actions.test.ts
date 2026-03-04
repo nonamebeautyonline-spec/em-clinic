@@ -8,13 +8,13 @@ import { NextRequest } from "next/server";
 
 const mockPushMessage = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/line-push", () => ({
-  pushMessage: (...args: any[]) => mockPushMessage(...args),
+  pushMessage: (...args: unknown[]) => mockPushMessage(...args),
 }));
 
 const mockFrom = vi.fn();
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: (...args: any[]) => mockFrom(...args),
+    from: (...args: unknown[]) => mockFrom(...args),
   },
 }));
 
@@ -41,8 +41,8 @@ const { POST } = await import("@/app/api/forms/[slug]/submit/route");
 
 /* ---------- ヘルパー ---------- */
 
-function createChain(overrides: Record<string, any> = {}) {
-  const chain: any = {
+function createChain(overrides: Record<string, unknown> = {}) {
+  const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     neq: vi.fn().mockReturnThis(),
@@ -73,12 +73,12 @@ const PARAMS = { params: Promise.resolve({ slug: "test-form" }) };
 
 /** POSTハンドラを実行するための共通モック設定 */
 function setupBaseMocks(options: {
-  formFields?: any[];
-  formSettings?: Record<string, any>;
-  answers?: Record<string, any>;
+  formFields?: Record<string, unknown>[];
+  formSettings?: Record<string, unknown>;
+  answers?: Record<string, unknown>;
   lineUserId?: string | null;
   patientId?: string | null;
-  actionSteps?: any[];
+  actionSteps?: Record<string, unknown>[];
   templateContent?: string | null;
 } = {}) {
   const {
@@ -92,7 +92,7 @@ function setupBaseMocks(options: {
   } = options;
 
   // parseBody モック: バリデーション通過
-  (parseBody as any).mockResolvedValue({
+  vi.mocked(parseBody).mockResolvedValue({
     data: {
       answers,
       line_user_id: lineUserId,

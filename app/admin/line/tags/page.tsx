@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface Tag {
   id: number;
@@ -52,14 +52,15 @@ export default function TagManagementPage() {
     setPatientsModal({ tag, patients: data.patients || [], loading: false });
   };
 
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     const res = await fetch("/api/admin/tags", { credentials: "include" });
     const data = await res.json();
     if (data.tags) setTags(data.tags);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchTags(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
+  useEffect(() => { fetchTags(); }, [fetchTags]);
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;

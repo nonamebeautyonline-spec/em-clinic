@@ -89,7 +89,7 @@ export function DoctorKarteModal({
     }
 
     // 下書きがなければ既存データを表示
-    const existingNote = selected.doctor_note || selected["doctor_note"] || "";
+    const existingNote = String(selected.doctor_note || selected["doctor_note"] || "");
     const existingFormat = (selected.note_format || "plain") as NoteFormat;
     setSoap(noteToSoap(existingNote, existingFormat));
     setNoteFormat(existingFormat);

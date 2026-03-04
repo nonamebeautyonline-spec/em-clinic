@@ -86,13 +86,23 @@ export default function MediaManagementPage() {
     if (data.files) setFiles(data.files);
   }, [selectedFolderId, searchQuery]);
 
-  useEffect(() => {
-    Promise.all([fetchFolders(), fetchFiles()]).then(() => setLoading(false));
-  }, []);
+  const initialLoadDone = useRef(false);
+
+  const initLoad = useCallback(async () => {
+    await Promise.all([fetchFolders(), fetchFiles()]);
+    setLoading(false);
+    initialLoadDone.current = true;
+  }, [fetchFolders, fetchFiles]);
 
   useEffect(() => {
-    if (!loading) fetchFiles();
-  }, [selectedFolderId, searchQuery]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    initLoad();
+  }, [initLoad]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackでフィルタ変更時再フェッチ
+    if (initialLoadDone.current) fetchFiles();
+  }, [fetchFiles]);
 
   const filteredFiles = files.filter((f) => typeFilters.has(f.file_type));
 

@@ -264,7 +264,7 @@ export async function buildReminderFlex(dateStr: string, timeStr: string, tenant
 export async function sendReservationNotification(params: {
   patientId: string;
   lineUid: string;
-  flex: { type: "flex"; altText: string; contents: any };
+  flex: { type: "flex"; altText: string; contents: Record<string, unknown> };
   messageType: "reservation_created" | "reservation_changed" | "reservation_canceled";
   tenantId?: string;
 }): Promise<void> {

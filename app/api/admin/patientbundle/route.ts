@@ -75,20 +75,19 @@ export async function GET(req: NextRequest) {
     const reorders = reordersRes.data || [];
 
     // reserve_id → reservation のマップ
-    const resMap = new Map(reservations.map((r: any) => [r.reserve_id, r]));
+    const resMap = new Map(reservations.map((r) => [r.reserve_id, r]));
 
     // 患者基本情報（patients テーブルが正、intake は answers のみ参照）
     const latestIntake = intakes[0];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const answers = (latestIntake?.answers as Record<string, any>) || {};
+    const answers = (latestIntake?.answers as Record<string, unknown>) || {};
     const patient = {
       id: patientId,
       name: answerer?.name || "",
-      kana: answerer?.name_kana || answers?.カナ || answers?.name_kana || "",
-      phone: normalizeJPPhone(answerer?.tel || answers?.tel || ""),
-      sex: answerer?.sex || answers?.性別 || answers?.sex || "",
-      birth: answerer?.birthday || answers?.生年月日 || answers?.birth || "",
-      lineId: answerer?.line_id || answers?.line_id || null,
+      kana: answerer?.name_kana || String(answers?.カナ ?? "") || String(answers?.name_kana ?? "") || "",
+      phone: normalizeJPPhone(answerer?.tel || String(answers?.tel ?? "") || ""),
+      sex: answerer?.sex || String(answers?.性別 ?? "") || String(answers?.sex ?? "") || "",
+      birth: answerer?.birthday || String(answers?.生年月日 ?? "") || String(answers?.birth ?? "") || "",
+      lineId: answerer?.line_id || (answers?.line_id as string | null) || null,
     };
 
     // 来院履歴: intake（問診本体）+ reorders（再処方カルテ）を統合

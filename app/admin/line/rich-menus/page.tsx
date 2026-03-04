@@ -386,7 +386,7 @@ export default function RichMenuManagementPage() {
         const data = await res.json().catch(() => ({}));
         setSyncStatus({ show: true, step: "", done: true, error: data.error || "保存に失敗しました" });
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error("handleSave error:", e);
       setSyncStatus({ show: true, step: "", done: true, error: "通信エラーが発生しました。再度お試しください。" });
     } finally {

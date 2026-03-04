@@ -12,23 +12,23 @@ const mockGetSettingOrEnv = vi.fn();
 const mockRpc = vi.fn();
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn(),
-    rpc: (...args: any[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: (...args: any[]) => mockGetSettingOrEnv(...args),
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -167,12 +167,12 @@ describe("POST /api/admin/line/segments/ai-query", () => {
     vi.clearAllMocks();
   });
 
-  function createMockRequest(body: any) {
+  function createMockRequest(body: unknown) {
     return new Request("http://localhost/api/admin/line/segments/ai-query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }) as any;
+    }) as unknown as import("next/server").NextRequest;
   }
 
   it("認証失敗 → 401", async () => {

@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ===== チェーンモック =====
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, ReturnType<typeof createChain>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -63,7 +63,7 @@ describe("admin/patients/[id]/talk-bundle API", () => {
   });
 
   it("認証失敗で401を返す", async () => {
-    vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as any);
+    vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
     const res = await GET(makeReq(), makeCtx());
     expect(res.status).toBe(401);
     const json = await res.json();

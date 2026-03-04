@@ -22,35 +22,33 @@ mockChain.update.mockReturnValue(mockChain);
 mockChain.select.mockReturnValue(mockChain);
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: vi.fn(() => mockChain) },
 }));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : {})),
 }));
 
 // NextRequest互換のモック生成
-function createMockRequest(method: string, url: string, body?: any) {
-  const req = new Request(url, {
+function createMockRequest(method: string, url: string, body?: unknown) {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
 }
 
 // ボディなしリクエスト（Content-Type付きだが body が不正な JSON）
 function createBadBodyRequest(method: string, url: string) {
-  const req = new Request(url, {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: "INVALID_JSON",
   });
-  return req as any;
 }
 
 import { POST as karteLockPOST } from "@/app/api/admin/karte-lock/route";
@@ -134,7 +132,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     });
     // eq は mockChain を返し続ける（single チェーンを維持）
     // withTenant(mockChain) → mockChain が await されるため、error プロパティで判定
-    (mockChain as any).error = null;
+    (mockChain as unknown as Record<string, unknown>).error = null;
 
     const req = createMockRequest("POST", "http://localhost/api/admin/karte-edit", {
       intakeId: "intake-001",

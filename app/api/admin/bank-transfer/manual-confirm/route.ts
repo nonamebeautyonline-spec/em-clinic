@@ -142,10 +142,10 @@ export async function POST(req: NextRequest) {
       new_id: nextBtId,
       patient_id: order.patient_id,
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[ManualConfirm] Error:", e);
     return NextResponse.json(
-      { error: e?.message || "サーバーエラー" },
+      { error: e instanceof Error ? e.message : "サーバーエラー" },
       { status: 500 }
     );
   }

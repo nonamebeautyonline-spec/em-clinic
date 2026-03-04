@@ -164,7 +164,7 @@ describe("DB制約 SQLマイグレーション", () => {
 // ================================================================
 
 const mockRpc = vi.fn();
-const mockChain: Record<string, any> = {};
+const mockChain: Record<string, ReturnType<typeof vi.fn>> = {};
 const chainMethods = [
   "insert", "update", "delete", "select", "upsert",
   "eq", "neq", "not", "is", "in", "like", "ilike",
@@ -179,14 +179,14 @@ mockChain.single = vi.fn().mockResolvedValue({ data: null, error: null });
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
     from: vi.fn(() => mockChain),
-    rpc: (...args: any[]) => mockRpc(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : {})),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: string | null) => (tid ? { tenant_id: tid } : {})),
 }));
 
 vi.mock("@/lib/line-richmenu", () => ({
@@ -195,16 +195,16 @@ vi.mock("@/lib/line-richmenu", () => ({
 
 import { POST as personalInfoPOST } from "@/app/api/register/personal-info/route";
 
-function createPersonalInfoRequest(body: any, cookies: Record<string, string> = {}) {
+function createPersonalInfoRequest(body: Record<string, unknown>, cookies: Record<string, string> = {}) {
   const req = new Request("http://localhost/api/register/personal-info", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  (req as any).cookies = {
+  (req as unknown as Record<string, unknown>).cookies = {
     get: (name: string) => cookies[name] ? { value: cookies[name] } : undefined,
   };
-  return req as any;
+  return req as unknown as Request;
 }
 
 describe("register/personal-info SEQUENCE 統合テスト", () => {
@@ -244,7 +244,7 @@ describe("register/personal-info SEQUENCE 統合テスト", () => {
 
     mockChain.limit.mockReturnValue({
       ...mockChain,
-      then: (resolve: any) => resolve({ data: [{ patient_id: "10041" }], error: null }),
+      then: (resolve: (v: unknown) => unknown) => resolve({ data: [{ patient_id: "10041" }], error: null }),
     });
 
     mockChain.maybeSingle.mockResolvedValue({ data: null, error: null });

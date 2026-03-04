@@ -5,19 +5,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
+// === Supabase チェーンモック用型定義 ===
+interface ChainResult { data: unknown; error: unknown }
+interface SupabaseChain extends Record<string, ReturnType<typeof vi.fn>> {
+  then: ReturnType<typeof vi.fn>;
+}
+
 // === モックヘルパー ===
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: ChainResult = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: ChainResult) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -30,7 +36,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn(<T>(q: T) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -64,12 +70,12 @@ describe("POST /api/admin/line/actions/execute", () => {
     tableChains = {};
 
     // デフォルト: parseBody成功
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { action_id: 1, patient_id: "patient-001" },
     });
 
     // デフォルト: fetch成功
-    (fetch as any).mockResolvedValue({ ok: true, status: 200 });
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200 } as Response);
   });
 
   // ------------------------------------------------------------------
@@ -77,7 +83,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // ------------------------------------------------------------------
   describe("認証チェック", () => {
     it("認証失敗時は401を返す", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -91,7 +97,7 @@ describe("POST /api/admin/line/actions/execute", () => {
     });
 
     it("認証成功時は処理が継続される", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(true);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(true);
 
       // アクション取得: 空のstepsで正常終了
       const actionsChain = createChain({ data: { id: 1, name: "テストアクション", steps: [] }, error: null });
@@ -120,7 +126,7 @@ describe("POST /api/admin/line/actions/execute", () => {
         { ok: false, error: "入力値が不正です" },
         { status: 400 },
       );
-      (parseBody as any).mockResolvedValue({ error: errorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: errorResponse });
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -156,7 +162,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // send_text ステップテスト
   // ------------------------------------------------------------------
   describe("send_text ステップ", () => {
-    function setupAction(steps: any[]) {
+    function setupAction(steps: Record<string, unknown>[]) {
       const actionsChain = createChain({ data: { id: 1, name: "テストアクション", steps }, error: null });
       tableChains["actions"] = actionsChain;
     }
@@ -205,7 +211,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const msgChain = createChain();
       tableChains["message_log"] = msgChain;
 
-      (fetch as any).mockResolvedValue({ ok: true, status: 200 });
+      vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200 } as Response);
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -225,7 +231,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const msgChain = createChain();
       tableChains["message_log"] = msgChain;
 
-      (fetch as any).mockResolvedValue({ ok: false, status: 400 });
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 400 } as Response);
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -245,7 +251,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const msgChain = createChain();
       tableChains["message_log"] = msgChain;
 
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: { action_id: 1, patient_id: "PT-001" },
       });
 
@@ -259,8 +265,8 @@ describe("POST /api/admin/line/actions/execute", () => {
       expect(body.results[0].success).toBe(true);
 
       // fetchに渡されたbodyを確認
-      const fetchCall = (fetch as any).mock.calls[0];
-      const fetchBody = JSON.parse(fetchCall[1].body);
+      const fetchCall = vi.mocked(fetch).mock.calls[0];
+      const fetchBody = JSON.parse((fetchCall[1] as RequestInit).body as string);
       expect(fetchBody.messages[0].text).toBe("田中太郎様(ID:PT-001)");
     });
   });
@@ -269,7 +275,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // send_template ステップテスト
   // ------------------------------------------------------------------
   describe("send_template ステップ", () => {
-    function setupAction(steps: any[]) {
+    function setupAction(steps: Record<string, unknown>[]) {
       const actionsChain = createChain({ data: { id: 1, name: "テンプレートアクション", steps }, error: null });
       tableChains["actions"] = actionsChain;
     }
@@ -318,7 +324,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const msgChain = createChain();
       tableChains["message_log"] = msgChain;
 
-      (fetch as any).mockResolvedValue({ ok: true, status: 200 });
+      vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200 } as Response);
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -356,7 +362,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // tag_add / tag_remove ステップテスト
   // ------------------------------------------------------------------
   describe("tag_add / tag_remove ステップ", () => {
-    function setupAction(steps: any[]) {
+    function setupAction(steps: Record<string, unknown>[]) {
       const actionsChain = createChain({ data: { id: 1, name: "タグアクション", steps }, error: null });
       tableChains["actions"] = actionsChain;
     }
@@ -443,7 +449,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // mark_change ステップテスト
   // ------------------------------------------------------------------
   describe("mark_change ステップ", () => {
-    function setupAction(steps: any[]) {
+    function setupAction(steps: Record<string, unknown>[]) {
       const actionsChain = createChain({ data: { id: 1, name: "マークアクション", steps }, error: null });
       tableChains["actions"] = actionsChain;
     }
@@ -489,7 +495,7 @@ describe("POST /api/admin/line/actions/execute", () => {
   // menu_change ステップテスト
   // ------------------------------------------------------------------
   describe("menu_change ステップ", () => {
-    function setupAction(steps: any[]) {
+    function setupAction(steps: Record<string, unknown>[]) {
       const actionsChain = createChain({ data: { id: 1, name: "メニューアクション", steps }, error: null });
       tableChains["actions"] = actionsChain;
     }
@@ -553,7 +559,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const msgChain = createChain();
       tableChains["message_log"] = msgChain;
 
-      (fetch as any).mockResolvedValue({ ok: true, status: 200 });
+      vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200 } as Response);
 
       const req = new NextRequest("http://localhost/api/admin/line/actions/execute", {
         method: "POST",
@@ -627,7 +633,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.results).toHaveLength(2);
-      expect(body.results.every((r: any) => r.success)).toBe(true);
+      expect(body.results.every((r: { success: boolean }) => r.success)).toBe(true);
     });
 
     it("一部ステップ失敗時はok=falseを返す", async () => {

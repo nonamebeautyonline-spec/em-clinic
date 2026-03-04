@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface MessageLog {
   id: number;
@@ -40,7 +40,7 @@ export default function MessageHistoryPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const limit = 50;
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("limit", String(limit));
@@ -52,9 +52,10 @@ export default function MessageHistoryPage() {
     if (data.messages) setMessages(data.messages);
     if (data.total !== undefined) setTotal(data.total);
     setLoading(false);
-  };
+  }, [page, filterType]);
 
-  useEffect(() => { fetchMessages(); }, [page, filterType]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
+  useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
   const formatDate = (s: string) => {
     const d = new Date(s);

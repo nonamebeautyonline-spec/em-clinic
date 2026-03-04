@@ -149,7 +149,7 @@ export class SquarePaymentProvider implements PaymentProvider {
     }
 
     const idempotencyKey = crypto.randomUUID();
-    const body: any = {
+    const body: Record<string, unknown> = {
       idempotency_key: idempotencyKey,
       payment_id: paymentId,
       reason: "Requested by admin",

@@ -1,7 +1,7 @@
 // マイページ設定セクション（色・セクション・コンテンツ・文言 + iPhoneプレビュー）
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 // --- 型定義 ---
 interface MypageColorConfig {
@@ -125,17 +125,19 @@ export default function MypageSection({ onToast }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/mypage-settings", { credentials: "include" });
-      const data = await res.json();
-      if (data.config) setConfig(data.config);
-    } catch { /* デフォルト値を維持 */ }
-    setLoading(false);
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/mypage-settings", { credentials: "include" });
+        const data = await res.json();
+        if (!ignore && data.config) setConfig(data.config);
+      } catch { /* デフォルト値を維持 */ }
+      if (!ignore) setLoading(false);
+    })();
+    return () => { ignore = true; };
   }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const handleSave = async () => {
     setSaving(true);

@@ -136,15 +136,15 @@ export async function GET(req: NextRequest) {
         if (result.skipped) skipped++;
         else if (result.error) errors++;
         else collected++;
-      } catch (e: any) {
-        console.error(`[collect-line-stats] tenant=${tenant.id} error:`, e.message);
+      } catch (e) {
+        console.error(`[collect-line-stats] tenant=${tenant.id} error:`, (e as Error).message);
         errors++;
       }
     }
 
     return NextResponse.json({ ok: true, date: statDate, collected, skipped, errors });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[collect-line-stats] cron error:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

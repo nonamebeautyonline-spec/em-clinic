@@ -141,7 +141,7 @@ describe("reorder/apply 7.5mg 初回チェック", () => {
   });
 
   it("前回7.5mg注文なし → 警告送信", () => {
-    const prevOrders: any[] = [];
+    const prevOrders: { id: number }[] = [];
     expect(prevOrders.length === 0).toBe(true); // 警告送信
   });
 });

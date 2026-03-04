@@ -54,7 +54,7 @@ async function main() {
   const gasData = await gasResponse.json();
 
   // GASはokとrowsを返すか、直接配列を返すかのどちらか
-  let rows: any[];
+  let rows: Record<string, unknown>[];
   if (gasData.ok && Array.isArray(gasData.rows)) {
     rows = gasData.rows;
   } else if (Array.isArray(gasData)) {
@@ -90,8 +90,8 @@ async function main() {
   console.log("Inserting new data into Supabase...");
 
   const records = rows
-    .filter((row: any) => row.patient_id) // patient_idがあるもののみ
-    .map((row: any) => ({
+    .filter((row: Record<string, unknown>) => row.patient_id) // patient_idがあるもののみ
+    .map((row: Record<string, unknown>) => ({
       patient_id: String(row.patient_id || "").trim(),
       reserve_id: String(row.reserveId || row.reserved || row.reserve_id || "").trim() || null,
       reserved_date: String(row.reserved_date || "").trim() || null,
@@ -141,8 +141,8 @@ async function main() {
 }
 
 // 問診回答を抽出
-function extractAnswers(row: any): Record<string, any> {
-  const answers: Record<string, any> = {};
+function extractAnswers(row: Record<string, unknown>): Record<string, unknown> {
+  const answers: Record<string, unknown> = {};
 
   // GASの問診フィールドを全て取得
   for (const key of Object.keys(row)) {

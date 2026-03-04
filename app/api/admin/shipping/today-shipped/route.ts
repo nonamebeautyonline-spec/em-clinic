@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     console.log(`[TodayShipped] Found ${orders.length} orders`);
 
     // patient_idリストを取得
-    const patientIds = Array.from(new Set(orders.map((o: any) => o.patient_id)));
+    const patientIds = Array.from(new Set(orders.map((o: { patient_id: string }) => o.patient_id)));
 
     // patientsテーブルから患者名を取得
     const { data: pData } = await withTenant(
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     }
 
     // エントリを作成
-    const entries = orders.map((order: any) => ({
+    const entries = orders.map((order: { id: string; patient_id: string; tracking_number: string | null }) => ({
       payment_id: order.id,
       patient_name: patientNameMap[order.patient_id] || "",
       tracking_number: order.tracking_number || "",

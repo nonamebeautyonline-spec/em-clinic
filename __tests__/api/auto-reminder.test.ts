@@ -1,15 +1,21 @@
 // __tests__/api/auto-reminder.test.ts — 自動リマインド機能テスト
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// --- Supabaseチェーンモック用型定義 ---
+interface ChainResult { data: unknown; error: unknown }
+interface SupabaseChain extends Record<string, ReturnType<typeof vi.fn>> {
+  then: (resolve: (value: ChainResult) => unknown) => unknown;
+}
+
 // --- Supabaseチェーンモック ---
-function createChainMock(resolvedData: any = { data: null, error: null }) {
-  const chain: any = {};
+function createChainMock(resolvedData: ChainResult = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   const methods = ["select", "insert", "update", "delete", "eq", "neq", "in", "gte", "lte", "is", "not", "order", "limit", "single", "maybeSingle"];
   for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
   // 最終的にPromise.thenを呼ばれたらresolvedDataを返す
-  chain.then = (resolve: any) => resolve(resolvedData);
+  chain.then = (resolve: (value: ChainResult) => unknown) => resolve(resolvedData);
   return chain;
 }
 
@@ -181,7 +187,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn().mockReturnValue(null),
-  withTenant: vi.fn((query: any) => query),
+  withTenant: vi.fn(<T>(query: T) => query),
   tenantPayload: vi.fn((id: string | null) => ({ tenant_id: id || null })),
 }));
 
@@ -207,7 +213,7 @@ describe("lib/reservation-flex.ts - buildReminderFlex", () => {
   it("ヘッダーに「明日のご予約」テキストがある", async () => {
     const { buildReminderFlex } = await import("@/lib/reservation-flex");
     const result = await buildReminderFlex("2026-02-18", "10:00:00");
-    const headerTexts = result.contents.header.contents.map((c: any) => c.text);
+    const headerTexts = result.contents.header.contents.map((c: { text?: string }) => c.text);
     expect(headerTexts).toContain("明日のご予約");
   });
 
@@ -261,30 +267,30 @@ describe("generate-reminders: LINE送信", () => {
 
     // withTenantモック: reservations → sent_log → patients
     let queryCount = 0;
-    (withTenant as any).mockImplementation(() => {
+    vi.mocked(withTenant).mockImplementation(() => {
       queryCount++;
-      if (queryCount === 1) return { data: [mockReservation], error: null };
-      if (queryCount === 2) return { data: [], error: null };
-      if (queryCount === 3) return { data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U001" }], error: null };
-      return { data: null, error: null };
+      if (queryCount === 1) return { data: [mockReservation], error: null } as never;
+      if (queryCount === 2) return { data: [], error: null } as never;
+      if (queryCount === 3) return { data: [{ patient_id: "P001", name: "テスト太郎", line_id: "U001" }], error: null } as never;
+      return { data: null, error: null } as never;
     });
 
-    const inserted: any[] = [];
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    const inserted: { table: string; payload: unknown }[] = [];
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reminder_rules") {
-        return createChainMock({ data: [mockRule], error: null });
+        return createChainMock({ data: [mockRule], error: null }) as never;
       }
       const chain = createChainMock({ data: null, error: null });
       if (table === "reminder_sent_log" || table === "message_log") {
-        chain.insert = vi.fn().mockImplementation((payload: any) => {
+        chain.insert = vi.fn().mockImplementation((payload: unknown) => {
           inserted.push({ table, payload });
           return { data: null, error: null };
         });
       }
-      return chain;
+      return chain as never;
     });
 
-    (pushMessage as any).mockResolvedValue({ ok: true });
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as never);
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
     const response = await GET(new (await import("next/server")).NextRequest("http://localhost/api/cron/generate-reminders"));
@@ -293,14 +299,14 @@ describe("generate-reminders: LINE送信", () => {
     expect(body.ok).toBe(true);
     expect(body.sent).toBe(1);
 
-    expect(pushMessage).toHaveBeenCalledWith("U001", expect.any(Array), "tenant-1");
-    const lineMsg = (pushMessage as any).mock.calls[0][1][0];
-    expect(lineMsg.type).toBe("flex");
+    expect(pushMessage).toHaveBeenCalledWith("U001", expect.arrayContaining([]), "tenant-1");
+    const lineMsg = vi.mocked(pushMessage).mock.calls[0][1][0];
+    expect((lineMsg as { type: string }).type).toBe("flex");
 
     const logInsert = inserted.find(m => m.table === "reminder_sent_log");
     expect(logInsert).toBeTruthy();
-    expect(logInsert.payload.rule_id).toBe(1);
-    expect(logInsert.payload.tenant_id).toBe("tenant-1");
+    expect((logInsert!.payload as Record<string, unknown>).rule_id).toBe(1);
+    expect((logInsert!.payload as Record<string, unknown>).tenant_id).toBe("tenant-1");
 
     vi.restoreAllMocks();
   });
@@ -323,18 +329,18 @@ describe("generate-reminders: LINE送信", () => {
 
     // withTenantモック: reservations → sent_log（既に送信済み）
     let queryCount = 0;
-    (withTenant as any).mockImplementation(() => {
+    vi.mocked(withTenant).mockImplementation(() => {
       queryCount++;
-      if (queryCount === 1) return { data: [{ id: 100, patient_id: "P001", reserved_date: "2026-02-18", reserved_time: "10:00:00" }], error: null };
-      if (queryCount === 2) return { data: [{ reservation_id: 100 }], error: null }; // 送信済み
-      return { data: null, error: null };
+      if (queryCount === 1) return { data: [{ id: 100, patient_id: "P001", reserved_date: "2026-02-18", reserved_time: "10:00:00" }], error: null } as never;
+      if (queryCount === 2) return { data: [{ reservation_id: 100 }], error: null } as never; // 送信済み
+      return { data: null, error: null } as never;
     });
 
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "reminder_rules") {
-        return createChainMock({ data: [mockRule], error: null });
+        return createChainMock({ data: [mockRule], error: null }) as never;
       }
-      return createChainMock({ data: null, error: null });
+      return createChainMock({ data: null, error: null }) as never;
     });
 
     const { GET } = await import("@/app/api/cron/generate-reminders/route");
@@ -378,22 +384,22 @@ describe("send-scheduled: FLEX送信対応", () => {
     };
 
     // supabaseAdmin.fromモック（全クエリが直接supabaseAdminを使う）
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "scheduled_messages") {
         const chain = createChainMock({ data: [mockMsg], error: null });
         chain.update = vi.fn().mockReturnValue(createChainMock({ data: null, error: null }));
-        return chain;
+        return chain as never;
       }
       if (table === "patients") {
-        return createChainMock({ data: { name: "テスト太郎" }, error: null });
+        return createChainMock({ data: { name: "テスト太郎" }, error: null }) as never;
       }
       if (table === "message_log") {
-        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as never;
       }
-      return createChainMock();
+      return createChainMock() as never;
     });
 
-    (pushMessage as any).mockResolvedValue({ ok: true });
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as never);
 
     const { NextRequest } = await import("next/server");
     const req = new NextRequest("http://localhost/api/cron/send-scheduled");
@@ -406,10 +412,10 @@ describe("send-scheduled: FLEX送信対応", () => {
 
     // pushMessageがFLEX形式で呼ばれたことを確認
     expect(pushMessage).toHaveBeenCalled();
-    const pushArgs = (pushMessage as any).mock.calls[0];
+    const pushArgs = vi.mocked(pushMessage).mock.calls[0];
     const messages = pushArgs[1];
-    expect(messages[0].type).toBe("flex");
-    expect(messages[0].contents).toEqual(mockFlexJson);
+    expect((messages[0] as { type: string }).type).toBe("flex");
+    expect((messages[0] as { contents: unknown }).contents).toEqual(mockFlexJson);
     // tenant_idがメッセージのものを使っていることを確認
     expect(pushArgs[2]).toBe("tenant-1");
 
@@ -431,22 +437,22 @@ describe("send-scheduled: FLEX送信対応", () => {
       tenant_id: "tenant-2",
     };
 
-    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "scheduled_messages") {
         const chain = createChainMock({ data: [mockMsg], error: null });
         chain.update = vi.fn().mockReturnValue(createChainMock({ data: null, error: null }));
-        return chain;
+        return chain as never;
       }
       if (table === "patients") {
-        return createChainMock({ data: { name: "テスト花子" }, error: null });
+        return createChainMock({ data: { name: "テスト花子" }, error: null }) as never;
       }
       if (table === "message_log") {
-        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+        return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as never;
       }
-      return createChainMock();
+      return createChainMock() as never;
     });
 
-    (pushMessage as any).mockResolvedValue({ ok: true });
+    vi.mocked(pushMessage).mockResolvedValue({ ok: true } as never);
 
     const { NextRequest } = await import("next/server");
     const req = new NextRequest("http://localhost/api/cron/send-scheduled");
@@ -459,9 +465,9 @@ describe("send-scheduled: FLEX送信対応", () => {
 
     // pushMessageがテキスト形式で呼ばれたことを確認
     expect(pushMessage).toHaveBeenCalled();
-    const pushArgs = (pushMessage as any).mock.calls[0];
+    const pushArgs = vi.mocked(pushMessage).mock.calls[0];
     const messages = pushArgs[1];
-    expect(messages[0].type).toBe("text");
+    expect((messages[0] as { type: string }).type).toBe("text");
     // tenant_idがメッセージのものを使っていることを確認
     expect(pushArgs[2]).toBe("tenant-2");
 
@@ -502,7 +508,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
 
   it("FLEXメッセージの場合、message_templateが空でもOK", async () => {
     const { supabaseAdmin } = await import("@/lib/supabase");
-    (supabaseAdmin.from as any).mockImplementation(() => {
+    vi.mocked(supabaseAdmin.from).mockImplementation(() => {
       const chain = createChainMock({ data: { id: 1, name: "前日リマインド" }, error: null });
       chain.insert = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -512,7 +518,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
           }),
         }),
       });
-      return chain;
+      return chain as never;
     });
 
     const { NextRequest } = await import("next/server");

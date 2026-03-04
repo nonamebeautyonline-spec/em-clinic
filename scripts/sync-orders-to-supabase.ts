@@ -87,21 +87,21 @@ async function main() {
   console.log(`Fetched ${rawOrders.length} orders from GAS`);
 
   // 2. データを変換（paid_at を ISO 8601 に変換）
-  const orders: OrderRecord[] = rawOrders.map((order: any) => ({
-    id: order.id,
-    patient_id: order.patient_id,
-    product_code: order.product_code || null,
-    product_name: order.product_name || null,
-    amount: order.amount || 0,
-    paid_at: parseJstDateTime(order.paid_at) || null,
-    shipping_status: order.shipping_status || "pending",
-    shipping_date: order.shipping_date || null,
-    tracking_number: order.tracking_number || null,
-    carrier: order.carrier || null,
-    payment_status: order.payment_status || "paid",
-    refund_status: order.refund_status || null,
-    refunded_at: parseJstDateTime(order.refunded_at) || null,
-    refunded_amount: order.refunded_amount || null,
+  const orders: OrderRecord[] = rawOrders.map((order: Record<string, unknown>) => ({
+    id: order.id as string,
+    patient_id: order.patient_id as string,
+    product_code: (order.product_code as string) || null,
+    product_name: (order.product_name as string) || null,
+    amount: (order.amount as number) || 0,
+    paid_at: parseJstDateTime(order.paid_at as string) || null,
+    shipping_status: (order.shipping_status as string) || "pending",
+    shipping_date: (order.shipping_date as string) || null,
+    tracking_number: (order.tracking_number as string) || null,
+    carrier: (order.carrier as string) || null,
+    payment_status: (order.payment_status as string) || "paid",
+    refund_status: (order.refund_status as string) || null,
+    refunded_at: parseJstDateTime(order.refunded_at as string) || null,
+    refunded_amount: (order.refunded_amount as number) || null,
   }));
 
   console.log(`Fetched ${orders.length} orders from GAS`);

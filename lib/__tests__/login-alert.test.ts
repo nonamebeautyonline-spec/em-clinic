@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Supabase モック ---
 function createChain() {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.gte = vi.fn().mockReturnValue(chain);
@@ -27,7 +27,7 @@ vi.mock("@/lib/supabase", () => ({
 // --- sendEmail モック ---
 const mockSendEmail = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/email", () => ({
-  sendEmail: (...args: any[]) => mockSendEmail(...args),
+  sendEmail: (...args: unknown[]) => mockSendEmail(...args),
 }));
 
 import { sendLoginAlertIfNewIp } from "@/lib/notifications/login-alert";

@@ -32,11 +32,15 @@ export async function GET(req: NextRequest) {
   }
 
   // ステップ数・実行回数を付与
-  const enriched = (workflows || []).map((w: any) => ({
-    ...w,
-    step_count: w.workflow_steps?.[0]?.count || 0,
-    execution_count: w.workflow_executions?.[0]?.count || 0,
-  }));
+  const enriched = (workflows || []).map((w) => {
+    const steps = w.workflow_steps as { count: number }[] | undefined;
+    const executions = w.workflow_executions as { count: number }[] | undefined;
+    return {
+      ...w,
+      step_count: steps?.[0]?.count || 0,
+      execution_count: executions?.[0]?.count || 0,
+    };
+  });
 
   return NextResponse.json({ workflows: enriched });
 }

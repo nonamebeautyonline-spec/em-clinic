@@ -1,20 +1,25 @@
 // __tests__/api/rich-menus-id.test.ts
 // リッチメニュー更新・削除API（admin/line/rich-menus/[id]）のテスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// ===== Supabaseチェーンモックの型定義 =====
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // ===== チェーンモック =====
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -27,7 +32,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -77,7 +82,7 @@ describe("admin/line/rich-menus/[id] API", () => {
   // ===== PUT =====
   describe("PUT: リッチメニュー更新", () => {
     it("認証失敗で401を返す", async () => {
-      vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as any);
+      vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
       const res = await PUT(makeReq(), makeCtx());
       expect(res.status).toBe(401);
       const json = await res.json();
@@ -86,7 +91,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
     it("バリデーションエラーでparseBodyのエラーを返す", async () => {
       const errorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as any });
+      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as unknown as Response });
       const res = await PUT(makeReq(), makeCtx());
       expect(res.status).toBe(400);
     });
@@ -97,7 +102,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null }); // 既存メニュー
         if (callCount === 2) return resolve({ data: menuData, error: null }); // DB更新
@@ -125,7 +130,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null }); // 既存メニュー
         if (callCount === 2) return resolve({ data: menuData, error: null }); // DB更新
@@ -150,7 +155,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         if (callCount === 2) return resolve({ data: menuData, error: null });
@@ -171,7 +176,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         if (callCount === 2) return resolve({ data: menuData, error: null });
@@ -199,7 +204,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         if (callCount === 2) return resolve({ data: menuData, error: null });
@@ -216,7 +221,7 @@ describe("admin/line/rich-menus/[id] API", () => {
 
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         if (callCount === 2) return resolve({ data: null, error: { message: "DB error" } });
@@ -245,7 +250,7 @@ describe("admin/line/rich-menus/[id] API", () => {
   // ===== DELETE =====
   describe("DELETE: リッチメニュー削除", () => {
     it("認証失敗で401を返す", async () => {
-      vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as any);
+      vi.mocked(verifyAdminAuth).mockResolvedValueOnce(null as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(401);
     });
@@ -253,7 +258,7 @@ describe("admin/line/rich-menus/[id] API", () => {
     it("LINE側メニューがある場合、LINE APIの削除も実行される", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: "richmenu-old-456" }, error: null });
         return resolve({ data: null, error: null }); // DB削除
@@ -270,7 +275,7 @@ describe("admin/line/rich-menus/[id] API", () => {
     it("LINE側メニューがない場合、LINE API削除は呼ばれない", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         return resolve({ data: null, error: null });
@@ -285,7 +290,7 @@ describe("admin/line/rich-menus/[id] API", () => {
     it("DB削除失敗で500を返す", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (val: unknown) => unknown) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { line_rich_menu_id: null }, error: null });
         return resolve({ data: null, error: { message: "delete failed" } });

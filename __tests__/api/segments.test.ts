@@ -9,7 +9,7 @@ const mockClassifyPatients = vi.fn();
 const mockSaveSegments = vi.fn();
 
 // Supabase チェーン用モック
-const mockSelectResult = { data: null as any, error: null as any };
+const mockSelectResult = { data: null as unknown, error: null as unknown };
 
 const mockChain = {
   select: vi.fn().mockReturnThis(),
@@ -20,7 +20,7 @@ const mockChain = {
 };
 
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -31,27 +31,27 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((query: any) => query),
-  tenantPayload: vi.fn((tid: any) => (tid ? { tenant_id: tid } : { tenant_id: null })),
+  withTenant: vi.fn((query: unknown) => query),
+  tenantPayload: vi.fn((tid: unknown) => (tid ? { tenant_id: tid } : { tenant_id: null })),
 }));
 
 vi.mock("@/lib/patient-segments", async (importOriginal) => {
-  const actual = await importOriginal() as any;
+  const actual = await importOriginal() as Record<string, unknown>;
   return {
     ...actual,
-    classifyPatients: (...args: any[]) => mockClassifyPatients(...args),
-    saveSegments: (...args: any[]) => mockSaveSegments(...args),
+    classifyPatients: (...args: unknown[]) => mockClassifyPatients(...args),
+    saveSegments: (...args: unknown[]) => mockSaveSegments(...args),
   };
 });
 
 // NextRequest互換のモック生成
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const req = new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return req as any;
+  return req as unknown as Request;
 }
 
 // ── セグメント一覧 API ──────────────────────────────────
@@ -247,7 +247,7 @@ describe("GET /api/cron/segment-recalculate", () => {
     const { GET } = await import("@/app/api/cron/segment-recalculate/route");
     const req = new Request("http://localhost/api/cron/segment-recalculate", {
       headers: { authorization: "Bearer wrong-secret" },
-    }) as any;
+    }) as unknown as Request;
     const res = await GET(req);
     expect(res.status).toBe(401);
   });
@@ -261,7 +261,7 @@ describe("GET /api/cron/segment-recalculate", () => {
     const { GET } = await import("@/app/api/cron/segment-recalculate/route");
     const req = new Request("http://localhost/api/cron/segment-recalculate", {
       headers: { authorization: "Bearer test-cron-secret" },
-    }) as any;
+    }) as unknown as Request;
     const res = await GET(req);
     const json = await res.json();
 

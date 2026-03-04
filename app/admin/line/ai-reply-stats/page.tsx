@@ -126,12 +126,18 @@ function fmtTokens(n: number): string {
 }
 
 // カスタムTooltip
-function ChartTooltip({ active, payload, label }: any) {
+interface TooltipPayloadEntry {
+  color: string;
+  name: string;
+  value?: number;
+}
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg shadow-lg px-3 py-2">
       <p className="text-xs font-medium text-gray-600 mb-1">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry: TooltipPayloadEntry, i: number) => (
         <p key={i} className="text-xs" style={{ color: entry.color }}>
           {entry.name}: <span className="font-bold">{entry.value?.toLocaleString()}</span>
         </p>

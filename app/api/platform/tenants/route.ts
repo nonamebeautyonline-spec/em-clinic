@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     `;
     const BASIC_SELECT = "id, name, slug, is_active, created_at, updated_at";
 
-    function applyFilters(q: any) {
+    function applyFilters<T extends { eq: (col: string, val: unknown) => T; or: (expr: string) => T; order: (col: string, opts?: { ascending?: boolean }) => T; range: (from: number, to: number) => T }>(q: T): T {
       let filtered = q;
       if (status === "active") filtered = filtered.eq("is_active", true);
       else if (status === "inactive") filtered = filtered.eq("is_active", false);
@@ -59,15 +59,18 @@ export async function GET(req: NextRequest) {
     }
 
     // フルクエリを試行
-    let fullQuery = supabaseAdmin.from("tenants").select(FULL_SELECT, { count: "exact" }).is("deleted_at", null);
-    let { data: tenants, error: tenantsErr, count } = await applyFilters(fullQuery);
+    const fullQuery = supabaseAdmin.from("tenants").select(FULL_SELECT, { count: "exact" }).is("deleted_at", null);
+    const fullResult = await applyFilters(fullQuery);
+    let tenants: Record<string, unknown>[] | null = fullResult.data as Record<string, unknown>[] | null;
+    let tenantsErr = fullResult.error;
+    let count = fullResult.count;
 
     // フォールバック: カラムやリレーションが未作成の場合、基本カラムのみで再試行
     if (tenantsErr) {
       console.error("[platform/tenants] フルクエリ失敗（フォールバック実行）:", tenantsErr.message);
       const basicQuery = supabaseAdmin.from("tenants").select(BASIC_SELECT, { count: "exact" });
       const result = await applyFilters(basicQuery);
-      tenants = result.data;
+      tenants = result.data as Record<string, unknown>[] | null;
       tenantsErr = result.error;
       count = result.count;
     }
@@ -81,7 +84,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 各テナントの患者数と今月売上を取得（失敗しても一覧表示は維持）
-    const tenantIds = (tenants || []).map((t: any) => t.id);
+    const tenantIds = (tenants || []).map((t) => String(t.id));
 
     let patientsCountMap: Record<string, number> = {};
     let monthlyRevenueMap: Record<string, number> = {};
@@ -143,15 +146,15 @@ export async function GET(req: NextRequest) {
     }
 
     // テナントデータにカウント・売上を付与
-    const enriched = (tenants || []).map((t: { id: string; [key: string]: unknown }) => ({
+    const enriched = (tenants || []).map((t) => ({
       ...t,
-      patients_count: patientsCountMap[t.id] || 0,
-      monthly_revenue: monthlyRevenueMap[t.id] || 0,
+      patients_count: patientsCountMap[String(t.id)] || 0,
+      monthly_revenue: monthlyRevenueMap[String(t.id)] || 0,
     }));
 
     // patients_countでソートが必要な場合はメモリ上でソート
     if (sort === "patients_count") {
-      enriched.sort((a: { patients_count: number }, b: { patients_count: number }) => b.patients_count - a.patients_count);
+      enriched.sort((a, b) => b.patients_count - a.patients_count);
     }
 
     return NextResponse.json({

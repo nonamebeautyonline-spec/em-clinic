@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // 患者情報を一括取得
     const patientIds = [
       ...new Set(
-        (reservations || []).map((r: any) => r.patient_id).filter(Boolean)
+        (reservations || []).map((r) => r.patient_id).filter(Boolean)
       ),
     ];
     const patientMap = new Map<string, { name: string; tel: string }>();
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
     // 医師情報を一括取得
     const doctorIds = [
       ...new Set(
-        (reservations || []).map((r: any) => r.doctor_id).filter(Boolean)
+        (reservations || []).map((r) => r.doctor_id).filter(Boolean)
       ),
     ];
     const doctorMap = new Map<string, string>();
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
     }
 
     // レスポンス整形
-    const calendarEvents = (reservations || []).map((r: any) => {
+    const calendarEvents = (reservations || []).map((r) => {
       const patient = patientMap.get(r.patient_id);
       return {
         id: r.id || r.reserve_id,

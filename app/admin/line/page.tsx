@@ -360,7 +360,7 @@ export default function LineDashboardPage() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
                     <Tooltip
                       labelFormatter={(v) => `${v}`}
-                      formatter={(value: any, name: any) => {
+                      formatter={(value, name) => {
                         if (name === "followers") return [Number(value).toLocaleString(), "友だち数"];
                         return [Number(value) > 0 ? `+${value}` : value, "増減"];
                       }}
@@ -384,7 +384,7 @@ export default function LineDashboardPage() {
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip
                         labelFormatter={(v) => `${v}`}
-                        formatter={(value: any) => [Number(value).toLocaleString(), "送信数"]}
+                        formatter={(value) => [Number(value).toLocaleString(), "送信数"]}
                       />
                       <Bar dataKey="sent" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
                     </BarChart>
@@ -401,7 +401,7 @@ export default function LineDashboardPage() {
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip
                         labelFormatter={(v) => `${v}`}
-                        formatter={(value: any, name: any) => [
+                        formatter={(value, name) => [
                           Number(value).toLocaleString(),
                           name === "clicks" ? "総クリック" : "ユニーク",
                         ]}
@@ -425,7 +425,7 @@ export default function LineDashboardPage() {
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
                       labelFormatter={(v) => `${v}`}
-                      formatter={(value: any, name: any) => {
+                      formatter={(value, name) => {
                         if (name === "blocks") return [value, "ブロック数"];
                         return [`${value}%`, "ブロック率"];
                       }}

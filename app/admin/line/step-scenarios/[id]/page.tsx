@@ -39,7 +39,7 @@ interface Scenario {
   trigger_tag_id: number | null;
   trigger_keyword: string | null;
   trigger_keyword_match: string | null;
-  condition_rules: any[];
+  condition_rules: ConditionRule[];
   is_enabled: boolean;
 }
 
@@ -155,7 +155,7 @@ export default function StepScenarioEditPage() {
         const d = await detailRes.json();
         setScenario(d.scenario);
         // 新カラムのデフォルト値を補完
-        const enrichedSteps = (d.steps || []).map((s: any) => ({
+        const enrichedSteps = (d.steps || []).map((s: Partial<StepItem>) => ({
           ...EMPTY_STEP,
           ...s,
           condition_rules: s.condition_rules || [],

@@ -56,10 +56,10 @@ function Inner() {
       }
 
       setStep("enterCode");
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
       setError(
-        e?.message ||
+        (e instanceof Error ? e.message : null) ||
           "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。"
       );
     } finally {
@@ -112,7 +112,7 @@ function Inner() {
         throw new Error("マイページとの紐付けに失敗しました。時間をおいて再度お試しください。");
       }
 
-      const completeJson = await completeRes.json().catch(() => ({} as any));
+      const completeJson = await completeRes.json().catch(() => ({} as Record<string, unknown>));
 
       // アプリケーションエラー（200でもok:false）
       if (!completeJson?.ok) {
@@ -126,10 +126,10 @@ function Inner() {
 
       // pid cookie がセットされたはずなので /mypage へ
       router.push("/mypage");
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
       setError(
-        e?.message ||
+        (e instanceof Error ? e.message : null) ||
           "認証処理中にエラーが発生しました。時間をおいて再度お試しください。"
       );
     } finally {

@@ -2,7 +2,7 @@
 import { getSetting, setSetting } from "@/lib/settings";
 import { DEFAULT_MYPAGE_CONFIG, type MypageConfig } from "./types";
 
-const CATEGORY = "mypage" as any;
+const CATEGORY = "mypage" as const;
 const SETTING_KEY = "config";
 
 /** DB からマイページ設定を取得（なければデフォルト） */

@@ -31,7 +31,7 @@ type OrdersFlags = {
   hasAnyPaidOrder: boolean;
 };
 
-function toIsoFlexible(v: any): string {
+function toIsoFlexible(v: unknown): string {
   const s = (typeof v === "string" ? v : String(v ?? "")).trim();
   if (!s) return "";
 
@@ -66,21 +66,21 @@ function toIsoFlexible(v: any): string {
   return "";
 }
 
-function normalizePaymentStatus(v: any): PaymentStatus {
+function normalizePaymentStatus(v: unknown): PaymentStatus {
   const s = (typeof v === "string" ? v : String(v ?? "")).toLowerCase();
   if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as PaymentStatus;
   if (String(v ?? "").toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
 
-function normalizeRefundStatus(v: any): RefundStatus | undefined {
+function normalizeRefundStatus(v: unknown): RefundStatus | undefined {
   const s = (typeof v === "string" ? v : String(v ?? "")).toUpperCase().trim();
   if (!s) return undefined;
   if (s === "PENDING" || s === "COMPLETED" || s === "FAILED" || s === "CANCELLED") return s as RefundStatus;
   return "UNKNOWN";
 }
 
-function toNumberOrUndefined(v: any): number | undefined {
+function toNumberOrUndefined(v: unknown): number | undefined {
   if (v == null || v === "") return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
@@ -117,7 +117,39 @@ export async function GET(_req: NextRequest) {
     const productNames = await getProductNamesMap(tenantId ?? undefined);
 
     // ordersテーブルから注文データを取得（bank_transfer_ordersは廃止済み）
-    const orders: OrderForMyPage[] = rawOrders.map((o: any) => {
+    interface RawOrder {
+      id: string;
+      product_code: string;
+      productCode?: string;
+      product_name: string | null;
+      productName?: string;
+      amount: number;
+      paid_at_jst?: string;
+      paidAt?: string;
+      paid_at?: string;
+      order_datetime?: string;
+      orderDateTime?: string;
+      created_at?: string;
+      shipping_status?: string;
+      shippingStatus?: string;
+      shipping_date?: string;
+      shipping_eta?: string;
+      shippingEta?: string;
+      tracking_number?: string;
+      trackingNumber?: string;
+      payment_status?: string;
+      paymentStatus?: string;
+      payment_method?: string;
+      status?: string;
+      refund_status?: string;
+      refundStatus?: string;
+      refunded_at_jst?: string;
+      refundedAt?: string;
+      refunded_at?: string;
+      refunded_amount?: number;
+      refundedAmount?: number;
+    }
+    const orders: OrderForMyPage[] = rawOrders.map((o: RawOrder) => {
       const paidRaw =
         o.paid_at_jst ??
         o.paidAt ??

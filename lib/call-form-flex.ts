@@ -9,7 +9,7 @@ import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
 export async function buildCallFormFlex(
   lineCallUrl: string,
   tenantId?: string
-): Promise<{ type: "flex"; altText: string; contents: any }> {
+): Promise<{ type: "flex"; altText: string; contents: Record<string, unknown> }> {
   let cfg = DEFAULT_FLEX_CONFIG;
   try {
     cfg = await getFlexConfig(tenantId);

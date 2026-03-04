@@ -10,12 +10,12 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // --- Zodバリデーション モック ---
 vi.mock("@/lib/validations/helpers", () => ({
-  parseBody: vi.fn(async (req: any, _schema: any) => {
+  parseBody: vi.fn(async (req: Request, _schema: unknown) => {
     const body = await req.json();
     return { data: body };
   }),
@@ -27,7 +27,7 @@ vi.mock("@/lib/validations/admin-operations", () => ({
 
 // --- Supabase チェーンモック ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq",
     "in", "is", "not", "order", "limit", "range", "single",
@@ -35,12 +35,12 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
 // from の呼び出しごとに異なる結果を返すための配列
-let fromResults: any[] = [];
+let fromResults: ReturnType<typeof createChain>[] = [];
 let fromCallIndex = 0;
 
 const mockFrom = vi.fn(() => {
@@ -62,7 +62,7 @@ vi.stubGlobal("fetch", mockFetch);
 import { POST } from "@/app/api/admin/bank-transfer/manual-confirm/route";
 import { NextRequest } from "next/server";
 
-function makeRequest(body: any) {
+function makeRequest(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/admin/bank-transfer/manual-confirm", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -39,17 +39,17 @@ vi.mock("@/lib/phone", () => ({
 }));
 
 // === Supabase モック ===
-let tableResults: Record<string, { data: any; error: any }> = {};
+let tableResults: Record<string, { data: unknown; error: unknown }> = {};
 
 function createChain(tableName: string) {
-  const chain: any = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "single", "upsert",
    "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
   chain.maybeSingle = vi.fn().mockReturnValue(chain);
-  chain.then = vi.fn((resolve: any) => {
+  chain.then = vi.fn((resolve: (val: { data: unknown; error: unknown }) => unknown) => {
     const result = tableResults[tableName] || { data: null, error: null };
     return resolve(result);
   });
@@ -281,7 +281,7 @@ describe("admin/patientbundle 来院履歴統合", () => {
 
     expect(res.status).toBe(200);
     // 再処方カルテが来院履歴に含まれる
-    const reorderIntake = json.intakes.find((i: any) => String(i.id).startsWith("reorder-"));
+    const reorderIntake = json.intakes.find((i: Record<string, unknown>) => String(i.id).startsWith("reorder-"));
     expect(reorderIntake).toBeDefined();
     expect(reorderIntake.note).toBe("増量処方");
   });
@@ -328,7 +328,7 @@ describe("admin/patientbundle 来院履歴統合", () => {
 
     expect(res.status).toBe(200);
     // "再処方"ノートのintake（reserve_idなし）は除外される
-    const notes = json.intakes.map((i: any) => i.note);
+    const notes = json.intakes.map((i: Record<string, unknown>) => i.note);
     expect(notes).toContain("初回問診");
     expect(notes).not.toContain("再処方カルテ");
   });

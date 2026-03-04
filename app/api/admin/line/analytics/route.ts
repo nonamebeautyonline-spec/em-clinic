@@ -1,4 +1,4 @@
-// app/api/admin/line/analytics/route.ts — 配信効果分析API
+// app/api/admin/line/analytics/route.ts -- 配信効果分析API
 // 既存のdashboard APIのデータ + CVR算出ロジック
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -6,9 +6,49 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
+// Supabaseクエリ結果用の型定義
+interface DailyStatRow {
+  stat_date: string;
+  followers: number;
+  targeted_reaches: number;
+  blocks: number;
+  messages_sent: number;
+  total_clicks: number;
+  unique_clicks: number;
+}
+
+interface BroadcastRow {
+  id: number;
+  name: string;
+  status: string;
+  total_targets: number;
+  sent_count: number;
+  failed_count: number;
+  no_uid_count: number;
+  sent_at: string | null;
+  created_at: string;
+}
+
+interface ClickLinkRow {
+  id: number;
+  broadcast_id: number;
+}
+
+interface ClickEventRow {
+  link_id: number;
+  ip_address: string;
+  clicked_at: string;
+}
+
+// ページネーション結果の型
+interface FetchAllResult<T> {
+  data: T[];
+  error: { message: string } | null;
+}
+
 // ページネーション付きfetch
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll<T = Record<string, unknown>>(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }> }, pageSize = 5000): Promise<FetchAllResult<T>> {
+  const all: T[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -75,21 +115,21 @@ export async function GET(req: NextRequest) {
 
   const chartData = {
     period: validPeriod,
-    followerTrend: (chartRows || []).map((r: any, i: number, arr: any[]) => ({
+    followerTrend: (chartRows || []).map((r: DailyStatRow, i: number, arr: DailyStatRow[]) => ({
       date: r.stat_date,
       followers: r.followers,
       diff: i > 0 ? r.followers - arr[i - 1].followers : 0,
     })),
-    deliveryStats: (chartRows || []).map((r: any) => ({
+    deliveryStats: (chartRows || []).map((r: DailyStatRow) => ({
       date: r.stat_date,
       sent: r.messages_sent,
     })),
-    clickStats: (chartRows || []).map((r: any) => ({
+    clickStats: (chartRows || []).map((r: DailyStatRow) => ({
       date: r.stat_date,
       clicks: r.total_clicks,
       uniqueClicks: r.unique_clicks,
     })),
-    blockStats: (chartRows || []).map((r: any) => ({
+    blockStats: (chartRows || []).map((r: DailyStatRow) => ({
       date: r.stat_date,
       blocks: r.blocks,
       followers: r.followers,
@@ -121,7 +161,7 @@ export async function GET(req: NextRequest) {
   );
 
   // 各配信のクリック数を取得
-  const broadcastIds = (broadcastRows || []).map((b: any) => b.id);
+  const broadcastIds = (broadcastRows || []).map((b: BroadcastRow) => b.id);
   let broadcastClickMap = new Map<number, { total: number; unique: number; linkIds: number[] }>();
 
   if (broadcastIds.length > 0) {
@@ -134,7 +174,7 @@ export async function GET(req: NextRequest) {
     );
 
     if (clickLinks && clickLinks.length > 0) {
-      const linkIds = clickLinks.map((l: any) => l.id);
+      const linkIds = clickLinks.map((l: ClickLinkRow) => l.id);
       const linkToBroadcast = new Map<number, number>();
       for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
 
@@ -145,14 +185,14 @@ export async function GET(req: NextRequest) {
         broadcastClickMap.set(l.broadcast_id, cur);
       }
 
-      const { data: clickEvts } = await fetchAll(() =>
+      const { data: clickEvts } = await fetchAll<ClickEventRow>(() =>
         withTenant(
           supabaseAdmin
             .from("click_tracking_events")
             .select("link_id, ip_address, clicked_at")
             .in("link_id", linkIds),
           tenantId
-        )
+        ) as unknown as { range: (from: number, to: number) => Promise<{ data: ClickEventRow[] | null; error: { message: string } | null }> }
       );
 
       // 総クリック数
@@ -210,7 +250,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 配信統計をまとめる
-  const broadcastStats = (broadcastRows || []).map((b: any) => {
+  const broadcastStats = (broadcastRows || []).map((b: BroadcastRow) => {
     const clicks = broadcastClickMap.get(b.id) || { total: 0, unique: 0, linkIds: [] };
     const cvrData = broadcastCvrMap.get(b.id) || { orders: 0, cvr: 0 };
     const deliveryRate = b.total_targets > 0

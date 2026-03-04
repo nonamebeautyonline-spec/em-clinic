@@ -19,25 +19,25 @@ const mockGetProductNamesMap = vi.fn().mockResolvedValue({
   "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
 });
 vi.mock("@/lib/products", () => ({
-  getProductNamesMap: (...args: any[]) => mockGetProductNamesMap(...args),
+  getProductNamesMap: (...args: unknown[]) => mockGetProductNamesMap(...args),
 }));
 
 // === Supabase モック ===
 // このルートは orders テーブルを複数回呼ぶ（confirmed, pending, 購入回数）
 // + patients, intake テーブル
 let ordersCallIndex = 0;
-let ordersResults: Array<{ data: any; error: any }> = [];
-let patientsResult: { data: any; error: any } = { data: [], error: null };
-let intakeResult: { data: any; error: any } = { data: [], error: null };
+let ordersResults: Array<{ data: unknown; error: unknown }> = [];
+let patientsResult: { data: unknown; error: unknown } = { data: [], error: null };
+let intakeResult: { data: unknown; error: unknown } = { data: [], error: null };
 
-function createTableChain(getResult: () => { data: any; error: any }) {
-  const chain: any = {};
+function createTableChain(getResult: () => { data: unknown; error: unknown }) {
+  const chain: Record<string, unknown> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
    "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(getResult()));
+  chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(getResult()));
   return chain;
 }
 

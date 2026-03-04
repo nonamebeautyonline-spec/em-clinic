@@ -8,7 +8,7 @@ const mockSelect = vi.fn(() => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock("@/lib/supabase", () => ({
-  supabaseAdmin: { from: (...args: any[]) => mockFrom(...args) },
+  supabaseAdmin: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 
 import { generateUsername } from "@/lib/username";

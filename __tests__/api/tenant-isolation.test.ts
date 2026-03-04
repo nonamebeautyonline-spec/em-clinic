@@ -351,10 +351,10 @@ describe("テナント分離: バックフィルスクリプト", () => {
 // ===================================================================
 describe("テナント分離: withTenant 関数の動作検証", () => {
   function createMockQuery() {
-    const calls: { method: string; args: any[] }[] = [];
-    const proxy: any = new Proxy({}, {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const proxy: Record<string, (...args: unknown[]) => unknown> = new Proxy({} as Record<string, (...args: unknown[]) => unknown>, {
       get(_, prop) {
-        return (...args: any[]) => {
+        return (...args: unknown[]) => {
           calls.push({ method: String(prop), args });
           return proxy;
         };

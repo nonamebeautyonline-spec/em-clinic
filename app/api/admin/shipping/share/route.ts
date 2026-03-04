@@ -77,8 +77,8 @@ export async function POST(req: NextRequest) {
     console.log(`[Share] Created share: ${shareId}, expires: ${expiresAt.toISOString()}`);
 
     return NextResponse.json({ shareId });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Share] Error:", e);
-    return NextResponse.json({ error: e?.message || "サーバーエラー" }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
   }
 }

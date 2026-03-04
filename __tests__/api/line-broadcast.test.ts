@@ -59,7 +59,7 @@ function createMockChain(tableName?: string): Record<string, unknown> {
   chain.single = vi.fn(() => ({ data: mockInsertData, error: mockInsertError }));
   chain.maybeSingle = vi.fn(() => ({ data: mockMaybeSingleData, error: null }));
   // then: GET の配信履歴一覧用（withTenant 経由のプロミスライク対応）
-  chain.then = vi.fn((resolve: any) => resolve({ data: mockSelectData, error: mockSelectError }));
+  chain.then = vi.fn((resolve: (value: unknown) => unknown) => resolve({ data: mockSelectData, error: mockSelectError }));
   return chain;
 }
 
@@ -639,7 +639,7 @@ describe("resolveTargets", () => {
     };
 
     const rules = {
-      include: { conditions: [{ type: "unknown_type" as any }] },
+      include: { conditions: [{ type: "unknown_type" as unknown as string }] },
     };
 
     const targets = await resolveTargets(rules, null);

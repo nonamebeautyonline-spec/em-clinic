@@ -224,7 +224,7 @@ describe("admin users メール送信失敗時", () => {
     user: { id: string; email: string; name: string },
     emailSuccess: boolean,
     setupUrl: string,
-  ): { ok: boolean; user: any; warning?: string; message?: string; setupUrl?: string } {
+  ): { ok: boolean; user: { id: string; email: string; name: string }; warning?: string; message?: string; setupUrl?: string } {
     if (!emailSuccess) {
       return {
         ok: true,

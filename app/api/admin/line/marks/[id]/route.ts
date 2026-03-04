@@ -5,8 +5,8 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createMarkSchema } from "@/lib/validations/line-common";
 
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
+  const all: Record<string, unknown>[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .select("patient_id")
         .eq("mark", markDef.value),
       tenantId
-    )
+    ) as unknown as { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }
   );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // patientsテーブルから患者名・line_idを取得（patientIdsが大きい場合はバッチ分割）
   const BATCH_SIZE = 500;
-  const patientRows: any[] = [];
+  const patientRows: { patient_id: string; name: string | null; line_id: string | null }[] = [];
   for (let i = 0; i < patientIds.length; i += BATCH_SIZE) {
     const batch = patientIds.slice(i, i + BATCH_SIZE);
     const { data } = await withTenant(
@@ -78,9 +78,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const patients = patientIds.map(pid => ({
-    patient_id: pid,
-    patient_name: nameMap.get(pid)?.name || pid,
-    has_line: nameMap.get(pid)?.has_line || false,
+    patient_id: pid as string,
+    patient_name: nameMap.get(pid as string)?.name || (pid as string),
+    has_line: nameMap.get(pid as string)?.has_line || false,
   }));
 
   return NextResponse.json({ patients });

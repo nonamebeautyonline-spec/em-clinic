@@ -1,8 +1,8 @@
 // lib/__tests__/merge-tables.test.ts — MERGE_TABLES定数 + migrateFriendSummary テスト
 
 // merge-tables.ts が supabaseAdmin をインポートするためモックが必要
-let mockUpdateResult: any = { data: null, error: null };
-let mockDeleteResult: any = { data: null, error: null };
+let mockUpdateResult: { data: unknown; error: unknown } = { data: null, error: null };
+let mockDeleteResult: { data: unknown; error: unknown } = { data: null, error: null };
 
 const mockEq = vi.fn().mockImplementation(() => mockUpdateResult);
 const mockDeleteEq = vi.fn().mockImplementation(() => mockDeleteResult);
@@ -15,12 +15,12 @@ const mockFrom = vi.fn().mockImplementation(() => ({
     eq: mockDeleteEq,
   })),
   eq: vi.fn().mockReturnThis(),
-  then: vi.fn((resolve: any) => resolve({ data: null, error: null })),
+  then: vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null })),
 }));
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
-    from: (...args: any[]) => mockFrom(...args),
+    from: (...args: unknown[]) => mockFrom(...args),
   },
 }));
 

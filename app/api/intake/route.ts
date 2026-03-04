@@ -14,7 +14,7 @@ async function retrySupabaseWrite<T>(
   maxRetries: number = 3,
   delayMs: number = 1000
 ): Promise<T> {
-  let lastError: any;
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -290,8 +290,8 @@ export async function POST(req: NextRequest) {
                   console.log(`[Intake] Pin migrated for admin ${admin.id}: ${fakeId} -> ${patientId}`);
                 }
               }
-            } catch (e: any) {
-              console.error("[Intake] Pin migration error:", e.message);
+            } catch (e) {
+              console.error("[Intake] Pin migration error:", (e as Error).message);
             }
 
             // friend_summaries 移行
@@ -303,18 +303,18 @@ export async function POST(req: NextRequest) {
             console.log(`[Intake] Fake record ${fakeId} merged and deleted`);
           }
         }
-      } catch (e: any) {
-        console.error("[Intake] Fake record cleanup error (non-blocking):", e.message);
+      } catch (e) {
+        console.error("[Intake] Fake record cleanup error (non-blocking):", (e as Error).message);
       }
     }
 
 return NextResponse.json({ ok: true });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌❌❌ [CRITICAL] Unhandled error in /api/intake ❌❌❌");
     console.error("[Error Details]", {
-      message: error?.message || String(error),
-      stack: error?.stack,
+      message: (error as Error).message || String(error),
+      stack: (error as Error).stack,
       timestamp: new Date().toISOString()
     });
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

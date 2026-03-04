@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -56,6 +56,24 @@ interface MarkDef {
 }
 
 const MARK_NONE: MarkDef = { id: 0, value: "none", label: "未対応", color: "#06B6D4" };
+
+// ── サブコンポーネント（トップレベル定義） ──
+const SectionLabel = ({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) => (
+  <div className="flex items-center justify-between mb-2">
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{children}</span>
+      <div className="flex-1 h-px bg-gray-100 min-w-[20px]" />
+    </div>
+    {action}
+  </div>
+);
+
+const InfoRow = ({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) => (
+  <div className="flex items-center justify-between py-1">
+    <span className="text-xs text-gray-400">{label}</span>
+    <span className={`text-xs text-gray-800 ${mono ? "font-mono" : ""}`}>{children}</span>
+  </div>
+);
 
 type UpperTab = "home" | "tags";
 type LowerTab = "timeline" | "action" | "talk";
@@ -141,14 +159,21 @@ export default function FriendDetailPage() {
     setLoading(false);
   }, [patientId]);
 
+  // 右カラム表示設定を取得
+  const fetchColumnSettings = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/line/column-settings", { credentials: "include" });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d?.sections) setVisibleSections(d.sections);
+    } catch { /* 無視 */ }
+  }, []);
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
     fetchAll();
-    // 右カラム表示設定を取得
-    fetch("/api/admin/line/column-settings", { credentials: "include" })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.sections) setVisibleSections(d.sections); })
-      .catch(() => {});
-  }, [fetchAll]);
+    fetchColumnSettings();
+  }, [fetchAll, fetchColumnSettings]);
 
   // セクション表示判定（デフォルトON）
   const isSectionVisible = (key: string) => visibleSections[key] !== false;
@@ -303,23 +328,6 @@ export default function FriendDetailPage() {
       return next;
     });
   };
-
-  const SectionLabel = ({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) => (
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{children}</span>
-        <div className="flex-1 h-px bg-gray-100 min-w-[20px]" />
-      </div>
-      {action}
-    </div>
-  );
-
-  const InfoRow = ({ label, children, mono }: { label: string; children: React.ReactNode; mono?: boolean }) => (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-xs text-gray-400">{label}</span>
-      <span className={`text-xs text-gray-800 ${mono ? "font-mono" : ""}`}>{children}</span>
-    </div>
-  );
 
   if (loading) {
     return (

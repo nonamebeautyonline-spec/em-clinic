@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   if (!logs || logs.length === 0) return NextResponse.json({ logs: [] });
 
   // scheduled_message_ids を取得して status を確認
-  const msgIds = [...new Set(logs.map((l: any) => l.scheduled_message_id).filter(Boolean))];
+  const msgIds = [...new Set(logs.map((l: { scheduled_message_id?: number }) => l.scheduled_message_id).filter(Boolean))];
   const statusMap = new Map<number, string>();
 
   if (msgIds.length > 0) {
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ルール名取得
-  const ruleIds = [...new Set(logs.map((l: any) => l.rule_id))];
+  const ruleIds = [...new Set(logs.map((l: { rule_id: number }) => l.rule_id))];
   const { data: rules } = await withTenant(
     supabaseAdmin
       .from("reminder_rules")
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       .in("id", ruleIds),
     tenantId
   );
-  const ruleMap = new Map<number, any>();
+  const ruleMap = new Map<number, { id: number; name: string; message_format: string; send_hour: number | null; send_minute: number | null; target_day_offset: number }>();
   for (const r of rules || []) {
     ruleMap.set(r.id, r);
   }

@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Supabase チェーンモック ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
     "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -32,19 +32,19 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
 // --- リクエスト生成ヘルパー ---
 function createMockRequest(method: string, url: string) {
   const req = new Request(url, { method });
-  return req as any;
+  return req as unknown as Request;
 }
 
 import { GET } from "@/app/api/admin/cost-calculation/route";
@@ -82,7 +82,7 @@ describe("月次原価計算 API - GET", () => {
   it("注文0件 → 全0値", async () => {
     const chain = getOrCreateChain("orders");
     // Promise.all で2回呼ばれる（カード決済 + 銀行振込）
-    chain.then = vi.fn((resolve: any) => resolve({ data: [], error: null }));
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve({ data: [], error: null }));
 
     const req = createMockRequest("GET", "http://localhost/api/admin/cost-calculation?year_month=2026-02");
     const res = await GET(req);
@@ -99,7 +99,7 @@ describe("月次原価計算 API - GET", () => {
   it("カード決済+銀行振込の正常計算", async () => {
     const chain = getOrCreateChain("orders");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => {
       callCount++;
       if (callCount === 1) {
         // カード決済
@@ -155,7 +155,7 @@ describe("月次原価計算 API - GET", () => {
   it("products配列が売上降順でソートされる", async () => {
     const chain = getOrCreateChain("orders");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (v: unknown) => unknown) => {
       callCount++;
       if (callCount === 1) {
         return resolve({

@@ -1,21 +1,26 @@
 // __tests__/api/admin-line-rich-menus.test.ts
 // リッチメニュー管理 API のテスト
 // 対象: app/api/admin/line/rich-menus/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンモックの型定義 ---
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
 
 // --- チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -31,7 +36,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -56,7 +61,7 @@ vi.mock("next/server", async () => {
   };
 });
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   return {
     method,
     url,
@@ -64,7 +69,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => "http://localhost") },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { GET, POST } from "@/app/api/admin/line/rich-menus/route";
@@ -75,7 +80,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
@@ -83,7 +88,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
   // ========================================
   describe("GET: リッチメニュー一覧", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("GET", "http://localhost/api/admin/line/rich-menus");
       const res = await GET(req);
       expect(res.status).toBe(401);
@@ -101,7 +106,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
       });
       // patients: LINE連携済み全体数
       const patientsChain = createChain({ data: null, error: null });
-      patientsChain.then = vi.fn((resolve: any) => resolve({ count: 100, data: null, error: null }));
+      patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ count: 100, data: null, error: null }));
       tableChains["patients"] = patientsChain;
 
       // orders: 注文患者
@@ -133,7 +138,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
   // ========================================
   describe("POST: リッチメニュー作成", () => {
     it("認証失敗 → 401", async () => {
-      (verifyAdminAuth as any).mockResolvedValue(false);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(false);
       const req = createMockRequest("POST", "http://localhost/api/admin/line/rich-menus");
       const res = await POST(req);
       expect(res.status).toBe(401);
@@ -141,7 +146,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
 
     it("バリデーション失敗 → parseBody のエラーレスポンス", async () => {
       const mockErrorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      (parseBody as any).mockResolvedValue({ error: mockErrorResponse });
+      vi.mocked(parseBody).mockResolvedValue({ error: mockErrorResponse });
 
       const req = createMockRequest("POST", "http://localhost/api/admin/line/rich-menus");
       const res = await POST(req);
@@ -149,7 +154,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
     });
 
     it("画像なし → DB保存のみ（LINE API 登録なし）", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テストメニュー",
           chat_bar_text: "メニュー",
@@ -173,7 +178,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
     });
 
     it("画像あり → DB保存 + LINE API 登録（after コールバック）", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "画像付きメニュー",
           chat_bar_text: "メニュー",
@@ -197,7 +202,7 @@ describe("リッチメニューAPI (rich-menus/route.ts)", () => {
     });
 
     it("DB挿入エラー → 500", async () => {
-      (parseBody as any).mockResolvedValue({
+      vi.mocked(parseBody).mockResolvedValue({
         data: {
           name: "テスト",
           chat_bar_text: "メニュー",

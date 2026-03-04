@@ -101,9 +101,9 @@ async function fetchSnapshot(
   const { startISO, endISO, startDate, endDate } = getTodayRange();
 
   // テナントフィルター付きクエリのヘルパー
-  const withTenant = <T>(query: T): T => {
+  const withTenant = <T extends { eq: (column: string, value: string) => T }>(query: T): T => {
     if (tenantId) {
-      return (query as any).eq("tenant_id", tenantId);
+      return query.eq("tenant_id", tenantId);
     }
     return query;
   };
@@ -160,9 +160,8 @@ async function fetchSnapshot(
         .gte("reserved_date", startDate)
         .lt("reserved_date", endDate)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ),
+        .limit(1),
+    ).maybeSingle(),
     // 最新決済のタイムスタンプ
     withTenant(
       supabase
@@ -172,9 +171,8 @@ async function fetchSnapshot(
         .gte("paid_at", startISO)
         .lt("paid_at", endISO)
         .order("paid_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ),
+        .limit(1),
+    ).maybeSingle(),
     // 最新患者のタイムスタンプ
     withTenant(
       supabase
@@ -183,9 +181,8 @@ async function fetchSnapshot(
         .gte("created_at", startISO)
         .lt("created_at", endISO)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ),
+        .limit(1),
+    ).maybeSingle(),
   ]);
 
   return {

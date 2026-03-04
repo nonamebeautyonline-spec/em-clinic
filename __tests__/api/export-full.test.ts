@@ -5,19 +5,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- モック設定 ---
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // Supabase モック — チェーンを再帰的に返す
 const mockSingle = vi.fn();
 
 function createQueryChain() {
-  const chain: Record<string, any> = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   const methods = ["select", "insert", "update", "eq", "order", "limit", "gte", "lte"];
   for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain);
@@ -37,17 +37,16 @@ vi.mock("@/lib/supabase", () => ({
 // export-worker モック
 const mockExecuteFullExport = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/export-worker", () => ({
-  executeFullExport: (...args: any[]) => mockExecuteFullExport(...args),
+  executeFullExport: (...args: unknown[]) => mockExecuteFullExport(...args),
 }));
 
 // --- リクエスト生成ヘルパー ---
-function createMockRequest(method: string, url: string, body?: any) {
-  const req = new Request(url, {
+function createMockRequest(method: string, url: string, body?: unknown) {
+  return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  return req as any;
+  }) as unknown as import("next/server").NextRequest;
 }
 
 import { POST, GET } from "@/app/api/admin/export/full/route";

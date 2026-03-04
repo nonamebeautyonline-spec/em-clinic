@@ -4,6 +4,51 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
+// Supabaseクエリ結果用の型定義
+interface DailyStatRow {
+  stat_date: string;
+  followers: number;
+  targeted_reaches: number;
+  blocks: number;
+  messages_sent: number;
+  total_clicks: number;
+  unique_clicks: number;
+  blocks_daily?: number;
+}
+
+interface BroadcastRow {
+  id: number;
+  name: string;
+  status: string;
+  total_targets: number;
+  sent_count: number;
+  failed_count: number;
+  no_uid_count: number;
+  sent_at: string | null;
+  created_at: string;
+}
+
+interface ClickLinkRow {
+  id: number;
+  broadcast_id: number;
+}
+
+interface ClickEventRow {
+  link_id: number;
+  ip_address: string;
+}
+
+interface PatientNameRow {
+  patient_id: string;
+  name: string;
+}
+
+// ページネーション結果の型
+interface FetchAllResult<T> {
+  data: T[];
+  error: { message: string } | null;
+}
+
 // LINE Follower IDs API でリアルタイムの有効フォロワー数を取得
 async function getCurrentFollowerCount(token: string): Promise<number | null> {
   if (!token) return null;
@@ -28,8 +73,8 @@ async function getCurrentFollowerCount(token: string): Promise<number | null> {
   }
 }
 
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll<T = Record<string, unknown>>(buildQuery: () => { range: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }> }, pageSize = 5000): Promise<FetchAllResult<T>> {
+  const all: T[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -140,14 +185,14 @@ export async function GET(req: NextRequest) {
   const patientIds = [...new Set((recentMsgs || []).map(m => m.patient_id).filter(Boolean))];
   let nameMap = new Map<string, string>();
   if (patientIds.length > 0) {
-    const { data: patientRows } = await fetchAll(() =>
+    const { data: patientRows } = await fetchAll<PatientNameRow>(() =>
       withTenant(
         supabaseAdmin
           .from("patients")
           .select("patient_id, name")
           .in("patient_id", patientIds),
         tenantId
-      )
+      ) as unknown as { range: (from: number, to: number) => Promise<{ data: PatientNameRow[] | null; error: { message: string } | null }> }
     );
     for (const row of patientRows || []) {
       if (!nameMap.has(row.patient_id)) {
@@ -176,7 +221,7 @@ export async function GET(req: NextRequest) {
   );
 
   // LINE Insight APIのリアルタイムデータで line_daily_stats の欠落日を補完
-  const dbDates = new Set((chartRows || []).map((r: any) => r.stat_date));
+  const dbDates = new Set((chartRows || []).map((r: DailyStatRow) => r.stat_date));
   const supplementRows = (dailyStats || [])
     .filter(d => !dbDates.has(d.date))
     .map(d => ({
@@ -188,13 +233,13 @@ export async function GET(req: NextRequest) {
       total_clicks: 0,
       unique_clicks: 0,
     }));
-  const allRows: any[] = [...(chartRows || []), ...supplementRows]
-    .sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+  const allRows: DailyStatRow[] = [...(chartRows || []), ...supplementRows]
+    .sort((a: DailyStatRow, b: DailyStatRow) => a.stat_date.localeCompare(b.stat_date));
 
   // LINE Insight API未準備の直近日をmessage_logのfollow/unfollowイベントで推定補完
   // Vercelサーバーは UTC なので JST(+9h) に変換して日付生成
   const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const coveredDates = new Set(allRows.map((r: any) => r.stat_date));
+  const coveredDates = new Set(allRows.map((r: DailyStatRow) => r.stat_date));
   const estimateDates: string[] = [];
   for (let i = 0; i <= 2; i++) {
     const d = new Date(jstNow);
@@ -250,7 +295,7 @@ export async function GET(req: NextRequest) {
         unique_clicks: 0,
       });
     }
-    allRows.sort((a: any, b: any) => a.stat_date.localeCompare(b.stat_date));
+    allRows.sort((a: DailyStatRow, b: DailyStatRow) => a.stat_date.localeCompare(b.stat_date));
   }
 
   // LINE API / line_daily_stats 行に blocks_daily を算出（blocksは累積なので前日差分）
@@ -265,21 +310,21 @@ export async function GET(req: NextRequest) {
   // チャート用データ構築
   const chartData = {
     period: validPeriod,
-    followerTrend: allRows.map((r: any, i: number, arr: any[]) => ({
+    followerTrend: allRows.map((r: DailyStatRow, i: number, arr: DailyStatRow[]) => ({
       date: r.stat_date,
       followers: r.followers,
       diff: i > 0 ? r.followers - arr[i - 1].followers : 0,
     })),
-    deliveryStats: allRows.map((r: any) => ({
+    deliveryStats: allRows.map((r: DailyStatRow) => ({
       date: r.stat_date,
       sent: r.messages_sent,
     })),
-    clickStats: allRows.map((r: any) => ({
+    clickStats: allRows.map((r: DailyStatRow) => ({
       date: r.stat_date,
       clicks: r.total_clicks,
       uniqueClicks: r.unique_clicks,
     })),
-    blockStats: allRows.map((r: any) => ({
+    blockStats: allRows.map((r: DailyStatRow) => ({
       date: r.stat_date,
       blocks: r.blocks,
       followers: r.followers,
@@ -299,7 +344,7 @@ export async function GET(req: NextRequest) {
   );
 
   // 各broadcastのクリック数を取得
-  const broadcastIds = (broadcastRows || []).map((b: any) => b.id);
+  const broadcastIds = (broadcastRows || []).map((b: BroadcastRow) => b.id);
   let broadcastClickMap = new Map<number, { total: number; unique: number }>();
   if (broadcastIds.length > 0) {
     const { data: clickLinks } = await withTenant(
@@ -310,18 +355,18 @@ export async function GET(req: NextRequest) {
       tenantId
     );
     if (clickLinks && clickLinks.length > 0) {
-      const linkIds = clickLinks.map((l: any) => l.id);
+      const linkIds = clickLinks.map((l: ClickLinkRow) => l.id);
       const linkToBroadcast = new Map<number, number>();
       for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
 
-      const { data: clickEvts } = await fetchAll(() =>
+      const { data: clickEvts } = await fetchAll<ClickEventRow>(() =>
         withTenant(
           supabaseAdmin
             .from("click_tracking_events")
             .select("link_id, ip_address")
             .in("link_id", linkIds),
           tenantId
-        )
+        ) as unknown as { range: (from: number, to: number) => Promise<{ data: ClickEventRow[] | null; error: { message: string } | null }> }
       );
 
       for (const evt of clickEvts || []) {
@@ -347,7 +392,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const broadcastStats = (broadcastRows || []).map((b: any) => {
+  const broadcastStats = (broadcastRows || []).map((b: BroadcastRow) => {
     const clicks = broadcastClickMap.get(b.id) || { total: 0, unique: 0 };
     const deliveryRate = b.total_targets > 0
       ? Number(((b.sent_count / b.total_targets) * 100).toFixed(1))
@@ -372,7 +417,7 @@ export async function GET(req: NextRequest) {
   });
 
   // allRows から統一された dailyStats を構築（詳細タブ用）
-  const mergedDailyStats = allRows.map((r: any) => ({
+  const mergedDailyStats = allRows.map((r: DailyStatRow) => ({
     date: r.stat_date,
     followers: r.followers,
     targetedReaches: r.targeted_reaches || 0,

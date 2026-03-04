@@ -59,6 +59,7 @@ interface DashboardStats {
     repeatRate: number;
     repeatPatients: number;
     totalOrderPatients: number;
+    prevPeriodPatients: number;
   };
   bankTransfer: {
     pending: number;
@@ -163,11 +164,7 @@ export default function AdminDashboard() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    loadStats();
-  }, [dateRange, startDate, endDate]);
-
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     setLoading(true);
     setStats(null);
     setError("");
@@ -185,7 +182,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateRange, startDate, endDate]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const isVisible = useCallback((id: WidgetId) => {
     if (!layout) return true; // レイアウト未取得時は全表示
@@ -360,7 +361,7 @@ export default function AdminDashboard() {
             <div className="text-sm text-slate-600 mb-2">リピート率</div>
             <div className="text-3xl font-bold text-slate-900">{stats?.patients.repeatRate || 0}%</div>
             <div className="text-xs text-slate-500 mt-2">
-              注文患者: {stats?.patients.totalOrderPatients || 0} / リピーター: {stats?.patients.repeatPatients || 0}
+              前期間顧客: {stats?.patients.prevPeriodPatients || 0} / リピーター: {stats?.patients.repeatPatients || 0}
             </div>
             <div className="text-xs text-slate-500 mt-1">
               総患者: {stats?.patients.total || 0} / 新規: {stats?.patients.new || 0}

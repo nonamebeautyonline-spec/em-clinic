@@ -3,9 +3,13 @@
 // 対象: app/api/coupon/redeem/route.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import type { Mock } from "vitest";
+
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & { then: Mock };
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
@@ -13,11 +17,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -29,7 +33,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -38,7 +42,7 @@ vi.mock("@/lib/validations/helpers", () => ({
 }));
 
 // NextRequest互換のモック
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: Record<string, unknown>) {
   const parsedUrl = new URL(url);
   return {
     method,
@@ -47,7 +51,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { POST } from "@/app/api/coupon/redeem/route";
@@ -65,7 +69,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // ========================================
   it("バリデーションエラー → parseBody のエラーレスポンスを返す", async () => {
     const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-    (parseBody as any).mockResolvedValue({ error: errorResponse });
+    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse });
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/redeem", {});
     const res = await POST(req);
@@ -76,7 +80,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // 既存の配布レコードがある → update で "used" にする
   // ========================================
   it("issued レコードあり → update で used にする", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { coupon_id: "c-1", patient_id: "pat-1", order_id: "ord-1" },
     });
 
@@ -106,7 +110,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // 配布レコードなし → insert で直接利用として記録
   // ========================================
   it("issued レコードなし → insert で直接利用記録を作成", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { coupon_id: "c-2", patient_id: "pat-2", order_id: "ord-2" },
     });
 
@@ -137,7 +141,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // order_id が未指定 → null として保存
   // ========================================
   it("order_id が未指定 → null で保存される", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { coupon_id: "c-3", patient_id: "pat-3" },
     });
 
@@ -159,7 +163,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // select クエリが正しいフィルタで呼ばれる
   // ========================================
   it("select クエリが coupon_id + patient_id + status=issued でフィルタされる", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { coupon_id: "c-4", patient_id: "pat-4" },
     });
 
@@ -181,7 +185,7 @@ describe("クーポン利用記録 API (coupon/redeem/route.ts)", () => {
   // issued レコードあり + order_id 未指定の場合
   // ========================================
   it("issued レコードあり + order_id 未指定 → order_id: null で update", async () => {
-    (parseBody as any).mockResolvedValue({
+    vi.mocked(parseBody).mockResolvedValue({
       data: { coupon_id: "c-5", patient_id: "pat-5" },
     });
 

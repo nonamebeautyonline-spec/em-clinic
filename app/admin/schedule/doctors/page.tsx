@@ -88,8 +88,8 @@ export default function DoctorsPage() {
       setMsg({ type: "success", text: "保存しました" });
       await loadDoctors();
       cancelEdit();
-    } catch (e: any) {
-      setMsg({ type: "error", text: `保存エラー: ${e?.message || e}` });
+    } catch (e) {
+      setMsg({ type: "error", text: `保存エラー: ${e instanceof Error ? e.message : String(e)}` });
     } finally {
       setSaving(false);
     }

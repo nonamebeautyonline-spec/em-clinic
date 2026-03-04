@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 
 // ─── モックチェーン ───
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -15,7 +15,7 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
@@ -23,11 +23,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
 vi.mock("@/lib/supabase", () => {
   return {
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const chains = ((globalThis as Record<string, unknown>).__testTableChains || {}) as Record<string, Record<string, unknown>>;
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
+          const c: Record<string, unknown> = {};
           [
             "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
             "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -35,7 +35,7 @@ vi.mock("@/lib/supabase", () => {
           ].forEach((m) => {
             c[m] = vi.fn().mockReturnValue(c);
           });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+          c.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
           chains[table] = c;
         }
         return chains[table];
@@ -56,7 +56,7 @@ vi.mock("@/lib/redis", () => ({
 // Tenant
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // Cookies（next/headers）
@@ -69,7 +69,7 @@ vi.mock("next/headers", () => ({
 
 // Validation
 vi.mock("@/lib/validations/helpers", () => ({
-  validateBody: vi.fn((body: any) => {
+  validateBody: vi.fn((body: unknown) => {
     if (body && typeof body === "object") return { data: body };
     return { data: {} };
   }),
@@ -84,7 +84,7 @@ import { POST } from "@/app/api/mypage/route";
 import { redis } from "@/lib/redis";
 
 // ─── ヘルパー ───
-function createRequest(body: any = {}) {
+function createRequest(body: Record<string, unknown> = {}) {
   return new NextRequest("http://localhost:3000/api/mypage", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -92,8 +92,8 @@ function createRequest(body: any = {}) {
   });
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: Record<string, unknown>) {
+  ((globalThis as Record<string, unknown>).__testTableChains as Record<string, Record<string, unknown>>)[table] = chain;
 }
 
 /** Cookie モックのセットアップヘルパー */
@@ -114,11 +114,11 @@ function setupCookies(opts: { patientId?: string; lineUserId?: string; useHostPr
 
 /** 全テーブルをデフォルト値でセットアップ */
 function setupDefaultTables(overrides: {
-  patient?: any;
-  intake?: any;
-  reservation?: any;
-  orders?: any;
-  reorders?: any;
+  patient?: { data: unknown; error: unknown };
+  intake?: { data: unknown; error: unknown };
+  reservation?: { data: unknown; error: unknown };
+  orders?: { data: unknown; error: unknown };
+  reorders?: { data: unknown; error: unknown };
 } = {}) {
   setTableChain("patients", createChain(
     overrides.patient ?? { data: { patient_id: "pid-001", name: "テスト太郎", line_id: null }, error: null }
@@ -141,27 +141,27 @@ function setupDefaultTables(overrides: {
 // ユーティリティ関数のローカル再実装（route.ts の非export関数をテスト）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-function safeStr(v: any) {
+function safeStr(v: unknown) {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
 
-function normalizePaymentStatus(v: any): "paid" | "pending" | "failed" | "refunded" {
+function normalizePaymentStatus(v: unknown): "paid" | "pending" | "failed" | "refunded" {
   const s = safeStr(v).toLowerCase();
-  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as any;
+  if (s === "paid" || s === "pending" || s === "failed" || s === "refunded") return s as "paid" | "pending" | "failed" | "refunded";
   if (safeStr(v).toUpperCase() === "COMPLETED") return "paid";
   return "paid";
 }
 
-function normalizeRefundStatus(v: any): "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN" | undefined {
+function normalizeRefundStatus(v: unknown): "PENDING" | "COMPLETED" | "FAILED" | "UNKNOWN" | undefined {
   const s = safeStr(v).toUpperCase();
   if (!s) return undefined;
-  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as any;
+  if (s === "PENDING" || s === "COMPLETED" || s === "FAILED") return s as "PENDING" | "COMPLETED" | "FAILED";
   return "UNKNOWN";
 }
 
-function normalizeCarrier(v: any): "japanpost" | "yamato" | undefined {
+function normalizeCarrier(v: unknown): "japanpost" | "yamato" | undefined {
   const s = safeStr(v).toLowerCase();
-  if (s === "japanpost" || s === "yamato") return s as any;
+  if (s === "japanpost" || s === "yamato") return s as "japanpost" | "yamato";
   return undefined;
 }
 
@@ -188,7 +188,7 @@ function inferCarrierFromDates(o: { shippingEta?: string; paidAt?: string }): "j
 describe("POST /api/mypage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
+    (globalThis as Record<string, unknown>).__testTableChains = {};
     _mockCookieStore.get.mockReset();
     vi.mocked(redis.get).mockResolvedValue(null);
     vi.mocked(redis.set).mockResolvedValue("OK");
@@ -278,7 +278,7 @@ describe("POST /api/mypage", () => {
       setTableChain("patients", createChain({ data: { line_id: null }, error: null }));
 
       const cachedPayload = { ok: true, patient: { id: "pid-cached", displayName: "キャッシュ太郎" } };
-      vi.mocked(redis.get).mockResolvedValue(cachedPayload as any);
+      vi.mocked(redis.get).mockResolvedValue(cachedPayload as unknown as Awaited<ReturnType<typeof redis.get>>);
 
       const res = await POST(createRequest());
       const body = await res.json();
@@ -296,7 +296,7 @@ describe("POST /api/mypage", () => {
       });
 
       const cachedPayload = { ok: true, patient: { id: "pid-001", displayName: "キャッシュ太郎" } };
-      vi.mocked(redis.get).mockResolvedValue(cachedPayload as any);
+      vi.mocked(redis.get).mockResolvedValue(cachedPayload as unknown as Awaited<ReturnType<typeof redis.get>>);
 
       const res = await POST(createRequest({ refresh: true }));
       const body = await res.json();
@@ -312,7 +312,7 @@ describe("POST /api/mypage", () => {
       setupCookies({ patientId: "pid-001" });
       setupDefaultTables();
 
-      vi.mocked(redis.get).mockResolvedValue({ ok: true } as any);
+      vi.mocked(redis.get).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof redis.get>>);
 
       const res = await POST(createRequest({ refresh: "1" }));
       expect(res.status).toBe(200);

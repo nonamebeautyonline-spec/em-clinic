@@ -7,7 +7,7 @@
 export function createMockRequest(options: {
   method?: string;
   url?: string;
-  body?: any;
+  body?: unknown;
   headers?: Record<string, string>;
   cookies?: Record<string, string>;
 }) {

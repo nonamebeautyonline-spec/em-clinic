@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase", () => ({
 
 const mockPushMessage = vi.fn();
 vi.mock("@/lib/line-push", () => ({
-  pushMessage: (...args: any[]) => mockPushMessage(...args),
+  pushMessage: (...args: unknown[]) => mockPushMessage(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -123,13 +123,13 @@ describe("shipping-flex: buildShippingFlex", () => {
     const bubble = result.contents;
     // bodyの追跡番号セクション（box内のcontents）
     const trackingBox = bubble.body.contents.find(
-      (c: any) => c.type === "box" && c.contents?.some((t: any) => t.size === "xl"),
+      (c: Record<string, unknown>) => c.type === "box" && Array.isArray(c.contents) && c.contents.some((t: Record<string, unknown>) => t.size === "xl"),
     );
     expect(trackingBox).toBeDefined();
 
     // 1つ目はXL、2つ目はLG
-    const xlTexts = trackingBox.contents.filter((t: any) => t.size === "xl");
-    const lgTexts = trackingBox.contents.filter((t: any) => t.size === "lg");
+    const xlTexts = trackingBox.contents.filter((t: Record<string, unknown>) => t.size === "xl");
+    const lgTexts = trackingBox.contents.filter((t: Record<string, unknown>) => t.size === "lg");
     expect(xlTexts.length).toBe(1);
     expect(lgTexts.length).toBe(1);
 

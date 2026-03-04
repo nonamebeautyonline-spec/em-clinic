@@ -93,21 +93,21 @@ export default function DoctorReordersPage() {
       if (!res.ok || json.ok === false) {
         throw new Error(json.error || "一覧の取得に失敗しました");
       }
-const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
+const mapped: DoctorReorder[] = (json.reorders || []).map((r: Record<string, unknown>) => ({
   id: String(r.id),
   timestamp: String(r.timestamp),
   patientId: String(r.patient_id),
   patientName: String(r.patient_name || ""),           // ★
   productCode: String(r.product_code),
   status: (r.status || "pending") as ReorderStatus,
-  history: Array.isArray(r.history) ? r.history : [],  // ★
+  history: Array.isArray(r.history) ? (r.history as { date: string; label: string }[]) : [],  // ★
   note: r.note || "",
 }));
 
       setItems(mapped);
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      setError(e?.message ?? "一覧の取得に失敗しました");
+      setError((e as Error).message ?? "一覧の取得に失敗しました");
     } finally {
       setLoading(false);
       setBusyId(null);
@@ -131,9 +131,9 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
         throw new Error(json.error || "承認に失敗しました");
       }
       await fetchList();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      alert(e?.message || "承認に失敗しました");
+      alert((e as Error).message || "承認に失敗しました");
       setBusyId(null);
     }
   };
@@ -152,9 +152,9 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: any) => ({
         throw new Error(json.error || "キャンセルに失敗しました");
       }
       await fetchList();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      alert(e?.message || "キャンセルに失敗しました");
+      alert((e as Error).message || "キャンセルに失敗しました");
       setBusyId(null);
     }
   };

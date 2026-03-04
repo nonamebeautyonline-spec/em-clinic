@@ -7,8 +7,9 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // ページネーション付きfetch
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+interface ClickEvent { link_id: number; ip_address: string | null }
+async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: ClickEvent[] | null; error: { message: string } | null }> }, pageSize = 5000) {
+  const all: ClickEvent[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -50,7 +51,19 @@ export async function GET(req: NextRequest) {
   );
 
   // クリック数取得
-  const broadcastIds = (broadcastRows || []).map((b: any) => b.id);
+  interface BroadcastRow {
+    id: number;
+    name: string | null;
+    status: string;
+    total_targets: number;
+    sent_count: number;
+    failed_count: number;
+    no_uid_count: number;
+    sent_at: string | null;
+    created_at: string;
+  }
+  const typedBroadcastRows = (broadcastRows || []) as BroadcastRow[];
+  const broadcastIds = typedBroadcastRows.map((b) => b.id);
   const broadcastClickMap = new Map<number, { total: number; unique: number }>();
 
   if (broadcastIds.length > 0) {
@@ -63,7 +76,7 @@ export async function GET(req: NextRequest) {
     );
 
     if (clickLinks && clickLinks.length > 0) {
-      const linkIds = clickLinks.map((l: any) => l.id);
+      const linkIds = clickLinks.map((l) => l.id);
       const linkToBroadcast = new Map<number, number>();
       for (const l of clickLinks) linkToBroadcast.set(l.id, l.broadcast_id);
 
@@ -102,7 +115,7 @@ export async function GET(req: NextRequest) {
 
   // CVR算出
   const broadcastCvrMap = new Map<number, { orders: number; cvr: number }>();
-  for (const b of broadcastRows || []) {
+  for (const b of typedBroadcastRows) {
     const sentDate = b.sent_at || b.created_at;
     if (!sentDate) continue;
     const sentStart = new Date(sentDate);
@@ -123,7 +136,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 配信統計構築
-  const broadcastStats = (broadcastRows || []).map((b: any) => {
+  const broadcastStats = typedBroadcastRows.map((b) => {
     const clicks = broadcastClickMap.get(b.id) || { total: 0, unique: 0 };
     const cvrData = broadcastCvrMap.get(b.id) || { orders: 0, cvr: 0 };
     const deliveryRate = b.total_targets > 0
@@ -196,8 +209,9 @@ export async function GET(req: NextRequest) {
   });
 
   // 配信別統計テーブル
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tableStartY = (doc as any).lastAutoTable?.finalY + 15 || 100;
+  const tableStartY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY
+    ? (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15
+    : 100;
 
   doc.setFontSize(14);
   doc.text("Broadcast Performance", 15, tableStartY);

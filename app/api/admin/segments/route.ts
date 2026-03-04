@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   if (!segmentData || segmentData.length === 0) {
     // データが空の場合、空のセグメント一覧を返す
-    const emptySegments: Record<string, any[]> = {};
+    const emptySegments: Record<string, unknown[]> = {};
     const emptySummary: Record<string, number> = {};
     for (const seg of ALL_SEGMENTS) {
       emptySegments[seg] = [];
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 患者IDリストを取得して患者情報を一括取得
-  const patientIds = segmentData.map((s: any) => s.patient_id);
+  const patientIds = segmentData.map((s: { patient_id: string }) => s.patient_id);
   const { data: patients } = await withTenant(
     supabaseAdmin
       .from("patients")
@@ -48,13 +48,22 @@ export async function GET(req: NextRequest) {
   );
 
   // 患者情報をMapに変換
-  const patientMap = new Map<string, any>();
+  const patientMap = new Map<string, { patient_id: string; name: string | null; name_kana: string | null; tel: string | null; line_id: string | null; created_at: string }>();
   for (const p of patients || []) {
     patientMap.set(p.patient_id, p);
   }
 
   // セグメント別に分類
-  const segments: Record<string, any[]> = {};
+  interface SegmentEntry {
+    patientId: string;
+    name: string | null;
+    nameKana: string | null;
+    tel: string | null;
+    lineId: string | null;
+    rfmScore: unknown;
+    calculatedAt: unknown;
+  }
+  const segments: Record<string, SegmentEntry[]> = {};
   const summary: Record<string, number> = {};
 
   for (const seg of ALL_SEGMENTS) {

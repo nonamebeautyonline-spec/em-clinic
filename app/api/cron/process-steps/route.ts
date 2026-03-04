@@ -6,6 +6,36 @@ import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/s
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
 
+interface StepItem {
+  step_type: string;
+  content?: string | null;
+  template_id?: number | null;
+  tag_id?: number | null;
+  mark?: string | null;
+  menu_id?: number | null;
+  condition_rules?: unknown[];
+  branch_true_step?: number | null;
+  branch_false_step?: number | null;
+  exit_condition_rules?: unknown[];
+  exit_action?: string | null;
+  exit_jump_to?: number | null;
+  sort_order: number;
+  delay_type?: string;
+  delay_value?: number;
+  send_time?: string | null;
+}
+
+interface StepEnrollment {
+  id: string;
+  tenant_id: string | null;
+  scenario_id: string;
+  patient_id: string;
+  line_uid: string | null;
+  current_step_order: number;
+  status: string;
+  step_scenarios?: { name: string; is_enabled: boolean } | null;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -145,24 +175,24 @@ export async function GET(req: NextRequest) {
 
         // 次のステップへ進む
         await advanceToNextStep(enrollment, tenantId);
-      } catch (e: any) {
-        console.error(`[process-steps] error for enrollment=${enrollment.id}:`, e.message);
+      } catch (e) {
+        console.error(`[process-steps] error for enrollment=${enrollment.id}:`, (e as Error).message);
         errors++;
       }
     }
 
     console.log(`[process-steps] processed=${processed}, errors=${errors}`);
     return NextResponse.json({ ok: true, processed, errors });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[process-steps] cron error:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }
 }
 
 /** ステップを実行 */
-async function executeStep(step: any, enrollment: any, lineUid: string | null, tenantId: string | null) {
+async function executeStep(step: StepItem, enrollment: StepEnrollment, lineUid: string | null, tenantId: string | null) {
   switch (step.step_type) {
     case "send_text": {
       if (!lineUid || !step.content) break;
@@ -284,7 +314,7 @@ async function executeStep(step: any, enrollment: any, lineUid: string | null, t
 }
 
 /** 次のステップへ進む */
-async function advanceToNextStep(enrollment: any, tenantId: string | null) {
+async function advanceToNextStep(enrollment: StepEnrollment, tenantId: string | null) {
   const { data: nextStep } = await withTenant(
     supabaseAdmin
       .from("step_items")
@@ -318,7 +348,7 @@ async function advanceToNextStep(enrollment: any, tenantId: string | null) {
 }
 
 /** enrollment を完了にする */
-async function markCompleted(enrollment: any, tenantId: string | null) {
+async function markCompleted(enrollment: StepEnrollment, tenantId: string | null) {
   await withTenant(
     supabaseAdmin
       .from("step_enrollments")

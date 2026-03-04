@@ -96,7 +96,7 @@ export async function executeLifecycleActions(params: {
             await pushMessage(lineUserId, [{
               type: "flex",
               altText: tmpl.content || "メッセージ",
-              contents: sanitizeFlexContents(tmpl.flex_content),
+              contents: sanitizeFlexContents(tmpl.flex_content) as Record<string, unknown>,
             }], tenantId ?? undefined);
           } else {
             const text = (tmpl.content || "")

@@ -178,8 +178,8 @@ export default function AdminSlotsPage() {
       const r = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
       const j = await r.json();
       setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
-    } catch (e: any) {
-      setMsg(`保存エラー: ${String(e?.message || e)}`);
+    } catch (e) {
+      setMsg(`保存エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSaving(false);
     }
@@ -202,8 +202,8 @@ export default function AdminSlotsPage() {
       const r = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
       const j = await r.json();
       setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
-    } catch (e: any) {
-      setMsg(`削除エラー: ${String(e?.message || e)}`);
+    } catch (e) {
+      setMsg(`削除エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSaving(false);
     }
@@ -294,7 +294,7 @@ export default function AdminSlotsPage() {
                 <select
                   className="mt-1 border rounded-md px-2 py-1 text-sm w-full"
                   value={draft.type}
-                  onChange={(e) => setDraft({ ...draft, type: e.target.value as any })}
+                  onChange={(e) => setDraft({ ...draft, type: e.target.value as Override["type"] })}
                 >
                   <option value="modify">変更（普段の設定を上書き）</option>
                   <option value="open">臨時オープン（普段休みでも開ける）</option>

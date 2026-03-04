@@ -75,7 +75,9 @@ export async function PUT(req: NextRequest) {
 
   const parsed = await parseBody(req, keywordReplySchema);
   if ("error" in parsed) return parsed.error;
-  const { id, name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = parsed.data as any;
+  const body = parsed.data as Record<string, unknown>;
+  const id = body.id as string | undefined;
+  const { name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = parsed.data;
 
   if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
 

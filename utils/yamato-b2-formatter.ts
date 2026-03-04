@@ -113,7 +113,7 @@ export function splitAddressForYamato(addressRaw: string): { addr1: string; addr
   if (!a) return { addr1: "", addr2: "" };
 
   // 1) 正規化：スペース統一・全角数字→半角・ダッシュ類のみハイフン化（カタカナ長音符ーは除外）
-  let s = a
+  const s = a
     .replace(/　+/g, " ")
     .replace(/\s+/g, " ")
     .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))

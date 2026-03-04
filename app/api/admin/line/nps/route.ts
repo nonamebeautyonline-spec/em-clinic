@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   // 回答数を付与
   const enriched = await Promise.all(
-    (surveys || []).map(async (s: any) => {
+    (surveys || []).map(async (s) => {
       const { count } = await withTenant(
         supabaseAdmin.from("nps_responses").select("*", { count: "exact", head: true }).eq("survey_id", s.id),
         tenantId

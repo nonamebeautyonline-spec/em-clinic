@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
           // 1) Flex発送通知送信
           let sendOk = false;
           try {
-            const flex: { type: "flex"; altText: string; contents: any } = await buildShippingFlex(p.tracking, tenantId ?? undefined);
+            const flex = await buildShippingFlex(p.tracking, tenantId ?? undefined);
             const result = await sendShippingNotification({
               patientId: p.patient_id,
               lineUid: p.line_id!,

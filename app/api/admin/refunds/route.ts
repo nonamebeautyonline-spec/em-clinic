@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 患者名をpatientsテーブルから取得
-    const patientIds = [...new Set((refunds || []).map((r: any) => r.patient_id).filter(Boolean))];
+    const patientIds = [...new Set((refunds || []).map((r: { patient_id: string }) => r.patient_id).filter(Boolean))];
     const nameMap: Record<string, string> = {};
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
       "MJL_10mg_3m": "マンジャロ 10mg 3ヶ月",
     };
 
-    const enriched = (refunds || []).map((r: any) => ({
+    const enriched = (refunds || []).map((r: { patient_id: string; product_code: string; product_name: string; [key: string]: unknown }) => ({
       ...r,
       patient_name: nameMap[r.patient_id] || "",
       product_display: PRODUCT_NAMES[r.product_code] || r.product_name || r.product_code || "",

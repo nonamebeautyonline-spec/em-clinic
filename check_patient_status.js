@@ -1,5 +1,8 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createClient } = require('@supabase/supabase-js');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const path = require('path');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config({ path: path.join(__dirname, '.env.local') });
 
 async function checkPatientStatus() {

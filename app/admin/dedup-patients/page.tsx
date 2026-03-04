@@ -92,6 +92,7 @@ export default function DedupPatientsPage() {
   }, [minScore]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ
     fetchCandidates();
   }, [fetchCandidates]);
 

@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
       }
 
       // EhrKarte形式に変換
-      const ehrKartes: EhrKarte[] = (intakes || []).map((intake: any) => {
+      const ehrKartes: EhrKarte[] = (intakes || []).map((intake: Record<string, unknown>) => {
         const patient = intake.patients || {
           patient_id: intake.patient_id,
           name: null,
         };
-        return toEhrKarte(intake, patient);
+        return toEhrKarte(intake as unknown as Parameters<typeof toEhrKarte>[0], patient as unknown as Parameters<typeof toEhrKarte>[1]);
       });
 
       // CSV生成

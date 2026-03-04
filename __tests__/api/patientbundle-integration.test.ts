@@ -172,7 +172,7 @@ describe("patientbundle: 来院履歴統合ロジック動作テスト", () => {
       { id: 1, reserve_id: "res_1", note: "通常問診", created_at: "2026-01-01T10:00:00Z" },
       { id: 2, reserve_id: null, note: "再処方希望\n商品:MJL", created_at: "2026-02-01T10:00:00Z" },
     ];
-    const reorders: any[] = [];
+    const reorders: Array<{ id: number; karte_note: string | null; approved_at: string | null; paid_at: string | null; created_at: string }> = [];
     const resMap = new Map([["res_1", {}]]);
 
     const result = buildFormattedIntakes(intakes, reorders, resMap);
@@ -184,7 +184,7 @@ describe("patientbundle: 来院履歴統合ロジック動作テスト", () => {
     const intakes = [
       { id: 1, reserve_id: "res_1", note: "再処方希望", created_at: "2026-02-01T10:00:00Z" },
     ];
-    const reorders: any[] = [];
+    const reorders: Array<{ id: number; karte_note: string | null; approved_at: string | null; paid_at: string | null; created_at: string }> = [];
     const resMap = new Map([["res_1", {}]]);
 
     const result = buildFormattedIntakes(intakes, reorders, resMap);

@@ -18,18 +18,18 @@ const mockGetProductNamesMap = vi.fn().mockResolvedValue({
   "MJL_5mg_1m": "マンジャロ 5mg 1ヶ月",
 });
 vi.mock("@/lib/products", () => ({
-  getProductNamesMap: (...args: any[]) => mockGetProductNamesMap(...args),
+  getProductNamesMap: (...args: unknown[]) => mockGetProductNamesMap(...args),
 }));
 
 // === Supabase モック ===
 // このルートは同一テーブル（orders）を複数回・異なるクエリで呼ぶため、
 // 呼び出し順序ベースで結果を返すモックを構築
 let ordersCallIndex = 0;
-let ordersResults: Array<{ data: any; error: any; count?: number }> = [];
-let patientsResult: { data: any; error: any } = { data: [], error: null };
+let ordersResults: Array<{ data: unknown; error: unknown; count?: number }> = [];
+let patientsResult: { data: unknown; error: unknown } = { data: [], error: null };
 
 function createOrdersChain() {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
    "ilike", "or", "count", "csv"].forEach(m => {
@@ -42,7 +42,7 @@ function createOrdersChain() {
     return result;
   });
   // then: countQuery (withTenant結果) やSelect head用
-  chain.then = vi.fn((resolve: any) => {
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => {
     const result = ordersResults[ordersCallIndex] || { data: null, error: null, count: 0 };
     ordersCallIndex++;
     return resolve(result);
@@ -51,13 +51,13 @@ function createOrdersChain() {
 }
 
 function createPatientsChain() {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
    "ilike", "or", "count", "csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(patientsResult));
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(patientsResult));
   return chain;
 }
 

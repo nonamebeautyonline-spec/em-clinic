@@ -107,8 +107,8 @@ export async function GET(req: NextRequest) {
 
     const menu = await resolveRichMenu(richMenuId, false, tenantId, LINE_ACCESS_TOKEN);
     return NextResponse.json({ menu });
-  } catch (e: any) {
-    console.error("[User RichMenu GET] Unhandled error:", e?.message || e);
+  } catch (e) {
+    console.error("[User RichMenu GET] Unhandled error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ menu: null });
   }
 }

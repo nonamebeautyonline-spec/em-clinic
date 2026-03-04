@@ -183,18 +183,19 @@ export default function EnhancedDashboard() {
     });
   }, []);
 
-  // メニュー外クリックで閉じる
+  // メニュー外クリックで閉じるハンドラ
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (widgetMenuRef.current && !widgetMenuRef.current.contains(e.target as Node)) {
+      setShowWidgetMenu(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (widgetMenuRef.current && !widgetMenuRef.current.contains(e.target as Node)) {
-        setShowWidgetMenu(false);
-      }
-    };
     if (showWidgetMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showWidgetMenu]);
+  }, [showWidgetMenu, handleClickOutside]);
 
   // SSE関連のstate
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
@@ -213,6 +214,38 @@ export default function EnhancedDashboard() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const loadStats = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const params = new URLSearchParams({ range: dateRange });
+      if (dateRange === "custom" && startDate && endDate) {
+        params.append("start", startDate);
+        params.append("end", endDate);
+      }
+
+      const res = await fetch(`/api/admin/dashboard-stats-enhanced?${params}`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        throw new Error("データ取得失敗");
+      }
+
+      const data = await res.json();
+      setStats(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange, startDate, endDate]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
   // デバウンス用: SSEイベントで頻繁にloadStatsが呼ばれるのを防ぐ
   const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debouncedLoadStats = useCallback(() => {
@@ -220,11 +253,7 @@ export default function EnhancedDashboard() {
     reloadTimerRef.current = setTimeout(() => {
       loadStats();
     }, 3000);
-  }, []);
-
-  useEffect(() => {
-    loadStats();
-  }, [dateRange, startDate, endDate]);
+  }, [loadStats]);
 
   // SSE接続管理
   useEffect(() => {
@@ -388,34 +417,6 @@ export default function EnhancedDashboard() {
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
-
-  const loadStats = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const params = new URLSearchParams({ range: dateRange });
-      if (dateRange === "custom" && startDate && endDate) {
-        params.append("start", startDate);
-        params.append("end", endDate);
-      }
-
-      const res = await fetch(`/api/admin/dashboard-stats-enhanced?${params}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("データ取得失敗");
-      }
-
-      const data = await res.json();
-      setStats(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (loading) {
     return (

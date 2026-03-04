@@ -3,18 +3,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ===== チェーンモック =====
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
-    chain[m] = vi.fn().mockReturnValue(chain);
+    (chain as Record<string, ReturnType<typeof vi.fn>>)[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -132,7 +132,7 @@ describe("platform/tenants/[tenantId] API", () => {
 
     it("バリデーションエラーで parseBody のエラーレスポンスを返す", async () => {
       const errorResponse = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as any });
+      vi.mocked(parseBody).mockResolvedValueOnce({ error: errorResponse as unknown as Response });
       const res = await PUT(makeReq("PUT", { name: "" }), makeCtx());
       expect(res.status).toBe(400);
     });
@@ -155,7 +155,7 @@ describe("platform/tenants/[tenantId] API", () => {
       // 2回目以降のselect（slug重複チェック）で slugExists が返る
       // chainの .then を調整
       let callCount = 0;
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", slug: "old-slug" }, error: null });
         if (callCount === 2) return resolve({ data: { id: "other-tenant" }, error: null }); // slug重複
@@ -173,7 +173,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const updatedTenant = { id: "tenant-1", name: "新クリニック名", slug: "test-clinic", is_active: true, updated_at: "2026-01-01" };
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", slug: "test-clinic" }, error: null }); // 存在確認
         if (callCount === 2) return resolve({ data: updatedTenant, error: null }); // 更新
@@ -192,7 +192,7 @@ describe("platform/tenants/[tenantId] API", () => {
       vi.mocked(parseBody).mockResolvedValueOnce({ data: { name: "新クリニック名" } });
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", slug: "test-clinic" }, error: null });
         // 1回目の更新もフォールバック更新も両方エラー
@@ -228,7 +228,7 @@ describe("platform/tenants/[tenantId] API", () => {
     it("正常削除で200を返す", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         // 1回目: 存在確認
         if (callCount === 1) return resolve({ data: { id: "tenant-1", name: "テスト", slug: "test" }, error: null });
@@ -247,7 +247,7 @@ describe("platform/tenants/[tenantId] API", () => {
     it("削除DB障害で500を返す", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", name: "テスト", slug: "test" }, error: null });
         if (callCount === 2) return resolve({ data: null, error: { message: "delete failed" } }); // ソフトデリートエラー
@@ -264,7 +264,7 @@ describe("platform/tenants/[tenantId] API", () => {
     it("削除後にadmin_usersも無効化される", async () => {
       let callCount = 0;
       const chain = createChain();
-      chain.then = vi.fn((resolve: any) => {
+      chain.then = vi.fn((resolve: (v: unknown) => void) => {
         callCount++;
         if (callCount === 1) return resolve({ data: { id: "tenant-1", name: "テスト", slug: "test" }, error: null });
         return resolve({ data: null, error: null });

@@ -1,24 +1,54 @@
 // __tests__/api/admin-shipping-export-yamato.test.ts
 // ヤマトB2 CSV出力 API のテスト
 // 対象: app/api/admin/shipping/export-yamato-b2/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// Supabaseチェーンモックの型定義
+interface MockChain {
+  insert: Mock;
+  update: Mock;
+  delete: Mock;
+  select: Mock;
+  eq: Mock;
+  neq: Mock;
+  gt: Mock;
+  gte: Mock;
+  lt: Mock;
+  lte: Mock;
+  in: Mock;
+  is: Mock;
+  not: Mock;
+  order: Mock;
+  limit: Mock;
+  range: Mock;
+  single: Mock;
+  maybeSingle: Mock;
+  upsert: Mock;
+  ilike: Mock;
+  or: Mock;
+  count: Mock;
+  csv: Mock;
+  then: Mock;
+}
 
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach(m => {
+function createChain(defaultResolve = { data: null, error: null }): MockChain {
+  const chain = {} as MockChain;
+  (
+    [
+      "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
+      "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
+      "ilike", "or", "count", "csv",
+    ] as const
+  ).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
-function getOrCreateChain(table: string) {
+let tableChains: Record<string, MockChain> = {};
+function getOrCreateChain(table: string): MockChain {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
 }
@@ -36,7 +66,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -50,7 +80,7 @@ vi.mock("@/utils/yamato-b2-formatter", () => ({
 }));
 
 // NextRequest互換のモック
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: unknown) {
   const parsedUrl = new URL(url);
   return {
     method,
@@ -59,7 +89,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
     json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+  } as unknown as Request;
 }
 
 import { POST } from "@/app/api/admin/shipping/export-yamato-b2/route";
@@ -68,29 +98,31 @@ import { parseBody } from "@/lib/validations/helpers";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 
 // チェーンをリセットするヘルパー
-function resetChain(chain: any, defaultResolve = { data: null, error: null }) {
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
-    "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach(m => {
+function resetChain(chain: MockChain, defaultResolve = { data: null, error: null }) {
+  (
+    [
+      "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
+      "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
+      "ilike", "or", "count", "csv",
+    ] as const
+  ).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
 }
 
 describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tableChains = {};
-    (verifyAdminAuth as any).mockResolvedValue(true);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(true);
   });
 
   // ========================================
   // 認証
   // ========================================
   it("認証失敗 → 401", async () => {
-    (verifyAdminAuth as any).mockResolvedValue(false);
+    vi.mocked(verifyAdminAuth).mockResolvedValue(false);
     const req = createMockRequest("POST", "http://localhost/api/admin/shipping/export-yamato-b2", {
       order_ids: ["ord-1"],
     });
@@ -105,7 +137,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // ========================================
   it("バリデーションエラー → parseBody のエラーレスポンスを返す", async () => {
     const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-    (parseBody as any).mockResolvedValue({ error: errorResponse });
+    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const req = createMockRequest("POST", "http://localhost/api/admin/shipping/export-yamato-b2", {});
     const res = await POST(req);
@@ -116,7 +148,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 注文取得エラー
   // ========================================
   it("注文取得DBエラー → 500", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
     const ordersChain = createChain({ data: null, error: { message: "DB接続エラー" } });
     tableChains["orders"] = ordersChain;
 
@@ -133,7 +165,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 注文なし
   // ========================================
   it("注文が見つからない → 404", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
     const ordersChain = createChain({ data: [], error: null });
     tableChains["orders"] = ordersChain;
 
@@ -150,7 +182,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 患者取得エラー
   // ========================================
   it("患者取得DBエラー → 500", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
     const ordersChain = createChain({
       data: [{ id: "ord-1", patient_id: "pat-1" }],
       error: null,
@@ -172,7 +204,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 正常系: CSV生成
   // ========================================
   it("正常系 → CSV レスポンスが返る", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1", "ord-2"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1", "ord-2"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const ordersChain = createChain({
       data: [
@@ -203,7 +235,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
 
     // generateYamatoB2Csv が正しく呼ばれたか
     expect(generateYamatoB2Csv).toHaveBeenCalledTimes(1);
-    const callArgs = (generateYamatoB2Csv as any).mock.calls[0];
+    const callArgs = vi.mocked(generateYamatoB2Csv).mock.calls[0];
     // 第1引数: CSV用データ配列
     expect(callArgs[0]).toHaveLength(2);
     expect(callArgs[0][0].payment_id).toBe("ord-1");
@@ -217,7 +249,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 患者データが null の場合の安全処理
   // ========================================
   it("患者データが見つからない注文 → 空文字でCSV生成される", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const ordersChain = createChain({
       data: [{ id: "ord-1", patient_id: "pat-unknown" }],
@@ -235,7 +267,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
 
-    const callArgs = (generateYamatoB2Csv as any).mock.calls[0];
+    const callArgs = vi.mocked(generateYamatoB2Csv).mock.calls[0];
     expect(callArgs[0][0].name).toBe("");
     expect(callArgs[0][0].phone).toBe("");
   });
@@ -244,7 +276,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
   // 重複patient_idの処理
   // ========================================
   it("同一患者の複数注文 → 患者ID重複除去される", async () => {
-    (parseBody as any).mockResolvedValue({ data: { order_ids: ["ord-1", "ord-2"] } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { order_ids: ["ord-1", "ord-2"] } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
     const ordersChain = createChain({
       data: [

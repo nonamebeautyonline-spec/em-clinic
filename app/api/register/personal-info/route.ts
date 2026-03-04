@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       birth: birthday,
     };
 
-    let intakeError: any = null;
+    let intakeError: { message: string } | null = null;
     if (existingIntake) {
       const oldAnswers = (existingIntake.answers as Record<string, unknown>) || {};
       const { error } = await withTenant(supabaseAdmin
@@ -244,8 +244,8 @@ export async function POST(req: NextRequest) {
     });
 
     return res;
-  } catch (error: any) {
-    console.error("[register/personal-info] Unhandled error:", error?.message || error);
+  } catch (error) {
+    console.error("[register/personal-info] Unhandled error:", error instanceof Error ? error.message : error);
     return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

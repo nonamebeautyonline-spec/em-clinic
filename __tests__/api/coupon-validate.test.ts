@@ -1,24 +1,56 @@
 // __tests__/api/coupon-validate.test.ts
 // クーポン検証 API のテスト
 // 対象: app/api/coupon/validate/route.ts
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// --- Supabaseチェーンの型定義 ---
+interface SupabaseChain {
+  insert: Mock;
+  update: Mock;
+  delete: Mock;
+  select: Mock;
+  eq: Mock;
+  neq: Mock;
+  gt: Mock;
+  gte: Mock;
+  lt: Mock;
+  lte: Mock;
+  in: Mock;
+  is: Mock;
+  not: Mock;
+  order: Mock;
+  limit: Mock;
+  range: Mock;
+  single: Mock;
+  maybeSingle: Mock;
+  upsert: Mock;
+  ilike: Mock;
+  or: Mock;
+  count: Mock;
+  csv: Mock;
+  then: Mock;
+}
+
+interface ChainResolveResult {
+  data: unknown;
+  error: unknown;
+  count?: number;
+}
 
 // --- チェーン生成ヘルパー ---
-function createChain(defaultResolve = { data: null, error: null, count: 0 }) {
-  const chain: any = {};
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
+function createChain(defaultResolve: ChainResolveResult = { data: null, error: null, count: 0 }): SupabaseChain {
+  const chain = {} as SupabaseChain;
+  (["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach(m => {
+    "ilike", "or", "count", "csv"] as const).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: ChainResolveResult) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
-function getOrCreateChain(table: string) {
+let tableChains: Record<string, SupabaseChain> = {};
+function getOrCreateChain(table: string): SupabaseChain {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
 }
@@ -29,7 +61,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
@@ -39,7 +71,16 @@ vi.mock("@/lib/validations/helpers", () => ({
 }));
 
 // NextRequest互換のモック
-function createMockRequest(method: string, url: string, body?: any) {
+interface MockRequest {
+  method: string;
+  url: string;
+  nextUrl: { searchParams: URLSearchParams };
+  cookies: { get: Mock };
+  headers: { get: Mock };
+  json: Mock;
+}
+
+function createMockRequest(method: string, url: string, _body?: Record<string, unknown>): MockRequest {
   const parsedUrl = new URL(url);
   return {
     method,
@@ -47,20 +88,18 @@ function createMockRequest(method: string, url: string, body?: any) {
     nextUrl: { searchParams: parsedUrl.searchParams },
     cookies: { get: vi.fn(() => undefined) },
     headers: { get: vi.fn(() => null) },
-    json: body ? vi.fn().mockResolvedValue(body) : vi.fn(),
-  } as any;
+    json: _body ? vi.fn().mockResolvedValue(_body) : vi.fn(),
+  };
 }
 
 // チェーンをリセットするヘルパー
-function resetChain(chain: any, defaultResolve = { data: null, error: null, count: 0 }) {
-  [
-    "insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
+function resetChain(chain: SupabaseChain, defaultResolve: ChainResolveResult = { data: null, error: null, count: 0 }) {
+  (["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv",
-  ].forEach(m => {
+    "ilike", "or", "count", "csv"] as const).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: ChainResolveResult) => void) => resolve(defaultResolve));
 }
 
 import { POST } from "@/app/api/coupon/validate/route";
@@ -77,10 +116,10 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
   // ========================================
   it("バリデーションエラー → parseBody のエラーレスポンスを返す", async () => {
     const errorResponse = new Response(JSON.stringify({ error: "入力値が不正です" }), { status: 400 });
-    (parseBody as any).mockResolvedValue({ error: errorResponse });
+    vi.mocked(parseBody).mockResolvedValue({ error: errorResponse } as { data?: never; error: Response });
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     expect(res.status).toBe(400);
   });
 
@@ -88,7 +127,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
   // クーポンが見つからない
   // ========================================
   it("クーポンが存在しない → valid: false", async () => {
-    (parseBody as any).mockResolvedValue({ data: { code: "INVALID", patient_id: "pat-1" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "INVALID", patient_id: "pat-1" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: null, error: null });
     tableChains["coupons"] = couponsChain;
@@ -96,7 +135,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {
       code: "INVALID",
     });
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.valid).toBe(false);
@@ -107,13 +146,13 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
   // コードの正規化（trim + toUpperCase）
   // ========================================
   it("コードが小文字・空白あり → 大文字・トリムされてクエリされる", async () => {
-    (parseBody as any).mockResolvedValue({ data: { code: " abc123 " } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: " abc123 " } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: null, error: null });
     tableChains["coupons"] = couponsChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    await POST(req);
+    await POST(req as unknown as Parameters<typeof POST>[0]);
 
     // eq("code", "ABC123") が呼ばれる
     expect(couponsChain.eq).toHaveBeenCalledWith("code", "ABC123");
@@ -136,13 +175,13 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 1000,
       min_purchase: null,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "FUTURE" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "FUTURE" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: futureCoupon, error: null });
     tableChains["coupons"] = couponsChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(false);
     expect(json.error).toBe("このクーポンはまだ有効期間前です");
@@ -165,13 +204,13 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 500,
       min_purchase: null,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "EXPIRED" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "EXPIRED" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: expiredCoupon, error: null });
     tableChains["coupons"] = couponsChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(false);
     expect(json.error).toBe("このクーポンは有効期限切れです");
@@ -194,7 +233,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 10,
       min_purchase: null,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "MAXED" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "MAXED" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: coupon, error: null });
     tableChains["coupons"] = couponsChain;
@@ -204,7 +243,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
     tableChains["coupon_issues"] = issuesChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(false);
     expect(json.error).toBe("このクーポンは利用上限に達しています");
@@ -227,7 +266,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 2000,
       min_purchase: null,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "PERPATIENT", patient_id: "pat-1" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "PERPATIENT", patient_id: "pat-1" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: coupon, error: null });
     tableChains["coupons"] = couponsChain;
@@ -237,7 +276,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
     tableChains["coupon_issues"] = issuesChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(false);
     expect(json.error).toBe("このクーポンは既にご利用済みです");
@@ -260,7 +299,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 1000,
       min_purchase: 5000,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "VALID2026", patient_id: "pat-1" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "VALID2026", patient_id: "pat-1" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: coupon, error: null });
     tableChains["coupons"] = couponsChain;
@@ -272,7 +311,7 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
     tableChains["coupon_issues"] = issuesChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(true);
     expect(json.coupon.id).toBe("c-5");
@@ -300,13 +339,13 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       discount_value: 20,
       min_purchase: null,
     };
-    (parseBody as any).mockResolvedValue({ data: { code: "NOLIMIT" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "NOLIMIT" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: coupon, error: null });
     tableChains["coupons"] = couponsChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     expect(json.valid).toBe(true);
     expect(json.coupon.discount_type).toBe("percentage");
@@ -330,13 +369,13 @@ describe("クーポン検証 API (coupon/validate/route.ts)", () => {
       min_purchase: null,
     };
     // patient_id を渡さない
-    (parseBody as any).mockResolvedValue({ data: { code: "NOPATIENT" } });
+    vi.mocked(parseBody).mockResolvedValue({ data: { code: "NOPATIENT" } } as { data: Record<string, unknown> });
 
     const couponsChain = createChain({ data: coupon, error: null });
     tableChains["coupons"] = couponsChain;
 
     const req = createMockRequest("POST", "http://localhost/api/coupon/validate", {});
-    const res = await POST(req);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await res.json();
     // 患者別チェックがスキップされるので valid
     expect(json.valid).toBe(true);

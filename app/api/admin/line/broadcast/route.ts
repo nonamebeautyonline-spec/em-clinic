@@ -11,9 +11,8 @@ import { parseBody } from "@/lib/validations/helpers";
 import { broadcastSchema } from "@/lib/validations/line-broadcast";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
+  const all: Record<string, unknown>[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -244,7 +243,7 @@ export async function resolveTargets(rules: FilterRules, tenantId: string | null
 
   // patients テーブルの name, line_id をマッピング
   const pMap = new Map<string, { name: string; line_id: string | null }>();
-  for (const p of patientsRes.data || []) {
+  for (const p of (patientsRes.data || []) as { patient_id: string; name: string | null; line_id: string | null }[]) {
     if (p.patient_id) {
       pMap.set(p.patient_id, { name: p.name || "", line_id: p.line_id || null });
     }
@@ -253,10 +252,10 @@ export async function resolveTargets(rules: FilterRules, tenantId: string | null
   // patient_idでユニーク化（最新レコード優先）
   const patientMap = new Map<string, { patient_id: string; patient_name: string; line_id: string | null }>();
   for (const row of allIntake) {
-    if (!patientMap.has(row.patient_id)) {
-      const pt = pMap.get(row.patient_id);
-      patientMap.set(row.patient_id, {
-        patient_id: row.patient_id,
+    if (!patientMap.has(row.patient_id as string)) {
+      const pt = pMap.get(row.patient_id as string);
+      patientMap.set(row.patient_id as string, {
+        patient_id: row.patient_id as string,
         patient_name: pt?.name || "",
         line_id: pt?.line_id || null,
       });
@@ -339,8 +338,8 @@ async function applyCondition(
 
       const matchSet = new Set<string>();
       for (const fv of fieldVals || []) {
-        if (matchFieldCondition(fv.value, condition.operator || "=", condition.value || "")) {
-          matchSet.add(fv.patient_id);
+        if (matchFieldCondition(fv.value as string | null, condition.operator || "=", condition.value || "")) {
+          matchSet.add(fv.patient_id as string);
         }
       }
 

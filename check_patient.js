@@ -1,4 +1,5 @@
 // Quick script to check patient data in Supabase
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('dotenv').config({ path: '.env.local' });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

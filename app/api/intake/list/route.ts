@@ -5,9 +5,12 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+interface SupabasePaginatedQuery {
+  range(from: number, to: number): PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+}
+
+async function fetchAll(buildQuery: () => SupabasePaginatedQuery, pageSize = 5000) {
+  const all: unknown[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -18,6 +21,35 @@ async function fetchAll(buildQuery: () => any, pageSize = 5000) {
     offset += pageSize;
   }
   return { data: all, error: null };
+}
+
+interface ReservationRow {
+  reserve_id: string;
+  reserved_date: string | null;
+  reserved_time: string | null;
+  prescription_menu: string | null;
+  patient_id?: string;
+  status: string | null;
+}
+
+interface IntakeRow {
+  id: string;
+  patient_id: string;
+  reserve_id: string | null;
+  answerer_id: string | null;
+  status: string | null;
+  note: string | null;
+  answers: Record<string, unknown> | null;
+  created_at: string | null;
+  call_status: string | null;
+  call_status_updated_at: string | null;
+}
+
+interface PatientRow {
+  patient_id: string;
+  name: string | null;
+  line_id: string | null;
+  tel: string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -32,7 +64,7 @@ export async function GET(req: NextRequest) {
     const toDate = searchParams.get("to");
 
     // ★ reservationsテーブルから日付範囲の有効予約を取得
-    let reservationsMap = new Map<string, any>();
+    let reservationsMap = new Map<string, ReservationRow>();
 
     if (fromDate && toDate) {
       const { data: reservationsData } = await fetchAll(() =>
@@ -48,7 +80,7 @@ export async function GET(req: NextRequest) {
       );
 
       if (reservationsData) {
-        for (const r of reservationsData) {
+        for (const r of reservationsData as unknown as ReservationRow[]) {
           reservationsMap.set(r.reserve_id, r);
         }
         console.log(`[Supabase] Valid (non-canceled) reservations: ${reservationsMap.size}`);
@@ -56,7 +88,7 @@ export async function GET(req: NextRequest) {
     }
 
     // intakeデータ取得（日付フィルタは reservations ベースで適用）
-    let intakeData: any[];
+    let intakeData: IntakeRow[];
 
     if (fromDate && toDate) {
       // 有効な予約のreserve_idでintakeを取得
@@ -66,7 +98,7 @@ export async function GET(req: NextRequest) {
       }
 
       // reserve_idのリストが大きい場合はバッチで取得
-      const allIntake: any[] = [];
+      const allIntake: IntakeRow[] = [];
       for (let i = 0; i < validReserveIds.length; i += 500) {
         const batch = validReserveIds.slice(i, i + 500);
         const { data, error } = await fetchAll(() =>
@@ -86,7 +118,7 @@ export async function GET(req: NextRequest) {
             { status: 500 }
           );
         }
-        allIntake.push(...(data || []));
+        allIntake.push(...(data || []) as unknown as IntakeRow[]);
       }
       intakeData = allIntake;
     } else {
@@ -108,10 +140,10 @@ export async function GET(req: NextRequest) {
           { status: 500 }
         );
       }
-      intakeData = data || [];
+      intakeData = (data || []) as unknown as IntakeRow[];
 
       // 日付指定なしの場合は reservations マップを構築
-      const reserveIds = [...new Set(intakeData.map((i: any) => i.reserve_id).filter(Boolean))];
+      const reserveIds = [...new Set(intakeData.map((i: IntakeRow) => i.reserve_id).filter(Boolean))] as string[];
       if (reserveIds.length > 0) {
         for (let i = 0; i < reserveIds.length; i += 500) {
           const batch = reserveIds.slice(i, i + 500);
@@ -124,7 +156,7 @@ export async function GET(req: NextRequest) {
               tenantId
             )
           );
-          for (const r of resData || []) {
+          for (const r of (resData || []) as unknown as ReservationRow[]) {
             reservationsMap.set(r.reserve_id, r);
           }
         }
@@ -132,8 +164,8 @@ export async function GET(req: NextRequest) {
     }
 
     // ★ patients テーブルから患者名・line_id を取得
-    const patientIds = [...new Set(intakeData.map((i: any) => i.patient_id).filter(Boolean))];
-    const patientsMap = new Map<string, any>();
+    const patientIds = [...new Set(intakeData.map((i: IntakeRow) => i.patient_id).filter(Boolean))];
+    const patientsMap = new Map<string, PatientRow>();
     if (patientIds.length > 0) {
       for (let i = 0; i < patientIds.length; i += 500) {
         const batch = patientIds.slice(i, i + 500);
@@ -146,14 +178,14 @@ export async function GET(req: NextRequest) {
             tenantId
           )
         );
-        for (const p of pData || []) {
+        for (const p of (pData || []) as unknown as PatientRow[]) {
           patientsMap.set(p.patient_id, p);
         }
       }
     }
 
     // ★ 結合してレスポンス構築
-    const rows = intakeData.map((row: any) => {
+    const rows = intakeData.map((row: IntakeRow) => {
       const res = row.reserve_id ? reservationsMap.get(row.reserve_id) : null;
       const pat = row.patient_id ? patientsMap.get(row.patient_id) : null;
       const patientName = pat?.name || "";

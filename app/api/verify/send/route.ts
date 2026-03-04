@@ -79,8 +79,9 @@ export async function POST(req: NextRequest) {
       });
 
     return NextResponse.json({ status: verification.status });
-  } catch (e: any) {
-    console.error("verify send error", { code: e?.code, status: e?.status });
+  } catch (e) {
+    const err = e as Record<string, unknown>;
+    console.error("verify send error", { code: err?.code, status: err?.status });
     return NextResponse.json(
       { error: "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。" },
       { status: 500 }

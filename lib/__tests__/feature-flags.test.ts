@@ -35,7 +35,7 @@ async function setupFromMock(opts: {
 }) {
   const { planName = null, overrides = [], activeOptions = [] } = opts;
   const { supabaseAdmin } = await import("@/lib/supabase");
-  (supabaseAdmin.from as any).mockImplementation((table: string) => {
+  vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
     if (table === "tenant_settings") {
       return {
         select: () => ({

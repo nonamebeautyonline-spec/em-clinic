@@ -182,7 +182,7 @@ export async function processFollowups(tenantId?: string) {
       if (rule.flex_json) {
         res = await pushMessage(
           patient.line_id,
-          [{ type: "flex", altText: resolvedMsg, contents: sanitizeFlexContents(rule.flex_json) }],
+          [{ type: "flex", altText: resolvedMsg, contents: sanitizeFlexContents(rule.flex_json) as Record<string, unknown> }],
           logTenantId ?? undefined,
         );
       } else {

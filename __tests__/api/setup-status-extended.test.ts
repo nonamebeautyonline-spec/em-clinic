@@ -5,21 +5,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // --- モック設定 ---
 const mockVerifyAdminAuth = vi.fn();
 vi.mock("@/lib/admin-auth", () => ({
-  verifyAdminAuth: (...args: any[]) => mockVerifyAdminAuth(...args),
+  verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
 }));
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 const mockGetSettingOrEnv = vi.fn();
 vi.mock("@/lib/settings", () => ({
-  getSettingOrEnv: (...args: any[]) => mockGetSettingOrEnv(...args),
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
 }));
 
 // Supabase モック — 各テーブルのクエリ結果を制御
-const tableResults: Record<string, { count: number | null; error: any }> = {};
+const tableResults: Record<string, { count: number | null; error: unknown }> = {};
 
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: {
@@ -45,7 +45,7 @@ function createMockRequest(method: string, url: string) {
   return new Request(url, {
     method,
     headers: { "Content-Type": "application/json" },
-  }) as any;
+  }) as unknown as Request;
 }
 
 import { GET } from "@/app/api/admin/setup-status/route";

@@ -1,21 +1,49 @@
 // __tests__/api/login.test.ts
 // 管理者ログインAPI テスト
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+
+// Supabaseチェーンモックの型定義
+interface MockChain {
+  insert: Mock;
+  update: Mock;
+  delete: Mock;
+  select: Mock;
+  eq: Mock;
+  neq: Mock;
+  gt: Mock;
+  gte: Mock;
+  lt: Mock;
+  lte: Mock;
+  in: Mock;
+  is: Mock;
+  not: Mock;
+  order: Mock;
+  limit: Mock;
+  range: Mock;
+  single: Mock;
+  maybeSingle: Mock;
+  upsert: Mock;
+  ilike: Mock;
+  or: Mock;
+  count: Mock;
+  csv: Mock;
+  then: Mock;
+}
 
 // --- Supabase チェーンモック ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
-  ["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
+function createChain(defaultResolve = { data: null, error: null }): MockChain {
+  const chain = {} as MockChain;
+  (["insert", "update", "delete", "select", "eq", "neq", "gt", "gte", "lt", "lte",
     "in", "is", "not", "order", "limit", "range", "single", "maybeSingle", "upsert",
-    "ilike", "or", "count", "csv"].forEach(m => {
+    "ilike", "or", "count", "csv"] as const).forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
-function getOrCreateChain(table: string) {
+let tableChains: Record<string, MockChain> = {};
+function getOrCreateChain(table: string): MockChain {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
 }
@@ -36,23 +64,23 @@ const mockResetRateLimit = vi.fn();
 const mockGetClientIp = vi.fn().mockReturnValue("127.0.0.1");
 
 vi.mock("@/lib/rate-limit", () => ({
-  checkRateLimit: (...args: any[]) => mockCheckRateLimit(...args),
-  resetRateLimit: (...args: any[]) => mockResetRateLimit(...args),
-  getClientIp: (...args: any[]) => mockGetClientIp(...args),
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  resetRateLimit: (...args: unknown[]) => mockResetRateLimit(...args),
+  getClientIp: (...args: unknown[]) => mockGetClientIp(...args),
 }));
 
 // --- bcrypt モック ---
 const mockBcryptCompare = vi.fn();
 vi.mock("bcryptjs", () => ({
-  default: { compare: (...args: any[]) => mockBcryptCompare(...args) },
-  compare: (...args: any[]) => mockBcryptCompare(...args),
+  default: { compare: (...args: unknown[]) => mockBcryptCompare(...args) },
+  compare: (...args: unknown[]) => mockBcryptCompare(...args),
 }));
 
 // --- jose モック ---
 // `new SignJWT(...)` に対応するため class として定義
 vi.mock("jose", () => {
   class MockSignJWT {
-    constructor(_payload: any) {}
+    constructor(_payload: Record<string, unknown>) {}
     setProtectedHeader() { return this; }
     setIssuedAt() { return this; }
     setExpirationTime() { return this; }
@@ -79,11 +107,11 @@ vi.mock("@/lib/notifications/login-alert", () => ({
 // --- テナント モック ---
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenant_id: "test-tenant" })),
 }));
 
-function createMockRequest(method: string, url: string, body?: any) {
+function createMockRequest(method: string, url: string, body?: unknown) {
   const req = new Request(url, {
     method,
     headers: {
@@ -92,7 +120,7 @@ function createMockRequest(method: string, url: string, body?: any) {
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  return req as any;
+  return req;
 }
 
 import { POST } from "@/app/api/admin/login/route";
@@ -161,7 +189,7 @@ describe("管理者ログイン API - POST", () => {
 
   it("ユーザーが見つからない → 401", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "Not found" } }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: { message: "Not found" } }));
 
     const req = createMockRequest("POST", "http://localhost/api/admin/login", {
       username: "UNKNOWN",
@@ -175,7 +203,7 @@ describe("管理者ログイン API - POST", () => {
 
   it("アカウント無効 → 401", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: {
         id: "user-1",
         email: "test@example.com",
@@ -201,7 +229,7 @@ describe("管理者ログイン API - POST", () => {
 
   it("パスワード不一致 → 401", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: {
         id: "user-1",
         email: "test@example.com",
@@ -229,7 +257,7 @@ describe("管理者ログイン API - POST", () => {
   it("正常ログイン → 200 + JWT Cookie", async () => {
     const chain = getOrCreateChain("admin_users");
     let callCount = 0;
-    chain.then = vi.fn((resolve: any) => {
+    chain.then = vi.fn((resolve: (val: unknown) => void) => {
       callCount++;
       if (callCount === 1) {
         // ユーザー取得
@@ -251,7 +279,7 @@ describe("管理者ログイン API - POST", () => {
       return resolve({ data: { role: "admin" }, error: null });
     });
     const tenantsChain = getOrCreateChain("tenant_members");
-    tenantsChain.then = vi.fn((resolve: any) => resolve({ data: { role: "admin" }, error: null }));
+    tenantsChain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: { role: "admin" }, error: null }));
 
     const req = createMockRequest("POST", "http://localhost/api/admin/login", {
       username: "TESTUSER",
@@ -276,7 +304,7 @@ describe("管理者ログイン API - POST", () => {
 
   it("usernameは大文字に正規化される", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({ data: null, error: { message: "Not found" } }));
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: { message: "Not found" } }));
 
     const req = createMockRequest("POST", "http://localhost/api/admin/login", {
       username: "testuser",
@@ -290,7 +318,7 @@ describe("管理者ログイン API - POST", () => {
 
   it("テナントIDなしでログイン → redirectUrlなし", async () => {
     const chain = getOrCreateChain("admin_users");
-    chain.then = vi.fn((resolve: any) => resolve({
+    chain.then = vi.fn((resolve: (val: unknown) => void) => resolve({
       data: {
         id: "user-1",
         email: "test@example.com",

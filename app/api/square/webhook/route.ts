@@ -54,13 +54,13 @@ async function squareGet(path: string, token: string, squareEnv: string) {
   });
 
   const text = await res.text();
-  let json: any = null;
+  let json: Record<string, unknown> | null = null;
   try { json = text ? JSON.parse(text) : null; } catch (_) {}
 
   return { ok: res.ok, status: res.status, json, text };
 }
 
-async function squarePost(path: string, body: any, token: string, squareEnv: string) {
+async function squarePost(path: string, body: Record<string, unknown>, token: string, squareEnv: string) {
   const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
 
   const res = await fetch(baseUrl + path, {
@@ -76,7 +76,7 @@ async function squarePost(path: string, body: any, token: string, squareEnv: str
   });
 
   const text = await res.text();
-  let json: any = null;
+  let json: Record<string, unknown> | null = null;
   try { json = text ? JSON.parse(text) : null; } catch (_) {}
 
   return { ok: res.ok, status: res.status, json, text };
@@ -145,7 +145,43 @@ export async function POST(req: Request) {
   // --------------------------------------------------------------
 
   // Squareへのレスポンスは最終的に200固定で返す（Square停止回避）
-  let event: any = null;
+  interface SquareRefund {
+    id?: string;
+    payment_id?: string;
+    status?: string;
+    amount_money?: { amount?: number; currency?: string };
+    updated_at?: string;
+    created_at?: string;
+  }
+
+  interface SquarePayment {
+    id?: string;
+    status?: string;
+    order_id?: string;
+    customer_id?: string;
+    note?: string;
+    payment_note?: string;
+    amount_money?: { amount?: number; currency?: string };
+    buyer_email_address?: string;
+    receipt_email?: string;
+    billing_address?: { first_name?: string; last_name?: string };
+    card_details?: { card?: { cardholder_name?: string } };
+    created_at?: string;
+  }
+
+  interface SquareEvent {
+    type?: string;
+    event_id?: string;
+    id?: string;
+    data?: {
+      object?: {
+        refund?: SquareRefund;
+        payment?: SquarePayment;
+      };
+    };
+  }
+
+  let event: SquareEvent | null = null;
   try { event = JSON.parse(bodyText); } catch (_) {}
 
   const eventType = String(event?.type || "");
@@ -196,7 +232,7 @@ export async function POST(req: Request) {
       try {
         const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`, squareToken, squareEnv);
         if (pRes.ok) {
-          const P = pRes.json?.payment || {};
+          const P = ((pRes.json?.payment ?? {}) as SquarePayment);
           const note = String(P?.note || P?.payment_note || "");
           const { patientId } = extractFromNote(note);
           if (patientId) {
@@ -230,7 +266,7 @@ export async function POST(req: Request) {
         return new NextResponse("ok", { status: 200 });
       }
 
-      const P = pRes.json?.payment || {};
+      const P = ((pRes.json?.payment ?? {}) as SquarePayment);
       const note = String(P?.note || P?.payment_note || "");
       const { patientId, productCode, reorderId } = extractFromNote(note);
 
@@ -275,15 +311,22 @@ if (reorderId) {
       let itemsText = "";
 
       if (orderId) {
+        interface SquareLineItem { name?: string; quantity?: string }
+        interface SquareAddress { postal_code?: string; administrative_district_level_1?: string; locality?: string; address_line_1?: string; address_line_2?: string }
+        interface SquareRecipient { display_name?: string; phone_number?: string; email_address?: string; address?: SquareAddress }
+        interface SquareFulfillment { shipment_details?: { recipient?: SquareRecipient } }
+        interface SquareOrder { line_items?: SquareLineItem[]; fulfillments?: SquareFulfillment[] }
+
         const oRes = await squarePost(`/v2/orders/batch-retrieve`, { order_ids: [orderId] }, squareToken, squareEnv);
-        const order = oRes.ok ? (oRes.json?.orders?.[0] || null) : null;
+        const ordersArr = oRes.ok ? (oRes.json?.orders as SquareOrder[] | undefined) : undefined;
+        const order = ordersArr?.[0] ?? null;
 
         if (order) {
           // items（nameが空のline_itemはスキップ = inline決済の自動生成order）
           if (Array.isArray(order.line_items) && order.line_items.length) {
             itemsText = order.line_items
-              .filter((li: any) => li?.name)
-              .map((li: any) => `${li.name} x ${li?.quantity || "1"}`.trim())
+              .filter((li) => li?.name)
+              .map((li) => `${li.name} x ${li?.quantity || "1"}`.trim())
               .join(" / ");
           }
 
@@ -297,7 +340,7 @@ if (reorderId) {
             const recEmail = rec.email_address ? String(rec.email_address).trim() : "";
             if (!email && recEmail) email = recEmail;
 
-            const addr = rec.address || {};
+            const addr = rec.address || {} as SquareAddress;
             postal = String(addr.postal_code || "").trim();
             const parts = [
               addr.administrative_district_level_1,
@@ -312,8 +355,9 @@ if (reorderId) {
 
       // customer は “email/phone不足時のみ” 補完
       if (customerId && (!email || (!shipPhone && !phone))) {
+        interface SquareCustomer { email_address?: string; phone_number?: string }
         const cRes = await squareGet(`/v2/customers/${encodeURIComponent(customerId)}`, squareToken, squareEnv);
-        const C = cRes.ok ? (cRes.json?.customer || {}) : {};
+        const C: SquareCustomer = cRes.ok ? ((cRes.json?.customer ?? {}) as SquareCustomer) : {};
         if (!email && C?.email_address) email = String(C.email_address).trim();
         if (!shipPhone && C?.phone_number) phone = String(C.phone_number).trim();
       }
@@ -417,9 +461,9 @@ if (reorderId) {
     await idem.markCompleted();
     return new NextResponse("ok", { status: 200 });
 
-  } catch (err: any) {
-    console.error("webhook handler error:", err?.stack || err?.message || err);
-    await idem.markFailed(err?.message || "unknown error");
+  } catch (err) {
+    console.error("webhook handler error:", err instanceof Error ? err.stack || err.message : err);
+    await idem.markFailed(err instanceof Error ? err.message : "unknown error");
     // Squareには200返して止められないようにする（後でバックフィル）
     return new NextResponse("ok", { status: 200 });
   }

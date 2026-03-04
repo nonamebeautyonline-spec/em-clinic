@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface MarkDef {
   id: number;
@@ -38,14 +38,17 @@ export default function MarkManagementPage() {
   const [patientListMark, setPatientListMark] = useState<MarkDef | null>(null);
   const [loadingPatients, setLoadingPatients] = useState(false);
 
-  const fetchMarks = async () => {
+  const fetchMarks = useCallback(async () => {
     const res = await fetch("/api/admin/line/marks", { credentials: "include" });
     const data = await res.json();
     if (data.marks) setMarks(data.marks);
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchMarks(); }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
+    fetchMarks();
+  }, [fetchMarks]);
 
   const handleSave = async () => {
     if (!label.trim() || saving) return;

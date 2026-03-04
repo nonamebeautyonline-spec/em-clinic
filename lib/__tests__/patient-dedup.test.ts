@@ -5,11 +5,16 @@ import {
   calculateSimilarity,
   type PatientRecord,
 } from "@/lib/patient-dedup";
+import type { Mock } from "vitest";
 
 // --- Supabaseモック（テーブルごとに独立チェーン） ---
 
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+type SupabaseChain = Record<string, Mock> & {
+  then: Mock;
+};
+
+function createChain(defaultResolve = { data: null, error: null }): SupabaseChain {
+  const chain = {} as SupabaseChain;
   const methods = [
     "insert", "update", "delete", "select", "eq", "neq",
     "in", "is", "not", "order", "limit", "range",
@@ -19,11 +24,11 @@ function createChain(defaultResolve = { data: null, error: null }) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
   // await chain → defaultResolve
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, SupabaseChain> = {};
 
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) {
@@ -40,7 +45,7 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: SupabaseChain) => q),
   tenantPayload: vi.fn(() => ({})),
 }));
 
@@ -182,7 +187,7 @@ describe("findDuplicateCandidates", () => {
   it("患者0件 → 空配列", async () => {
     const { findDuplicateCandidates } = await import("@/lib/patient-dedup");
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) =>
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: [], error: null }),
     );
 
@@ -193,7 +198,7 @@ describe("findDuplicateCandidates", () => {
   it("クエリエラー → 例外スロー", async () => {
     const { findDuplicateCandidates } = await import("@/lib/patient-dedup");
     const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: any) =>
+    patientsChain.then = vi.fn((resolve: (val: unknown) => unknown) =>
       resolve({ data: null, error: { message: "DB error" } }),
     );
 
@@ -207,16 +212,16 @@ describe("findDuplicateCandidates", () => {
       makePatient({ id: 2, patient_id: "P002", tel: "09012345678" }),
     ];
 
-    getOrCreateChain("patients").then = vi.fn((r: any) =>
+    getOrCreateChain("patients").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: patients, error: null }),
     );
-    getOrCreateChain("reservations").then = vi.fn((r: any) =>
+    getOrCreateChain("reservations").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
-    getOrCreateChain("orders").then = vi.fn((r: any) =>
+    getOrCreateChain("orders").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
-    getOrCreateChain("dedup_ignored").then = vi.fn((r: any) =>
+    getOrCreateChain("dedup_ignored").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
 
@@ -236,16 +241,16 @@ describe("findDuplicateCandidates", () => {
       makePatient({ id: 2, patient_id: "P002", tel: null, name: "佐藤花子", name_kana: "タナカ", sex: "男性", birthday: "1985-06-15" }),
     ];
 
-    getOrCreateChain("patients").then = vi.fn((r: any) =>
+    getOrCreateChain("patients").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: patients, error: null }),
     );
-    getOrCreateChain("reservations").then = vi.fn((r: any) =>
+    getOrCreateChain("reservations").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
-    getOrCreateChain("orders").then = vi.fn((r: any) =>
+    getOrCreateChain("orders").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
-    getOrCreateChain("dedup_ignored").then = vi.fn((r: any) =>
+    getOrCreateChain("dedup_ignored").then = vi.fn((r: (val: unknown) => unknown) =>
       r({ data: [] }),
     );
 

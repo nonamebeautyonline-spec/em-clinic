@@ -12,7 +12,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
 }));
 
 // getSettingOrEnv モック
@@ -22,11 +22,11 @@ vi.mock("@/lib/settings", () => ({
 }));
 
 // テーブル別結果制御
-type MockResult = { data: any; error?: any; count?: number | null };
+type MockResult = { data: unknown; error?: unknown; count?: number | null };
 let mockResultsByTable: Record<string, MockResult> = {};
 
 function createChain(table: string) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
@@ -37,19 +37,19 @@ function createChain(table: string) {
   });
 
   // range メソッドは fetchAll のページネーションで使われる
-  chain.range = vi.fn().mockImplementation(() => {
+  (chain as Record<string, ReturnType<typeof vi.fn>>).range = vi.fn().mockImplementation(() => {
     const result = mockResultsByTable[table] || { data: [], error: null };
     return Promise.resolve(result);
   });
 
   // select で count:exact, head:true のパターン
-  chain.select = vi.fn().mockImplementation((_cols?: string, opts?: any) => {
+  (chain as Record<string, ReturnType<typeof vi.fn>>).select = vi.fn().mockImplementation((_cols?: string, opts?: { count?: string; head?: boolean }) => {
     if (opts?.count === "exact" && opts?.head === true) {
-      const countChain: any = {};
+      const countChain: Record<string, unknown> = {};
       methods.forEach((m) => {
         countChain[m] = vi.fn().mockReturnValue(countChain);
       });
-      countChain.then = (resolve: any, reject: any) => {
+      countChain.then = (resolve: (v: unknown) => unknown, reject: (v: unknown) => unknown) => {
         const result = mockResultsByTable[table] || { count: 0, data: null, error: null };
         return Promise.resolve({ count: result.count ?? 0, data: null, error: null }).then(resolve, reject);
       };
@@ -59,7 +59,7 @@ function createChain(table: string) {
   });
 
   // デフォルトの then でデータを返す
-  chain.then = (resolve: any, reject: any) => {
+  chain.then = (resolve: (v: unknown) => unknown, reject: (v: unknown) => unknown) => {
     const result = mockResultsByTable[table] || { data: [], error: null };
     return Promise.resolve(result).then(resolve, reject);
   };
@@ -73,7 +73,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 // fetch モック（LINE Insight API用）
-let mockFetchResponses: any[] = [];
+let mockFetchResponses: { ok: boolean; json: () => Promise<unknown> }[] = [];
 let fetchCallIndex = 0;
 
 vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => {

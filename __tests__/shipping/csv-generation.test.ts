@@ -249,7 +249,7 @@ describe("toCsvRow", () => {
   });
 
   it("null/undefined を空文字に変換", () => {
-    const row = toCsvRow([null as any, undefined as any, "value"]);
+    const row = toCsvRow([null as unknown as string, undefined as unknown as string, "value"]);
     expect(row).toBe('"","","value"');
   });
 

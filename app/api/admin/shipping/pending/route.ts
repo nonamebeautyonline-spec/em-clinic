@@ -4,6 +4,55 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getProductNamesMap } from "@/lib/products";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
+interface OrderRow {
+  id: string;
+  patient_id: string;
+  product_code: string;
+  payment_method: string;
+  paid_at: string | null;
+  shipping_date: string | null;
+  tracking_number: string | null;
+  amount: number | null;
+  status: string;
+  shipping_name: string | null;
+  postal_code: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  created_at: string;
+  shipping_list_created_at: string | null;
+}
+
+interface PatientRow {
+  patient_id: string;
+  name: string | null;
+}
+
+interface IntakeRow {
+  patient_id: string;
+  answerer_id: string | null;
+}
+
+interface FormattedOrder {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  lstep_id: string;
+  product_code: string;
+  product_name: string;
+  payment_method: string;
+  payment_date: string;
+  amount: number;
+  status: string;
+  postal_code: string;
+  address: string;
+  phone: string;
+  email: string;
+  purchase_count: number;
+  tracking_number: string;
+  shipping_list_created_at: string | null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     // 認証チェック（クッキーまたはBearerトークン）
@@ -35,7 +84,7 @@ export async function GET(req: NextRequest) {
 
     // ★ confirmed と pending を時間順にマージ（新しい順）
     const orderIds = new Set<string>();
-    const allOrders: any[] = [];
+    const allOrders: OrderRow[] = [];
 
     for (const order of [...(ordersConfirmed || []), ...(ordersPending || [])]) {
       if (!orderIds.has(order.id)) {
@@ -58,7 +107,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 全患者IDを取得
-    const patientIds = [...new Set((orders || []).map((o: any) => o.patient_id))];
+    const patientIds = [...new Set((orders || []).map((o: OrderRow) => o.patient_id))];
 
     // ★ 患者名をpatientsテーブルから取得、LステップIDはintakeから取得
     const patientInfoMap: Record<string, { name: string; lstep_id: string }> = {};
@@ -81,7 +130,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      (pData || []).forEach((p: any) => {
+      (pData || []).forEach((p: PatientRow) => {
         patientInfoMap[p.patient_id] = {
           name: p.name || "",
           lstep_id: lstepMap.get(p.patient_id) || "",
@@ -92,20 +141,20 @@ export async function GET(req: NextRequest) {
     // 購入回数を計算（各患者の注文数）- バッチ処理で高速化
     const purchaseCountMap: Record<string, number> = {};
     if (patientIds.length > 0) {
-      const { data: allOrders } = await withTenant(
+      const { data: allPatientOrders } = await withTenant(
         supabaseAdmin.from("orders").select("patient_id").in("patient_id", patientIds).limit(100000),
         tenantId
       );
 
       // 患者IDごとにカウント
-      (allOrders || []).forEach((order: any) => {
+      (allPatientOrders || []).forEach((order: { patient_id: string }) => {
         purchaseCountMap[order.patient_id] = (purchaseCountMap[order.patient_id] || 0) + 1;
       });
     }
 
     // ★ Plan A: データを整形（住所はordersから直接取得）
-    const formattedOrders = (orders || []).map((order: any) => {
-      const patientInfo = patientInfoMap[order.patient_id] || {};
+    const formattedOrders = (orders || []).map((order: OrderRow) => {
+      const patientInfo = patientInfoMap[order.patient_id] || { name: "", lstep_id: "" };
       // ★ shipping_nameの正規化（"null"文字列や空文字をnullとして扱う）
       const shippingName = order.shipping_name && order.shipping_name !== "null" ? order.shipping_name : "";
 
@@ -133,7 +182,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 同一患者でグルーピング
-    const groupedByPatient = formattedOrders.reduce((acc: any, order: any) => {
+    const groupedByPatient = formattedOrders.reduce<Record<string, FormattedOrder[]>>((acc, order) => {
       if (!acc[order.patient_id]) {
         acc[order.patient_id] = [];
       }
@@ -143,8 +192,8 @@ export async function GET(req: NextRequest) {
 
     // まとめ配送候補を検出（同一患者で複数注文）
     const mergeableGroups = Object.entries(groupedByPatient)
-      .filter(([_, orders]: [string, any]) => orders.length > 1)
-      .map(([patientId, orders]: [string, any]) => ({
+      .filter(([, orders]) => orders.length > 1)
+      .map(([patientId, orders]) => ({
         patient_id: patientId,
         patient_name: orders[0].patient_name,
         count: orders.length,

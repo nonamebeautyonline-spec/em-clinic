@@ -3,18 +3,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーンビルダー ---
-function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+function createChain(defaultResolve: Record<string, unknown> = { data: null, error: null }) {
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
-    chain[m] = vi.fn().mockReturnValue(chain);
+    (chain as Record<string, ReturnType<typeof vi.fn>>)[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -35,7 +35,7 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -44,33 +44,33 @@ vi.mock("@/lib/products", () => ({
 }));
 
 // --- ヘルパー ---
-function createPostRequest(body: any) {
+function createPostRequest(body: unknown) {
   return new Request("http://localhost/api/admin/products", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  });
 }
 
-function createPutRequest(body: any) {
+function createPutRequest(body: unknown) {
   return new Request("http://localhost/api/admin/products", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  });
 }
 
 function createGetRequest() {
   return new Request("http://localhost/api/admin/products", {
     method: "GET",
-  }) as any;
+  });
 }
 
 function createDeleteRequest(id?: string) {
   const url = id
     ? `http://localhost/api/admin/products?id=${id}`
     : "http://localhost/api/admin/products";
-  return new Request(url, { method: "DELETE" }) as any;
+  return new Request(url, { method: "DELETE" });
 }
 
 import { GET, POST, PUT, DELETE } from "@/app/api/admin/products/route";
@@ -163,7 +163,7 @@ describe("POST /api/admin/products", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "INVALID",
-    }) as any;
+    });
     const res = await POST(req);
     expect(res.status).toBe(400);
   });

@@ -33,6 +33,21 @@ export default function ClickAnalyticsPage() {
   const [events, setEvents] = useState<ClickEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
+  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/admin/line/click-track/stats", { credentials: "include" });
+      const data = await res.json();
+      if (!cancelled) {
+        if (data.stats) setLinks(data.stats);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // 手動再読み込み用
   const loadLinks = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/line/click-track/stats", { credentials: "include" });
@@ -40,8 +55,6 @@ export default function ClickAnalyticsPage() {
     if (data.stats) setLinks(data.stats);
     setLoading(false);
   }, []);
-
-  useEffect(() => { loadLinks(); }, [loadLinks]);
 
   const handleCreate = async () => {
     if (!newUrl.trim()) return;

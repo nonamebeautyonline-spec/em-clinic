@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 照合処理
-    const matched: any[] = [];
-    const unmatched: any[] = [];
+    const matched: { transfer: { date: string; description: string; amount: number }; order: { id: string; patient_id: string; product_code: string; amount: number; account_name: string; shipping_name: string } }[] = [];
+    const unmatched: { date: string; description: string; amount: number; reason: string }[] = [];
     const usedOrderIds = new Set<string>();
 
     for (const transfer of transfers) {
@@ -327,10 +327,10 @@ export async function POST(req: NextRequest) {
         updated: updateResults.filter((r) => r.success).length,
       },
     });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[Reconcile] Error:", e);
     return NextResponse.json(
-      { error: e?.message || "サーバーエラー" },
+      { error: e instanceof Error ? e.message : "サーバーエラー" },
       { status: 500 }
     );
   }

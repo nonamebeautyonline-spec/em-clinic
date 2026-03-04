@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 // --- 型定義 ---
 interface FollowupLog {
@@ -71,16 +71,17 @@ export default function FollowupRulesPage() {
   const [formTemplate, setFormTemplate] = useState("");
   const [formEnabled, setFormEnabled] = useState(true);
 
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     const res = await fetch("/api/admin/line/followup-rules", { credentials: "include" });
     const data = await res.json();
     if (data.rules) setRules(data.rules);
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
     fetchRules();
-  }, []);
+  }, [fetchRules]);
 
   const resetForm = () => {
     setShowModal(false);

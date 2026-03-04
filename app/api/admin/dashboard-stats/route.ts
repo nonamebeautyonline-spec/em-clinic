@@ -8,8 +8,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function fetchAll(buildQuery: () => any, pageSize = 5000) {
-  const all: any[] = [];
+async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
+  const all: Record<string, unknown>[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
@@ -102,14 +102,15 @@ export async function GET(request: NextRequest) {
         supabase
           .from("orders")
           .select("amount")
-          .eq("payment_method", "card")
+          .eq("payment_method", "credit_card")
+          .in("status", ["pending_confirmation", "confirmed"])
           .gte("paid_at", todayStartISO)
           .lt("paid_at", todayEndISO),
         tenantId
       )
     );
 
-    const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
+    const todaySquareRevenue = squareOrders?.reduce((sum, o) => sum + (Number(o.amount) || 0), 0) || 0;
 
     // 銀行振込（ordersテーブル、payment_method='bank_transfer'、paid_atが今日）
     const { data: bankTransferOrders } = await fetchAll(() =>
@@ -118,6 +119,7 @@ export async function GET(request: NextRequest) {
           .from("orders")
           .select("amount")
           .eq("payment_method", "bank_transfer")
+          .in("status", ["pending_confirmation", "confirmed"])
           .gte("paid_at", todayStartISO)
           .lt("paid_at", todayEndISO),
         tenantId
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
     );
 
     const todayBankTransferRevenue =
-      bankTransferOrders?.reduce((sum, o) => sum + (o.amount || 0), 0) || 0;
+      bankTransferOrders?.reduce((sum, o) => sum + (Number(o.amount) || 0), 0) || 0;
 
     const todayTotalRevenue = todaySquareRevenue + todayBankTransferRevenue;
 

@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 
 // --- モックチェーン ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   [
     "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
     "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -14,18 +14,18 @@ function createChain(defaultResolve = { data: null, error: null }) {
   ].forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (val: unknown) => void) => resolve(defaultResolve));
   return chain;
 }
 
 vi.mock("@/lib/supabase", () => {
   return {
     supabaseAdmin: {
-      from: vi.fn((...args: any[]) => {
-        const chains = (globalThis as any).__testTableChains || {};
-        const table = args[0];
+      from: vi.fn((...args: unknown[]) => {
+        const chains = ((globalThis as Record<string, unknown>).__testTableChains || {}) as Record<string, Record<string, unknown>>;
+        const table = args[0] as string;
         if (!chains[table]) {
-          const c: any = {};
+          const c: Record<string, unknown> = {};
           [
             "insert", "update", "delete", "select", "eq", "neq", "gt", "gte",
             "lt", "lte", "in", "is", "not", "order", "limit", "range", "single",
@@ -33,7 +33,7 @@ vi.mock("@/lib/supabase", () => {
           ].forEach((m) => {
             c[m] = vi.fn().mockReturnValue(c);
           });
-          c.then = vi.fn((resolve: any) => resolve({ data: null, error: null }));
+          c.then = vi.fn((resolve: (val: unknown) => void) => resolve({ data: null, error: null }));
           chains[table] = c;
         }
         return chains[table];
@@ -44,7 +44,7 @@ vi.mock("@/lib/supabase", () => {
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
@@ -98,7 +98,7 @@ function createGetRequest(params: Record<string, string> = {}) {
   return new NextRequest(url.toString(), { method: "GET" });
 }
 
-function createPostRequest(body: any = {}) {
+function createPostRequest(body: Record<string, unknown> = {}) {
   return new NextRequest("http://localhost:3000/api/admin/reservations/send-reminder", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -106,21 +106,21 @@ function createPostRequest(body: any = {}) {
   });
 }
 
-function setTableChain(table: string, chain: any) {
-  (globalThis as any).__testTableChains[table] = chain;
+function setTableChain(table: string, chain: Record<string, unknown>) {
+  ((globalThis as Record<string, unknown>).__testTableChains as Record<string, Record<string, unknown>>)[table] = chain;
 }
 
 describe("send-reminder API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (globalThis as any).__testTableChains = {};
-    vi.mocked(verifyAdminAuth).mockResolvedValue({ userId: "admin-1", role: "admin", tenantId: "test-tenant" } as any);
+    (globalThis as Record<string, unknown>).__testTableChains = {};
+    vi.mocked(verifyAdminAuth).mockResolvedValue({ userId: "admin-1", role: "admin", tenantId: "test-tenant" } as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
   });
 
   // --- GET: プレビュー ---
   describe("GET /api/admin/reservations/send-reminder", () => {
     it("認証失敗で401を返す", async () => {
-      vi.mocked(verifyAdminAuth).mockResolvedValue(null as any);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(null as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
 
       const req = createGetRequest({ date: "2026-02-23" });
       const res = await GET(req);
@@ -189,8 +189,8 @@ describe("send-reminder API", () => {
   // --- POST: 一斉送信 ---
   describe("POST /api/admin/reservations/send-reminder", () => {
     it("認証失敗で401を返す", async () => {
-      vi.mocked(verifyAdminAuth).mockResolvedValue(null as any);
-      vi.mocked(parseBody).mockResolvedValue({ data: { date: "2026-02-23" } } as any);
+      vi.mocked(verifyAdminAuth).mockResolvedValue(null as unknown as Awaited<ReturnType<typeof verifyAdminAuth>>);
+      vi.mocked(parseBody).mockResolvedValue({ data: { date: "2026-02-23" } } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createPostRequest({ date: "2026-02-23" });
       const res = await POST(req);
@@ -201,7 +201,7 @@ describe("send-reminder API", () => {
 
     it("バリデーションエラーの場合はエラーレスポンスを返す", async () => {
       const errorRes = new Response(JSON.stringify({ ok: false, error: "入力値が不正です" }), { status: 400 });
-      vi.mocked(parseBody).mockResolvedValue({ error: errorRes } as any);
+      vi.mocked(parseBody).mockResolvedValue({ error: errorRes } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createPostRequest({});
       const res = await POST(req);
@@ -211,7 +211,7 @@ describe("send-reminder API", () => {
     it("全対象者に一斉送信して結果を返す", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       // reservations
       const resvChain = createChain({
@@ -237,7 +237,7 @@ describe("send-reminder API", () => {
       const msgChain = createChain({ data: null, error: null });
       setTableChain("message_log", msgChain);
 
-      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
       const req = createPostRequest({ date: "2026-02-23" });
       const res = await POST(req);
@@ -255,7 +255,7 @@ describe("send-reminder API", () => {
     it("LINE IDなしの患者は no_uid としてスキップ", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const resvChain = createChain({
         data: [
@@ -285,7 +285,7 @@ describe("send-reminder API", () => {
     it("pushMessage失敗時はfailedにカウントされる", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const resvChain = createChain({
         data: [
@@ -303,7 +303,7 @@ describe("send-reminder API", () => {
       setTableChain("message_log", createChain({ data: null, error: null }));
 
       // pushMessage が失敗
-      vi.mocked(pushMessage).mockResolvedValue({ ok: false } as any);
+      vi.mocked(pushMessage).mockResolvedValue({ ok: false } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
       const req = createPostRequest({ date: "2026-02-23" });
       const res = await POST(req);
@@ -317,7 +317,7 @@ describe("send-reminder API", () => {
     it("patient_ids で指定した患者のみに送信", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23", patient_ids: ["pid-002"] },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const resvChain = createChain({
         data: [
@@ -338,7 +338,7 @@ describe("send-reminder API", () => {
       setTableChain("patients", patientsChain);
       setTableChain("message_log", createChain({ data: null, error: null }));
 
-      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
       const req = createPostRequest({ date: "2026-02-23", patient_ids: ["pid-002"] });
       const res = await POST(req);
@@ -355,7 +355,7 @@ describe("send-reminder API", () => {
     it("testOnly=true でテスト対象にのみ送信", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23", testOnly: true },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       // テスト対象 PID: 20251200128 が予約に含まれるケース
       const resvChain = createChain({
@@ -377,7 +377,7 @@ describe("send-reminder API", () => {
       setTableChain("patients", patientsChain);
       setTableChain("message_log", createChain({ data: null, error: null }));
 
-      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as any);
+      vi.mocked(pushMessage).mockResolvedValue({ ok: true } as unknown as Awaited<ReturnType<typeof pushMessage>>);
 
       const req = createPostRequest({ date: "2026-02-23", testOnly: true });
       const res = await POST(req);
@@ -399,7 +399,7 @@ describe("send-reminder API", () => {
       });
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23", idempotencyKey: "test-key-123" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const req = createPostRequest({ date: "2026-02-23", idempotencyKey: "test-key-123" });
       const res = await POST(req);
@@ -414,7 +414,7 @@ describe("send-reminder API", () => {
     it("idempotencyKeyなしの場合は冪等チェックをスキップ", async () => {
       vi.mocked(parseBody).mockResolvedValue({
         data: { date: "2026-02-23" },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof parseBody>>);
 
       const resvChain = createChain({ data: [], error: null });
       setTableChain("reservations", resvChain);

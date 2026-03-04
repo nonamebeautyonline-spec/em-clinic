@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     // LINEコールURL取得
     const lineCallUrl = await getSettingOrEnv(
-      "consultation" as any,
+      "consultation",
       "line_call_url",
       "NEXT_PUBLIC_LINE_CALL_URL",
       tenantId ?? undefined
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
+  } catch (e) {
     console.error("[doctor/send-call-form] error:", e);
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }

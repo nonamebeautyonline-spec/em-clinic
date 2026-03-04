@@ -4,17 +4,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- チェーンビルダー ---
 function createChain(defaultResolve = { data: null, error: null }) {
-  const chain: any = {};
+  const chain: Record<string, unknown> = {};
   ["insert","update","delete","select","eq","neq","gt","gte","lt","lte",
    "in","is","not","order","limit","range","single","maybeSingle","upsert",
    "ilike","or","count","csv"].forEach(m => {
     chain[m] = vi.fn().mockReturnValue(chain);
   });
-  chain.then = vi.fn((resolve: any) => resolve(defaultResolve));
+  chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(defaultResolve));
   return chain;
 }
 
-let tableChains: Record<string, any> = {};
+let tableChains: Record<string, Record<string, unknown>> = {};
 function getOrCreateChain(table: string) {
   if (!tableChains[table]) tableChains[table] = createChain();
   return tableChains[table];
@@ -34,21 +34,21 @@ vi.mock("@/lib/admin-auth", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => "test-tenant"),
-  withTenant: vi.fn((q: any) => q),
+  withTenant: vi.fn((q: unknown) => q),
   tenantPayload: vi.fn(() => ({ tenantId: "test-tenant" })),
 }));
 
 // --- ヘルパー ---
 function createGetRequest() {
-  return new Request("http://localhost/api/admin/tags", { method: "GET" }) as any;
+  return new Request("http://localhost/api/admin/tags", { method: "GET" }) as unknown as Request;
 }
 
-function createPostRequest(body: any) {
+function createPostRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/admin/tags", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }) as any;
+  }) as unknown as Request;
 }
 
 import { GET, POST } from "@/app/api/admin/tags/route";
@@ -172,7 +172,7 @@ describe("POST /api/admin/tags", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: "INVALID",
-    }) as any;
+    }) as unknown as Request;
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
