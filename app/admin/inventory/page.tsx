@@ -483,7 +483,7 @@ export default function InventoryPage() {
     return m;
   }, [products]);
 
-  // 日付ごとの生データを集計（箱在庫セクションのみ — 梱包済みは含めない）
+  // 日付ごとの生データを集計（箱在庫 + 梱包済み在庫の箱換算）
   const dailyRaw = useMemo(() => {
     const dateSet = new Set<string>();
     for (const log of historyLogs) dateSet.add(log.logged_date);
@@ -509,25 +509,70 @@ export default function InventoryPage() {
           if (nonameDose !== log.item_key && cells[nonameDose]) {
             cells[nonameDose].shipped += log.shipped_count; // のなめ: 箱のまま
           }
+        } else if (log.section === "packaged") {
+          const pm = productMap[log.item_key];
+          if (pm && cells[pm.dosage]) {
+            cells[pm.dosage].boxCount += log.box_count * pm.boxesPerSet;
+          }
+          const ex = EXTRA_EM_PACKAGED.find(e => e.item_key === log.item_key);
+          if (ex && cells[ex.dosage]) {
+            cells[ex.dosage].boxCount += log.box_count * ex.boxesPerSet;
+          }
+          const tb = TRANSITION_BOX_MAP[log.item_key];
+          if (tb) {
+            for (const [dose, boxes] of Object.entries(tb)) {
+              if (cells[dose]) cells[dose].boxCount += log.box_count * boxes;
+            }
+          }
         }
-        // 梱包済み在庫は箱ランニングバランスに含めない（二重計上防止）
       }
 
       result.push({ date, cells });
     }
     return result;
-  }, [historyLogs]);
+  }, [historyLogs, productMap]);
 
   // ランニングバランス計算
   const historyMatrix = useMemo(() => {
-    // シードデータからprevClosingを初期化（ウィンドウ直前の在庫を引き継ぐ）
+    // シードデータからprevClosingを初期化（ウィンドウ直前日の「終了時在庫」を計算）
+    // dailyRawと同じ集計ロジックで箱在庫 + 梱包済み(箱換算) を合算
     const prevClosing: Record<string, number> = {};
+    const seedAgg: Record<string, { boxCount: number; received: number; shipped: number }> = {};
+    for (const dose of DOSAGES) seedAgg[dose] = { boxCount: 0, received: 0, shipped: 0 };
     for (const log of seedLogs) {
       if (log.section === "box") {
         const dose = log.item_key.replace("box_", "");
-        if (DOSAGES.includes(dose)) {
-          prevClosing[dose] = (prevClosing[dose] ?? 0) + log.box_count;
+        if (seedAgg[dose]) {
+          seedAgg[dose].boxCount += log.box_count;
+          seedAgg[dose].received += log.received_count ?? 0;
+          seedAgg[dose].shipped += log.shipped_count / 2; // EM: 本数→箱
         }
+        const nonameDose = log.item_key.replace("noname_ship_", "");
+        if (nonameDose !== log.item_key && seedAgg[nonameDose]) {
+          seedAgg[nonameDose].shipped += log.shipped_count; // のなめ: 箱のまま
+        }
+      } else if (log.section === "packaged") {
+        const pm = productMap[log.item_key];
+        if (pm && seedAgg[pm.dosage]) {
+          seedAgg[pm.dosage].boxCount += log.box_count * pm.boxesPerSet;
+        }
+        const ex = EXTRA_EM_PACKAGED.find(e => e.item_key === log.item_key);
+        if (ex && seedAgg[ex.dosage]) {
+          seedAgg[ex.dosage].boxCount += log.box_count * ex.boxesPerSet;
+        }
+        const tb = TRANSITION_BOX_MAP[log.item_key];
+        if (tb) {
+          for (const [dose, boxes] of Object.entries(tb)) {
+            if (seedAgg[dose]) seedAgg[dose].boxCount += log.box_count * boxes;
+          }
+        }
+      }
+    }
+    for (const dose of DOSAGES) {
+      const s = seedAgg[dose];
+      if (s.boxCount > 0 || s.received > 0 || s.shipped > 0) {
+        const opening = s.boxCount > 0 ? s.boxCount : 0;
+        prevClosing[dose] = opening + s.received - s.shipped;
       }
     }
 
@@ -552,7 +597,7 @@ export default function InventoryPage() {
     }
 
     return matrix.reverse(); // 降順（新しい日が上）
-  }, [dailyRaw, seedLogs]);
+  }, [dailyRaw, seedLogs, productMap]);
 
   // サマリー: 最新の推移データから取得
   const latestBalance = useMemo(() => {
