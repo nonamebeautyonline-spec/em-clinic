@@ -6,6 +6,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { formSubmitSchema } from "@/lib/validations/forms";
 import { evaluateDisplayConditions } from "@/lib/form-conditions";
 import type { DisplayConditions } from "@/lib/form-conditions";
+import { badRequest, forbidden, notFound, serverError } from "@/lib/api-error";
 
 /**
  * フォーム送信後のアクション実行
@@ -111,11 +112,11 @@ export async function POST(
   );
 
   if (formErr || !form) {
-    return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
+    return notFound("フォームが見つかりません");
   }
 
   if (!form.is_published) {
-    return NextResponse.json({ error: "このフォームは現在公開されていません" }, { status: 403 });
+    return forbidden("このフォームは現在公開されていません");
   }
 
   const settings = (form.settings || {}) as Record<string, unknown>;
@@ -124,7 +125,7 @@ export async function POST(
   if (settings.deadline) {
     const deadline = new Date(settings.deadline as string);
     if (deadline < new Date()) {
-      return NextResponse.json({ error: "回答期限を過ぎています" }, { status: 403 });
+      return forbidden("回答期限を過ぎています");
     }
   }
 
@@ -138,7 +139,7 @@ export async function POST(
       tenantId
     );
     if (count !== null && count >= (settings.max_responses as number)) {
-      return NextResponse.json({ error: "回答数の上限に達しました" }, { status: 403 });
+      return forbidden("回答数の上限に達しました");
     }
   }
 
@@ -157,7 +158,7 @@ export async function POST(
       tenantId
     );
     if (count !== null && count >= (settings.responses_per_person as number)) {
-      return NextResponse.json({ error: "回答回数の上限に達しています" }, { status: 403 });
+      return forbidden("回答回数の上限に達しています");
     }
   }
 
@@ -199,7 +200,7 @@ export async function POST(
   }
 
   if (errors.length > 0) {
-    return NextResponse.json({ error: errors.join("\n") }, { status: 400 });
+    return badRequest(errors.join("\n"));
   }
 
   // IPアドレスとUA
@@ -222,7 +223,7 @@ export async function POST(
     .single();
 
   if (insertErr) {
-    return NextResponse.json({ error: insertErr.message }, { status: 500 });
+    return serverError(insertErr.message);
   }
 
   // LINE UID → patient_id 取得（後続処理で共有）

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { badRequest, serverError } from "@/lib/api-error";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
     const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
 
     if (!squareToken) {
-      return NextResponse.json({ ok: false, error: "SQUARE_ACCESS_TOKEN not set" }, { status: 500 });
+      return serverError("SQUARE_ACCESS_TOKEN not set");
     }
     const url = new URL(req.url);
     const begin = isoFix(url.searchParams.get("begin"));
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
     const limit = Math.min(Number(url.searchParams.get("limit") || "50"), 200);
 
     if (!begin || !end) {
-      return NextResponse.json({ ok: false, error: "begin and end are required" }, { status: 400 });
+      return badRequest("begin and end are required");
     }
 
     let cursor = "";
@@ -118,6 +119,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, processed, begin, end, results }, { status: 200 });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: (e as Error).message || String(e) }, { status: 500 });
+    return serverError((e as Error).message || String(e));
   }
 }

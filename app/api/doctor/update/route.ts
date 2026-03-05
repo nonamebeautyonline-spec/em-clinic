@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized, apiError } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -12,13 +13,13 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function fail(code: string, status: number = 500) {
-  return NextResponse.json({ ok: false, code }, { status });
+function fail(code: string, message: string = "", status: number = 500) {
+  return apiError(status, code, message || code);
 }
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     if (intakeQueryError || !intakeData) {
       console.error("[doctor/update] Intake not found:", { reserveId, error: intakeQueryError });
-      return fail("INTAKE_NOT_FOUND", 404);
+      return fail("INTAKE_NOT_FOUND", "問診記録が見つかりません", 404);
     }
 
     const patientId = intakeData.patient_id;
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
         ? intakeResult.reason
         : intakeResult.value.error;
       console.error("[doctor/update] Intake update failed:", error);
-      return fail("DB_ERROR", 500);
+      return fail("DB_ERROR", "データベース更新に失敗しました", 500);
     }
 
     // reservationsの更新エラーはログのみ（intakeが優先）
@@ -110,6 +111,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, patientId }, { status: 200 });
   } catch (err) {
     console.error("[doctor/update] error:", err);
-    return fail("INTERNAL_ERROR", 500);
+    return fail("INTERNAL_ERROR", "予期しないエラーが発生しました", 500);
   }
 }

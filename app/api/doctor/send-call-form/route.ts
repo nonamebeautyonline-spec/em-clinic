@@ -1,6 +1,7 @@
 // app/api/doctor/send-call-form/route.ts
 // LINE通話フォーム（Flex Message）を患者に送信するAPI
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized, badRequest, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -12,7 +13,7 @@ import { getSettingOrEnv } from "@/lib/settings";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -29,10 +30,7 @@ export async function POST(req: NextRequest) {
       tenantId ?? undefined
     );
     if (!lineCallUrl) {
-      return NextResponse.json(
-        { ok: false, error: "LINEコールURLが設定されていません。設定画面で登録してください。" },
-        { status: 400 }
-      );
+      return badRequest("LINEコールURLが設定されていません。設定画面で登録してください。");
     }
 
     // 患者のLINE UID取得
@@ -42,10 +40,7 @@ export async function POST(req: NextRequest) {
     ).maybeSingle();
 
     if (!patient?.line_id) {
-      return NextResponse.json(
-        { ok: false, error: "LINE UIDが見つかりません" },
-        { status: 400 }
-      );
+      return badRequest("LINE UIDが見つかりません");
     }
 
     // Flex Message構築
@@ -56,7 +51,7 @@ export async function POST(req: NextRequest) {
     const status = pushRes?.ok ? "sent" : "failed";
 
     if (status === "failed") {
-      return NextResponse.json({ ok: false, error: "LINE送信に失敗しました" }, { status: 500 });
+      return serverError("LINE送信に失敗しました");
     }
 
     // message_log に記録（fire-and-forget）
@@ -87,6 +82,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[doctor/send-call-form] error:", e);
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    return serverError(String(e));
   }
 }

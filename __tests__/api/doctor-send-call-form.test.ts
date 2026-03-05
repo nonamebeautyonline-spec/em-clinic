@@ -122,7 +122,7 @@ describe("POST /api/doctor/send-call-form", () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("LINEコールURL");
+    expect(json.message).toContain("LINEコールURL");
   });
 
   // -------------------------------------------
@@ -139,7 +139,7 @@ describe("POST /api/doctor/send-call-form", () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("LINE UID");
+    expect(json.message).toContain("LINE UID");
   });
 
   it("患者の line_id が null の場合も 400 を返す", async () => {
@@ -164,7 +164,7 @@ describe("POST /api/doctor/send-call-form", () => {
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toContain("LINE送信");
+    expect(json.message).toContain("LINE送信");
   });
 
   // -------------------------------------------

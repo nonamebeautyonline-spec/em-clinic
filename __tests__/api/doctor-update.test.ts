@@ -75,7 +75,7 @@ describe("POST /api/doctor/update", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // -------------------------------------------
@@ -113,7 +113,7 @@ describe("POST /api/doctor/update", () => {
     const res = await POST(req);
     expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.code).toBe("INTAKE_NOT_FOUND");
+    expect(json.error).toBe("INTAKE_NOT_FOUND");
   });
 
   // -------------------------------------------

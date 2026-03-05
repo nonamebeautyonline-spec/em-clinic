@@ -4,11 +4,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { testStripeConnection } from "@/lib/stripe";
+import { forbidden } from "@/lib/api-error";
 
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json({ ok: false, error: "権限がありません" }, { status: 403 });
+    return forbidden();
   }
 
   const result = await testStripeConnection();
