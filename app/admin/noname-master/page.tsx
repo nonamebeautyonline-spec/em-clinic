@@ -8,6 +8,7 @@ interface Order {
   patient_name: string;
   product_code: string;
   product_name: string;
+  amount: number;
   payment_method: string;
   payment_date: string;
   payment_date_label?: string; // "（申請日時）" or ""
@@ -42,6 +43,14 @@ export default function NonameMasterPage() {
   const [shippedDate, setShippedDate] = useState("");
   const [shippedTracking, setShippedTracking] = useState("");
   const [savingShippedInfo, setSavingShippedInfo] = useState(false);
+
+  // 返金モーダル
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null);
+  const [refundStep, setRefundStep] = useState<"token" | "confirm">("token");
+  const [refundToken, setRefundToken] = useState("");
+  const [refundMemo, setRefundMemo] = useState("");
+  const [refundProcessing, setRefundProcessing] = useState(false);
+  const [refundError, setRefundError] = useState("");
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -294,6 +303,56 @@ export default function NonameMasterPage() {
     }
   };
 
+  // 返金実行
+  const handleRefund = async () => {
+    if (!refundTarget) return;
+    setRefundProcessing(true);
+    setRefundError("");
+
+    try {
+      const res = await fetch("/api/admin/noname-master/refund", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_id: refundTarget.id,
+          admin_token: refundToken,
+          memo: refundMemo || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "返金処理に失敗しました");
+      }
+
+      // ローカルstate更新
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === refundTarget.id
+            ? {
+                ...o,
+                status: "cancelled",
+                refund_status: data.refund_status,
+                refunded_at: new Date().toISOString(),
+                refunded_amount: o.amount,
+              }
+            : o
+        )
+      );
+
+      setRefundTarget(null);
+      setRefundStep("token");
+      setRefundToken("");
+      setRefundMemo("");
+      alert("返金処理が完了しました");
+    } catch (err) {
+      setRefundError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setRefundProcessing(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / limit);
 
   const formatDateTime = (dateStr: string) => {
@@ -434,6 +493,9 @@ export default function NonameMasterPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   商品名
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  金額
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   発送日
                 </th>
@@ -446,12 +508,15 @@ export default function NonameMasterPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   購入回数
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  返金
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
                     注文データがありません
                   </td>
                 </tr>
@@ -493,6 +558,9 @@ export default function NonameMasterPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
                       {order.product_name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900">
+                      {order.amount ? `¥${order.amount.toLocaleString()}` : "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {order.shipping_date ? (
@@ -679,6 +747,32 @@ export default function NonameMasterPage() {
                         {order.purchase_count}
                       </span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                      {order.refund_status === "COMPLETED" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          返金済
+                        </span>
+                      ) : order.refund_status === "PENDING" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          返金待ち
+                        </span>
+                      ) : order.status === "cancelled" ? (
+                        <span className="text-slate-400">-</span>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setRefundTarget(order);
+                            setRefundStep("token");
+                            setRefundToken("");
+                            setRefundMemo("");
+                            setRefundError("");
+                          }}
+                          className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
+                        >
+                          返金
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -686,6 +780,142 @@ export default function NonameMasterPage() {
           </table>
         </div>
       </div>
+
+      {/* 返金モーダル */}
+      {refundTarget && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => !refundProcessing && setRefundTarget(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">返金処理</h3>
+              <p className="text-sm text-slate-600 mt-1">
+                {refundStep === "token" ? "管理者トークンを入力してください" : "返金内容を確認してください"}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              {/* 注文情報 */}
+              <div className="bg-slate-50 rounded p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">患者ID:</span>
+                  <span className="font-mono text-slate-900">{refundTarget.patient_id}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">氏名:</span>
+                  <span className="text-slate-900">{refundTarget.patient_name || "-"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">商品:</span>
+                  <span className="text-slate-900">{refundTarget.product_name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">金額:</span>
+                  <span className="font-medium text-red-600">
+                    ¥{(refundTarget.amount || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">決済方法:</span>
+                  <span className="text-slate-900">{refundTarget.payment_method}</span>
+                </div>
+              </div>
+
+              {refundStep === "token" ? (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    管理者トークン
+                  </label>
+                  <input
+                    type="password"
+                    value={refundToken}
+                    onChange={(e) => setRefundToken(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && refundToken) setRefundStep("confirm");
+                    }}
+                    placeholder="ADMIN_TOKEN を入力"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      メモ（任意）
+                    </label>
+                    <input
+                      type="text"
+                      value={refundMemo}
+                      onChange={(e) => setRefundMemo(e.target.value)}
+                      placeholder="例: 患者希望による返金"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                    <p className="text-sm text-red-800">
+                      <strong>注意:</strong>{" "}
+                      {refundTarget.payment_method === "クレジットカード"
+                        ? "Squareを通じてクレジットカードへの全額返金を実行します。この操作は取り消せません。"
+                        : "注文をキャンセルし「返金待ち」として記録します。実際の振込返金は手動で行ってください。"}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {refundError && (
+                <div className="bg-red-50 border border-red-200 rounded p-3">
+                  <p className="text-sm text-red-700">{refundError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  if (refundStep === "confirm") {
+                    setRefundStep("token");
+                    setRefundError("");
+                  } else {
+                    setRefundTarget(null);
+                  }
+                }}
+                className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
+                disabled={refundProcessing}
+              >
+                {refundStep === "confirm" ? "戻る" : "閉じる"}
+              </button>
+
+              {refundStep === "token" ? (
+                <button
+                  onClick={() => setRefundStep("confirm")}
+                  disabled={!refundToken}
+                  className="px-4 py-2 text-sm rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                >
+                  次へ
+                </button>
+              ) : (
+                <button
+                  onClick={handleRefund}
+                  disabled={refundProcessing}
+                  className={`px-4 py-2 text-sm rounded-lg font-medium ${
+                    refundProcessing
+                      ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                      : "bg-red-600 text-white hover:bg-red-700"
+                  }`}
+                >
+                  {refundProcessing ? "処理中..." : "返金を実行"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

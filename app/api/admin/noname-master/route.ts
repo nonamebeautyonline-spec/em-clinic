@@ -159,6 +159,7 @@ export async function GET(req: NextRequest) {
         patient_name: shippingName || patientNameMap[order.patient_id] || "",
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
+        amount: order.amount || 0,
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",
         payment_date: paymentDate,
         payment_date_label: paymentDateLabel, // ★ 銀行振込の申請中のみ "（申請日時）"

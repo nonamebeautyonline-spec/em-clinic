@@ -323,6 +323,15 @@ export const bankTransferCancelSchema = z
   })
   .passthrough();
 
+/** 決済マスター返金 POST /api/admin/noname-master/refund */
+export const nonameMasterRefundSchema = z
+  .object({
+    order_id: z.string().min(1, "order_idは必須です"),
+    admin_token: z.string().min(1, "admin_tokenは必須です"),
+    memo: z.string().optional(),
+  })
+  .passthrough();
+
 /** 銀行振込商品変更 POST /api/admin/bank-transfer/change-product */
 export const bankTransferChangeProductSchema = z
   .object({
