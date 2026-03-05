@@ -628,7 +628,7 @@ export default function RichMenuManagementPage() {
                 </button>
                 {imageUrl && (
                   <div className="flex items-center gap-3">
-                    <img src={imageUrl} alt="メニュー画像" className="h-16 rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
+                    <img src={imageUrl} alt="メニュー画像" className="w-full max-w-md rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
                     <button onClick={() => setImageUrl(null)} className="text-xs text-red-500 hover:text-red-700">解除</button>
                   </div>
                 )}
