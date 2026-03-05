@@ -665,7 +665,7 @@ export async function POST(req: NextRequest) {
         try {
           const updateResult = await retrySupabaseWrite(async () => {
             // patient_idで最新1件を取得してid指定で更新
-            const { data: latestIntake } = await withTenant(
+            const { data: latestIntake, error: intakeSelectError } = await withTenant(
               supabaseAdmin
                 .from("intake")
                 .select("id")
@@ -675,7 +675,11 @@ export async function POST(req: NextRequest) {
                 .maybeSingle(),
               tenantId
             );
+            if (intakeSelectError) {
+              throw intakeSelectError; // リトライ対象にする
+            }
             if (!latestIntake) {
+              console.warn(`[Reservation] intake not found for patient_id=${pid}, skipping reserve_id link`);
               return { data: null, error: null };
             }
             const result = await withTenant(
