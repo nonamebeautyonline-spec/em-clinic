@@ -363,18 +363,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* ナビゲーションメニュー */}
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
-          {/* プラットフォーム管理への切替リンク */}
-          {platformRole === "platform_admin" && (
-            <div className="px-3 mb-3">
-              <Link
-                href="/platform"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-violet-600/20 to-indigo-600/20 border border-violet-500/30 text-violet-300 hover:from-violet-600/30 hover:to-indigo-600/30 transition-all text-xs font-medium"
-              >
-                <span>🌐</span>
-                {isSidebarOpen && <span>プラットフォーム管理</span>}
-              </Link>
-            </div>
-          )}
           <MenuItem
             href="/admin"
             icon="📊"

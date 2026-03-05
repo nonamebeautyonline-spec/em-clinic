@@ -188,6 +188,115 @@ describe("POST /api/stripe/webhook", () => {
     expect(markCompleted).toHaveBeenCalled();
   });
 
+  it("subscription.updated: past_dueステータスを処理", async () => {
+    const mockEvent = {
+      id: "evt_sub_past",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_past",
+          customer: "cus_past",
+          status: "past_due",
+          current_period_end: Math.floor(Date.now() / 1000) + 2592000,
+        },
+      },
+    };
+
+    mockVerify.mockResolvedValue(mockEvent);
+    const markCompleted = vi.fn();
+    mockCheckIdempotency.mockResolvedValue({
+      duplicate: false,
+      markCompleted,
+      markFailed: vi.fn(),
+    });
+
+    const req = createRequest(JSON.stringify(mockEvent));
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    expect(markCompleted).toHaveBeenCalled();
+  });
+
+  it("subscription.updated: canceledステータスを処理", async () => {
+    const mockEvent = {
+      id: "evt_sub_can",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_can",
+          customer: "cus_can",
+          status: "canceled",
+          current_period_end: null,
+        },
+      },
+    };
+
+    mockVerify.mockResolvedValue(mockEvent);
+    const markCompleted = vi.fn();
+    mockCheckIdempotency.mockResolvedValue({
+      duplicate: false,
+      markCompleted,
+      markFailed: vi.fn(),
+    });
+
+    const req = createRequest(JSON.stringify(mockEvent));
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+
+  it("subscription.updated: incompleteステータスを処理", async () => {
+    const mockEvent = {
+      id: "evt_sub_inc",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_inc",
+          customer: "cus_inc",
+          status: "incomplete",
+          current_period_end: null,
+        },
+      },
+    };
+
+    mockVerify.mockResolvedValue(mockEvent);
+    const markCompleted = vi.fn();
+    mockCheckIdempotency.mockResolvedValue({
+      duplicate: false,
+      markCompleted,
+      markFailed: vi.fn(),
+    });
+
+    const req = createRequest(JSON.stringify(mockEvent));
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+
+  it("subscription.updated: trialingステータスを処理", async () => {
+    const mockEvent = {
+      id: "evt_sub_trial",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_trial",
+          customer: "cus_trial",
+          status: "trialing",
+          current_period_end: Math.floor(Date.now() / 1000) + 2592000,
+        },
+      },
+    };
+
+    mockVerify.mockResolvedValue(mockEvent);
+    const markCompleted = vi.fn();
+    mockCheckIdempotency.mockResolvedValue({
+      duplicate: false,
+      markCompleted,
+      markFailed: vi.fn(),
+    });
+
+    const req = createRequest(JSON.stringify(mockEvent));
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+
   it("customer.subscription.deleted イベントを処理", async () => {
     const mockEvent = {
       id: "evt_sub_del",
