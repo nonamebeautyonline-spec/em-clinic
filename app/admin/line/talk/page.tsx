@@ -671,6 +671,7 @@ export default function TalkPage() {
     setShowMenuPicker(false);
     setIsBlocked(false);
     setRecommendedTemplates([]);
+    setMobileView("message");
 
     shouldScrollToBottom.current = true;
 
@@ -737,7 +738,6 @@ export default function TalkPage() {
     if (bundleData.detail?.found) setPatientDetail(bundleData.detail);
 
     setMessagesLoading(false);
-    setMobileView("message");
   }, []);
 
   // URLの ?pid= で指定された患者を自動選択
@@ -1323,6 +1323,13 @@ export default function TalkPage() {
     <div className="h-full flex flex-col md:flex-row overflow-hidden bg-[#f8f9fb]">
       {/* ========== モバイルヘッダータブ（常時表示） ========== */}
       <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 flex sticky top-0 z-20">
+        <button
+          onClick={() => { window.location.href = "/admin"; }}
+          className="flex-shrink-0 px-2.5 flex items-center text-gray-500 border-r border-gray-200"
+          aria-label="管理メニューに戻る"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
         {([
           { key: "list" as const, label: "リスト", icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -1715,8 +1722,8 @@ export default function TalkPage() {
                   placeholder="メッセージを入力"
                   rows={2}
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50 transition-all"
-                  style={{ maxHeight: "100px" }}
-                  onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 100) + "px"; }}
+                  style={{ maxHeight: "200px" }}
+                  onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
                 />
                 <button
                   onClick={handleSend}
@@ -1757,6 +1764,22 @@ export default function TalkPage() {
                 onClick={() => setPendingTemplate(null)}
                 className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-colors"
               >キャンセル</button>
+              {pendingTemplate.message_type !== "image" && (
+                <button
+                  onClick={() => {
+                    setNewMessage(pendingTemplate.content);
+                    setPendingTemplate(null);
+                    setTimeout(() => {
+                      if (inputRef.current) {
+                        inputRef.current.focus();
+                        inputRef.current.style.height = "auto";
+                        inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 200) + "px";
+                      }
+                    }, 0);
+                  }}
+                  className="px-4 py-2 text-sm text-[#00B900] border border-[#00B900] font-medium rounded-lg hover:bg-[#00B900]/5 transition-colors"
+                >修正して使用</button>
+              )}
               <button
                 onClick={() => sendTemplate(pendingTemplate)}
                 disabled={sending}

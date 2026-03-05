@@ -307,7 +307,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   label={item.label}
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  badge={item.href === "/admin/line/talk" ? unreadCount : undefined}
+                  badge={item.href === "/admin/line/talk" ? unreadCount : item.href === "/admin/reorders" ? pendingReorderCount : undefined}
                   feature={item.feature}
                 />
               ))}
