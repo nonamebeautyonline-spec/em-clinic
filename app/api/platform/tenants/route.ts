@@ -10,6 +10,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { createTenantSchema } from "@/lib/validations/platform-tenant";
 import { generateUsername } from "@/lib/username";
 import { seedTenantData } from "@/lib/tenant-seed";
+import { getStripeClient } from "@/lib/stripe";
 
 /**
  * GET: テナント一覧取得
@@ -325,6 +326,25 @@ export async function POST(req: NextRequest) {
           settingsErr,
         );
       }
+    }
+
+    // 6. Stripe Customer自動作成（Stripeキー設定済みの場合のみ）
+    try {
+      const stripe = await getStripeClient();
+      if (stripe) {
+        const customer = await stripe.customers.create({
+          name: data.name,
+          email: data.contactEmail || data.adminEmail,
+          metadata: { tenant_id: tenantId, slug: data.slug },
+        });
+        await supabaseAdmin
+          .from("tenant_plans")
+          .update({ stripe_customer_id: customer.id })
+          .eq("tenant_id", tenantId);
+      }
+    } catch (stripeErr) {
+      // Stripe未設定・エラー時はスキップ（テナント作成自体は成功させる）
+      console.error("[platform/tenants] Stripe Customer作成スキップ:", stripeErr);
     }
 
     // 監査ログ（fire-and-forget）

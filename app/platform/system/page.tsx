@@ -16,7 +16,7 @@ interface PlatformSetting {
   updated_at: string;
 }
 
-type SectionId = "info" | "pricing" | "maintenance";
+type SectionId = "info" | "pricing" | "stripe" | "maintenance";
 
 interface Section {
   id: SectionId;
@@ -41,6 +41,15 @@ const sections: Section[] = [
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    id: "stripe",
+    label: "Stripe決済",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
       </svg>
     ),
   },
@@ -130,6 +139,13 @@ export default function PlatformSystemPage() {
   const [defaultMonthlyFee, setDefaultMonthlyFee] = useState("");
   const [defaultSetupFee, setDefaultSetupFee] = useState("");
 
+  // Stripe
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState("");
+  const [stripePublishableKey, setStripePublishableKey] = useState("");
+  const [stripeTestResult, setStripeTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingStripe, setTestingStripe] = useState(false);
+
   // メンテナンス
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
@@ -137,6 +153,7 @@ export default function PlatformSystemPage() {
   // 保存中フラグ
   const [savingInfo, setSavingInfo] = useState(false);
   const [savingPricing, setSavingPricing] = useState(false);
+  const [savingStripe, setSavingStripe] = useState(false);
   const [savingMaintenance, setSavingMaintenance] = useState(false);
 
   // 設定を読み込み
@@ -161,6 +178,10 @@ export default function PlatformSystemPage() {
       setDefaultPlan(map["default_plan"] || "standard");
       setDefaultMonthlyFee(map["default_monthly_fee"] || "");
       setDefaultSetupFee(map["default_setup_fee"] || "");
+      // Stripe（マスク表示のため、設定済みかどうかのみ判定）
+      setStripeSecretKey(map["stripe_secret_key"] ? "••••••••" : "");
+      setStripeWebhookSecret(map["stripe_webhook_secret"] ? "••••••••" : "");
+      setStripePublishableKey(map["stripe_publishable_key"] || "");
       setMaintenanceEnabled(map["maintenance_mode"] === "true");
       setMaintenanceMessage(map["maintenance_message"] || "");
     } catch (err: unknown) {
@@ -227,6 +248,62 @@ export default function PlatformSystemPage() {
       loadSettings();
     }
     setSavingPricing(false);
+  };
+
+  // Stripe設定を保存
+  const handleSaveStripe = async () => {
+    setSavingStripe(true);
+    const items: { key: string; value: string }[] = [];
+    // マスク値（••••••••）でなければ保存
+    if (stripeSecretKey && stripeSecretKey !== "••••••••") {
+      items.push({ key: "stripe_secret_key", value: stripeSecretKey });
+    }
+    if (stripeWebhookSecret && stripeWebhookSecret !== "••••••••") {
+      items.push({ key: "stripe_webhook_secret", value: stripeWebhookSecret });
+    }
+    if (stripePublishableKey) {
+      items.push({ key: "stripe_publishable_key", value: stripePublishableKey });
+    }
+    if (items.length === 0) {
+      setToast({ message: "変更する項目がありません", type: "error" });
+      setSavingStripe(false);
+      return;
+    }
+    const ok = await saveSettings(items);
+    if (ok) {
+      setToast({ message: "Stripe設定を保存しました", type: "success" });
+      setStripeTestResult(null);
+      loadSettings();
+    }
+    setSavingStripe(false);
+  };
+
+  // Stripe接続テスト
+  const handleTestStripe = async () => {
+    setTestingStripe(true);
+    setStripeTestResult(null);
+    try {
+      const res = await fetch("/api/platform/system/stripe-test", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setStripeTestResult({
+          ok: true,
+          message: `接続成功: ${data.accountName || "アカウント確認済み"}`,
+        });
+      } else {
+        setStripeTestResult({
+          ok: false,
+          message: data.error || "接続テストに失敗しました",
+        });
+      }
+    } catch {
+      setStripeTestResult({ ok: false, message: "接続テストに失敗しました" });
+    } finally {
+      setTestingStripe(false);
+    }
   };
 
   // メンテナンスモードを更新
@@ -555,7 +632,135 @@ export default function PlatformSystemPage() {
               </div>
             )}
 
-            {/* セクション3: メンテナンスモード */}
+            {/* セクション3: Stripe決済 */}
+            {activeSection === "stripe" && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="px-6 py-5 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">Stripe決済設定</h2>
+                      <p className="text-sm text-slate-500 mt-0.5">
+                        テナント課金に使用するStripe APIキーを設定します
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Secret Key */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">
+                      Secret Key
+                    </label>
+                    <input
+                      type="password"
+                      value={stripeSecretKey}
+                      onChange={(e) => setStripeSecretKey(e.target.value)}
+                      onFocus={() => { if (stripeSecretKey === "••••••••") setStripeSecretKey(""); }}
+                      placeholder="sk_test_..."
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Stripe管理画面 → Developers → API keys から取得できます
+                    </p>
+                  </div>
+
+                  {/* Publishable Key */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">
+                      Publishable Key
+                    </label>
+                    <input
+                      type="text"
+                      value={stripePublishableKey}
+                      onChange={(e) => setStripePublishableKey(e.target.value)}
+                      placeholder="pk_test_..."
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      フロントエンド（Checkout等）で使用する公開キーです
+                    </p>
+                  </div>
+
+                  {/* Webhook Secret */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-1 block">
+                      Webhook Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={stripeWebhookSecret}
+                      onChange={(e) => setStripeWebhookSecret(e.target.value)}
+                      onFocus={() => { if (stripeWebhookSecret === "••••••••") setStripeWebhookSecret(""); }}
+                      placeholder="whsec_..."
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Stripe管理画面 → Webhooks → エンドポイント設定から取得できます
+                    </p>
+                  </div>
+
+                  {/* 接続テスト結果 */}
+                  {stripeTestResult && (
+                    <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
+                      stripeTestResult.ok
+                        ? "bg-green-50 border border-green-200 text-green-700"
+                        : "bg-red-50 border border-red-200 text-red-700"
+                    }`}>
+                      {stripeTestResult.ok ? (
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                      {stripeTestResult.message}
+                    </div>
+                  )}
+
+                  {/* ボタン群 */}
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      onClick={handleTestStripe}
+                      disabled={testingStripe}
+                      className="px-4 py-2.5 border border-purple-300 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {testingStripe ? (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-purple-600 border-t-transparent" />
+                          テスト中...
+                        </span>
+                      ) : (
+                        "接続テスト"
+                      )}
+                    </button>
+                    <button
+                      onClick={handleSaveStripe}
+                      disabled={savingStripe}
+                      className="px-6 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {savingStripe ? (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                          保存中...
+                        </span>
+                      ) : (
+                        "保存"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* セクション4: メンテナンスモード */}
             {activeSection === "maintenance" && (
               <div className="space-y-6">
                 {/* ステータスバナー */}

@@ -156,6 +156,7 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/cron/usage-check/route.ts",
     "app/api/cron/audit-archive/route.ts",
     "app/api/cron/usage-alert/route.ts",
+    "app/api/cron/report-usage/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",
@@ -188,6 +189,8 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
       if (TENANT_EXEMPT_ROUTES.has(relativePath)) continue;
       // プラットフォーム管理ルートはテナント横断のため除外
       if (relativePath.startsWith("app/api/platform/")) continue;
+      // Stripe連携ルートはプラットフォーム管理者用（テナント横断）
+      if (relativePath.startsWith("app/api/stripe/")) continue;
 
       const src = fs.readFileSync(routePath, "utf-8");
       if (src.includes("supabaseAdmin")) {

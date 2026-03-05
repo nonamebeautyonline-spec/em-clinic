@@ -23,6 +23,8 @@ type Plan = {
   created_at: string;
   updated_at: string;
   tenants: TenantInfo | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
 };
 
 type Invoice = {
@@ -164,6 +166,46 @@ export default function BillingPage() {
     }
   }, [toast]);
 
+  // Stripe Checkout Sessionを作成してリダイレクト
+  const handleStripeCheckout = async (tenantId: string) => {
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (data.ok && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        setToast({ message: data.error || "Checkout作成に失敗しました", type: "error" });
+      }
+    } catch {
+      setToast({ message: "Checkout作成に失敗しました", type: "error" });
+    }
+  };
+
+  // Stripe Customer Portalを開く
+  const handleStripePortal = async (tenantId: string) => {
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      if (data.ok && data.url) {
+        window.open(data.url, "_blank");
+      } else {
+        setToast({ message: data.error || "Portal URL生成に失敗しました", type: "error" });
+      }
+    } catch {
+      setToast({ message: "Portal URL生成に失敗しました", type: "error" });
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* トースト通知 */}
@@ -221,7 +263,11 @@ export default function BillingPage() {
 
       {/* タブコンテンツ */}
       {activeTab === "plans" ? (
-        <PlansTab showToast={(msg, type) => setToast({ message: msg, type })} />
+        <PlansTab
+          showToast={(msg, type) => setToast({ message: msg, type })}
+          onStripeCheckout={handleStripeCheckout}
+          onStripePortal={handleStripePortal}
+        />
       ) : activeTab === "usage" ? (
         <UsageTab />
       ) : (
@@ -236,8 +282,12 @@ export default function BillingPage() {
 // ===== プラン管理タブ =====
 function PlansTab({
   showToast,
+  onStripeCheckout,
+  onStripePortal,
 }: {
   showToast: (msg: string, type: "success" | "error") => void;
+  onStripeCheckout: (tenantId: string) => Promise<void>;
+  onStripePortal: (tenantId: string) => Promise<void>;
 }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -487,21 +537,40 @@ function PlansTab({
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() =>
-                          setEditModal({
-                            tenantId: plan.tenant_id,
-                            tenantName: plan.tenants?.name || "不明",
-                            planName: plan.plan_name,
-                            monthlyFee: plan.monthly_fee,
-                            setupFee: plan.setup_fee,
-                            notes: plan.notes || "",
-                          })
-                        }
-                        className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        変更
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            setEditModal({
+                              tenantId: plan.tenant_id,
+                              tenantName: plan.tenants?.name || "不明",
+                              planName: plan.plan_name,
+                              monthlyFee: plan.monthly_fee,
+                              setupFee: plan.setup_fee,
+                              notes: plan.notes || "",
+                            })
+                          }
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          変更
+                        </button>
+                        {plan.stripe_subscription_id ? (
+                          <button
+                            onClick={() => onStripePortal(plan.tenant_id)}
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+                          >
+                            Portal
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => onStripeCheckout(plan.tenant_id)}
+                            disabled={!plan.stripe_customer_id}
+                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title={!plan.stripe_customer_id ? "Stripe Customer未作成" : "サブスク作成"}
+                          >
+                            サブスク
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

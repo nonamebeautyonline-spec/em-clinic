@@ -94,7 +94,8 @@ describe("テナント分離: 患者向けAPIルート", () => {
     f =>
       !f.startsWith("app/api/admin/") &&
       !f.startsWith("app/api/platform/") &&
-      !f.startsWith("app/api/cron/")
+      !f.startsWith("app/api/cron/") &&
+      !f.startsWith("app/api/stripe/")
   );
 
   it("患者向けAPIルートが存在する", () => {

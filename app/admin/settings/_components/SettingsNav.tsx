@@ -1,6 +1,8 @@
 // 設定ページ左サイドナビゲーション
 "use client";
 
+import { useRouter } from "next/navigation";
+
 export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "flex" | "consultation" | "ehr" | "account" | "options";
 
 const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
@@ -23,6 +25,7 @@ interface SettingsNavProps {
 }
 
 export default function SettingsNav({ active, onChange, industry = "clinic" }: SettingsNavProps) {
+  const router = useRouter();
   const visibleSections = SECTIONS.filter((s) => {
     if (s.clinicOnly && industry !== "clinic") return false;
     return true;
@@ -47,6 +50,14 @@ export default function SettingsNav({ active, onChange, industry = "clinic" }: S
               <span>{label}</span>
             </button>
           ))}
+          {/* 契約・課金ページへのリンク */}
+          <button
+            onClick={() => router.push("/admin/billing")}
+            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50 border-l-2 border-transparent border-t border-gray-100"
+          >
+            <span>💰</span>
+            <span>契約・課金</span>
+          </button>
         </div>
       </nav>
 
@@ -54,7 +65,14 @@ export default function SettingsNav({ active, onChange, industry = "clinic" }: S
       <div className="md:hidden mb-4">
         <select
           value={active}
-          onChange={(e) => onChange(e.target.value as SectionKey)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "__billing__") {
+              router.push("/admin/billing");
+            } else {
+              onChange(val as SectionKey);
+            }
+          }}
           className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
           {visibleSections.map(({ key, label, icon }) => (
@@ -62,6 +80,7 @@ export default function SettingsNav({ active, onChange, industry = "clinic" }: S
               {icon} {label}
             </option>
           ))}
+          <option value="__billing__">💰 契約・課金</option>
         </select>
       </div>
     </>
