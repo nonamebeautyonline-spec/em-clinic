@@ -1324,7 +1324,7 @@ export default function TalkPage() {
       {/* ========== モバイルヘッダータブ（常時表示） ========== */}
       <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 flex sticky top-0 z-20">
         <button
-          onClick={() => { window.location.href = "/admin"; }}
+          onClick={() => { window.dispatchEvent(new Event("open-mobile-menu")); }}
           className="flex-shrink-0 px-2.5 flex items-center text-gray-500 border-r border-gray-200"
           aria-label="管理メニューに戻る"
         >

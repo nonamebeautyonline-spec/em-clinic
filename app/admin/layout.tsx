@@ -174,6 +174,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     checkSession();
   }, [pathname, router, isAuthenticated]);
 
+  // 子コンポーネントからモバイルメニューを開くためのカスタムイベント
+  useEffect(() => {
+    const handler = () => setIsMobileMenuOpen(true);
+    window.addEventListener("open-mobile-menu", handler);
+    return () => window.removeEventListener("open-mobile-menu", handler);
+  }, []);
+
   // ページ遷移時の処理
   useEffect(() => {
     // パスが変わったらローディング表示
