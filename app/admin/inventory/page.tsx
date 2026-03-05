@@ -534,45 +534,57 @@ export default function InventoryPage() {
 
   // ランニングバランス計算
   const historyMatrix = useMemo(() => {
-    // シードデータからprevClosingを初期化（ウィンドウ直前日の「終了時在庫」を計算）
-    // dailyRawと同じ集計ロジックで箱在庫 + 梱包済み(箱換算) を合算
+    // シードデータからprevClosingを初期化
+    // seedLogsは「台帳データのある最新日 ～ from前日」の全データを含む（複数日）
+    // 日別にランニングバランスを計算して正しいprevClosingを求める
     const prevClosing: Record<string, number> = {};
-    const seedAgg: Record<string, { boxCount: number; received: number; shipped: number }> = {};
-    for (const dose of DOSAGES) seedAgg[dose] = { boxCount: 0, received: 0, shipped: 0 };
-    for (const log of seedLogs) {
-      if (log.section === "box") {
-        const dose = log.item_key.replace("box_", "");
-        if (seedAgg[dose]) {
-          seedAgg[dose].boxCount += log.box_count;
-          seedAgg[dose].received += log.received_count ?? 0;
-          seedAgg[dose].shipped += log.shipped_count / 2; // EM: 本数→箱
-        }
-        const nonameDose = log.item_key.replace("noname_ship_", "");
-        if (nonameDose !== log.item_key && seedAgg[nonameDose]) {
-          seedAgg[nonameDose].shipped += log.shipped_count; // のなめ: 箱のまま
-        }
-      } else if (log.section === "packaged") {
-        const pm = productMap[log.item_key];
-        if (pm && seedAgg[pm.dosage]) {
-          seedAgg[pm.dosage].boxCount += log.box_count * pm.boxesPerSet;
-        }
-        const ex = EXTRA_EM_PACKAGED.find(e => e.item_key === log.item_key);
-        if (ex && seedAgg[ex.dosage]) {
-          seedAgg[ex.dosage].boxCount += log.box_count * ex.boxesPerSet;
-        }
-        const tb = TRANSITION_BOX_MAP[log.item_key];
-        if (tb) {
-          for (const [dose, boxes] of Object.entries(tb)) {
-            if (seedAgg[dose]) seedAgg[dose].boxCount += log.box_count * boxes;
+
+    // シードを日別にグルーピングして昇順で処理
+    const seedDateSet = new Set<string>();
+    for (const log of seedLogs) seedDateSet.add(log.logged_date);
+    const seedDates = Array.from(seedDateSet).sort();
+
+    for (const date of seedDates) {
+      const cells: Record<string, { boxCount: number; received: number; shipped: number }> = {};
+      for (const dose of DOSAGES) cells[dose] = { boxCount: 0, received: 0, shipped: 0 };
+
+      for (const log of seedLogs) {
+        if (log.logged_date !== date) continue;
+        if (log.section === "box") {
+          const dose = log.item_key.replace("box_", "");
+          if (cells[dose]) {
+            cells[dose].boxCount += log.box_count;
+            cells[dose].received += log.received_count ?? 0;
+            cells[dose].shipped += log.shipped_count / 2;
+          }
+          const nonameDose = log.item_key.replace("noname_ship_", "");
+          if (nonameDose !== log.item_key && cells[nonameDose]) {
+            cells[nonameDose].shipped += log.shipped_count;
+          }
+        } else if (log.section === "packaged") {
+          const pm = productMap[log.item_key];
+          if (pm && cells[pm.dosage]) {
+            cells[pm.dosage].boxCount += log.box_count * pm.boxesPerSet;
+          }
+          const ex = EXTRA_EM_PACKAGED.find(e => e.item_key === log.item_key);
+          if (ex && cells[ex.dosage]) {
+            cells[ex.dosage].boxCount += log.box_count * ex.boxesPerSet;
+          }
+          const tb = TRANSITION_BOX_MAP[log.item_key];
+          if (tb) {
+            for (const [dose, boxes] of Object.entries(tb)) {
+              if (cells[dose]) cells[dose].boxCount += log.box_count * boxes;
+            }
           }
         }
       }
-    }
-    for (const dose of DOSAGES) {
-      const s = seedAgg[dose];
-      if (s.boxCount > 0 || s.received > 0 || s.shipped > 0) {
-        const opening = s.boxCount > 0 ? s.boxCount : 0;
-        prevClosing[dose] = opening + s.received - s.shipped;
+
+      // dailyRawと同じランニングバランスロジック
+      for (const dose of DOSAGES) {
+        const raw = cells[dose];
+        const isLedger = raw.boxCount > 0;
+        const opening = isLedger ? raw.boxCount : (prevClosing[dose] ?? 0);
+        prevClosing[dose] = opening + raw.received - raw.shipped;
       }
     }
 

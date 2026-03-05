@@ -101,23 +101,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // シードデータ: from より前の最新日のデータ（ランニングバランスの初期値用）
-    let seedDateQuery = supabaseAdmin
+    // シードデータ: 台帳データ（packaged.box_count > 0）のある最新日から from 前日までの全データ
+    // ランニングバランスの起算点として台帳アンカー日が必要。直前1日だけでは
+    // 台帳未入力日がシードになると期首在庫が0から始まり数値が崩壊する。
+    let anchorQuery = supabaseAdmin
       .from("inventory_logs")
       .select("logged_date")
       .lt("logged_date", from)
+      .eq("section", "packaged")
+      .gt("box_count", 0)
       .order("logged_date", { ascending: false })
       .limit(1);
-    seedDateQuery = withTenant(seedDateQuery, tenantId);
-    const { data: seedDateRow } = await seedDateQuery;
-    const seedDate = seedDateRow?.[0]?.logged_date ?? null;
+    anchorQuery = withTenant(anchorQuery, tenantId);
+    const { data: anchorRow } = await anchorQuery;
+    const anchorDate = anchorRow?.[0]?.logged_date ?? null;
 
     let seedLogs: typeof logs = [];
-    if (seedDate) {
+    if (anchorDate) {
       let seedLogsQuery = supabaseAdmin
         .from("inventory_logs")
         .select("item_key, section, location, logged_date, box_count, shipped_count, received_count")
-        .eq("logged_date", seedDate);
+        .gte("logged_date", anchorDate)
+        .lt("logged_date", from);
       seedLogsQuery = withTenant(seedLogsQuery, tenantId);
       const { data: seedData } = await seedLogsQuery;
       seedLogs = seedData ?? [];
