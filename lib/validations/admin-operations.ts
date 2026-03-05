@@ -164,6 +164,17 @@ export const karteTemplateUpdateSchema = z
   })
   .passthrough();
 
+/** カルテ編集セッション POST /api/admin/karte-edit-session */
+export const karteEditSessionSchema = z
+  .object({
+    intakeId: z.union([z.string(), z.number()]).refine(
+      (v) => v !== "" && v !== null && v !== undefined,
+      { message: "intakeIdは必須です" },
+    ),
+    editorName: z.string().min(1, "editorNameは必須です"),
+  })
+  .passthrough();
+
 /** カルテ（doctor note）更新 POST /api/admin/patientnote */
 export const patientNoteSchema = z
   .object({

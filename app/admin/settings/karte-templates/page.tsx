@@ -57,6 +57,11 @@ export default function KarteTemplatesPage() {
   // 削除確認
   const [deleteTarget, setDeleteTarget] = useState<KarteTemplate | null>(null);
 
+  // バージョン履歴
+  const [versionTarget, setVersionTarget] = useState<KarteTemplate | null>(null);
+  const [versions, setVersions] = useState<{ id: number; version: number; name: string; body: string; created_at: string; changed_by: string | null }[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+
   // --- データ取得 ---
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -185,6 +190,40 @@ export default function KarteTemplatesPage() {
       fetchTemplates();
     } catch (err) {
       setToast({ message: err instanceof Error ? err.message : "削除に失敗しました", type: "error" });
+    }
+  }
+
+  // バージョン履歴を表示
+  async function showVersionHistory(template: KarteTemplate) {
+    setVersionTarget(template);
+    setVersionsLoading(true);
+    setVersions([]);
+    try {
+      const res = await fetch(`/api/admin/karte-template-versions?template_id=${template.id}`, { credentials: "include" });
+      const data = await res.json();
+      setVersions(data.versions || []);
+    } catch {
+      setVersions([]);
+    }
+    setVersionsLoading(false);
+  }
+
+  // バージョン復元
+  async function restoreVersion(versionId: number) {
+    if (!versionTarget) return;
+    try {
+      const res = await fetch("/api/admin/karte-template-versions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ template_id: versionTarget.id, version_id: versionId }),
+      });
+      if (!res.ok) throw new Error("復元に失敗しました");
+      setToast({ message: "テンプレートを復元しました", type: "success" });
+      setVersionTarget(null);
+      fetchTemplates();
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : "復元に失敗しました", type: "error" });
     }
   }
 
@@ -451,6 +490,12 @@ export default function KarteTemplatesPage() {
                     {typeof template.id === "number" && (
                       <div className="flex items-center gap-1 shrink-0">
                         <button
+                          onClick={() => showVersionHistory(template)}
+                          className="px-3 py-1.5 text-gray-500 text-xs rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          履歴
+                        </button>
+                        <button
                           onClick={() => startEdit(template)}
                           className="px-3 py-1.5 text-blue-600 text-xs rounded-lg hover:bg-blue-50 transition-colors"
                         >
@@ -491,6 +536,68 @@ export default function KarteTemplatesPage() {
           </div>
         </div>
       </div>
+
+      {/* バージョン履歴モーダル */}
+      {versionTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setVersionTarget(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">バージョン履歴</h2>
+              <p className="text-sm text-gray-500 mt-0.5">「{versionTarget.name}」の変更履歴</p>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              {versionsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+                </div>
+              ) : versions.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">変更履歴がありません</p>
+              ) : (
+                <div className="space-y-3">
+                  {versions.map((v) => (
+                    <div key={v.id} className="border border-gray-100 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-800">v{v.version}</span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(v.created_at).toLocaleString("ja-JP")}
+                          </span>
+                          {v.changed_by && (
+                            <span className="text-xs text-gray-400">({v.changed_by})</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => restoreVersion(v.id)}
+                          className="text-xs px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          この版に戻す
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-600 whitespace-pre-wrap line-clamp-5 font-mono bg-gray-50 rounded p-2">
+                        {v.body}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-3 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setVersionTarget(null)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 削除確認モーダル */}
       {deleteTarget && (

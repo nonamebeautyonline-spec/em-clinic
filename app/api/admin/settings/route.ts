@@ -63,6 +63,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
   consultation: [
     { key: "type", label: "診察モード", sensitive: false },
     { key: "line_call_url", label: "LINEコールURL", sensitive: false },
+    { key: "reorder_requires_reservation", label: "再処方時に予約必須", sensitive: false },
   ],
   ehr: [
     { key: "provider", label: "連携プロバイダー", sensitive: false },

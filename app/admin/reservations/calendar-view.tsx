@@ -168,6 +168,9 @@ export default function CalendarView({
   const [showCanceled, setShowCanceled] = useState(false);
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
 
+  // 医師フィルタ（""=全医師）
+  const [filterDoctorId, setFilterDoctorId] = useState("");
+
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -248,18 +251,19 @@ export default function CalendarView({
     fetchData();
   }, [fetchData]);
 
-  // キャンセルフィルタ適用
+  // キャンセル + 医師フィルタ適用
   useEffect(() => {
-    if (showCanceled) {
-      setEvents(allEvents);
-    } else {
-      setEvents(
-        allEvents.filter(
-          (e) => e.status !== "canceled" && e.status !== "cancelled"
-        )
+    let filtered = allEvents;
+    if (!showCanceled) {
+      filtered = filtered.filter(
+        (e) => e.status !== "canceled" && e.status !== "cancelled"
       );
     }
-  }, [allEvents, showCanceled]);
+    if (filterDoctorId) {
+      filtered = filtered.filter((e) => e.doctor_id === filterDoctorId);
+    }
+    setEvents(filtered);
+  }, [allEvents, showCanceled, filterDoctorId]);
 
   // ナビゲーション
   const navigate = (direction: -1 | 1) => {
@@ -450,6 +454,21 @@ export default function CalendarView({
                 空き {weekSummary.totalAvailable}枠
               </span>
             </div>
+          )}
+          {/* 医師フィルタ */}
+          {doctors.length > 1 && (
+            <select
+              value={filterDoctorId}
+              onChange={(e) => setFilterDoctorId(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white"
+            >
+              <option value="">全医師</option>
+              {doctors.map((d) => (
+                <option key={d.doctor_id} value={d.doctor_id}>
+                  {d.doctor_name}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       )}

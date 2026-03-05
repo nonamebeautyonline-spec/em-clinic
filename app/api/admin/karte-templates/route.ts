@@ -91,6 +91,28 @@ export async function PUT(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const body = parsed.data;
 
+  // body 変更時は更新前のバージョンを保存
+  if (body.body !== undefined) {
+    const { data: current } = await withTenant(
+      supabaseAdmin
+        .from("karte_templates")
+        .select("id, name, category, body, current_version")
+        .eq("id", body.id),
+      tenantId,
+    ).single();
+
+    if (current) {
+      await supabaseAdmin.from("karte_template_versions").insert({
+        template_id: current.id,
+        version: current.current_version || 1,
+        name: current.name,
+        category: current.category || "general",
+        body: current.body,
+        ...tenantPayload(tenantId),
+      });
+    }
+  }
+
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
@@ -99,6 +121,15 @@ export async function PUT(req: NextRequest) {
   if (body.category !== undefined) updates.category = body.category;
   if (body.sort_order !== undefined) updates.sort_order = body.sort_order;
   if (body.is_active !== undefined) updates.is_active = body.is_active;
+
+  // body 変更時はバージョンインクリメント
+  if (body.body !== undefined) {
+    const { data: cur } = await withTenant(
+      supabaseAdmin.from("karte_templates").select("current_version").eq("id", body.id),
+      tenantId,
+    ).single();
+    updates.current_version = (cur?.current_version || 1) + 1;
+  }
 
   const { data, error } = await withTenant(
     supabaseAdmin

@@ -16,11 +16,13 @@ type ConsultationType =
 interface ConsultationConfig {
   type: ConsultationType;
   lineCallUrl: string;
+  reorderRequiresReservation: boolean;
 }
 
 const DEFAULT_CONFIG: ConsultationConfig = {
   type: "online_all",
   lineCallUrl: "",
+  reorderRequiresReservation: false,
 };
 
 const CONSULTATION_TYPE_OPTIONS: { value: ConsultationType; label: string; description: string }[] = [
@@ -56,6 +58,7 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
             ...prev,
             type: data.settings.type || prev.type,
             lineCallUrl: data.settings.line_call_url || prev.lineCallUrl,
+            reorderRequiresReservation: data.settings.reorder_requires_reservation === "true",
           }));
         }
       } catch {
@@ -83,6 +86,12 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ category: "consultation", key: "line_call_url", value: config.lineCallUrl.trim() }),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ category: "consultation", key: "reorder_requires_reservation", value: config.reorderRequiresReservation ? "true" : "false" }),
         }),
       ];
       const results = await Promise.all(promises);
@@ -197,6 +206,42 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
                   </div>
                 </label>
               ))}
+            </div>
+          </div>
+        </div>
+        {/* 再処方の予約必須設定 */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-bold text-gray-800">再処方の予約必須設定</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              ONにすると、患者は予約・診察を経てからでないと再処方を申請できなくなります
+            </p>
+          </div>
+          <div className="p-5">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={config.reorderRequiresReservation}
+                onClick={() => setConfig(prev => ({ ...prev, reorderRequiresReservation: !prev.reorderRequiresReservation }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  config.reorderRequiresReservation ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    config.reorderRequiresReservation ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-gray-700">
+                {config.reorderRequiresReservation ? "予約必須（ON）" : "予約不要（OFF）"}
+              </span>
+            </label>
+            <div className="mt-3 bg-amber-50 border border-amber-100 rounded-lg p-3">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                ONの場合: 患者が再処方を申請する際、過去の予約履歴（canceled以外）が確認されます。予約・診察歴がない場合、申請はブロックされ「先に予約を取得してください」と案内されます。
+              </p>
             </div>
           </div>
         </div>

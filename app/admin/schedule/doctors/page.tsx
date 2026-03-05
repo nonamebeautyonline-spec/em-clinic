@@ -9,6 +9,9 @@ type Doctor = {
   is_active: boolean;
   sort_order: number;
   color?: string;
+  specialties?: string[];
+  bio?: string;
+  display_in_booking?: boolean;
 };
 
 export default function DoctorsPage() {
@@ -58,6 +61,9 @@ export default function DoctorsPage() {
       is_active: true,
       sort_order: doctors.length,
       color: "",
+      specialties: [],
+      bio: "",
+      display_in_booking: true,
     };
     setEditingId("__new__");
     setDraft(newDoctor);
@@ -140,6 +146,7 @@ export default function DoctorsPage() {
             <tr>
               <th className="px-4 py-3 text-left text-slate-600">ID</th>
               <th className="px-4 py-3 text-left text-slate-600">名前</th>
+              <th className="px-4 py-3 text-left text-slate-600">専門</th>
               <th className="px-4 py-3 text-center text-slate-600 w-20">有効</th>
               <th className="px-4 py-3 text-center text-slate-600 w-20">順序</th>
               <th className="px-4 py-3 text-center text-slate-600 w-24">操作</th>
@@ -148,13 +155,13 @@ export default function DoctorsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   読み込み中...
                 </td>
               </tr>
             ) : doctors.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   医師データがありません
                 </td>
               </tr>
@@ -176,6 +183,15 @@ export default function DoctorsPage() {
                         className="border rounded px-2 py-1 text-sm w-full"
                         value={draft?.doctor_name || ""}
                         onChange={(e) => setDraft(draft ? { ...draft, doctor_name: e.target.value } : null)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        className="border rounded px-2 py-1 text-sm w-full"
+                        value={(draft?.specialties || []).join(", ")}
+                        onChange={(e) => setDraft(draft ? { ...draft, specialties: e.target.value.split(",").map(s => s.trim()).filter(Boolean) } : null)}
+                        placeholder="例: 美容皮膚科, GLP-1"
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -211,6 +227,7 @@ export default function DoctorsPage() {
                   <tr key={d.doctor_id} className="border-t">
                     <td className="px-4 py-3 font-mono text-slate-700">{d.doctor_id}</td>
                     <td className="px-4 py-3">{d.doctor_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{(d.specialties || []).join(", ") || "-"}</td>
                     <td className="px-4 py-3 text-center">
                       {d.is_active ? (
                         <span className="text-green-600">有効</span>
@@ -252,6 +269,15 @@ export default function DoctorsPage() {
                     value={draft.doctor_name}
                     onChange={(e) => setDraft({ ...draft, doctor_name: e.target.value })}
                     placeholder="医師名"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    type="text"
+                    className="border rounded px-2 py-1 text-sm w-full"
+                    value={(draft.specialties || []).join(", ")}
+                    onChange={(e) => setDraft({ ...draft, specialties: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                    placeholder="例: 美容皮膚科, GLP-1"
                   />
                 </td>
                 <td className="px-4 py-3 text-center">

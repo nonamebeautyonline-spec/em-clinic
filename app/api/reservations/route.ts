@@ -181,21 +181,25 @@ function dayOfWeek(ymdStr: string) {
   return dt.getUTCDay(); // 0..6
 }
 
-// ★ DBから予約済み枠を取得（日時ごとの予約数を集計）
+// ★ DBから予約済み枠を取得（日時ごとの予約数を集計、医師別フィルタ対応）
 async function getBookedSlotsFromDB(
   start: string,
   end: string,
-  tenantId: string | null = null
+  tenantId: string | null = null,
+  doctorId?: string
 ): Promise<BookedSlot[]> {
-  const { data, error } = await withTenant(
-    supabaseAdmin
-      .from("reservations")
-      .select("reserved_date, reserved_time")
-      .gte("reserved_date", start)
-      .lte("reserved_date", end)
-      .neq("status", "canceled"),
-    tenantId
-  );
+  let query = supabaseAdmin
+    .from("reservations")
+    .select("reserved_date, reserved_time")
+    .gte("reserved_date", start)
+    .lte("reserved_date", end)
+    .neq("status", "canceled");
+
+  if (doctorId) {
+    query = query.eq("doctor_id", doctorId);
+  }
+
+  const { data, error } = await withTenant(query, tenantId);
 
   if (error) {
     console.error("[getBookedSlotsFromDB] error:", error);
@@ -416,13 +420,27 @@ export async function GET(req: NextRequest) {
   const tenantId = resolveTenantId(req);
 
   try {
-    const doctorId = "dr_default";
+    const doctorId = searchParams.get("doctor_id") || "dr_default";
+
+    // 医師一覧を返すモード
+    if (searchParams.get("mode") === "doctors") {
+      const { data: doctors } = await withTenant(
+        supabaseAdmin
+          .from("doctors")
+          .select("doctor_id, doctor_name, is_active, sort_order, color, specialties, photo_url, bio, display_in_booking")
+          .eq("is_active", true)
+          .eq("display_in_booking", true)
+          .order("sort_order"),
+        tenantId
+      );
+      return NextResponse.json({ ok: true, doctors: doctors || [] });
+    }
 
     // 単日（互換）
     if (date && !start && !end) {
       // ★ 予約済み枠とスケジュールを並列でDBから取得
       const [bookedSlots, scheduleData] = await Promise.all([
-        getBookedSlotsFromDB(date, date, tenantId),
+        getBookedSlotsFromDB(date, date, tenantId, doctorId),
         getScheduleFromDB(doctorId, date, date, tenantId),
       ]);
 
@@ -456,7 +474,7 @@ export async function GET(req: NextRequest) {
 
     // ★ 予約済み枠とスケジュールを並列でDBから取得
     const [bookedSlots, scheduleData] = await Promise.all([
-      getBookedSlotsFromDB(start, end, tenantId),
+      getBookedSlotsFromDB(start, end, tenantId, doctorId),
       getScheduleFromDB(doctorId, start, end, tenantId),
     ]);
 
@@ -517,6 +535,7 @@ export async function POST(req: NextRequest) {
       const date = validated.data.date || "";
       const time = validated.data.time || "";
       const pid = validated.data.patient_id || patientId;
+      const createDoctorId = validated.data.doctor_id || "dr_default";
 
       // ★★ 翌月予約開放日チェック ★★
       if (date && !(await isDateBookable(date, tenantId))) {
@@ -638,7 +657,7 @@ export async function POST(req: NextRequest) {
           p_patient_name: patientName,
           p_reserved_date: date,
           p_reserved_time: time,
-          p_doctor_id: "dr_default",
+          p_doctor_id: createDoctorId,
           p_tenant_id: tenantId,
         }
       );
@@ -870,6 +889,7 @@ export async function POST(req: NextRequest) {
       const newDate = updateValidated.data.date || "";
       const newTime = updateValidated.data.time || "";
       const pid = updateValidated.data.patient_id || patientId;
+      const updateDoctorId = updateValidated.data.doctor_id || "dr_default";
 
       if (!reserveId || !newDate || !newTime) {
         return NextResponse.json({ ok: false, error: "missing parameters" }, { status: 400 });
@@ -901,7 +921,7 @@ export async function POST(req: NextRequest) {
           p_reserve_id: reserveId,
           p_new_date: newDate,
           p_new_time: newTime,
-          p_doctor_id: "dr_default",
+          p_doctor_id: updateDoctorId,
           p_tenant_id: tenantId,
         }
       );

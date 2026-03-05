@@ -8,6 +8,7 @@ export const createReservationSchema = z
     date: z.string().min(1, "日付は必須です"),
     time: z.string().min(1, "時刻は必須です"),
     patient_id: z.string().optional(),
+    doctor_id: z.string().optional(),
   })
   .passthrough();
 
@@ -31,6 +32,7 @@ export const updateReservationSchema = z
     date: z.string().min(1, "日付は必須です"),
     time: z.string().min(1, "時刻は必須です"),
     patient_id: z.string().optional(),
+    doctor_id: z.string().optional(),
   })
   .passthrough();
 

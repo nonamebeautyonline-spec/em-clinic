@@ -165,6 +165,13 @@ export default function RichMenuManagementPage() {
   // 対応マーク定義
   const [allMarks, setAllMarks] = useState<MarkDefinition[]>([]);
 
+  // AI画像生成
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiButtonLabels, setAiButtonLabels] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiPreviewSvg, setAiPreviewSvg] = useState<string | null>(null);
+
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
   const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
@@ -191,6 +198,88 @@ export default function RichMenuManagementPage() {
       .then(r => r.json())
       .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); });
   }, []);
+
+  // --- AI生成ハンドラ ---
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiPreviewSvg(null);
+    try {
+      const labels = aiButtonLabels.split(",").map(s => s.trim()).filter(Boolean);
+      const res = await fetch("/api/admin/line/rich-menus/ai-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          sizeType: "full",
+          buttonCount: buttons.length || 6,
+          buttonLabels: labels.length > 0 ? labels : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "生成失敗");
+      setAiPreviewSvg(json.svg);
+    } catch (e) {
+      alert(`AI生成エラー: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleUseAiImage = async () => {
+    if (!aiPreviewSvg) return;
+    try {
+      // SVG→PNG変換（Canvas）
+      const width = 2500;
+      const height = 1686;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas不可");
+
+      const svgBlob = new Blob([aiPreviewSvg], { type: "image/svg+xml;charset=utf-8" });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, width, height);
+          URL.revokeObjectURL(svgUrl);
+          resolve();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(svgUrl);
+          reject(new Error("SVG読み込み失敗"));
+        };
+        img.src = svgUrl;
+      });
+
+      // PNG→Blob→Supabase Storageにアップロード
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error("PNG変換失敗")), "image/png");
+      });
+
+      const formData = new FormData();
+      formData.append("file", blob, `ai-richmenu-${Date.now()}.png`);
+      formData.append("folder", "rich-menus");
+
+      const uploadRes = await fetch("/api/admin/media/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const uploadJson = await uploadRes.json();
+      if (!uploadJson.url) throw new Error("アップロード失敗");
+
+      setImageUrl(uploadJson.url);
+      setShowAiGenerator(false);
+      setAiPreviewSvg(null);
+    } catch (e) {
+      alert(`画像適用エラー: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   // --- Editor helpers ---
   const handleCreateNew = () => {
@@ -529,14 +618,70 @@ export default function RichMenuManagementPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="grid grid-cols-[120px_1fr] items-start gap-4 mb-4">
             <label className="text-sm font-medium text-gray-700 text-right pt-2">画像</label>
-            <div className="flex items-center gap-4">
-              <button onClick={openImagePicker} className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit flex-shrink-0">
-                メニュー画像選択
-              </button>
-              {imageUrl && (
-                <div className="flex items-center gap-3">
-                  <img src={imageUrl} alt="メニュー画像" className="h-16 rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
-                  <button onClick={() => setImageUrl(null)} className="text-xs text-red-500 hover:text-red-700">解除</button>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <button onClick={openImagePicker} className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit flex-shrink-0">
+                  メニュー画像選択
+                </button>
+                <button onClick={() => setShowAiGenerator(!showAiGenerator)} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 w-fit flex-shrink-0">
+                  AIで画像を生成
+                </button>
+                {imageUrl && (
+                  <div className="flex items-center gap-3">
+                    <img src={imageUrl} alt="メニュー画像" className="h-16 rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
+                    <button onClick={() => setImageUrl(null)} className="text-xs text-red-500 hover:text-red-700">解除</button>
+                  </div>
+                )}
+              </div>
+
+              {/* AI生成パネル */}
+              {showAiGenerator && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-medium text-indigo-800">AI画像生成</p>
+                  <input
+                    type="text"
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    placeholder="例: クリニック向け、予約・問診・マイページ・お問合せの4ボタン、青緑系の清潔感あるデザイン"
+                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <input
+                    type="text"
+                    value={aiButtonLabels}
+                    onChange={e => setAiButtonLabels(e.target.value)}
+                    placeholder="ボタンラベル（カンマ区切り）: 予約, 問診, マイページ, お問合せ"
+                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleAiGenerate}
+                      disabled={aiGenerating || !aiPrompt.trim()}
+                      className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 disabled:opacity-50"
+                    >
+                      {aiGenerating ? "生成中..." : "生成する"}
+                    </button>
+                    <button onClick={() => { setShowAiGenerator(false); setAiPreviewSvg(null); }} className="text-sm text-gray-500 hover:text-gray-700">
+                      閉じる
+                    </button>
+                  </div>
+
+                  {/* SVGプレビュー */}
+                  {aiPreviewSvg && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-indigo-600 font-medium">プレビュー:</p>
+                      <div
+                        className="border border-indigo-200 rounded-lg overflow-hidden bg-white"
+                        style={{ maxWidth: "500px", aspectRatio: "2500/1686" }}
+                        dangerouslySetInnerHTML={{ __html: aiPreviewSvg }}
+                      />
+                      <button
+                        onClick={handleUseAiImage}
+                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500"
+                      >
+                        この画像を使用する
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

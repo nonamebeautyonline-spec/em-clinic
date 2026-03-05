@@ -1,0 +1,3 @@
+-- リッチメニュー AI生成カラム追加
+ALTER TABLE rich_menus ADD COLUMN IF NOT EXISTS ai_prompt TEXT;
+ALTER TABLE rich_menus ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE;

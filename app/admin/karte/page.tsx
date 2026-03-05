@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import Link from "next/link";
 import { formatFullDateTimeJST, calcAge, formatDateJST } from "@/lib/patient-utils";
 import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
 import { emptySoapNote, noteToSoap, soapToNote, soapToText, parseJsonToSoap, SOAP_LABELS } from "@/lib/soap-parser";
 import { KarteNoteEditor } from "@/components/karte/KarteNoteEditor";
+import PrescriptionTimeline from "@/components/karte/PrescriptionTimeline";
+import type { TimelineEntry } from "@/lib/prescription-timeline";
 
 const KarteImageSection = lazy(() => import("@/components/KarteImageSection"));
 
@@ -170,7 +172,9 @@ export default function KartePage() {
   const [intakes, setIntakes] = useState<IntakeItem[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [reorders, setReorders] = useState<ReorderItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"intake" | "history" | "reorder">("intake");
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"intake" | "history" | "reorder" | "timeline">("intake");
   const [expandedIntake, setExpandedIntake] = useState<number | null>(null);
 
   // --- カルテ編集 ---
@@ -200,6 +204,12 @@ export default function KartePage() {
   // --- AI要約生成 ---
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const [aiSummaryResult, setAiSummaryResult] = useState<{ summary: string; medications: string[] } | null>(null);
+
+  // --- 同時編集セッション ---
+  const [editSessionId, setEditSessionId] = useState<number | null>(null);
+  const [otherEditors, setOtherEditors] = useState<{ editor_name: string; intake_id: number }[]>([]);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const editorNameRef = useRef("admin"); // 管理者名（将来的にログインユーザー名に変更可能）
 
   // --- LINE通話フォーム ---
   const [callFormSending, setCallFormSending] = useState(false);
@@ -291,6 +301,7 @@ export default function KartePage() {
     setIntakes([]);
     setHistory([]);
     setReorders([]);
+    setTimelineEntries([]);
     setActiveTab("intake");
     setExpandedIntake(null);
     setEditingIntakeId(null);
@@ -303,6 +314,11 @@ export default function KartePage() {
       setIntakes(data.intakes ?? []);
       setHistory(data.history ?? []);
       setReorders(data.reorders ?? []);
+      // 処方歴タイムラインを並列取得
+      fetch(`/api/admin/prescription-timeline?patientId=${encodeURIComponent(patientId)}`, { cache: "no-store" })
+        .then(r => r.json())
+        .then(d => setTimelineEntries(d.timeline ?? []))
+        .catch(() => setTimelineEntries([]));
     } catch (e: unknown) {
       setSearchErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -323,15 +339,111 @@ export default function KartePage() {
     })();
   }, []);
 
+  // === 同時編集セッション管理 ===
+  const startEditSession = useCallback(async (intakeId: number) => {
+    try {
+      // 他の編集者がいるか確認
+      const checkRes = await fetch(`/api/admin/karte-edit-session?intakeId=${intakeId}`, { credentials: "include" });
+      const checkData = await checkRes.json();
+      if (checkData.ok && checkData.sessions?.length > 0) {
+        const others = checkData.sessions.filter((s: { editor_name: string }) => s.editor_name !== editorNameRef.current);
+        if (others.length > 0) {
+          const names = others.map((s: { editor_name: string }) => s.editor_name).join(", ");
+          if (!confirm(`${names} さんが編集中です。同時に編集しますか？`)) return false;
+        }
+      }
+      // セッション開始
+      const res = await fetch("/api/admin/karte-edit-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ intakeId, editorName: editorNameRef.current }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setEditSessionId(data.sessionId);
+        // ハートビート開始（30秒間隔）
+        heartbeatRef.current = setInterval(async () => {
+          await fetch("/api/admin/karte-edit-session", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ sessionId: data.sessionId }),
+          }).catch(() => {});
+        }, 30000);
+      }
+      return true;
+    } catch {
+      return true; // エラー時は編集を許可
+    }
+  }, []);
+
+  const endEditSession = useCallback(async () => {
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    if (editSessionId) {
+      await fetch(`/api/admin/karte-edit-session?sessionId=${editSessionId}`, {
+        method: "DELETE",
+        credentials: "include",
+      }).catch(() => {});
+      setEditSessionId(null);
+    }
+    setOtherEditors([]);
+  }, [editSessionId]);
+
+  // 他ユーザーの編集状態をポーリング（展開中のintake対象、15秒間隔）
+  useEffect(() => {
+    if (!expandedIntake) { setOtherEditors([]); return; }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/admin/karte-edit-session?intakeId=${expandedIntake}`, { credentials: "include" });
+        const data = await res.json();
+        if (!cancelled && data.ok) {
+          const others = (data.sessions || []).filter(
+            (s: { editor_name: string }) => s.editor_name !== editorNameRef.current
+          );
+          setOtherEditors(others.map((s: { editor_name: string; intake_id: number }) => ({
+            editor_name: s.editor_name,
+            intake_id: s.intake_id,
+          })));
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [expandedIntake]);
+
+  // ページ離脱時にセッション削除
+  useEffect(() => {
+    const handleUnload = () => {
+      if (editSessionId) {
+        // keepalive: true でページ離脱後もリクエスト完了を保証
+        fetch(`/api/admin/karte-edit-session?sessionId=${editSessionId}`, {
+          method: "DELETE",
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [editSessionId]);
+
   // === カルテ編集 ===
-  const startEdit = (intake: IntakeItem) => {
+  const startEdit = async (intake: IntakeItem) => {
+    const allowed = await startEditSession(intake.id);
+    if (!allowed) return;
     setEditingIntakeId(intake.id);
     const fmt = detectNoteFormat(intake.note);
     setEditNoteFormat(fmt);
     setEditSoap(noteToSoap(intake.note, fmt));
   };
 
-  const cancelEdit = () => {
+  const cancelEdit = async () => {
+    await endEditSession();
     setEditingIntakeId(null);
     setEditSoap(emptySoapNote());
     setEditNoteFormat("plain");
@@ -354,6 +466,8 @@ export default function KartePage() {
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "保存失敗");
+      // 編集セッション終了
+      await endEditSession();
       // ローカル更新
       setIntakes(prev => prev.map(it =>
         it.id === editingIntakeId ? { ...it, note: noteToSave } : it
@@ -453,7 +567,8 @@ export default function KartePage() {
   };
 
   // === 詳細を閉じる ===
-  const closeDetail = () => {
+  const closeDetail = async () => {
+    await endEditSession();
     setSelectedPatientId(null);
     setPatient(null);
     setIntakes([]);
@@ -932,6 +1047,7 @@ export default function KartePage() {
                     { key: "intake" as const, label: "問診・カルテ", count: intakes.length },
                     { key: "history" as const, label: "購入履歴", count: history.length },
                     { key: "reorder" as const, label: "再処方", count: reorders.length },
+                    { key: "timeline" as const, label: "処方推移", count: timelineEntries.length },
                   ].map(tab => (
                     <button
                       key={tab.key}
@@ -1002,6 +1118,17 @@ export default function KartePage() {
 
                               {isOpen && (
                                 <div className="px-4 pb-4 space-y-4 border-t border-gray-100 pt-3">
+                                  {/* 他ユーザー編集中バナー */}
+                                  {otherEditors.filter(e => e.intake_id === it.id).length > 0 && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                                      <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                      </svg>
+                                      <span className="text-xs text-amber-700 font-medium">
+                                        {otherEditors.filter(e => e.intake_id === it.id).map(e => e.editor_name).join(", ")} さんが編集中です
+                                      </span>
+                                    </div>
+                                  )}
                                   {(it.reservedDate || it.reservedTime) && (
                                     <div className="text-xs text-gray-400">
                                       予約: {it.reservedDate} {it.reservedTime}
@@ -1231,6 +1358,13 @@ export default function KartePage() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* 処方推移タブ */}
+                    {activeTab === "timeline" && (
+                      <div className="p-4">
+                        <PrescriptionTimeline entries={timelineEntries} loading={timelineLoading} />
                       </div>
                     )}
 

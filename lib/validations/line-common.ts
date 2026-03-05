@@ -55,6 +55,16 @@ export const createRichMenuSchema = z
   })
   .passthrough();
 
+/** リッチメニューAI生成 POST /api/admin/line/rich-menus/ai-generate */
+export const aiRichMenuGenerateSchema = z
+  .object({
+    prompt: z.string().min(1, "プロンプトは必須です"),
+    sizeType: z.enum(["full", "half"]).default("full"),
+    buttonCount: z.number().int().min(1).max(6).default(6),
+    buttonLabels: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
 /** キーワード自動応答 POST/PUT /api/admin/line/keyword-replies */
 export const keywordReplySchema = z
   .object({

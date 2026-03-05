@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
-import { getSettingOrEnv } from "@/lib/settings";
+import { getSetting, getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { reorderApplySchema } from "@/lib/validations/reorder";
 
@@ -227,6 +227,33 @@ export async function POST(req: NextRequest) {
           { ok: false, error: "ng_patient", message: "処方不可と判定されているため、再処方を申請できません。再度診察予約をお取りください。" },
           { status: 403 }
         );
+      }
+    }
+
+    // ★ 予約必須テナントの場合: 過去の予約済みチェック
+    {
+      const requiresReservation = (await getSetting("consultation", "reorder_requires_reservation", tid)) === "true";
+      if (requiresReservation) {
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: pastReservation } = await withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .select("reserve_id")
+            .eq("patient_id", patientId)
+            .neq("status", "canceled")
+            .lte("reserved_date", today)
+            .order("reserved_date", { ascending: false })
+            .limit(1),
+          tenantId
+        ).maybeSingle();
+
+        if (!pastReservation) {
+          console.log(`[reorder/apply] 予約歴なしの再処方申請をブロック: patient_id=${patientId}`);
+          return NextResponse.json(
+            { ok: false, error: "reservation_required", message: "再処方には事前の予約・診察が必要です。先に予約を取得してください。" },
+            { status: 403 }
+          );
+        }
       }
     }
 

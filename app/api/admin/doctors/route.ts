@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "doctor_name required" }, { status: 400 });
     }
 
-    const record = {
+    const record: Record<string, unknown> = {
       doctor_id,
       doctor_name,
       is_active: doctor.is_active === true,
@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
       color: doctor.color || null,
       updated_at: new Date().toISOString(),
     };
+
+    // 新カラム（存在する場合のみ設定）
+    if (doctor.specialties !== undefined) record.specialties = doctor.specialties || [];
+    if (doctor.photo_url !== undefined) record.photo_url = doctor.photo_url || null;
+    if (doctor.bio !== undefined) record.bio = doctor.bio || null;
+    if (doctor.display_in_booking !== undefined) record.display_in_booking = doctor.display_in_booking !== false;
 
     const { error } = await supabaseAdmin
       .from("doctors")

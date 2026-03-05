@@ -360,6 +360,9 @@ const [mpLabels, setMpLabels] = useState({
   cancelNotice: "※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。",
 });
 
+// 再処方予約必須設定
+const [reorderRequiresReservation, setReorderRequiresReservation] = useState(false);
+
 const fetchMypageSettings = useCallback(async () => {
   try {
     const r = await fetch("/api/mypage/settings");
@@ -368,6 +371,7 @@ const fetchMypageSettings = useCallback(async () => {
     if (d.config?.sections) setMpSections(d.config.sections);
     if (d.config?.content) setMpContent(d.config.content);
     if (d.config?.labels) setMpLabels(d.config.labels);
+    if (d.consultation?.reorderRequiresReservation) setReorderRequiresReservation(true);
   } catch { /* 設定取得失敗時はデフォルト値を維持 */ }
 }, []);
 
@@ -1536,6 +1540,11 @@ onClick={() => handleOpenTracking(order)}
       {mpLabels.reorderButtonLabel}
     </button>
 
+    {reorderRequiresReservation && (
+      <p className="mt-2 text-[11px] text-amber-600 leading-relaxed">
+        ※ 再処方には事前の予約・診察が必要です。予約・診察後に再処方をお申し込みいただけます。
+      </p>
+    )}
     {displayReorder ? (
       <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">
         ※ 申請中または許可済みの再処方があります。キャンセルまたは決済完了後に再度お申し込みください。

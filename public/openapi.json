@@ -1,0 +1,2447 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Lオペ for CLINIC API",
+    "description": "クリニック特化LINE運用プラットフォーム — API仕様書",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Lオペ for CLINIC"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current server"
+    }
+  ],
+  "paths": {
+    "/api/reservations": {
+      "get": {
+        "summary": "予約枠情報取得",
+        "tags": [
+          "予約"
+        ],
+        "responses": {
+          "200": {
+            "description": "利用可能な予約枠一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "予約作成・変更・キャンセル",
+        "tags": [
+          "予約"
+        ],
+        "responses": {
+          "200": {
+            "description": "予約操作結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ]
+      }
+    },
+    "/api/reorder/apply": {
+      "post": {
+        "summary": "再処方申請",
+        "tags": [
+          "再処方"
+        ],
+        "responses": {
+          "200": {
+            "description": "申請結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "patientId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "productCode"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reorder/cancel": {
+      "post": {
+        "summary": "再処方キャンセル",
+        "tags": [
+          "再処方"
+        ],
+        "responses": {
+          "200": {
+            "description": "キャンセル結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reorder_id": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "reorder_id"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/checkout": {
+      "post": {
+        "summary": "決済処理",
+        "tags": [
+          "決済"
+        ],
+        "responses": {
+          "200": {
+            "description": "決済結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "current",
+                      "first",
+                      "reorder"
+                    ]
+                  },
+                  "patientId": {
+                    "type": "string"
+                  },
+                  "reorderId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "productCode"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mypage/settings": {
+      "get": {
+        "summary": "マイページ設定取得",
+        "tags": [
+          "マイページ"
+        ],
+        "responses": {
+          "200": {
+            "description": "マイページ設定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ]
+      }
+    },
+    "/api/register/personal-info": {
+      "post": {
+        "summary": "個人情報登録",
+        "tags": [
+          "患者登録"
+        ],
+        "responses": {
+          "200": {
+            "description": "登録結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "name_kana": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "sex": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "birthday": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "name_kana",
+                  "sex",
+                  "birthday"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/register/complete": {
+      "post": {
+        "summary": "登録完了（電話番号認証後）",
+        "tags": [
+          "患者登録"
+        ],
+        "responses": {
+          "200": {
+            "description": "完了結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "phone"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intake": {
+      "post": {
+        "summary": "問診回答送信",
+        "tags": [
+          "問診"
+        ],
+        "responses": {
+          "200": {
+            "description": "送信結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "name_kana": {
+                    "type": "string"
+                  },
+                  "nameKana": {
+                    "type": "string"
+                  },
+                  "sex": {
+                    "type": "string"
+                  },
+                  "birth": {
+                    "type": "string"
+                  },
+                  "tel": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "line_id": {
+                    "type": "string"
+                  },
+                  "lineId": {
+                    "type": "string"
+                  },
+                  "answerer_id": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/verify/send": {
+      "post": {
+        "summary": "電話番号認証コード送信",
+        "tags": [
+          "認証"
+        ],
+        "responses": {
+          "200": {
+            "description": "送信結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ]
+      }
+    },
+    "/api/verify/check": {
+      "post": {
+        "summary": "認証コード検証",
+        "tags": [
+          "認証"
+        ],
+        "responses": {
+          "200": {
+            "description": "検証結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "patientCookie": []
+          }
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "ヘルスチェック",
+        "tags": [
+          "システム"
+        ],
+        "responses": {
+          "200": {
+            "description": "サーバー状態",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        }
+      }
+    },
+    "/api/doctor/reorders/approve": {
+      "post": {
+        "summary": "再処方承認",
+        "tags": [
+          "Dr操作"
+        ],
+        "responses": {
+          "200": {
+            "description": "承認結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "id"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctor/reorders/reject": {
+      "post": {
+        "summary": "再処方却下",
+        "tags": [
+          "Dr操作"
+        ],
+        "responses": {
+          "200": {
+            "description": "却下結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/patients": {
+      "get": {
+        "summary": "患者一覧取得",
+        "tags": [
+          "管理: 患者"
+        ],
+        "responses": {
+          "200": {
+            "description": "患者一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/patients/{id}": {
+      "get": {
+        "summary": "患者詳細取得",
+        "tags": [
+          "管理: 患者"
+        ],
+        "responses": {
+          "200": {
+            "description": "患者詳細情報",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/reorders": {
+      "get": {
+        "summary": "再処方一覧取得",
+        "tags": [
+          "管理: 再処方"
+        ],
+        "responses": {
+          "200": {
+            "description": "再処方一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/products": {
+      "get": {
+        "summary": "商品一覧取得",
+        "tags": [
+          "管理: 商品"
+        ],
+        "responses": {
+          "200": {
+            "description": "商品一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "商品作成",
+        "tags": [
+          "管理: 商品"
+        ],
+        "responses": {
+          "200": {
+            "description": "作成結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "price": {
+                    "type": "number"
+                  },
+                  "drug_name": {
+                    "type": "string"
+                  },
+                  "dosage": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "duration_months": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantity": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "sort_order": {
+                    "type": "number"
+                  },
+                  "image_url": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "stock_quantity": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discount_price": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discount_until": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parent_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "price"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/inventory": {
+      "get": {
+        "summary": "在庫一覧取得",
+        "tags": [
+          "管理: 在庫"
+        ],
+        "responses": {
+          "200": {
+            "description": "在庫情報",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/shipping": {
+      "get": {
+        "summary": "配送一覧取得",
+        "tags": [
+          "管理: 配送"
+        ],
+        "responses": {
+          "200": {
+            "description": "配送一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "配送登録",
+        "tags": [
+          "管理: 配送"
+        ],
+        "responses": {
+          "200": {
+            "description": "配送登録結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "order_id"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/doctors": {
+      "get": {
+        "summary": "医師一覧取得",
+        "tags": [
+          "管理: スケジュール"
+        ],
+        "responses": {
+          "200": {
+            "description": "医師一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "医師登録・更新",
+        "tags": [
+          "管理: スケジュール"
+        ],
+        "responses": {
+          "200": {
+            "description": "登録結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/schedule": {
+      "get": {
+        "summary": "予約枠スケジュール取得",
+        "tags": [
+          "管理: スケジュール"
+        ],
+        "responses": {
+          "200": {
+            "description": "スケジュール情報",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/settings": {
+      "get": {
+        "summary": "テナント設定取得",
+        "tags": [
+          "管理: 設定"
+        ],
+        "responses": {
+          "200": {
+            "description": "設定値一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "テナント設定更新",
+        "tags": [
+          "管理: 設定"
+        ],
+        "responses": {
+          "200": {
+            "description": "更新結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "category",
+                  "key",
+                  "value"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tags": {
+      "get": {
+        "summary": "タグ一覧取得",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "タグ一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "タグ作成",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "作成結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "is_auto": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/karte-templates": {
+      "get": {
+        "summary": "カルテテンプレート一覧",
+        "tags": [
+          "管理: カルテ"
+        ],
+        "responses": {
+          "200": {
+            "description": "テンプレート一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "カルテテンプレート作成",
+        "tags": [
+          "管理: カルテ"
+        ],
+        "responses": {
+          "200": {
+            "description": "作成結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/refunds": {
+      "post": {
+        "summary": "返金処理",
+        "tags": [
+          "管理: 決済"
+        ],
+        "responses": {
+          "200": {
+            "description": "返金結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "orderId"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/line/rich-menus": {
+      "get": {
+        "summary": "リッチメニュー一覧",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "リッチメニュー一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "リッチメニュー作成",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "作成結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "chat_bar_text": {
+                    "type": "string"
+                  },
+                  "size_type": {
+                    "type": "string"
+                  },
+                  "areas": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  },
+                  "image_url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/line/rich-menus/ai-generate": {
+      "post": {
+        "summary": "リッチメニュー画像AI生成",
+        "tags": [
+          "管理: LINE",
+          "AI"
+        ],
+        "responses": {
+          "200": {
+            "description": "生成されたSVG画像",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sizeType": {
+                    "default": "full",
+                    "type": "string",
+                    "enum": [
+                      "full",
+                      "half"
+                    ]
+                  },
+                  "buttonCount": {
+                    "default": 6,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
+                  },
+                  "buttonLabels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "prompt",
+                  "sizeType",
+                  "buttonCount"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/line/templates": {
+      "get": {
+        "summary": "LINEテンプレート一覧",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "テンプレート一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/line/broadcast": {
+      "post": {
+        "summary": "LINE一斉配信",
+        "tags": [
+          "管理: LINE"
+        ],
+        "responses": {
+          "200": {
+            "description": "配信結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "filter_rules": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "scheduled_at": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "message"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard-stats": {
+      "get": {
+        "summary": "ダッシュボード統計",
+        "tags": [
+          "管理: ダッシュボード"
+        ],
+        "responses": {
+          "200": {
+            "description": "統計データ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/admin/dashboard-trends": {
+      "get": {
+        "summary": "ダッシュボードトレンド",
+        "tags": [
+          "管理: ダッシュボード"
+        ],
+        "responses": {
+          "200": {
+            "description": "トレンドデータ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "adminCookie": []
+          }
+        ]
+      }
+    },
+    "/api/webhook": {
+      "post": {
+        "summary": "LINE Webhook受信",
+        "tags": [
+          "Webhook"
+        ],
+        "responses": {
+          "200": {
+            "description": "処理結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        }
+      }
+    },
+    "/api/square/webhook": {
+      "post": {
+        "summary": "Square Webhook受信",
+        "tags": [
+          "Webhook"
+        ],
+        "responses": {
+          "200": {
+            "description": "処理結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        }
+      }
+    },
+    "/api/platform/login": {
+      "post": {
+        "summary": "プラットフォームログイン",
+        "tags": [
+          "プラットフォーム"
+        ],
+        "responses": {
+          "200": {
+            "description": "ログイン結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pendingTotpToken": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "token": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "pendingTotpToken",
+                  "token"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/tenants": {
+      "get": {
+        "summary": "テナント一覧取得",
+        "tags": [
+          "プラットフォーム"
+        ],
+        "responses": {
+          "200": {
+            "description": "テナント一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "platformCookie": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "テナント作成",
+        "tags": [
+          "プラットフォーム"
+        ],
+        "responses": {
+          "200": {
+            "description": "作成結果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "platformCookie": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50,
+                    "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+                  },
+                  "contactEmail": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "contactPhone": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "adminName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "adminEmail": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "format": "email",
+                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "adminPassword": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 200,
+                    "allOf": [
+                      {
+                        "pattern": "[A-Z]"
+                      },
+                      {
+                        "pattern": "[a-z]"
+                      },
+                      {
+                        "pattern": "[0-9]"
+                      },
+                      {
+                        "pattern": "[^A-Za-z0-9]"
+                      }
+                    ]
+                  },
+                  "industry": {
+                    "default": "clinic",
+                    "type": "string",
+                    "enum": [
+                      "clinic",
+                      "salon",
+                      "retail",
+                      "other"
+                    ]
+                  },
+                  "lineChannelId": {
+                    "type": "string"
+                  },
+                  "lineChannelSecret": {
+                    "type": "string"
+                  },
+                  "lineAccessToken": {
+                    "type": "string"
+                  },
+                  "planName": {
+                    "default": "standard",
+                    "type": "string",
+                    "enum": [
+                      "trial",
+                      "standard",
+                      "premium",
+                      "enterprise"
+                    ]
+                  },
+                  "monthlyFee": {
+                    "default": 50000,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "setupFee": {
+                    "default": 300000,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "name",
+                  "slug",
+                  "adminName",
+                  "adminEmail",
+                  "adminPassword",
+                  "industry",
+                  "planName",
+                  "monthlyFee",
+                  "setupFee"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/platform/billing/invoices": {
+      "get": {
+        "summary": "請求書一覧",
+        "tags": [
+          "プラットフォーム: 請求"
+        ],
+        "responses": {
+          "200": {
+            "description": "請求書一覧",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "認証エラー"
+          },
+          "500": {
+            "description": "サーバーエラー"
+          }
+        },
+        "security": [
+          {
+            "platformCookie": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "adminCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "admin_session",
+        "description": "管理画面セッションCookie"
+      },
+      "patientCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "patient_id",
+        "description": "患者IDCookie（LINE認証後に自動付与）"
+      },
+      "platformCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "platform_session",
+        "description": "プラットフォーム管理セッションCookie"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "予約",
+      "description": "予約管理API"
+    },
+    {
+      "name": "再処方",
+      "description": "再処方申請・管理API"
+    },
+    {
+      "name": "決済",
+      "description": "決済関連API"
+    },
+    {
+      "name": "マイページ",
+      "description": "患者マイページAPI"
+    },
+    {
+      "name": "患者登録",
+      "description": "患者登録フローAPI"
+    },
+    {
+      "name": "問診",
+      "description": "問診関連API"
+    },
+    {
+      "name": "認証",
+      "description": "電話番号認証API"
+    },
+    {
+      "name": "システム",
+      "description": "システム運用API"
+    },
+    {
+      "name": "Dr操作",
+      "description": "医師向けAPI"
+    },
+    {
+      "name": "管理: 患者",
+      "description": "管理画面 患者管理API"
+    },
+    {
+      "name": "管理: 再処方",
+      "description": "管理画面 再処方管理API"
+    },
+    {
+      "name": "管理: 商品",
+      "description": "管理画面 商品管理API"
+    },
+    {
+      "name": "管理: 在庫",
+      "description": "管理画面 在庫管理API"
+    },
+    {
+      "name": "管理: 配送",
+      "description": "管理画面 配送管理API"
+    },
+    {
+      "name": "管理: スケジュール",
+      "description": "管理画面 予約枠管理API"
+    },
+    {
+      "name": "管理: 設定",
+      "description": "管理画面 テナント設定API"
+    },
+    {
+      "name": "管理: LINE",
+      "description": "管理画面 LINE管理API"
+    },
+    {
+      "name": "管理: カルテ",
+      "description": "管理画面 カルテ管理API"
+    },
+    {
+      "name": "管理: 決済",
+      "description": "管理画面 決済管理API"
+    },
+    {
+      "name": "管理: ダッシュボード",
+      "description": "管理画面 ダッシュボードAPI"
+    },
+    {
+      "name": "AI",
+      "description": "AI関連API"
+    },
+    {
+      "name": "Webhook",
+      "description": "Webhook受信API"
+    },
+    {
+      "name": "プラットフォーム",
+      "description": "プラットフォーム管理API"
+    },
+    {
+      "name": "プラットフォーム: 請求",
+      "description": "プラットフォーム請求管理API"
+    }
+  ]
+}

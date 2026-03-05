@@ -70,7 +70,12 @@ const handleSubmit = async () => {
 
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.ok === false) {
-      throw new Error(json.error || "再処方申請の送信に失敗しました。");
+      if (json.error === "reservation_required") {
+        setError("再処方には事前の予約・診察が必要です。先に予約を取得してください。");
+        setSubmitting(false);
+        return;
+      }
+      throw new Error(json.message || json.error || "再処方申請の送信に失敗しました。");
     }
 
     alert(

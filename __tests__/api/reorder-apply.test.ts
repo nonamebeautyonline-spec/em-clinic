@@ -40,6 +40,7 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: vi.fn().mockResolvedValue("test-token"),
+  getSetting: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/lib/validations/helpers", () => ({
@@ -71,6 +72,7 @@ vi.stubGlobal("fetch", vi.fn());
 import { POST } from "@/app/api/reorder/apply/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { invalidateDashboardCache } from "@/lib/redis";
+import { getSetting } from "@/lib/settings";
 import { cookies } from "next/headers";
 
 // === テスト本体 ===
@@ -83,6 +85,9 @@ describe("POST /api/reorder/apply", () => {
     vi.mocked(parseBody).mockResolvedValue({
       data: { productCode: "MJL_5mg_1m" },
     });
+
+    // デフォルト: getSetting → null（予約必須チェックOFF）
+    vi.mocked(getSetting).mockResolvedValue(null);
 
     // デフォルト: fetch成功
     vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("ok") });
@@ -245,6 +250,95 @@ describe("POST /api/reorder/apply", () => {
       reordersChain.single = vi.fn().mockReturnValue({
         then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
       });
+      const patientsChain = createChain({ data: { name: "田中" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const ordersChain = createChain({ data: [], error: null });
+      tableChains["orders"] = ordersChain;
+
+      const req = new NextRequest("http://localhost/api/reorder/apply", {
+        method: "POST",
+        body: JSON.stringify({ productCode: "MJL_5mg_1m" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // 予約必須ゲートチェックテスト (Phase 6)
+  // ------------------------------------------------------------------
+  describe("予約必須チェック (reorder_requires_reservation)", () => {
+    function setupCookies(pid = "PT-RES") {
+      vi.mocked(cookies).mockResolvedValue({
+        get: vi.fn((name: string) => {
+          if (name === "__Host-patient_id" || name === "patient_id") return { value: pid };
+          return undefined;
+        }),
+      });
+    }
+
+    it("設定OFF（デフォルト）の場合は予約チェックをスキップして通過", async () => {
+      setupCookies();
+      vi.mocked(getSetting).mockResolvedValue(null); // デフォルト: 予約不要
+
+      const intakeChain = createChain({ data: null, error: null });
+      tableChains["intake"] = intakeChain;
+      const reordersChain = createChain({ data: null, error: null });
+      reordersChain.single = vi.fn().mockReturnValue({
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
+      });
+      tableChains["reorders"] = reordersChain;
+      const patientsChain = createChain({ data: { name: "田中" }, error: null });
+      tableChains["patients"] = patientsChain;
+      const ordersChain = createChain({ data: [], error: null });
+      tableChains["orders"] = ordersChain;
+
+      const req = new NextRequest("http://localhost/api/reorder/apply", {
+        method: "POST",
+        body: JSON.stringify({ productCode: "MJL_5mg_1m" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+    });
+
+    it("設定ON + 予約歴なしの場合は403を返す", async () => {
+      setupCookies("PT-NORES");
+      vi.mocked(getSetting).mockResolvedValue("true");
+
+      const intakeChain = createChain({ data: null, error: null });
+      tableChains["intake"] = intakeChain;
+      // 予約チェック: 予約歴なし
+      const reservationsChain = createChain({ data: null, error: null });
+      tableChains["reservations"] = reservationsChain;
+
+      const req = new NextRequest("http://localhost/api/reorder/apply", {
+        method: "POST",
+        body: JSON.stringify({ productCode: "MJL_5mg_1m" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toBe("reservation_required");
+    });
+
+    it("設定ON + 予約歴ありの場合は通過する", async () => {
+      setupCookies("PT-HASRES");
+      vi.mocked(getSetting).mockResolvedValue("true");
+
+      const intakeChain = createChain({ data: null, error: null });
+      tableChains["intake"] = intakeChain;
+      // 予約チェック: 予約歴あり
+      const reservationsChain = createChain({ data: { reserve_id: "RSV-001" }, error: null });
+      tableChains["reservations"] = reservationsChain;
+      // 重複チェック: なし
+      const reordersChain = createChain({ data: null, error: null });
+      reordersChain.single = vi.fn().mockReturnValue({
+        then: (fn: (val: unknown) => void) => fn({ data: { id: 1 }, error: null }),
+      });
+      tableChains["reorders"] = reordersChain;
       const patientsChain = createChain({ data: { name: "田中" }, error: null });
       tableChains["patients"] = patientsChain;
       const ordersChain = createChain({ data: [], error: null });

@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const parsed = await parseBody(req, createRichMenuSchema);
     if ("error" in parsed) return parsed.error;
-    const { name, chat_bar_text, selected, size_type, areas, image_url } = parsed.data;
+    const { name, chat_bar_text, selected, size_type, areas, image_url, ai_prompt, ai_generated } = parsed.data;
 
     // 1. DBに保存
     const { data, error } = await supabaseAdmin
@@ -120,6 +120,8 @@ export async function POST(req: NextRequest) {
         size_type: size_type || "full",
         areas: areas || [],
         image_url: image_url || null,
+        ...(ai_prompt ? { ai_prompt } : {}),
+        ...(ai_generated != null ? { ai_generated } : {}),
       })
       .select()
       .single();
