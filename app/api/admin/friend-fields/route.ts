@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { conflict, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { friendFieldCreateSchema } from "@/lib/validations/admin-operations";
 // 友達情報欄の定義一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -20,14 +21,14 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ fields: data });
 }
 
 // 友達情報欄の定義を作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -42,8 +43,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    if (error.code === "23505") return NextResponse.json({ error: "同じ名前のフィールドが既に存在します" }, { status: 409 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error.code === "23505") return conflict("同じ名前のフィールドが既に存在します");
+    return serverError(error.message);
   }
 
   return NextResponse.json({ field: data });

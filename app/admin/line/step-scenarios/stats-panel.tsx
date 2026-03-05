@@ -94,8 +94,8 @@ export default function StatsPanel({ scenario_id, onClose }: StatsPanelProps) {
         throw new Error(`HTTP ${res.status}`);
       }
       const json = await res.json();
-      if (json.error) {
-        throw new Error(json.error);
+      if ((json.message || json.error)) {
+        throw new Error((json.message || json.error));
       }
       setData(json);
     } catch (e) {

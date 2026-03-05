@@ -1,5 +1,6 @@
 // app/api/admin/line/followup-rules/[id]/route.ts — フォローアップルール個別操作API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -13,13 +14,13 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { id } = await ctx.params;
   const ruleId = parseInt(id, 10);
   if (isNaN(ruleId)) {
-    return NextResponse.json({ error: "無効なIDです" }, { status: 400 });
+    return badRequest("無効なIDです");
   }
 
   const tenantId = resolveTenantId(req);
@@ -38,7 +39,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 
   const { error } = await query;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });
@@ -49,13 +50,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { id } = await ctx.params;
   const ruleId = parseInt(id, 10);
   if (isNaN(ruleId)) {
-    return NextResponse.json({ error: "無効なIDです" }, { status: 400 });
+    return badRequest("無効なIDです");
   }
 
   const tenantId = resolveTenantId(req);
@@ -69,7 +70,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
   const { error } = await query;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });

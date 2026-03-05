@@ -1,6 +1,7 @@
 // app/api/admin/bank-transfer/manual-confirm/route.ts
 // 銀行振込手動確認API - 自動照合で紐付けできなかった場合に手動で確認する
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, bankTransferManualConfirmSchema);
@@ -40,25 +41,16 @@ export async function POST(req: NextRequest) {
 
     if (fetchError || !order) {
       console.error(`[ManualConfirm] Order not found: ${order_id}`);
-      return NextResponse.json(
-        { error: "注文が見つかりませんでした" },
-        { status: 404 }
-      );
+      return notFound("注文が見つかりませんでした");
     }
 
     // pending_confirmationかつbank_transferであることを確認
     if (order.status !== "pending_confirmation") {
-      return NextResponse.json(
-        { error: "この注文は既に処理済みです" },
-        { status: 400 }
-      );
+      return badRequest("この注文は既に処理済みです");
     }
 
     if (order.payment_method !== "bank_transfer") {
-      return NextResponse.json(
-        { error: "銀行振込以外の注文です" },
-        { status: 400 }
-      );
+      return badRequest("銀行振込以外の注文です");
     }
 
     // payment_idを採番（bt_XXX形式）
@@ -105,10 +97,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error(`[ManualConfirm] Update error:`, updateError);
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      );
+      return serverError(updateError.message);
     }
 
     console.log(`[ManualConfirm] Updated ${order_id} → ${nextBtId} (confirmed)`);
@@ -144,9 +133,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[ManualConfirm] Error:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }

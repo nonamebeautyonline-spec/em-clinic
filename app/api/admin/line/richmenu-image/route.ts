@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 // LINE APIからリッチメニュー画像をプロキシ
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { createScheduleSchema } from "@/lib/validations/line-management";
 // 予約送信一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -17,14 +18,14 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ schedules: data });
 }
 
 // 予約送信登録
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -51,6 +52,6 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ schedule: data });
 }

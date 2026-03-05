@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
@@ -21,7 +22,7 @@ export async function POST(
   );
 
   if (!form || !form.is_published) {
-    return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
+    return notFound("フォームが見つかりません");
   }
 
   const formData = await req.formData();
@@ -29,12 +30,12 @@ export async function POST(
   const fieldId = formData.get("field_id") as string | null;
 
   if (!file || !fieldId) {
-    return NextResponse.json({ error: "ファイルとフィールドIDは必須です" }, { status: 400 });
+    return badRequest("ファイルとフィールドIDは必須です");
   }
 
   // ファイルサイズ制限 (10MB)
   if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: "ファイルサイズは10MB以下にしてください" }, { status: 400 });
+    return badRequest("ファイルサイズは10MB以下にしてください");
   }
 
   const bytes = await file.arrayBuffer();
@@ -50,7 +51,7 @@ export async function POST(
     });
 
   if (uploadErr) {
-    return NextResponse.json({ error: uploadErr.message }, { status: 500 });
+    return serverError(uploadErr.message);
   }
 
   const { data: urlData } = supabaseAdmin.storage

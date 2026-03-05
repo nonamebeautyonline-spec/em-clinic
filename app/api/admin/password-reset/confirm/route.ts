@@ -1,6 +1,7 @@
 // app/api/admin/password-reset/confirm/route.ts
 // パスワード設定/リセット確認
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -20,10 +21,7 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("token");
 
   if (!token) {
-    return NextResponse.json(
-      { ok: false, error: "トークンが必要です" },
-      { status: 400 }
-    );
+    return badRequest("トークンが必要です");
   }
 
   // トークン検証
@@ -47,26 +45,17 @@ export async function GET(req: NextRequest) {
   );
 
   if (error || !resetToken) {
-    return NextResponse.json(
-      { ok: false, error: "無効なトークンです" },
-      { status: 400 }
-    );
+    return badRequest("無効なトークンです");
   }
 
   // 使用済みチェック
   if (resetToken.used_at) {
-    return NextResponse.json(
-      { ok: false, error: "このリンクは既に使用されています" },
-      { status: 400 }
-    );
+    return badRequest("このリンクは既に使用されています");
   }
 
   // 有効期限チェック
   if (new Date(resetToken.expires_at) < new Date()) {
-    return NextResponse.json(
-      { ok: false, error: "このリンクは有効期限切れです" },
-      { status: 400 }
-    );
+    return badRequest("このリンクは有効期限切れです");
   }
 
   const user = resetToken.admin_users as unknown as { email: string; name: string } | null;
@@ -100,33 +89,21 @@ export async function POST(req: NextRequest) {
     );
 
     if (tokenError || !resetToken) {
-      return NextResponse.json(
-        { ok: false, error: "無効なトークンです" },
-        { status: 400 }
-      );
+      return badRequest("無効なトークンです");
     }
 
     if (resetToken.used_at) {
-      return NextResponse.json(
-        { ok: false, error: "このリンクは既に使用されています" },
-        { status: 400 }
-      );
+      return badRequest("このリンクは既に使用されています");
     }
 
     if (new Date(resetToken.expires_at) < new Date()) {
-      return NextResponse.json(
-        { ok: false, error: "このリンクは有効期限切れです" },
-        { status: 400 }
-      );
+      return badRequest("このリンクは有効期限切れです");
     }
 
     // パスワード履歴チェック（直近5回と重複していないか）
     const isAllowed = await checkPasswordHistory(resetToken.admin_user_id, password);
     if (!isAllowed) {
-      return NextResponse.json(
-        { ok: false, error: "過去5回以内に使用したパスワードは再利用できません" },
-        { status: 400 }
-      );
+      return badRequest("過去5回以内に使用したパスワードは再利用できません");
     }
 
     // パスワードハッシュ化
@@ -146,10 +123,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[Password Reset] Update error:", updateError);
-      return NextResponse.json(
-        { ok: false, error: "パスワードの更新に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("パスワードの更新に失敗しました");
     }
 
     // パスワード履歴に保存
@@ -170,9 +144,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[Password Reset Confirm] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

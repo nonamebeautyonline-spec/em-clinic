@@ -139,7 +139,7 @@ describe("POST /api/voice/transcribe", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toContain("音声ファイル");
+    expect(body.message).toContain("音声ファイル");
   });
 
   it("ファイルサイズが上限を超えた場合は400を返す", async () => {
@@ -149,7 +149,7 @@ describe("POST /api/voice/transcribe", () => {
     const res = await POST(req as unknown as Request);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("4MB");
+    expect(body.message).toContain("4MB");
   });
 
   it("Deepgramで正常に文字起こしできる", async () => {

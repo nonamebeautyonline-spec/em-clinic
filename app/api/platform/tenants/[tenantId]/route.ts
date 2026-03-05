@@ -2,6 +2,7 @@
 // テナント詳細取得・更新・削除API
 
 import { NextRequest, NextResponse } from "next/server";
+import { conflict, forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -19,10 +20,7 @@ interface RouteContext {
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -43,19 +41,13 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
         .eq("id", tenantId)
         .maybeSingle();
       if (basicErr || !basic) {
-        return NextResponse.json(
-          { ok: false, error: "テナントが見つかりません" },
-          { status: 404 },
-        );
+        return notFound("テナントが見つかりません");
       }
       return NextResponse.json({ ok: true, tenant: { ...basic, tenant_members: [], tenant_plans: [] } });
     }
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // メンバー情報を個別取得（リレーション解決問題を回避）
@@ -101,10 +93,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     });
   } catch (err) {
     console.error("[platform/tenants/[id]] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "テナント情報の取得に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("テナント情報の取得に失敗しました");
   }
 }
 
@@ -114,10 +103,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -148,10 +134,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     }
 
     if (!existing) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // slug変更がある場合、重複チェック
@@ -164,10 +147,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
         .maybeSingle();
 
       if (slugExists) {
-        return NextResponse.json(
-          { ok: false, error: "このスラグは既に使用されています" },
-          { status: 409 },
-        );
+        return conflict("このスラグは既に使用されています");
       }
     }
 
@@ -211,10 +191,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 
     if (updateErr) {
       console.error("[platform/tenants/[id]] PUT error:", updateErr);
-      return NextResponse.json(
-        { ok: false, error: "テナントの更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("テナントの更新に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -225,10 +202,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ ok: true, tenant: updated });
   } catch (err) {
     console.error("[platform/tenants/[id]] PUT unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -239,10 +213,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -256,10 +227,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!existing) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // ソフトデリート
@@ -275,10 +243,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
     if (deleteErr) {
       console.error("[platform/tenants/[id]] DELETE error:", deleteErr);
-      return NextResponse.json(
-        { ok: false, error: "テナントの削除に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("テナントの削除に失敗しました");
     }
 
     // テナントに属するメンバーも無効化
@@ -296,9 +261,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[platform/tenants/[id]] DELETE unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

@@ -60,7 +60,7 @@ describe("配送設定管理 API (shipping/config/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("正常取得 → 設定オブジェクトが返る", async () => {
@@ -125,7 +125,7 @@ describe("配送設定管理 API (shipping/config/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("保存に失敗しました");
+      expect(json.message).toBe("保存に失敗しました");
     });
 
     it("setShippingConfig に config と tenantId が渡される", async () => {

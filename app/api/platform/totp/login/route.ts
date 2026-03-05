@@ -2,6 +2,7 @@
 // ログイン時に2FAが有効な場合、pendingTotpToken + TOTPコードで最終認証
 // 認証不要（pendingTotpTokenで検証）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import { verifyTOTP } from "@/lib/totp";
@@ -35,10 +36,7 @@ export async function POST(req: NextRequest) {
       userId = await redis.get<string>(`totp-pending:${pendingTotpToken}`);
     } catch (redisErr) {
       console.error("[TOTP Login] Redis error:", redisErr);
-      return NextResponse.json(
-        { ok: false, error: "サーバーエラー" },
-        { status: 500 }
-      );
+      return serverError("サーバーエラー");
     }
 
     if (!userId) {
@@ -65,10 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!user.totp_enabled || !user.totp_secret) {
-      return NextResponse.json(
-        { ok: false, error: "2要素認証が設定されていません" },
-        { status: 400 }
-      );
+      return badRequest("2要素認証が設定されていません");
     }
 
     // TOTPコードを検証
@@ -178,9 +173,6 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("[TOTP Login] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

@@ -2,6 +2,7 @@
 // プラットフォーム管理: テナント詳細分析API（月別推移データ）
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -11,10 +12,7 @@ export async function GET(
 ) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await params;
   const url = new URL(req.url);
@@ -29,10 +27,7 @@ export async function GET(
       .single();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // 月の配列を生成（直近Nヶ月）
@@ -119,9 +114,6 @@ export async function GET(
     return NextResponse.json({ ok: true, monthly });
   } catch (err) {
     console.error("[platform/tenants/analytics] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "分析データの取得に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("分析データの取得に失敗しました");
   }
 }

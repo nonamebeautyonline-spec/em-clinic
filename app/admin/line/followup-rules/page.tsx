@@ -130,7 +130,7 @@ export default function FollowupRulesPage() {
       resetForm();
     } else {
       const data = await res.json();
-      alert(data.error || "保存に失敗しました");
+      alert((data.message || data.error) || "保存に失敗しました");
     }
     setSaving(false);
   };

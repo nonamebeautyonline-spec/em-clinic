@@ -69,7 +69,7 @@ export default function MarkManagementPage() {
       resetForm();
     } else {
       const data = await res.json();
-      alert(data.error || "保存失敗");
+      alert((data.message || data.error) || "保存失敗");
     }
     setSaving(false);
   };
@@ -84,7 +84,7 @@ export default function MarkManagementPage() {
       setDeleteConfirm(null);
     } else {
       const data = await res.json();
-      alert(data.error || "削除失敗");
+      alert((data.message || data.error) || "削除失敗");
     }
   };
 

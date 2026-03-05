@@ -1,5 +1,6 @@
 // app/api/admin/products/route.ts — 商品 CRUD API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
@@ -10,7 +11,7 @@ import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admi
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("[products API] insert error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ product: data }, { status: 201 });
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -85,7 +86,7 @@ export async function PUT(req: NextRequest) {
 
   if (error) {
     console.error("[products API] update error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ product: data });
@@ -94,7 +95,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -102,7 +103,7 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get("id");
 
   if (!id) {
-    return NextResponse.json({ error: "id は必須です" }, { status: 400 });
+    return badRequest("id は必須です");
   }
 
   // 物理削除ではなく無効化
@@ -112,7 +113,7 @@ export async function DELETE(req: NextRequest) {
 
   if (error) {
     console.error("[products API] deactivate error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ success: true });

@@ -202,7 +202,7 @@ describe("POST /api/admin/line/segments/ai-query", () => {
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toContain("ANTHROPIC_API_KEY");
+    expect(json.message).toContain("ANTHROPIC_API_KEY");
   });
 
   it("execute=true + 安全なSQL → RPC呼び出し", async () => {

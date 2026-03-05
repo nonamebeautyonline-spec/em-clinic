@@ -3,6 +3,7 @@
 // 異常時にLINE通知を送信
 
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { redis } from "@/lib/redis";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
   // Vercel Cron 認証
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const issues: string[] = [];

@@ -1,5 +1,6 @@
 // app/api/admin/ehr/logs/route.ts — 同期ログ取得
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -32,10 +33,7 @@ export async function GET(req: NextRequest) {
     const messages = parseResult.error.issues.map(
       (e) => `${e.path.join(".")}: ${e.message}`,
     );
-    return NextResponse.json(
-      { error: "パラメータが不正です", details: messages },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: "パラメータが不正です", details: messages }, { status: 400 });
   }
 
   const { limit, provider, status } = parseResult.data;
@@ -75,6 +73,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ logs: data || [] });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "ログ取得に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }

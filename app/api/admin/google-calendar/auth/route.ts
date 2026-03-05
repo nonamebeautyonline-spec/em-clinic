@@ -3,6 +3,7 @@
 // 管理者が医師のGoogleカレンダー連携を開始する際に呼び出す
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { getAuthUrl } from "@/lib/google-calendar";
@@ -12,21 +13,18 @@ export async function GET(req: NextRequest) {
     // 管理者認証チェック
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
     if (!tenantId) {
-      return NextResponse.json({ error: "テナントIDが取得できません" }, { status: 400 });
+      return badRequest("テナントIDが取得できません");
     }
 
     // doctor_id パラメータ取得
     const doctorId = req.nextUrl.searchParams.get("doctor_id");
     if (!doctorId) {
-      return NextResponse.json(
-        { error: "doctor_id パラメータは必須です" },
-        { status: 400 }
-      );
+      return badRequest("doctor_id パラメータは必須です");
     }
 
     // OAuth2認証URLを生成
@@ -35,9 +33,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, authUrl });
   } catch (error) {
     console.error("[Google Calendar Auth] エラー:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

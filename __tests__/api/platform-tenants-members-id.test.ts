@@ -76,7 +76,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.error).toBe("権限がありません");
+      expect(json.message).toBe("権限がありません");
     });
 
     it("バリデーションエラーでparseBodyのエラーを返す", async () => {
@@ -93,7 +93,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await PUT(makeReq("PUT", { role: "admin" }), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("メンバーが見つかりません");
+      expect(json.message).toBe("メンバーが見つかりません");
     });
 
     it("正常にロール変更で200を返す", async () => {
@@ -146,7 +146,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await PUT(makeReq("PUT", { role: "viewer" }), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("ロールの変更に失敗しました");
+      expect(json.message).toBe("ロールの変更に失敗しました");
     });
 
     it("tenantIdとmemberIdの両方がクエリ条件に使われる", async () => {
@@ -177,7 +177,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("メンバーが見つかりません");
+      expect(json.message).toBe("メンバーが見つかりません");
     });
 
     it("最後のオーナーを削除しようとすると400を返す", async () => {
@@ -208,7 +208,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("オーナーは最低1人必要です");
+      expect(json.message).toBe("オーナーは最低1人必要です");
     });
 
     it("他にオーナーがいればオーナーも削除できる", async () => {
@@ -280,7 +280,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("メンバーの削除に失敗しました");
+      expect(json.message).toBe("メンバーの削除に失敗しました");
     });
 
     it("削除後にadmin_usersが無効化される", async () => {
@@ -313,7 +313,7 @@ describe("platform/tenants/[tenantId]/members/[memberId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("予期しないエラーが発生しました");
+      expect(json.message).toBe("予期しないエラーが発生しました");
     });
   });
 });

@@ -465,7 +465,7 @@ export default function KartePage() {
         }),
       });
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "保存失敗");
+      if (!data.ok) throw new Error((data.message || data.error) || "保存失敗");
       // 編集セッション終了
       await endEditSession();
       // ローカル更新
@@ -518,7 +518,7 @@ export default function KartePage() {
         }),
       });
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "AI要約の生成に失敗しました");
+      if (!data.ok) throw new Error((data.message || data.error) || "AI要約の生成に失敗しました");
 
       // SOAP欄に自動入力
       setEditSoap({
@@ -554,7 +554,7 @@ export default function KartePage() {
         body: JSON.stringify({ intakeId, action }),
       });
       const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "操作失敗");
+      if (!data.ok) throw new Error((data.message || data.error) || "操作失敗");
       // ローカル更新
       setIntakes(prev => prev.map(it =>
         it.id === intakeId
@@ -593,7 +593,7 @@ export default function KartePage() {
       });
       const data = await res.json();
       if (!data.ok) {
-        alert(data.error || "送信に失敗しました");
+        alert((data.message || data.error) || "送信に失敗しました");
         return;
       }
       setCallFormSentPatients((prev) => new Set(prev).add(patient.id));

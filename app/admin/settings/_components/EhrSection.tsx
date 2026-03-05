@@ -156,7 +156,7 @@ export default function EhrSection({ onToast }: EhrSectionProps) {
       if (res.ok && data.success) {
         setTestResult({ ok: true, message: data.message || "接続に成功しました" });
       } else {
-        setTestResult({ ok: false, message: data.error || "接続に失敗しました" });
+        setTestResult({ ok: false, message: (data.message || data.error) || "接続に失敗しました" });
       }
     } catch {
       setTestResult({ ok: false, message: "接続テストに失敗しました" });

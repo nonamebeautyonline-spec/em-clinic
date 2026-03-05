@@ -163,7 +163,7 @@ describe("インシデントAPI (/api/platform/incidents)", () => {
       const res = await incidentPOST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("titleは必須です");
+      expect(json.message).toBe("titleは必須です");
     });
 
     it("不正なseverity → 400", async () => {
@@ -174,7 +174,7 @@ describe("インシデントAPI (/api/platform/incidents)", () => {
       const res = await incidentPOST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("severityは");
+      expect(json.message).toContain("severityは");
     });
 
     it("不正なstatus → 400", async () => {
@@ -185,7 +185,7 @@ describe("インシデントAPI (/api/platform/incidents)", () => {
       const res = await incidentPOST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("statusは");
+      expect(json.message).toContain("statusは");
     });
 
     it("正常作成 → 201", async () => {

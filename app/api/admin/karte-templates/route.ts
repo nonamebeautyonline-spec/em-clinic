@@ -1,5 +1,6 @@
 // カルテテンプレート CRUD API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
         fromDefaults: true,
       });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   // テンプレートが0件ならデフォルトを返す
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   return NextResponse.json({ ok: true, template: data });
 }
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -141,7 +142,7 @@ export async function PUT(req: NextRequest) {
   ).single();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   return NextResponse.json({ ok: true, template: data });
 }
@@ -150,13 +151,13 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
   const id = new URL(req.url).searchParams.get("id");
   if (!id) {
-    return NextResponse.json({ error: "id は必須です" }, { status: 400 });
+    return badRequest("id は必須です");
   }
 
   const { error } = await withTenant(
@@ -168,7 +169,7 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   return NextResponse.json({ ok: true });
 }

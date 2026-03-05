@@ -88,7 +88,7 @@ describe("POST /api/voice/generate-karte", () => {
     const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("テキスト");
+    expect(body.message).toContain("テキスト");
   });
 
   it("テキストが短すぎる場合は400を返す", async () => {
@@ -97,7 +97,7 @@ describe("POST /api/voice/generate-karte", () => {
     const res = await POST(req as unknown as import("next/server").NextRequest);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("10文字");
+    expect(body.message).toContain("10文字");
   });
 
   it("Claude API エラー時は500を返す", async () => {

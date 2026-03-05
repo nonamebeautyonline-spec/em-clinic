@@ -2,6 +2,7 @@
 // プラットフォーム管理: 全テナント使用量一覧API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getCurrentMonthUsage } from "@/lib/usage";
@@ -16,10 +17,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
   }
 
   try {
@@ -32,10 +30,7 @@ export async function GET(req: NextRequest) {
       .order("name", { ascending: true });
 
     if (tenantsErr) {
-      return NextResponse.json(
-        { ok: false, error: tenantsErr.message },
-        { status: 500 },
-      );
+      return serverError(tenantsErr.message);
     }
 
     if (!tenants || tenants.length === 0) {
@@ -128,9 +123,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/usage] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

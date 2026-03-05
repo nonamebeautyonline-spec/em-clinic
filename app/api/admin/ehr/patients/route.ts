@@ -1,5 +1,6 @@
 // app/api/admin/ehr/patients/route.ts — 外部カルテ患者検索
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { ehrPatientSearchSchema } from "@/lib/validations/ehr";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -31,10 +32,7 @@ export async function GET(req: NextRequest) {
     const messages = parseResult.error.issues.map(
       (e) => `${e.path.join(".")}: ${e.message}`,
     );
-    return NextResponse.json(
-      { error: "検索パラメータが不正です", details: messages },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: "検索パラメータが不正です", details: messages }, { status: 400 });
   }
 
   const query = parseResult.data;
@@ -43,10 +41,7 @@ export async function GET(req: NextRequest) {
     // アダプター生成
     const adapter = await createAdapter(tenantId ?? undefined);
     if (!adapter) {
-      return NextResponse.json(
-        { error: "EHRプロバイダーが設定されていません" },
-        { status: 400 },
-      );
+      return badRequest("EHRプロバイダーが設定されていません");
     }
 
     // 外部カルテで患者検索
@@ -55,6 +50,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ patients });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "患者検索に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }

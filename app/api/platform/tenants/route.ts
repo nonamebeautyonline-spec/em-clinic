@@ -2,6 +2,7 @@
 // テナント一覧取得・テナント新規作成API
 
 import { NextRequest, NextResponse } from "next/server";
+import { conflict, forbidden, serverError } from "@/lib/api-error";
 import bcrypt from "bcryptjs";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -24,10 +25,7 @@ import { getStripeClient } from "@/lib/stripe";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
@@ -78,10 +76,7 @@ export async function GET(req: NextRequest) {
 
     if (tenantsErr) {
       console.error("[platform/tenants] GET error:", tenantsErr);
-      return NextResponse.json(
-        { ok: false, error: `テナント一覧の取得に失敗しました: ${tenantsErr.message}` },
-        { status: 500 },
-      );
+      return serverError(`テナント一覧の取得に失敗しました: ${tenantsErr.message}`);
     }
 
     // 各テナントの患者数と今月売上を取得（失敗しても一覧表示は維持）
@@ -170,10 +165,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/tenants] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -189,10 +181,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const parsed = await parseBody(req, createTenantSchema);
   if (parsed.error) return parsed.error;
@@ -209,10 +198,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return NextResponse.json(
-        { ok: false, error: "このスラグは既に使用されています" },
-        { status: 409 },
-      );
+      return conflict("このスラグは既に使用されています");
     }
 
     // メールアドレス重複チェック
@@ -223,10 +209,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existingUser) {
-      return NextResponse.json(
-        { ok: false, error: "このメールアドレスは既に使用されています" },
-        { status: 409 },
-      );
+      return conflict("このメールアドレスは既に使用されています");
     }
 
     // 1. テナント作成
@@ -246,10 +229,7 @@ export async function POST(req: NextRequest) {
 
     if (tenantErr || !tenant) {
       console.error("[platform/tenants] INSERT tenant error:", tenantErr);
-      return NextResponse.json(
-        { ok: false, error: "テナントの作成に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("テナントの作成に失敗しました");
     }
 
     const tenantId = tenant.id;
@@ -275,10 +255,7 @@ export async function POST(req: NextRequest) {
       console.error("[platform/tenants] INSERT admin_user error:", adminUserErr);
       // ロールバック: テナント削除
       await supabaseAdmin.from("tenants").delete().eq("id", tenantId);
-      return NextResponse.json(
-        { ok: false, error: "管理者ユーザーの作成に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("管理者ユーザーの作成に失敗しました");
     }
 
     // 3. テナントメンバー紐付け
@@ -378,9 +355,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     console.error("[platform/tenants] POST unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

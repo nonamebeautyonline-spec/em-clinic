@@ -1,5 +1,6 @@
 // カルテ新規追加API（intake レコードを新規作成）
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
 

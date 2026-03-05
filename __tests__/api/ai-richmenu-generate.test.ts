@@ -100,6 +100,6 @@ describe("POST /api/admin/line/rich-menus/ai-generate", () => {
     const json = await res.json();
 
     expect(res.status).toBe(500);
-    expect(json.error).toContain("ANTHROPIC_API_KEY");
+    expect(json.message).toContain("ANTHROPIC_API_KEY");
   });
 });

@@ -1,5 +1,6 @@
 // app/api/admin/line/reminder-rules/logs/route.ts — リマインド送信ログ
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -7,7 +8,7 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 // 送信ログ取得（日別・ルール別集計）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   if (!logs || logs.length === 0) return NextResponse.json({ logs: [] });
 
   // scheduled_message_ids を取得して status を確認

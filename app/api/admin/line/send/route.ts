@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -11,7 +12,7 @@ import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const { patient_id, message, message_type, flex, template_name } = parsed.data;
   if (!message?.trim() && !flex) {
-    return NextResponse.json({ error: "message または flex は必須です" }, { status: 400 });
+    return badRequest("message または flex は必須です");
   }
 
   // 患者の LINE UID・名前を patients テーブルから取得

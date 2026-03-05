@@ -62,7 +62,7 @@ describe("月次原価計算 API - GET", () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("year_month不正 → 400", async () => {

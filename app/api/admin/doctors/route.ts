@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, tenantPayload } from "@/lib/tenant";
@@ -7,7 +8,7 @@ import { doctorUpsertSchema } from "@/lib/validations/admin-operations";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -21,10 +22,10 @@ export async function POST(req: NextRequest) {
     const doctor_name = String(doctor.doctor_name || "").trim();
 
     if (!doctor_id) {
-      return NextResponse.json({ ok: false, error: "doctor_id required" }, { status: 400 });
+      return badRequest("doctor_id required");
     }
     if (!doctor_name) {
-      return NextResponse.json({ ok: false, error: "doctor_name required" }, { status: 400 });
+      return badRequest("doctor_name required");
     }
 
     const record: Record<string, unknown> = {
@@ -48,10 +49,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("doctors upsert error:", error);
-      return NextResponse.json(
-        { ok: false, error: "DB_ERROR", detail: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, doctor: record });

@@ -1,5 +1,6 @@
 // app/api/admin/setup-status/route.ts — テナント初期セットアップ完了状態API
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -48,7 +49,7 @@ async function hasSettingsForCategory(
 export async function GET(req: NextRequest) {
   const authed = await verifyAdminAuth(req);
   if (!authed)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 

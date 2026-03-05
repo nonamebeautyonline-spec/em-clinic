@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { createFolderSchema, updateFolderSchema } from "@/lib/validations/line-m
 // フォルダ一覧取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   const folders = (data || []).map((f: Record<string, unknown>) => ({
     ...f,
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 // フォルダ作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, createFolderSchema);
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, folder: data });
 }
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
 // フォルダ名変更
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, updateFolderSchema);
@@ -71,7 +72,7 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, folder: data });
 }
@@ -79,12 +80,12 @@ export async function PUT(req: NextRequest) {
 // フォルダ削除（中のファイルは未分類に移動）
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   // 未分類フォルダを取得
   const { data: defaultFolder } = await withTenant(
@@ -96,7 +97,7 @@ export async function DELETE(req: NextRequest) {
   ).single();
 
   if (defaultFolder && parseInt(id) === defaultFolder.id) {
-    return NextResponse.json({ error: "未分類フォルダは削除できません" }, { status: 400 });
+    return badRequest("未分類フォルダは削除できません");
   }
 
   // フォルダ内のファイルを未分類に移動
@@ -126,7 +127,7 @@ export async function DELETE(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true });
 }

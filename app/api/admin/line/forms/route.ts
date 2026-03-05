@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { nanoid } from "nanoid";
@@ -9,7 +10,7 @@ import { createFormSchema } from "@/lib/validations/line-common";
 // フォーム一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
@@ -23,14 +24,14 @@ export async function GET(req: NextRequest) {
   if (folderId) query = query.eq("folder_id", parseInt(folderId));
 
   const { data, error } = await withTenant(query, tenantId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ forms: data || [] });
 }
 
 // フォーム新規作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -55,6 +56,6 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, form: data });
 }

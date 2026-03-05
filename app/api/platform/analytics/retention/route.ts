@@ -2,16 +2,14 @@
 // プラットフォーム管理: コーホートリテンション分析API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     // 全テナント取得（created_at, is_active, deleted_at）
@@ -86,9 +84,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, cohorts });
   } catch (err) {
     console.error("[platform/analytics/retention] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "リテンションデータの取得に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("リテンションデータの取得に失敗しました");
   }
 }

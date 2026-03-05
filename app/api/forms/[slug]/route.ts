@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -23,7 +24,7 @@ export async function GET(
   );
 
   if (error || !form) {
-    return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
+    return notFound("フォームが見つかりません");
   }
 
   // プレビューモード：管理者認証が必要
@@ -31,10 +32,10 @@ export async function GET(
     if (isPreview) {
       const isAuthorized = await verifyAdminAuth(req);
       if (!isAuthorized) {
-        return NextResponse.json({ error: "このフォームは現在公開されていません" }, { status: 403 });
+        return forbidden("このフォームは現在公開されていません");
       }
     } else {
-      return NextResponse.json({ error: "このフォームは現在公開されていません" }, { status: 403 });
+      return forbidden("このフォームは現在公開されていません");
     }
   }
 
@@ -43,7 +44,7 @@ export async function GET(
   if (settings.deadline) {
     const deadline = new Date(settings.deadline as string);
     if (deadline < new Date()) {
-      return NextResponse.json({ error: "このフォームの回答期限は終了しました" }, { status: 403 });
+      return forbidden("このフォームの回答期限は終了しました");
     }
   }
 
@@ -57,7 +58,7 @@ export async function GET(
       tenantId
     );
     if (count !== null && count >= (settings.max_responses as number)) {
-      return NextResponse.json({ error: "このフォームは回答数の上限に達しました" }, { status: 403 });
+      return forbidden("このフォームは回答数の上限に達しました");
     }
   }
 

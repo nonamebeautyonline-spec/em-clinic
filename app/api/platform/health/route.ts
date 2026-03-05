@@ -2,16 +2,14 @@
 // プラットフォーム管理: システムヘルスチェックAPI
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const checks: Record<string, { status: string; responseMs: number; error?: string }> = {};
   const stats: Record<string, number> = {};

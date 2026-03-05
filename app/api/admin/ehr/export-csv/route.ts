@@ -1,5 +1,6 @@
 // app/api/admin/ehr/export-csv/route.ts — CSVエクスポート
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -111,6 +112,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "CSVエクスポートに失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }

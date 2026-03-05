@@ -2,6 +2,7 @@
 // POST: 全患者のRFMスコアを再計算してDBに保存
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import {
@@ -13,7 +14,7 @@ import {
 
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -40,9 +41,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[segments/recalculate] エラー:", err);
-    return NextResponse.json(
-      { error: "セグメント再計算に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("セグメント再計算に失敗しました");
   }
 }

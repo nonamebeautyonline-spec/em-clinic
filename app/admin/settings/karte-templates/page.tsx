@@ -141,7 +141,7 @@ export default function KarteTemplatesPage() {
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "更新に失敗しました");
+          throw new Error((data.message || data.error) || "更新に失敗しました");
         }
         setToast({ message: `「${formName}」を更新しました`, type: "success" });
       } else {
@@ -159,7 +159,7 @@ export default function KarteTemplatesPage() {
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "作成に失敗しました");
+          throw new Error((data.message || data.error) || "作成に失敗しました");
         }
         setToast({ message: `「${formName}」を作成しました`, type: "success" });
       }
@@ -183,7 +183,7 @@ export default function KarteTemplatesPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "削除に失敗しました");
+        throw new Error((data.message || data.error) || "削除に失敗しました");
       }
       setToast({ message: `「${deleteTarget.name}」を削除しました`, type: "success" });
       setDeleteTarget(null);

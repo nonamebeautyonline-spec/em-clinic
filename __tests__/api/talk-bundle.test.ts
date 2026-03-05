@@ -67,7 +67,7 @@ describe("admin/patients/[id]/talk-bundle API", () => {
     const res = await GET(makeReq(), makeCtx());
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("正常リクエストで200とバンドルデータを返す", async () => {

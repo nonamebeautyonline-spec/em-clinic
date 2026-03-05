@@ -1,5 +1,6 @@
 // app/api/admin/line/followup-rules/route.ts — フォローアップルール一覧取得・作成API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -11,7 +12,7 @@ import { createFollowupRuleSchema } from "@/lib/validations/followup";
  */
 export async function GET(req: NextRequest) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const { data: rules, error } = await query;
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   // 各ルールの直近10件の送信ログも取得
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
     });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });

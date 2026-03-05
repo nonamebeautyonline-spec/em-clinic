@@ -80,7 +80,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("正常取得 → fields 配列を返す", async () => {
@@ -116,7 +116,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("テーブルが存在しません");
+      expect(json.message).toBe("テーブルが存在しません");
     });
   });
 
@@ -221,7 +221,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(409);
       const json = await res.json();
-      expect(json.error).toBe("同じ名前のフィールドが既に存在します");
+      expect(json.message).toBe("同じ名前のフィールドが既に存在します");
     });
 
     it("その他のDBエラー → 500", async () => {
@@ -236,7 +236,7 @@ describe("友達情報欄 定義 API (friend-fields/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("relation does not exist");
+      expect(json.message).toBe("relation does not exist");
     });
 
     it("tenantPayload が insert データに含まれる", async () => {

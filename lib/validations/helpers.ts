@@ -1,6 +1,7 @@
 // lib/validations/helpers.ts — Zodバリデーション共通ヘルパー
 import { NextRequest, NextResponse } from "next/server";
 import { ZodSchema, ZodError } from "zod";
+import { badRequest, validationError } from "@/lib/api-error";
 
 /**
  * リクエストボディをZodスキーマで検証
@@ -19,18 +20,12 @@ export async function parseBody<T>(
     if (err instanceof ZodError) {
       const messages = err.issues.map((e) => `${e.path.join(".")}: ${e.message}`);
       return {
-        error: NextResponse.json(
-          { ok: false, error: "入力値が不正です", details: messages },
-          { status: 400 },
-        ),
+        error: validationError(messages),
       };
     }
     // JSONパースエラー等
     return {
-      error: NextResponse.json(
-        { ok: false, error: "リクエストの形式が不正です" },
-        { status: 400 },
-      ),
+      error: badRequest("リクエストの形式が不正です"),
     };
   }
 }
@@ -51,17 +46,11 @@ export function validateBody<T>(
     if (err instanceof ZodError) {
       const messages = err.issues.map((e) => `${e.path.join(".")}: ${e.message}`);
       return {
-        error: NextResponse.json(
-          { ok: false, error: "入力値が不正です", details: messages },
-          { status: 400 },
-        ),
+        error: validationError(messages),
       };
     }
     return {
-      error: NextResponse.json(
-        { ok: false, error: "リクエストの形式が不正です" },
-        { status: 400 },
-      ),
+      error: badRequest("リクエストの形式が不正です"),
     };
   }
 }

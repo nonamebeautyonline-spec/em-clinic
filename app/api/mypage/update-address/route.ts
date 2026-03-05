@@ -1,5 +1,6 @@
 // app/api/mypage/update-address/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -17,10 +18,7 @@ export async function POST(req: NextRequest) {
       "";
 
     if (!patientId) {
-      return NextResponse.json(
-        { ok: false, error: "unauthorized" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, updateAddressSchema);
@@ -33,10 +31,7 @@ export async function POST(req: NextRequest) {
     // 郵便番号の正規化（7桁チェック）
     const postalDigits = rawPostal.replace(/[^0-9]/g, "");
     if (postalDigits.length !== 7) {
-      return NextResponse.json(
-        { ok: false, error: "郵便番号は7桁で入力してください" },
-        { status: 400 }
-      );
+      return badRequest("郵便番号は7桁で入力してください");
     }
     const postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
 
@@ -48,41 +43,21 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (fetchError || !order) {
-      return NextResponse.json(
-        { ok: false, error: "注文が見つかりません" },
-        { status: 404 }
-      );
+      return notFound("注文が見つかりません");
     }
 
     if (order.patient_id !== patientId) {
-      return NextResponse.json(
-        { ok: false, error: "この注文を変更する権限がありません" },
-        { status: 403 }
-      );
+      return forbidden("この注文を変更する権限がありません");
     }
 
     // 発送済みチェック
     if (order.shipping_status === "shipped" || order.tracking_number) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "already_shipped",
-          message: "発送済みのため変更できません。ヤマト運輸の追跡番号からお手続きください。",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "already_shipped", message: "発送済みのため変更できません。ヤマト運輸の追跡番号からお手続きください。", }, { status: 400 });
     }
 
     // 発送リスト作成済みチェック
     if (order.shipping_list_created_at) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "shipping_list_created",
-          message: "発送準備に入ったため、届け先の変更はLINEからお問い合わせください。",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "shipping_list_created", message: "発送準備に入ったため、届け先の変更はLINEからお問い合わせください。", }, { status: 400 });
     }
 
     // 更新
@@ -101,10 +76,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[update-address] DB update error:", updateError);
-      return NextResponse.json(
-        { ok: false, error: "更新に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("更新に失敗しました");
     }
 
     // キャッシュ無効化
@@ -113,9 +85,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("POST /api/mypage/update-address error", e);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

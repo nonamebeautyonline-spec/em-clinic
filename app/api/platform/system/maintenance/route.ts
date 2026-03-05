@@ -2,6 +2,7 @@
 // プラットフォーム管理: メンテナンスモード切替API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { z } from "zod";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,10 +22,7 @@ const maintenanceSchema = z.object({
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const parsed = await parseBody(req, maintenanceSchema);
   if (parsed.error) return parsed.error;
@@ -47,10 +45,7 @@ export async function POST(req: NextRequest) {
 
     if (modeErr) {
       console.error("[platform/maintenance] upsert maintenance_mode error:", modeErr);
-      return NextResponse.json(
-        { ok: false, error: "メンテナンスモードの更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("メンテナンスモードの更新に失敗しました");
     }
 
     // maintenance_message を更新（upsert）
@@ -93,9 +88,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/maintenance] POST unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

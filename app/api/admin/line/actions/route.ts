@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { createActionSchema, updateActionSchema } from "@/lib/validations/line-m
 // アクション一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
@@ -22,14 +23,14 @@ export async function GET(req: NextRequest) {
   if (folderId) query = query.eq("folder_id", parseInt(folderId));
 
   const { data, error } = await withTenant(query, tenantId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ actions: data || [] });
 }
 
 // アクション作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, createActionSchema);
@@ -48,14 +49,14 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, action: data });
 }
 
 // アクション更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, updateActionSchema);
@@ -76,19 +77,19 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, action: data });
 }
 
 // アクション削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin
@@ -98,6 +99,6 @@ export async function DELETE(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

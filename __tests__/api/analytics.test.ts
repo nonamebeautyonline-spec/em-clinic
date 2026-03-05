@@ -74,7 +74,7 @@ describe("売上分析API (analytics/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
   });
 
@@ -85,7 +85,7 @@ describe("売上分析API (analytics/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("不明");
+      expect(json.message).toContain("不明");
     });
 
     it("type未指定（デフォルト=overview）→ 400", async () => {

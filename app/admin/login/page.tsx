@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setError(data.error || "認証に失敗しました");
+        setError((data.message || data.error) || "認証に失敗しました");
         setLoading(false);
         return;
       }

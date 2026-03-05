@@ -1,5 +1,6 @@
 // app/api/cron/collect-line-stats/route.ts — 日次LINE統計収集Cron
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   try {
@@ -145,6 +146,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, date: statDate, collected, skipped, errors });
   } catch (e) {
     console.error("[collect-line-stats] cron error:", e);
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   }
 }

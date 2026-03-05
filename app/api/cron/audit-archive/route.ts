@@ -3,6 +3,7 @@
 // Vercel Cronから毎日03:00 UTCに実行
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -114,10 +115,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[audit-archive] Error:", err);
-    return NextResponse.json(
-      { error: "サーバーエラー" },
-      { status: 500 },
-    );
+    return serverError("サーバーエラー");
   } finally {
     await lock.release();
   }

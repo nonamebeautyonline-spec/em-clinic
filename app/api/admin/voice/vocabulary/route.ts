@@ -1,5 +1,6 @@
 // 医療辞書管理 API — CRUD + デフォルト辞書一括投入
 import { NextRequest, NextResponse } from "next/server";
+import { conflict, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit";
@@ -32,7 +33,7 @@ async function invalidateVocabCache(tenantId: string | null) {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ items: data || [], count: data?.length || 0 });
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -104,10 +105,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (existing && existing.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `「${term}」は既に登録されています` },
-      { status: 409 }
-    );
+    return conflict(`「${term}」は既に登録されています`);
   }
 
   const { data, error } = await supabaseAdmin
@@ -125,7 +123,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   await invalidateVocabCache(tenantId);
@@ -173,7 +171,7 @@ async function handleSeed(req: NextRequest, tenantId: string | null) {
     .select("id");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   await invalidateVocabCache(tenantId);
@@ -193,7 +191,7 @@ async function handleSeed(req: NextRequest, tenantId: string | null) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -209,10 +207,7 @@ export async function PUT(req: NextRequest) {
   ).single();
 
   if (!existing) {
-    return NextResponse.json(
-      { ok: false, error: "用語が見つかりません" },
-      { status: 404 }
-    );
+    return notFound("用語が見つかりません");
   }
 
   const { data, error } = await withTenant(
@@ -226,7 +221,7 @@ export async function PUT(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   await invalidateVocabCache(tenantId);
@@ -239,7 +234,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -254,7 +249,7 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   await invalidateVocabCache(tenantId);

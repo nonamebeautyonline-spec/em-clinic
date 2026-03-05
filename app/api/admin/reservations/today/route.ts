@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -44,12 +45,12 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("Supabase error:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
+      return serverError("Database error");
     }
 
     return NextResponse.json({ reservations });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return serverError("Server error");
   }
 }

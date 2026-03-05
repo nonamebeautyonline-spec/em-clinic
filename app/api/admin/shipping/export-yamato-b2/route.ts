@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { generateYamatoB2Csv } from "@/utils/yamato-b2-formatter";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -33,14 +34,11 @@ export async function POST(req: NextRequest) {
 
     if (ordersError) {
       console.error("Supabase orders error:", ordersError);
-      return NextResponse.json(
-        { error: "Database error", details: ordersError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Database error", details: ordersError.message }, { status: 500 });
     }
 
     if (!orders || orders.length === 0) {
-      return NextResponse.json({ error: "No orders found" }, { status: 404 });
+      return notFound("No orders found");
     }
 
     // 患者IDを取得
@@ -54,10 +52,7 @@ export async function POST(req: NextRequest) {
 
     if (patientsError) {
       console.error("Supabase patients error:", patientsError);
-      return NextResponse.json(
-        { error: "Database error", details: patientsError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Database error", details: patientsError.message }, { status: 500 });
     }
 
     // 患者情報のマップを作成（住所等は orders テーブルから取得するため最小限）
@@ -104,9 +99,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

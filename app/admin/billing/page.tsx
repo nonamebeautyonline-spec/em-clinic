@@ -117,7 +117,7 @@ export default function AdminBillingPage() {
       const res = await fetch(`/api/admin/billing/receipt/${invoiceId}`, { credentials: "include" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "ダウンロード失敗");
+        throw new Error((data.message || data.error) || "ダウンロード失敗");
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

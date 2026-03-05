@@ -81,7 +81,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
   });
 
@@ -107,7 +107,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
       expect(json.details?.some((d: string) => d.includes("code"))).toBe(true);
     });
 
@@ -119,7 +119,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
       expect(json.details?.some((d: string) => d.includes("title"))).toBe(true);
     });
 
@@ -131,7 +131,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
       expect(json.details?.some((d: string) => d.includes("price"))).toBe(true);
     });
 
@@ -172,7 +172,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
       expect(json.details?.some((d: string) => d.includes("id"))).toBe(true);
     });
 
@@ -203,7 +203,7 @@ describe("商品 CRUD API (app/api/admin/products/route.ts)", () => {
       const res = await DELETE(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("id");
+      expect(json.message).toContain("id");
     });
   });
 });

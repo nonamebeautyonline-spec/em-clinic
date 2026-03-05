@@ -2,6 +2,7 @@
 // テナント管理者(tenant_admin)のIDでは認証不可
 // 2FA/TOTP対応: totp_enabled のユーザーは仮トークンを返し、TOTP検証後にJWT発行
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, tooManyRequests } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import crypto from "crypto";
@@ -41,16 +42,10 @@ export async function POST(req: NextRequest) {
       checkRateLimit(`platform-login:ip:${ip}`, 10, 600),
     ]);
     if (userLimit.limited) {
-      return NextResponse.json(
-        { ok: false, error: "ログイン試行回数が上限に達しました。しばらくお待ちください。" },
-        { status: 429 }
-      );
+      return tooManyRequests("ログイン試行回数が上限に達しました。しばらくお待ちください。");
     }
     if (ipLimit.limited) {
-      return NextResponse.json(
-        { ok: false, error: "このIPからのログイン試行が制限されています。しばらくお待ちください。" },
-        { status: 429 }
-      );
+      return tooManyRequests("このIPからのログイン試行が制限されています。しばらくお待ちください。");
     }
 
     // platform_admin ロールのユーザーのみ取得（TOTP関連カラムも含む）
@@ -99,10 +94,7 @@ export async function POST(req: NextRequest) {
         });
       } catch (redisErr) {
         console.error("[Platform Login] Redis error (TOTP pending):", redisErr);
-        return NextResponse.json(
-          { ok: false, error: "サーバーエラー。しばらくお待ちください。" },
-          { status: 500 }
-        );
+        return serverError("サーバーエラー。しばらくお待ちください。");
       }
 
       logAudit(req, "platform.login.totp_pending", "admin_user", user.id, {
@@ -187,9 +179,6 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("[Platform Login] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

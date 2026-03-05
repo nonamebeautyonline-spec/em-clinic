@@ -2,6 +2,7 @@
 // purpose / target_audience / tone から配信メッセージ文面を生成
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   // 認証チェック
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -27,29 +28,26 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "リクエストボディが不正です" }, { status: 400 });
+    return badRequest("リクエストボディが不正です");
   }
 
   const { purpose, target_audience, tone, max_length = 500 } = body;
 
   if (!purpose?.trim()) {
-    return NextResponse.json({ error: "purpose は必須です" }, { status: 400 });
+    return badRequest("purpose は必須です");
   }
   if (!target_audience?.trim()) {
-    return NextResponse.json({ error: "target_audience は必須です" }, { status: 400 });
+    return badRequest("target_audience は必須です");
   }
   if (!tone || !["formal", "casual", "urgent"].includes(tone)) {
-    return NextResponse.json(
-      { error: "tone は formal / casual / urgent のいずれかです" },
-      { status: 400 },
-    );
+    return badRequest("tone は formal / casual / urgent のいずれかです");
   }
 
   // APIキー取得
   const tid = tenantId ?? undefined;
   const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
   if (!apiKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY が未設定です" }, { status: 500 });
+    return serverError("ANTHROPIC_API_KEY が未設定です");
   }
 
   // 既存テンプレートを最新5件取得（コンテキストとして渡す）
@@ -125,7 +123,7 @@ ${templateContext}
     const jsonMatch = codeBlockMatch ? codeBlockMatch : text.match(/(\{[\s\S]*\})/);
     if (!jsonMatch) {
       console.error("[AI Compose] JSON抽出失敗:", text);
-      return NextResponse.json({ error: "AIレスポンスの解析に失敗しました" }, { status: 500 });
+      return serverError("AIレスポンスの解析に失敗しました");
     }
 
     const result = JSON.parse(jsonMatch[1]) as {
@@ -140,6 +138,6 @@ ${templateContext}
     });
   } catch (err) {
     console.error("[AI Compose] Claude API エラー:", err);
-    return NextResponse.json({ error: "AI文面生成に失敗しました" }, { status: 500 });
+    return serverError("AI文面生成に失敗しました");
   }
 }

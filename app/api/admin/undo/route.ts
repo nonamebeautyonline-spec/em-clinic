@@ -2,6 +2,7 @@
 // GET: 直近の取り消し可能な操作一覧
 // POST: 取り消し実行
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, actions });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, executeUndoSchema);
@@ -50,15 +51,12 @@ export async function POST(req: NextRequest) {
     const result = await executeUndo(undo_id, tenantId);
 
     if (!result.success) {
-      return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: 400 },
-      );
+      return badRequest(result.error ?? "元に戻す操作に失敗しました");
     }
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }

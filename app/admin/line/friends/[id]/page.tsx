@@ -258,7 +258,7 @@ export default function FriendDetailPage() {
       }, ...prev]);
       setQuickMessage("");
     } else {
-      alert(data.error || "送信に失敗しました");
+      alert((data.message || data.error) || "送信に失敗しました");
     }
     setSending(false);
   };

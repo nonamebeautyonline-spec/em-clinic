@@ -37,7 +37,7 @@ export function VoiceKarteButton({ onKarteGenerated }: VoiceKarteButtonProps) {
 
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "カルテ生成に失敗しました");
+        throw new Error((data.message || data.error) || "カルテ生成に失敗しました");
       }
 
       onKarteGenerated(data.karte);

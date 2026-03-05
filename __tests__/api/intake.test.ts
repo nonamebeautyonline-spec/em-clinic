@@ -130,7 +130,7 @@ describe("POST /api/intake", () => {
       const body = await res.json();
 
       expect(res.status).toBe(401);
-      expect(body.error).toBe("unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
 
     it("__Host-patient_id Cookieで認証成功", async () => {

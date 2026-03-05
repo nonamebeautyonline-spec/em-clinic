@@ -90,7 +90,7 @@ describe("管理者用予約一覧API (admin/reservations/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
   });
 
@@ -271,7 +271,7 @@ describe("管理者用予約一覧API (admin/reservations/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("Invalid month format");
+      expect(json.message).toContain("Invalid month format");
     });
 
     it("month=2026-13（13月）→ 400", async () => {

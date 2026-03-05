@@ -148,7 +148,7 @@ describe("ABテストAPI (ab-test/route.ts)", () => {
       const res = await POST(req);
       const json = await res.json();
       expect(res.status).toBe(400);
-      expect(json.error).toContain("100%");
+      expect(json.message).toContain("100%");
     });
 
     it("正常作成", async () => {
@@ -316,7 +316,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
       const res = await PUT_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("変更できません");
+      expect(json.message).toContain("変更できません");
     });
 
     it("draft → running は正常更新", async () => {
@@ -356,7 +356,7 @@ describe("ABテストAPI (ab-test/[id]/route.ts)", () => {
       const res = await DELETE_DETAIL(req, ctxFactory("test-1"));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("実行中");
+      expect(json.message).toContain("実行中");
     });
 
     it("下書きのテストは正常削除", async () => {
@@ -410,7 +410,7 @@ describe("ABテストAPI: ソースコード品質チェック", () => {
 
     it(`${name} は 401 レスポンスを返す`, () => {
       const src = readSource(file);
-      expect(src).toContain("401");
+      expect(src).toContain("unauthorized");
     });
   }
 

@@ -11,7 +11,27 @@ export interface RefineResult {
 }
 
 /** 補正に使う辞書用語（term のみ渡す） */
-export type VocabTerm = { term: string; reading?: string | null };
+export type VocabTerm = { term: string; reading?: string | null; specialty?: string | null };
+
+/** 補正オプション（コンテキスト情報） */
+export interface RefineOptions {
+  /** SOAP コンテキスト */
+  soapContext?: { S?: string; O?: string; A?: string; P?: string };
+  /** 患者履歴 */
+  patientHistory?: { conditions?: string[]; medications?: string[] };
+  /** テナント診療科 */
+  specialties?: string[];
+}
+
+/** 診療科に基づいて辞書をフィルタリング */
+function filterVocabBySpecialties(vocabulary: VocabTerm[], specialties: string[]): VocabTerm[] {
+  if (specialties.length === 0) return vocabulary;
+  const specSet = new Set(specialties);
+  // common は常に含める + 指定診療科の用語
+  return vocabulary.filter((v) =>
+    !v.specialty || v.specialty === "common" || specSet.has(v.specialty)
+  );
+}
 
 /**
  * STT 結果を Claude API で医学用語補正する
@@ -21,7 +41,8 @@ export type VocabTerm = { term: string; reading?: string | null };
 export async function refineMedicalText(
   transcript: string,
   vocabulary: VocabTerm[],
-  tenantId?: string | null
+  tenantId?: string | null,
+  options?: RefineOptions
 ): Promise<RefineResult> {
   // API キー取得（DB → 環境変数フォールバック）
   const apiKey = await getSettingOrEnv("general", "ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", tenantId || undefined);
@@ -35,12 +56,43 @@ export async function refineMedicalText(
     return { refined: transcript, corrections: [], was_modified: false };
   }
 
+  // 診療科フィルタリング
+  const filteredVocab = options?.specialties
+    ? filterVocabBySpecialties(vocabulary, options.specialties)
+    : vocabulary;
+
   const client = new Anthropic({ apiKey });
 
   // 辞書テキスト生成（用語一覧）
-  const vocabList = vocabulary
+  const vocabList = filteredVocab
     .map((v) => v.reading ? `${v.term}（${v.reading}）` : v.term)
     .join("、");
+
+  // コンテキストブロック生成
+  let contextBlock = "";
+  if (options?.soapContext) {
+    const soap = options.soapContext;
+    const parts: string[] = [];
+    if (soap.S) parts.push(`S（主訴）: ${soap.S}`);
+    if (soap.O) parts.push(`O（所見）: ${soap.O}`);
+    if (soap.A) parts.push(`A（評価）: ${soap.A}`);
+    if (soap.P) parts.push(`P（計画）: ${soap.P}`);
+    if (parts.length > 0) {
+      contextBlock += `\n## 診察コンテキスト（SOAP）\n${parts.join("\n")}\n`;
+    }
+  }
+  if (options?.patientHistory) {
+    const hist = options.patientHistory;
+    const parts: string[] = [];
+    if (hist.conditions?.length) parts.push(`既往歴: ${hist.conditions.join("、")}`);
+    if (hist.medications?.length) parts.push(`服用中の薬: ${hist.medications.join("、")}`);
+    if (parts.length > 0) {
+      contextBlock += `\n## 患者情報\n${parts.join("\n")}\n`;
+    }
+  }
+  if (options?.specialties?.length) {
+    contextBlock += `\n## 診療科\nこのテナントの診療科: ${options.specialties.join("、")}\n`;
+  }
 
   const systemPrompt = `あなたは医療カルテの音声認識補正アシスタントです。
 音声認識（STT）の結果テキストを受け取り、医療用語の誤認識を補正してください。
@@ -52,9 +104,21 @@ export async function refineMedicalText(
 4. 句読点や助詞はそのまま維持する
 5. 補正が不要な場合は原文をそのまま返す
 
+## 補正例（few-shot）
+- 「まんじゃろ2.5mg」→「マンジャロ2.5mg」（薬剤名の誤認識）
+- 「ふぃなすてりど」→「フィナステリド」（一般名の誤認識）
+- 「ぼとっくす注射」→「ボトックス注射」（処置名の誤認識）
+- 「ひあるろんさん」→「ヒアルロン酸」（薬剤名の誤認識）
+- 「じーえるぴーわん」→「GLP-1」（略語の誤認識）
+- 「おうき」→「嘔気」（症状の誤認識）
+- 「けっとうち」→「血糖値」（検査値の誤認識）
+- 「心臓エコー」→ 変更なし（辞書に一致する正しい用語）
+- 「処方します」→ 変更なし（一般的な日本語は変更不要）
+- 「副作用はありません」→ 変更なし（正しく認識されている場合は変更不要）
+
 ## 医療辞書
 ${vocabList}
-
+${contextBlock}
 ## 出力形式
 以下のJSON形式で出力してください:
 {

@@ -101,7 +101,7 @@ export default function KarteImageSection({
         });
         const data = await res.json();
         if (!data.ok) {
-          alert(`${file.name}: ${data.error || "アップロード失敗"}`);
+          alert(`${file.name}: ${(data.message || data.error) || "アップロード失敗"}`);
         }
       } catch (e) {
         console.error("アップロードエラー:", e);

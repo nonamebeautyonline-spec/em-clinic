@@ -2,6 +2,7 @@
 // 領収書PDF発行API: 支払済み請求書の領収書PDFをダウンロード
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -14,12 +15,12 @@ export async function GET(
 ) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
   if (!tenantId) {
-    return NextResponse.json({ error: "テナントが特定できません" }, { status: 400 });
+    return badRequest("テナントが特定できません");
   }
 
   const { invoiceId } = await params;
@@ -34,15 +35,12 @@ export async function GET(
       .single();
 
     if (error || !invoice) {
-      return NextResponse.json({ error: "請求書が見つかりません" }, { status: 404 });
+      return notFound("請求書が見つかりません");
     }
 
     // 支払済みのみ領収書発行可能
     if (invoice.status !== "paid") {
-      return NextResponse.json(
-        { error: "未払いの請求書には領収書を発行できません" },
-        { status: 400 },
-      );
+      return badRequest("未払いの請求書には領収書を発行できません");
     }
 
     // テナント情報取得
@@ -87,7 +85,7 @@ export async function GET(
     });
   } catch (err) {
     console.error("[admin/billing/receipt] error:", err);
-    return NextResponse.json({ ok: false, error: "領収書生成に失敗しました" }, { status: 500 });
+    return serverError("領収書生成に失敗しました");
   }
 }
 

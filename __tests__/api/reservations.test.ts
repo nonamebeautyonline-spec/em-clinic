@@ -746,7 +746,7 @@ describe("POST cancelReservation", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("reserveId required");
+    expect(json.message).toBe("reserveId required");
   });
 });
 
@@ -836,7 +836,7 @@ describe("POST updateReservation", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
   });
 });
 
@@ -936,7 +936,7 @@ describe("GET /api/reservations", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toBe("start and end are required");
+    expect(json.message).toBe("start and end are required");
   });
 
   // ============================================
@@ -1030,7 +1030,7 @@ describe("GET /api/reservations", () => {
     const json = await res.json();
 
     expect(res.status).toBe(500);
-    expect(json.error).toBe("server error");
+    expect(json.message).toBe("server error");
   });
 });
 
@@ -1323,7 +1323,7 @@ describe("POST createReservation — エッジケース", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("unknown type: invalidType");
+    expect(json.message).toBe("unknown type: invalidType");
   });
 
   // ============================================
@@ -1746,7 +1746,7 @@ describe("POST updateReservation — エッジケース", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("missing parameters");
+    expect(json.message).toBe("missing parameters");
   });
 
   // ============================================

@@ -144,7 +144,7 @@ describe("bank-transfer reconcile API", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // 2. ファイル未指定
@@ -153,7 +153,7 @@ describe("bank-transfer reconcile API", () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("CSVファイル");
+    expect(json.message).toContain("CSVファイル");
   });
 
   // 3. 空CSV
@@ -426,6 +426,6 @@ describe("bank-transfer reconcile API", () => {
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toContain("formData解析エラー");
+    expect(json.message).toContain("formData解析エラー");
   });
 });

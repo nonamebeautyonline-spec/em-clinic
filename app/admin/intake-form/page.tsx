@@ -402,7 +402,7 @@ export default function IntakeFormEditorPage() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } else {
-        alert("保存に失敗しました: " + (data.error || data.details?.join(", ")));
+        alert("保存に失敗しました: " + ((data.message || data.error) || data.details?.join(", ")));
       }
     } catch {
       alert("保存に失敗しました");

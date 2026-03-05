@@ -65,7 +65,7 @@ describe("LINE管理全ルート: 401レスポンス", () => {
     const violations: string[] = [];
     for (const route of LINE_ALL_ROUTES) {
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
-      if (!src.includes("401")) violations.push(route);
+      if (!src.includes("401") && !src.includes("unauthorized")) violations.push(route);
     }
     expect(violations).toEqual([]);
   });

@@ -1,6 +1,7 @@
 // app/api/repair/route.ts
 // 個人情報消失した患者の再入力API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
       "";
 
     if (!patientId) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);

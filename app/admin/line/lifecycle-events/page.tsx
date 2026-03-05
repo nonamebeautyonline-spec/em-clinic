@@ -190,7 +190,7 @@ export default function LifecycleEventsPage() {
       setEditingKey(null);
     } else {
       const data = await res.json();
-      alert(data.error || "保存失敗");
+      alert((data.message || data.error) || "保存失敗");
     }
     setSaving(false);
   };

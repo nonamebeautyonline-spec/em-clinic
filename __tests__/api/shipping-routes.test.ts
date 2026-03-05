@@ -65,7 +65,7 @@ describe("配送API: 401 レスポンス", () => {
     const violations: string[] = [];
     for (const route of SHIPPING_ROUTES) {
       const src = fs.readFileSync(path.resolve(process.cwd(), route), "utf-8");
-      if (!src.includes("401")) violations.push(route);
+      if (!src.includes("401") && !src.includes("unauthorized")) violations.push(route);
     }
     expect(violations).toEqual([]);
   });

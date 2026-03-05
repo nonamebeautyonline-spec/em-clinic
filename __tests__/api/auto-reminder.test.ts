@@ -502,7 +502,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
     const response = await POST(req);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("入力値が不正です");
+    expect(body.message).toBe("入力値が不正です");
     expect(body.details).toBeDefined();
   });
 
@@ -561,7 +561,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
     const response = await POST(req);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toContain("メッセージ");
+    expect(body.message).toContain("メッセージ");
   });
 
   it("ルール名が空なら400", async () => {
@@ -583,7 +583,7 @@ describe("reminder-rules API: 固定時刻ルール", () => {
     const response = await POST(req);
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toBe("入力値が不正です");
+    expect(body.message).toBe("入力値が不正です");
     expect(body.details).toBeDefined();
   });
 });

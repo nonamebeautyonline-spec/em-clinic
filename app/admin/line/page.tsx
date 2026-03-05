@@ -146,7 +146,7 @@ export default function LineDashboardPage() {
         setTestAccounts(prev => [...prev, json.account]);
         setTestPid("");
       } else {
-        setTestError(json.error || "設定に失敗しました");
+        setTestError((json.message || json.error) || "設定に失敗しました");
       }
     } catch {
       setTestError("設定に失敗しました");

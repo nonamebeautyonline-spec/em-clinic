@@ -1,5 +1,6 @@
 // 診療リマインドLINE一括送信API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, conflict, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -55,13 +56,13 @@ async function getTargetPatients(date: string, tenantId: string | null) {
 // GET: プレビュー（送信対象者リスト＋メッセージサンプル）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
-  if (!date) return NextResponse.json({ error: "date required" }, { status: 400 });
+  if (!date) return badRequest("date required");
 
   try {
     const targets = await getTargetPatients(date, tenantId);
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[send-reminder] preview error:", e);
-    return NextResponse.json({ error: "取得エラー" }, { status: 500 });
+    return serverError("取得エラー");
   }
 }
 
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
     if (idempotencyKey) {
       const idem = await checkIdempotency("send_reminder", idempotencyKey, tenantId);
       if (idem.duplicate) {
-        return NextResponse.json({ ok: false, error: "この送信は既に実行済みです" }, { status: 409 });
+        return conflict("この送信は既に実行済みです");
       }
     }
 
@@ -226,9 +227,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Send reminder error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

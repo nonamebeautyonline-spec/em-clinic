@@ -219,7 +219,7 @@ function NameChangeSection() {
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.error || "氏名変更に失敗しました");
+        throw new Error((data.message || data.error) || "氏名変更に失敗しました");
       }
 
       setSuccess(
@@ -586,7 +586,7 @@ function MergeSection() {
       const data = await res.json();
 
       if (!data.ok) {
-        throw new Error(data.error || "統合に失敗しました");
+        throw new Error((data.message || data.error) || "統合に失敗しました");
       }
 
       setSuccess(

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -7,7 +8,7 @@ import { dateOverridePostSchema, dateOverrideDeleteSchema } from "@/lib/validati
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -21,10 +22,7 @@ export async function POST(req: NextRequest) {
     const date = String(override.date || "").trim();
 
     if (!doctor_id || !date) {
-      return NextResponse.json(
-        { ok: false, error: "doctor_id and date required" },
-        { status: 400 }
-      );
+      return badRequest("doctor_id and date required");
     }
 
     // slot_name: 複数時間帯対応（例：午前、午後、夜間など）
@@ -74,10 +72,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("date_override insert error:", insertError);
-      return NextResponse.json(
-        { ok: false, error: "DB_ERROR", detail: insertError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "DB_ERROR", detail: insertError.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, override: record });
@@ -117,10 +112,7 @@ export async function DELETE(req: NextRequest) {
 
     if (error) {
       console.error("date_override delete error:", error);
-      return NextResponse.json(
-        { ok: false, error: "DB_ERROR", detail: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, deleted: { doctor_id, date, slot_name, delete_all } });

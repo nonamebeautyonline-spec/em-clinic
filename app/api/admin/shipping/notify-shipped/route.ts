@@ -1,5 +1,6 @@
 // 本日発送患者への一斉LINE通知（Flexメッセージ）
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
@@ -57,7 +58,7 @@ async function getTodayShippedPatients(tenantId: string | null) {
 // GET: プレビュー（送信対象者リスト）
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -76,14 +77,14 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[notify-shipped] preview error:", e);
-    return NextResponse.json({ error: "取得エラー" }, { status: 500 });
+    return serverError("取得エラー");
   }
 }
 
 // POST: 一斉送信実行 + 対応マーク「処方すみ」＆リッチメニュー「処方後」自動切替
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -212,6 +213,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[notify-shipped] send error:", e);
-    return NextResponse.json({ error: "送信エラー" }, { status: 500 });
+    return serverError("送信エラー");
   }
 }

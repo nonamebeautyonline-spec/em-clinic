@@ -65,7 +65,7 @@ describe("patientbundle: 認証", () => {
   });
 
   it("認証失敗時 401 を返す", () => {
-    expect(src).toContain("401");
+    expect(src).toContain("unauthorized");
   });
 });
 

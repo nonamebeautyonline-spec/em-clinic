@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { setDefaultRichMenu } from "@/lib/line-richmenu";
@@ -9,7 +10,7 @@ import { updateFriendSettingsSchema } from "@/lib/validations/line-management";
 // 友達追加時設定一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -21,14 +22,14 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ settings: data });
 }
 
 // 友達追加時設定更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, updateFriendSettingsSchema);
@@ -43,7 +44,7 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // 新規友だち設定のメニュー変更 → LINE APIデフォルトリッチメニューも連動
   const sv = setting_value as Record<string, unknown> | null | undefined;

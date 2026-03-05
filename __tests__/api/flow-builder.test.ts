@@ -89,7 +89,7 @@ describe("フロービルダーAPI (flow-builder/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toContain("scenario_id");
+      expect(data.message).toContain("scenario_id");
     });
 
     it("存在しないシナリオ → 404", async () => {

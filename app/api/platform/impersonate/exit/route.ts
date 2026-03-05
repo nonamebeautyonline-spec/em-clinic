@@ -2,6 +2,7 @@
 // プラットフォーム管理: インパーソネーション終了
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { logAudit } from "@/lib/audit";
 import { jwtVerify } from "jose";
@@ -19,10 +20,7 @@ export async function POST(req: NextRequest) {
     // 元のセッションCookieの存在チェック
     const originalSession = req.cookies.get("platform_original_session")?.value;
     if (!originalSession) {
-      return NextResponse.json(
-        { ok: false, error: "元のセッションが見つかりません" },
-        { status: 400 },
-      );
+      return badRequest("元のセッションが見つかりません");
     }
 
     // 元のセッションを検証（platform_adminであることを確認）
@@ -32,10 +30,7 @@ export async function POST(req: NextRequest) {
       const { payload } = await jwtVerify(originalSession, secret);
       const p = payload as Record<string, unknown>;
       if (p.platformRole !== "platform_admin") {
-        return NextResponse.json(
-          { ok: false, error: "元のセッションがプラットフォーム管理者ではありません" },
-          { status: 403 },
-        );
+        return forbidden("元のセッションがプラットフォーム管理者ではありません");
       }
       originalUserId = p.userId as string;
     } catch {
@@ -121,9 +116,6 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("[Impersonate Exit] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "インパーソネーション終了に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("インパーソネーション終了に失敗しました");
   }
 }

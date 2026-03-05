@@ -162,7 +162,7 @@ describe("platform/billing/invoices API", () => {
 
         expect(res.status).toBe(403);
         expect(body.ok).toBe(false);
-        expect(body.error).toBe("権限がありません");
+        expect(body.message).toBe("権限がありません");
       });
     });
 
@@ -319,7 +319,7 @@ describe("platform/billing/invoices API", () => {
 
         expect(res.status).toBe(500);
         expect(body.ok).toBe(false);
-        expect(body.error).toBe("請求書一覧の取得に失敗しました");
+        expect(body.message).toBe("請求書一覧の取得に失敗しました");
       });
 
       it("予期しないエラー時は500を返す", async () => {
@@ -331,7 +331,7 @@ describe("platform/billing/invoices API", () => {
         const body = await res.json();
 
         expect(res.status).toBe(500);
-        expect(body.error).toBe("予期しないエラーが発生しました");
+        expect(body.message).toBe("予期しないエラーが発生しました");
       });
     });
   });
@@ -435,7 +435,7 @@ describe("platform/billing/invoices API", () => {
 
         expect(res.status).toBe(404);
         expect(body.ok).toBe(false);
-        expect(body.error).toBe("テナントが見つかりません");
+        expect(body.message).toBe("テナントが見つかりません");
       });
 
       it("請求書INSERT失敗時は500を返す", async () => {
@@ -467,7 +467,7 @@ describe("platform/billing/invoices API", () => {
 
         expect(res.status).toBe(500);
         expect(body.ok).toBe(false);
-        expect(body.error).toBe("請求書の作成に失敗しました");
+        expect(body.message).toBe("請求書の作成に失敗しました");
       });
 
       it("テナントプランがない場合もplan_id=nullで作成成功", async () => {
@@ -531,7 +531,7 @@ describe("platform/billing/invoices API", () => {
         const body = await res.json();
 
         expect(res.status).toBe(500);
-        expect(body.error).toBe("予期しないエラーが発生しました");
+        expect(body.message).toBe("予期しないエラーが発生しました");
       });
     });
   });

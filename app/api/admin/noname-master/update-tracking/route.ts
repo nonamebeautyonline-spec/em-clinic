@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -55,11 +56,11 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[UpdateTracking] Error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     if (!data || data.length === 0) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return notFound("Order not found");
     }
 
     console.log(`[UpdateTracking] ✅ Updated order ${order_id} with tracking ${tracking_number}`);
@@ -85,9 +86,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[UpdateTracking] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

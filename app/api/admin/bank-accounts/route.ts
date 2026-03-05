@@ -1,5 +1,6 @@
 // app/api/admin/bank-accounts/route.ts — 口座情報管理API（管理画面専用）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req) ?? undefined;
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ accounts: defaults, activeId: DEFAULT_BANK_ACCOUNT.id });
   } catch (e) {
     console.error("[BankAccounts GET] Error:", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }
 
@@ -67,7 +68,7 @@ export async function PUT(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, bankAccountsUpdateSchema);
@@ -77,10 +78,7 @@ export async function PUT(req: NextRequest) {
 
     // activeIdが口座リストに存在するか確認
     if (!accounts.some((a: BankAccount) => a.id === activeId)) {
-      return NextResponse.json(
-        { error: "アクティブ口座IDが口座リストに存在しません" },
-        { status: 400 }
-      );
+      return badRequest("アクティブ口座IDが口座リストに存在しません");
     }
 
     const tenantId = resolveTenantId(req) ?? undefined;
@@ -91,6 +89,6 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true, accounts, activeId });
   } catch (e) {
     console.error("[BankAccounts PUT] Error:", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }

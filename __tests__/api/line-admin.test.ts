@@ -69,7 +69,7 @@ describe("LINE管理API: 認証失敗時 401 レスポンス", () => {
     it(`${name} は認証失敗時 401 を返す`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      expect(src).toContain("401");
+      expect(src).toContain("unauthorized");
     });
   }
 });

@@ -58,7 +58,7 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "変更に失敗しました");
+      if (!res.ok) throw new Error((data.message || data.error) || "変更に失敗しました");
       onToast("パスワードを変更しました", "success");
       setCurrentPassword("");
       setNewPassword("");
@@ -85,7 +85,7 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
         body: JSON.stringify({ newEmail, password: emailPassword }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "変更に失敗しました");
+      if (!res.ok) throw new Error((data.message || data.error) || "変更に失敗しました");
       onToast(data.message || "メールアドレスを変更しました", "success");
       setCurrentEmail(newEmail);
       setNewEmail("");

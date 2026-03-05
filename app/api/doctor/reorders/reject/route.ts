@@ -1,6 +1,7 @@
 // app/api/doctor/reorders/reject/route.ts
 // DB-first: 却下処理
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -10,7 +11,7 @@ import { doctorReorderRejectSchema } from "@/lib/validations/doctor";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -33,17 +34,11 @@ export async function POST(req: NextRequest) {
 
     if (selectError || !reorderData) {
       console.error("[doctor/reorders/reject] Reorder not found:", reorderNumber);
-      return NextResponse.json(
-        { ok: false, error: "reorder_not_found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: "reorder_not_found" }, { status: 404 });
     }
 
     if (reorderData.status !== "pending") {
-      return NextResponse.json(
-        { ok: false, error: `invalid_status: ${reorderData.status}` },
-        { status: 400 }
-      );
+      return badRequest(`invalid_status: ${reorderData.status}`);
     }
 
     const { error: updateError } = await withTenant(
@@ -59,10 +54,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[doctor/reorders/reject] DB update error:", updateError);
-      return NextResponse.json(
-        { ok: false, error: "db_error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
     console.log(`[doctor/reorders/reject] DB update success, reorder_num=${reorderNumber}`);
@@ -76,9 +68,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("POST /api/doctor/reorders/reject error", e);
-    return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
-    );
+    return serverError("unexpected error");
   }
 }

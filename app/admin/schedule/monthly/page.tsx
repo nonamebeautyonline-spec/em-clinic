@@ -287,7 +287,7 @@ export default function MonthlySchedulePage() {
         });
         const json = await res.json();
         if (!json.ok) {
-          throw new Error(json.error || "保存に失敗しました");
+          throw new Error((json.message || json.error) || "保存に失敗しました");
         }
       }
 
@@ -355,7 +355,7 @@ export default function MonthlySchedulePage() {
       });
       const json = await res.json();
       if (!json.ok) {
-        throw new Error(json.error || "保存に失敗しました");
+        throw new Error((json.message || json.error) || "保存に失敗しました");
       }
 
       // ローカル状態を更新
@@ -388,7 +388,7 @@ export default function MonthlySchedulePage() {
         setIsMonthOpen(true);
         setMsg({ type: "success", text: `${monthDisplay}の予約を開放しました` });
       } else {
-        throw new Error(json.error);
+        throw new Error((json.message || json.error));
       }
     } catch (e) {
       setMsg({ type: "error", text: (e instanceof Error ? e.message : null) || "開放に失敗しました" });

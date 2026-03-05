@@ -124,7 +124,7 @@ export default function TrackingNumberPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       const data = await res.json();
@@ -188,7 +188,7 @@ export default function TrackingNumberPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       const data = await res.json();
@@ -332,7 +332,7 @@ export default function TrackingNumberPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       const data = await res.json();

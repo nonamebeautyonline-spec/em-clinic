@@ -55,7 +55,7 @@ describe("AI関連API: 認証失敗時 401 レスポンス", () => {
   for (const { file, name } of AI_ROUTES) {
     it(`${name} は認証失敗時 401 を返す`, () => {
       const src = readFile(file);
-      expect(src).toContain("401");
+      expect(src).toContain("unauthorized");
     });
   }
 });

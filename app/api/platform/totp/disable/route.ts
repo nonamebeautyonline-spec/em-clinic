@@ -1,6 +1,7 @@
 // app/api/platform/totp/disable/route.ts — TOTP無効化API
 // 現在のTOTPコードで確認後、2FA設定を削除
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { verifyTOTP } from "@/lib/totp";
 import { decrypt } from "@/lib/crypto";
@@ -14,10 +15,7 @@ export async function POST(req: NextRequest) {
     // プラットフォーム管理者認証
     const admin = await verifyPlatformAdmin(req);
     if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: "認証が必要です" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, totpDisableSchema);
@@ -32,27 +30,18 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (fetchError || !user) {
-      return NextResponse.json(
-        { ok: false, error: "ユーザー情報の取得に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("ユーザー情報の取得に失敗しました");
     }
 
     if (!user.totp_enabled || !user.totp_secret) {
-      return NextResponse.json(
-        { ok: false, error: "2要素認証は設定されていません" },
-        { status: 400 }
-      );
+      return badRequest("2要素認証は設定されていません");
     }
 
     // TOTPコードを検証
     const decryptedSecret = decrypt(user.totp_secret);
     const isValid = verifyTOTP(decryptedSecret, token);
     if (!isValid) {
-      return NextResponse.json(
-        { ok: false, error: "コードが正しくありません" },
-        { status: 400 }
-      );
+      return badRequest("コードが正しくありません");
     }
 
     // TOTP設定を削除
@@ -67,10 +56,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[TOTP Disable] DB update error:", updateError);
-      return NextResponse.json(
-        { ok: false, error: "設定の更新に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("設定の更新に失敗しました");
     }
 
     // 監査ログ
@@ -81,9 +67,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[TOTP Disable] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

@@ -499,7 +499,7 @@ closeModalAndRefresh();
       });
       const data = await res.json();
       if (!data.ok) {
-        alert(data.error || "送信に失敗しました");
+        alert((data.message || data.error) || "送信に失敗しました");
         return;
       }
       if (reserveId) updateRowLocal(reserveId, { call_status: "call_form_sent" });
@@ -539,7 +539,7 @@ closeModalAndRefresh();
       });
       const sendJson = await sendRes.json();
       if (!sendJson.ok) {
-        alert(`メッセージ送信に失敗しました: ${sendJson.error || sendJson.status || "不明なエラー"}`);
+        alert(`メッセージ送信に失敗しました: ${(sendJson.message || sendJson.error) || sendJson.status || "不明なエラー"}`);
         return;
       }
 

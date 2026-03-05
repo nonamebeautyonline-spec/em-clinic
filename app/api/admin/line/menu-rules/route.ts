@@ -1,5 +1,6 @@
 // app/api/admin/line/menu-rules/route.ts — メニュー自動切替ルール管理
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import {
   loadMenuRules,
@@ -15,7 +16,7 @@ import { menuRuleSchema } from "@/lib/validations/line-management";
 // ルール一覧取得
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const rules = await loadMenuRules(tenantId ?? undefined);
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
 // ルール作成・更新
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, menuRuleSchema);
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (rule.id) {
     // 更新
     const idx = rules.findIndex(r => r.id === rule.id);
-    if (idx === -1) return NextResponse.json({ error: "ルールが見つかりません" }, { status: 404 });
+    if (idx === -1) return notFound("ルールが見つかりません");
     rules[idx] = { ...rules[idx], ...rule } as MenuAutoRule;
   } else {
     // 新規作成
@@ -55,19 +56,19 @@ export async function POST(req: NextRequest) {
   }
 
   const saved = await saveMenuRules(rules, tenantId ?? undefined);
-  if (!saved) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+  if (!saved) return serverError("保存に失敗しました");
   return NextResponse.json({ ok: true, rules });
 }
 
 // ルール削除
 export async function DELETE(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "idは必須です" }, { status: 400 });
+  if (!id) return badRequest("idは必須です");
 
   const rules = await loadMenuRules(tenantId ?? undefined);
   const filtered = rules.filter(r => r.id !== id);
@@ -78,7 +79,7 @@ export async function DELETE(req: NextRequest) {
 // 一括適用（PUT）
 export async function PUT(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 

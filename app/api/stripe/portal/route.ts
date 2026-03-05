@@ -2,6 +2,7 @@
 // Stripe Customer Portal URL生成: テナント管理者が支払い方法変更・請求書確認をStripe側UIで操作
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { getStripeClient } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -9,19 +10,19 @@ import { supabaseAdmin } from "@/lib/supabase";
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json({ ok: false, error: "権限がありません" }, { status: 403 });
+    return forbidden("権限がありません");
   }
 
   const stripe = await getStripeClient();
   if (!stripe) {
-    return NextResponse.json({ ok: false, error: "Stripeが設定されていません" }, { status: 400 });
+    return badRequest("Stripeが設定されていません");
   }
 
   const body = await req.json();
   const { tenantId } = body;
 
   if (!tenantId) {
-    return NextResponse.json({ ok: false, error: "tenantIdは必須です" }, { status: 400 });
+    return badRequest("tenantIdは必須です");
   }
 
   try {
@@ -33,10 +34,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!tenantPlan?.stripe_customer_id) {
-      return NextResponse.json(
-        { ok: false, error: "Stripe Customerが未作成です" },
-        { status: 400 },
-      );
+      return badRequest("Stripe Customerが未作成です");
     }
 
     // Customer Portal Session作成
@@ -48,9 +46,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, url: session.url });
   } catch (err) {
     console.error("[stripe/portal] error:", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Portal URL生成に失敗しました" },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : "Portal URL生成に失敗しました");
   }
 }

@@ -1,6 +1,7 @@
 // AI返信ドラフト再生成API（修正指示でClaude再呼び出し）
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound, serverError } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -17,7 +18,7 @@ export async function POST(
   const { draftId: draftIdStr } = await params;
   const draftId = parseInt(draftIdStr, 10);
   if (isNaN(draftId)) {
-    return NextResponse.json({ error: "無効なID" }, { status: 400 });
+    return badRequest("無効なID");
   }
 
   const parsed = await parseBody(request, aiReplyRegenerateSchema);
@@ -25,7 +26,7 @@ export async function POST(
   const { instruction, sig, exp } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
-    return NextResponse.json({ error: "署名が無効または期限切れです" }, { status: 403 });
+    return forbidden("署名が無効または期限切れです");
   }
 
   // ドラフト取得
@@ -36,18 +37,18 @@ export async function POST(
     .single();
 
   if (error || !draft) {
-    return NextResponse.json({ error: "ドラフトが見つかりません" }, { status: 404 });
+    return notFound("ドラフトが見つかりません");
   }
 
   if (draft.status !== "pending") {
-    return NextResponse.json({ error: "このドラフトは既に処理済みです" }, { status: 400 });
+    return badRequest("このドラフトは既に処理済みです");
   }
 
   // APIキー取得
   const tenantId = draft.tenant_id ?? undefined;
   const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tenantId)) || "";
   if (!apiKey) {
-    return NextResponse.json({ error: "APIキー未設定" }, { status: 500 });
+    return serverError("APIキー未設定");
   }
 
   // ナレッジベース取得
@@ -86,7 +87,7 @@ ${instruction}
 
     const newReply = response.content[0].type === "text" ? response.content[0].text.trim() : "";
     if (!newReply) {
-      return NextResponse.json({ error: "AIからの返信が空です" }, { status: 500 });
+      return serverError("AIからの返信が空です");
     }
 
     // ドラフトを更新
@@ -98,6 +99,6 @@ ${instruction}
     return NextResponse.json({ newReply });
   } catch (err) {
     console.error("[AI Reply] 再生成エラー:", err);
-    return NextResponse.json({ error: "AI再生成に失敗しました" }, { status: 500 });
+    return serverError("AI再生成に失敗しました");
   }
 }

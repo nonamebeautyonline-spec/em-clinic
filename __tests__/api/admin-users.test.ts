@@ -78,7 +78,7 @@ describe("admin/users GET", () => {
     const res = await GET(req as never);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("正常系: ユーザー一覧を返す", async () => {
@@ -181,7 +181,7 @@ describe("admin/users POST", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("既に登録");
+    expect(json.message).toContain("既に登録");
   });
 
   it("正常系: ユーザー作成 + 招待メール送信成功", async () => {
@@ -276,7 +276,7 @@ describe("admin/users POST", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toContain("失敗");
+    expect(json.message).toContain("失敗");
   });
 });
 
@@ -301,7 +301,7 @@ describe("admin/users DELETE", () => {
     const res = await DELETE(req as never);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("id");
+    expect(json.message).toContain("id");
   });
 
   it("正常系: 削除成功", async () => {
@@ -326,6 +326,6 @@ describe("admin/users DELETE", () => {
     const res = await DELETE(req as never);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toContain("削除");
+    expect(json.message).toContain("削除");
   });
 });

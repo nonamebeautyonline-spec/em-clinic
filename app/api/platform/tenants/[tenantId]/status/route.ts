@@ -2,6 +2,7 @@
 // テナント有効化/無効化API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -18,10 +19,7 @@ interface RouteContext {
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -40,10 +38,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!existing) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // 同じステータスの場合はスキップ
@@ -65,10 +60,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
 
     if (updateErr) {
       console.error("[platform/tenants/[id]/status] PATCH error:", updateErr);
-      return NextResponse.json(
-        { ok: false, error: "ステータスの変更に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("ステータスの変更に失敗しました");
     }
 
     // 無効化の場合、テナントメンバーも無効化
@@ -100,9 +92,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     });
   } catch (err) {
     console.error("[platform/tenants/[id]/status] PATCH unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

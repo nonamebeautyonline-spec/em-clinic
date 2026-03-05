@@ -166,7 +166,7 @@ describe("管理者ログイン API - POST", () => {
     const res = await POST(req);
     expect(res.status).toBe(429);
     const json = await res.json();
-    expect(json.error).toContain("ログイン試行回数");
+    expect(json.message).toContain("ログイン試行回数");
   });
 
   it("IP単位レート制限 → 429", async () => {
@@ -184,7 +184,7 @@ describe("管理者ログイン API - POST", () => {
     const res = await POST(req);
     expect(res.status).toBe(429);
     const json = await res.json();
-    expect(json.error).toContain("IP");
+    expect(json.message).toContain("IP");
   });
 
   it("ユーザーが見つからない → 401", async () => {

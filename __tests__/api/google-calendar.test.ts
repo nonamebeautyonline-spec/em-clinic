@@ -368,7 +368,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
     const res = await POST(req);
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toContain("医師が見つかりません");
+    expect(data.message).toContain("医師が見つかりません");
   });
 
   it("google_refresh_tokenがない場合は400を返す", async () => {
@@ -394,7 +394,7 @@ describe("Google Calendar Sync 詳細テスト", () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Googleカレンダーが連携されていません");
+    expect(data.message).toContain("Googleカレンダーが連携されていません");
   });
 
   it("トークンリフレッシュ失敗時は401を返す", async () => {

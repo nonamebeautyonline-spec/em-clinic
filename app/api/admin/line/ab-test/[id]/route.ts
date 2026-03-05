@@ -1,5 +1,6 @@
 // app/api/admin/line/ab-test/[id]/route.ts — ABテスト個別操作API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -14,7 +15,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (error || !test) {
-    return NextResponse.json({ error: "ABテストが見つかりません" }, { status: 404 });
+    return notFound("ABテストが見つかりません");
   }
 
   // バリアントデータから勝者判定を実施
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
  */
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -72,7 +73,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (!existing) {
-    return NextResponse.json({ error: "ABテストが見つかりません" }, { status: 404 });
+    return notFound("ABテストが見つかりません");
   }
 
   // ステータス遷移のバリデーション
@@ -85,10 +86,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
     };
     const allowed = validTransitions[existing.status] || [];
     if (!allowed.includes(status)) {
-      return NextResponse.json(
-        { error: `ステータスを ${existing.status} から ${status} に変更できません` },
-        { status: 400 },
-      );
+      return badRequest(`ステータスを ${existing.status} から ${status} に変更できません`);
     }
   }
 
@@ -136,7 +134,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   ).select().single();
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return serverError(updateError.message);
   }
 
   // バリアントの更新（指定された場合）
@@ -175,7 +173,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -187,13 +185,10 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (!existing) {
-    return NextResponse.json({ error: "ABテストが見つかりません" }, { status: 404 });
+    return notFound("ABテストが見つかりません");
   }
   if (existing.status === "running") {
-    return NextResponse.json(
-      { error: "実行中のテストは削除できません。先にキャンセルしてください。" },
-      { status: 400 },
-    );
+    return badRequest("実行中のテストは削除できません。先にキャンセルしてください。");
   }
 
   // CASCADE で ab_test_variants も削除される
@@ -203,7 +198,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });

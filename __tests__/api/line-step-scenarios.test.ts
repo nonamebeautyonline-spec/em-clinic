@@ -259,7 +259,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       const res = await PUT(req as unknown as Parameters<typeof PUT>[0]);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("IDは必須です");
+      expect(json.message).toBe("IDは必須です");
     });
 
     it("正常更新（ステップ再挿入）", async () => {
@@ -321,7 +321,7 @@ describe("ステップ配信シナリオAPI (step-scenarios/route.ts)", () => {
       const res = await DELETE(req as unknown as Parameters<typeof DELETE>[0]);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("IDは必須です");
+      expect(json.message).toBe("IDは必須です");
     });
 
     it("正常削除 → ok: true", async () => {

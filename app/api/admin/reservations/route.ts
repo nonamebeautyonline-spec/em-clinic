@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 
       if (createdError) {
         console.error("Supabase reservations error:", createdError);
-        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+        return serverError("Database error");
       }
 
       // 患者情報を取得
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest) {
 
       if (futureError) {
         console.error("Supabase reservations error:", futureError);
-        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+        return serverError("Database error");
       }
 
       return NextResponse.json({
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
     if (monthParam) {
       const [year, month] = monthParam.split("-").map(Number);
       if (!year || !month || month < 1 || month > 12) {
-        return NextResponse.json({ ok: false, error: "Invalid month format. Use YYYY-MM" }, { status: 400 });
+        return badRequest("Invalid month format. Use YYYY-MM");
       }
 
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
 
       if (monthError) {
         console.error("Supabase reservations error:", monthError);
-        return NextResponse.json({ ok: false, error: "Database error" }, { status: 500 });
+        return serverError("Database error");
       }
 
       return NextResponse.json({
@@ -193,11 +194,7 @@ export async function GET(req: NextRequest) {
 
     if (resvError) {
       console.error("Supabase reservations error:", resvError);
-      return NextResponse.json({
-        error: "Database error",
-        details: resvError.message || String(resvError),
-        hint: (resvError as unknown as Record<string, unknown>).hint || null
-      }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "Database error", details: resvError.message || String(resvError), hint: (resvError as unknown as Record<string, unknown>).hint || null }, { status: 500 });
     }
 
     // 患者IDリストからpatientsテーブルで名前・カナ・性別・生年月日・line_idを取得
@@ -269,9 +266,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ reservations });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

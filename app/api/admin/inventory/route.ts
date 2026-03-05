@@ -1,5 +1,6 @@
 // app/api/admin/inventory/route.ts — 棚卸し記録 API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getProducts } from "@/lib/products";
@@ -24,7 +25,7 @@ async function getLocations(tenantId?: string): Promise<string[]> {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
     const { data: logs, error } = await query;
     if (error) {
       console.error("[inventory API] GET error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     const products = await getProducts(tenantId ?? undefined);
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     const { data: logs, error } = await query;
     if (error) {
       console.error("[inventory API] GET history error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     // シードデータ: 台帳データ（packaged.box_count > 0）のある最新日から from 前日までの全データ
@@ -131,13 +132,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ logs: logs ?? [], seedLogs });
   }
 
-  return NextResponse.json({ error: "date または from/to パラメータが必要です" }, { status: 400 });
+  return badRequest("date または from/to パラメータが必要です");
 }
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
   const { error: delError } = await delQuery;
   if (delError) {
     console.error("[inventory API] DELETE error:", delError.message);
-    return NextResponse.json({ error: delError.message }, { status: 500 });
+    return serverError(delError.message);
   }
 
   const { data, error } = await supabaseAdmin
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error("[inventory API] INSERT error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ saved: data?.length ?? 0 });

@@ -2,6 +2,7 @@
 // 月次使用量Stripe報告: monthly_usageからメッセージ数集計 → Stripe Usage Record作成
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getStripeClient } from "@/lib/stripe";
 import { acquireLock } from "@/lib/distributed-lock";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   // Vercel Cron 認証
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     if (fetchErr) {
       console.error("[report-usage] 使用量取得エラー:", fetchErr);
-      return NextResponse.json({ ok: false, error: "使用量データ取得失敗" }, { status: 500 });
+      return serverError("使用量データ取得失敗");
     }
 
     if (!usageRecords || usageRecords.length === 0) {
@@ -102,6 +103,6 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[report-usage] 予期しないエラー:", err);
     await lock.release();
-    return NextResponse.json({ ok: false, error: "予期しないエラー" }, { status: 500 });
+    return serverError("予期しないエラー");
   }
 }

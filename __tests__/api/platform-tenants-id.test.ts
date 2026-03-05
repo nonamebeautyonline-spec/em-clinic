@@ -76,7 +76,7 @@ describe("platform/tenants/[tenantId] API", () => {
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.error).toBe("権限がありません");
+      expect(json.message).toBe("権限がありません");
     });
 
     it("テナントが見つからない場合404を返す", async () => {
@@ -85,7 +85,7 @@ describe("platform/tenants/[tenantId] API", () => {
       expect(res.status).toBe(404);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.error).toBe("テナントが見つかりません");
+      expect(json.message).toBe("テナントが見つかりません");
     });
 
     it("正常取得で200とテナントデータを返す", async () => {
@@ -112,7 +112,7 @@ describe("platform/tenants/[tenantId] API", () => {
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.error).toBe("テナント情報の取得に失敗しました");
+      expect(json.message).toBe("テナント情報の取得に失敗しました");
     });
 
     it("パラメータ tenantId がクエリに使われる", async () => {
@@ -144,7 +144,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const res = await PUT(makeReq("PUT", { name: "新クリニック" }), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("テナントが見つかりません");
+      expect(json.message).toBe("テナントが見つかりません");
     });
 
     it("slug重複時に409を返す", async () => {
@@ -165,7 +165,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const res = await PUT(makeReq("PUT", { slug: "duplicate-slug" }), makeCtx());
       expect(res.status).toBe(409);
       const json = await res.json();
-      expect(json.error).toBe("このスラグは既に使用されています");
+      expect(json.message).toBe("このスラグは既に使用されています");
     });
 
     it("正常更新で200を返す", async () => {
@@ -205,7 +205,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const res = await PUT(makeReq("PUT", { name: "新クリニック名" }), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("テナントの更新に失敗しました");
+      expect(json.message).toBe("テナントの更新に失敗しました");
     });
   });
 
@@ -222,7 +222,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("テナントが見つかりません");
+      expect(json.message).toBe("テナントが見つかりません");
     });
 
     it("正常削除で200を返す", async () => {
@@ -258,7 +258,7 @@ describe("platform/tenants/[tenantId] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("テナントの削除に失敗しました");
+      expect(json.message).toBe("テナントの削除に失敗しました");
     });
 
     it("削除後にadmin_usersも無効化される", async () => {

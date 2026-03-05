@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     // CSVをパース（タブ区切り）
     const lines = csvContent.split("\n").filter((line: string) => line.trim());
     if (lines.length < 2) {
-      return NextResponse.json({ error: "CSVが空です" }, { status: 400 });
+      return badRequest("CSVが空です");
     }
 
     // ヘッダー行を解析（タブ区切り）
@@ -37,10 +38,7 @@ export async function POST(req: NextRequest) {
     const trackingNumberColIndex = headers.indexOf("伝票番号");
 
     if (paymentIdColIndex === -1 || trackingNumberColIndex === -1) {
-      return NextResponse.json(
-        { error: "必須カラムが見つかりません（お客様管理番号、伝票番号）" },
-        { status: 400 }
-      );
+      return badRequest("必須カラムが見つかりません（お客様管理番号、伝票番号）");
     }
 
     console.log(`[UpdateTracking] Found columns: paymentId=${paymentIdColIndex}, tracking=${trackingNumberColIndex}`);
@@ -149,9 +147,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[UpdateTracking] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

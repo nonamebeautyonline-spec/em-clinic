@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefaultRichMenu, bulkLinkRichMenu } from "@/lib/line-richmenu";
@@ -79,7 +80,7 @@ export const maxDuration = 120;
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const { id } = await params;
@@ -102,7 +103,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       tenantId
     ).single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error.message);
 
     // 3. LINE API同期（画像がある場合のみ）
     if (!data.image_url) {
@@ -172,7 +173,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ menu: data, sync_ok: true, sync_log: syncLog });
   } catch (e) {
     console.error("[Rich Menu PUT] Unhandled error:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }
 
@@ -180,7 +181,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const { id } = await params;
@@ -199,10 +200,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       tenantId
     );
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error.message);
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[Rich Menu DELETE] Unhandled error:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }

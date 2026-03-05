@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
@@ -9,7 +10,7 @@ import { patientFieldsUpdateSchema } from "@/lib/validations/admin-operations";
 // 患者の友達情報欄の値を取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -22,14 +23,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ fields: data });
 }
 
 // 患者の友達情報欄を更新（複数フィールドを一括更新）
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -52,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
   return NextResponse.json({ ok: true });

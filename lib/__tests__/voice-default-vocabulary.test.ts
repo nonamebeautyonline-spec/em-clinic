@@ -20,9 +20,13 @@ describe("SPECIALTY_LABELS", () => {
     "surgery",
     "orthopedics",
     "dermatology",
+    "ophthalmology",
+    "ent",
+    "urology",
+    "ob_gyn",
   ];
 
-  it("全6科のラベルが定義されている", () => {
+  it("全10科のラベルが定義されている", () => {
     for (const sp of allSpecialties) {
       expect(SPECIALTY_LABELS[sp]).toBeDefined();
       expect(typeof SPECIALTY_LABELS[sp]).toBe("string");
@@ -30,8 +34,8 @@ describe("SPECIALTY_LABELS", () => {
     }
   });
 
-  it("キー数が6つである", () => {
-    expect(Object.keys(SPECIALTY_LABELS)).toHaveLength(6);
+  it("キー数が10である", () => {
+    expect(Object.keys(SPECIALTY_LABELS)).toHaveLength(10);
   });
 });
 
@@ -60,7 +64,7 @@ describe("CATEGORY_LABELS", () => {
 // DEFAULT_VOCABULARY
 // ================================================================
 describe("DEFAULT_VOCABULARY", () => {
-  it("全6科にエントリ配列が存在する", () => {
+  it("全10科にエントリ配列が存在する", () => {
     for (const key of Object.keys(SPECIALTY_LABELS) as Specialty[]) {
       expect(Array.isArray(DEFAULT_VOCABULARY[key])).toBe(true);
       expect(DEFAULT_VOCABULARY[key].length).toBeGreaterThan(0);
@@ -146,16 +150,20 @@ describe("getDefaultVocabulary", () => {
 // getVocabularySummary
 // ================================================================
 describe("getVocabularySummary", () => {
-  it("全6キーが含まれる", () => {
+  it("全10キーが含まれる", () => {
     const summary = getVocabularySummary();
     const keys = Object.keys(summary);
-    expect(keys).toHaveLength(6);
+    expect(keys).toHaveLength(10);
     expect(keys).toContain("common");
     expect(keys).toContain("beauty");
     expect(keys).toContain("internal");
     expect(keys).toContain("surgery");
     expect(keys).toContain("orthopedics");
     expect(keys).toContain("dermatology");
+    expect(keys).toContain("ophthalmology");
+    expect(keys).toContain("ent");
+    expect(keys).toContain("urology");
+    expect(keys).toContain("ob_gyn");
   });
 
   it("各値が0より大きい", () => {

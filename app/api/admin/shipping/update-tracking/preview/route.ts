@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "CSVファイルが指定されていません" }, { status: 400 });
+      return badRequest("CSVファイルが指定されていません");
     }
 
     // CSVを読み込み（Shift_JISエンコーディング対応）
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     // CSVをパース（カンマ区切り or タブ区切り自動判定）
     const lines = csvContent.split("\n").filter((line: string) => line.trim());
     if (lines.length < 2) {
-      return NextResponse.json({ error: "CSVが空です" }, { status: 400 });
+      return badRequest("CSVが空です");
     }
 
     // ★ ヘッダー行を解析（カンマ区切りかタブ区切りか自動判定）
@@ -119,10 +120,7 @@ export async function POST(req: NextRequest) {
 
       if (ordersError) {
         console.error(`[UpdateTrackingPreview] Orders fetch error:`, ordersError);
-        return NextResponse.json(
-          { error: "注文データ取得エラー", details: ordersError.message },
-          { status: 500 }
-        );
+        return NextResponse.json({ ok: false, error: "注文データ取得エラー", details: ordersError.message }, { status: 500 });
       }
 
       // patient_idリストを取得
@@ -227,9 +225,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[UpdateTrackingPreview] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

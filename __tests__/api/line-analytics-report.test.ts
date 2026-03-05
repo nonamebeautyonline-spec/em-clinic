@@ -121,7 +121,7 @@ describe("LINE配信分析レポートPDF生成 API", () => {
       const res = await GET(createReq());
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
   });
 

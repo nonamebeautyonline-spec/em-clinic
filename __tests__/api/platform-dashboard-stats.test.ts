@@ -86,7 +86,7 @@ describe("GET /api/platform/dashboard-stats", () => {
 
       expect(res.status).toBe(403);
       expect(body.ok).toBe(false);
-      expect(body.error).toBe("権限がありません");
+      expect(body.message).toBe("権限がありません");
     });
 
     it("プラットフォーム管理者の場合は200を返す", async () => {
@@ -238,7 +238,7 @@ describe("GET /api/platform/dashboard-stats", () => {
 
       expect(res.status).toBe(500);
       expect(body.ok).toBe(false);
-      expect(body.error).toBe("統計データの取得に失敗しました");
+      expect(body.message).toBe("統計データの取得に失敗しました");
     });
   });
 });

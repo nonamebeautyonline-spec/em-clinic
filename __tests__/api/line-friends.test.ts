@@ -163,7 +163,7 @@ describe("LINEブロック確認 API (app/api/admin/line/check-block/route.ts)",
     const res = await GET(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("patient_id");
+    expect(json.message).toContain("patient_id");
   });
 
   it("認証NG → 401", async () => {
@@ -172,7 +172,7 @@ describe("LINEブロック確認 API (app/api/admin/line/check-block/route.ts)",
     const res = await GET(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("LINE_ACCESS_TOKEN なし → {blocked:false}", async () => {

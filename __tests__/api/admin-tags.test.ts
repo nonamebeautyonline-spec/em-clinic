@@ -207,7 +207,7 @@ describe("POST /api/admin/tags", () => {
     const res = await POST(req);
     expect(res.status).toBe(409);
     const json = await res.json();
-    expect(json.error).toContain("同じ名前");
+    expect(json.message).toContain("同じ名前");
   });
 
   it("その他のDBエラー時は 500 を返す", async () => {

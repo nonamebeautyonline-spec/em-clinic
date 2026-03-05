@@ -241,7 +241,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.error).toContain("無効なカード");
+    expect(body.message).toContain("無効なカード");
   });
 
   it("Cookie不一致で 403 エラー", async () => {
@@ -249,7 +249,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.error).toContain("認証情報");
+    expect(body.message).toContain("認証情報");
   });
 
   it("NG患者の場合 403 エラー", async () => {
@@ -260,7 +260,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(403);
-    expect(body.error).toContain("処方不可");
+    expect(body.message).toContain("処方不可");
   });
 
   it("無効な商品コードで 400 エラー", async () => {
@@ -270,7 +270,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.error).toContain("無効な商品コード");
+    expect(body.message).toContain("無効な商品コード");
   });
 
   it("Square設定不足で 500 エラー", async () => {
@@ -280,7 +280,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(500);
-    expect(body.error).toContain("Square設定");
+    expect(body.message).toContain("Square設定");
   });
 
   it("決済失敗で 400 エラー", async () => {
@@ -293,7 +293,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(400);
-    expect(body.error).toContain("カードが拒否されました");
+    expect(body.message).toContain("カードが拒否されました");
   });
 
   it("reorder モードで paidマーク + カルテ作成される", async () => {
@@ -346,7 +346,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(429);
-    expect(body.error).toContain("決済リクエストが多すぎます");
+    expect(body.message).toContain("決済リクエストが多すぎます");
   });
 
   it("直近60秒以内の同一注文がある場合は 409 エラー", async () => {
@@ -358,7 +358,7 @@ describe("POST /api/square/pay", () => {
     const body = await res.json();
 
     expect(res.status).toBe(409);
-    expect(body.error).toContain("直前に同じ決済");
+    expect(body.message).toContain("直前に同じ決済");
   });
 
   it("冪等性キーがcreateSquarePaymentに渡される", async () => {

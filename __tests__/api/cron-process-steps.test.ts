@@ -107,7 +107,7 @@ describe("GET /api/cron/process-steps", () => {
       const res = await GET(req);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBe("DB connection failed");
+      expect(body.message).toBe("DB connection failed");
     });
   });
 

@@ -266,8 +266,8 @@ export default function FriendsListPage() {
       body: JSON.stringify({ patient_ids: [...selectedIds], rich_menu_id: bulkSelectedMenu }),
     });
     const data = await res.json();
-    if (data.error && !data.ok) {
-      setBulkResult({ type: "error", summary: `エラー: ${data.error}`, details: [] });
+    if ((data.message || data.error) && !data.ok) {
+      setBulkResult({ type: "error", summary: `エラー: ${(data.message || data.error)}`, details: [] });
     } else {
       setBulkResult({ type: data.failed > 0 ? "error" : "success", summary: `メニュー「${menuName}」割り当て完了`, details: [{ label: "成功", value: `${data.linked}件` }, { label: "失敗", value: `${data.failed}件` }, { label: "UID無し", value: `${data.no_uid}件` }, { label: "対象合計", value: `${data.total}件` }] });
     }

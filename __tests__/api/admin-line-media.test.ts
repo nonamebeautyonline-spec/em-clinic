@@ -108,7 +108,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(401);
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("2. 全件取得 → 200", async () => {
@@ -156,7 +156,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe("DB接続エラー");
+      expect(json.message).toBe("DB接続エラー");
     });
   });
 
@@ -169,7 +169,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(401);
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("7. ファイルなし → 400", async () => {
@@ -182,7 +182,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toBe("ファイルは必須です");
+      expect(json.message).toBe("ファイルは必須です");
     });
 
     it("8. 無効なfile_type → 400", async () => {
@@ -196,7 +196,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toBe("ファイル種別が無効です");
+      expect(json.message).toBe("ファイル種別が無効です");
     });
 
     it("9. imageタイプ: 無効MIME → 400", async () => {
@@ -210,7 +210,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toContain("JPEG、PNG、GIF、WebP");
+      expect(json.message).toContain("JPEG、PNG、GIF、WebP");
     });
 
     it("10. imageタイプ: サイズ超過 → 400", async () => {
@@ -224,7 +224,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toContain("10MB以下");
+      expect(json.message).toContain("10MB以下");
     });
 
     it("11. menu_imageタイプ: サイズ超過(1MB) → 400", async () => {
@@ -238,7 +238,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toContain("1MB以下");
+      expect(json.message).toContain("1MB以下");
     });
 
     it("12. pdfタイプ: MIME不正 → 400", async () => {
@@ -252,7 +252,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toContain("PDF形式のみ");
+      expect(json.message).toContain("PDF形式のみ");
     });
 
     it("13. 正常アップロード → 200", async () => {
@@ -286,7 +286,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(401);
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("15. 正常更新 → 200", async () => {
@@ -327,7 +327,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(401);
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("17. IDなし → 400", async () => {
@@ -336,7 +336,7 @@ describe("admin/line/media API テスト", () => {
       const json = await parseJson(res);
 
       expect(res.status).toBe(400);
-      expect(json.error).toBe("IDは必須です");
+      expect(json.message).toBe("IDは必須です");
     });
 
     it("18. 正常削除 → 200", async () => {

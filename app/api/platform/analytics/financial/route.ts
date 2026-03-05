@@ -2,16 +2,14 @@
 // プラットフォーム管理: 財務分析API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     // MRR: アクティブなプランの月額合計
@@ -80,9 +78,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/analytics/financial] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "財務データの取得に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("財務データの取得に失敗しました");
   }
 }

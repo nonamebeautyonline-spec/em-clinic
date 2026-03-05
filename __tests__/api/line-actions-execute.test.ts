@@ -93,7 +93,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const res = await POST(req);
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
 
     it("認証成功時は処理が継続される", async () => {
@@ -154,7 +154,7 @@ describe("POST /api/admin/line/actions/execute", () => {
       const res = await POST(req);
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.error).toBe("アクションが見つかりません");
+      expect(body.message).toBe("アクションが見つかりません");
     });
   });
 

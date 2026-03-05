@@ -1,5 +1,6 @@
 // app/api/bank-transfer/shipping/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { normalizeJPPhone } from "@/lib/phone";
@@ -33,10 +34,7 @@ export async function POST(req: NextRequest) {
 
       if (intakeRow?.status === "NG") {
         console.log(`[BankTransfer] NG患者の決済をブロック: patient_id=${patientId}`);
-        return NextResponse.json(
-          { error: "処方不可と判定されているため、決済できません。再度診察予約をお取りください。" },
-          { status: 403 }
-        );
+        return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
       }
     }
 
@@ -77,10 +75,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[BankTransfer] orders insert error:", error);
-      return NextResponse.json(
-        { error: "配送先情報の保存に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("配送先情報の保存に失敗しました");
     }
 
     console.log("[BankTransfer] ✅ ordersテーブルに登録完了:", tempOrderId);
@@ -150,9 +145,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[BankTransfer] Error:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "サーバーエラーが発生しました" },
-      { status: 500 }
-    );
+    return serverError(e instanceof Error ? e.message : "サーバーエラーが発生しました");
   }
 }

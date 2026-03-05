@@ -1,6 +1,7 @@
 // app/api/platform/totp/verify/route.ts — TOTPコード検証・有効化API
 // setup で生成したシークレットで実際にコードが一致するか確認し、DBに保存
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { verifyTOTP } from "@/lib/totp";
 import { encrypt } from "@/lib/crypto";
@@ -14,10 +15,7 @@ export async function POST(req: NextRequest) {
     // プラットフォーム管理者認証
     const admin = await verifyPlatformAdmin(req);
     if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: "認証が必要です" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, totpVerifySchema);
@@ -27,10 +25,7 @@ export async function POST(req: NextRequest) {
     // TOTPコードを検証
     const isValid = verifyTOTP(secret, token);
     if (!isValid) {
-      return NextResponse.json(
-        { ok: false, error: "コードが正しくありません。もう一度お試しください。" },
-        { status: 400 }
-      );
+      return badRequest("コードが正しくありません。もう一度お試しください。");
     }
 
     // シークレットを暗号化してDBに保存
@@ -47,10 +42,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[TOTP Verify] DB update error:", updateError);
-      return NextResponse.json(
-        { ok: false, error: "設定の保存に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("設定の保存に失敗しました");
     }
 
     // 監査ログ
@@ -61,9 +53,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[TOTP Verify] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

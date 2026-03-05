@@ -1,5 +1,6 @@
 // app/api/admin/line/workflows/route.ts — ワークフロー一覧・新規作成API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -11,7 +12,7 @@ import { createWorkflowSchema } from "@/lib/validations/line-common";
  */
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   // ステップ数・実行回数を付与
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   // ステップ一括挿入

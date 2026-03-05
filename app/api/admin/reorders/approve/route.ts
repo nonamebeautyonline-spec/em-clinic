@@ -1,5 +1,6 @@
 // DB-only: 再処方承認（GAS不要）+ LINE通知（管理者グループ＆患者個別）
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     if (fetchError || !reorderData) {
       console.error("[admin/reorders/approve] Reorder not found:", id);
-      return NextResponse.json({ error: "Reorder not found" }, { status: 404 });
+      return notFound("Reorder not found");
     }
 
     // 重複チェック: 既に処理済みならスキップ
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     if (dbError) {
       console.error("[admin/reorders/approve] DB update error:", dbError);
-      return NextResponse.json({ error: "DB error" }, { status: 500 });
+      return serverError("DB error");
     }
 
     console.log(`[admin/reorders/approve] Approved: reorder_num=${id}, patient=${reorderData.patient_id}`);
@@ -200,9 +201,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, lineNotify });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

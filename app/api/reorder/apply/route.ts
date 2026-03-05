@@ -1,6 +1,7 @@
 // app/api/reorder/apply/route.ts
 // DB + LINE完結（GAS同期なし）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError, unauthorized } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -193,7 +194,7 @@ export async function POST(req: NextRequest) {
       "";
 
     if (!patientId) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -223,10 +224,7 @@ export async function POST(req: NextRequest) {
 
       if (intakeRow?.status === "NG") {
         console.log(`[reorder/apply] NG患者の再処方申請をブロック: patient_id=${patientId}`);
-        return NextResponse.json(
-          { ok: false, error: "ng_patient", message: "処方不可と判定されているため、再処方を申請できません。再度診察予約をお取りください。" },
-          { status: 403 }
-        );
+        return NextResponse.json({ ok: false, error: "ng_patient", message: "処方不可と判定されているため、再処方を申請できません。再度診察予約をお取りください。" }, { status: 403 });
       }
     }
 
@@ -249,10 +247,7 @@ export async function POST(req: NextRequest) {
 
         if (!pastReservation) {
           console.log(`[reorder/apply] 予約歴なしの再処方申請をブロック: patient_id=${patientId}`);
-          return NextResponse.json(
-            { ok: false, error: "reservation_required", message: "再処方には事前の予約・診察が必要です。先に予約を取得してください。" },
-            { status: 403 }
-          );
+          return NextResponse.json({ ok: false, error: "reservation_required", message: "再処方には事前の予約・診察が必要です。先に予約を取得してください。" }, { status: 403 });
         }
       }
     }
@@ -277,14 +272,7 @@ export async function POST(req: NextRequest) {
 
     if (existingReorder) {
       console.log(`[reorder/apply] Duplicate blocked: patient=${patientId}, existing status=${existingReorder.status}`);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "duplicate_pending",
-          message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。"
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "duplicate_pending", message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。" }, { status: 400 });
     }
 
     // ★ DB: reorder_numberを生成（DBの最大値+1）

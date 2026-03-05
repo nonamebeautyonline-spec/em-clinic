@@ -1,5 +1,6 @@
 // app/api/admin/ehr/import-csv/route.ts — CSVインポート
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, tenantPayload } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -28,26 +29,17 @@ export async function POST(req: NextRequest) {
 
     // バリデーション
     if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: "CSVファイルが指定されていません" },
-        { status: 400 },
-      );
+      return badRequest("CSVファイルが指定されていません");
     }
 
     if (type !== "patient" && type !== "karte") {
-      return NextResponse.json(
-        { error: "typeは「patient」または「karte」を指定してください" },
-        { status: 400 },
-      );
+      return badRequest("typeは「patient」または「karte」を指定してください");
     }
 
     // ファイルをテキストに変換
     const text = await file.text();
     if (!text.trim()) {
-      return NextResponse.json(
-        { error: "CSVファイルが空です" },
-        { status: 400 },
-      );
+      return badRequest("CSVファイルが空です");
     }
 
     let imported = 0;
@@ -135,6 +127,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ imported, skipped, errors });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "CSVインポートに失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }

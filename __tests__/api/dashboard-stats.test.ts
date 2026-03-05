@@ -65,7 +65,7 @@ describe("ダッシュボード統計 API - GET", () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("DB空 → 全0値を返す", async () => {

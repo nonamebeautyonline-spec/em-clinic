@@ -393,7 +393,7 @@ describe("parseBody", () => {
 
     const json = await result.error!.json();
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details).toBeDefined();
     expect(json.details.length).toBeGreaterThan(0);
   });
@@ -411,6 +411,6 @@ describe("parseBody", () => {
 
     const json = await result.error!.json();
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("リクエストの形式が不正です");
+    expect(json.message).toBe("リクエストの形式が不正です");
   });
 });

@@ -2,6 +2,7 @@
 // テナント個別統計API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -19,10 +20,7 @@ interface RouteContext {
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -36,10 +34,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     const now = new Date();
@@ -93,9 +88,6 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     });
   } catch (err) {
     console.error("[platform/tenants/[id]/stats] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "統計情報の取得に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("統計情報の取得に失敗しました");
   }
 }

@@ -2,6 +2,7 @@
 // プラットフォーム管理: セキュリティアラート確認済みAPI
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -12,10 +13,7 @@ export async function POST(
 ) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { alertId } = await params;
 
@@ -28,10 +26,7 @@ export async function POST(
       .single();
 
     if (alertErr || !alert) {
-      return NextResponse.json(
-        { ok: false, error: "アラートが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("アラートが見つかりません");
     }
 
     // 確認済みに更新
@@ -45,10 +40,7 @@ export async function POST(
 
     if (updateErr) {
       console.error("[platform/alerts/ack] Update error:", updateErr);
-      return NextResponse.json(
-        { ok: false, error: "アラートの更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("アラートの更新に失敗しました");
     }
 
     // 監査ログ
@@ -61,9 +53,6 @@ export async function POST(
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[platform/alerts/ack] Unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

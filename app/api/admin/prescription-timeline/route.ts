@@ -1,5 +1,6 @@
 // 処方歴タイムラインAPI — 患者の処方変更履歴を時系列で返す
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -9,12 +10,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const patientId = req.nextUrl.searchParams.get("patientId")?.trim();
   if (!patientId) {
-    return NextResponse.json({ error: "patientId は必須です" }, { status: 400 });
+    return badRequest("patientId は必須です");
   }
 
   const [ordersRes, reordersRes] = await Promise.all([

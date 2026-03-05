@@ -1,5 +1,6 @@
 // app/api/admin/export/full/[jobId]/download/route.ts — エクスポートデータダウンロードAPI
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -11,7 +12,7 @@ export async function GET(
 ) {
   const authed = await verifyAdminAuth(req);
   if (!authed) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -26,24 +27,15 @@ export async function GET(
   ).single();
 
   if (error || !job) {
-    return NextResponse.json(
-      { error: "ジョブが見つかりません" },
-      { status: 404 }
-    );
+    return notFound("ジョブが見つかりません");
   }
 
   if (job.status !== "completed") {
-    return NextResponse.json(
-      { error: "エクスポートが完了していません", status: job.status },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "エクスポートが完了していません", status: job.status }, { status: 400 });
   }
 
   if (!job.file_url) {
-    return NextResponse.json(
-      { error: "エクスポートデータが見つかりません" },
-      { status: 404 }
-    );
+    return notFound("エクスポートデータが見つかりません");
   }
 
   // file_url にはJSON形式で各テーブルのCSVデータが格納されている

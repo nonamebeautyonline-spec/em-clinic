@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -32,18 +33,12 @@ export async function GET(req: NextRequest) {
 
     if (ordersError) {
       console.error("[ExportLstepTags] Orders fetch error:", ordersError);
-      return NextResponse.json(
-        { error: "注文データ取得エラー", details: ordersError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "注文データ取得エラー", details: ordersError.message }, { status: 500 });
     }
 
     if (!orders || orders.length === 0) {
       console.log("[ExportLstepTags] No shipped orders found for today");
-      return NextResponse.json(
-        { error: "本日発送済みの注文が見つかりません" },
-        { status: 404 }
-      );
+      return notFound("本日発送済みの注文が見つかりません");
     }
 
     console.log(`[ExportLstepTags] Found ${orders.length} shipped orders`);
@@ -59,28 +54,19 @@ export async function GET(req: NextRequest) {
 
     if (patientsError) {
       console.error("[ExportLstepTags] Patients fetch error:", patientsError);
-      return NextResponse.json(
-        { error: "患者データ取得エラー", details: patientsError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "患者データ取得エラー", details: patientsError.message }, { status: 500 });
     }
 
     if (!patients || patients.length === 0) {
       console.log("[ExportLstepTags] No patient data found");
-      return NextResponse.json(
-        { error: "患者データが見つかりません" },
-        { status: 404 }
-      );
+      return notFound("患者データが見つかりません");
     }
 
     // LステップIDが存在する患者のみフィルタリング
     const validPatients = patients.filter((p) => p.answerer_id);
 
     if (validPatients.length === 0) {
-      return NextResponse.json(
-        { error: "LステップIDが登録されている患者が見つかりません" },
-        { status: 404 }
-      );
+      return notFound("LステップIDが登録されている患者が見つかりません");
     }
 
     console.log(`[ExportLstepTags] Found ${validPatients.length} patients with Lstep ID`);
@@ -110,9 +96,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[ExportLstepTags] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

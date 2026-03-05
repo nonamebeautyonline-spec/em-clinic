@@ -1,5 +1,6 @@
 // app/api/reservations/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, conflict, serverError } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import {
@@ -469,7 +470,7 @@ export async function GET(req: NextRequest) {
 
     // 範囲
     if (!start || !end) {
-      return NextResponse.json({ error: "start and end are required" }, { status: 400 });
+      return badRequest("start and end are required");
     }
 
     // ★ 予約済み枠とスケジュールを並列でDBから取得
@@ -506,7 +507,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ start, end, slots }, { status: 200 });
   } catch (err) {
     console.error("GET /api/reservations error");
-    return NextResponse.json({ error: "server error" }, { status: 500 });
+    return serverError("server error");
   }
 }
 
@@ -602,30 +603,19 @@ export async function POST(req: NextRequest) {
 
       if (intakeCheckError) {
         console.error("[Reservation] Intake check error:", intakeCheckError);
-        return NextResponse.json({
-          ok: false,
-          error: "intake_check_failed",
-        }, { status: 500 });
+        return NextResponse.json({ ok: false, error: "intake_check_failed" }, { status: 500 });
       }
 
       if (!intakeData) {
         console.error("[Reservation] Intake record not found:", { patient_id: pid });
-        return NextResponse.json({
-          ok: false,
-          error: "intake_not_found",
-          message: "問診データが見つかりません。先に問診を完了してください。",
-        }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "intake_not_found", message: "問診データが見つかりません。先に問診を完了してください。", }, { status: 400 });
       }
 
       // ★ 問診完了チェック（ng_checkは問診の必須項目）
       const intakeAnswers = intakeData.answers as Record<string, unknown> | null;
       if (!intakeAnswers || typeof intakeAnswers.ng_check !== "string" || intakeAnswers.ng_check === "") {
         console.error("[Reservation] Questionnaire not completed:", { patient_id: pid });
-        return NextResponse.json({
-          ok: false,
-          error: "questionnaire_not_completed",
-          message: "問診が完了していません。先に問診を完了してください。",
-        }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "questionnaire_not_completed", message: "問診が完了していません。先に問診を完了してください。", }, { status: 400 });
       }
 
       const patientName = patientRes.data?.name || null;
@@ -670,11 +660,7 @@ export async function POST(req: NextRequest) {
       // RPC が slot_full を返した場合
       if (rpcResult && !rpcResult.ok) {
         console.log(`[Reservation] slot_full: date=${date}, time=${time}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
-        return NextResponse.json({
-          ok: false,
-          error: "slot_full",
-          message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。",
-        }, { status: 409 });
+        return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
       }
 
       console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
@@ -770,7 +756,7 @@ export async function POST(req: NextRequest) {
       const pid = cancelValidated.data.patient_id || patientId;
 
       if (!reserveId) {
-        return NextResponse.json({ ok: false, error: "reserveId required" }, { status: 400 });
+        return badRequest("reserveId required");
       }
 
       // LINE通知用に予約情報と line_id を事前取得
@@ -892,7 +878,7 @@ export async function POST(req: NextRequest) {
       const updateDoctorId = updateValidated.data.doctor_id || "dr_default";
 
       if (!reserveId || !newDate || !newTime) {
-        return NextResponse.json({ ok: false, error: "missing parameters" }, { status: 400 });
+        return badRequest("missing parameters");
       }
 
       // ★★ 翌月予約開放日チェック ★★
@@ -934,11 +920,7 @@ export async function POST(req: NextRequest) {
       // RPC が slot_full を返した場合
       if (rpcResult && !rpcResult.ok) {
         console.log(`[Reservation] slot_full on update: date=${newDate}, time=${newTime}, booked=${rpcResult.booked}, capacity=${rpcResult.capacity}`);
-        return NextResponse.json({
-          ok: false,
-          error: "slot_full",
-          message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。",
-        }, { status: 409 });
+        return NextResponse.json({ ok: false, error: "slot_full", message: "この時間帯はすでに予約が埋まりました。別の時間帯をお選びください。", }, { status: 409 });
       }
 
       console.log(`✓ Reservation updated: reserve_id=${reserveId}, date=${newDate}, time=${newTime}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
@@ -990,7 +972,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 未知のtype
-    return NextResponse.json({ ok: false, error: `unknown type: ${type}` }, { status: 400 });
+    return badRequest(`unknown type: ${type}`);
   } catch {
     console.error("POST /api/reservations error");
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

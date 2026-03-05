@@ -90,7 +90,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const res = await PUT(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("認証が必要です");
+    expect(json.message).toBe("認証が必要です");
   });
 
   it("userId取得不可 → 401", async () => {
@@ -102,7 +102,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const res = await PUT(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("ユーザー情報を取得できません");
+    expect(json.message).toBe("ユーザー情報を取得できません");
   });
 
   it("バリデーションエラー（newPasswordが短すぎ）→ 400", async () => {
@@ -125,7 +125,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const res = await PUT(req);
     expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.error).toBe("ユーザーが見つかりません");
+    expect(json.message).toBe("ユーザーが見つかりません");
   });
 
   it("現在のパスワードが不一致 → 400", async () => {
@@ -141,7 +141,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("現在のパスワードが正しくありません");
+    expect(json.message).toBe("現在のパスワードが正しくありません");
   });
 
   it("パスワード変更成功 → 200", async () => {
@@ -187,7 +187,7 @@ describe("アカウント管理 API - PUT パスワード変更", () => {
     const res = await PUT(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("パスワードの更新に失敗しました");
+    expect(json.message).toBe("パスワードの更新に失敗しました");
   });
 });
 
@@ -218,7 +218,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
     const res = await PATCH(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("ユーザー情報を取得できません");
+    expect(json.message).toBe("ユーザー情報を取得できません");
   });
 
   it("無効なメールアドレス → 400", async () => {
@@ -254,7 +254,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
     const res = await PATCH(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("パスワードが正しくありません");
+    expect(json.message).toBe("パスワードが正しくありません");
   });
 
   it("メールアドレス重複 → 409", async () => {
@@ -281,7 +281,7 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
     const res = await PATCH(req);
     expect(res.status).toBe(409);
     const json = await res.json();
-    expect(json.error).toBe("このメールアドレスは既に使用されています");
+    expect(json.message).toBe("このメールアドレスは既に使用されています");
   });
 
   it("メールアドレス変更成功 → 200", async () => {
@@ -334,6 +334,6 @@ describe("アカウント管理 API - PATCH メールアドレス変更", () => 
     const res = await PATCH(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("メールアドレスの更新に失敗しました");
+    expect(json.message).toBe("メールアドレスの更新に失敗しました");
   });
 });

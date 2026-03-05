@@ -97,7 +97,7 @@ describe("カルテロック API (app/api/admin/karte-lock/route.ts)", () => {
     const res = await karteLockPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details).toBeDefined();
   });
 
@@ -109,7 +109,7 @@ describe("カルテロック API (app/api/admin/karte-lock/route.ts)", () => {
     const res = await karteLockPOST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 });
 
@@ -151,7 +151,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details).toBeDefined();
   });
 
@@ -166,7 +166,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.error).toContain("見つかりません");
+    expect(json.message).toContain("見つかりません");
   });
 
   it("ロック中 → 403", async () => {
@@ -183,7 +183,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toContain("ロック");
+    expect(json.message).toContain("ロック");
   });
 
   it("ボディなし → 400", async () => {
@@ -191,7 +191,7 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("リクエストの形式が不正です");
+    expect(json.message).toBe("リクエストの形式が不正です");
   });
 
   it("認証NG → 401", async () => {
@@ -203,6 +203,6 @@ describe("カルテ編集 API (app/api/admin/karte-edit/route.ts)", () => {
     const res = await karteEditPOST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 });

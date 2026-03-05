@@ -188,7 +188,7 @@ export default function BankTransferReconcilePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       const data = await res.json();
@@ -234,7 +234,7 @@ export default function BankTransferReconcilePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       const data = await res.json();
@@ -274,7 +274,7 @@ export default function BankTransferReconcilePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       // 成功したらモーダルを閉じて一覧を更新
@@ -310,7 +310,7 @@ export default function BankTransferReconcilePage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || `エラー (${res.status})`);
+        throw new Error((errorData.message || errorData.error) || `エラー (${res.status})`);
       }
 
       setChangeProductOrder(null);

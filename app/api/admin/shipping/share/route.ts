@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
 import { jwtVerify } from "jose";
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "認証エラー" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[Share] Insert error:", error);
-      return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+      return serverError("保存に失敗しました");
     }
 
     console.log(`[Share] Created share: ${shareId}, expires: ${expiresAt.toISOString()}`);
@@ -79,6 +80,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ shareId });
   } catch (e) {
     console.error("[Share] Error:", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }

@@ -127,7 +127,7 @@ describe("send-reminder API", () => {
       const body = await res.json();
 
       expect(res.status).toBe(401);
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
 
     it("dateパラメータなしで400を返す", async () => {
@@ -136,7 +136,7 @@ describe("send-reminder API", () => {
       const body = await res.json();
 
       expect(res.status).toBe(400);
-      expect(body.error).toBe("date required");
+      expect(body.message).toBe("date required");
     });
 
     it("正常にプレビューデータを返す", async () => {
@@ -406,7 +406,7 @@ describe("send-reminder API", () => {
       const body = await res.json();
 
       expect(res.status).toBe(409);
-      expect(body.error).toContain("既に実行済み");
+      expect(body.message).toContain("既に実行済み");
       // pushMessage は呼ばれない
       expect(pushMessage).not.toHaveBeenCalled();
     });
@@ -440,7 +440,7 @@ describe("send-reminder API", () => {
       const body = await res.json();
 
       expect(res.status).toBe(500);
-      expect(body.error).toBe("取得エラー");
+      expect(body.message).toBe("取得エラー");
     });
 
     it("POST で予期しないエラーが発生した場合は500を返す", async () => {

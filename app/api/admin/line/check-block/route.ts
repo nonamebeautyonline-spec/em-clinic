@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -10,13 +11,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
-    if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
+    if (!patientId) return badRequest("patient_id required");
 
     // patient_id から line_id を patients テーブルから取得
     const { data: patientRow } = await withTenant(

@@ -120,7 +120,7 @@ export default function VoiceVocabularyPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setToast({ message: data.error || "追加に失敗しました", type: "error" });
+        setToast({ message: (data.message || data.error) || "追加に失敗しました", type: "error" });
         return;
       }
       setToast({ message: `「${newTerm}」を追加しました`, type: "success" });
@@ -152,7 +152,7 @@ export default function VoiceVocabularyPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setToast({ message: data.error || "更新に失敗しました", type: "error" });
+        setToast({ message: (data.message || data.error) || "更新に失敗しました", type: "error" });
         return;
       }
       setToast({ message: "更新しました", type: "success" });
@@ -198,7 +198,7 @@ export default function VoiceVocabularyPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setToast({ message: data.error || "投入に失敗しました", type: "error" });
+        setToast({ message: (data.message || data.error) || "投入に失敗しました", type: "error" });
         return;
       }
       setToast({ message: data.message || "デフォルト辞書を登録しました", type: "success" });

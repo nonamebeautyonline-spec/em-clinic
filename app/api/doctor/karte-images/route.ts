@@ -1,5 +1,6 @@
 // カルテ画像 API（アップロード・一覧取得・削除）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -19,7 +20,7 @@ async function ensureBucket() {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
@@ -27,10 +28,7 @@ export async function GET(req: NextRequest) {
   const reserveId = searchParams.get("reserve_id");
 
   if (!patientId && !reserveId) {
-    return NextResponse.json(
-      { error: "patient_id または reserve_id が必要です" },
-      { status: 400 }
-    );
+    return badRequest("patient_id または reserve_id が必要です");
   }
 
   let query = supabaseAdmin
@@ -43,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await withTenant(query, tenantId);
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   return NextResponse.json({ ok: true, images: data || [] });
 }
@@ -52,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -66,30 +64,18 @@ export async function POST(req: NextRequest) {
   const memo = (formData.get("memo") as string) || "";
 
   if (!file) {
-    return NextResponse.json(
-      { error: "ファイルは必須です" },
-      { status: 400 }
-    );
+    return badRequest("ファイルは必須です");
   }
   if (!patientId) {
-    return NextResponse.json(
-      { error: "patient_id は必須です" },
-      { status: 400 }
-    );
+    return badRequest("patient_id は必須です");
   }
 
   // バリデーション
   if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json(
-      { error: "JPEG、PNG、WebP、HEIC形式のみ対応しています" },
-      { status: 400 }
-    );
+    return badRequest("JPEG、PNG、WebP、HEIC形式のみ対応しています");
   }
   if (file.size > MAX_SIZE) {
-    return NextResponse.json(
-      { error: "ファイルサイズは10MB以下にしてください" },
-      { status: 400 }
-    );
+    return badRequest("ファイルサイズは10MB以下にしてください");
   }
 
   await ensureBucket();
@@ -103,10 +89,7 @@ export async function POST(req: NextRequest) {
     .upload(storagePath, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    return NextResponse.json(
-      { error: "アップロード失敗: " + uploadError.message },
-      { status: 500 }
-    );
+    return serverError("アップロード失敗: " + uploadError.message);
   }
 
   const { data: urlData } = supabaseAdmin.storage
@@ -131,10 +114,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (dbError) {
-    return NextResponse.json(
-      { error: "DB登録失敗: " + dbError.message },
-      { status: 500 }
-    );
+    return serverError("DB登録失敗: " + dbError.message);
   }
 
   return NextResponse.json({ ok: true, image: inserted });
@@ -144,13 +124,13 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {
-    return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+    return badRequest("IDは必須です");
   }
 
   // ストレージのファイルも削除
@@ -182,7 +162,7 @@ export async function DELETE(req: NextRequest) {
   );
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   return NextResponse.json({ ok: true });
 }

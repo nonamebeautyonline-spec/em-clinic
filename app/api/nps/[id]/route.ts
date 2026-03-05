@@ -1,5 +1,6 @@
 // app/api/nps/[id]/route.ts — NPS回答ページ用API（患者向け、認証不要）
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -23,7 +24,7 @@ export async function GET(
   );
 
   if (!survey) {
-    return NextResponse.json({ error: "調査が見つかりません" }, { status: 404 });
+    return notFound("調査が見つかりません");
   }
 
   return NextResponse.json({ survey });
@@ -47,7 +48,7 @@ export async function POST(
   );
 
   if (!survey) {
-    return NextResponse.json({ error: "調査が見つかりません" }, { status: 404 });
+    return notFound("調査が見つかりません");
   }
 
   const { error } = await supabaseAdmin.from("nps_responses").insert({
@@ -59,7 +60,7 @@ export async function POST(
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });

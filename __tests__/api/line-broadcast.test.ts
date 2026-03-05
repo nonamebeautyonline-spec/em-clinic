@@ -319,7 +319,7 @@ describe("LINE broadcast GET API", () => {
     const res = await GET(req as never);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("DB接続エラー");
+    expect(json.message).toBe("DB接続エラー");
   });
 });
 
@@ -338,7 +338,7 @@ describe("LINE broadcast POST API", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details).toBeDefined();
   });
 
@@ -418,7 +418,7 @@ describe("LINE broadcast POST API", () => {
     const res = await POST(req as never);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("insert失敗");
+    expect(json.message).toBe("insert失敗");
   });
 
   it("テンプレート変数置換ロジック: {name}, {patient_id}, {send_date}", () => {

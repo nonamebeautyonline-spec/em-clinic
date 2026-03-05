@@ -85,7 +85,7 @@ describe("POST /api/stripe/checkout", () => {
     const res = await POST(createRequest({ tenantId: "t1" }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Stripe");
+    expect(data.message).toContain("Stripe");
   });
 
   it("tenantId未指定の場合400を返す", async () => {
@@ -175,6 +175,6 @@ describe("POST /api/stripe/checkout", () => {
     const res = await POST(createRequest({ tenantId: "t1" }));
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toContain("Stripe API error");
+    expect(data.message).toContain("Stripe API error");
   });
 });

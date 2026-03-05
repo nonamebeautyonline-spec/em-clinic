@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
@@ -9,7 +10,7 @@ import { patientTagAddSchema } from "@/lib/validations/admin-operations";
 // 患者のタグ一覧取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -22,14 +23,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ tags: data });
 }
 
 // 患者にタグを付与
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from("patient_tags")
     .upsert({ ...tenantPayload(tenantId), patient_id: id, tag_id, assigned_by: "admin" }, { onConflict: "patient_id,tag_id" });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
   return NextResponse.json({ ok: true });
@@ -50,14 +51,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 // 患者からタグを解除
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
   const tagId = searchParams.get("tag_id");
 
-  if (!tagId) return NextResponse.json({ error: "tag_id required" }, { status: 400 });
+  if (!tagId) return badRequest("tag_id required");
 
   const { error } = await withTenant(
     supabaseAdmin
@@ -68,7 +69,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRules(id, tenantId ?? undefined).catch(() => {});
   return NextResponse.json({ ok: true });

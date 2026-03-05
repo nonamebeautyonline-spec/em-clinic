@@ -2,6 +2,7 @@
 // プラットフォーム管理: テナント横断の監査ログ一覧API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -19,10 +20,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
@@ -93,10 +91,7 @@ export async function GET(req: NextRequest) {
 
     if (logsErr) {
       console.error("[platform/audit] GET error:", logsErr);
-      return NextResponse.json(
-        { ok: false, error: "監査ログの取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("監査ログの取得に失敗しました");
     }
 
     return NextResponse.json({
@@ -111,9 +106,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/audit] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

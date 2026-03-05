@@ -1,5 +1,6 @@
 // カルテロック・ロック解除API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const parsed = await parseBody(req, karteLockSchema);
     if ("error" in parsed) return parsed.error;
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (error)
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return serverError(error.message);
 
       return NextResponse.json({ ok: true, locked: false });
     }
@@ -54,11 +55,11 @@ export async function POST(req: NextRequest) {
     );
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
 
     return NextResponse.json({ ok: true, locked: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }

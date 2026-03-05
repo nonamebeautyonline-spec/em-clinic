@@ -1,5 +1,6 @@
 // app/api/admin/export/full/route.ts — テナント全データエクスポートAPI
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -9,7 +10,7 @@ import { executeFullExport } from "@/lib/export-worker";
 export async function POST(req: NextRequest) {
   const authed = await verifyAdminAuth(req);
   if (!authed) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error || !job) {
-    return NextResponse.json(
-      { error: "ジョブの作成に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("ジョブの作成に失敗しました");
   }
 
   // fire-and-forget でエクスポート実行
@@ -43,17 +41,14 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const authed = await verifyAdminAuth(req);
   if (!authed) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const { searchParams } = new URL(req.url);
   const jobId = searchParams.get("jobId");
 
   if (!jobId) {
-    return NextResponse.json(
-      { error: "jobIdパラメータが必要です" },
-      { status: 400 }
-    );
+    return badRequest("jobIdパラメータが必要です");
   }
 
   const tenantIdForGet = resolveTenantId(req);
@@ -66,10 +61,7 @@ export async function GET(req: NextRequest) {
   ).single();
 
   if (error || !job) {
-    return NextResponse.json(
-      { error: "ジョブが見つかりません" },
-      { status: 404 }
-    );
+    return notFound("ジョブが見つかりません");
   }
 
   return NextResponse.json(job);

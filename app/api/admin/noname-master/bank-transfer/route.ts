@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -47,10 +48,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("Supabase orders (bank_transfer) error:", error);
-      return NextResponse.json(
-        { error: "Database error", details: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Database error", details: error.message }, { status: 500 });
     }
 
     // 全患者IDを取得
@@ -137,9 +135,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ orders: formattedOrders });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

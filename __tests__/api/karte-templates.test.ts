@@ -141,7 +141,7 @@ describe("カルテテンプレートCRUD API (karte-templates/route.ts)", () =>
       const res = await GET(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("connection refused");
+      expect(json.message).toBe("connection refused");
     });
 
     it("data=null → デフォルト返却", async () => {
@@ -299,7 +299,7 @@ describe("カルテテンプレートCRUD API (karte-templates/route.ts)", () =>
       const res = await DELETE(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("id");
+      expect(json.message).toContain("id");
     });
 
     it("正常削除 → ok=true（論理削除: is_active=false）", async () => {

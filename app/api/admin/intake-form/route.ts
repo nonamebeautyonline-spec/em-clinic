@@ -1,5 +1,6 @@
 // 問診フォーム定義 管理API (GET / PUT)
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -14,7 +15,7 @@ import {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   ).maybeSingle();
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
 
   // DB定義がなければデフォルトを返す
   if (!data) {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, IntakeFormUpdateSchema);
@@ -79,7 +80,7 @@ export async function PUT(req: NextRequest) {
     );
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
   } else {
     // INSERT
     const { error } = await supabaseAdmin
@@ -92,7 +93,7 @@ export async function PUT(req: NextRequest) {
       });
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });

@@ -2,6 +2,7 @@
 // プラットフォーム管理: テナント別の機能フラグオーバーライド設定
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -24,10 +25,7 @@ interface RouteContext {
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
   }
 
   const { tenantId } = await ctx.params;
@@ -79,10 +77,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
   }
 
   const { tenantId } = await ctx.params;
@@ -91,20 +86,14 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: "不正なリクエスト" },
-      { status: 400 }
-    );
+    return badRequest("不正なリクエスト");
   }
 
   const { feature, enabled } = body;
 
   // 機能名のバリデーション
   if (!ALL_FEATURES.includes(feature as Feature)) {
-    return NextResponse.json(
-      { ok: false, error: `不明な機能: ${feature}` },
-      { status: 400 }
-    );
+    return badRequest(`不明な機能: ${feature}`);
   }
 
   if (enabled === null) {

@@ -1,5 +1,6 @@
 // 患者クイック検索API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { formatProductCode, formatPaymentMethod, formatReorderStatus, formatDateJST } from "@/lib/patient-utils";
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const searchType = searchParams.get("type") || "id"; // "id", "name", "answerer_id", or "tracking"
 
     if (!query) {
-      return NextResponse.json({ error: "検索キーワードを入力してください" }, { status: 400 });
+      return badRequest("検索キーワードを入力してください");
     }
 
     let patientId = "";
@@ -377,10 +378,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Patient lookup error:", error);
-    return NextResponse.json(
-      { error: "検索中にエラーが発生しました" },
-      { status: 500 }
-    );
+    return serverError("検索中にエラーが発生しました");
   }
 }
 

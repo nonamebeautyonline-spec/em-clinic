@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, reminderCsvSchema);
@@ -72,9 +73,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[ReminderCSV] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

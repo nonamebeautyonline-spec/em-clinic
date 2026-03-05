@@ -1,5 +1,6 @@
 // app/api/verify/check/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import twilio from "twilio";
 import { getSettingOrEnv } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
@@ -20,10 +21,7 @@ export async function POST(req: NextRequest) {
 
     if (!accountSid || !authToken || !verifySid) {
       console.error("[verify/check] Twilio credentials not configured");
-      return NextResponse.json(
-        { error: "SMS設定が見つかりません。管理者にお問い合わせください。" },
-        { status: 500 }
-      );
+      return serverError("SMS設定が見つかりません。管理者にお問い合わせください。");
     }
 
     const client = twilio(accountSid, authToken);
@@ -39,9 +37,6 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const err = e as Record<string, unknown>;
     console.error("verify check error", { code: err?.code, status: err?.status });
-    return NextResponse.json(
-      { error: "認証コードの確認中にエラーが発生しました。時間をおいて再度お試しください。" },
-      { status: 500 }
-    );
+    return serverError("認証コードの確認中にエラーが発生しました。時間をおいて再度お試しください。");
   }
 }

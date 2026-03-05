@@ -65,10 +65,7 @@ export async function GET(req: Request) {
 
       const rRes = await squareGet(`/v2/refunds?${qs.toString()}`, squareToken, squareEnv);
       if (!rRes.ok) {
-        return NextResponse.json(
-          { ok: false, error: "list_refunds_failed", status: rRes.status, body: rRes.text?.slice(0, 500) },
-          { status: 500 }
-        );
+        return NextResponse.json({ ok: false, error: "list_refunds_failed", status: rRes.status, body: rRes.text?.slice(0, 500) }, { status: 500 });
       }
 
       const refunds = (rRes.json?.refunds as Record<string, unknown>[] | undefined) || [];

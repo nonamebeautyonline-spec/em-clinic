@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
@@ -15,7 +16,7 @@ async function ensureBucket() {
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -23,16 +24,16 @@ export async function POST(req: NextRequest) {
   const file = formData.get("file") as File | null;
 
   if (!file) {
-    return NextResponse.json({ error: "ファイルは必須です" }, { status: 400 });
+    return badRequest("ファイルは必須です");
   }
 
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "ファイルサイズは10MB以下にしてください" }, { status: 400 });
+    return badRequest("ファイルサイズは10MB以下にしてください");
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json({ error: "JPEG、PNG、WebP形式のみ対応しています" }, { status: 400 });
+    return badRequest("JPEG、PNG、WebP形式のみ対応しています");
   }
 
   await ensureBucket();
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     .upload(fileName, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    return NextResponse.json({ error: "画像アップロード失敗: " + uploadError.message }, { status: 500 });
+    return serverError("画像アップロード失敗: " + uploadError.message);
   }
 
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(fileName);

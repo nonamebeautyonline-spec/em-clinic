@@ -1,5 +1,6 @@
 // app/api/admin/line/segments/route.ts — セグメント保存・管理
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
@@ -27,7 +28,7 @@ async function saveSegments(segments: SavedSegment[], tenantId?: string): Promis
 // セグメント一覧取得
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const segments = await loadSegments(tenantId ?? undefined);
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
 // セグメント作成
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, saveSegmentSchema);
@@ -55,27 +56,27 @@ export async function POST(req: NextRequest) {
   segments.unshift(newSeg);
 
   const saved = await saveSegments(segments, tenantId ?? undefined);
-  if (!saved) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+  if (!saved) return serverError("保存に失敗しました");
   return NextResponse.json({ segment: newSeg });
 }
 
 // セグメント削除
 export async function DELETE(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "idは必須です" }, { status: 400 });
+  if (!id) return badRequest("idは必須です");
 
   const segments = await loadSegments(tenantId ?? undefined);
   const filtered = segments.filter(s => s.id !== id);
   if (filtered.length === segments.length) {
-    return NextResponse.json({ error: "セグメントが見つかりません" }, { status: 404 });
+    return notFound("セグメントが見つかりません");
   }
 
   const saved = await saveSegments(filtered, tenantId ?? undefined);
-  if (!saved) return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
+  if (!saved) return serverError("削除に失敗しました");
   return NextResponse.json({ ok: true });
 }

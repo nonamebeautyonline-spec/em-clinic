@@ -122,7 +122,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
     const res = await POST(req);
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toContain("処方不可");
+    expect(json.message).toContain("処方不可");
   });
 
   // ========================================
@@ -203,7 +203,7 @@ describe("銀行振込配送API (bank-transfer/shipping/route.ts)", () => {
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("配送先情報の保存に失敗しました");
+    expect(json.message).toBe("配送先情報の保存に失敗しました");
   });
 
   it("intakeデータなし（NG判定なし）→ 正常に進む", async () => {

@@ -1,5 +1,6 @@
 // app/api/admin/dashboard-layout/route.ts — ダッシュボードウィジェット配置 API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
@@ -44,7 +45,7 @@ export function getDefaultLayout(): DashboardLayout {
 export async function GET(request: NextRequest) {
   const isAuthorized = await verifyAdminAuth(request);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(request) || undefined;
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const isAuthorized = await verifyAdminAuth(request);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(request) || undefined;
@@ -85,32 +86,32 @@ export async function PUT(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "不正なリクエスト" }, { status: 400 });
+    return badRequest("不正なリクエスト");
   }
 
   // バリデーション
   if (!body.widgets || !Array.isArray(body.widgets)) {
-    return NextResponse.json({ error: "widgets配列が必要です" }, { status: 400 });
+    return badRequest("widgets配列が必要です");
   }
 
   const validIds = new Set(WIDGET_DEFINITIONS.map((d) => d.id));
   const seenIds = new Set<string>();
   for (const w of body.widgets) {
     if (!validIds.has(w.id)) {
-      return NextResponse.json({ error: `不正なウィジェットID: ${w.id}` }, { status: 400 });
+      return badRequest(`不正なウィジェットID: ${w.id}`);
     }
     if (seenIds.has(w.id)) {
-      return NextResponse.json({ error: `重複ウィジェットID: ${w.id}` }, { status: 400 });
+      return badRequest(`重複ウィジェットID: ${w.id}`);
     }
     seenIds.add(w.id);
     if (typeof w.visible !== "boolean") {
-      return NextResponse.json({ error: `visible はboolean必須: ${w.id}` }, { status: 400 });
+      return badRequest(`visible はboolean必須: ${w.id}`);
     }
   }
 
   const ok = await setSetting("dashboard", "layout", JSON.stringify(body), tenantId);
   if (!ok) {
-    return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+    return serverError("保存に失敗しました");
   }
 
   return NextResponse.json({ ok: true });

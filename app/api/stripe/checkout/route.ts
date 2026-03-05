@@ -2,6 +2,7 @@
 // Stripe Checkout Session作成: テナントのサブスクリプション開始用
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { getStripeClient } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -10,19 +11,19 @@ import { getPlanByKey } from "@/lib/plan-config";
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json({ ok: false, error: "権限がありません" }, { status: 403 });
+    return forbidden("権限がありません");
   }
 
   const stripe = await getStripeClient();
   if (!stripe) {
-    return NextResponse.json({ ok: false, error: "Stripeが設定されていません" }, { status: 400 });
+    return badRequest("Stripeが設定されていません");
   }
 
   const body = await req.json();
   const { tenantId } = body;
 
   if (!tenantId) {
-    return NextResponse.json({ ok: false, error: "tenantIdは必須です" }, { status: 400 });
+    return badRequest("tenantIdは必須です");
   }
 
   try {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!tenantPlan) {
-      return NextResponse.json({ ok: false, error: "テナントが見つかりません" }, { status: 404 });
+      return notFound("テナントが見つかりません");
     }
 
     // Stripe Customerの確認または作成
@@ -99,9 +100,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, url: session.url });
   } catch (err) {
     console.error("[stripe/checkout] error:", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Checkout Session作成に失敗しました" },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : "Checkout Session作成に失敗しました");
   }
 }

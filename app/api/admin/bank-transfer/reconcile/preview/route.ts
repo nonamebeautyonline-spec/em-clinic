@@ -1,5 +1,6 @@
 // app/api/admin/bank-transfer/reconcile/preview/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const formData = await req.formData();
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
     const csvFormat = (formData.get("csvFormat") as string) || "gmo";
 
     if (!file) {
-      return NextResponse.json(
-        { error: "CSVファイルが指定されていません" },
-        { status: 400 }
-      );
+      return badRequest("CSVファイルが指定されていません");
     }
 
     // CSVを読み込み（Shift_JISエンコーディング対応）
@@ -38,10 +36,7 @@ export async function POST(req: NextRequest) {
     const lines = csvText.split("\n").filter((line) => line.trim());
 
     if (lines.length === 0) {
-      return NextResponse.json(
-        { error: "CSVファイルが空です" },
-        { status: 400 }
-      );
+      return badRequest("CSVファイルが空です");
     }
 
     // CSVをパース（カンマ区切り、ダブルクォート対応）
@@ -51,10 +46,7 @@ export async function POST(req: NextRequest) {
     const transfers = parseTransfers(parsedRows, csvFormat);
 
     if (transfers.length === 0) {
-      return NextResponse.json(
-        { error: "CSVに入金データが見つかりませんでした", details: "入金額が0より大きい行がありません" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "CSVに入金データが見つかりませんでした", details: "入金額が0より大きい行がありません" }, { status: 400 });
     }
 
     console.log(`[Preview] Parsed ${transfers.length} transfers from CSV`);
@@ -76,10 +68,7 @@ export async function POST(req: NextRequest) {
 
     if (fetchNamesError) {
       console.error("[Preview] Fetch names error:", fetchNamesError);
-      return NextResponse.json(
-        { error: "データ取得エラー", details: fetchNamesError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "データ取得エラー", details: fetchNamesError.message }, { status: 500 });
     }
 
     if (!pendingOrdersWithNames || pendingOrdersWithNames.length === 0) {
@@ -229,10 +218,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[Preview] Error:", e);
-    return NextResponse.json(
-      { error: (e instanceof Error ? e.message : null) || "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError((e instanceof Error ? e.message : null) || "サーバーエラー");
   }
 }
 

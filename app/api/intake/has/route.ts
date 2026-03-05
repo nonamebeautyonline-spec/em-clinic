@@ -1,5 +1,6 @@
 // app/api/intake/has/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
@@ -10,14 +11,14 @@ export async function GET(req: NextRequest) {
     "";
 
   if (!patientId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const reserveId = String(searchParams.get("reserveId") || "").trim();
   if (!reserveId) {
-    return NextResponse.json({ ok: false, error: "reserveId_required" }, { status: 400 });
+    return badRequest("reserveId_required");
   }
 
   const { data, error } = await withTenant(

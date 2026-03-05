@@ -321,7 +321,7 @@ function PurchaseConfirmContent() {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "決済に失敗しました");
+        if (!res.ok) throw new Error((data.message || data.error) || "決済に失敗しました");
         router.push(`/mypage/purchase/complete?code=${product.code}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "決済処理中にエラーが発生しました");

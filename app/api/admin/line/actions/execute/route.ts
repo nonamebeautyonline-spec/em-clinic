@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -20,7 +21,7 @@ interface ActionStep {
 // アクション実行
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const lineToken = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   ).single();
 
   if (actionError || !action) {
-    return NextResponse.json({ error: "アクションが見つかりません" }, { status: 404 });
+    return notFound("アクションが見つかりません");
   }
 
   const steps = action.steps as ActionStep[];

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { jwtVerify } from "jose";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
     // 管理者認証
     const isAuthorized = await verifyAdminAuth(request);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -502,10 +503,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("[dashboard-stats-enhanced] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Internal server error");
   }
 }
 

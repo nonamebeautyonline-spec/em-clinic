@@ -173,7 +173,7 @@ export default function MediaManagementPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(`${file.name}: ${data.error || "アップロード失敗"}`);
+        alert(`${file.name}: ${(data.message || data.error) || "アップロード失敗"}`);
       }
     }
 
@@ -217,7 +217,7 @@ export default function MediaManagementPage() {
       setRenamingFile(null);
     } else {
       const data = await res.json();
-      alert(data.error || "変更失敗");
+      alert((data.message || data.error) || "変更失敗");
     }
     setSaving(false);
   };
@@ -276,7 +276,7 @@ export default function MediaManagementPage() {
       setEditingFolder(null);
     } else {
       const data = await res.json();
-      alert(data.error || "保存失敗");
+      alert((data.message || data.error) || "保存失敗");
     }
     setSaving(false);
   };
@@ -294,7 +294,7 @@ export default function MediaManagementPage() {
       await Promise.all([fetchFolders(), fetchFiles()]);
     } else {
       const data = await res.json();
-      alert(data.error || "削除失敗");
+      alert((data.message || data.error) || "削除失敗");
     }
     setDeleteFolderConfirm(null);
   };

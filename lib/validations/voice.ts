@@ -30,7 +30,7 @@ export const VOICE_LIMITS = {
 // --- 医療辞書管理 API スキーマ ---
 
 const VALID_CATEGORIES = ["drug", "symptom", "procedure", "anatomy", "lab", "general"] as const;
-const VALID_SPECIALTIES = ["common", "beauty", "internal", "surgery", "orthopedics", "dermatology"] as const;
+const VALID_SPECIALTIES = ["common", "beauty", "internal", "surgery", "orthopedics", "dermatology", "ophthalmology", "ent", "urology", "ob_gyn"] as const;
 
 /** 用語追加 POST /api/admin/voice/vocabulary */
 export const createVocabularySchema = z.object({

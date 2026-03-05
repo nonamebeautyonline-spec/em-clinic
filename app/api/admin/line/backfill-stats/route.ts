@@ -2,6 +2,7 @@
 // LINE Insight APIから過去データをバックフィルする管理用エンドポイント
 // 使い方: GET /api/admin/line/backfill-stats?days=30
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -32,7 +33,7 @@ async function fetchFollowerStats(dateStr: string, token: string) {
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const lineToken = await getSettingOrEnv(
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
   ) || "";
 
   if (!lineToken) {
-    return NextResponse.json({ error: "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN not configured" }, { status: 500 });
+    return serverError("LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN not configured");
   }
 
   const days = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);

@@ -103,7 +103,7 @@ export default function PatientLookupWidget() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "検索失敗");
+        setError((data.message || data.error) || "検索失敗");
         return;
       }
 

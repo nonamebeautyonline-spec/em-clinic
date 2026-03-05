@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { chatReadSchema } from "@/lib/validations/admin-operations";
 // 既読タイムスタンプ一括取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   const reads: Record<string, string> = {};
   for (const row of data || []) {
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 // 既読マーク（patient_id指定）
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -45,7 +46,7 @@ export async function PUT(req: NextRequest) {
     .from("chat_reads")
     .upsert({ ...tenantPayload(tenantId), patient_id, read_at: now }, { onConflict: "patient_id" });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, read_at: now });
 }

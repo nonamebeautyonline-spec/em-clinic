@@ -2,6 +2,7 @@
 // テナント課金サマリーAPI: プラン情報 + 使用量 + 請求書一覧
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -10,12 +11,12 @@ import { getPlanByKey } from "@/lib/plan-config";
 export async function GET(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
   if (!tenantId) {
-    return NextResponse.json({ error: "テナントが特定できません" }, { status: 400 });
+    return badRequest("テナントが特定できません");
   }
 
   try {
@@ -81,6 +82,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[admin/billing/summary] error:", err);
-    return NextResponse.json({ ok: false, error: "データ取得に失敗しました" }, { status: 500 });
+    return serverError("データ取得に失敗しました");
   }
 }

@@ -2,16 +2,14 @@
 // プラットフォーム管理: 全テナント横断メンバー一覧API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
   }
 
   try {
@@ -59,10 +57,7 @@ export async function GET(req: NextRequest) {
 
     if (queryError) {
       console.error("メンバー一覧取得エラー:", queryError);
-      return NextResponse.json(
-        { ok: false, error: "メンバーデータの取得に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("メンバーデータの取得に失敗しました");
     }
 
     // テナント情報を取得して紐付け
@@ -160,9 +155,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("メンバー一覧エラー:", error);
-    return NextResponse.json(
-      { ok: false, error: "メンバーデータの取得に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("メンバーデータの取得に失敗しました");
   }
 }

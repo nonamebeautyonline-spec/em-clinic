@@ -1,6 +1,7 @@
 // テンプレート変数プレビューAPI
 // テンプレート内容の変数を実データまたはサンプルデータで置換して返す
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
   // 認証チェック
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -81,10 +82,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!patient) {
-      return NextResponse.json(
-        { error: "指定された患者が見つかりません" },
-        { status: 404 },
-      );
+      return notFound("指定された患者が見つかりません");
     }
 
     // 次回予約を取得（将来日の最も近い予約）
@@ -127,9 +125,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("テンプレートプレビューエラー:", error);
-    return NextResponse.json(
-      { error: "プレビュー生成中にエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("プレビュー生成中にエラーが発生しました");
   }
 }

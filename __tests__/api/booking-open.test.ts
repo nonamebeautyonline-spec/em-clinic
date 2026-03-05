@@ -80,7 +80,7 @@ describe("予約早期開放 API - GET", () => {
     const res = await GET(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("Invalid month format");
+    expect(json.message).toContain("Invalid month format");
   });
 
   it("monthパラメータなし → 400", async () => {

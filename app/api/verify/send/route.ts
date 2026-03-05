@@ -1,5 +1,6 @@
 // app/api/verify/send/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, tooManyRequests } from "@/lib/api-error";
 import twilio from "twilio";
 import { redis } from "@/lib/redis";
 import { getSettingOrEnv } from "@/lib/settings";
@@ -49,10 +50,7 @@ export async function POST(req: NextRequest) {
       || "unknown";
     const rateLimitError = await checkRateLimit(phone, ip);
     if (rateLimitError) {
-      return NextResponse.json(
-        { error: rateLimitError },
-        { status: 429 }
-      );
+      return tooManyRequests(rateLimitError);
     }
 
     // テナント解決 → DB優先で Twilio クレデンシャル取得
@@ -63,10 +61,7 @@ export async function POST(req: NextRequest) {
 
     if (!accountSid || !authToken || !verifySid) {
       console.error("[verify/send] Twilio credentials not configured");
-      return NextResponse.json(
-        { error: "SMS設定が見つかりません。管理者にお問い合わせください。" },
-        { status: 500 }
-      );
+      return serverError("SMS設定が見つかりません。管理者にお問い合わせください。");
     }
 
     const client = twilio(accountSid, authToken);
@@ -82,9 +77,6 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const err = e as Record<string, unknown>;
     console.error("verify send error", { code: err?.code, status: err?.status });
-    return NextResponse.json(
-      { error: "認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。" },
-      { status: 500 }
-    );
+    return serverError("認証コードの送信中にエラーが発生しました。時間をおいて再度お試しください。");
   }
 }

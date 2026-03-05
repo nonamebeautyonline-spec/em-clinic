@@ -8,6 +8,7 @@
 // 3. 未登録者は患者+intake レコードを自動作成
 // 4. friend_summaries にフォローイベントを追加
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -64,7 +65,7 @@ async function getLineProfile(lineUid: string, token: string) {
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const lineToken = await getSettingOrEnv(
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
   ) || "";
 
   if (!lineToken) {
-    return NextResponse.json({ error: "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN not configured" }, { status: 500 });
+    return serverError("LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN not configured");
   }
 
   // dryRun=true でDB変更なしのプレビューモード

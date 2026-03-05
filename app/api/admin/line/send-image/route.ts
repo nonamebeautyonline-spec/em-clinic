@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -16,7 +17,7 @@ async function ensureBucket() {
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -25,16 +26,16 @@ export async function POST(req: NextRequest) {
   const patientId = formData.get("patient_id") as string | null;
 
   if (!file || !patientId) {
-    return NextResponse.json({ error: "file と patient_id は必須です" }, { status: 400 });
+    return badRequest("file と patient_id は必須です");
   }
 
   if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "ファイルサイズは10MB以下にしてください" }, { status: 400 });
+    return badRequest("ファイルサイズは10MB以下にしてください");
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json({ error: "JPEG、PNG、WebP形式のみ対応しています" }, { status: 400 });
+    return badRequest("JPEG、PNG、WebP形式のみ対応しています");
   }
 
   // 患者の LINE UID を patients テーブルから取得
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   ).maybeSingle();
 
   if (!patient?.line_id) {
-    return NextResponse.json({ error: "LINE UIDが見つかりません" }, { status: 400 });
+    return badRequest("LINE UIDが見つかりません");
   }
 
   // Supabase Storageにアップロード
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     .upload(fileName, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    return NextResponse.json({ error: "画像アップロード失敗: " + uploadError.message }, { status: 500 });
+    return serverError("画像アップロード失敗: " + uploadError.message);
   }
 
   // 公開URLを取得

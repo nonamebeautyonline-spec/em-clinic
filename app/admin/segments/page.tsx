@@ -169,7 +169,7 @@ export default function SegmentsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        setAiError(json.error || "SQL生成に失敗しました");
+        setAiError((json.message || json.error) || "SQL生成に失敗しました");
         if (json.sql) setAiSQL(json.sql);
         return;
       }
@@ -198,7 +198,7 @@ export default function SegmentsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
-        setAiError(json.error || "クエリ実行に失敗しました");
+        setAiError((json.message || json.error) || "クエリ実行に失敗しました");
         return;
       }
       setAiPatients(json.patients || []);

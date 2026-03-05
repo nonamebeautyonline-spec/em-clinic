@@ -101,7 +101,7 @@ describe("タグ API (app/api/admin/tags/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
   });
 
@@ -128,7 +128,7 @@ describe("タグ API (app/api/admin/tags/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
       expect(json.details).toBeDefined();
     });
 
@@ -157,7 +157,7 @@ describe("タグ API (app/api/admin/tags/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(409);
       const json = await res.json();
-      expect(json.error).toContain("同じ名前");
+      expect(json.message).toContain("同じ名前");
     });
 
     it("色指定なし → デフォルト #6B7280 が使われる", async () => {
@@ -200,7 +200,7 @@ describe("タグ API (app/api/admin/tags/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("description・auto_rule が保存される", async () => {

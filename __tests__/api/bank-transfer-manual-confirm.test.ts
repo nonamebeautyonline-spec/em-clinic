@@ -86,7 +86,7 @@ describe("POST /api/admin/bank-transfer/manual-confirm", () => {
     expect(res.status).toBe(401);
 
     const body = await res.json();
-    expect(body.error).toBe("Unauthorized");
+    expect(body.error).toBe("UNAUTHORIZED");
   });
 
   it("注文なし → 404", async () => {
@@ -99,7 +99,7 @@ describe("POST /api/admin/bank-transfer/manual-confirm", () => {
     expect(res.status).toBe(404);
 
     const body = await res.json();
-    expect(body.error).toContain("注文が見つかりませんでした");
+    expect(body.message).toContain("注文が見つかりませんでした");
     consoleSpy.mockRestore();
   });
 
@@ -122,7 +122,7 @@ describe("POST /api/admin/bank-transfer/manual-confirm", () => {
     expect(res.status).toBe(400);
 
     const body = await res.json();
-    expect(body.error).toContain("銀行振込以外の注文です");
+    expect(body.message).toContain("銀行振込以外の注文です");
   });
 
   it("既に処理済み → 400", async () => {
@@ -143,7 +143,7 @@ describe("POST /api/admin/bank-transfer/manual-confirm", () => {
     expect(res.status).toBe(400);
 
     const body = await res.json();
-    expect(body.error).toContain("既に処理済み");
+    expect(body.message).toContain("既に処理済み");
   });
 
   it("正常: 手動確認 → success", async () => {

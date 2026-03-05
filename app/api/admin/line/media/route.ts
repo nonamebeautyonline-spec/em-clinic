@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -20,7 +21,7 @@ async function ensureBucket() {
 // メディア一覧取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   if (search) query = query.ilike("name", `%${search}%`);
 
   const { data, error } = await withTenant(query, tenantId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ files: data });
 }
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
 // メディアアップロード
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const formData = await req.formData();
@@ -55,11 +56,11 @@ export async function POST(req: NextRequest) {
   const folderId = formData.get("folder_id") as string | null;
 
   if (!file) {
-    return NextResponse.json({ error: "ファイルは必須です" }, { status: 400 });
+    return badRequest("ファイルは必須です");
   }
 
   if (!fileType || !["image", "menu_image", "pdf"].includes(fileType)) {
-    return NextResponse.json({ error: "ファイル種別が無効です" }, { status: 400 });
+    return badRequest("ファイル種別が無効です");
   }
 
   // タイプ別バリデーション
@@ -68,24 +69,24 @@ export async function POST(req: NextRequest) {
 
   if (fileType === "image") {
     if (!imageTypes.includes(file.type)) {
-      return NextResponse.json({ error: "画像はJPEG、PNG、GIF、WebP形式のみ対応" }, { status: 400 });
+      return badRequest("画像はJPEG、PNG、GIF、WebP形式のみ対応");
     }
     if (file.size > MAX_IMAGE_SIZE) {
-      return NextResponse.json({ error: "画像は10MB以下にしてください" }, { status: 400 });
+      return badRequest("画像は10MB以下にしてください");
     }
   } else if (fileType === "menu_image") {
     if (!["image/jpeg", "image/png"].includes(file.type)) {
-      return NextResponse.json({ error: "メニュー画像はJPEG、PNG形式のみ対応" }, { status: 400 });
+      return badRequest("メニュー画像はJPEG、PNG形式のみ対応");
     }
     if (file.size > MAX_MENU_IMAGE_SIZE) {
-      return NextResponse.json({ error: "メニュー画像は1MB以下にしてください" }, { status: 400 });
+      return badRequest("メニュー画像は1MB以下にしてください");
     }
   } else if (fileType === "pdf") {
     if (!pdfTypes.includes(file.type)) {
-      return NextResponse.json({ error: "PDF形式のみ対応" }, { status: 400 });
+      return badRequest("PDF形式のみ対応");
     }
     if (file.size > MAX_PDF_SIZE) {
-      return NextResponse.json({ error: "PDFは10MB以下にしてください" }, { status: 400 });
+      return badRequest("PDFは10MB以下にしてください");
     }
   }
 
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
     .upload(storagePath, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
-    return NextResponse.json({ error: "アップロード失敗: " + uploadError.message }, { status: 500 });
+    return serverError("アップロード失敗: " + uploadError.message);
   }
 
   const { data: urlData } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(storagePath);
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (dbError) {
-    return NextResponse.json({ error: "DB登録失敗: " + dbError.message }, { status: 500 });
+    return serverError("DB登録失敗: " + dbError.message);
   }
 
   return NextResponse.json({ ok: true, file: inserted });
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
 // メディア更新（名前変更・フォルダ移動）
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, updateMediaSchema);
@@ -149,7 +150,7 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, file: data });
 }
@@ -157,12 +158,12 @@ export async function PUT(req: NextRequest) {
 // メディア削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   // ストレージのファイルも削除
   const { data: file } = await withTenant(
@@ -189,7 +190,7 @@ export async function DELETE(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true });
 }

@@ -3,6 +3,7 @@
 // 指定期間（start〜end）の予約を医師名・患者名付きで返す
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -23,19 +24,13 @@ export async function GET(req: NextRequest) {
     const end = searchParams.get("end"); // ISO日付 YYYY-MM-DD
 
     if (!start || !end) {
-      return NextResponse.json(
-        { error: "start と end パラメータは必須です" },
-        { status: 400 }
-      );
+      return badRequest("start と end パラメータは必須です");
     }
 
     // 日付フォーマットバリデーション
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(start) || !dateRegex.test(end)) {
-      return NextResponse.json(
-        { error: "日付はYYYY-MM-DD形式で指定してください" },
-        { status: 400 }
-      );
+      return badRequest("日付はYYYY-MM-DD形式で指定してください");
     }
 
     // 予約データ取得（指定期間）
@@ -53,10 +48,7 @@ export async function GET(req: NextRequest) {
 
     if (resvError) {
       console.error("[Calendar API] reservations取得エラー:", resvError);
-      return NextResponse.json(
-        { error: "Database error", details: resvError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Database error", details: resvError.message }, { status: 500 });
     }
 
     // 患者情報を一括取得
@@ -128,10 +120,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Calendar API] エラー:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }
 

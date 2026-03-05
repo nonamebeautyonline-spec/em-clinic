@@ -218,7 +218,7 @@ export default function EhrDashboardPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setSyncError(data.error ?? "同期に失敗しました");
+        setSyncError((data.message || data.error) ?? "同期に失敗しました");
         return;
       }
 
@@ -253,7 +253,7 @@ export default function EhrDashboardPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setCsvMessage(`エラー: ${data.error ?? "インポートに失敗しました"}`);
+        setCsvMessage(`エラー: ${(data.message || data.error) ?? "インポートに失敗しました"}`);
         return;
       }
 
@@ -288,7 +288,7 @@ export default function EhrDashboardPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setCsvMessage(`エラー: ${data.error ?? "エクスポートに失敗しました"}`);
+        setCsvMessage(`エラー: ${(data.message || data.error) ?? "エクスポートに失敗しました"}`);
         return;
       }
 
@@ -336,7 +336,7 @@ export default function EhrDashboardPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setSearchError(data.error ?? "検索に失敗しました");
+        setSearchError((data.message || data.error) ?? "検索に失敗しました");
         return;
       }
 

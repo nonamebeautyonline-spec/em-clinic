@@ -1,6 +1,7 @@
 // app/api/admin/password-reset/request/route.ts
 // パスワードリセット要求（メール送信）
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendPasswordResetEmail } from "@/lib/email";
@@ -78,10 +79,7 @@ export async function POST(req: NextRequest) {
 
     if (tokenError) {
       console.error("[Password Reset] Token insert error:", tokenError);
-      return NextResponse.json(
-        { ok: false, error: "処理に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("処理に失敗しました");
     }
 
     // リセットメール送信
@@ -90,10 +88,7 @@ export async function POST(req: NextRequest) {
 
     if (!emailResult.success) {
       console.error("[Password Reset] Email send failed:", emailResult.error);
-      return NextResponse.json(
-        { ok: false, error: "メール送信に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("メール送信に失敗しました");
     }
 
     return NextResponse.json({
@@ -102,9 +97,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[Password Reset Request] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

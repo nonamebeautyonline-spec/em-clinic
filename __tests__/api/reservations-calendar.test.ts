@@ -94,7 +94,7 @@ describe("GET /api/admin/reservations/calendar", () => {
     const json = await res.json();
 
     expect(res.status).toBe(401);
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("startパラメータなしで400を返す", async () => {
@@ -103,7 +103,7 @@ describe("GET /api/admin/reservations/calendar", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("start");
+    expect(json.message).toContain("start");
   });
 
   it("endパラメータなしで400を返す", async () => {
@@ -112,7 +112,7 @@ describe("GET /api/admin/reservations/calendar", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("end");
+    expect(json.message).toContain("end");
   });
 
   it("start/end両方なしで400を返す", async () => {
@@ -129,7 +129,7 @@ describe("GET /api/admin/reservations/calendar", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("YYYY-MM-DD");
+    expect(json.message).toContain("YYYY-MM-DD");
   });
 
   it("正常時に期間内の予約をeventsとして返す", async () => {

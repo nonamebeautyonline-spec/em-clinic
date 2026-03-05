@@ -1,5 +1,6 @@
 // app/api/admin/line/step-scenarios/[id]/enrollments/route.ts — 登録者管理
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { enrollPatient } from "@/lib/step-enrollment";
@@ -10,7 +11,7 @@ import { enrollStepSchema } from "@/lib/validations/line-management";
 // 登録者一覧
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // 患者名をpatientsテーブルから取得
   const patientIds = [...new Set((data || []).map((e: { patient_id: string }) => e.patient_id))];
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 // 手動登録
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 // 手動除外
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -84,7 +85,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { searchParams } = new URL(req.url);
   const patientId = searchParams.get("patient_id");
 
-  if (!patientId) return NextResponse.json({ error: "patient_id は必須です" }, { status: 400 });
+  if (!patientId) return badRequest("patient_id は必須です");
 
   const { error } = await withTenant(
     supabaseAdmin.from("step_enrollments").update({
@@ -95,6 +96,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

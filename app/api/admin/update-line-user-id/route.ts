@@ -1,5 +1,6 @@
 // app/api/admin/update-line-user-id/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -34,10 +35,7 @@ export async function POST(req: NextRequest) {
 
     if (patientsError) {
       console.error(`[update-line-user-id] DB update error:`, patientsError.message);
-      return NextResponse.json(
-        { ok: false, error: "db_update_failed", detail: patientsError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "db_update_failed", detail: patientsError.message }, { status: 500 });
     }
 
     console.log(`[update-line-user-id] DB updated for patient ${patientId}: line_id=${lineUserId || "(null)"}`);

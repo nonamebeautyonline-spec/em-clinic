@@ -1,5 +1,6 @@
 // 問診フォーム定義リセットAPI (POST)
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -11,7 +12,7 @@ import {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       .eq("id", existing.id);
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
   }
 
   return NextResponse.json({

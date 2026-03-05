@@ -2,6 +2,7 @@
 // 請求書PDFダウンロードAPI
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateInvoicePDF } from "@/lib/invoice-pdf";
@@ -25,10 +26,7 @@ export async function GET(
   // プラットフォーム管理者認証
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
   }
 
   const { invoiceId } = await params;
@@ -63,17 +61,11 @@ export async function GET(
 
     if (invoiceErr) {
       console.error("[platform/billing/invoices/pdf] GET error:", invoiceErr);
-      return NextResponse.json(
-        { ok: false, error: "請求書の取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("請求書の取得に失敗しました");
     }
 
     if (!invoice) {
-      return NextResponse.json(
-        { ok: false, error: "請求書が見つかりません" },
-        { status: 404 },
-      );
+      return notFound("請求書が見つかりません");
     }
 
     // テナントのプラン名を取得
@@ -142,9 +134,6 @@ export async function GET(
       "[platform/billing/invoices/pdf] GET unexpected error:",
       err,
     );
-    return NextResponse.json(
-      { ok: false, error: "PDF生成中にエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("PDF生成中にエラーが発生しました");
   }
 }

@@ -1,5 +1,6 @@
 // app/api/admin/line/coupons/route.ts — クーポン管理 CRUD
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -9,7 +10,7 @@ import { createCouponSchema } from "@/lib/validations/line-common";
 // クーポン一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // 各クーポンの配布数・利用数を取得
   const enriched = await Promise.all(
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
 // クーポン作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     tenantId
   );
   if (existing && existing.length > 0) {
-    return NextResponse.json({ error: "同じクーポンコードが既に存在します" }, { status: 400 });
+    return badRequest("同じクーポンコードが既に存在します");
   }
 
   const { data: coupon, error } = await supabaseAdmin
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, coupon });
 }
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
 // クーポン更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -97,7 +98,7 @@ export async function PUT(req: NextRequest) {
     valid_from?: string; valid_until?: string; is_active?: boolean; description?: string;
   };
 
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin.from("coupons").update({
@@ -117,25 +118,25 @@ export async function PUT(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }
 
 // クーポン削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin.from("coupons").delete().eq("id", parseInt(id)),
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

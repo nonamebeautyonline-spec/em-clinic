@@ -1,5 +1,6 @@
 // app/api/line/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import { resolveTenantId } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 
@@ -13,15 +14,8 @@ export async function GET(req: NextRequest) {
   const redirectUri = (await getSettingOrEnv("line", "redirect_uri", "LINE_REDIRECT_URI", tid)) || "";
 
   if (!channelId || !redirectUri) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "LINE env missing",
-        id: channelId || undefined,
-        redirect: redirectUri || undefined,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: "LINE env missing", id: channelId || undefined,
+        redirect: redirectUri || undefined, }, { status: 500 });
   }
 
   // returnUrl対応: ログイン後に戻るURLをstateに含める

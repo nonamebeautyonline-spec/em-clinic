@@ -31,7 +31,7 @@ export default function AdminViewMypagePage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || `HTTP ${res.status} error`);
+        setError((json.message || json.error) || `HTTP ${res.status} error`);
         return;
       }
 

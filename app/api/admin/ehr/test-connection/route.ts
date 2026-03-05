@@ -1,5 +1,6 @@
 // app/api/admin/ehr/test-connection/route.ts — 電子カルテ接続テスト
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);

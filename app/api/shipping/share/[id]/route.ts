@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
@@ -13,7 +14,7 @@ export async function GET(
     const { id: shareId } = await params;
 
     if (!shareId) {
-      return NextResponse.json({ error: "IDが無効です" }, { status: 400 });
+      return badRequest("IDが無効です");
     }
 
     const tenantId = resolveTenantId(req);
@@ -30,7 +31,7 @@ export async function GET(
 
     if (error || !share) {
       console.error("[Share] Not found:", shareId);
-      return NextResponse.json({ error: "共有リンクが見つかりません" }, { status: 404 });
+      return notFound("共有リンクが見つかりません");
     }
 
     // 有効期限をチェック
@@ -43,6 +44,6 @@ export async function GET(
     return NextResponse.json({ data: share.data });
   } catch (e) {
     console.error("[Share] Error:", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "サーバーエラー" }, { status: 500 });
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }

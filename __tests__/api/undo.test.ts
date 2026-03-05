@@ -167,7 +167,7 @@ describe("Undo API (app/api/admin/undo/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("既に取り消し済み");
+      expect(json.message).toContain("既に取り消し済み");
     });
 
     it("期限切れ → 400", async () => {
@@ -190,7 +190,7 @@ describe("Undo API (app/api/admin/undo/route.ts)", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toContain("有効期限");
+      expect(json.message).toContain("有効期限");
     });
 
     it("update操作の取り消し成功 → 200", async () => {

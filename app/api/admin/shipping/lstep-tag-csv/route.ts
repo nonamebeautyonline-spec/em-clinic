@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import * as iconv from "iconv-lite";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       .sort(); // ソート（オプション）
 
     if (uniqueIds.length === 0) {
-      return NextResponse.json({ error: "有効なLステップIDがありません" }, { status: 400 });
+      return badRequest("有効なLステップIDがありません");
     }
 
     // CSV生成（GASと同じ形式）
@@ -61,9 +62,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[LstepTagCSV] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

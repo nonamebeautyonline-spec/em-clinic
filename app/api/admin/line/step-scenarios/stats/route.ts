@@ -1,5 +1,6 @@
 // app/api/admin/line/step-scenarios/stats/route.ts -- ステップ配信の効果測定API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -47,7 +48,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     if (scenarioIdParam) {
       const scenarioId = parseInt(scenarioIdParam);
       if (isNaN(scenarioId)) {
-        return NextResponse.json({ error: "不正な scenario_id" }, { status: 400 });
+        return badRequest("不正な scenario_id");
       }
 
       const stats = await getScenarioDetailStats(scenarioId, tenantId);
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(stats);
   } catch (e) {
     console.error("[step-scenarios/stats] error:", (e as Error).message);
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   }
 }
 

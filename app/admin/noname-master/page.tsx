@@ -100,7 +100,7 @@ export default function NonameMasterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "追加失敗");
+        throw new Error((data.message || data.error) || "追加失敗");
       }
 
       // 成功したらordersを更新（発送漏れフラグを解除）
@@ -142,7 +142,7 @@ export default function NonameMasterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "更新失敗");
+        throw new Error((data.message || data.error) || "更新失敗");
       }
 
       const data = await res.json();
@@ -194,7 +194,7 @@ export default function NonameMasterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "更新失敗");
+        throw new Error((data.message || data.error) || "更新失敗");
       }
 
       const data = await res.json();
@@ -242,7 +242,7 @@ export default function NonameMasterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "更新失敗");
+        throw new Error((data.message || data.error) || "更新失敗");
       }
 
       const data = await res.json();
@@ -283,7 +283,7 @@ export default function NonameMasterPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "更新失敗");
+        throw new Error((data.message || data.error) || "更新失敗");
       }
 
       setOrders((prev) =>
@@ -323,7 +323,7 @@ export default function NonameMasterPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "返金処理に失敗しました");
+        throw new Error((data.message || data.error) || "返金処理に失敗しました");
       }
 
       // ローカルstate更新

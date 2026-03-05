@@ -167,7 +167,7 @@ function Hero() {
               LINE 1つで<br /><span className="bg-gradient-to-r from-blue-600 to-sky-500 bg-clip-text text-transparent">クリニック業務</span>を<br />まるごとDX化
             </h1>
             <p className="mb-8 max-w-lg text-[15px] leading-[1.8] text-slate-500">
-              患者CRM・セグメント配信・リッチメニュー構築・問診フォーム・予約管理・会計・配送まで。LINEを起点にクリニック運営のすべてをワンストップで実現します。
+              患者CRM・セグメント配信・リッチメニュー構築・問診フォーム・予約管理・会計・配送・AI自動返信まで。LINEを起点にクリニック運営のすべてをワンストップで実現します。
             </p>
             <div className="flex flex-wrap gap-3">
               <a href="#contact" className="rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-8 py-3.5 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">無料で資料請求</a>
@@ -302,13 +302,13 @@ function Features() {
       <div className="text-center">
         <Label>FEATURES</Label>
         <Title>クリニック運営に必要な<br className="md:hidden" />すべての機能を搭載</Title>
-        <Sub>汎用LINEツールにはない、医療現場に最適化された機能群。各機能の管理画面をご覧ください。</Sub>
+        <Sub>汎用LINEツールにはない、医療現場に最適化された30以上の機能群。AI自動返信・AIカルテ・AIメニュー生成など、AI機能も標準搭載。</Sub>
       </div>
 
       {/* ── 機能一覧サマリー ── */}
       <div className="mt-14 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { icon: "🖥️", name: "管理画面", desc: "19メニューを一画面に集約" },
+          { icon: "🖥️", name: "管理画面", desc: "30以上のメニューを一画面に集約" },
           { icon: "💹", name: "売上管理", desc: "日別・月別KPIをリアルタイム表示" },
           { icon: "💬", name: "LINEトーク", desc: "患者との1対1チャットを管理" },
           { icon: "🤖", name: "AI自動返信", desc: "AIが返信候補を自動生成" },
@@ -316,16 +316,24 @@ function Features() {
           { icon: "📣", name: "セグメント配信", desc: "属性で絞り込んだ精密配信" },
           { icon: "🔄", name: "ステップシナリオ", desc: "時間差の自動フォロー配信" },
           { icon: "📱", name: "リッチメニュー", desc: "ノーコードでメニュー構築" },
+          { icon: "✨", name: "AIメニュー生成", desc: "AIがリッチメニューを自動デザイン" },
           { icon: "📝", name: "フォームビルダー", desc: "問診票・アンケートをGUI作成" },
           { icon: "⚡", name: "アクション自動化", desc: "条件分岐で自動タグ・通知" },
+          { icon: "🔀", name: "フロービルダー", desc: "ビジュアルで自動化フローを構築" },
           { icon: "📋", name: "問診フォーム", desc: "ステップ表示で回答率を最大化" },
           { icon: "📅", name: "予約カレンダー", desc: "15分刻みのスロット予約" },
+          { icon: "👨‍⚕️", name: "複数医師対応", desc: "医師別の並列スケジュール管理" },
           { icon: "🩺", name: "カルテ管理", desc: "問診・処方履歴を一画面に集約" },
+          { icon: "💊", name: "処方タイムライン", desc: "処方歴の推移をグラフで可視化" },
+          { icon: "📋", name: "カルテテンプレート", desc: "定型文テンプレートで記入効率化" },
           { icon: "💳", name: "決済管理", desc: "クレカ決済・振込消込を一元化" },
           { icon: "📦", name: "配送管理", desc: "大手配送業者と連携し発送を効率化" },
+          { icon: "📦", name: "在庫管理", desc: "入出庫・在庫台帳をリアルタイム管理" },
+          { icon: "🛍️", name: "商品マスタ", desc: "商品・価格をまとめて管理" },
           { icon: "📊", name: "ダッシュボード", desc: "経営KPIをリアルタイム可視化" },
           { icon: "🎙️", name: "音声カルテ", desc: "診察音声からSOAPカルテを自動生成" },
           { icon: "⏰", name: "自動リマインド", desc: "予約前日にLINE自動通知" },
+          { icon: "🔁", name: "フォローアップ", desc: "診察後の自動フォロー配信" },
           { icon: "📊", name: "NPS調査", desc: "患者満足度をLINEで自動測定" },
           { icon: "🎫", name: "クーポン配信", desc: "LINE限定クーポンを一括配信" },
         ].map((f) => (
@@ -342,9 +350,9 @@ function Features() {
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* A-1. 管理画面概要 */}
         {/* ══════════════════════════════════════════════════════════════════════ */}
-        <CategoryHeader label="管理画面" title="全機能をひと目で把握する管理画面" desc="19のメニューを業務カテゴリ別に整理。サイドバーから1クリックで目的の画面へ直行できます。" />
+        <CategoryHeader label="管理画面" title="全機能をひと目で把握する管理画面" desc="30以上のメニューを業務カテゴリ別に整理。サイドバーから1クリックで目的の画面へ直行できます。" />
 
-        <FeatureWide title="管理画面レイアウト" desc="左サイドバーに全メニューを集約し、メインエリアに各機能の画面を表示。LINE未読バッジで新着メッセージも即座に把握できます。" details={["19メニュー搭載", "カテゴリ別整理", "未読バッジ対応"]}>
+        <FeatureWide title="管理画面レイアウト" desc="左サイドバーに全メニューを集約し、メインエリアに各機能の画面を表示。LINE未読バッジで新着メッセージも即座に把握できます。" details={["30以上のメニュー搭載", "カテゴリ別整理", "未読バッジ対応"]}>
           <MockWindow title="Lオペ for CLINIC — 管理画面">
             <div className="flex gap-0 divide-x divide-slate-700" style={{ minHeight: 340 }}>
               {/* サイドバー */}
@@ -739,7 +747,7 @@ function Features() {
         </FeatureBlock>
 
         {/* 予約管理（admin週間ビュー） */}
-        <FeatureBlock title="予約・スケジュール管理" desc="月別・週別の予約カレンダー、医師別のスケジュール管理・休日設定に対応。LINE経由の予約をそのままダッシュボードで管理。予約リマインドの自動配信で無断キャンセルも削減します。" details={["月 / 週ビュー切り替え", "医師別スケジュール・休日設定", "自動リマインド配信"]} reverse>
+        <FeatureBlock title="予約・スケジュール管理" desc="月別・週別の予約カレンダー、複数医師の並列スケジュール管理・休日設定に対応。LINE経由の予約をそのままダッシュボードで管理。医師ごとのフィルタ表示で担当患者を即把握できます。" details={["月 / 週ビュー切り替え", "複数医師の並列予約・医師別フィルタ", "医師別スケジュール・休日設定", "自動リマインド配信"]} reverse>
           <MockWindow title="予約管理 — 週間ビュー">
             <div>
               <div className="mb-2 flex items-center justify-between">
@@ -895,7 +903,7 @@ function Features() {
         </FeatureWide>
 
         {/* AI自動返信 */}
-        <FeatureBlock title="AI自動返信" desc="AIが患者からの問い合わせに対して返信文を自動生成。スタッフが確認・修正してから送信するフローで、品質を担保しつつ対応時間を大幅短縮します。修正指示を出して再生成させることも可能です。" details={["AIが返信候補を自動生成", "修正指示→再生成のループ対応", "スタッフ確認後に送信（自動送信も可）"]} reverse>
+        <FeatureBlock title="AI自動返信" desc="AIが患者からの問い合わせ内容を理解し、クリニックのFAQ・処方情報・予約状況を踏まえた返信文を自動生成。スタッフが確認・修正してから送信するフローで品質を担保しつつ、対応時間を最大80%短縮します。営業時間外の自動送信モードにも対応。" details={["AIが文脈を理解して返信文を自動生成", "修正指示→再生成のループ対応", "スタッフ確認後に送信（自動送信モードも可）", "AI返信統計で自動返信の精度を可視化"]} reverse>
           <MockWindow title="AI返信 — 返信候補">
             <div className="space-y-3">
               <div>
@@ -922,7 +930,7 @@ function Features() {
         </FeatureBlock>
 
         {/* 音声カルテ自動生成 */}
-        <FeatureBlock title="音声カルテ自動生成" desc="診察中の会話を録音・文字起こしし、AIがSOAP形式のカルテを自動生成。薬剤名・症状名の自動抽出で、カルテ作成時間を大幅に短縮します。" details={["SOAP形式でカルテ自動生成", "医療用語・薬剤名の自動抽出", "診療科別の専門辞書に対応"]}>
+        <FeatureBlock title="音声カルテ自動生成" desc="診察中の会話をワンタップで録音。AIが音声を文字起こしし、SOAP形式のカルテを自動生成します。薬剤名・症状名を自動抽出し、定型文テンプレートとも組み合わせ可能。カルテ作成時間を1件あたり数分に短縮します。" details={["SOAP形式でカルテ自動生成", "医療用語・薬剤名の自動抽出", "カルテテンプレートとの連携", "診療科別の専門辞書に対応"]}>
           <MockWindow title="音声カルテ — SOAP生成">
             <div className="space-y-3">
               <div className="flex items-center gap-3 rounded-lg bg-blue-50 px-3 py-2.5">
@@ -950,7 +958,7 @@ function Features() {
         </FeatureBlock>
 
         {/* カルテ管理 */}
-        <FeatureBlock title="カルテ管理" desc="患者の問診情報・医療情報・処方履歴を一画面に集約。Dr.ノートでは定型文テンプレートを使い効率的にカルテを記入でき、ロック機能で誤編集を防止します。" details={["問診・医療情報を一覧表示", "定型文テンプレートで記入効率化", "購入履歴・再処方履歴も即確認"]}>
+        <FeatureBlock title="カルテ管理" desc="患者の問診情報・医療情報・処方履歴を一画面に集約。Dr.ノートでは定型文テンプレートを使い効率的にカルテを記入でき、同時編集ロック機能で複数スタッフの競合を防止。処方歴タイムラインで増量・減量・同量の推移もグラフで可視化します。" details={["処方歴タイムラインで用量推移を可視化", "テンプレート管理（バージョン管理・差分表示・旧版復元）", "同時編集ロックで複数スタッフの競合を防止", "購入履歴・再処方履歴も即確認"]}>
           <MockWindow title="カルテ — 患者詳細">
             <div className="flex gap-0 divide-x divide-slate-100" style={{ minHeight: 320 }}>
               {/* 左: 患者基本情報 */}
@@ -1024,6 +1032,30 @@ function Features() {
                     <span className="text-[10px] font-semibold text-slate-700">12/5 初回処方</span>
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-600">OK</span>
                     <span className="text-[10px] text-slate-400">処方薬A 1ヶ月分</span>
+                  </div>
+                </div>
+                {/* 処方歴タイムライン */}
+                <div className="rounded-lg border border-violet-200 bg-violet-50/30 p-2.5">
+                  <div className="mb-1.5 text-[10px] font-bold text-violet-600">処方タイムライン</div>
+                  <div className="flex items-end gap-1" style={{ height: 40 }}>
+                    {[
+                      { h: 25, label: "2.5mg", color: "bg-blue-300" },
+                      { h: 50, label: "5mg", color: "bg-blue-400" },
+                      { h: 50, label: "5mg", color: "bg-blue-400" },
+                      { h: 75, label: "7.5mg", color: "bg-blue-500" },
+                    ].map((b, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center">
+                        <div className={`w-full rounded-t ${b.color}`} style={{ height: `${b.h}%` }} />
+                        <span className="mt-0.5 text-[8px] text-slate-400">{b.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-0.5 flex justify-between text-[8px] text-slate-300">
+                    <span>12/5</span><span>1/10</span><span>2/10</span><span>3/10</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[9px]">
+                    <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">↑ 増量</span>
+                    <span className="text-slate-400">副作用なし・効果感じづらく増量</span>
                   </div>
                 </div>
               </div>
@@ -1146,6 +1178,79 @@ function Features() {
             </div>
           </MockWindow>
         </FeatureWide>
+
+        {/* 在庫管理 */}
+        <FeatureBlock title="在庫管理・在庫台帳" desc="処方薬・消耗品の在庫をリアルタイムで把握。入出庫の自動記録に加え、在庫台帳で過去の推移を可視化。発注判断に必要な情報をワンストップで提供します。" details={["入出庫の自動記録・履歴管理", "在庫台帳で推移をグラフ可視化", "商品マスタと連動した一元管理"]} reverse>
+          <MockWindow title="在庫管理 — 現在庫">
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "総SKU数", val: "24", bg: "bg-blue-50", tc: "text-blue-600" },
+                  { label: "要発注", val: "3", bg: "bg-amber-50", tc: "text-amber-600" },
+                  { label: "在庫切れ", val: "0", bg: "bg-emerald-50", tc: "text-emerald-600" },
+                ].map((k) => (
+                  <div key={k.label} className={`rounded-lg ${k.bg} p-2.5 text-center`}>
+                    <div className="text-[10px] text-slate-400">{k.label}</div>
+                    <div className={`text-lg font-bold ${k.tc}`}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="overflow-hidden rounded-lg border border-slate-100">
+                <div className="grid grid-cols-5 gap-px bg-slate-100">
+                  {["商品名", "現在庫", "入庫", "出庫", "ステータス"].map((h) => <div key={h} className="bg-slate-50 px-2 py-1.5 text-[10px] font-semibold text-slate-500">{h}</div>)}
+                </div>
+                {[
+                  { name: "処方薬A 1ヶ月分", stock: "120", inb: "+50", out: "-38", status: "適正", sc: "text-emerald-600 bg-emerald-50" },
+                  { name: "処方薬B 1ヶ月分", stock: "45", inb: "+30", out: "-22", status: "適正", sc: "text-emerald-600 bg-emerald-50" },
+                  { name: "処方薬C 3ヶ月分", stock: "8", inb: "—", out: "-5", status: "要発注", sc: "text-amber-600 bg-amber-50" },
+                ].map((r) => (
+                  <div key={r.name} className="grid grid-cols-5 gap-px border-t border-slate-100">
+                    <div className="bg-white px-2 py-1.5 text-[10px] font-medium text-slate-700">{r.name}</div>
+                    <div className="bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700">{r.stock}</div>
+                    <div className="bg-white px-2 py-1.5 text-[10px] text-emerald-600">{r.inb}</div>
+                    <div className="bg-white px-2 py-1.5 text-[10px] text-rose-500">{r.out}</div>
+                    <div className="bg-white px-2 py-1.5"><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.sc}`}>{r.status}</span></div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg bg-slate-50 p-2.5">
+                <div className="mb-1 text-[10px] font-semibold text-slate-500">在庫推移（過去30日）</div>
+                <div className="flex items-end gap-1" style={{ height: 40 }}>
+                  {[80, 75, 70, 82, 78, 65, 90, 85, 80, 72, 68, 88].map((h, i) => <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-blue-400 to-sky-300" style={{ height: `${h}%` }} />)}
+                </div>
+              </div>
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* 商品マスタ管理 */}
+        <FeatureBlock title="商品マスタ管理" desc="処方薬・施術メニュー・消耗品の商品情報をまとめて管理。価格・在庫連動・決済連携設定まで、商品に関するすべてのデータを一元管理します。" details={["商品名・価格・カテゴリを一括管理", "在庫管理・決済との自動連動", "商品別の売上分析にも対応"]}>
+          <MockWindow title="商品マスタ — 一覧">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-700">登録商品</span>
+                <span className="rounded bg-blue-500 px-3 py-1 text-[10px] font-bold text-white">+ 新規登録</span>
+              </div>
+              {[
+                { name: "処方薬A 1ヶ月分", cat: "処方薬", price: "¥13,000", stock: "120" },
+                { name: "処方薬B 2ヶ月分", cat: "処方薬", price: "¥45,500", stock: "45" },
+                { name: "処方薬C 3ヶ月分", cat: "処方薬", price: "¥35,000", stock: "8" },
+                { name: "初診カウンセリング", cat: "施術", price: "¥5,000", stock: "—" },
+              ].map((p) => (
+                <div key={p.name} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2.5">
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-700">{p.name}</div>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{p.cat}</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-[11px]">
+                    <span className="font-bold text-slate-700">{p.price}</span>
+                    <span className="text-slate-400">在庫: {p.stock}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MockWindow>
+        </FeatureBlock>
 
         {/* ══════════════════════════════════════════════════════════════════════ */}
         {/* C-7. 配信 */}
@@ -1391,6 +1496,144 @@ function Features() {
             </MockWindow>
           </div>
         </div>
+
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        {/* C-8b. AI機能 */}
+        {/* ══════════════════════════════════════════════════════════════════════ */}
+        <div className="pt-8" />
+        <CategoryHeader label="AI機能" title="AIがクリニック業務を加速する" desc="AIによる自動返信・カルテ生成・リッチメニューデザインで、スタッフの作業時間を大幅に削減。" />
+
+        {/* AIリッチメニュー自動生成 */}
+        <FeatureBlock title="AIリッチメニュー自動生成" desc="クリニックの業種やイメージカラーを指定するだけで、AIがプロ品質のリッチメニューデザインを自動生成。デザイナーへの外注が不要になり、数分でLINEメニューを完成させることができます。" details={["業種・テーマ・カラーを指定するだけ", "AIがSVG→PNG変換でメニュー画像を自動生成", "生成後そのままリッチメニューとして反映可能", "何度でも再生成・調整が可能"]}>
+          <MockWindow title="AIリッチメニュー生成">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-100 text-[12px]">✨</span>
+                  <span className="text-[11px] font-semibold text-violet-700">AI自動生成</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-slate-400">業種</span>
+                    <span className="rounded bg-white px-2 py-1 text-[11px] text-slate-600">美容クリニック</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-slate-400">テーマ</span>
+                    <span className="rounded bg-white px-2 py-1 text-[11px] text-slate-600">清潔感・高級感</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] text-slate-400">カラー</span>
+                    <div className="flex gap-1">
+                      <span className="h-5 w-5 rounded bg-blue-500" />
+                      <span className="h-5 w-5 rounded bg-sky-300" />
+                      <span className="h-5 w-5 rounded bg-white border border-slate-200" />
+                    </div>
+                  </div>
+                </div>
+                <button className="mt-3 w-full rounded-lg bg-gradient-to-r from-violet-500 to-blue-500 py-2 text-[11px] font-bold text-white">AIで生成する</button>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-semibold text-slate-500">生成結果プレビュー</div>
+                <div className="grid grid-cols-3 grid-rows-2 gap-[2px] overflow-hidden rounded-lg border border-blue-200">
+                  {[
+                    { label: "予約する", bg: "bg-gradient-to-br from-blue-500 to-sky-400 text-white" },
+                    { label: "問診フォーム", bg: "bg-gradient-to-br from-sky-400 to-blue-300 text-white" },
+                    { label: "お知らせ", bg: "bg-gradient-to-br from-blue-400 to-sky-300 text-white" },
+                    { label: "マイページ", bg: "bg-gradient-to-br from-sky-300 to-blue-200 text-blue-800" },
+                    { label: "処方履歴", bg: "bg-gradient-to-br from-blue-200 to-sky-200 text-blue-800" },
+                    { label: "お問合せ", bg: "bg-gradient-to-br from-sky-200 to-blue-100 text-blue-700" },
+                  ].map((b, i) => (
+                    <div key={i} className={`flex items-center justify-center py-5 text-[10px] font-bold ${b.bg}`}>{b.label}</div>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button className="flex-1 rounded-md border border-slate-200 py-1.5 text-[10px] font-semibold text-slate-500">再生成</button>
+                  <button className="flex-1 rounded-md bg-blue-500 py-1.5 text-[10px] font-bold text-white">このデザインを使用</button>
+                </div>
+              </div>
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* フロービルダー */}
+        <FeatureBlock title="フロービルダー" desc="複雑な患者対応フローをビジュアルエディタで構築。友だち追加→問診→予約→フォローアップまでの一連の流れを、ドラッグ&ドロップで直感的に設計できます。" details={["ビジュアルエディタでフロー全体を俯瞰", "条件分岐・遅延・並列処理に対応", "テンプレートから素早くフロー作成"]} reverse>
+          <MockWindow title="LINE管理 — フロービルダー">
+            <div className="space-y-1">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-700">新患獲得フロー</span>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600">稼働中</span>
+              </div>
+              {/* フロー図 */}
+              <div className="flex flex-col items-center gap-0">
+                <div className="rounded-lg border-2 border-blue-300 bg-blue-50 px-4 py-2 text-center">
+                  <div className="text-[10px] text-slate-400">トリガー</div>
+                  <div className="text-[11px] font-semibold text-blue-700">友だち追加</div>
+                </div>
+                <div className="h-4 w-px bg-slate-300" />
+                <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-center">
+                  <div className="text-[10px] text-slate-400">アクション</div>
+                  <div className="text-[11px] font-semibold text-sky-700">挨拶メッセージ送信</div>
+                </div>
+                <div className="h-4 w-px bg-slate-300" />
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-center">
+                  <div className="text-[10px] text-slate-400">条件分岐</div>
+                  <div className="text-[11px] font-semibold text-amber-700">問診回答済み？</div>
+                </div>
+                <div className="flex gap-8">
+                  <div className="flex flex-col items-center">
+                    <div className="h-4 w-px bg-slate-300" />
+                    <span className="text-[9px] text-emerald-500 font-bold">YES</span>
+                    <div className="h-2 w-px bg-slate-300" />
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-center">
+                      <div className="text-[10px] font-semibold text-emerald-700">予約案内</div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="h-4 w-px bg-slate-300" />
+                    <span className="text-[9px] text-rose-500 font-bold">NO</span>
+                    <div className="h-2 w-px bg-slate-300" />
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-center">
+                      <div className="text-[10px] font-semibold text-rose-700">リマインド送信</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 flex justify-center gap-2">
+                <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">実行回数: 1,234</span>
+                <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600">完了率: 78%</span>
+              </div>
+            </div>
+          </MockWindow>
+        </FeatureBlock>
+
+        {/* フォローアップルール */}
+        <FeatureBlock title="フォローアップ自動配信" desc="診察後や処方後に、最適なタイミングで自動フォローアップメッセージを配信。副作用確認・満足度調査・再診促進まで、患者との継続的な関係構築を自動化します。" details={["診察後X日後に自動送信", "処方薬別のフォローテンプレート", "再診促進への自動エスカレーション"]}>
+          <MockWindow title="LINE管理 — フォローアップルール">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-700">設定中のルール</span>
+                <span className="rounded bg-blue-500 px-3 py-1 text-[10px] font-bold text-white">+ 新規作成</span>
+              </div>
+              {[
+                { name: "処方後3日 — 副作用確認", timing: "処方3日後", target: "全処方患者", sent: "487件", status: "有効", sc: "text-emerald-600 bg-emerald-50" },
+                { name: "処方後14日 — 効果確認", timing: "処方14日後", target: "初回処方患者", sent: "312件", status: "有効", sc: "text-emerald-600 bg-emerald-50" },
+                { name: "処方後30日 — 再診促進", timing: "処方30日後", target: "再処方未申請", sent: "156件", status: "有効", sc: "text-emerald-600 bg-emerald-50" },
+              ].map((r) => (
+                <div key={r.name} className="rounded-lg border border-slate-100 p-3">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-700">{r.name}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${r.sc}`}>{r.status}</span>
+                  </div>
+                  <div className="flex gap-4 text-[10px] text-slate-400">
+                    <span>タイミング: {r.timing}</span>
+                    <span>対象: {r.target}</span>
+                    <span>送信実績: {r.sent}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </MockWindow>
+        </FeatureBlock>
 
         {/* Flex Messageビルダー & メニュー自動切替 (2カラムグリッド) */}
         <div className="grid gap-8 lg:grid-cols-2">

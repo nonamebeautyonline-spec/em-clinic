@@ -1,6 +1,7 @@
 // app/api/platform/password-reset/reset/route.ts — 新パスワード設定API
 // 未認証ユーザーが使用するため verifyPlatformAdmin は不要
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (fetchError) {
       console.error("[password-reset/reset] トークン取得エラー:", fetchError);
-      return NextResponse.json(
-        { ok: false, error: "サーバーエラーが発生しました" },
-        { status: 500 },
-      );
+      return serverError("サーバーエラーが発生しました");
     }
 
     // トークン照合
@@ -45,26 +43,17 @@ export async function POST(req: NextRequest) {
 
     // トークンが見つからない
     if (!matchedToken) {
-      return NextResponse.json(
-        { ok: false, error: "トークンが無効です" },
-        { status: 400 },
-      );
+      return badRequest("トークンが無効です");
     }
 
     // 使用済みチェック（念のため再確認）
     if (matchedToken.used_at) {
-      return NextResponse.json(
-        { ok: false, error: "このリセットリンクは使用済みです" },
-        { status: 400 },
-      );
+      return badRequest("このリセットリンクは使用済みです");
     }
 
     // 有効期限チェック
     if (new Date(matchedToken.expires_at) < new Date()) {
-      return NextResponse.json(
-        { ok: false, error: "トークンの有効期限が切れています" },
-        { status: 400 },
-      );
+      return badRequest("トークンの有効期限が切れています");
     }
 
     // 新パスワードをbcryptハッシュ化
@@ -78,10 +67,7 @@ export async function POST(req: NextRequest) {
 
     if (updateUserError) {
       console.error("[password-reset/reset] パスワード更新エラー:", updateUserError);
-      return NextResponse.json(
-        { ok: false, error: "パスワードの更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("パスワードの更新に失敗しました");
     }
 
     // トークンを使用済みに更新
@@ -103,9 +89,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "パスワードを変更しました" });
   } catch (err) {
     console.error("[password-reset/reset] エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("サーバーエラーが発生しました");
   }
 }

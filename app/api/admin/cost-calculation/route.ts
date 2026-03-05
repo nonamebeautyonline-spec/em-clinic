@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -56,17 +57,14 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const { searchParams } = new URL(req.url);
     const yearMonth = searchParams.get("year_month");
 
     if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) {
-      return NextResponse.json(
-        { ok: false, error: "invalid_year_month" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "invalid_year_month" }, { status: 400 });
     }
 
     const [year, month] = yearMonth.split("-").map(Number);

@@ -75,7 +75,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("カテゴリ指定なし → 全カテゴリの設定を返す（definitions 付き）", async () => {
@@ -211,7 +211,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("不正な設定キーです");
+      expect(json.message).toBe("不正な設定キーです");
     });
 
     it("不正なカテゴリ → 400", async () => {
@@ -223,7 +223,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("不正な設定キーです");
+      expect(json.message).toBe("不正な設定キーです");
     });
 
     it("正常な設定更新 → success: true + maskedValue", async () => {
@@ -262,7 +262,7 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       const res = await PUT(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("設定の保存に失敗しました");
+      expect(json.message).toBe("設定の保存に失敗しました");
     });
 
     // 各カテゴリの有効なキーのテスト

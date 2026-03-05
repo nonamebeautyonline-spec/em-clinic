@@ -1,6 +1,7 @@
 // app/api/platform/sessions/[sessionId]/route.ts — セッション削除API
 // 指定セッションを無効化（現在のセッションは削除不可）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { createHash } from "crypto";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -14,19 +15,13 @@ export async function DELETE(
     // プラットフォーム管理者認証
     const admin = await verifyPlatformAdmin(req);
     if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: "認証が必要です" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     const { sessionId } = await params;
 
     if (!sessionId) {
-      return NextResponse.json(
-        { ok: false, error: "セッションIDは必須です" },
-        { status: 400 }
-      );
+      return badRequest("セッションIDは必須です");
     }
 
     // 対象セッションを取得（自分のセッションのみ操作可能）
@@ -38,10 +33,7 @@ export async function DELETE(
       .single();
 
     if (fetchError || !session) {
-      return NextResponse.json(
-        { ok: false, error: "セッションが見つかりません" },
-        { status: 404 }
-      );
+      return notFound("セッションが見つかりません");
     }
 
     // 現在のセッションかどうかチェック
@@ -49,10 +41,7 @@ export async function DELETE(
     if (sessionCookie) {
       const currentTokenHash = createHash("sha256").update(sessionCookie).digest("hex");
       if (session.token_hash === currentTokenHash) {
-        return NextResponse.json(
-          { ok: false, error: "現在のセッションは削除できません" },
-          { status: 400 }
-        );
+        return badRequest("現在のセッションは削除できません");
       }
     }
 
@@ -65,10 +54,7 @@ export async function DELETE(
 
     if (deleteError) {
       console.error("[Session Delete] DB error:", deleteError);
-      return NextResponse.json(
-        { ok: false, error: "セッションの削除に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("セッションの削除に失敗しました");
     }
 
     // 監査ログ
@@ -79,9 +65,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[Session Delete] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

@@ -101,7 +101,7 @@ describe("患者一括アクション API", () => {
       const res = await POST(createReq({ patient_ids: ["P001"], action_id: 1 }));
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
   });
 
@@ -129,7 +129,7 @@ describe("患者一括アクション API", () => {
       const res = await POST(createReq({ patient_ids: ["P001"], action_id: 999 }));
       expect(res.status).toBe(404);
       const body = await res.json();
-      expect(body.error).toBe("アクションが見つかりません");
+      expect(body.message).toBe("アクションが見つかりません");
     });
   });
 

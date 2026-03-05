@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -11,7 +12,7 @@ import { createRichMenuSchema } from "@/lib/validations/line-common";
 export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const simple = req.nextUrl.searchParams.get("simple") === "true";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       tenantId
     );
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error.message);
 
     // simple=true: id/name/is_active のみ返す（メニュー自動切替ページ等の軽量取得用）
     if (simple) {
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ menus });
   } catch (e) {
     console.error("[Rich Menu GET] Unhandled error:", (e as Error).message || e);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }
 
@@ -101,7 +102,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
 
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error.message);
 
     // 2. 画像がある場合、LINE API登録をバックグラウンドで実行
     if (image_url) {
@@ -164,6 +165,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ menu: data });
   } catch (e) {
     console.error("[Rich Menu POST] Unhandled error:", (e as Error).message || e);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }

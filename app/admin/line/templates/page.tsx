@@ -471,7 +471,7 @@ export default function TemplateManagementPage() {
           // エラー時にAPIからのデバッグ情報を表示
           const debugInfo = data._debug ? ` [${data._debug}]` : "";
           const payload = data._payload ? ` payload:${data._payload.substring(0, 200)}` : "";
-          results.push(`${name}: ${data.error || "失敗"}${debugInfo}${payload}`);
+          results.push(`${name}: ${(data.message || data.error) || "失敗"}${debugInfo}${payload}`);
         }
       } catch {
         allOk = false;
@@ -564,7 +564,7 @@ export default function TemplateManagementPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "画像アップロード失敗");
+        alert((data.message || data.error) || "画像アップロード失敗");
         return;
       }
 
@@ -633,7 +633,7 @@ export default function TemplateManagementPage() {
       resetForm();
     } else {
       const data = await res.json();
-      alert(data.error || "保存失敗");
+      alert((data.message || data.error) || "保存失敗");
     }
     setSaving(false);
   };
@@ -655,7 +655,7 @@ export default function TemplateManagementPage() {
       setFolderName("");
     } else {
       const data = await res.json();
-      alert(data.error || "作成失敗");
+      alert((data.message || data.error) || "作成失敗");
     }
     setSaving(false);
   };

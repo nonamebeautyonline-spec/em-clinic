@@ -77,7 +77,7 @@ describe("AI Reply Send API", () => {
     const res = await POST(req, { params: Promise.resolve({ draftId: "abc" }) });
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("無効なID");
+    expect(data.message).toContain("無効なID");
   });
 
   it("parseBody失敗時はエラーレスポンスを返す", async () => {
@@ -105,7 +105,7 @@ describe("AI Reply Send API", () => {
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(403);
     const data = await res.json();
-    expect(data.error).toContain("署名が無効");
+    expect(data.message).toContain("署名が無効");
   });
 
   it("ドラフトが見つからない場合は404を返す", async () => {
@@ -123,7 +123,7 @@ describe("AI Reply Send API", () => {
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(404);
     const data = await res.json();
-    expect(data.error).toContain("ドラフトが見つかりません");
+    expect(data.message).toContain("ドラフトが見つかりません");
   });
 
   it("ドラフトstatusがpending以外の場合は400を返す", async () => {
@@ -141,7 +141,7 @@ describe("AI Reply Send API", () => {
     const res = await POST(req, { params: Promise.resolve({ draftId: "123" }) });
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("既に処理済み");
+    expect(data.message).toContain("既に処理済み");
   });
 
   it("正常系ではsendAiReplyが呼ばれて200を返す", async () => {

@@ -2,6 +2,7 @@
 // プラットフォーム管理: システム設定API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { z } from "zod";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -23,10 +24,7 @@ const updateSettingsSchema = z.array(
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     const { data: settings, error: settingsErr } = await supabaseAdmin
@@ -36,10 +34,7 @@ export async function GET(req: NextRequest) {
 
     if (settingsErr) {
       console.error("[platform/system/settings] GET error:", settingsErr);
-      return NextResponse.json(
-        { ok: false, error: "設定の取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("設定の取得に失敗しました");
     }
 
     return NextResponse.json({
@@ -48,10 +43,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/system/settings] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -62,10 +54,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const parsed = await parseBody(req, updateSettingsSchema);
   if (parsed.error) return parsed.error;
@@ -120,9 +109,6 @@ export async function PUT(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/system/settings] PUT unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

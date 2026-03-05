@@ -1,5 +1,6 @@
 // app/api/admin/login/route.ts — ユーザーID + パスワード認証
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, tooManyRequests } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
@@ -37,16 +38,10 @@ export async function POST(req: NextRequest) {
       checkRateLimit(`login:ip:${ip}`, 15, 600),
     ]);
     if (userLimit.limited) {
-      return NextResponse.json(
-        { ok: false, error: "ログイン試行回数が上限に達しました。しばらくお待ちください。" },
-        { status: 429 }
-      );
+      return tooManyRequests("ログイン試行回数が上限に達しました。しばらくお待ちください。");
     }
     if (ipLimit.limited) {
-      return NextResponse.json(
-        { ok: false, error: "このIPからのログイン試行が制限されています。しばらくお待ちください。" },
-        { status: 429 }
-      );
+      return tooManyRequests("このIPからのログイン試行が制限されています。しばらくお待ちください。");
     }
 
     // ユーザー取得（usernameはグローバルに一意なのでテナント不要）
@@ -199,9 +194,6 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (err) {
     console.error("[Admin Login] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

@@ -1,5 +1,6 @@
 // app/api/admin/line/nps/[id]/route.ts — NPS統計・回答一覧
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -14,7 +15,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -27,7 +28,7 @@ export async function GET(
   );
 
   if (!survey) {
-    return NextResponse.json({ error: "調査が見つかりません" }, { status: 404 });
+    return notFound("調査が見つかりません");
   }
 
   // 全回答取得

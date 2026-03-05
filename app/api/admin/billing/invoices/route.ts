@@ -2,6 +2,7 @@
 // テナント側請求書一覧API（ページネーション対応）
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -9,12 +10,12 @@ import { supabaseAdmin } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
   if (!tenantId) {
-    return NextResponse.json({ error: "テナントが特定できません" }, { status: 400 });
+    return badRequest("テナントが特定できません");
   }
 
   const url = new URL(req.url);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[admin/billing/invoices] error:", error);
-      return NextResponse.json({ ok: false, error: "請求書取得に失敗しました" }, { status: 500 });
+      return serverError("請求書取得に失敗しました");
     }
 
     return NextResponse.json({
@@ -47,6 +48,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[admin/billing/invoices] unexpected error:", err);
-    return NextResponse.json({ ok: false, error: "予期しないエラー" }, { status: 500 });
+    return serverError("予期しないエラー");
   }
 }

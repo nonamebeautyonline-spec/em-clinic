@@ -1,5 +1,6 @@
 // app/api/admin/dedup-patients/merge/route.ts — 患者名寄せ: 統合実行API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { mergePatients } from "@/lib/patient-dedup";
@@ -15,7 +16,7 @@ import { logAudit } from "@/lib/audit";
 export async function POST(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ ok: false, error: "認証エラー" }, { status: 401 });
+    return unauthorized();
   }
 
   const { data, error } = await parseBody(req, mergePatientSchema);
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
 
   // 同一IDチェック
   if (keep_id === remove_id) {
-    return NextResponse.json(
-      { ok: false, error: "同じ患者IDは統合できません" },
-      { status: 400 },
-    );
+    return badRequest("同じ患者IDは統合できません");
   }
 
   const tenantId = resolveTenantId(req);
@@ -37,7 +35,7 @@ export async function POST(req: NextRequest) {
     const result = await mergePatients(keep_id, remove_id, tenantId);
 
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+      return badRequest(result.error ?? "統合に失敗しました");
     }
 
     // 監査ログ記録（fire-and-forget）
@@ -54,9 +52,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[dedup-patients/merge] 統合エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "患者統合に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("患者統合に失敗しました");
   }
 }

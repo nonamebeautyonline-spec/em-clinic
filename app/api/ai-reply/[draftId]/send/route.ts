@@ -1,6 +1,7 @@
 // AI返信ドラフト送信API（修正後の返信を患者にLINE送信）
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound } from "@/lib/api-error";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendAiReply } from "@/lib/ai-reply";
@@ -16,7 +17,7 @@ export async function POST(
   const { draftId: draftIdStr } = await params;
   const draftId = parseInt(draftIdStr, 10);
   if (isNaN(draftId)) {
-    return NextResponse.json({ error: "無効なID" }, { status: 400 });
+    return badRequest("無効なID");
   }
 
   const parsed = await parseBody(request, aiReplySendSchema);
@@ -24,7 +25,7 @@ export async function POST(
   const { sig, exp } = parsed.data;
 
   if (!verifyDraftSignature(draftId, exp, sig)) {
-    return NextResponse.json({ error: "署名が無効または期限切れです" }, { status: 403 });
+    return forbidden("署名が無効または期限切れです");
   }
 
   // ドラフト取得
@@ -35,11 +36,11 @@ export async function POST(
     .single();
 
   if (error || !draft) {
-    return NextResponse.json({ error: "ドラフトが見つかりません" }, { status: 404 });
+    return notFound("ドラフトが見つかりません");
   }
 
   if (draft.status !== "pending") {
-    return NextResponse.json({ error: "このドラフトは既に処理済みです" }, { status: 400 });
+    return badRequest("このドラフトは既に処理済みです");
   }
 
   // 患者にLINE送信

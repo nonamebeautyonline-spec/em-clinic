@@ -106,7 +106,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await GET(req, makeParams("1"));
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("patient_tagsが空 → patients空配列を返す", async () => {
@@ -168,7 +168,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await GET(req, makeParams("1"));
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("connection error");
+      expect(json.message).toBe("connection error");
     });
 
     it("patientsに名前がない場合 → patient_idがpatient_nameにフォールバック", async () => {
@@ -204,12 +204,12 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await PUT(req, makeParams("1"));
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("バリデーションエラー → parseBodyのエラーレスポンスを返す", async () => {
       const errorResponse = new Response(
-        JSON.stringify({ ok: false, error: "入力値が不正です", details: ["name: 必須"] }),
+        JSON.stringify({ ok: false, error: "VALIDATION_ERROR", message: "入力値が不正です", details: ["name: 必須"] }),
         { status: 400 },
       );
       mockParseBody.mockResolvedValueOnce({ error: errorResponse as unknown as Response });
@@ -218,7 +218,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await PUT(req, makeParams("1"));
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("入力値が不正です");
+      expect(json.message).toBe("入力値が不正です");
     });
 
     it("正常更新 → tagデータを返す", async () => {
@@ -255,7 +255,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await PUT(req, makeParams("1"));
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("update failed");
+      expect(json.message).toBe("update failed");
     });
   });
 
@@ -269,7 +269,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await DELETE(req, makeParams("1"));
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("正常削除 → ok:true", async () => {
@@ -293,7 +293,7 @@ describe("タグ個別API (app/api/admin/tags/[id]/route.ts)", () => {
       const res = await DELETE(req, makeParams("1"));
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("delete failed");
+      expect(json.message).toBe("delete failed");
     });
   });
 });

@@ -1,5 +1,6 @@
 // テスト送信アカウント設定API（複数アカウント対応）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, deleteSetting } from "@/lib/settings";
@@ -46,7 +47,7 @@ async function savePatientIds(ids: string[], tenantId?: string): Promise<boolean
 // テスト送信アカウント一覧取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const patientIds = await getPatientIds(tenantId ?? undefined);
@@ -83,13 +84,13 @@ export async function GET(req: NextRequest) {
 // テスト送信アカウント追加
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const body = await req.json();
   const patientId = body.patient_id?.trim();
   if (!patientId) {
-    return NextResponse.json({ error: "patient_idは必須です" }, { status: 400 });
+    return badRequest("patient_idは必須です");
   }
 
   // 患者存在確認
@@ -99,24 +100,24 @@ export async function PUT(req: NextRequest) {
   ).maybeSingle();
 
   if (!patient) {
-    return NextResponse.json({ error: "患者が見つかりません" }, { status: 404 });
+    return notFound("患者が見つかりません");
   }
 
   // 既存リストに追加（重複チェック）
   const ids = await getPatientIds(tenantId ?? undefined);
   if (ids.includes(patientId)) {
-    return NextResponse.json({ error: "既に登録されています" }, { status: 400 });
+    return badRequest("既に登録されています");
   }
 
   // 最大10人まで
   if (ids.length >= 10) {
-    return NextResponse.json({ error: "テストアカウントは最大10人までです" }, { status: 400 });
+    return badRequest("テストアカウントは最大10人までです");
   }
 
   ids.push(patientId);
   const ok = await savePatientIds(ids, tenantId ?? undefined);
   if (!ok) {
-    return NextResponse.json({ error: "設定の保存に失敗しました" }, { status: 500 });
+    return serverError("設定の保存に失敗しました");
   }
 
   return NextResponse.json({
@@ -128,7 +129,7 @@ export async function PUT(req: NextRequest) {
 // テスト送信アカウント削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const body = await req.json().catch(() => ({}));

@@ -189,7 +189,7 @@ export default function ProductsPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "保存に失敗しました");
+        throw new Error((data.message || data.error) || "保存に失敗しました");
       }
 
       await fetchProducts();
@@ -211,7 +211,7 @@ export default function ProductsPage() {
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "無効化に失敗しました");
+          throw new Error((data.message || data.error) || "無効化に失敗しました");
         }
         setProducts((prev) =>
           prev.map((p) => (p.id === product.id ? { ...p, is_active: false } : p))
@@ -230,7 +230,7 @@ export default function ProductsPage() {
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "有効化に失敗しました");
+          throw new Error((data.message || data.error) || "有効化に失敗しました");
         }
         setProducts((prev) =>
           prev.map((p) => (p.id === product.id ? { ...p, is_active: true } : p))
@@ -268,7 +268,7 @@ export default function ProductsPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "更新失敗");
+        throw new Error((data.message || data.error) || "更新失敗");
       }
 
       await fetchProducts();

@@ -111,7 +111,7 @@ describe("POST /api/reorder/apply", () => {
       const res = await POST(req);
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
 
     it("patient_idがある場合は処理が継続される", async () => {

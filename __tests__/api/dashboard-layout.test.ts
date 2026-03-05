@@ -143,7 +143,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("widgets配列が必要です");
+    expect(json.message).toBe("widgets配列が必要です");
   });
 
   it("不正なウィジェットID → 400", async () => {
@@ -153,7 +153,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("不正なウィジェットID");
+    expect(json.message).toContain("不正なウィジェットID");
   });
 
   it("重複ウィジェットID → 400", async () => {
@@ -166,7 +166,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("重複ウィジェットID");
+    expect(json.message).toContain("重複ウィジェットID");
   });
 
   it("visibleがboolean以外 → 400", async () => {
@@ -176,7 +176,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("visible はboolean必須");
+    expect(json.message).toContain("visible はboolean必須");
   });
 
   it("正常保存 → ok:true", async () => {
@@ -201,7 +201,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("保存に失敗しました");
+    expect(json.message).toBe("保存に失敗しました");
   });
 
   it("不正なリクエストボディ → 400", async () => {
@@ -213,7 +213,7 @@ describe("ダッシュボードレイアウト API - PUT", () => {
     const res = await PUT(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("不正なリクエスト");
+    expect(json.message).toBe("不正なリクエスト");
   });
 });
 

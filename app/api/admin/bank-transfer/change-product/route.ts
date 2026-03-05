@@ -1,5 +1,6 @@
 // 銀行振込商品変更API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, bankTransferChangeProductSchema);
@@ -55,25 +56,25 @@ export async function POST(req: NextRequest) {
     ).single();
 
     if (fetchError || !order) {
-      return NextResponse.json({ error: "注文が見つかりませんでした" }, { status: 404 });
+      return notFound("注文が見つかりませんでした");
     }
 
     if (order.payment_method !== "bank_transfer") {
-      return NextResponse.json({ error: "銀行振込以外の注文です" }, { status: 400 });
+      return badRequest("銀行振込以外の注文です");
     }
 
     if (order.status !== "pending_confirmation") {
-      return NextResponse.json({ error: "振込待ち状態の注文のみ変更可能です" }, { status: 400 });
+      return badRequest("振込待ち状態の注文のみ変更可能です");
     }
 
     if (new_product_code === order.product_code) {
-      return NextResponse.json({ error: "同じ商品への変更はできません" }, { status: 400 });
+      return badRequest("同じ商品への変更はできません");
     }
 
     // 新商品情報を取得
     const newProduct = await getProductByCode(new_product_code, tenantId ?? undefined);
     if (!newProduct) {
-      return NextResponse.json({ error: "指定された商品が見つかりません" }, { status: 400 });
+      return badRequest("指定された商品が見つかりません");
     }
 
     const now = new Date().toISOString();
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[bank-transfer/change-product] Update error:", updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return serverError(updateError.message);
     }
 
     console.log(`[bank-transfer/change-product] ${order.product_code} → ${newProduct.code}: order=${order_id}, patient=${order.patient_id}`);
@@ -124,9 +125,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[bank-transfer/change-product] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "サーバーエラー");
   }
 }

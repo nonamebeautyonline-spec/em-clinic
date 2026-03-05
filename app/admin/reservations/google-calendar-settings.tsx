@@ -66,7 +66,7 @@ export default function GoogleCalendarSettings() {
       );
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "認証URL取得に失敗しました");
+        throw new Error((data.message || data.error) || "認証URL取得に失敗しました");
       }
       const data = await res.json();
       // Googleの認証画面にリダイレクト
@@ -92,7 +92,7 @@ export default function GoogleCalendarSettings() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "同期に失敗しました");
+        throw new Error((data.message || data.error) || "同期に失敗しました");
       }
 
       const data: SyncResult = await res.json();
@@ -127,7 +127,7 @@ export default function GoogleCalendarSettings() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "連携解除に失敗しました");
+        throw new Error((data.message || data.error) || "連携解除に失敗しました");
       }
 
       // 医師一覧を再取得

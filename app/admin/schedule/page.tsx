@@ -154,7 +154,7 @@ export default function ScheduleDashboard() {
         setNextMonthOpen(true);
         alert(`${nextMonthDisplay}の予約を開放しました`);
       } else {
-        alert(`エラー: ${json.error || "開放に失敗しました"}`);
+        alert(`エラー: ${(json.message || json.error) || "開放に失敗しました"}`);
       }
     } catch (e) {
       alert("通信エラーが発生しました");

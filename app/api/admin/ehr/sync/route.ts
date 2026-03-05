@@ -1,5 +1,6 @@
 // app/api/admin/ehr/sync/route.ts — 電子カルテ手動同期
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   // 管理者認証
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -37,10 +38,7 @@ export async function POST(req: NextRequest) {
     // アダプター生成
     const adapter = await createAdapter(tenantId ?? undefined);
     if (!adapter) {
-      return NextResponse.json(
-        { error: "EHRプロバイダーが設定されていません" },
-        { status: 400 },
-      );
+      return badRequest("EHRプロバイダーが設定されていません");
     }
 
     const results: SyncResult[] = [];
@@ -71,6 +69,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ results });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "同期処理に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }

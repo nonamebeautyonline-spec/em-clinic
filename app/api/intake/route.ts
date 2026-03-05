@@ -1,5 +1,6 @@
 // app/api/intake/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       "";
 
     if (!patientId) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const answersObj = body.answers || {};

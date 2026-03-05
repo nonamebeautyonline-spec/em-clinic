@@ -4,6 +4,7 @@
 // DELETE: セッション終了
 // GET: 指定intakeの編集中ユーザー確認
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -19,12 +20,12 @@ export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const intakeId = req.nextUrl.searchParams.get("intakeId");
     if (!intakeId)
-      return NextResponse.json({ error: "intakeIdは必須です" }, { status: 400 });
+      return badRequest("intakeIdは必須です");
 
     // 期限切れセッションを除外して取得
     const cutoff = new Date(Date.now() - HEARTBEAT_TIMEOUT_SEC * 1000).toISOString();
@@ -39,12 +40,12 @@ export async function GET(req: NextRequest) {
     );
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
 
     return NextResponse.json({ ok: true, sessions: data || [] });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const parsed = await parseBody(req, karteEditSessionSchema);
     if ("error" in parsed) return parsed.error;
@@ -85,12 +86,12 @@ export async function POST(req: NextRequest) {
     );
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
 
     return NextResponse.json({ ok: true, sessionId: data.id });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }
 
@@ -98,12 +99,12 @@ export async function PUT(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const body = await req.json();
     const sessionId = body.sessionId;
     if (!sessionId)
-      return NextResponse.json({ error: "sessionIdは必須です" }, { status: 400 });
+      return badRequest("sessionIdは必須です");
 
     const tenantId = resolveTenantId(req);
 
@@ -116,12 +117,12 @@ export async function PUT(req: NextRequest) {
     );
 
     if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }
 
@@ -129,7 +130,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const sessionId = req.nextUrl.searchParams.get("sessionId");
     const intakeId = req.nextUrl.searchParams.get("intakeId");
@@ -157,12 +158,12 @@ export async function DELETE(req: NextRequest) {
         tenantId
       );
     } else {
-      return NextResponse.json({ error: "sessionId または intakeId+editorName が必要です" }, { status: 400 });
+      return badRequest("sessionId または intakeId+editorName が必要です");
     }
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+    return serverError(msg);
   }
 }

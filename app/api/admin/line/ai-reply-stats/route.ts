@@ -1,5 +1,6 @@
 // app/api/admin/line/ai-reply-stats/route.ts — AI返信統計API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   // 認証チェック
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   if (draftsError) {
     console.error("[ai-reply-stats] fetch error:", draftsError);
-    return NextResponse.json({ error: "データ取得に失敗しました" }, { status: 500 });
+    return serverError("データ取得に失敗しました");
   }
 
   const rows = drafts || [];

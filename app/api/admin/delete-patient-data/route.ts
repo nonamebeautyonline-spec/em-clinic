@@ -1,5 +1,6 @@
 // 管理者用: 患者データ削除（予約キャンセル + 問診削除）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -92,10 +93,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[admin/delete-patient-data] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }
 
@@ -105,7 +103,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -114,7 +112,7 @@ export async function GET(req: NextRequest) {
     const patient_id = searchParams.get("patient_id");
 
     if (!patient_id) {
-      return NextResponse.json({ error: "patient_id required" }, { status: 400 });
+      return badRequest("patient_id required");
     }
 
     // 予約情報・患者名・問診情報を並列取得
@@ -154,9 +152,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[admin/delete-patient-data] GET Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

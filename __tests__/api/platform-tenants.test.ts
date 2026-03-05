@@ -86,7 +86,7 @@ describe("GET /api/platform/tenants", () => {
       const res = await GET(req);
       expect(res.status).toBe(403);
       const body = await res.json();
-      expect(body.error).toBe("権限がありません");
+      expect(body.message).toBe("権限がありません");
     });
   });
 
@@ -245,7 +245,7 @@ describe("GET /api/platform/tenants", () => {
       const res = await GET(req);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toContain("テナント一覧の取得に失敗しました");
+      expect(body.message).toContain("テナント一覧の取得に失敗しました");
     });
   });
 
@@ -351,7 +351,7 @@ describe("POST /api/platform/tenants", () => {
       const res = await POST(req);
       expect(res.status).toBe(409);
       const body = await res.json();
-      expect(body.error).toBe("このスラグは既に使用されています");
+      expect(body.message).toBe("このスラグは既に使用されています");
     });
   });
 
@@ -375,7 +375,7 @@ describe("POST /api/platform/tenants", () => {
       const res = await POST(req);
       expect(res.status).toBe(409);
       const body = await res.json();
-      expect(body.error).toBe("このメールアドレスは既に使用されています");
+      expect(body.message).toBe("このメールアドレスは既に使用されています");
     });
   });
 
@@ -472,7 +472,7 @@ describe("POST /api/platform/tenants", () => {
       const res = await POST(req);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBe("テナントの作成に失敗しました");
+      expect(body.message).toBe("テナントの作成に失敗しました");
     });
   });
 
@@ -508,7 +508,7 @@ describe("POST /api/platform/tenants", () => {
       const res = await POST(req);
       expect(res.status).toBe(500);
       const body = await res.json();
-      expect(body.error).toBe("管理者ユーザーの作成に失敗しました");
+      expect(body.message).toBe("管理者ユーザーの作成に失敗しました");
 
       // テナント削除（ロールバック）が呼ばれたことを確認
       expect(tenantsChain.delete).toHaveBeenCalled();

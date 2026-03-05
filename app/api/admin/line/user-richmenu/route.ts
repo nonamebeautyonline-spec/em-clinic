@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -55,14 +56,14 @@ async function resolveRichMenu(richMenuId: string, isDefault: boolean, tenantId:
 export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
 
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patient_id");
-    if (!patientId) return NextResponse.json({ error: "patient_id required" }, { status: 400 });
+    if (!patientId) return badRequest("patient_id required");
 
     // patient_id から line_id を patients テーブルから取得
     const { data: patientRow } = await withTenant(
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest) {
 // ユーザーにリッチメニューを割り当て
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
   ).maybeSingle();
 
   if (!menu?.line_rich_menu_id) {
-    return NextResponse.json({ error: "メニューが見つからないかLINE未登録です" }, { status: 400 });
+    return badRequest("メニューが見つからないかLINE未登録です");
   }
 
   // patient_id から line_id を patients テーブルから取得
@@ -143,11 +144,11 @@ export async function POST(req: NextRequest) {
 
   const lineId = patientRow?.line_id;
   if (!lineId) {
-    return NextResponse.json({ error: "LINE未連携のユーザーです" }, { status: 400 });
+    return badRequest("LINE未連携のユーザーです");
   }
 
   if (!LINE_ACCESS_TOKEN) {
-    return NextResponse.json({ error: "LINEアクセストークン未設定" }, { status: 500 });
+    return serverError("LINEアクセストークン未設定");
   }
 
   // LINE APIでユーザーにリッチメニューを割り当て
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
   if (!lineRes.ok) {
     const text = await lineRes.text().catch(() => "");
     console.error("[LINE Assign Menu]", lineRes.status, text);
-    return NextResponse.json({ error: `LINE API エラー: ${lineRes.status}` }, { status: 500 });
+    return serverError(`LINE API エラー: ${lineRes.status}`);
   }
 
   return NextResponse.json({

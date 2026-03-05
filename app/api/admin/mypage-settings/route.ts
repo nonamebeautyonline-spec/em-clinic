@@ -1,5 +1,6 @@
 // マイページ設定管理API（管理者用）
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getMypageConfig, setMypageConfig } from "@/lib/mypage/config";
 import { resolveTenantId } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { mypageSettingsSchema } from "@/lib/validations/admin-operations";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const config = await getMypageConfig(tenantId ?? undefined);
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, mypageSettingsSchema);
@@ -25,6 +26,6 @@ export async function PUT(req: NextRequest) {
   const { config } = parsed.data;
 
   const saved = await setMypageConfig(config, tenantId ?? undefined);
-  if (!saved) return NextResponse.json({ error: "保存に失敗しました" }, { status: 500 });
+  if (!saved) return serverError("保存に失敗しました");
   return NextResponse.json({ ok: true });
 }

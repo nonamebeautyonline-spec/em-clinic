@@ -2,6 +2,7 @@
 // 医療辞書は DB（medical_vocabulary）から取得し、Redis でキャッシュ（5分TTL）
 // ?refine=true で Claude API による医学用語補正を有効化
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import { createClient } from "@deepgram/sdk";
 import Groq from "groq-sdk";
 import { VOICE_LIMITS } from "@/lib/validations/voice";
@@ -210,18 +211,12 @@ export async function POST(req: NextRequest) {
     const audioFile = formData.get("audio");
 
     if (!audioFile || !(audioFile instanceof File)) {
-      return NextResponse.json(
-        { ok: false, error: "音声ファイルが見つかりません" },
-        { status: 400 }
-      );
+      return badRequest("音声ファイルが見つかりません");
     }
 
     // ファイルサイズチェック
     if (audioFile.size > VOICE_LIMITS.MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { ok: false, error: "ファイルサイズが上限（4MB）を超えています" },
-        { status: 400 }
-      );
+      return badRequest("ファイルサイズが上限（4MB）を超えています");
     }
 
     // MIMEタイプチェック
@@ -230,10 +225,7 @@ export async function POST(req: NextRequest) {
       mimeType.startsWith(t)
     );
     if (!isAllowed) {
-      return NextResponse.json(
-        { ok: false, error: `非対応の音声形式です: ${mimeType}` },
-        { status: 400 }
-      );
+      return badRequest(`非対応の音声形式です: ${mimeType}`);
     }
 
     // 音声データをバッファに変換
@@ -318,9 +310,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[voice/transcribe] エラー:", err);
     const message = err instanceof Error ? err.message : "音声認識中にエラーが発生しました";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return serverError(message);
   }
 }

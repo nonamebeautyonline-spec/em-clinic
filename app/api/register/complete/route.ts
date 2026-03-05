@@ -1,6 +1,7 @@
 // app/api/register/complete/route.ts
 // 電話認証完了時に answerers.tel を保存 + ライフサイクルイベント実行
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { executeLifecycleActions } from "@/lib/lifecycle-actions";

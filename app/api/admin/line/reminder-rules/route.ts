@@ -1,5 +1,6 @@
 // app/api/admin/line/reminder-rules/route.ts — リマインドルール CRUD
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -9,7 +10,7 @@ import { reminderRuleSchema } from "@/lib/validations/line-common";
 // ルール一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // 各ルールの送信実績件数を取得
   const rules = data || [];
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 // ルール作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -56,13 +57,13 @@ export async function POST(req: NextRequest) {
   if (timing_type === "fixed_time" && message_format === "flex") {
     // FLEXはテンプレート不要
   } else if (!message_template?.trim()) {
-    return NextResponse.json({ error: "メッセージは必須です" }, { status: 400 });
+    return badRequest("メッセージは必須です");
   }
 
   // fixed_time バリデーション（Zodで基本範囲チェック済み、null判定のみ追加）
   if (timing_type === "fixed_time") {
     if (send_hour == null) {
-      return NextResponse.json({ error: "送信時刻（時）は必須です" }, { status: 400 });
+      return badRequest("送信時刻（時）は必須です");
     }
   }
 
@@ -83,14 +84,14 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, rule: data });
 }
 
 // ルール更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -101,7 +102,7 @@ export async function PUT(req: NextRequest) {
   const { name, timing_type, timing_value, message_template, is_enabled,
           send_hour, send_minute, target_day_offset, message_format } = parsed.data;
 
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { data, error } = await withTenant(
     supabaseAdmin
@@ -123,26 +124,26 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, rule: data });
 }
 
 // ルール削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin.from("reminder_rules").delete().eq("id", parseInt(id)),
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

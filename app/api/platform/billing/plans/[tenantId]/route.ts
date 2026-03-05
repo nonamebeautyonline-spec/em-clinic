@@ -2,6 +2,7 @@
 // テナント別プラン更新API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -18,10 +19,7 @@ export async function PUT(
 ) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await params;
 
@@ -41,10 +39,7 @@ export async function PUT(
       .maybeSingle();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // tenant_plans の upsert（tenant_id が UNIQUE なので ON CONFLICT で更新）
@@ -66,10 +61,7 @@ export async function PUT(
 
     if (planErr) {
       console.error("[platform/billing/plans] PUT error:", planErr);
-      return NextResponse.json(
-        { ok: false, error: "プランの更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("プランの更新に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -86,9 +78,6 @@ export async function PUT(
     });
   } catch (err) {
     console.error("[platform/billing/plans] PUT unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

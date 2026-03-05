@@ -283,7 +283,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+        throw new Error((data.message || data.error) || `保存に失敗しました (${res.status})`);
       }
       onSaved("決済プロバイダーを保存しました", "success");
     } catch (err) {
@@ -304,7 +304,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+        throw new Error((data.message || data.error) || `保存に失敗しました (${res.status})`);
       }
       onSaved("振込照合モードを保存しました", "success");
     } catch (err) {
@@ -326,7 +326,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+        throw new Error((data.message || data.error) || `保存に失敗しました (${res.status})`);
       }
       onSaved(enabled ? "3Dセキュアを有効にしました" : "3Dセキュアを無効にしました", "success");
     } catch (err) {
@@ -348,7 +348,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+        throw new Error((data.message || data.error) || `保存に失敗しました (${res.status})`);
       }
       onSaved("チェックアウトモードを保存しました", "success");
     } catch (err) {
@@ -369,7 +369,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "口座情報の保存に失敗しました");
+        throw new Error((data.message || data.error) || "口座情報の保存に失敗しました");
       }
       setSavedAccounts(JSON.parse(JSON.stringify(accounts)));
       setSavedActiveId(activeId);

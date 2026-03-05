@@ -2,6 +2,7 @@
 // 請求書ステータス更新API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -19,10 +20,7 @@ export async function PATCH(
 ) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { invoiceId } = await params;
 
@@ -41,10 +39,7 @@ export async function PATCH(
       .maybeSingle();
 
     if (!existing) {
-      return NextResponse.json(
-        { ok: false, error: "請求書が見つかりません" },
-        { status: 404 },
-      );
+      return notFound("請求書が見つかりません");
     }
 
     // 更新データを構築
@@ -73,10 +68,7 @@ export async function PATCH(
         "[platform/billing/invoices] PATCH error:",
         updateErr,
       );
-      return NextResponse.json(
-        { ok: false, error: "請求書の更新に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("請求書の更新に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -96,9 +88,6 @@ export async function PATCH(
       "[platform/billing/invoices] PATCH unexpected error:",
       err,
     );
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

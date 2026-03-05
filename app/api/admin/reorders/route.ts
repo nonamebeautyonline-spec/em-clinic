@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -31,10 +32,7 @@ export async function GET(req: NextRequest) {
 
     if (reordersError) {
       console.error("Reorders fetch error:", reordersError);
-      return NextResponse.json(
-        { error: "DB error: " + reordersError.message },
-        { status: 500 }
-      );
+      return serverError("DB error: " + reordersError.message);
     }
 
     // 患者名を取得するために、patient_idのリストを作成
@@ -106,10 +104,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ reorders });
   } catch (error) {
     console.error("API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }
 

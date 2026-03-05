@@ -1,5 +1,6 @@
 // カルテメモ編集API（カルテ検索画面から直接編集）
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
 
     const parsed = await parseBody(req, karteEditSchema);
     if ("error" in parsed) return parsed.error;
@@ -31,17 +32,11 @@ export async function POST(req: NextRequest) {
     ).single();
 
     if (!intake) {
-      return NextResponse.json(
-        { error: "カルテが見つかりません" },
-        { status: 404 }
-      );
+      return notFound("カルテが見つかりません");
     }
 
     if (intake.locked_at) {
-      return NextResponse.json(
-        { error: "このカルテはロックされています。管理者にロック解除を依頼してください。" },
-        { status: 403 }
-      );
+      return forbidden("このカルテはロックされています。管理者にロック解除を依頼してください。");
     }
 
     // 更新
@@ -57,18 +52,12 @@ export async function POST(req: NextRequest) {
     );
 
     if (updateErr) {
-      return NextResponse.json(
-        { error: updateErr.message },
-        { status: 500 }
-      );
+      return serverError(updateErr.message);
     }
 
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json(
-      { ok: false, error: msg },
-      { status: 500 }
-    );
+    return serverError(msg);
   }
 }

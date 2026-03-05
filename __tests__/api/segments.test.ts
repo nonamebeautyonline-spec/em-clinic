@@ -220,7 +220,7 @@ describe("POST /api/admin/segments/recalculate", () => {
 
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("セグメント再計算に失敗しました");
+    expect(json.message).toBe("セグメント再計算に失敗しました");
   });
 });
 

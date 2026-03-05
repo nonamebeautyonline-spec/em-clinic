@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
@@ -9,7 +10,7 @@ import { bulkTagSchema } from "@/lib/validations/line-common";
 // 複数患者にタグを一括追加/削除
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, bulkTagSchema);
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
       const { error } = await supabaseAdmin
         .from("patient_tags")
         .upsert(rows, { onConflict: "patient_id,tag_id" });
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return serverError(error.message);
     }
   } else {
     for (let i = 0; i < patient_ids.length; i += BATCH_SIZE) {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
           .eq("tag_id", Number(tag_id)),
         tenantId
       );
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return serverError(error.message);
     }
   }
 

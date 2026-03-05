@@ -129,7 +129,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // ========================================
@@ -175,7 +175,7 @@ describe("ヤマトB2 CSV出力 API (export-yamato-b2/route.ts)", () => {
     const res = await POST(req);
     expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.error).toBe("No orders found");
+    expect(json.message).toBe("No orders found");
   });
 
   // ========================================

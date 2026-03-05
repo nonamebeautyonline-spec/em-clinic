@@ -1,5 +1,6 @@
 // app/api/admin/update-order-address/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { jwtVerify } from "jose";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
@@ -24,7 +25,7 @@ async function verifyAdmin(req: NextRequest): Promise<boolean> {
 export async function POST(req: NextRequest) {
   try {
     if (!(await verifyAdmin(req))) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -38,18 +39,18 @@ export async function POST(req: NextRequest) {
 
     const postalDigits = rawPostal.replace(/[^0-9]/g, "");
     if (postalDigits.length !== 7) {
-      return NextResponse.json({ ok: false, error: "郵便番号は7桁で入力してください" }, { status: 400 });
+      return badRequest("郵便番号は7桁で入力してください");
     }
     const postalCode = `${postalDigits.slice(0, 3)}-${postalDigits.slice(3)}`;
 
     if (!address) {
-      return NextResponse.json({ ok: false, error: "住所を入力してください" }, { status: 400 });
+      return badRequest("住所を入力してください");
     }
     if (address.length > 200) {
-      return NextResponse.json({ ok: false, error: "住所は200文字以内で入力してください" }, { status: 400 });
+      return badRequest("住所は200文字以内で入力してください");
     }
     if (shippingName && shippingName.length > 50) {
-      return NextResponse.json({ ok: false, error: "名義は50文字以内で入力してください" }, { status: 400 });
+      return badRequest("名義は50文字以内で入力してください");
     }
 
     // 注文の存在確認
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     ).maybeSingle();
 
     if (fetchError || !order) {
-      return NextResponse.json({ ok: false, error: "注文が見つかりません" }, { status: 404 });
+      return notFound("注文が見つかりません");
     }
 
     // 更新（管理者は発送済み・リスト作成済みチェックなし）
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[admin/update-order-address] DB update error:", updateError);
-      return NextResponse.json({ ok: false, error: "更新に失敗しました" }, { status: 500 });
+      return serverError("更新に失敗しました");
     }
 
     // キャッシュ無効化
@@ -96,6 +97,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("POST /api/admin/update-order-address error", e);
-    return NextResponse.json({ ok: false, error: "サーバーエラー" }, { status: 500 });
+    return serverError("サーバーエラー");
   }
 }

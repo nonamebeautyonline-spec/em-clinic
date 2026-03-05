@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -22,7 +23,7 @@ async function fetchAll(buildQuery: () => { range: (from: number, to: number) =>
 // マークの患者一覧取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ) as unknown as { range: (from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   const patientIds = (pmRows || []).map(r => r.patient_id);
   if (patientIds.length === 0) return NextResponse.json({ patients: [] });
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 // 対応マーク更新
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -106,14 +107,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ mark: data });
 }
 
 // 対応マーク削除
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -128,7 +129,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   ).single();
 
   if (mark?.value === "none") {
-    return NextResponse.json({ error: "「なし」は削除できません" }, { status: 400 });
+    return badRequest("「なし」は削除できません");
   }
 
   const { error } = await withTenant(
@@ -139,6 +140,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

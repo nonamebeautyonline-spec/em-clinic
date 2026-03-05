@@ -1,5 +1,6 @@
 // app/api/admin/line/workflows/[id]/route.ts — ワークフロー個別操作API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -14,7 +15,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (error || !workflow) {
-    return NextResponse.json({ error: "ワークフローが見つかりません" }, { status: 404 });
+    return notFound("ワークフローが見つかりません");
   }
 
   // ステップ取得（sort_order昇順）
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
  */
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -75,7 +76,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (!existing) {
-    return NextResponse.json({ error: "ワークフローが見つかりません" }, { status: 404 });
+    return notFound("ワークフローが見つかりません");
   }
 
   // ステータス遷移のバリデーション
@@ -111,7 +112,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
   ).select().single();
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return serverError(updateError.message);
   }
 
   // ステップ: 全削除→再挿入（CASCADE で安全）
@@ -158,7 +159,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
  */
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;
@@ -170,13 +171,10 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   ).single();
 
   if (!existing) {
-    return NextResponse.json({ error: "ワークフローが見つかりません" }, { status: 404 });
+    return notFound("ワークフローが見つかりません");
   }
   if (existing.status === "active") {
-    return NextResponse.json(
-      { error: "有効なワークフローは削除できません。先に一時停止またはアーカイブしてください。" },
-      { status: 400 },
-    );
+    return badRequest("有効なワークフローは削除できません。先に一時停止またはアーカイブしてください。");
   }
 
   // CASCADE で workflow_steps も削除される
@@ -186,7 +184,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ ok: true });
@@ -198,7 +196,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
  */
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await ctx.params;

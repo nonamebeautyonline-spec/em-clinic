@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { executeLifecycleActions } from "@/lib/lifecycle-actions";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -223,7 +224,7 @@ export async function POST(req: NextRequest) {
 
     // 9) Cookie設定 + レスポンス
     if (!patientId) {
-      return NextResponse.json({ ok: false, error: "患者IDの取得に失敗しました" }, { status: 500 });
+      return serverError("患者IDの取得に失敗しました");
     }
     const res = NextResponse.json({ ok: true, patient_id: patientId });
 
@@ -246,6 +247,6 @@ export async function POST(req: NextRequest) {
     return res;
   } catch (error) {
     console.error("[register/personal-info] Unhandled error:", error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }

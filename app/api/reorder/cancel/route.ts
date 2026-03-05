@@ -1,5 +1,6 @@
 // app/api/reorder/cancel/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -76,26 +77,17 @@ export async function POST(req: NextRequest) {
 
       if (error) {
         console.error("[reorder/cancel] DB select error:", error);
-        return NextResponse.json(
-          { ok: false, error: "db_error" },
-          { status: 500 }
-        );
+        return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
       } else if (data) {
         targetReorder = data;
         console.log(`[reorder/cancel] Found reorder to cancel: id=${data.id}, status=${data.status}`);
       } else {
         console.log(`[reorder/cancel] Reorder not found or not cancellable: id=${reorderId}, patient=${patientId}`);
-        return NextResponse.json(
-          { ok: false, error: "not_found", message: "キャンセル対象の申請が見つかりません（既にキャンセル済みか、別の患者の申請です）" },
-          { status: 400 }
-        );
+        return NextResponse.json({ ok: false, error: "not_found", message: "キャンセル対象の申請が見つかりません（既にキャンセル済みか、別の患者の申請です）" }, { status: 400 });
       }
     } catch (err) {
       console.error("[reorder/cancel] DB exception:", err);
-      return NextResponse.json(
-        { ok: false, error: "db_error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
     // ★ DB先行でキャンセル
@@ -143,6 +135,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error("POST /api/reorder/cancel error", e);
-    return NextResponse.json({ ok: false, error: "unexpected error" }, { status: 500 });
+    return serverError("unexpected error");
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 // LINE Profile APIからプロフィール取得・更新
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const LINE_ACCESS_TOKEN = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
@@ -29,11 +30,11 @@ export async function POST(req: NextRequest) {
   ).maybeSingle();
 
   if (!patientRow?.line_id) {
-    return NextResponse.json({ error: "LINE ID not found" }, { status: 404 });
+    return notFound("LINE ID not found");
   }
 
   if (!LINE_ACCESS_TOKEN) {
-    return NextResponse.json({ error: "LINE access token not configured" }, { status: 500 });
+    return serverError("LINE access token not configured");
   }
 
   // LINE Profile API

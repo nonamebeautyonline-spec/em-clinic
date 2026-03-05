@@ -2,6 +2,7 @@
 // メンバー個別のロール変更・削除API
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -18,10 +19,7 @@ interface RouteContext {
 export async function PUT(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId, memberId } = await ctx.params;
 
@@ -50,10 +48,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!member) {
-      return NextResponse.json(
-        { ok: false, error: "メンバーが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("メンバーが見つかりません");
     }
 
     // ロール更新
@@ -67,10 +62,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
         "[platform/tenants/[id]/members/[id]] PUT error:",
         updateErr,
       );
-      return NextResponse.json(
-        { ok: false, error: "ロールの変更に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("ロールの変更に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -92,10 +84,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
       "[platform/tenants/[id]/members/[id]] PUT unexpected error:",
       err,
     );
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -106,10 +95,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext) {
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId, memberId } = await ctx.params;
 
@@ -134,10 +120,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!member) {
-      return NextResponse.json(
-        { ok: false, error: "メンバーが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("メンバーが見つかりません");
     }
 
     // オーナーは最低1人必要（他にオーナーがいるかチェック）
@@ -150,10 +133,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         .neq("id", memberId);
 
       if ((count || 0) < 1) {
-        return NextResponse.json(
-          { ok: false, error: "オーナーは最低1人必要です" },
-          { status: 400 },
-        );
+        return badRequest("オーナーは最低1人必要です");
       }
     }
 
@@ -168,10 +148,7 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
         "[platform/tenants/[id]/members/[id]] DELETE error:",
         deleteErr,
       );
-      return NextResponse.json(
-        { ok: false, error: "メンバーの削除に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("メンバーの削除に失敗しました");
     }
 
     // admin_users を無効化（物理削除はしない）
@@ -200,9 +177,6 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
       "[platform/tenants/[id]/members/[id]] DELETE unexpected error:",
       err,
     );
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

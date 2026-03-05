@@ -196,7 +196,7 @@ describe("フォーム送信 API ロジック", () => {
     const res = await POST(req as never, { params: Promise.resolve({ slug: "nonexistent" }) });
     expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.error).toContain("見つかりません");
+    expect(json.message).toContain("見つかりません");
   });
 
   it("未公開フォーム → 403", async () => {
@@ -209,7 +209,7 @@ describe("フォーム送信 API ロジック", () => {
     const res = await POST(req as never, { params: Promise.resolve({ slug: "draft-form" }) });
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toContain("公開されていません");
+    expect(json.message).toContain("公開されていません");
   });
 
   it("期限切れフォーム → 403", async () => {
@@ -227,7 +227,7 @@ describe("フォーム送信 API ロジック", () => {
     const res = await POST(req as never, { params: Promise.resolve({ slug: "expired-form" }) });
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toContain("期限");
+    expect(json.message).toContain("期限");
   });
 
   it("先着上限到達 → 403", async () => {
@@ -258,7 +258,7 @@ describe("フォーム送信 API ロジック", () => {
     const res = await POST(req as never, { params: Promise.resolve({ slug: "full-form" }) });
     expect(res.status).toBe(403);
     const json = await res.json();
-    expect(json.error).toContain("上限");
+    expect(json.message).toContain("上限");
   });
 
   it("正常送信 → {ok:true, response_id}", async () => {

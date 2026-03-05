@@ -31,7 +31,7 @@ function SetupContent() {
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          setTokenError(data.error || "無効または期限切れのリンクです");
+          setTokenError((data.message || data.error) || "無効または期限切れのリンクです");
         } else {
           setUserName(data.user?.name || "");
           setUserEmail(data.user?.email || "");
@@ -72,7 +72,7 @@ function SetupContent() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setError(data.error || "エラーが発生しました");
+        setError((data.message || data.error) || "エラーが発生しました");
         return;
       }
 

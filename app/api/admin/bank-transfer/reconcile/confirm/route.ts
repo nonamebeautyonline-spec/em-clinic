@@ -1,5 +1,6 @@
 // app/api/admin/bank-transfer/reconcile/confirm/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, bankTransferReconcileConfirmSchema);
@@ -182,9 +183,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[Confirm] Error:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError(e instanceof Error ? e.message : "サーバーエラー");
   }
 }

@@ -2,6 +2,7 @@
 // テナント別AIオプション管理API
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { AI_OPTIONS } from "@/lib/plan-config";
@@ -16,19 +17,13 @@ import { toggleOptionSchema } from "@/lib/validations/platform-billing";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
     const tenantId = url.searchParams.get("tenant_id");
     if (!tenantId) {
-      return NextResponse.json(
-        { ok: false, error: "tenant_idは必須です" },
-        { status: 400 }
-      );
+      return badRequest("tenant_idは必須です");
     }
 
     // tenant_options から現在の設定を取得
@@ -63,10 +58,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/billing/options] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "オプション情報の取得に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("オプション情報の取得に失敗しました");
   }
 }
 
@@ -77,10 +69,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
 
   const parsed = await parseBody(req, toggleOptionSchema);
   if ("error" in parsed) return parsed.error;
@@ -90,10 +79,7 @@ export async function POST(req: NextRequest) {
   try {
     const optionDef = AI_OPTIONS.find((o) => o.key === optionKey);
     if (!optionDef) {
-      return NextResponse.json(
-        { ok: false, error: "無効なオプションキーです" },
-        { status: 400 }
-      );
+      return badRequest("無効なオプションキーです");
     }
 
     const now = new Date().toISOString();
@@ -113,10 +99,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[platform/billing/options] POST error:", error);
-      return NextResponse.json(
-        { ok: false, error: "オプションの更新に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("オプションの更新に失敗しました");
     }
 
     return NextResponse.json({
@@ -127,9 +110,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/billing/options] POST unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 }
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

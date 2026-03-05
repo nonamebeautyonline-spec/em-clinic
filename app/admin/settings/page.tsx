@@ -97,7 +97,7 @@ export function SettingRow({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `保存に失敗しました (${res.status})`);
+        throw new Error((data.message || data.error) || `保存に失敗しました (${res.status})`);
       }
       onSaved(`${item.label} を保存しました`, "success");
       setValue("");

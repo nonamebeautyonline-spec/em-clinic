@@ -75,7 +75,7 @@ describe("POST /api/doctor/reorders/reject", () => {
     const res = await POST(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // -------------------------------------------
@@ -121,7 +121,7 @@ describe("POST /api/doctor/reorders/reject", () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("invalid_status");
+    expect(json.message).toContain("invalid_status");
   });
 
   it("ステータスが rejected の場合も 400 を返す", async () => {

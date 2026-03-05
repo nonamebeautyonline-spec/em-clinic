@@ -2,16 +2,14 @@
 // プラットフォーム管理: エラーログダッシュボードAPI
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
@@ -57,10 +55,7 @@ export async function GET(req: NextRequest) {
 
     if (errorsErr) {
       console.error("[platform/errors] GET error:", errorsErr);
-      return NextResponse.json(
-        { ok: false, error: "エラーログの取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("エラーログの取得に失敗しました");
     }
 
     // 日別集計（直近N日間）
@@ -135,9 +130,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/errors] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

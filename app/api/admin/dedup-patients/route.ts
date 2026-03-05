@@ -1,5 +1,6 @@
 // app/api/admin/dedup-patients/route.ts — 患者名寄せ: 重複候補検出API + 無視API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { findDuplicateCandidates, ignoreDuplicatePair } from "@/lib/patient-dedup";
@@ -13,7 +14,7 @@ import { ignoreDuplicateSchema } from "@/lib/validations/dedup";
 export async function GET(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ ok: false, error: "認証エラー" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -24,10 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, candidates, count: candidates.length });
   } catch (err) {
     console.error("[dedup-patients] 検出エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "重複候補の検出に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("重複候補の検出に失敗しました");
   }
 }
 
@@ -38,7 +36,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuth = await verifyAdminAuth(req);
   if (!isAuth) {
-    return NextResponse.json({ ok: false, error: "認証エラー" }, { status: 401 });
+    return unauthorized();
   }
 
   const { data, error } = await parseBody(req, ignoreDuplicateSchema);
@@ -49,14 +47,11 @@ export async function POST(req: NextRequest) {
   try {
     const result = await ignoreDuplicatePair(data.patient_id_a, data.patient_id_b, tenantId);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+      return serverError(result.error ?? "処理に失敗しました");
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[dedup-patients] 無視リスト追加エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "無視リストへの追加に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("無視リストへの追加に失敗しました");
   }
 }

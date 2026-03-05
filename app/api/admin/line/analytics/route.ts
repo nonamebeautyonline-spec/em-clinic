@@ -1,6 +1,7 @@
 // app/api/admin/line/analytics/route.ts -- 配信効果分析API
 // 既存のdashboard APIのデータ + CVR算出ロジック
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -86,7 +87,7 @@ async function fetchFollowerStats(dateStr: string, token: string) {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);

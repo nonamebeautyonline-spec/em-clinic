@@ -1,6 +1,7 @@
 // app/api/cron/followup/route.ts — フォローアップ日次Cron
 // Vercel Cron: 全テナント横断で scheduled_at <= now の pending ログを処理
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { processFollowups } from "@/lib/followup";
 import { acquireLock } from "@/lib/distributed-lock";
 
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -25,10 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[Cron/Followup] エラー:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    return serverError(err instanceof Error ? err.message : "Unknown error");
   } finally {
     await lock.release();
   }

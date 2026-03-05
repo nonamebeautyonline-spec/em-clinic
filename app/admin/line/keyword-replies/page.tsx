@@ -229,7 +229,7 @@ export default function KeywordRepliesPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      setTestSendMsg(data.ok ? `テスト送信完了（${testAccount.patient_name}）` : `送信失敗: ${data.error || "不明"}`);
+      setTestSendMsg(data.ok ? `テスト送信完了（${testAccount.patient_name}）` : `送信失敗: ${(data.message || data.error) || "不明"}`);
     } catch {
       setTestSendMsg("通信エラー");
     } finally {

@@ -1,6 +1,7 @@
 // app/api/cron/generate-reminders/route.ts
 // vercel.jsonで送信時刻にcron設定 → 呼ばれたら即送信
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { pushMessage } from "@/lib/line-push";
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     if (rulesError) {
       console.error("[reminders] rules query error:", rulesError.message);
-      return NextResponse.json({ error: rulesError.message }, { status: 500 });
+      return serverError(rulesError.message);
     }
 
     if (!rules || rules.length === 0) {
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: totalSent });
   } catch (e) {
     console.error("[reminders] cron error:", e);
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   } finally {
     await lock.release();
   }

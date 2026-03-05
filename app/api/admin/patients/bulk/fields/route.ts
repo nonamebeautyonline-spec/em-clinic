@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { evaluateMenuRulesForMany } from "@/lib/menu-auto-rules";
@@ -9,7 +10,7 @@ import { bulkFieldsUpdateSchema } from "@/lib/validations/admin-operations";
 // 複数患者の友だち情報フィールドを一括更新
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, bulkFieldsUpdateSchema);
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (!fieldDef) {
-    return NextResponse.json({ error: "フィールドが見つかりません" }, { status: 404 });
+    return notFound("フィールドが見つかりません");
   }
 
   const now = new Date().toISOString();
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
         .upsert(rows, { onConflict: "patient_id,field_id" }),
       tenantId
     );
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError(error.message);
   }
   // メニュー自動切替ルール評価（非同期・失敗無視）
   evaluateMenuRulesForMany(patient_ids, tenantId ?? undefined).catch(() => {});

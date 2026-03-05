@@ -2,6 +2,7 @@
 // テナント別メッセージ使用量API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getCurrentMonthUsage, getMonthUsage } from "@/lib/usage";
@@ -15,10 +16,7 @@ import { getCurrentMonthUsage, getMonthUsage } from "@/lib/usage";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
@@ -66,9 +64,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, usages });
   } catch (err) {
     console.error("[platform/billing/usage] GET error:", err);
-    return NextResponse.json(
-      { ok: false, error: "使用量の取得に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("使用量の取得に失敗しました");
   }
 }

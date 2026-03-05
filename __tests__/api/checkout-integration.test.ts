@@ -113,7 +113,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
-    expect(json.error).toContain("サーバー設定エラー");
+    expect(json.message).toContain("サーバー設定エラー");
 
     // 環境変数を復元
     process.env.APP_BASE_URL = originalUrl;
@@ -133,7 +133,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
-    expect(json.error).toBe("無効な商品コードです");
+    expect(json.message).toBe("無効な商品コードです");
   });
 
   it("3. NG患者 → 403", async () => {
@@ -151,7 +151,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(403);
-    expect(json.error).toContain("処方不可");
+    expect(json.message).toContain("処方不可");
   });
 
   it("4. 正常系 → 200 + checkoutUrl", async () => {
@@ -231,7 +231,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("無効なモードです");
+    expect(json.message).toContain("無効なモードです");
   });
 
   it("7. provider例外 → 500", async () => {
@@ -257,7 +257,7 @@ describe("checkout API 統合テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
-    expect(json.error).toContain("エラー");
+    expect(json.message).toContain("エラー");
   });
 
   it("8. Zodバリデーション失敗 → parseBodyのエラー返却", async () => {

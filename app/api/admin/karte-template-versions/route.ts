@@ -1,5 +1,6 @@
 // カルテテンプレートバージョン履歴API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -11,12 +12,12 @@ export const dynamic = "force-dynamic";
 // バージョン履歴一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const templateId = req.nextUrl.searchParams.get("template_id");
   if (!templateId) {
-    return NextResponse.json({ error: "template_id は必須です" }, { status: 400 });
+    return badRequest("template_id は必須です");
   }
 
   const { data, error } = await withTenant(
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     tenantId,
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, versions: data || [] });
 }
@@ -41,7 +42,7 @@ const restoreSchema = z.object({
 // 旧バージョンに復元
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   ).single();
 
   if (!version) {
-    return NextResponse.json({ error: "バージョンが見つかりません" }, { status: 404 });
+    return notFound("バージョンが見つかりません");
   }
 
   // 現在のテンプレートをバージョン履歴に保存（復元前）
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
     tenantId,
   ).single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   return NextResponse.json({ ok: true, template: updated });
 }

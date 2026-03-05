@@ -218,7 +218,7 @@ export default function RichMenuManagementPage() {
         }),
       });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "生成失敗");
+      if (!json.ok) throw new Error((json.message || json.error) || "生成失敗");
       setAiPreviewSvg(json.svg);
     } catch (e) {
       alert(`AI生成エラー: ${e instanceof Error ? e.message : String(e)}`);
@@ -473,7 +473,7 @@ export default function RichMenuManagementPage() {
         await fetchMenus();
       } else {
         const data = await res.json().catch(() => ({}));
-        setSyncStatus({ show: true, step: "", done: true, error: data.error || "保存に失敗しました" });
+        setSyncStatus({ show: true, step: "", done: true, error: (data.message || data.error) || "保存に失敗しました" });
       }
     } catch (e) {
       console.error("handleSave error:", e);

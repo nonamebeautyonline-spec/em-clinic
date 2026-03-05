@@ -48,7 +48,7 @@ export default function PatientDataPage() {
       );
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error || "検索失敗");
+        setError((json.message || json.error) || "検索失敗");
         return;
       }
       setData(json);

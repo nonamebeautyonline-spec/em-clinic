@@ -1,5 +1,6 @@
 // app/api/admin/line/broadcast/ab-test/route.ts — A/Bテスト配信
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -11,7 +12,7 @@ import { abTestSchema } from "@/lib/validations/line-broadcast";
 // A/Bテスト配信実行
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, abTestSchema);
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   const sendable = allTargets.filter(t => t.line_id);
 
   if (sendable.length === 0) {
-    return NextResponse.json({ error: "配信対象者がいません" }, { status: 400 });
+    return badRequest("配信対象者がいません");
   }
 
   // ランダムシャッフル
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   ]);
 
   if (!broadcastA || !broadcastB) {
-    return NextResponse.json({ error: "配信レコード作成失敗" }, { status: 500 });
+    return serverError("配信レコード作成失敗");
   }
 
   // 次回予約情報の取得

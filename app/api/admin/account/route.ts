@@ -1,6 +1,7 @@
 // app/api/admin/account/route.ts
 // アカウント管理API（パスワード変更・メールアドレス変更）
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized, badRequest, notFound, serverError, conflict } from "@/lib/api-error";
 import { verifyAdminAuth, getAdminUserId } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -15,12 +16,12 @@ import { checkPasswordHistory, savePasswordHistory } from "@/lib/password-policy
  */
 export async function PUT(req: NextRequest) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ ok: false, error: "認証が必要です" }, { status: 401 });
+    return unauthorized();
   }
 
   const userId = await getAdminUserId(req);
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "ユーザー情報を取得できません" }, { status: 401 });
+    return unauthorized("ユーザー情報を取得できません");
   }
 
   const tenantId = resolveTenantId(req);
@@ -36,22 +37,19 @@ export async function PUT(req: NextRequest) {
     ).eq("id", userId).single();
 
     if (fetchError || !user) {
-      return NextResponse.json({ ok: false, error: "ユーザーが見つかりません" }, { status: 404 });
+      return notFound("ユーザーが見つかりません");
     }
 
     // 現在のパスワードを検証
     const isValid = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isValid) {
-      return NextResponse.json({ ok: false, error: "現在のパスワードが正しくありません" }, { status: 400 });
+      return badRequest("現在のパスワードが正しくありません");
     }
 
     // パスワード履歴チェック（直近5回と重複していないか）
     const isAllowed = await checkPasswordHistory(userId, newPassword);
     if (!isAllowed) {
-      return NextResponse.json(
-        { ok: false, error: "過去5回以内に使用したパスワードは再利用できません" },
-        { status: 400 }
-      );
+      return badRequest("過去5回以内に使用したパスワードは再利用できません");
     }
 
     // 新しいパスワードをハッシュ化して更新
@@ -65,7 +63,7 @@ export async function PUT(req: NextRequest) {
 
     if (updateError) {
       console.error("[Account] パスワード更新エラー:", updateError);
-      return NextResponse.json({ ok: false, error: "パスワードの更新に失敗しました" }, { status: 500 });
+      return serverError("パスワードの更新に失敗しました");
     }
 
     // パスワード履歴に保存
@@ -74,7 +72,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "パスワードを変更しました" });
   } catch (err) {
     console.error("[Account] PUT エラー:", err);
-    return NextResponse.json({ ok: false, error: "サーバーエラー" }, { status: 500 });
+    return serverError("サーバーエラー");
   }
 }
 
@@ -84,12 +82,12 @@ export async function PUT(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   if (!(await verifyAdminAuth(req))) {
-    return NextResponse.json({ ok: false, error: "認証が必要です" }, { status: 401 });
+    return unauthorized();
   }
 
   const userId = await getAdminUserId(req);
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "ユーザー情報を取得できません" }, { status: 401 });
+    return unauthorized("ユーザー情報を取得できません");
   }
 
   const tenantId = resolveTenantId(req);
@@ -105,12 +103,12 @@ export async function PATCH(req: NextRequest) {
     ).eq("id", userId).single();
 
     if (fetchError || !user) {
-      return NextResponse.json({ ok: false, error: "ユーザーが見つかりません" }, { status: 404 });
+      return notFound("ユーザーが見つかりません");
     }
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
-      return NextResponse.json({ ok: false, error: "パスワードが正しくありません" }, { status: 400 });
+      return badRequest("パスワードが正しくありません");
     }
 
     // 同じテナント内でメールアドレスの重複チェック
@@ -118,7 +116,7 @@ export async function PATCH(req: NextRequest) {
       supabaseAdmin.from("admin_users").select("id"), tenantId
     ).eq("email", newEmail).neq("id", userId).maybeSingle();
     if (existing) {
-      return NextResponse.json({ ok: false, error: "このメールアドレスは既に使用されています" }, { status: 409 });
+      return conflict("このメールアドレスは既に使用されています");
     }
 
     // メールアドレス更新
@@ -128,12 +126,12 @@ export async function PATCH(req: NextRequest) {
 
     if (updateError) {
       console.error("[Account] メール更新エラー:", updateError);
-      return NextResponse.json({ ok: false, error: "メールアドレスの更新に失敗しました" }, { status: 500 });
+      return serverError("メールアドレスの更新に失敗しました");
     }
 
     return NextResponse.json({ ok: true, message: "メールアドレスを変更しました。次回ログイン時から新しいメールアドレスを使用してください" });
   } catch (err) {
     console.error("[Account] PATCH エラー:", err);
-    return NextResponse.json({ ok: false, error: "サーバーエラー" }, { status: 500 });
+    return serverError("サーバーエラー");
   }
 }

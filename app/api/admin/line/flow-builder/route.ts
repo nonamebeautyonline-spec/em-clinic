@@ -1,6 +1,7 @@
 // app/api/admin/line/flow-builder/route.ts
 // フロービルダーAPI: step_items をフローグラフ形式で取得・保存
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -92,7 +93,7 @@ const STEP_ITEM_COLUMNS = `
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
   const scenarioId = searchParams.get("scenario_id");
 
   if (!scenarioId) {
-    return NextResponse.json({ error: "scenario_id は必須です" }, { status: 400 });
+    return badRequest("scenario_id は必須です");
   }
 
   // シナリオ存在確認
@@ -113,7 +114,7 @@ export async function GET(req: NextRequest) {
   ).single();
 
   if (scenarioError || !scenario) {
-    return NextResponse.json({ error: "シナリオが見つかりません" }, { status: 404 });
+    return notFound("シナリオが見つかりません");
   }
 
   // step_items 取得
@@ -127,7 +128,7 @@ export async function GET(req: NextRequest) {
   );
 
   if (itemsError) {
-    return NextResponse.json({ error: itemsError.message }, { status: 500 });
+    return serverError(itemsError.message);
   }
 
   // サーバーサイドでフロー変換（stepsToFlowGraphはクライアントモジュールなので、シンプルに返す）
@@ -150,7 +151,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -159,17 +160,17 @@ export async function PUT(req: NextRequest) {
   try {
     body = await req.json() as PutRequestBody;
   } catch {
-    return NextResponse.json({ error: "リクエストボディが不正です" }, { status: 400 });
+    return badRequest("リクエストボディが不正です");
   }
 
   const { scenario_id, graph } = body;
 
   if (!scenario_id) {
-    return NextResponse.json({ error: "scenario_id は必須です" }, { status: 400 });
+    return badRequest("scenario_id は必須です");
   }
 
   if (!graph || !Array.isArray(graph.nodes)) {
-    return NextResponse.json({ error: "graph データが不正です" }, { status: 400 });
+    return badRequest("graph データが不正です");
   }
 
   // シナリオ存在確認
@@ -182,7 +183,7 @@ export async function PUT(req: NextRequest) {
   ).single();
 
   if (scenarioError || !scenario) {
-    return NextResponse.json({ error: "シナリオが見つかりません" }, { status: 404 });
+    return notFound("シナリオが見つかりません");
   }
 
   // フローグラフ → step_items に変換
@@ -198,7 +199,7 @@ export async function PUT(req: NextRequest) {
   );
 
   if (deleteError) {
-    return NextResponse.json({ error: "既存ステップの削除に失敗しました: " + deleteError.message }, { status: 500 });
+    return serverError("既存ステップの削除に失敗しました: " + deleteError.message);
   }
 
   // 新しい step_items を挿入
@@ -229,7 +230,7 @@ export async function PUT(req: NextRequest) {
       .insert(stepRows);
 
     if (insertError) {
-      return NextResponse.json({ error: "ステップの保存に失敗しました: " + insertError.message }, { status: 500 });
+      return serverError("ステップの保存に失敗しました: " + insertError.message);
     }
   }
 

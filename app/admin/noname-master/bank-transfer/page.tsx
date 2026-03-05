@@ -76,7 +76,7 @@ export default function NonameMasterBankTransferPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "処理失敗");
+        throw new Error((data.message || data.error) || "処理失敗");
       }
 
       setCancelTarget(null);

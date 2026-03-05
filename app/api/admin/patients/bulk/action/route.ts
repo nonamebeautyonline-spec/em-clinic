@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -18,7 +19,7 @@ interface ActionStep {
 // 複数患者にアクションを一括実行
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, bulkActionSchema);
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (!action) {
-    return NextResponse.json({ error: "アクションが見つかりません" }, { status: 404 });
+    return notFound("アクションが見つかりません");
   }
 
   const steps = action.steps as ActionStep[];

@@ -92,7 +92,7 @@ describe("lstep-tag-csv API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(401);
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("2. バリデーションエラー → parseBodyエラー返却", async () => {
@@ -117,7 +117,7 @@ describe("lstep-tag-csv API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(400);
-    expect(json.error).toContain("有効なLステップID");
+    expect(json.message).toContain("有効なLステップID");
   });
 
   it("4. 重複IDが除去される（'123','123','456' → 2行）", async () => {
@@ -186,7 +186,7 @@ describe("export-lstep-tags API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(401);
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   it("8. orders 0件 → 404", async () => {
@@ -198,7 +198,7 @@ describe("export-lstep-tags API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(404);
-    expect(json.error).toContain("注文が見つかりません");
+    expect(json.message).toContain("注文が見つかりません");
   });
 
   it("9. patients 0件 → 404", async () => {
@@ -218,7 +218,7 @@ describe("export-lstep-tags API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(404);
-    expect(json.error).toContain("患者データが見つかりません");
+    expect(json.message).toContain("患者データが見つかりません");
   });
 
   it("10. answerer_id nullの患者のみ → 404", async () => {
@@ -241,7 +241,7 @@ describe("export-lstep-tags API テスト", () => {
     const json = await parseJson(res);
 
     expect(res.status).toBe(404);
-    expect(json.error).toContain("LステップID");
+    expect(json.message).toContain("LステップID");
   });
 
   it("11. 正常 → 200 + CSV", async () => {

@@ -1,5 +1,6 @@
 // app/api/admin/view-mypage/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -346,7 +347,7 @@ export async function GET(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -355,10 +356,7 @@ export async function GET(req: NextRequest) {
     const patientId = searchParams.get("patient_id");
 
     if (!patientId) {
-      return NextResponse.json(
-        { ok: false, error: "patient_id query parameter required" },
-        { status: 400 }
-      );
+      return badRequest("patient_id query parameter required");
     }
 
     // ★ 全クエリをPromise.allで並列実行（GAS呼び出し廃止）

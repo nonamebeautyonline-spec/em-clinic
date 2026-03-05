@@ -1,5 +1,6 @@
 // app/api/admin/line/keyword-replies/stats/route.ts — キーワード応答の効果分析
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     );
 
     if (rulesErr) {
-      return NextResponse.json({ error: rulesErr.message }, { status: 500 });
+      return serverError(rulesErr.message);
     }
 
     // 2. message_log から keyword_reply_id ごとの集計（指定期間）
@@ -99,6 +100,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("[keyword-stats] エラー:", e);
-    return NextResponse.json({ error: "統計データの取得に失敗しました" }, { status: 500 });
+    return serverError("統計データの取得に失敗しました");
   }
 }

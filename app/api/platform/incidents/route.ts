@@ -1,5 +1,6 @@
 // app/api/platform/incidents/route.ts — インシデント管理API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 
@@ -7,10 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
   }
 
   const { searchParams } = new URL(req.url);
@@ -30,10 +28,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json(
-      { error: "インシデントの取得に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("インシデントの取得に失敗しました");
   }
 
   return NextResponse.json({ incidents: data || [] });
@@ -43,10 +38,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin) {
-    return NextResponse.json(
-      { error: "権限がありません" },
-      { status: 403 }
-    );
+    return forbidden("権限がありません");
   }
 
   let body: {
@@ -59,35 +51,23 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "不正なリクエスト" },
-      { status: 400 }
-    );
+    return badRequest("不正なリクエスト");
   }
 
   if (!body.title || typeof body.title !== "string" || body.title.trim().length === 0) {
-    return NextResponse.json(
-      { error: "titleは必須です" },
-      { status: 400 }
-    );
+    return badRequest("titleは必須です");
   }
 
   // severity バリデーション
   const validSeverities = ["critical", "major", "minor"];
   if (body.severity && !validSeverities.includes(body.severity)) {
-    return NextResponse.json(
-      { error: `severityは ${validSeverities.join(", ")} のいずれかです` },
-      { status: 400 }
-    );
+    return badRequest(`severityは ${validSeverities.join(", ")} のいずれかです`);
   }
 
   // status バリデーション
   const validStatuses = ["investigating", "identified", "monitoring", "resolved"];
   if (body.status && !validStatuses.includes(body.status)) {
-    return NextResponse.json(
-      { error: `statusは ${validStatuses.join(", ")} のいずれかです` },
-      { status: 400 }
-    );
+    return badRequest(`statusは ${validStatuses.join(", ")} のいずれかです`);
   }
 
   const { data, error } = await supabaseAdmin
@@ -102,10 +82,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { error: "インシデントの作成に失敗しました" },
-      { status: 500 }
-    );
+    return serverError("インシデントの作成に失敗しました");
   }
 
   return NextResponse.json({ incident: data }, { status: 201 });

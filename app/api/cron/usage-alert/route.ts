@@ -3,6 +3,7 @@
 // 全アクティブテナントの使用量をチェックし、80%/90%/100%しきい値で段階的にメール通知
 
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkQuota, ALERT_THRESHOLDS } from "@/lib/usage-quota";
@@ -83,7 +84,7 @@ export async function GET(req: NextRequest) {
   // Vercel Cron 認証
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御（同時実行防止）

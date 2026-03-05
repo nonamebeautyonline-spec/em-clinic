@@ -80,7 +80,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("トークンが必要です");
+      expect(json.message).toBe("トークンが必要です");
     });
 
     it("無効なトークン → 400", async () => {
@@ -93,7 +93,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("無効なトークンです");
+      expect(json.message).toBe("無効なトークンです");
     });
 
     it("使用済みトークン → 400", async () => {
@@ -112,7 +112,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("このリンクは既に使用されています");
+      expect(json.message).toBe("このリンクは既に使用されています");
     });
 
     it("期限切れトークン → 400", async () => {
@@ -131,7 +131,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("このリンクは有効期限切れです");
+      expect(json.message).toBe("このリンクは有効期限切れです");
     });
 
     it("有効なトークン → ユーザー情報を返す", async () => {
@@ -183,7 +183,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("無効なトークンです");
+      expect(json.message).toBe("無効なトークンです");
     });
 
     it("使用済みトークン → 400", async () => {
@@ -205,7 +205,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("このリンクは既に使用されています");
+      expect(json.message).toBe("このリンクは既に使用されています");
     });
 
     it("期限切れトークン → 400", async () => {
@@ -227,7 +227,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await POST(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("このリンクは有効期限切れです");
+      expect(json.message).toBe("このリンクは有効期限切れです");
     });
 
     it("パスワード更新成功", async () => {
@@ -274,7 +274,7 @@ describe("パスワードリセット確認API (password-reset/confirm/route.ts)
       const res = await POST(req);
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("パスワードの更新に失敗しました");
+      expect(json.message).toBe("パスワードの更新に失敗しました");
     });
   });
 });

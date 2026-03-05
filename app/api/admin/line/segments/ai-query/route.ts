@@ -2,6 +2,7 @@
 // 自然言語でセグメント条件を記述し、Claude APIでSQLフィルター条件に変換して患者を抽出する
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -187,7 +188,7 @@ export async function POST(req: NextRequest) {
   // 認証チェック
   const ok = await verifyAdminAuth(req);
   if (!ok) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -208,10 +209,7 @@ export async function POST(req: NextRequest) {
       tenantId || undefined,
     );
     if (!apiKey) {
-      return NextResponse.json(
-        { ok: false, error: "ANTHROPIC_API_KEYが設定されていません" },
-        { status: 500 },
-      );
+      return serverError("ANTHROPIC_API_KEYが設定されていません");
     }
 
     // Claude APIでSQL生成
@@ -233,10 +231,7 @@ export async function POST(req: NextRequest) {
       generatedSQL = (codeBlockMatch ? codeBlockMatch[1] : text).trim();
     } catch (err) {
       console.error("[ai-query] Claude API エラー:", err);
-      return NextResponse.json(
-        { ok: false, error: "AI APIの呼び出しに失敗しました" },
-        { status: 500 },
-      );
+      return serverError("AI APIの呼び出しに失敗しました");
     }
 
     // 安全性チェック
@@ -328,10 +323,7 @@ async function executeQuery(
     });
   } catch (err) {
     console.error("[ai-query] 実行エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "クエリの実行に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("クエリの実行に失敗しました");
   }
 }
 

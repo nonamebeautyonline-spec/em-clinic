@@ -114,7 +114,7 @@ describe("追跡番号一括更新プレビュー API", () => {
       const res = await POST(createEmptyReq());
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain("CSV");
+      expect(body.message).toContain("CSV");
     });
 
     it("空のCSV（ヘッダーのみ）は 400 を返す", async () => {
@@ -123,7 +123,7 @@ describe("追跡番号一括更新プレビュー API", () => {
       // 空行は filter で除外されるため lines.length < 2 → 400
       expect(res.status).toBe(400);
       const body = await res.json();
-      expect(body.error).toContain("CSV");
+      expect(body.message).toContain("CSV");
     });
   });
 

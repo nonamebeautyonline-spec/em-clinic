@@ -2,6 +2,7 @@
 // ログイン中の管理者テナントの有効機能一覧を返す
 
 import { NextRequest, NextResponse } from "next/server";
+import { unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import {
@@ -13,10 +14,7 @@ import {
 export async function GET(req: NextRequest) {
   const authed = await verifyAdminAuth(req);
   if (!authed) {
-    return NextResponse.json(
-      { ok: false, error: "認証が必要です" },
-      { status: 401 }
-    );
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);

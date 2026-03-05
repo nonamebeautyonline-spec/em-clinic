@@ -2,6 +2,7 @@
 // 患者のセグメント・フロー段階・メッセージ履歴を元にClaude APIで最適テンプレートを推薦
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   // 認証チェック
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -23,19 +24,19 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "リクエストボディが不正です" }, { status: 400 });
+    return badRequest("リクエストボディが不正です");
   }
 
   const { patient_id } = body;
   if (!patient_id?.trim()) {
-    return NextResponse.json({ error: "patient_id は必須です" }, { status: 400 });
+    return badRequest("patient_id は必須です");
   }
 
   // APIキー取得
   const tid = tenantId ?? undefined;
   const apiKey = (await getSettingOrEnv("general", "anthropic_api_key", "ANTHROPIC_API_KEY", tid)) || "";
   if (!apiKey) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY が未設定です" }, { status: 500 });
+    return serverError("ANTHROPIC_API_KEY が未設定です");
   }
 
   // 並列でデータ取得: セグメント、フロー段階、メッセージ履歴、テンプレート一覧
@@ -168,7 +169,7 @@ ${templateList}`;
     const jsonMatch = codeBlockMatch ? codeBlockMatch : text.match(/(\{[\s\S]*\})/);
     if (!jsonMatch) {
       console.error("[Template Recommend] JSON抽出失敗:", text);
-      return NextResponse.json({ error: "AIレスポンスの解析に失敗しました" }, { status: 500 });
+      return serverError("AIレスポンスの解析に失敗しました");
     }
 
     const result = JSON.parse(jsonMatch[1]) as {
@@ -187,6 +188,6 @@ ${templateList}`;
     });
   } catch (err) {
     console.error("[Template Recommend] Claude API エラー:", err);
-    return NextResponse.json({ error: "テンプレート推薦に失敗しました" }, { status: 500 });
+    return serverError("テンプレート推薦に失敗しました");
   }
 }

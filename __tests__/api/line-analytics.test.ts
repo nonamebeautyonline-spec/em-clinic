@@ -135,7 +135,7 @@ describe("line-analytics API", () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // 2. 正常系 — デフォルトperiod=30

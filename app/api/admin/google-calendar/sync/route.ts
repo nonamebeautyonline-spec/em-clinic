@@ -5,6 +5,7 @@
 //   2. em-clinicの予約 → Googleカレンダーにイベント追加
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -21,22 +22,19 @@ export async function POST(req: NextRequest) {
     // 管理者認証チェック
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
     if (!tenantId) {
-      return NextResponse.json({ error: "テナントIDが取得できません" }, { status: 400 });
+      return badRequest("テナントIDが取得できません");
     }
 
     const body = await req.json();
     const { doctor_id } = body;
 
     if (!doctor_id) {
-      return NextResponse.json(
-        { error: "doctor_id は必須です" },
-        { status: 400 }
-      );
+      return badRequest("doctor_id は必須です");
     }
 
     // 医師情報とGoogle連携トークンを取得
@@ -50,17 +48,11 @@ export async function POST(req: NextRequest) {
     );
 
     if (doctorError || !doctor) {
-      return NextResponse.json(
-        { error: "医師が見つかりません" },
-        { status: 404 }
-      );
+      return notFound("医師が見つかりません");
     }
 
     if (!doctor.google_refresh_token) {
-      return NextResponse.json(
-        { error: "Googleカレンダーが連携されていません。先にOAuth2認証を行ってください" },
-        { status: 400 }
-      );
+      return badRequest("Googleカレンダーが連携されていません。先にOAuth2認証を行ってください");
     }
 
     // トークン有効期限チェック → 期限切れならリフレッシュ
@@ -264,9 +256,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Google Calendar Sync] エラー:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }

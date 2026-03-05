@@ -1,5 +1,6 @@
 // 銀行振込キャンセル・返金API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const parsed = await parseBody(req, bankTransferCancelSchema);
@@ -54,11 +55,11 @@ export async function POST(req: NextRequest) {
     ).single();
 
     if (fetchError || !order) {
-      return NextResponse.json({ error: "注文が見つかりませんでした" }, { status: 404 });
+      return notFound("注文が見つかりませんでした");
     }
 
     if (order.payment_method !== "bank_transfer") {
-      return NextResponse.json({ error: "銀行振込以外の注文です" }, { status: 400 });
+      return badRequest("銀行振込以外の注文です");
     }
 
     // 冪等チェック
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[bank-transfer/cancel] Update error:", updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return serverError(updateError.message);
     }
 
     console.log(`[bank-transfer/cancel] ${actionLabel}: order=${order_id}, patient=${order.patient_id}`);
@@ -114,9 +115,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, action, order_id });
   } catch (error) {
     console.error("[bank-transfer/cancel] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "サーバーエラー");
   }
 }

@@ -1,6 +1,7 @@
 // app/api/admin/line/rich-menus/ai-generate/route.ts
 // リッチメニュー画像のAI自動生成API
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
@@ -10,7 +11,7 @@ import { generateRichMenuImage } from "@/lib/ai-richmenu-generator";
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -38,9 +39,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("[ai-generate] Error:", e);
-    return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "生成に失敗しました" },
-      { status: 500 }
-    );
+    return serverError(e instanceof Error ? e.message : "生成に失敗しました");
   }
 }

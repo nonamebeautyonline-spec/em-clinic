@@ -1,5 +1,6 @@
 // app/api/mypage/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { serverError } from "@/lib/api-error";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -198,7 +199,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ ok: true, orders, flags }, { status: 200 });
   } catch (err) {
     console.error("GET /api/mypage/orders error:", err);
-    return NextResponse.json({ ok: false, error: "unexpected error" }, { status: 500 });
+    return serverError("unexpected error");
   }
 }
 

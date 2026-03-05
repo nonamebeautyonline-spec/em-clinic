@@ -86,7 +86,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.ok).toBe(false);
-      expect(json.error).toBe("権限がありません");
+      expect(json.message).toBe("権限がありません");
     });
 
     it("テナントが存在しない場合404を返す", async () => {
@@ -94,7 +94,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await GET(makeReq(), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("テナントが見つかりません");
+      expect(json.message).toBe("テナントが見つかりません");
     });
 
     it("正常にメンバー一覧を返す", async () => {
@@ -136,7 +136,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await GET(makeReq(), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("メンバー一覧の取得に失敗しました");
+      expect(json.message).toBe("メンバー一覧の取得に失敗しました");
     });
 
     it("予期しない例外で500を返す", async () => {
@@ -148,7 +148,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await GET(makeReq(), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("予期しないエラーが発生しました");
+      expect(json.message).toBe("予期しないエラーが発生しました");
     });
   });
 
@@ -181,7 +181,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await POST(makeReq("POST", validBody), makeCtx());
       expect(res.status).toBe(404);
       const json = await res.json();
-      expect(json.error).toBe("テナントが見つかりません");
+      expect(json.message).toBe("テナントが見つかりません");
     });
 
     it("メールアドレス重複で409を返す", async () => {
@@ -192,7 +192,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await POST(makeReq("POST", validBody), makeCtx());
       expect(res.status).toBe(409);
       const json = await res.json();
-      expect(json.error).toBe("このメールアドレスは既に使用されています");
+      expect(json.message).toBe("このメールアドレスは既に使用されています");
     });
 
     it("正常にメンバーが作成され201を返す", async () => {
@@ -243,7 +243,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await POST(makeReq("POST", validBody), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("ユーザーの作成に失敗しました");
+      expect(json.message).toBe("ユーザーの作成に失敗しました");
     });
 
     it("メンバー紐付け失敗で500を返し、ユーザーがロールバック削除される", async () => {
@@ -266,7 +266,7 @@ describe("platform/tenants/[tenantId]/members API", () => {
       const res = await POST(makeReq("POST", validBody), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("メンバーの追加に失敗しました");
+      expect(json.message).toBe("メンバーの追加に失敗しました");
       // ロールバック: admin_usersのdeleteが呼ばれることを確認
       expect(adminChain.delete).toHaveBeenCalled();
     });

@@ -2,6 +2,7 @@
 // 請求書一覧取得・新規作成API
 
 import { NextRequest, NextResponse } from "next/server";
+import { forbidden, notFound, serverError } from "@/lib/api-error";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { logAudit } from "@/lib/audit";
@@ -19,10 +20,7 @@ import { createInvoiceSchema } from "@/lib/validations/platform-billing";
 export async function GET(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   try {
     const url = new URL(req.url);
@@ -84,10 +82,7 @@ export async function GET(req: NextRequest) {
 
     if (invoicesErr) {
       console.error("[platform/billing/invoices] GET error:", invoicesErr);
-      return NextResponse.json(
-        { ok: false, error: "請求書一覧の取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("請求書一覧の取得に失敗しました");
     }
 
     // KPI用の集計データも返す
@@ -137,10 +132,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[platform/billing/invoices] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -150,10 +142,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   // バリデーション
   const parsed = await parseBody(req, createInvoiceSchema);
@@ -171,10 +160,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // テナントのプランIDを取得（任意）
@@ -202,10 +188,7 @@ export async function POST(req: NextRequest) {
 
     if (invoiceErr) {
       console.error("[platform/billing/invoices] POST error:", invoiceErr);
-      return NextResponse.json(
-        { ok: false, error: "請求書の作成に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("請求書の作成に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -226,9 +209,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     console.error("[platform/billing/invoices] POST unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

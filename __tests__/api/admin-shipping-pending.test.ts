@@ -88,7 +88,7 @@ describe("admin/shipping/pending 認証", () => {
     const res = await GET(req);
     expect(res.status).toBe(401);
     const json = await res.json();
-    expect(json.error).toBe("Unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 });
 

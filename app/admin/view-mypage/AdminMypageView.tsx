@@ -345,7 +345,7 @@ export default function AdminMypageView({ data }: { data: PatientDashboardData &
       });
       const json = await res.json().catch(() => ({} as Record<string, unknown>));
       if (!res.ok || !json.ok) {
-        alert(json.error || "更新に失敗しました");
+        alert((json.message || json.error) || "更新に失敗しました");
         return;
       }
       setOrders((prev) =>

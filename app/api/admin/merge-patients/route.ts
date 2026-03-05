@@ -1,5 +1,6 @@
 // app/api/admin/merge-patients/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -33,10 +34,7 @@ export async function POST(req: NextRequest) {
     const deleteNewIntake = !!delete_new_intake;
 
     if (oldPatientId === newPatientId) {
-      return NextResponse.json(
-        { ok: false, error: "old_patient_id and new_patient_id must be different" },
-        { status: 400 }
-      );
+      return badRequest("old_patient_id and new_patient_id must be different");
     }
 
     // ★ 統合先の予約/問診を先に削除（オプション）

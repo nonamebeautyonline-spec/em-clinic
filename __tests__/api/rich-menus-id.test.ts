@@ -86,7 +86,7 @@ describe("admin/line/rich-menus/[id] API", () => {
       const res = await PUT(makeReq(), makeCtx());
       expect(res.status).toBe(401);
       const json = await res.json();
-      expect(json.error).toBe("Unauthorized");
+      expect(json.error).toBe("UNAUTHORIZED");
     });
 
     it("バリデーションエラーでparseBodyのエラーを返す", async () => {
@@ -243,7 +243,7 @@ describe("admin/line/rich-menus/[id] API", () => {
       const res = await PUT(makeReq(), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("サーバーエラーが発生しました");
+      expect(json.message).toBe("サーバーエラーが発生しました");
     });
   });
 
@@ -306,7 +306,7 @@ describe("admin/line/rich-menus/[id] API", () => {
       const res = await DELETE(makeReq("DELETE"), makeCtx());
       expect(res.status).toBe(500);
       const json = await res.json();
-      expect(json.error).toBe("サーバーエラーが発生しました");
+      expect(json.message).toBe("サーバーエラーが発生しました");
     });
   });
 });

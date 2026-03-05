@@ -58,7 +58,7 @@ describe("POST /api/stripe/portal", () => {
     const res = await POST(createRequest({ tenantId: "t1" }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Stripe");
+    expect(data.message).toContain("Stripe");
   });
 
   it("tenantId未指定の場合400を返す", async () => {
@@ -67,7 +67,7 @@ describe("POST /api/stripe/portal", () => {
     const res = await POST(createRequest({}));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("tenantId");
+    expect(data.message).toContain("tenantId");
   });
 
   it("Stripe Customer未作成の場合400を返す", async () => {
@@ -77,7 +77,7 @@ describe("POST /api/stripe/portal", () => {
     const res = await POST(createRequest({ tenantId: "t1" }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Customer");
+    expect(data.message).toContain("Customer");
   });
 
   it("正常系: Portal URLを返す", async () => {
@@ -110,6 +110,6 @@ describe("POST /api/stripe/portal", () => {
     const res = await POST(createRequest({ tenantId: "t1" }));
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toContain("Stripe error");
+    expect(data.message).toContain("Stripe error");
   });
 });

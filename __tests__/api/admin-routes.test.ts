@@ -451,7 +451,7 @@ describe("患者管理bulk操作: 基本要件", () => {
 describe("Cron: テナント対応", () => {
   const cronRoutes = findRouteFiles("app/api/cron");
   // テナント横断チェックのためテナント対応不要なcronルート
-  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage"];
+  const CRON_TENANT_EXEMPT = ["health-report", "usage-check", "audit-archive", "usage-alert", "report-usage", "generate-invoices"];
 
   it("supabaseAdminを使うcronルートはテナント対応している", () => {
     const violations: string[] = [];

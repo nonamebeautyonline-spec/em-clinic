@@ -1,6 +1,7 @@
 // 診察会話 → SOAP形式カルテ自動生成 API
 // 音声文字起こし結果（長文テキスト）からカルテを構造化する
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError } from "@/lib/api-error";
 import Anthropic from "@anthropic-ai/sdk";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -39,17 +40,11 @@ export async function POST(req: NextRequest) {
     const { transcript, format = "soap" } = body;
 
     if (!transcript || typeof transcript !== "string") {
-      return NextResponse.json(
-        { ok: false, error: "テキストが入力されていません" },
-        { status: 400 }
-      );
+      return badRequest("テキストが入力されていません");
     }
 
     if (transcript.length < 10) {
-      return NextResponse.json(
-        { ok: false, error: "テキストが短すぎます（10文字以上必要）" },
-        { status: 400 }
-      );
+      return badRequest("テキストが短すぎます（10文字以上必要）");
     }
 
     // Claude API キー取得
@@ -60,10 +55,7 @@ export async function POST(req: NextRequest) {
       tenantId || undefined
     );
     if (!apiKey) {
-      return NextResponse.json(
-        { ok: false, error: "ANTHROPIC_API_KEY が未設定です" },
-        { status: 500 }
-      );
+      return serverError("ANTHROPIC_API_KEY が未設定です");
     }
 
     // 医療辞書取得（コンテキストとして渡す）
@@ -113,10 +105,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[voice/generate-karte] エラー:", err);
     const message = err instanceof Error ? err.message : "カルテ生成中にエラーが発生しました";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return serverError(message);
   }
 }
 

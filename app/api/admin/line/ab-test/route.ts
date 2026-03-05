@@ -1,5 +1,6 @@
 // app/api/admin/line/ab-test/route.ts — ABテスト管理API（一覧・新規作成）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -11,7 +12,7 @@ import { createAbTestSchema } from "@/lib/validations/line-broadcast";
  */
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   return NextResponse.json({ tests: data || [] });
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const parsed = await parseBody(req, createAbTestSchema);
@@ -48,10 +49,7 @@ export async function POST(req: NextRequest) {
   // 配分比率の合計チェック
   const totalRatio = variants.reduce((sum, v) => sum + (v.allocation_ratio ?? 50), 0);
   if (totalRatio !== 100) {
-    return NextResponse.json(
-      { error: `配分比率の合計は100%である必要があります（現在: ${totalRatio}%）` },
-      { status: 400 },
-    );
+    return badRequest(`配分比率の合計は100%である必要があります（現在: ${totalRatio}%）`);
   }
 
   // ABテストレコード作成
@@ -69,10 +67,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (testError || !test) {
-    return NextResponse.json(
-      { error: testError?.message || "ABテスト作成に失敗しました" },
-      { status: 500 },
-    );
+    return serverError(testError?.message || "ABテスト作成に失敗しました");
   }
 
   // バリアントレコード作成
@@ -93,10 +88,7 @@ export async function POST(req: NextRequest) {
   if (variantError) {
     // テストレコードも削除（ロールバック）
     await supabaseAdmin.from("ab_tests").delete().eq("id", test.id);
-    return NextResponse.json(
-      { error: variantError.message },
-      { status: 500 },
-    );
+    return serverError(variantError.message);
   }
 
   return NextResponse.json({

@@ -1,5 +1,6 @@
 // app/api/admin/settings/route.ts — テナント設定 API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { getSetting, setSetting, getSettingsBulk, type SettingCategory } from "@/lib/settings";
 import { maskValue } from "@/lib/crypto";
@@ -85,7 +86,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -132,7 +133,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -143,12 +144,12 @@ export async function PUT(req: NextRequest) {
   // 設定キーがホワイトリストに含まれるか確認
   const defs = SETTING_DEFINITIONS[category];
   if (!defs || !defs.find((d) => d.key === key)) {
-    return NextResponse.json({ error: "不正な設定キーです" }, { status: 400 });
+    return badRequest("不正な設定キーです");
   }
 
   const success = await setSetting(category, key, value, tenantId ?? undefined);
   if (!success) {
-    return NextResponse.json({ error: "設定の保存に失敗しました" }, { status: 500 });
+    return serverError("設定の保存に失敗しました");
   }
 
   return NextResponse.json({ success: true, maskedValue: maskValue(value) });

@@ -1,5 +1,6 @@
 // 決済マスター返金API（クレカ・銀行振込統一）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { verifyAdminAuth } from "@/lib/admin-auth";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     // 1. セッション認証
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     // 2. Zodバリデーション
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // 3. admin_token 二重検証（誤操作防止）
     if (admin_token !== process.env.ADMIN_TOKEN) {
-      return NextResponse.json({ error: "管理者トークンが正しくありません" }, { status: 403 });
+      return forbidden("管理者トークンが正しくありません");
     }
 
     const tenantId = resolveTenantId(req);
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     ).single();
 
     if (fetchError || !order) {
-      return NextResponse.json({ error: "注文が見つかりませんでした" }, { status: 404 });
+      return notFound("注文が見つかりませんでした");
     }
 
     // 5. 冪等チェック（既に返金済み）
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // 6. ステータスチェック
     if (order.status === "cancelled") {
-      return NextResponse.json({ error: "キャンセル済みの注文です" }, { status: 400 });
+      return badRequest("キャンセル済みの注文です");
     }
 
     const now = new Date().toISOString();
@@ -94,10 +95,7 @@ export async function POST(req: NextRequest) {
 
       if (!result.success) {
         console.error("[noname-master/refund] Square refund failed:", result.status);
-        return NextResponse.json(
-          { error: `Square返金に失敗しました: ${result.status}` },
-          { status: 500 }
-        );
+        return serverError(`Square返金に失敗しました: ${result.status}`);
       }
 
       // DB更新: COMPLETED（Squareが処理済み）
@@ -117,7 +115,7 @@ export async function POST(req: NextRequest) {
 
       if (updateError) {
         console.error("[noname-master/refund] DB update error:", updateError);
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
+        return serverError(updateError.message);
       }
     } else if (order.payment_method === "bank_transfer") {
       // 銀行振込: DB更新のみ（手動返金待ち）
@@ -136,10 +134,10 @@ export async function POST(req: NextRequest) {
 
       if (updateError) {
         console.error("[noname-master/refund] DB update error:", updateError);
-        return NextResponse.json({ error: updateError.message }, { status: 500 });
+        return serverError(updateError.message);
       }
     } else {
-      return NextResponse.json({ error: "対応していない決済方法です" }, { status: 400 });
+      return badRequest("対応していない決済方法です");
     }
 
     console.log(`[noname-master/refund] 返金処理完了: order=${order_id}, method=${order.payment_method}, patient=${order.patient_id}`);
@@ -173,9 +171,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[noname-master/refund] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "サーバーエラー");
   }
 }

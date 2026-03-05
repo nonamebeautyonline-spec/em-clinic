@@ -334,7 +334,7 @@ export default function BroadcastSendPage() {
     } else {
       setResult(data.ok
         ? `配信完了: 送信${data.sent}件 / 失敗${data.failed}件 / UID無${data.no_uid}件`
-        : `配信失敗: ${data.error}`);
+        : `配信失敗: ${(data.message || data.error)}`);
     }
 
     // 配信履歴を再取得
@@ -368,7 +368,7 @@ export default function BroadcastSendPage() {
       if (data.ok) {
         setAiResult({ message: data.message, alternatives: data.alternatives || [] });
       } else {
-        setAiError(data.error || "生成に失敗しました");
+        setAiError((data.message || data.error) || "生成に失敗しました");
       }
     } catch {
       setAiError("通信エラーが発生しました");
@@ -435,7 +435,7 @@ export default function BroadcastSendPage() {
           results.push(`${name}: 完了`);
         } else {
           allOk = false;
-          results.push(`${name}: ${data.error || "失敗"}`);
+          results.push(`${name}: ${(data.message || data.error) || "失敗"}`);
         }
       } catch {
         allOk = false;

@@ -112,7 +112,7 @@ describe("POST /api/admin/bank-transfer/reconcile/preview", () => {
     expect(res.status).toBe(400);
 
     const body = await res.json();
-    expect(body.error).toContain("CSVファイルが指定されていません");
+    expect(body.message).toContain("CSVファイルが指定されていません");
   });
 
   it("CSV 空 → 400（入金データなし）", async () => {

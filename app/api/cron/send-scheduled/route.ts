@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { tenantPayload } from "@/lib/tenant";
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[Cron] DB error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     if (!messages?.length) {

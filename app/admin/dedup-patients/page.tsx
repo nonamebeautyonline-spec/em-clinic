@@ -83,7 +83,7 @@ export default function DedupPatientsPage() {
       if (data.ok) {
         setCandidates(data.candidates);
       } else {
-        setError(data.error || "取得に失敗しました");
+        setError((data.message || data.error) || "取得に失敗しました");
       }
     } catch {
       setError("通信エラーが発生しました");
@@ -129,7 +129,7 @@ export default function DedupPatientsPage() {
           setMergeResult(null);
         }, 1500);
       } else {
-        setMergeResult({ ok: false, message: data.error || "統合に失敗しました" });
+        setMergeResult({ ok: false, message: (data.message || data.error) || "統合に失敗しました" });
       }
     } catch {
       setMergeResult({ ok: false, message: "通信エラーが発生しました" });

@@ -2,6 +2,7 @@
 // テナントメンバー一覧取得・メンバー追加API
 
 import { NextRequest, NextResponse } from "next/server";
+import { conflict, forbidden, notFound, serverError } from "@/lib/api-error";
 import bcrypt from "bcryptjs";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -21,10 +22,7 @@ interface RouteContext {
 export async function GET(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -38,10 +36,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // メンバー一覧（admin_users を JOIN）
@@ -68,19 +63,13 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 
     if (error) {
       console.error("[platform/tenants/[id]/members] GET error:", error);
-      return NextResponse.json(
-        { ok: false, error: "メンバー一覧の取得に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("メンバー一覧の取得に失敗しました");
     }
 
     return NextResponse.json({ ok: true, members: members || [] });
   } catch (err) {
     console.error("[platform/tenants/[id]/members] GET unexpected error:", err);
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }
 
@@ -91,10 +80,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const admin = await verifyPlatformAdmin(req);
   if (!admin)
-    return NextResponse.json(
-      { ok: false, error: "権限がありません" },
-      { status: 403 },
-    );
+    return forbidden("権限がありません");
 
   const { tenantId } = await ctx.params;
 
@@ -113,10 +99,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       .single();
 
     if (!tenant) {
-      return NextResponse.json(
-        { ok: false, error: "テナントが見つかりません" },
-        { status: 404 },
-      );
+      return notFound("テナントが見つかりません");
     }
 
     // メールアドレス重複チェック
@@ -127,10 +110,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       .maybeSingle();
 
     if (existingUser) {
-      return NextResponse.json(
-        { ok: false, error: "このメールアドレスは既に使用されています" },
-        { status: 409 },
-      );
+      return conflict("このメールアドレスは既に使用されています");
     }
 
     // admin_users 作成（ユーザーID自動生成）
@@ -155,10 +135,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
         "[platform/tenants/[id]/members] INSERT admin_user error:",
         userErr,
       );
-      return NextResponse.json(
-        { ok: false, error: "ユーザーの作成に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("ユーザーの作成に失敗しました");
     }
 
     // tenant_members 紐付け
@@ -179,10 +156,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       );
       // ロールバック: ユーザー削除
       await supabaseAdmin.from("admin_users").delete().eq("id", newUser.id);
-      return NextResponse.json(
-        { ok: false, error: "メンバーの追加に失敗しました" },
-        { status: 500 },
-      );
+      return serverError("メンバーの追加に失敗しました");
     }
 
     // 監査ログ（fire-and-forget）
@@ -227,9 +201,6 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       "[platform/tenants/[id]/members] POST unexpected error:",
       err,
     );
-    return NextResponse.json(
-      { ok: false, error: "予期しないエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("予期しないエラーが発生しました");
   }
 }

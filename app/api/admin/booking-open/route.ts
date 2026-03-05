@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -14,7 +15,7 @@ const supabaseAdmin = createClient(
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const month = searchParams.get("month"); // YYYY-MM
 
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    return NextResponse.json({ error: "Invalid month format. Use YYYY-MM" }, { status: 400 });
+    return badRequest("Invalid month format. Use YYYY-MM");
   }
 
   try {
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     if (error && error.code !== "PGRST116") {
       // PGRST116 = no rows returned (not an error)
       console.error("DB error:", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     return NextResponse.json({
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   }
 }
 
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("DB error:", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     console.log(`[Booking Open] Month ${month} has been opened early`);
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   }
 }
 
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -114,7 +115,7 @@ export async function DELETE(req: NextRequest) {
   const month = searchParams.get("month");
 
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    return NextResponse.json({ error: "Invalid month format. Use YYYY-MM" }, { status: 400 });
+    return badRequest("Invalid month format. Use YYYY-MM");
   }
 
   try {
@@ -128,7 +129,7 @@ export async function DELETE(req: NextRequest) {
 
     if (error) {
       console.error("DB error:", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     console.log(`[Booking Open] Early open for ${month} has been cancelled`);
@@ -139,6 +140,6 @@ export async function DELETE(req: NextRequest) {
     });
   } catch (e) {
     console.error("API error:", e);
-    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   }
 }

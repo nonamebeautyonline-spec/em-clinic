@@ -1,12 +1,13 @@
 // app/api/admin/analytics/route.ts — 売上分析・LTV・コホート
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "overview";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     case "products":
       return getProductBreakdown(from, to, tenantId);
     default:
-      return NextResponse.json({ error: "不明なtype" }, { status: 400 });
+      return badRequest("不明なtype");
   }
 }
 

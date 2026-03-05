@@ -1,5 +1,6 @@
 // app/api/admin/line/step-scenarios/route.ts — ステップ配信シナリオ CRUD
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -9,7 +10,7 @@ import { stepScenarioSchema } from "@/lib/validations/line-common";
 // シナリオ一覧
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // ステップ数を付与
   const enriched = (scenarios || []).map((s: Record<string, unknown>) => {
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
 // シナリオ新規作成（ステップ一括）
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // ステップ一括挿入
   if (Array.isArray(steps) && steps.length > 0) {
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
 // シナリオ更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -114,7 +115,7 @@ export async function PUT(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const { id, name, folder_id, trigger_type, trigger_tag_id, trigger_keyword, trigger_keyword_match, condition_rules, is_enabled, steps } = parsed.data as Record<string, unknown>;
 
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { data: scenario, error } = await withTenant(
     supabaseAdmin.from("step_scenarios").update({
@@ -131,7 +132,7 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
 
   // ステップ: 全削除→再挿入（CASCADE で安全）
   if (Array.isArray(steps)) {
@@ -173,19 +174,19 @@ export async function PUT(req: NextRequest) {
 // シナリオ削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin.from("step_scenarios").delete().eq("id", parseInt(id)),
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

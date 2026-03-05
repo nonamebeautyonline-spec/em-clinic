@@ -117,7 +117,7 @@ describe("LINE ダッシュボード API", () => {
       const res = await GET(createReq());
       expect(res.status).toBe(401);
       const body = await res.json();
-      expect(body.error).toBe("Unauthorized");
+      expect(body.error).toBe("UNAUTHORIZED");
     });
   });
 

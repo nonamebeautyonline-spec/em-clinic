@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -12,7 +13,7 @@ const LINE_API = "https://api.line.me/v2/bot/richmenu/bulk/link";
 export async function POST(req: NextRequest) {
   try {
     const isAuthorized = await verifyAdminAuth(req);
-    if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isAuthorized) return unauthorized();
 
     const tenantId = resolveTenantId(req);
     const parsed = await parseBody(req, bulkMenuSchema);
@@ -30,11 +31,11 @@ export async function POST(req: NextRequest) {
     );
 
     if (!menu) {
-      return NextResponse.json({ error: "リッチメニューが見つかりません" }, { status: 404 });
+      return notFound("リッチメニューが見つかりません");
     }
 
     if (!menu.line_rich_menu_id) {
-      return NextResponse.json({ error: "このリッチメニューはLINEに登録されていません。先にリッチメニュー設定からLINEに登録してください。" }, { status: 400 });
+      return badRequest("このリッチメニューはLINEに登録されていません。先にリッチメニュー設定からLINEに登録してください。");
     }
 
     // 患者のLINE UIDをpatientsテーブルから取得（大量IDに対応するためバッチ処理）
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (lineUserIds.length === 0) {
-      return NextResponse.json({ error: "LINE連携済みのユーザーがいません", linked: 0, no_uid: patient_ids.length }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "LINE連携済みのユーザーがいません", linked: 0, no_uid: patient_ids.length }, { status: 400 });
     }
 
     const token = await getSettingOrEnv("line", "channel_access_token", "LINE_MESSAGING_API_CHANNEL_ACCESS_TOKEN", tenantId ?? undefined) || "";
@@ -112,6 +113,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: linked > 0, linked, failed, no_uid: noUid, total: patient_ids.length });
   } catch (e) {
     console.error("[Rich Menu Bulk Link] Unhandled error:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: "サーバーエラーが発生しました" }, { status: 500 });
+    return serverError("サーバーエラーが発生しました");
   }
 }

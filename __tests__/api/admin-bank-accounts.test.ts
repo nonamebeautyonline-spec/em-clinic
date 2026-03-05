@@ -129,7 +129,7 @@ describe("PUT /api/admin/bank-accounts", () => {
     expect(res.status).toBe(400);
 
     const json = await res.json();
-    expect(json.error).toContain("アクティブ口座ID");
+    expect(json.message).toContain("アクティブ口座ID");
   });
 
   it("空の口座リストは400エラー", async () => {

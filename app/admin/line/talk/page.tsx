@@ -983,7 +983,7 @@ export default function TalkPage() {
         direction: "outgoing",
       }]);
     } else {
-      alert(data.error || "画像送信に失敗しました");
+      alert((data.message || data.error) || "画像送信に失敗しました");
     }
     setSendingImage(false);
     // inputをリセット
@@ -1135,7 +1135,7 @@ export default function TalkPage() {
         direction: "outgoing",
       }]);
     } else {
-      alert(data.error || "通話フォームの送信に失敗しました");
+      alert((data.message || data.error) || "通話フォームの送信に失敗しました");
     }
     setSendingCall(false);
   };

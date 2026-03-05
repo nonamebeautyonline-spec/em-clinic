@@ -77,7 +77,7 @@ describe("view-mypage API", () => {
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // 2. patient_id 未指定
@@ -87,7 +87,7 @@ describe("view-mypage API", () => {
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.ok).toBe(false);
-    expect(json.error).toContain("patient_id");
+    expect(json.message).toContain("patient_id");
   });
 
   // 3. 正常系 — 患者が存在（注文なし）

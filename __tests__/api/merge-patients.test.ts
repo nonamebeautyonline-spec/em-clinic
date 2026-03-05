@@ -121,7 +121,7 @@ describe("merge-patients API", () => {
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
     // Zodバリデーションエラー（details にフィールド名が含まれる）
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details.some((d: string) => d.includes("old_patient_id"))).toBe(true);
   });
 
@@ -133,7 +133,7 @@ describe("merge-patients API", () => {
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
     // Zodバリデーションエラー（details にフィールド名が含まれる）
-    expect(json.error).toBe("入力値が不正です");
+    expect(json.message).toBe("入力値が不正です");
     expect(json.details.some((d: string) => d.includes("new_patient_id"))).toBe(true);
   });
 
@@ -145,7 +145,7 @@ describe("merge-patients API", () => {
 
     expect(res.status).toBe(400);
     expect(json.ok).toBe(false);
-    expect(json.error).toContain("different");
+    expect(json.message).toContain("different");
   });
 
   // 5. 認証NG → 401
@@ -157,7 +157,7 @@ describe("merge-patients API", () => {
 
     expect(res.status).toBe(401);
     expect(json.ok).toBe(false);
-    expect(json.error).toBe("unauthorized");
+    expect(json.error).toBe("UNAUTHORIZED");
   });
 
   // 6. 全MERGE_TABLESの更新確認

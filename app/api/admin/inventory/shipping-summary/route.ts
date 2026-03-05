@@ -1,6 +1,7 @@
 // app/api/admin/inventory/shipping-summary/route.ts
 // のなめ発送用: 指定日の発送済み注文から用量別箱数を集計
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -8,7 +9,7 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const date = searchParams.get("date");
 
   if (!date) {
-    return NextResponse.json({ error: "date パラメータが必要です" }, { status: 400 });
+    return badRequest("date パラメータが必要です");
   }
 
   try {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[shipping-summary] fetch error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     // product_code（例: MJL_5mg_2m）をパースして用量別箱数を集計
@@ -58,9 +59,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[shipping-summary] error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(err instanceof Error ? err.message : "Server error");
   }
 }

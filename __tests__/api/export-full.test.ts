@@ -89,7 +89,7 @@ describe("テナント全データエクスポートAPI - POST", () => {
     const res = await POST(req);
     expect(res.status).toBe(500);
     const json = await res.json();
-    expect(json.error).toBe("ジョブの作成に失敗しました");
+    expect(json.message).toBe("ジョブの作成に失敗しました");
   });
 });
 
@@ -111,7 +111,7 @@ describe("テナント全データエクスポートAPI - GET", () => {
     const res = await GET(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toBe("jobIdパラメータが必要です");
+    expect(json.message).toBe("jobIdパラメータが必要です");
   });
 
   it("存在しないジョブ → 404", async () => {

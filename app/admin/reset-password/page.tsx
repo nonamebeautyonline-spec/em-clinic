@@ -31,7 +31,7 @@ function ResetPasswordContent() {
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          setTokenError(data.error || "無効なリンクです");
+          setTokenError((data.message || data.error) || "無効なリンクです");
         } else {
           setUserName(data.user?.name || "");
         }
@@ -71,7 +71,7 @@ function ResetPasswordContent() {
       const data = await res.json();
 
       if (!res.ok || !data.ok) {
-        setError(data.error || "エラーが発生しました");
+        setError((data.message || data.error) || "エラーが発生しました");
         return;
       }
 

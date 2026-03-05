@@ -194,7 +194,7 @@ describe("患者データ削除API (delete-patient-data/route.ts)", () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toBe("patient_id required");
+      expect(json.message).toBe("patient_id required");
     });
 
     it("正常取得 → 予約・患者名・問診を返す", async () => {

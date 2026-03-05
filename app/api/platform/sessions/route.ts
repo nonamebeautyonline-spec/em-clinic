@@ -1,6 +1,7 @@
 // app/api/platform/sessions/route.ts — セッション一覧API
 // 現在のユーザーの有効セッション一覧を返す
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { createHash } from "crypto";
 import { verifyPlatformAdmin } from "@/lib/platform-auth";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -10,10 +11,7 @@ export async function GET(req: NextRequest) {
     // プラットフォーム管理者認証
     const admin = await verifyPlatformAdmin(req);
     if (!admin) {
-      return NextResponse.json(
-        { ok: false, error: "認証が必要です" },
-        { status: 401 }
-      );
+      return unauthorized();
     }
 
     // 現在のセッションのトークンハッシュを計算
@@ -32,10 +30,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[Sessions] DB error:", error);
-      return NextResponse.json(
-        { ok: false, error: "セッション情報の取得に失敗しました" },
-        { status: 500 }
-      );
+      return serverError("セッション情報の取得に失敗しました");
     }
 
     // 現在のセッションを判別してレスポンスに含める（token_hashは返さない）
@@ -52,9 +47,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, sessions: result });
   } catch (err) {
     console.error("[Sessions] Error:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラー" },
-      { status: 500 }
-    );
+    return serverError("サーバーエラー");
   }
 }

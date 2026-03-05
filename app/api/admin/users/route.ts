@@ -1,6 +1,7 @@
 // app/api/admin/users/route.ts
 // 管理者ユーザー作成・一覧API
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -23,7 +24,7 @@ const APP_BASE_URL = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -70,10 +71,7 @@ export async function POST(req: NextRequest) {
     ).single();
 
     if (existing) {
-      return NextResponse.json(
-        { ok: false, error: "このメールアドレスは既に登録されています" },
-        { status: 400 }
-      );
+      return badRequest("このメールアドレスは既に登録されています");
     }
 
     // 仮パスワード（ランダム）で作成（後でリセット）
@@ -96,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("[Admin Users] Insert error:", insertError);
-      return NextResponse.json({ ok: false, error: "作成に失敗しました" }, { status: 500 });
+      return serverError("作成に失敗しました");
     }
 
     // セットアップトークン作成（24時間有効）
@@ -139,7 +137,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[Admin Users] Error:", err);
-    return NextResponse.json({ ok: false, error: "サーバーエラー" }, { status: 500 });
+    return serverError("サーバーエラー");
   }
 }
 
@@ -149,7 +147,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
   if (!isAuthorized) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const tenantId = resolveTenantId(req);
@@ -158,7 +156,7 @@ export async function DELETE(req: NextRequest) {
   const userId = searchParams.get("id");
 
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "id が必要です" }, { status: 400 });
+    return badRequest("id が必要です");
   }
 
   const { error } = await withTenant(
@@ -171,7 +169,7 @@ export async function DELETE(req: NextRequest) {
 
   if (error) {
     console.error("[Admin Users] Delete error:", error);
-    return NextResponse.json({ ok: false, error: "削除に失敗しました" }, { status: 500 });
+    return serverError("削除に失敗しました");
   }
 
   return NextResponse.json({ ok: true });

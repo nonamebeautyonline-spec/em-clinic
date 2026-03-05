@@ -1,6 +1,7 @@
 // app/api/intake/list/route.ts
 // intake正規化: reserved_date/time/prescription_menu→reservations、patient_name/line_id→patients
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -54,7 +55,7 @@ interface PatientRow {
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -113,10 +114,7 @@ export async function GET(req: NextRequest) {
         );
         if (error) {
           console.error("[intake/list] query error:", error);
-          return NextResponse.json(
-            { ok: false, error: "DB_ERROR", detail: error.message },
-            { status: 500 }
-          );
+          return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
         }
         allIntake.push(...(data || []) as unknown as IntakeRow[]);
       }
@@ -135,10 +133,7 @@ export async function GET(req: NextRequest) {
 
       if (error) {
         console.error("[intake/list] query error:", error);
-        return NextResponse.json(
-          { ok: false, error: "DB_ERROR", detail: error.message },
-          { status: 500 }
-        );
+        return NextResponse.json({ ok: false, error: "DB_ERROR", detail: error.message }, { status: 500 });
       }
       intakeData = (data || []) as unknown as IntakeRow[];
 
@@ -217,9 +212,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, rows });
   } catch (err) {
     console.error("intake list API error:", err);
-    return NextResponse.json(
-      { ok: false, error: String(err) },
-      { status: 500 }
-    );
+    return serverError(String(err));
   }
 }

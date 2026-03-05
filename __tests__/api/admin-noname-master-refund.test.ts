@@ -114,7 +114,7 @@ describe("POST /api/admin/noname-master/refund", () => {
     }));
     expect(res.status).toBe(403);
     const data = await res.json();
-    expect(data.error).toContain("管理者トークン");
+    expect(data.message).toContain("管理者トークン");
   });
 
   it("order_id未指定でバリデーションエラー", async () => {
@@ -178,7 +178,7 @@ describe("POST /api/admin/noname-master/refund", () => {
     }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("キャンセル済み");
+    expect(data.message).toContain("キャンセル済み");
   });
 
   it("クレカ返金成功", async () => {
@@ -234,7 +234,7 @@ describe("POST /api/admin/noname-master/refund", () => {
     }));
     expect(res.status).toBe(500);
     const data = await res.json();
-    expect(data.error).toContain("Square返金に失敗");
+    expect(data.message).toContain("Square返金に失敗");
   });
 
   it("銀行振込返金成功（PENDINGステータス）", async () => {

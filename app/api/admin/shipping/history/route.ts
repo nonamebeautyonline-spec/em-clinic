@@ -1,5 +1,6 @@
 // 過去の発送履歴API（日別集計+詳細）
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to");     // YYYY-MM-DD
 
   if (!from || !to) {
-    return NextResponse.json({ error: "from/to required" }, { status: 400 });
+    return badRequest("from/to required");
   }
 
   // shipping_dateが設定されている（=発送済み）注文を日付範囲で取得
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error.message);
   }
 
   // patient_idから名前を取得（patientsテーブルから）

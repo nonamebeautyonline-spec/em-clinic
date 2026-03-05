@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -9,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -25,7 +26,7 @@ export async function GET(
     tenantId
   ).single();
 
-  if (!form) return NextResponse.json({ error: "フォームが見つかりません" }, { status: 404 });
+  if (!form) return notFound("フォームが見つかりません");
 
   // 回答一覧（1000行制限回避のためページネーション）
   const allResponses: { id: string; submitted_at: string; line_user_id: string | null; respondent_name: string | null; answers: Record<string, unknown> | null; [key: string]: unknown }[] = [];
@@ -41,7 +42,7 @@ export async function GET(
         .range(offset, offset + pageSize - 1),
       tenantId
     );
-    if (pageError) return NextResponse.json({ error: pageError.message }, { status: 500 });
+    if (pageError) return serverError(pageError.message);
     if (!page || page.length === 0) break;
     allResponses.push(...page);
     if (page.length < pageSize) break;

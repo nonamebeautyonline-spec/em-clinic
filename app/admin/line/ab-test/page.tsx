@@ -466,7 +466,7 @@ function CreateModal({
         onCreated();
       } else {
         const data = await res.json();
-        setError(data.error || "作成に失敗しました");
+        setError((data.message || data.error) || "作成に失敗しました");
       }
     } catch {
       setError("通信エラーが発生しました");

@@ -3,6 +3,7 @@
 // vercel.json の cron 設定で毎日AM3:00実行を想定
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { classifyPatients, saveSegments } from "@/lib/patient-segments";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   // Vercel Cron 認証
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -68,10 +69,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[cron/segment-recalculate] 致命的エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "セグメント再計算に失敗しました" },
-      { status: 500 },
-    );
+    return serverError("セグメント再計算に失敗しました");
   } finally {
     await lock.release();
   }

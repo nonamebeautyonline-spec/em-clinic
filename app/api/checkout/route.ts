@@ -2,6 +2,7 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, forbidden, serverError } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getProductByCode } from "@/lib/products";
 import { getPaymentProvider } from "@/lib/payment";
@@ -17,10 +18,7 @@ export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
     if (!APP_BASE_URL) {
-      return NextResponse.json(
-        { error: "サーバー設定エラーです。管理者にお問い合わせください。" },
-        { status: 500 }
-      );
+      return serverError("サーバー設定エラーです。管理者にお問い合わせください。");
     }
 
     const parsed = await parseBody(req, checkoutSchema);
@@ -43,28 +41,19 @@ export async function POST(req: NextRequest) {
 
       if (intakeRow?.status === "NG") {
         console.log(`[checkout] NG患者の決済をブロック: patient_id=${patientId}`);
-        return NextResponse.json(
-          { error: "処方不可と判定されているため、決済できません。再度診察予約をお取りください。" },
-          { status: 403 }
-        );
+        return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
       }
     }
 
     // ★ DB から商品取得（フォールバック付き）
     const product = await getProductByCode(productCode, tenantId ?? undefined);
     if (!product) {
-      return NextResponse.json(
-        { error: "無効な商品コードです" },
-        { status: 400 }
-      );
+      return badRequest("無効な商品コードです");
     }
 
     const validModes: Mode[] = ["current", "first", "reorder"];
     if (mode && !validModes.includes(mode)) {
-      return NextResponse.json(
-        { error: "無効なモードです" },
-        { status: 400 }
-      );
+      return badRequest("無効なモードです");
     }
 
     const redirectUrl = `${APP_BASE_URL}/mypage/purchase/complete?code=${product.code}`;
@@ -87,12 +76,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ checkoutUrl: result.checkoutUrl });
   } catch (err) {
     console.error("Checkout API error:", err);
-    return NextResponse.json(
-      {
-        error:
-          "決済リンクの作成中にエラーが発生しました。時間をおいて再度お試しください。",
-      },
-      { status: 500 }
-    );
+    return serverError("決済リンクの作成中にエラーが発生しました。時間をおいて再度お試しください。",);
   }
 }

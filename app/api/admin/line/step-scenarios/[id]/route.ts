@@ -1,12 +1,13 @@
 // app/api/admin/line/step-scenarios/[id]/route.ts — シナリオ詳細
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id } = await params;
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     tenantId
   ).single();
 
-  if (error || !scenario) return NextResponse.json({ error: "シナリオが見つかりません" }, { status: 404 });
+  if (error || !scenario) return notFound("シナリオが見つかりません");
 
   // ステップ
   const { data: steps } = await withTenant(

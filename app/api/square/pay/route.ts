@@ -1,6 +1,7 @@
 // app/api/square/pay/route.ts — アプリ内決済（Web Payments SDK）
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, conflict, forbidden, serverError, tooManyRequests } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getSettingOrEnv } from "@/lib/settings";
 import { getProductByCode } from "@/lib/products";
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     const { sourceId, productCode, mode, patientId, reorderId, saveCard, shipping } = parsed.data;
 
     if (!cookiePatientId || cookiePatientId !== patientId) {
-      return NextResponse.json({ error: "認証情報が一致しません" }, { status: 403 });
+      return forbidden("認証情報が一致しません");
     }
 
     // レート制限（同一患者: 5分に5回、同一IP: 5分に10回）
@@ -46,10 +47,7 @@ export async function POST(req: NextRequest) {
       checkRateLimit(`square-pay:ip:${ip}`, 10, 300),
     ]);
     if (patientLimit.limited || ipLimit.limited) {
-      return NextResponse.json(
-        { error: "決済リクエストが多すぎます。しばらくしてから再度お試しください。" },
-        { status: 429 },
-      );
+      return tooManyRequests("決済リクエストが多すぎます。しばらくしてから再度お試しください。");
     }
 
     // 二重決済防止: 直近60秒以内の同一患者・同一商品の注文チェック
@@ -64,10 +62,7 @@ export async function POST(req: NextRequest) {
       tenantId,
     ).maybeSingle();
     if (recentOrder) {
-      return NextResponse.json(
-        { error: "直前に同じ決済が処理されています。マイページで注文状況をご確認ください。" },
-        { status: 409 },
-      );
+      return conflict("直前に同じ決済が処理されています。マイページで注文状況をご確認ください。");
     }
 
     // NG患者チェック（既存 checkout と同じロジック）
@@ -83,16 +78,13 @@ export async function POST(req: NextRequest) {
       tenantId,
     );
     if (intakeRow?.status === "NG") {
-      return NextResponse.json(
-        { error: "処方不可と判定されているため、決済できません。再度診察予約をお取りください。" },
-        { status: 403 },
-      );
+      return forbidden("処方不可と判定されているため、決済できません。再度診察予約をお取りください。");
     }
 
     // 商品取得
     const product = await getProductByCode(productCode, tid);
     if (!product) {
-      return NextResponse.json({ error: "無効な商品コードです" }, { status: 400 });
+      return badRequest("無効な商品コードです");
     }
 
     // Square設定取得
@@ -101,7 +93,7 @@ export async function POST(req: NextRequest) {
     const env = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
 
     if (!accessToken || !locationId) {
-      return NextResponse.json({ error: "Square設定が不足しています" }, { status: 500 });
+      return serverError("Square設定が不足しています");
     }
 
     const baseUrl =
@@ -142,7 +134,7 @@ export async function POST(req: NextRequest) {
       customerId = patient?.square_customer_id ?? undefined;
       // 保存済みカードIDが当該患者のものか検証
       if (patient?.square_card_id !== sourceId) {
-        return NextResponse.json({ error: "無効なカード情報です" }, { status: 403 });
+        return forbidden("無効なカード情報です");
       }
     }
 
@@ -165,7 +157,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!payResult.ok) {
-      return NextResponse.json({ error: payResult.error || "決済に失敗しました" }, { status: 400 });
+      return badRequest(payResult.error || "決済に失敗しました");
     }
 
     const payment = payResult.payment!;
@@ -233,9 +225,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[square/pay] error:", err);
-    return NextResponse.json(
-      { error: "決済処理中にエラーが発生しました。時間をおいて再度お試しください。" },
-      { status: 500 },
-    );
+    return serverError("決済処理中にエラーが発生しました。時間をおいて再度お試しください。");
   }
 }

@@ -56,7 +56,7 @@ describe("分析API: 401レスポンス", () => {
     it(`${name} は認証失敗時 401 を返す`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      expect(src).toContain("401");
+      expect(src).toContain("unauthorized");
     });
   }
 });
@@ -138,7 +138,7 @@ describe("financials: 売上データ", () => {
   it("認証失敗時 401 を返す", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("401");
+    expect(src).toContain("unauthorized");
   });
 });
 
@@ -177,7 +177,7 @@ describe("daily-revenue: 日別売上データ", () => {
   it("認証失敗時 401 を返す", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("401");
+    expect(src).toContain("unauthorized");
   });
 });
 
@@ -221,7 +221,7 @@ describe("inventory: 在庫管理", () => {
   it("認証失敗時 401 を返す", () => {
     if (!fileExists(file)) return;
     const src = readFile(file);
-    expect(src).toContain("401");
+    expect(src).toContain("unauthorized");
   });
 });
 

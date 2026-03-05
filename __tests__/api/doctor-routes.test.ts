@@ -77,7 +77,7 @@ describe("Dr向けAPI: 認証失敗時 401", () => {
     it(`${name} は認証失敗時 401 を返す`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      expect(src).toContain("401");
+      expect(src).toContain("unauthorized");
     });
   }
 });
@@ -99,7 +99,7 @@ describe("doctor/reorders/approve: 承認ルート詳細", () => {
     const src = readFile(file);
     expect(src).toContain('"pending"');
     expect(src).toContain("invalid_status");
-    expect(src).toContain("400");
+    expect(src).toContain("badRequest");
   });
 
   it("confirmed ステータスに更新する", () => {

@@ -1,5 +1,6 @@
 // app/api/admin/line/keyword-replies/route.ts — キーワード自動応答 CRUD
 import { NextRequest, NextResponse } from "next/server";
+import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
@@ -9,7 +10,7 @@ import { keywordReplySchema } from "@/lib/validations/line-common";
 // 一覧取得
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -22,14 +23,14 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ rules: data || [] });
 }
 
 // 新規作成
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   // 正規表現の妥当性チェック
   if (match_type === "regex") {
     try { new RegExp(keyword); } catch {
-      return NextResponse.json({ error: "正規表現が不正です" }, { status: 400 });
+      return badRequest("正規表現が不正です");
     }
   }
 
@@ -62,14 +63,14 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, rule: data });
 }
 
 // 更新
 export async function PUT(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -79,11 +80,11 @@ export async function PUT(req: NextRequest) {
   const id = body.id as string | undefined;
   const { name, keyword, match_type, priority, is_enabled, reply_type, reply_text, reply_template_id, reply_action_id, condition_rules } = parsed.data;
 
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   if (match_type === "regex") {
     try { new RegExp(keyword); } catch {
-      return NextResponse.json({ error: "正規表現が不正です" }, { status: 400 });
+      return badRequest("正規表現が不正です");
     }
   }
 
@@ -107,19 +108,19 @@ export async function PUT(req: NextRequest) {
     tenantId
   ).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true, rule: data });
 }
 
 // 削除
 export async function DELETE(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "IDは必須です" }, { status: 400 });
+  if (!id) return badRequest("IDは必須です");
 
   const { error } = await withTenant(
     supabaseAdmin
@@ -129,6 +130,6 @@ export async function DELETE(req: NextRequest) {
     tenantId
   );
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error.message);
   return NextResponse.json({ ok: true });
 }

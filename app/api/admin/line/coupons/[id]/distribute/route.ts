@@ -1,5 +1,6 @@
 // app/api/admin/line/coupons/[id]/distribute/route.ts — クーポン配布
 import { NextRequest, NextResponse } from "next/server";
+import { notFound, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { pushMessage } from "@/lib/line-push";
@@ -13,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
   const { id: couponId } = await params;
@@ -28,7 +29,7 @@ export async function POST(
   );
 
   if (couponErr || !coupon) {
-    return NextResponse.json({ error: "クーポンが見つかりません" }, { status: 404 });
+    return notFound("クーポンが見つかりません");
   }
 
   // 対象者の解決

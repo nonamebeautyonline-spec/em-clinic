@@ -1,13 +1,14 @@
 // app/api/doctor/reorders/route.ts
 // DB-first: 再処方一覧をDBから取得
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
-  if (!isAuthorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -22,10 +23,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[doctor/reorders] DB error:", error);
-      return NextResponse.json(
-        { ok: false, error: "db_error" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
     }
 
     // 患者名を取得
@@ -60,9 +58,6 @@ export async function GET(req: NextRequest) {
     );
   } catch (e) {
     console.error("GET /api/doctor/reorders error", e);
-    return NextResponse.json(
-      { ok: false, error: "unexpected error" },
-      { status: 500 }
-    );
+    return serverError("unexpected error");
   }
 }

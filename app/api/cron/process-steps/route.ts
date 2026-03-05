@@ -1,5 +1,6 @@
 // app/api/cron/process-steps/route.ts — ステップ配信 Cron（5分間隔で実行）
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // 排他制御: 同時実行を防止
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[process-steps] query error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(error.message);
     }
 
     if (!enrollments || enrollments.length === 0) {
@@ -185,7 +186,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, processed, errors });
   } catch (e) {
     console.error("[process-steps] cron error:", e);
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+    return serverError((e as Error).message);
   } finally {
     await lock.release();
   }

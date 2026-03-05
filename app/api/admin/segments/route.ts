@@ -2,6 +2,7 @@
 // GET: セグメント別の患者一覧とサマリーを返す
 
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -9,7 +10,7 @@ import { ALL_SEGMENTS, SEGMENT_LABELS, type SegmentType } from "@/lib/patient-se
 
 export async function GET(req: NextRequest) {
   const ok = await verifyAdminAuth(req);
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!ok) return unauthorized();
 
   const tenantId = resolveTenantId(req);
 
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error("[segments] 取得エラー:", error);
-    return NextResponse.json({ error: "セグメントデータの取得に失敗しました" }, { status: 500 });
+    return serverError("セグメントデータの取得に失敗しました");
   }
 
   if (!segmentData || segmentData.length === 0) {

@@ -1,6 +1,7 @@
 // app/api/platform/password-reset/request/route.ts — パスワードリセットメール送信API
 // 未認証ユーザーが使用するため verifyPlatformAdmin は不要
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, tooManyRequests } from "@/lib/api-error";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
     // レート制限: 同一メールアドレスに対して3回/1時間
     const rateResult = await checkRateLimit(`pw-reset:email:${emailNorm}`, 3, 3600);
     if (rateResult.limited) {
-      return NextResponse.json(
-        { ok: false, error: "リセットリクエストの回数上限に達しました。しばらくお待ちください。" },
-        { status: 429 },
-      );
+      return tooManyRequests("リセットリクエストの回数上限に達しました。しばらくお待ちください。");
     }
 
     // admin_usersからplatform_adminかつアクティブなユーザーを検索
@@ -63,10 +61,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("[password-reset/request] トークン保存エラー:", insertError);
-      return NextResponse.json(
-        { ok: false, error: "サーバーエラーが発生しました" },
-        { status: 500 },
-      );
+      return serverError("サーバーエラーが発生しました");
     }
 
     // リセットURL生成
@@ -113,9 +108,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "メールを送信しました" });
   } catch (err) {
     console.error("[password-reset/request] エラー:", err);
-    return NextResponse.json(
-      { ok: false, error: "サーバーエラーが発生しました" },
-      { status: 500 },
-    );
+    return serverError("サーバーエラーが発生しました");
   }
 }

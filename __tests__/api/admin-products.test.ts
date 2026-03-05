@@ -270,7 +270,7 @@ describe("DELETE /api/admin/products", () => {
     const res = await DELETE(req);
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toContain("id");
+    expect(json.message).toContain("id");
   });
 
   it("正常に商品を無効化して 200 を返す", async () => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
     // 認証チェック（クッキーまたはBearerトークン）
     const isAuthorized = await verifyAdminAuth(req);
     if (!isAuthorized) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return unauthorized();
     }
 
     const tenantId = resolveTenantId(req);
@@ -32,10 +33,7 @@ export async function GET(req: NextRequest) {
 
     if (ordersError) {
       console.error("[TodayShipped] Orders fetch error:", ordersError);
-      return NextResponse.json(
-        { error: "注文データ取得エラー", details: ordersError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "注文データ取得エラー", details: ordersError.message }, { status: 500 });
     }
 
     if (!orders || orders.length === 0) {
@@ -88,9 +86,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[TodayShipped] API error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Server error" },
-      { status: 500 }
-    );
+    return serverError(error instanceof Error ? error.message : "Server error");
   }
 }
