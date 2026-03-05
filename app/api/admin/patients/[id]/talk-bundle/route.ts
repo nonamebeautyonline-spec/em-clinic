@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id: patientId } = await params;
 
   // 全クエリを並列実行（サーバー側で統合）
-  const [messagesRes, tagsRes, markRes, fieldsRes, answererRes, allOrdersRes, reordersRes, pendingResvRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
+  const [messagesRes, tagsRes, markRes, fieldsRes, answererRes, allOrdersRes, reordersRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
     // メッセージログ（最新25件）
     withTenant(supabaseAdmin
       .from("message_log")
@@ -61,22 +61,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
       .limit(5), tenantId),
-    // 次回予約（未診察）
-    withTenant(supabaseAdmin
-      .from("reservations")
-      .select("reserved_date, reserved_time, status")
-      .eq("patient_id", patientId)
-      .not("reserved_date", "is", null)
-      .not("reserved_time", "is", null)
-      .or("status.is.null,status.eq.")
-      .order("reserved_date", { ascending: true })
-      .order("reserved_time", { ascending: true })
-      .limit(1)
-      .maybeSingle(), tenantId),
     // 最新予約（キャンセル除外）
     withTenant(supabaseAdmin
       .from("reservations")
-      .select("reserved_date, reserved_time, status")
+      .select("reserved_date, reserved_time")
       .eq("patient_id", patientId)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
@@ -98,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 問診
     withTenant(supabaseAdmin
       .from("intake")
-      .select("answers, created_at")
+      .select("answers, created_at, status, reserve_id")
       .eq("patient_id", patientId)
       .order("id", { ascending: false })
       .limit(1)
@@ -118,7 +106,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const answerer = answererRes.data;
   const allOrders = allOrdersRes.data;
   const reorders = reordersRes.data;
-  const nextReservation = pendingResvRes.data ?? latestResvRes.data;
+  const nextReservation = latestResvRes.data;
   const pendingBankTransfer = bankRes.data;
   const intakeRecord = intakeRecordRes.data;
 
@@ -175,7 +163,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   let formattedReservation: string | null = null;
   if (nextReservation) {
     const base = `${nextReservation.reserved_date} ${nextReservation.reserved_time}`;
-    const st = (nextReservation as { status?: string | null }).status;
+    // 診察済み判定は intake.status（SoT）のみ参照
+    const st = intakeRecord?.status || null;
     if (st === "OK") formattedReservation = `${base}（診察済み）`;
     else if (st === "NG") formattedReservation = `${base}（NG）`;
     else formattedReservation = base;

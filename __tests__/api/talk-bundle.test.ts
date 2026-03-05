@@ -302,10 +302,10 @@ describe("admin/patients/[id]/talk-bundle API", () => {
     tableChains["orders"] = createChain({ data: [], error: null });
     tableChains["reorders"] = createChain({ data: [], error: null });
     tableChains["reservations"] = createChain({
-      data: { reserved_date: "2026-02-01", reserved_time: "10:00", status: "OK" },
+      data: { reserved_date: "2026-02-01", reserved_time: "10:00" },
       error: null,
     });
-    tableChains["intake"] = createChain({ data: null, error: null });
+    tableChains["intake"] = createChain({ data: { answers: {}, created_at: "2026-01-01", status: "OK", reserve_id: null }, error: null });
 
     const res = await GET(makeReq(), makeCtx());
     const json = await res.json();
@@ -321,10 +321,10 @@ describe("admin/patients/[id]/talk-bundle API", () => {
     tableChains["orders"] = createChain({ data: [], error: null });
     tableChains["reorders"] = createChain({ data: [], error: null });
     tableChains["reservations"] = createChain({
-      data: { reserved_date: "2026-02-01", reserved_time: "10:00", status: "NG" },
+      data: { reserved_date: "2026-02-01", reserved_time: "10:00" },
       error: null,
     });
-    tableChains["intake"] = createChain({ data: null, error: null });
+    tableChains["intake"] = createChain({ data: { answers: {}, created_at: "2026-01-01", status: "NG", reserve_id: null }, error: null });
 
     const res = await GET(makeReq(), makeCtx());
     const json = await res.json();
