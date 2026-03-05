@@ -206,8 +206,10 @@ describe("POST /api/admin/noname-master/refund", () => {
     expect(data.refund_status).toBe("COMPLETED");
     expect(data.payment_method).toBe("credit_card");
 
-    // Square processRefund が呼ばれた
-    expect(mockProcessRefund).toHaveBeenCalledWith("pay_123", 10000);
+    // Square processRefund が呼ばれた（reason付き）
+    expect(mockProcessRefund).toHaveBeenCalledWith(
+      "pay_123", 10000, "PID:P001;Product:MJL_2.5mg_1mの払戻し"
+    );
     // 監査ログが記録された
     expect(mockLogAudit).toHaveBeenCalled();
   });

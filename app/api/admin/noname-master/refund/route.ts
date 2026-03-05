@@ -81,8 +81,16 @@ export async function POST(req: NextRequest) {
     // 7. 決済方法別の返金処理
     if (order.payment_method === "credit_card") {
       // クレジットカード: Square Refunds API
+      // reason: 元の決済noteと同じフォーマットで情報を付与
+      const reasonParts: string[] = [];
+      if (order.patient_id) reasonParts.push(`PID:${order.patient_id}`);
+      if (order.product_code) reasonParts.push(`Product:${order.product_code}`);
+      const refundReason = reasonParts.length > 0
+        ? `${reasonParts.join(";")}の払戻し`
+        : "管理画面からの払戻し";
+
       const square = new SquarePaymentProvider();
-      const result = await square.processRefund(order.id, order.amount);
+      const result = await square.processRefund(order.id, order.amount, refundReason);
 
       if (!result.success) {
         console.error("[noname-master/refund] Square refund failed:", result.status);

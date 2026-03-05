@@ -41,5 +41,5 @@ export interface PaymentProvider {
   name: string;
   createCheckoutLink(params: CheckoutParams): Promise<CheckoutResult>;
   verifyWebhook(req: Request): Promise<WebhookEvent | null>;
-  processRefund?(paymentId: string, amount?: number): Promise<RefundResult>;
+  processRefund?(paymentId: string, amount?: number, reason?: string): Promise<RefundResult>;
 }

@@ -141,7 +141,7 @@ export class SquarePaymentProvider implements PaymentProvider {
     return null;
   }
 
-  async processRefund(paymentId: string, amount?: number): Promise<RefundResult> {
+  async processRefund(paymentId: string, amount?: number, reason?: string): Promise<RefundResult> {
     const config = await this.getConfig();
 
     if (!config.accessToken) {
@@ -152,7 +152,7 @@ export class SquarePaymentProvider implements PaymentProvider {
     const body: Record<string, unknown> = {
       idempotency_key: idempotencyKey,
       payment_id: paymentId,
-      reason: "Requested by admin",
+      reason: reason || "Requested by admin",
     };
     if (amount) {
       body.amount_money = { amount, currency: "JPY" };
