@@ -43,6 +43,7 @@ interface Broadcast {
   id: number;
   name: string;
   message_content: string;
+  filter_rules: Record<string, unknown>;
   status: string;
   total_targets: number;
   sent_count: number;
@@ -99,6 +100,7 @@ export default function BroadcastSendPage() {
   // 配信履歴
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [expandedBroadcastId, setExpandedBroadcastId] = useState<number | null>(null);
 
   // テスト送信（複数アカウント対応）
   type TestAccount = { patient_id: string; patient_name: string; has_line_uid: boolean };
@@ -238,6 +240,9 @@ export default function BroadcastSendPage() {
           value: rule.behavior_value || "30",
         };
       }
+      if (rule.type === "intake_status" || rule.type === "reservation_status") {
+        return { type: rule.type, value: rule.status_value || "none" };
+      }
       return { type: rule.type };
     });
 
@@ -271,6 +276,9 @@ export default function BroadcastSendPage() {
           behavior_operator: c.operator || "within_days",
           behavior_value: c.value || "30",
         };
+      }
+      if (c.type === "intake_status" || c.type === "reservation_status") {
+        return { type: c.type as ConditionRule["type"], status_value: c.value || "none" };
       }
       return { type: c.type as ConditionRule["type"] };
     });
@@ -450,6 +458,44 @@ export default function BroadcastSendPage() {
   const formatDate = (s: string) => {
     const d = new Date(s);
     return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  // フィルタ条件を日本語で表示
+  const formatFilterRules = (rules: Record<string, unknown>): string[] => {
+    const labels: string[] = [];
+    const include = rules.include as { operator?: string; conditions?: FilterCondition[] } | undefined;
+    const exclude = rules.exclude as { conditions?: FilterCondition[] } | undefined;
+    const condLabel = (c: FilterCondition): string => {
+      const TYPE_LABELS: Record<string, string> = {
+        tag: "タグ", mark: "対応マーク", name: "名前", registered_date: "登録日",
+        field: "カスタムフィールド", visit_count: "来院回数", purchase_amount: "購入金額",
+        last_visit: "最終来院日", reorder_count: "再処方回数",
+        intake_status: "診察ステータス", reservation_status: "予約ステータス",
+      };
+      const label = TYPE_LABELS[c.type] || c.type;
+      if (c.type === "intake_status") {
+        const sv = c.value === "OK" ? "診察済み" : c.value === "NG" ? "NG" : "未診察";
+        return `${label}: ${sv}`;
+      }
+      if (c.type === "reservation_status") {
+        return `${label}: ${c.value === "has" ? "予約あり（今日以降）" : "未予約"}`;
+      }
+      if (c.type === "visit_count" || c.type === "purchase_amount" || c.type === "reorder_count") {
+        return `${label} ${c.operator || ""} ${c.value || ""}`;
+      }
+      if (c.type === "registered_date") {
+        return `${label} ${c.operator || ""} ${c.value || ""}`;
+      }
+      return label;
+    };
+    if (include?.conditions?.length) {
+      const op = include.operator === "OR" ? "OR" : "AND";
+      labels.push(`絞り込み(${op}): ${include.conditions.map(condLabel).join(" / ")}`);
+    }
+    if (exclude?.conditions?.length) {
+      labels.push(`除外: ${exclude.conditions.map(condLabel).join(" / ")}`);
+    }
+    return labels;
   };
 
   return (
@@ -1033,19 +1079,45 @@ export default function BroadcastSendPage() {
               {broadcasts.map(b => {
                 const st = BROADCAST_STATUS[b.status] || { text: b.status, bg: "bg-gray-50", textColor: "text-gray-600", dot: "bg-gray-400" };
                 const rate = b.total_targets > 0 ? Math.round((b.sent_count / b.total_targets) * 100) : 0;
+                const isExpanded = expandedBroadcastId === b.id;
+                const filterLabels = b.filter_rules ? formatFilterRules(b.filter_rules) : [];
                 return (
-                  <div key={b.id} className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow">
+                  <div
+                    key={b.id}
+                    className="bg-white rounded-xl border border-gray-100 p-4 hover:shadow-sm transition-shadow cursor-pointer"
+                    onClick={() => setExpandedBroadcastId(isExpanded ? null : b.id)}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 text-sm truncate">{b.name || "無題の配信"}</h3>
                         <span className="text-xs text-gray-400">{formatDate(b.created_at)}</span>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium ${st.bg} ${st.textColor}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                        {st.text}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-medium ${st.bg} ${st.textColor}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                          {st.text}
+                        </span>
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 line-clamp-1 mb-2">{b.message_content}</p>
+                    <p className={`text-xs text-gray-500 mb-2 ${isExpanded ? "whitespace-pre-wrap" : "line-clamp-1"}`}>{b.message_content}</p>
+                    {isExpanded && filterLabels.length > 0 && (
+                      <div className="mb-2 space-y-1">
+                        {filterLabels.map((label, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 rounded-md px-2 py-1">
+                            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isExpanded && filterLabels.length === 0 && (
+                      <div className="mb-2 text-xs text-gray-400">条件なし（全員配信）</div>
+                    )}
                     <div className="flex items-center gap-3 text-xs">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

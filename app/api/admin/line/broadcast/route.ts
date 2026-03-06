@@ -405,6 +405,82 @@ async function applyCondition(
       return targets.filter(t => !matchSet.has(t.patient_id));
     }
 
+    case "registered_date": {
+      const op = condition.operator || ">=";
+      const val = condition.value || "";
+      if (!val) return targets;
+      const pids = targets.map(t => t.patient_id);
+      const { data: patientsData } = await fetchAll(
+        () => withTenant(
+          supabaseAdmin.from("patients").select("patient_id, created_at").in("patient_id", pids),
+          tenantId
+        )
+      );
+      const matchSet = new Set<string>();
+      for (const p of patientsData || []) {
+        const createdDate = (p.created_at as string)?.split("T")[0] || "";
+        let matched = false;
+        if (op === ">=" || op === "after") matched = createdDate >= val;
+        else if (op === "<=" || op === "before") matched = createdDate <= val;
+        else if (op === "=") matched = createdDate === val;
+        if (matched) matchSet.add(p.patient_id as string);
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "intake_status": {
+      const statusVal = condition.value || "none";
+      const pids = targets.map(t => t.patient_id);
+      // intake.status でフィルタ
+      const { data: intakes } = await fetchAll(
+        () => withTenant(
+          supabaseAdmin.from("intake").select("patient_id, status").in("patient_id", pids),
+          tenantId
+        )
+      );
+      // 各patient_idの最新ステータスを集計
+      const statusMap = new Map<string, string>();
+      for (const row of intakes || []) {
+        const pid = row.patient_id as string;
+        const st = row.status as string | null;
+        if (st === "OK") statusMap.set(pid, "OK");
+        else if (st === "NG" && statusMap.get(pid) !== "OK") statusMap.set(pid, "NG");
+      }
+      const matchSet = new Set<string>();
+      for (const pid of pids) {
+        const actual = statusMap.get(pid) || "none";
+        if (actual === statusVal) matchSet.add(pid);
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
+    case "reservation_status": {
+      const statusVal = condition.value || "none";
+      const pids = targets.map(t => t.patient_id);
+      const today = new Date().toISOString().split("T")[0];
+      // アクティブな予約 = 今日以降かつキャンセルされていない予約
+      const { data: reservations } = await fetchAll(
+        () => withTenant(
+          supabaseAdmin.from("reservations")
+            .select("patient_id")
+            .in("patient_id", pids)
+            .gte("reserved_date", today)
+            .neq("status", "canceled"),
+          tenantId
+        )
+      );
+      const hasReservation = new Set((reservations || []).map(r => r.patient_id as string));
+      const matchSet = new Set<string>();
+      for (const pid of pids) {
+        const actual = hasReservation.has(pid) ? "has" : "none";
+        if (actual === statusVal) matchSet.add(pid);
+      }
+      if (isInclude) return targets.filter(t => matchSet.has(t.patient_id));
+      return targets.filter(t => !matchSet.has(t.patient_id));
+    }
+
     default:
       return targets;
   }

@@ -6,7 +6,8 @@ import { useState } from "react";
 
 export interface ConditionRule {
   type: "tag" | "mark" | "name" | "registered_date" | "field"
-    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count";
+    | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count"
+    | "intake_status" | "reservation_status";
   // タグ条件
   tag_ids?: number[];
   tag_match?: "any_include" | "all_include" | "any_exclude" | "all_exclude";
@@ -29,6 +30,8 @@ export interface ConditionRule {
   behavior_value?: string;
   behavior_value_end?: string;
   behavior_date_range?: string;
+  // 診察ステータス・予約ステータス
+  status_value?: string;
 }
 
 export interface StepCondition {
@@ -81,6 +84,8 @@ const CONDITION_TYPES: { type: ConditionRule["type"]; label: string }[] = [
   { type: "purchase_amount", label: "購入金額" },
   { type: "last_visit", label: "最終来院日" },
   { type: "reorder_count", label: "再処方回数" },
+  { type: "intake_status", label: "診察ステータス" },
+  { type: "reservation_status", label: "予約ステータス" },
 ];
 
 // ── 条件ON/OFFトグル（ステップ横に表示） ────────────────
@@ -197,6 +202,14 @@ export function ConditionSummary({
     if (rule.type === "reorder_count") {
       parts.push(`再処方${rule.behavior_operator || ">="}${rule.behavior_value || "0"}回`);
     }
+    if (rule.type === "intake_status") {
+      const labels: Record<string, string> = { none: "未診察", OK: "診察OK", NG: "診察NG" };
+      parts.push(labels[rule.status_value || "none"] || rule.status_value || "");
+    }
+    if (rule.type === "reservation_status") {
+      const labels: Record<string, string> = { none: "未予約", has: "予約あり" };
+      parts.push(labels[rule.status_value || "none"] || rule.status_value || "");
+    }
   }
 
   const summary = parts.length > 0 ? `実行条件: ${parts.join(" and ")}` : "実行条件あり";
@@ -274,6 +287,12 @@ export function ConditionBuilderModal({
     if (type === "last_visit") {
       newRule.behavior_operator = "within_days";
       newRule.behavior_value = "30";
+    }
+    if (type === "intake_status") {
+      newRule.status_value = "none";
+    }
+    if (type === "reservation_status") {
+      newRule.status_value = "none";
     }
     setRules(prev => [...prev, newRule]);
   };
@@ -411,6 +430,33 @@ export function ConditionBuilderModal({
                     unit="回"
                     rule={rule}
                     showDateRange={false}
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 診察ステータス条件 */}
+                {rule.type === "intake_status" && (
+                  <StatusConditionEditor
+                    label="診察ステータス"
+                    options={[
+                      { value: "none", label: "未診察（診察を受けていない）" },
+                      { value: "OK", label: "診察OK" },
+                      { value: "NG", label: "診察NG" },
+                    ]}
+                    rule={rule}
+                    onUpdate={(updates) => updateRule(i, updates)}
+                  />
+                )}
+
+                {/* 予約ステータス条件 */}
+                {rule.type === "reservation_status" && (
+                  <StatusConditionEditor
+                    label="予約ステータス"
+                    options={[
+                      { value: "none", label: "未予約（アクティブな予約なし）" },
+                      { value: "has", label: "予約あり（今日以降の予約あり）" },
+                    ]}
+                    rule={rule}
                     onUpdate={(updates) => updateRule(i, updates)}
                   />
                 )}
@@ -844,6 +890,45 @@ function LastVisitEditor({
         <span className="text-xs text-gray-500">
           {rule.behavior_operator === "within_days" ? "日以内に来院あり" : "日以上来院なし"}
         </span>
+      </div>
+    </div>
+  );
+}
+
+// ── 診察/予約ステータス条件エディタ ────────────────────────
+
+function StatusConditionEditor({
+  label,
+  options,
+  rule,
+  onUpdate,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  rule: ConditionRule;
+  onUpdate: (updates: Partial<ConditionRule>) => void;
+}) {
+  return (
+    <div className="pl-8">
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{label}</span>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map(opt => {
+          const selected = rule.status_value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdate({ status_value: opt.value })}
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${
+                selected
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "bg-white border border-gray-200 text-gray-600 hover:border-gray-300"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
