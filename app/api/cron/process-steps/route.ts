@@ -4,6 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
+import { evaluateDisplayConditions, type DisplayConditions } from "@/lib/step-conditions";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
 
@@ -20,6 +21,7 @@ interface StepItem {
   exit_condition_rules?: unknown[];
   exit_action?: string | null;
   exit_jump_to?: number | null;
+  display_conditions?: DisplayConditions | null;
   sort_order: number;
   delay_type?: string;
   delay_value?: number;
@@ -138,6 +140,18 @@ export async function GET(req: NextRequest) {
               processed++;
               continue;
             }
+          }
+        }
+
+        // 表示条件（display_conditions）の評価
+        if (step.display_conditions) {
+          const dcContext = await buildDisplayConditionContext(enrollment, tenantId);
+          const shouldDisplay = evaluateDisplayConditions(step.display_conditions, dcContext);
+          if (!shouldDisplay) {
+            // 条件を満たさない → スキップして次のステップへ
+            await advanceToNextStep(enrollment, tenantId);
+            processed++;
+            continue;
           }
         }
 
@@ -381,4 +395,59 @@ async function markCompleted(enrollment: StepEnrollment, tenantId: string | null
       tenantId
     );
   }
+}
+
+/** display_conditions 用のコンテキストを構築 */
+async function buildDisplayConditionContext(
+  enrollment: StepEnrollment,
+  tenantId: string | null
+): Promise<import("@/lib/step-conditions").DisplayConditionContext> {
+  // タグ名一覧を取得
+  const { data: tagRows } = await withTenant(
+    supabaseAdmin
+      .from("patient_tags")
+      .select("tag_definitions!inner(name)")
+      .eq("patient_id", enrollment.patient_id),
+    tenantId
+  );
+  const tags = (tagRows || []).map((r: Record<string, unknown>) => {
+    const td = r.tag_definitions as Record<string, unknown> | null;
+    return String(td?.name ?? "");
+  }).filter(Boolean);
+
+  // 経過日数を計算（enrolled_at から）
+  const { data: enrollData } = await withTenant(
+    supabaseAdmin
+      .from("step_enrollments")
+      .select("enrolled_at")
+      .eq("id", enrollment.id)
+      .maybeSingle(),
+    tenantId
+  );
+  const enrolledAt = enrollData?.enrolled_at ? new Date(enrollData.enrolled_at) : new Date();
+  const daysSinceStart = Math.floor((Date.now() - enrolledAt.getTime()) / (1000 * 60 * 60 * 24));
+
+  // 完了済みステップ（現在のstep_orderより前のステップ）
+  const { data: completedStepRows } = await withTenant(
+    supabaseAdmin
+      .from("step_items")
+      .select("id")
+      .eq("scenario_id", enrollment.scenario_id)
+      .lt("sort_order", enrollment.current_step_order),
+    tenantId
+  );
+  const completedSteps = (completedStepRows || []).map((s: Record<string, unknown>) => String(s.id));
+
+  // カスタムフィールド（patients テーブルの custom_fields JSONB）
+  const { data: patient } = await withTenant(
+    supabaseAdmin
+      .from("patients")
+      .select("custom_fields")
+      .eq("patient_id", enrollment.patient_id)
+      .maybeSingle(),
+    tenantId
+  );
+  const customFields = (patient?.custom_fields as Record<string, unknown>) || {};
+
+  return { tags, customFields, daysSinceStart, completedSteps };
 }

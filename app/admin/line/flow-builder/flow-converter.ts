@@ -41,6 +41,13 @@ export interface StepItemData {
   exit_condition_rules: Record<string, unknown>[];
   exit_action: string;
   exit_jump_to: number | null;
+  display_conditions: DisplayConditionsData | null;
+}
+
+/** 表示条件の型 */
+export interface DisplayConditionsData {
+  operator: "and" | "or";
+  conditions: { field: string; op: string; value: unknown }[];
 }
 
 /** step_items の入力型（DBからの生データ） */
@@ -60,6 +67,7 @@ export interface StepItemInput {
   exit_condition_rules?: Record<string, unknown>[];
   exit_action?: string;
   exit_jump_to?: number | null;
+  display_conditions?: DisplayConditionsData | null;
 }
 
 /** フローエッジ */
@@ -172,6 +180,7 @@ export function stepsToFlowGraph(items: StepItemInput[]): FlowGraph {
           exit_condition_rules: [],
           exit_action: "exit",
           exit_jump_to: null,
+          display_conditions: null,
         },
       });
 
@@ -337,6 +346,7 @@ export function flowGraphToSteps(graph: FlowGraph): Record<string, unknown>[] {
       exit_condition_rules: data.exit_condition_rules || [],
       exit_action: data.exit_action || "exit",
       exit_jump_to: data.exit_jump_to ?? null,
+      display_conditions: data.display_conditions || null,
     };
   });
 }
@@ -361,6 +371,7 @@ function extractStepData(item: StepItemInput): StepItemData {
     exit_condition_rules: item.exit_condition_rules || [],
     exit_action: item.exit_action || "exit",
     exit_jump_to: item.exit_jump_to ?? null,
+    display_conditions: item.display_conditions || null,
   };
 }
 
@@ -445,6 +456,7 @@ export function createNewNode(type: FlowNodeType, x: number, y: number): FlowNod
       exit_condition_rules: [],
       exit_action: "exit",
       exit_jump_to: null,
+      display_conditions: null,
     },
   };
 }
