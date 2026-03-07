@@ -13,6 +13,7 @@ import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkSpamBurst } from "@/lib/spam-burst";
+import { findScenarioByKeyword, getActiveSession, startScenario, processUserInput, getNextMessage } from "@/lib/chatbot-engine";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
 
 /** after()で処理するAI返信の対象患者リスト（リクエスト単位） */
@@ -734,8 +735,18 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
     }
   }
 
-  // AI返信処理（テキスト・キーワード未マッチ時のみ）
+  // チャットボット処理（キーワード未マッチ時、AI返信より優先）
+  let chatbotHandled = false;
   if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
+    try {
+      chatbotHandled = await handleChatbotMessage(lineUid, patient.patient_id, message.text, tenantId);
+    } catch (e) {
+      console.error("[webhook] chatbot error:", e);
+    }
+  }
+
+  // AI返信処理（テキスト・キーワード未マッチ・チャットボット未処理時のみ）
+  if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched && !chatbotHandled) {
     // Redis デバウンスにも登録（cron バックアップ用）
     scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
     // after() で直接処理するためのターゲットに追加
@@ -921,6 +932,115 @@ async function evaluateConditionRules(patientId: string, rules: { type: string; 
   } catch {
     return true; // 条件評価エラー時はマッチ扱い
   }
+}
+
+// =================================================================
+// チャットボットメッセージ処理
+// =================================================================
+async function handleChatbotMessage(
+  lineUid: string,
+  patientId: string,
+  text: string,
+  tenantId: string | null,
+): Promise<boolean> {
+  // 1. アクティブセッションがあればそちらで処理
+  const activeSession = await getActiveSession(patientId, tenantId);
+  if (activeSession) {
+    const response = await processUserInput(activeSession.id, text, tenantId);
+    if (response) {
+      if (response.type === "question" && response.buttons && response.buttons.length > 0) {
+        // 選択肢付きメッセージ → Flex Message
+        const flexMsg = {
+          type: "flex" as const,
+          altText: response.text || "チャットボット",
+          contents: {
+            type: "bubble",
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                { type: "text", text: response.text, wrap: true, size: "md" },
+                ...response.buttons.map((b: { label: string; value: string }) => ({
+                  type: "button",
+                  action: { type: "message", label: b.label, text: b.value },
+                  style: "primary",
+                  margin: "sm",
+                  height: "sm",
+                })),
+              ],
+            },
+          },
+        };
+        await pushMessage(lineUid, [flexMsg as Record<string, unknown>], tenantId ?? undefined);
+      } else {
+        await pushMessage(lineUid, [{ type: "text", text: response.text }], tenantId ?? undefined);
+      }
+
+      await logEvent({
+        tenantId,
+        patient_id: patientId,
+        line_uid: lineUid,
+        direction: "outgoing",
+        event_type: "chatbot",
+        message_type: "individual",
+        content: response.text,
+        status: "sent",
+      });
+      return true;
+    }
+    // セッション完了（response が null）→ 通常処理にフォールスルー
+    return false;
+  }
+
+  // 2. キーワードトリガーでシナリオ開始
+  const scenario = await findScenarioByKeyword(text, tenantId);
+  if (!scenario) return false;
+
+  const session = await startScenario(patientId, scenario.id, tenantId);
+  if (!session) return false;
+
+  const firstMsg = await getNextMessage(session.id, tenantId);
+  if (!firstMsg) return false;
+
+  if (firstMsg.type === "question" && firstMsg.buttons && firstMsg.buttons.length > 0) {
+    const flexMsg = {
+      type: "flex" as const,
+      altText: firstMsg.text || "チャットボット",
+      contents: {
+        type: "bubble",
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            { type: "text", text: firstMsg.text, wrap: true, size: "md" },
+            ...firstMsg.buttons.map((b: { label: string; value: string }) => ({
+              type: "button",
+              action: { type: "message", label: b.label, text: b.value },
+              style: "primary",
+              margin: "sm",
+              height: "sm",
+            })),
+          ],
+        },
+      },
+    };
+    await pushMessage(lineUid, [flexMsg as Record<string, unknown>], tenantId ?? undefined);
+  } else {
+    await pushMessage(lineUid, [{ type: "text", text: firstMsg.text }], tenantId ?? undefined);
+  }
+
+  await logEvent({
+    tenantId,
+    patient_id: patientId,
+    line_uid: lineUid,
+    direction: "outgoing",
+    event_type: "chatbot",
+    message_type: "individual",
+    content: firstMsg.text,
+    status: "sent",
+  });
+
+  return true;
 }
 
 // =================================================================

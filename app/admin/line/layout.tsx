@@ -14,6 +14,7 @@ const MAIN_TABS = [
   { href: "/admin/line/step-scenarios", label: "ステップ配信" },
   { href: "/admin/line/flow-builder", label: "フロービルダー" },
   { href: "/admin/line/lifecycle-events", label: "イベント設定" },
+  { href: "/admin/line/chatbot", label: "チャットボット" },
   { href: "/admin/line/keyword-replies", label: "自動応答" },
   { href: "/admin/line/ai-reply-settings", label: "AI返信" },
   { href: "/admin/line/tags", label: "タグ管理" },
