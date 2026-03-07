@@ -250,6 +250,10 @@ export default function TemplateManagementPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [sharedTemplates, setSharedTemplates] = useState<{ id: string; name: string; description: string; category: string; template_type: string; tags: string[] }[]>([]);
+  const [importingId, setImportingId] = useState<string | null>(null);
+  const [sharedLoading, setSharedLoading] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
@@ -744,6 +748,15 @@ export default function TemplateManagementPage() {
               <p className="text-sm text-gray-400 mt-1">友だちに送信するメッセージのテンプレートを管理できます</p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl text-sm font-medium hover:bg-blue-50 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                共有テンプレートからインポート
+              </button>
               <button
                 onClick={() => setShowFolderModal(true)}
                 className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
@@ -1934,6 +1947,132 @@ export default function TemplateManagementPage() {
           </div>
         </div>
       )}
+
+      {/* 共有テンプレートインポートモーダル */}
+      {showImportModal && (
+        <SharedTemplateImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          sharedTemplates={sharedTemplates}
+          sharedLoading={sharedLoading}
+          importingId={importingId}
+          onFetch={async () => {
+            setSharedLoading(true);
+            try {
+              const res = await fetch("/api/admin/shared-templates?limit=100", { credentials: "include" });
+              if (res.ok) {
+                const data = await res.json();
+                setSharedTemplates(data.templates || []);
+              }
+            } catch (e) {
+              console.error("共有テンプレート取得エラー:", e);
+            } finally {
+              setSharedLoading(false);
+            }
+          }}
+          onImport={async (id: string) => {
+            setImportingId(id);
+            try {
+              const res = await fetch(`/api/admin/shared-templates/${id}/import`, {
+                method: "POST",
+                credentials: "include",
+              });
+              if (res.ok) {
+                const data = await res.json();
+                alert(data.message || "インポートしました");
+                setShowImportModal(false);
+                fetchData();
+              } else {
+                const err = await res.json();
+                alert(err.message || "インポートに失敗しました");
+              }
+            } catch {
+              alert("インポートに失敗しました");
+            } finally {
+              setImportingId(null);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---------- 共有テンプレートインポートモーダル ---------- */
+function SharedTemplateImportModal({
+  open,
+  onClose,
+  sharedTemplates,
+  sharedLoading,
+  importingId,
+  onFetch,
+  onImport,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sharedTemplates: { id: string; name: string; description: string; category: string; template_type: string; tags: string[] }[];
+  sharedLoading: boolean;
+  importingId: string | null;
+  onFetch: () => void;
+  onImport: (id: string) => void;
+}) {
+  useEffect(() => {
+    if (open) onFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!open) return null;
+
+  const typeLabels: Record<string, string> = { message: "メッセージ", flex: "Flex", workflow: "ワークフロー" };
+  const typeColors: Record<string, string> = { message: "bg-blue-100 text-blue-700", flex: "bg-purple-100 text-purple-700", workflow: "bg-amber-100 text-amber-700" };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900">共有テンプレートからインポート</h2>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {sharedLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+            </div>
+          ) : sharedTemplates.length === 0 ? (
+            <div className="text-center py-12 text-gray-400 text-sm">
+              共有テンプレートがありません
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sharedTemplates.map((t) => (
+                <div key={t.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-xl hover:bg-gray-50/50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm text-gray-800">{t.name}</div>
+                    {t.description && <div className="text-xs text-gray-400 mt-0.5 truncate">{t.description}</div>}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${typeColors[t.template_type] || "bg-gray-100 text-gray-600"}`}>
+                        {typeLabels[t.template_type] || t.template_type}
+                      </span>
+                      {t.category && <span className="text-[10px] text-gray-400">{t.category}</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onImport(t.id)}
+                    disabled={importingId === t.id}
+                    className="ml-3 px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 shrink-0"
+                  >
+                    {importingId === t.id ? "..." : "インポート"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
