@@ -49,11 +49,12 @@ export default function NonameMasterPage() {
 
   // 返金モーダル
   const [refundTarget, setRefundTarget] = useState<Order | null>(null);
-  const [refundStep, setRefundStep] = useState<"token" | "confirm">("token");
+  const [refundStep, setRefundStep] = useState<"token" | "action" | "confirm">("token");
   const [refundToken, setRefundToken] = useState("");
   const [refundMemo, setRefundMemo] = useState("");
   const [refundProcessing, setRefundProcessing] = useState(false);
   const [refundError, setRefundError] = useState("");
+  const [bankAction, setBankAction] = useState<"cancel" | "refund">("cancel");
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -306,27 +307,46 @@ export default function NonameMasterPage() {
     }
   };
 
-  // 返金実行
+  // 返金・キャンセル実行
   const handleRefund = async () => {
     if (!refundTarget) return;
     setRefundProcessing(true);
     setRefundError("");
 
+    const isBankTransfer = refundTarget.payment_method === "銀行振込";
+
     try {
-      const res = await fetch("/api/admin/noname-master/refund", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          order_id: refundTarget.id,
-          admin_token: refundToken,
-          memo: refundMemo || undefined,
-        }),
-      });
+      let res: Response;
+
+      if (isBankTransfer) {
+        // 銀行振込: bank-transfer/cancel APIを使用（キャンセル or 返金）
+        res = await fetch("/api/admin/bank-transfer/cancel", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: refundTarget.id,
+            action: bankAction,
+            memo: refundMemo || undefined,
+          }),
+        });
+      } else {
+        // クレカ: 従来通りnoname-master/refund APIを使用
+        res = await fetch("/api/admin/noname-master/refund", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: refundTarget.id,
+            admin_token: refundToken,
+            memo: refundMemo || undefined,
+          }),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error((data.message || data.error) || "返金処理に失敗しました");
+        throw new Error((data.message || data.error) || "処理に失敗しました");
       }
 
       // ローカルstate更新
@@ -336,9 +356,11 @@ export default function NonameMasterPage() {
             ? {
                 ...o,
                 status: "cancelled",
-                refund_status: data.refund_status,
+                refund_status: isBankTransfer
+                  ? (bankAction === "refund" ? "PENDING" : "CANCELLED")
+                  : (data.refund_status || "COMPLETED"),
                 refunded_at: new Date().toISOString(),
-                refunded_amount: o.amount,
+                refunded_amount: bankAction === "refund" || !isBankTransfer ? o.amount : null,
               }
             : o
         )
@@ -348,7 +370,13 @@ export default function NonameMasterPage() {
       setRefundStep("token");
       setRefundToken("");
       setRefundMemo("");
-      alert("返金処理が完了しました");
+      setBankAction("cancel");
+
+      if (isBankTransfer) {
+        alert(bankAction === "refund" ? "返金処理が完了しました（返金待ち）" : "キャンセルが完了しました");
+      } else {
+        alert("返金処理が完了しました");
+      }
     } catch (err) {
       setRefundError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -787,6 +815,7 @@ export default function NonameMasterPage() {
                             setRefundToken("");
                             setRefundMemo("");
                             setRefundError("");
+                            setBankAction("cancel");
                           }}
                           className="px-3 py-1.5 text-xs font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50"
                         >
@@ -812,14 +841,20 @@ export default function NonameMasterPage() {
             className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-3 py-2 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">返金処理</h3>
+            <div className="px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">
+                {refundTarget.payment_method === "銀行振込" ? "キャンセル・返金" : "返金処理"}
+              </h3>
               <p className="text-sm text-slate-600 mt-1">
-                {refundStep === "token" ? "管理者トークンを入力してください" : "返金内容を確認してください"}
+                {refundStep === "token"
+                  ? "管理者トークンを入力してください"
+                  : refundStep === "action"
+                  ? "処理内容を選択してください"
+                  : "内容を確認してください"}
               </p>
             </div>
 
-            <div className="px-3 py-2 space-y-4">
+            <div className="px-6 py-4 space-y-4">
               {/* 注文情報 */}
               <div className="bg-slate-50 rounded p-4 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -846,7 +881,7 @@ export default function NonameMasterPage() {
                 </div>
               </div>
 
-              {refundStep === "token" ? (
+              {refundStep === "token" && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     管理者トークン
@@ -856,15 +891,85 @@ export default function NonameMasterPage() {
                     value={refundToken}
                     onChange={(e) => setRefundToken(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && refundToken) setRefundStep("confirm");
+                      if (e.key === "Enter" && refundToken) {
+                        setRefundStep(refundTarget.payment_method === "銀行振込" ? "action" : "confirm");
+                      }
                     }}
                     placeholder="ADMIN_TOKEN を入力"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     autoFocus
                   />
                 </div>
-              ) : (
+              )}
+
+              {refundStep === "action" && (
                 <>
+                  {/* 銀行振込: キャンセル/返金の選択（照合ページと同じUI） */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">処理内容</label>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                        <input
+                          type="radio"
+                          name="bankAction"
+                          value="cancel"
+                          checked={bankAction === "cancel"}
+                          onChange={() => setBankAction("cancel")}
+                          className="text-blue-600"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">キャンセル（返金不要）</div>
+                          <div className="text-xs text-slate-500">誤って2回入力した等、振込されていない場合</div>
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                        <input
+                          type="radio"
+                          name="bankAction"
+                          value="refund"
+                          checked={bankAction === "refund"}
+                          onChange={() => setBankAction("refund")}
+                          className="text-blue-600"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-slate-900">返金（振込済み）</div>
+                          <div className="text-xs text-slate-500">実際に振込があり、返金対応が必要な場合</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">メモ（任意）</label>
+                    <input
+                      type="text"
+                      value={refundMemo}
+                      onChange={(e) => setRefundMemo(e.target.value)}
+                      placeholder="例: 重複入力のため"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div className={`border rounded p-3 ${
+                    bankAction === "refund"
+                      ? "bg-red-50 border-red-200"
+                      : "bg-yellow-50 border-yellow-200"
+                  }`}>
+                    <p className={`text-sm ${
+                      bankAction === "refund" ? "text-red-800" : "text-yellow-800"
+                    }`}>
+                      <strong>注意:</strong>{" "}
+                      {bankAction === "refund"
+                        ? "注文がキャンセルされ「返金待ち」として記録されます。実際の振込返金は手動で行ってください。"
+                        : "注文が取り消されます。返金処理は行われません。"}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {refundStep === "confirm" && (
+                <>
+                  {/* クレカ用の確認ステップ */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       メモ（任意）
@@ -881,9 +986,7 @@ export default function NonameMasterPage() {
                   <div className="bg-red-50 border border-red-200 rounded p-3">
                     <p className="text-sm text-red-800">
                       <strong>注意:</strong>{" "}
-                      {refundTarget.payment_method === "クレジットカード"
-                        ? "Squareを通じてクレジットカードへの全額返金を実行します。この操作は取り消せません。"
-                        : "注文をキャンセルし「返金待ち」として記録します。実際の振込返金は手動で行ってください。"}
+                      Squareを通じてクレジットカードへの全額返金を実行します。この操作は取り消せません。
                     </p>
                   </div>
                 </>
@@ -896,10 +999,13 @@ export default function NonameMasterPage() {
               )}
             </div>
 
-            <div className="px-3 py-2 border-t border-slate-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
               <button
                 onClick={() => {
                   if (refundStep === "confirm") {
+                    setRefundStep("token");
+                    setRefundError("");
+                  } else if (refundStep === "action") {
                     setRefundStep("token");
                     setRefundError("");
                   } else {
@@ -909,18 +1015,22 @@ export default function NonameMasterPage() {
                 className="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg"
                 disabled={refundProcessing}
               >
-                {refundStep === "confirm" ? "戻る" : "閉じる"}
+                {refundStep === "token" ? "閉じる" : "戻る"}
               </button>
 
-              {refundStep === "token" ? (
+              {refundStep === "token" && (
                 <button
-                  onClick={() => setRefundStep("confirm")}
+                  onClick={() => {
+                    setRefundStep(refundTarget.payment_method === "銀行振込" ? "action" : "confirm");
+                  }}
                   disabled={!refundToken}
                   className="px-4 py-2 text-sm rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
                 >
                   次へ
                 </button>
-              ) : (
+              )}
+
+              {(refundStep === "action" || refundStep === "confirm") && (
                 <button
                   onClick={handleRefund}
                   disabled={refundProcessing}
@@ -930,7 +1040,11 @@ export default function NonameMasterPage() {
                       : "bg-red-600 text-white hover:bg-red-700"
                   }`}
                 >
-                  {refundProcessing ? "処理中..." : "返金を実行"}
+                  {refundProcessing
+                    ? "処理中..."
+                    : refundStep === "action"
+                    ? (bankAction === "refund" ? "返金処理を実行" : "キャンセルを実行")
+                    : "返金を実行"}
                 </button>
               )}
             </div>
