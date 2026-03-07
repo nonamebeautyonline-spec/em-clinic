@@ -167,6 +167,9 @@ export default function InventoryPage() {
   const [prevDate, setPrevDate] = useState<string | null>(null);
   const [prevBoxData, setPrevBoxData] = useState<ValMap>({});
 
+  // 在庫アラート
+  const [inventoryAlerts, setInventoryAlerts] = useState<{ id: string; product_title?: string; product_code?: string; current_stock: number; threshold: number }[]>([]);
+
   // 仕訳: のなめ自動入力
   const [autoFillBase, setAutoFillBase] = useState<Record<string, number>>({});
   const [autoFillLoading, setAutoFillLoading] = useState(false);
@@ -241,6 +244,14 @@ export default function InventoryPage() {
   }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // 在庫アラート取得
+  useEffect(() => {
+    fetch("/api/admin/inventory/alerts", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.alerts) setInventoryAlerts(d.alerts); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (locations.length > 0 && !locations.includes(storeTab)) {
@@ -660,6 +671,32 @@ export default function InventoryPage() {
           </button>
         </div>
       </div>
+
+      {/* 在庫アラートバナー */}
+      {inventoryAlerts.length > 0 && (
+        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-800 mb-1">
+                在庫アラート（{inventoryAlerts.length}件）
+              </h3>
+              <ul className="space-y-1">
+                {inventoryAlerts.map((alert) => (
+                  <li key={alert.id} className="text-sm text-amber-700">
+                    <span className="font-medium">{alert.product_title || alert.product_code}</span>
+                    {" "}の在庫が{" "}
+                    <span className="font-bold text-red-600">{alert.current_stock}</span>
+                    {" "}です（閾値: {alert.threshold}以下）
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 日付 + 保存 */}
       <div className="flex flex-wrap items-center gap-4 mb-6">

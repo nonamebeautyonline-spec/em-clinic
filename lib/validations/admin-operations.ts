@@ -392,6 +392,8 @@ export const productCreateSchema = z
     discount_until: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
     parent_id: z.string().nullable().optional(),
+    stock_alert_threshold: z.number().nullable().optional(),
+    stock_alert_enabled: z.boolean().optional(),
   })
   .passthrough();
 

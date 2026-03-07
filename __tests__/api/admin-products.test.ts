@@ -43,6 +43,10 @@ vi.mock("@/lib/products", () => ({
   getAllProducts: mockGetAllProducts,
 }));
 
+vi.mock("@/lib/inventory-alert", () => ({
+  checkInventoryAlerts: vi.fn().mockResolvedValue({ created: 0, resolved: 0 }),
+}));
+
 // --- ヘルパー ---
 function createPostRequest(body: unknown) {
   return new Request("http://localhost/api/admin/products", {
