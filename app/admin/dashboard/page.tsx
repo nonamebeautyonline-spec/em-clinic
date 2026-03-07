@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import OnboardingChecklist from "@/components/admin/OnboardingChecklist";
 
 // recharts はクライアント専用のため dynamic import で SSR を回避
 const SegmentWidget = dynamic(
@@ -49,29 +50,31 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   kpiTargetChart: true,
 };
 
-const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
-
-/** localStorage からウィジェット設定を読み込む */
-function loadWidgetSettings(): WidgetSettings {
-  if (typeof window === "undefined") return DEFAULT_WIDGET_SETTINGS;
+/** API からウィジェット設定を読み込む */
+async function loadWidgetSettings(): Promise<WidgetSettings> {
   try {
-    const raw = localStorage.getItem(WIDGET_STORAGE_KEY);
-    if (!raw) return DEFAULT_WIDGET_SETTINGS;
-    return { ...DEFAULT_WIDGET_SETTINGS, ...JSON.parse(raw) };
+    const res = await fetch("/api/admin/dashboard-layout?scope=enhanced", { credentials: "include" });
+    if (!res.ok) return DEFAULT_WIDGET_SETTINGS;
+    const data = await res.json();
+    if (data?.enhancedWidgets) {
+      return { ...DEFAULT_WIDGET_SETTINGS, ...data.enhancedWidgets };
+    }
+    return DEFAULT_WIDGET_SETTINGS;
   } catch {
     return DEFAULT_WIDGET_SETTINGS;
   }
 }
 
-/** localStorage にウィジェット設定を保存する */
+/** API にウィジェット設定を保存する */
 function saveWidgetSettings(settings: WidgetSettings): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(settings));
-  } catch (e) {
-    // localStorage がフルの場合等はログ出力
-    console.error("[dashboard] レイアウト保存失敗:", e);
-  }
+  fetch("/api/admin/dashboard-layout?scope=enhanced", {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enhancedWidgets: settings }),
+  }).catch((e) => {
+    console.error("[dashboard] ウィジェット設定保存失敗:", e);
+  });
 }
 
 // 日別売上データの型（API レスポンス）
@@ -129,6 +132,7 @@ interface DashboardStats {
     consultationCompletionRate: number;
     lineRegisteredCount: number;
     todayNewReservations: number;
+    todayActiveReservations: number;
     todayPaidCount: number;
   };
   dailyBreakdown?: DailyBreakdown[];
@@ -162,9 +166,9 @@ export default function EnhancedDashboard() {
   const [showWidgetMenu, setShowWidgetMenu] = useState(false);
   const widgetMenuRef = useRef<HTMLDivElement>(null);
 
-  // 初期読み込み時に localStorage から復元
+  // 初期読み込み時に API から復元
   useEffect(() => {
-    setWidgetSettings(loadWidgetSettings());
+    loadWidgetSettings().then(setWidgetSettings);
   }, []);
 
   // ウィジェット設定の変更ハンドラ
@@ -201,16 +205,8 @@ export default function EnhancedDashboard() {
     todayNewPatients: 0,
   });
 
-  // セットアップ状態
-  const [setupComplete, setSetupComplete] = useState(true);
-  useEffect(() => {
-    fetch("/api/admin/setup-status", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.setupComplete !== undefined) setSetupComplete(data.setupComplete);
-      })
-      .catch(() => {});
-  }, []);
+  // オンボーディングチェックリスト
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -579,32 +575,9 @@ export default function EnhancedDashboard() {
         </div>
       </div>
 
-      {/* セットアップバナー（LINE未設定時） */}
-      {!setupComplete && (
-        <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="shrink-0 w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-amber-900">LINE Messaging APIの設定が完了していません</p>
-                <p className="text-xs text-amber-700">全機能を利用するために設定を完了してください</p>
-              </div>
-            </div>
-            <a
-              href="/admin/settings?section=line"
-              className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
-            >
-              設定する
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </a>
-          </div>
-        </div>
+      {/* オンボーディングチェックリスト */}
+      {showOnboarding && (
+        <OnboardingChecklist onDismiss={() => setShowOnboarding(false)} />
       )}
 
       {error && (
@@ -656,7 +629,7 @@ export default function EnhancedDashboard() {
       )}
 
       {/* メインKPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <KPICard
           title="純売上"
           value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
@@ -665,11 +638,25 @@ export default function EnhancedDashboard() {
           color="blue"
         />
         <KPICard
+          title="顧客単価"
+          value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+          subtitle="平均注文額"
+          icon="💎"
+          color="rose"
+        />
+        <KPICard
           title="LINE登録者"
           value={`${stats?.kpi.lineRegisteredCount || 0}`}
           subtitle="LINE友だち数"
           icon="💬"
           color="green"
+        />
+        <KPICard
+          title="アクティブ予約"
+          value={`${stats?.kpi.todayActiveReservations || 0}`}
+          subtitle="キャンセル除く有効予約数"
+          icon="📋"
+          color="sky"
         />
         <KPICard
           title="本日の予約"
@@ -1120,7 +1107,7 @@ interface KPICardProps {
   value: string;
   subtitle: string;
   icon: string;
-  color: "blue" | "green" | "purple" | "orange";
+  color: "blue" | "green" | "purple" | "orange" | "rose" | "sky";
 }
 
 function KPICard({ title, value, subtitle, icon, color }: KPICardProps) {
@@ -1129,6 +1116,8 @@ function KPICard({ title, value, subtitle, icon, color }: KPICardProps) {
     green: "border-green-500 bg-green-50",
     purple: "border-purple-500 bg-purple-50",
     orange: "border-orange-500 bg-orange-50",
+    rose: "border-rose-500 bg-rose-50",
+    sky: "border-sky-500 bg-sky-50",
   };
 
   return (

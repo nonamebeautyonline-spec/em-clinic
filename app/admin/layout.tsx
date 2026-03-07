@@ -384,11 +384,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* ナビゲーションメニュー */}
         <nav ref={sidebarNavRef} onScroll={handleSidebarScroll} className="flex-1 overflow-y-auto py-4">
           <MenuItem
-            href="/admin"
+            href="/admin/dashboard"
             icon="📊"
             label="ダッシュボード"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/admin"}
+            isActive={pathname === "/admin/dashboard" || pathname === "/admin"}
           />
           <MenuItem
             href="/admin/accounting"

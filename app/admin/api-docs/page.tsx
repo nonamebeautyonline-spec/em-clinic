@@ -66,7 +66,7 @@ export default function ApiDocsPage() {
             <h1 className="text-lg font-bold">API仕様書</h1>
             <p className="text-sm text-slate-400 mt-0.5">Lオペ for CLINIC — OpenAPI 3.0</p>
           </div>
-          <Link href="/admin" className="text-sm text-slate-300 hover:text-white">
+          <Link href="/admin/dashboard" className="text-sm text-slate-300 hover:text-white">
             管理画面に戻る
           </Link>
         </div>

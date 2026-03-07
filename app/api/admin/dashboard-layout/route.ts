@@ -49,6 +49,20 @@ export async function GET(request: NextRequest) {
   }
 
   const tenantId = resolveTenantId(request) || undefined;
+  const scope = new URL(request.url).searchParams.get("scope");
+
+  // enhanced ダッシュボードのウィジェット設定
+  if (scope === "enhanced") {
+    const raw = await getSetting("dashboard", "enhanced_widgets", tenantId);
+    if (!raw) {
+      return NextResponse.json({ enhancedWidgets: null });
+    }
+    try {
+      return NextResponse.json({ enhancedWidgets: JSON.parse(raw) });
+    } catch {
+      return NextResponse.json({ enhancedWidgets: null });
+    }
+  }
 
   const raw = await getSetting("dashboard", "layout", tenantId);
   if (!raw) {
@@ -81,6 +95,25 @@ export async function PUT(request: NextRequest) {
   }
 
   const tenantId = resolveTenantId(request) || undefined;
+  const scope = new URL(request.url).searchParams.get("scope");
+
+  // enhanced ダッシュボードのウィジェット設定
+  if (scope === "enhanced") {
+    let body: { enhancedWidgets: Record<string, boolean> };
+    try {
+      body = await request.json();
+    } catch {
+      return badRequest("不正なリクエスト");
+    }
+    if (!body.enhancedWidgets || typeof body.enhancedWidgets !== "object") {
+      return badRequest("enhancedWidgets が必要です");
+    }
+    const ok = await setSetting("dashboard", "enhanced_widgets", JSON.stringify(body.enhancedWidgets), tenantId);
+    if (!ok) {
+      return serverError("保存に失敗しました");
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   let body: DashboardLayout;
   try {
