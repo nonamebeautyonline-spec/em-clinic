@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import Link from "next/link";
-import type { DisplayConditions, SingleCondition, ConditionOperator } from "@/lib/form-conditions";
+import type { DisplayConditions, SingleCondition, ConditionOperator, CompoundCondition } from "@/lib/form-conditions";
+import { isCompoundCondition } from "@/lib/form-conditions";
+import ConditionBuilder from "@/components/ConditionBuilder";
+import type { ConditionField } from "@/components/ConditionBuilder";
 
 // ============================================================
 // 型定義
@@ -138,7 +141,7 @@ const DEFAULT_SETTINGS: FormSettings = {
 };
 
 // ============================================================
-// 表示条件エディタコンポーネント
+// 表示条件エディタコンポーネント（ConditionBuilder使用）
 // ============================================================
 
 function DisplayConditionEditor({
@@ -151,80 +154,50 @@ function DisplayConditionEditor({
   onUpdate: (dc: DisplayConditions) => void;
 }) {
   // 自分自身と見出しを除いた他のフィールドを表示条件の参照先として使用可能
-  const availableFields = allFields.filter(
-    f => f.id !== field.id && f.type !== "heading_sm" && f.type !== "heading_md"
-  );
+  const availableFields: ConditionField[] = allFields
+    .filter(f => f.id !== field.id && f.type !== "heading_sm" && f.type !== "heading_md")
+    .map(f => ({ id: f.id, label: f.label, type: f.type, options: f.options }));
 
-  // 現在の条件を取得（複合条件に正規化）
   const dc = field.display_conditions;
   const hasCondition = !!dc;
 
-  // 条件リストを取得
-  const getConditions = (): SingleCondition[] => {
-    if (!dc) return [];
-    if ("logic" in dc && "conditions" in dc) return dc.conditions || [];
-    // 単一条件の場合
-    return [dc as SingleCondition];
-  };
-
-  const getLogic = (): "and" | "or" => {
-    if (dc && "logic" in dc) return dc.logic;
-    return "and";
-  };
-
-  const conditions = getConditions();
-  const logic = getLogic();
-
-  // 条件を更新（条件リストとlogicから display_conditions を構築）
-  const buildAndUpdate = (newConditions: SingleCondition[], newLogic: "and" | "or") => {
-    if (newConditions.length === 0) {
-      onUpdate(null);
-    } else if (newConditions.length === 1) {
-      // 単一条件はそのまま保存
-      onUpdate(newConditions[0]);
-    } else {
-      onUpdate({ logic: newLogic, conditions: newConditions });
+  // 現在の条件をCompoundConditionに正規化
+  const normalizeToCompound = (): CompoundCondition => {
+    if (!dc) {
+      return { logic: "and", conditions: [{ when: availableFields[0]?.id ?? "", operator: "equals", value: "" }] };
     }
+    if (isCompoundCondition(dc)) return dc;
+    // 単一条件 → CompoundConditionに変換
+    return { logic: "and", conditions: [dc as SingleCondition] };
   };
 
-  // 条件を追加
-  const addCondition = () => {
-    const firstAvailable = availableFields[0];
-    if (!firstAvailable) return;
-    const newCond: SingleCondition = { when: firstAvailable.id, operator: "equals", value: "" };
-    buildAndUpdate([...conditions, newCond], logic);
+  // 条件を追加して有効化
+  const enableCondition = () => {
+    if (availableFields.length === 0) return;
+    const initial: CompoundCondition = {
+      logic: "and",
+      conditions: [{ when: availableFields[0].id, operator: "equals", value: "" }],
+    };
+    onUpdate(initial);
   };
 
-  // 条件を削除
-  const removeCondition = (idx: number) => {
-    const newConditions = conditions.filter((_, i) => i !== idx);
-    buildAndUpdate(newConditions, logic);
+  // 条件をクリア
+  const clearConditions = () => {
+    onUpdate(null);
   };
 
-  // 条件を更新
-  const updateCondition = (idx: number, updates: Partial<SingleCondition>) => {
-    const newConditions = conditions.map((c, i) => i === idx ? { ...c, ...updates } : c);
-    buildAndUpdate(newConditions, logic);
-  };
-
-  // ロジック切替
-  const toggleLogic = (newLogic: "and" | "or") => {
-    buildAndUpdate(conditions, newLogic);
-  };
-
-  // 参照先フィールドのラベルを取得
-  const getFieldLabel = (fieldId: string) => {
-    const f = allFields.find(x => x.id === fieldId);
-    return f?.label || "（未設定）";
-  };
-
-  // 参照先フィールドが選択肢型か判定
-  const getFieldOptions = (fieldId: string): string[] | null => {
-    const f = allFields.find(x => x.id === fieldId);
-    if (!f) return null;
-    if (["checkbox", "radio", "dropdown"].includes(f.type)) return f.options;
-    if (f.type === "prefecture") return null; // 都道府県は多すぎるのでテキスト入力
-    return null;
+  // ConditionBuilderからの変更を反映
+  const handleChange = (compound: CompoundCondition) => {
+    if (compound.conditions.length === 0) {
+      onUpdate(null);
+      return;
+    }
+    // 単一条件の場合はそのまま保存（後方互換性）
+    if (compound.conditions.length === 1 && !isCompoundCondition(compound.conditions[0])) {
+      onUpdate(compound.conditions[0] as SingleCondition);
+      return;
+    }
+    onUpdate(compound);
   };
 
   return (
@@ -236,14 +209,24 @@ function DisplayConditionEditor({
           </svg>
           表示条件
         </label>
-        {!hasCondition && availableFields.length > 0 && (
-          <button
-            onClick={addCondition}
-            className="text-xs text-[#00B900] hover:underline"
-          >
-            + 条件を追加
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!hasCondition && availableFields.length > 0 && (
+            <button
+              onClick={enableCondition}
+              className="text-xs text-[#00B900] hover:underline"
+            >
+              + 条件を追加
+            </button>
+          )}
+          {hasCondition && (
+            <button
+              onClick={clearConditions}
+              className="text-xs text-red-400 hover:text-red-600 hover:underline"
+            >
+              条件をクリア
+            </button>
+          )}
+        </div>
       </div>
 
       {!hasCondition && (
@@ -254,123 +237,11 @@ function DisplayConditionEditor({
       )}
 
       {hasCondition && (
-        <div className="space-y-2">
-          {/* AND/OR 切替（条件が2つ以上の場合） */}
-          {conditions.length >= 2 && (
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-gray-500">条件の組み合わせ:</span>
-              <button
-                onClick={() => toggleLogic("and")}
-                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                  logic === "and"
-                    ? "bg-[#00B900] text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                すべて満たす (AND)
-              </button>
-              <button
-                onClick={() => toggleLogic("or")}
-                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                  logic === "or"
-                    ? "bg-[#00B900] text-white"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                いずれか満たす (OR)
-              </button>
-            </div>
-          )}
-
-          {/* 条件行 */}
-          {conditions.map((cond, ci) => {
-            const fieldOptions = getFieldOptions(cond.when);
-            const needsValue = !NO_VALUE_OPERATORS.includes(cond.operator);
-
-            return (
-              <div key={ci} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
-                {/* 参照先フィールド */}
-                <select
-                  value={cond.when}
-                  onChange={e => updateCondition(ci, { when: e.target.value, value: "" })}
-                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] min-w-0 flex-shrink"
-                >
-                  {availableFields.map(f => (
-                    <option key={f.id} value={f.id}>{f.label || "（未設定）"}</option>
-                  ))}
-                </select>
-
-                {/* 条件の間のラベル（2行目以降） */}
-                {ci > 0 && conditions.length >= 2 && (
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">
-                    {logic === "and" ? "かつ" : "または"}
-                  </span>
-                )}
-
-                {/* 演算子 */}
-                <select
-                  value={cond.operator}
-                  onChange={e => {
-                    const newOp = e.target.value as ConditionOperator;
-                    const updates: Partial<SingleCondition> = { operator: newOp };
-                    if (NO_VALUE_OPERATORS.includes(newOp)) updates.value = undefined;
-                    updateCondition(ci, updates);
-                  }}
-                  className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] flex-shrink-0"
-                >
-                  {CONDITION_OPERATORS.map(op => (
-                    <option key={op.value} value={op.value}>{op.label}</option>
-                  ))}
-                </select>
-
-                {/* 比較値（演算子が値を必要とする場合） */}
-                {needsValue && (
-                  fieldOptions && fieldOptions.length > 0 ? (
-                    <select
-                      value={cond.value ?? ""}
-                      onChange={e => updateCondition(ci, { value: e.target.value })}
-                      className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] min-w-0 flex-1"
-                    >
-                      <option value="">値を選択...</option>
-                      {fieldOptions.filter(o => o).map((opt, oi) => (
-                        <option key={oi} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={cond.value ?? ""}
-                      onChange={e => updateCondition(ci, { value: e.target.value })}
-                      placeholder="比較値"
-                      className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] min-w-0 flex-1"
-                    />
-                  )
-                )}
-
-                {/* 削除ボタン */}
-                <button
-                  onClick={() => removeCondition(ci)}
-                  className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
-                  title="条件を削除"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            );
-          })}
-
-          {/* 条件追加ボタン */}
-          {availableFields.length > 0 && (
-            <button
-              onClick={addCondition}
-              className="text-xs text-[#00B900] hover:underline"
-            >
-              + 条件を追加
-            </button>
-          )}
-        </div>
+        <ConditionBuilder
+          value={normalizeToCompound()}
+          onChange={handleChange}
+          fields={availableFields}
+        />
       )}
     </div>
   );
