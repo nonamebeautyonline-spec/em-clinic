@@ -32,7 +32,7 @@ export const YAMATO_B2_CONFIG: YamatoB2Config = {
   billingCategoryCode: "",
   fareManagementNo: "01",
   itemName: "サプリメント（引火性・高圧ガスなし）",
-  coolType: "2",
+  coolType: "1",
   forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
   completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
 };
@@ -200,7 +200,7 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string, config?:
   const cols: string[] = [];
   cols.push(order.payment_id || ""); // 1: お客様管理番号
   cols.push("0"); // 2: 送り状種類
-  cols.push(cfg.coolType || "2"); // 3: クール区分（0=常温, 1=冷蔵, 2=冷凍）
+  cols.push(cfg.coolType || "1"); // 3: クール区分（0=常温, 1=冷蔵, 2=冷凍）
   cols.push(""); // 4: 伝票番号
   cols.push(shipDate); // 5: 出荷予定日
   cols.push(""); // 6: お届け予定（指定）日

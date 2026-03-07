@@ -55,7 +55,7 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
     billingCategoryCode: "",
     fareManagementNo: "01",
     itemName: "サプリメント（引火性・高圧ガスなし）",
-    coolType: "2",
+    coolType: "1",
     forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
     completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
   },
