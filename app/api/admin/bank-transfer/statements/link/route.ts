@@ -22,10 +22,13 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { statementId, orderId } = body;
+    const { statementId, statementIds, orderId } = body;
 
-    if (!statementId || !orderId) {
-      return badRequest("statementIdとorderIdが必要です");
+    // 複数ID対応（statementIds優先、なければstatementIdを単体配列に）
+    const ids: number[] = statementIds || (statementId ? [statementId] : []);
+
+    if (ids.length === 0 || !orderId) {
+      return badRequest("statementId(s)とorderIdが必要です");
     }
 
     // 注文の存在確認
@@ -38,12 +41,12 @@ export async function POST(req: NextRequest) {
       return badRequest("指定された注文が見つかりません");
     }
 
-    // bank_statementsを更新
+    // bank_statementsを一括更新
     const { error } = await withTenant(
       supabase
         .from("bank_statements")
         .update({ reconciled: true, matched_order_id: orderId })
-        .eq("id", statementId),
+        .in("id", ids),
       tenantId
     );
 
@@ -52,7 +55,7 @@ export async function POST(req: NextRequest) {
       return serverError(error.message);
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, linkedCount: ids.length });
   } catch (e) {
     console.error("[Statements/link] error:", e);
     return serverError(e instanceof Error ? e.message : "サーバーエラー");
