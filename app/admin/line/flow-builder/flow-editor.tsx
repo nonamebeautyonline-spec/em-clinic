@@ -7,6 +7,7 @@ import {
   type FlowGraph,
   type FlowNodeType,
   type StepItemData,
+  type DisplayConditionsData,
   createNewNode,
   getNodeColor,
 } from "./flow-converter";
@@ -855,6 +856,12 @@ export function NodeSettingsPanel({ node, allNodes, onUpdate, onClose }: NodeSet
           </div>
         )}
 
+        {/* 表示条件（全ステップ共通） */}
+        <DisplayConditionsEditor
+          displayConditions={data.display_conditions}
+          onChange={(dc) => onUpdate({ display_conditions: dc })}
+        />
+
         {/* ノードID（デバッグ用） */}
         <div className="border-t border-gray-100 pt-3">
           <p className="text-[10px] text-gray-300">ノードID: {node.id}</p>
@@ -862,4 +869,192 @@ export function NodeSettingsPanel({ node, allNodes, onUpdate, onClose }: NodeSet
       </div>
     </div>
   );
+}
+
+/* ---------- 表示条件エディタコンポーネント ---------- */
+
+/** フィールドタイプの選択肢 */
+const FIELD_OPTIONS = [
+  { value: "tag_has", label: "タグを持っている" },
+  { value: "tag_not_has", label: "タグを持っていない" },
+  { value: "custom_field_equals", label: "カスタムフィールド一致" },
+  { value: "days_since_start_gte", label: "経過日数（以上）" },
+  { value: "days_since_start_lte", label: "経過日数（以下）" },
+  { value: "step_completed", label: "ステップ完了済み" },
+];
+
+interface DisplayConditionsEditorProps {
+  displayConditions: DisplayConditionsData | null;
+  onChange: (dc: DisplayConditionsData | null) => void;
+}
+
+function DisplayConditionsEditor({ displayConditions, onChange }: DisplayConditionsEditorProps) {
+  const conditions = displayConditions?.conditions || [];
+  const operator = displayConditions?.operator || "and";
+
+  /** 条件を追加 */
+  const addCondition = () => {
+    const newConditions = [...conditions, { field: "tag_has", op: "equals", value: "" }];
+    onChange({ operator, conditions: newConditions });
+  };
+
+  /** 条件を削除 */
+  const removeCondition = (index: number) => {
+    const newConditions = conditions.filter((_, i) => i !== index);
+    if (newConditions.length === 0) {
+      onChange(null);
+    } else {
+      onChange({ operator, conditions: newConditions });
+    }
+  };
+
+  /** 条件を更新 */
+  const updateCondition = (index: number, patch: Partial<{ field: string; op: string; value: unknown }>) => {
+    const newConditions = conditions.map((c, i) => (i === index ? { ...c, ...patch } : c));
+    onChange({ operator, conditions: newConditions });
+  };
+
+  /** AND/OR 切替 */
+  const toggleOperator = () => {
+    const newOp = operator === "and" ? "or" : "and";
+    onChange({ operator: newOp, conditions });
+  };
+
+  return (
+    <div className="border-t border-gray-100 pt-3">
+      <div className="flex items-center justify-between mb-2">
+        <label className="block text-xs font-medium text-gray-500">表示条件</label>
+        {conditions.length > 0 && (
+          <button
+            onClick={toggleOperator}
+            className="px-2 py-0.5 text-[10px] font-bold rounded border transition-colors"
+            style={{
+              borderColor: operator === "and" ? "#6366f1" : "#f59e0b",
+              color: operator === "and" ? "#6366f1" : "#f59e0b",
+              backgroundColor: operator === "and" ? "#eef2ff" : "#fffbeb",
+            }}
+          >
+            {operator === "and" ? "AND（全て一致）" : "OR（いずれか一致）"}
+          </button>
+        )}
+      </div>
+
+      {conditions.length === 0 ? (
+        <p className="text-xs text-gray-400 mb-2">未設定（常に表示）</p>
+      ) : (
+        <div className="space-y-2 mb-2">
+          {conditions.map((cond, i) => (
+            <div key={i} className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+              <div className="flex items-center gap-1 mb-1.5">
+                <select
+                  value={cond.field}
+                  onChange={(e) => updateCondition(i, { field: e.target.value, value: "" })}
+                  className="flex-1 px-1.5 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+                >
+                  {FIELD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => removeCondition(i)}
+                  className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                  title="条件を削除"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* フィールドタイプ別の入力UI */}
+              <DisplayConditionValueInput
+                field={cond.field}
+                value={cond.value}
+                onChange={(val) => updateCondition(i, { value: val })}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={addCondition}
+        className="w-full py-1.5 text-xs font-medium text-[#06C755] border border-dashed border-[#06C755] rounded-lg hover:bg-green-50 transition-colors"
+      >
+        + 条件を追加
+      </button>
+    </div>
+  );
+}
+
+/* ---------- フィールドタイプ別の値入力 ---------- */
+
+interface DisplayConditionValueInputProps {
+  field: string;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}
+
+function DisplayConditionValueInput({ field, value, onChange }: DisplayConditionValueInputProps) {
+  switch (field) {
+    case "tag_has":
+    case "tag_not_has":
+      return (
+        <input
+          type="text"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="タグ名を入力"
+          className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+        />
+      );
+
+    case "custom_field_equals":
+      return (
+        <input
+          type="text"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="フィールド名:値 (例: gender:female)"
+          className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+        />
+      );
+
+    case "days_since_start_gte":
+    case "days_since_start_lte":
+      return (
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            min={0}
+            value={value !== undefined && value !== null && value !== "" ? Number(value) : ""}
+            onChange={(e) => onChange(e.target.value ? parseInt(e.target.value) : "")}
+            placeholder="日数"
+            className="w-20 px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+          />
+          <span className="text-[10px] text-gray-400">日</span>
+        </div>
+      );
+
+    case "step_completed":
+      return (
+        <input
+          type="text"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="ステップID"
+          className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+        />
+      );
+
+    default:
+      return (
+        <input
+          type="text"
+          value={String(value ?? "")}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="値を入力"
+          className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#06C755]"
+        />
+      );
+  }
 }
