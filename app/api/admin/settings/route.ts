@@ -66,6 +66,10 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "line_call_url", label: "LINEコールURL", sensitive: false },
     { key: "reorder_requires_reservation", label: "再処方時に予約必須", sensitive: false },
   ],
+  notification: [
+    { key: "cron_slack_webhook_url", label: "Cron通知 Slack Webhook URL" },
+    { key: "cron_notify_line_uid", label: "Cron通知 LINE UID" },
+  ],
   ehr: [
     { key: "provider", label: "連携プロバイダー", sensitive: false },
     { key: "sync_direction", label: "同期方向", sensitive: false },

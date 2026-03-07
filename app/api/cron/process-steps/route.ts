@@ -6,6 +6,7 @@ import { pushMessage } from "@/lib/line-push";
 import { calculateNextSendAt, evaluateStepConditions, jumpToStep } from "@/lib/step-enrollment";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 interface StepItem {
   step_type: string;
@@ -186,6 +187,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, processed, errors });
   } catch (e) {
     console.error("[process-steps] cron error:", e);
+    notifyCronFailure("process-steps", e).catch(() => {});
     return serverError((e as Error).message);
   } finally {
     await lock.release();

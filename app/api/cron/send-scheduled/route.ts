@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { pushMessage } from "@/lib/line-push";
 import { tenantPayload } from "@/lib/tenant";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 // Vercel Cron: 予約送信実行（5分おき）
 export async function GET(req: NextRequest) {
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("[Cron] DB error:", error.message);
+      notifyCronFailure("send-scheduled", error).catch(() => {});
       return serverError(error.message);
     }
 

@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant } from "@/lib/tenant";
 import { classifyPatients, saveSegments } from "@/lib/patient-segments";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[cron/segment-recalculate] 致命的エラー:", err);
+    notifyCronFailure("segment-recalculate", err).catch(() => {});
     return serverError("セグメント再計算に失敗しました");
   } finally {
     await lock.release();

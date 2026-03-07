@@ -4,6 +4,7 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,6 +157,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, date: statDate, collected, skipped, errors });
   } catch (e) {
     console.error("[collect-line-stats] cron error:", e);
+    notifyCronFailure("collect-line-stats", e).catch(() => {});
     return serverError((e as Error).message);
   }
 }
