@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 
-export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "consultation" | "ehr" | "account" | "options";
+export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "consultation" | "ehr" | "account" | "options" | "cron";
 
 const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
@@ -14,6 +14,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boo
   { key: "consultation", label: "診察設定", icon: "🩺", clinicOnly: true },
   { key: "ehr", label: "カルテ連携", icon: "🏗", clinicOnly: true },
   { key: "options", label: "オプション機能", icon: "✨" },
+  { key: "cron", label: "Cron実行履歴", icon: "⏱" },
   { key: "account", label: "アカウント", icon: "👤" },
 ];
 
