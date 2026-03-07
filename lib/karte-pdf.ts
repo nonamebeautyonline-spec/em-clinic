@@ -1,0 +1,192 @@
+// lib/karte-pdf.ts
+// カルテPDF生成ロジック
+// jsPDFのサーバーサイド使用。日本語フォントはBase64埋め込みが巨大すぎるため、
+// ASCII + ローマ字ラベルで構成する（invoice-pdf.ts と同じ方針）。
+
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+
+/** SOAP構造 */
+export interface KarteSoapData {
+  s: string; // Subjective（主訴・自覚症状）
+  o: string; // Objective（他覚所見・検査結果）
+  a: string; // Assessment（評価・診断）
+  p: string; // Plan（治療計画・処方）
+}
+
+/** バイタルデータ */
+export interface KarteVitalData {
+  measuredAt: string;
+  height?: number | null;
+  weight?: number | null;
+  bmi?: number | null;
+  systolic?: number | null;
+  diastolic?: number | null;
+  pulse?: number | null;
+  temperature?: number | null;
+}
+
+/** カルテPDF生成用データ */
+export interface KartePdfData {
+  // ヘッダー情報
+  clinicName: string;
+  patientName: string;
+  patientId: string;
+  date: string;
+  // SOAP構造（note_format=soap の場合はパース済み、plain の場合は s に全文）
+  soap: KarteSoapData;
+  // 処方内容
+  prescriptionMenu: string | null;
+  // バイタル（直近1件）
+  vitals: KarteVitalData | null;
+  // テンプレート名（使用したテンプレートがあれば）
+  templateName: string | null;
+  // 写真URL一覧（URLのみリスト表示）
+  imageUrls: string[];
+  // 予約情報
+  reservedDate: string | null;
+  reservedTime: string | null;
+  // ステータス
+  status: string | null;
+}
+
+/**
+ * カルテPDFを生成してBufferとして返す
+ * 日本語フォントなし（ASCII + ローマ字ラベル）
+ */
+export function generateKartePDF(data: KartePdfData): Buffer {
+  const doc = new jsPDF();
+  let y = 15;
+
+  // --- ヘッダー ---
+  doc.setFontSize(20);
+  doc.text("KARTE", 105, y, { align: "center" });
+  y += 12;
+
+  // --- クリニック名 ---
+  doc.setFontSize(10);
+  doc.text(data.clinicName || "Clinic", 15, y);
+  y += 6;
+
+  // --- 患者情報・日付 ---
+  doc.text(`Patient: ${data.patientName || "-"}`, 15, y);
+  doc.text(`Date: ${data.date || "-"}`, 140, y);
+  y += 6;
+  doc.text(`ID: ${data.patientId || "-"}`, 15, y);
+  if (data.status) {
+    doc.text(`Status: ${data.status}`, 140, y);
+  }
+  y += 6;
+
+  // 予約情報
+  if (data.reservedDate || data.reservedTime) {
+    doc.text(
+      `Reservation: ${data.reservedDate || "-"} ${data.reservedTime || ""}`.trim(),
+      15,
+      y,
+    );
+    y += 6;
+  }
+
+  // テンプレート名
+  if (data.templateName) {
+    doc.text(`Template: ${data.templateName}`, 15, y);
+    y += 6;
+  }
+
+  y += 4;
+
+  // --- SOAP セクション ---
+  doc.setFontSize(12);
+  doc.text("SOAP Note", 15, y);
+  y += 8;
+
+  const soapSections: [string, string][] = [
+    ["S (Subjective)", data.soap.s],
+    ["O (Objective)", data.soap.o],
+    ["A (Assessment)", data.soap.a],
+    ["P (Plan)", data.soap.p],
+  ];
+
+  autoTable(doc, {
+    startY: y,
+    head: [["Section", "Content"]],
+    body: soapSections.map(([label, content]) => [label, content || "-"]),
+    theme: "grid",
+    headStyles: { fillColor: [220, 38, 38] }, // 赤系（カルテらしい配色）
+    columnStyles: {
+      0: { cellWidth: 40, fontStyle: "bold" },
+      1: { cellWidth: "auto" },
+    },
+    styles: { fontSize: 9 },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  y = (doc as any).lastAutoTable?.finalY || y + 40;
+  y += 8;
+
+  // --- バイタル ---
+  if (data.vitals) {
+    doc.setFontSize(12);
+    doc.text("Vitals", 15, y);
+    y += 8;
+
+    const vitalRows: [string, string][] = [];
+    if (data.vitals.height != null) vitalRows.push(["Height (cm)", String(data.vitals.height)]);
+    if (data.vitals.weight != null) vitalRows.push(["Weight (kg)", String(data.vitals.weight)]);
+    if (data.vitals.bmi != null) vitalRows.push(["BMI", String(data.vitals.bmi)]);
+    if (data.vitals.systolic != null && data.vitals.diastolic != null) {
+      vitalRows.push(["Blood Pressure", `${data.vitals.systolic}/${data.vitals.diastolic}`]);
+    }
+    if (data.vitals.pulse != null) vitalRows.push(["Pulse (bpm)", String(data.vitals.pulse)]);
+    if (data.vitals.temperature != null) vitalRows.push(["Temperature (C)", String(data.vitals.temperature)]);
+    if (data.vitals.measuredAt) vitalRows.push(["Measured At", data.vitals.measuredAt]);
+
+    if (vitalRows.length > 0) {
+      autoTable(doc, {
+        startY: y,
+        head: [["Item", "Value"]],
+        body: vitalRows,
+        theme: "grid",
+        headStyles: { fillColor: [59, 130, 246] }, // 青系
+        styles: { fontSize: 9 },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      y = (doc as any).lastAutoTable?.finalY || y + 30;
+      y += 8;
+    }
+  }
+
+  // --- 処方内容 ---
+  if (data.prescriptionMenu) {
+    doc.setFontSize(12);
+    doc.text("Prescription", 15, y);
+    y += 6;
+    doc.setFontSize(10);
+    doc.text(data.prescriptionMenu, 15, y);
+    y += 8;
+  }
+
+  // --- 写真URL一覧 ---
+  if (data.imageUrls.length > 0) {
+    doc.setFontSize(12);
+    doc.text("Images", 15, y);
+    y += 6;
+    doc.setFontSize(8);
+    for (const url of data.imageUrls) {
+      if (y > 270) {
+        doc.addPage();
+        y = 15;
+      }
+      doc.text(url, 15, y);
+      y += 5;
+    }
+    y += 4;
+  }
+
+  // --- フッター ---
+  doc.setFontSize(8);
+  doc.text("Generated by L-ope for CLINIC", 105, 285, { align: "center" });
+
+  return Buffer.from(doc.output("arraybuffer"));
+}
