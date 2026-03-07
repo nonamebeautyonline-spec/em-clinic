@@ -11,6 +11,7 @@ import SmsSection from "./_components/SmsSection";
 import EhrSection from "./_components/EhrSection";
 import ConsultationSection from "./_components/ConsultationSection";
 import OptionsSection from "./_components/OptionsSection";
+import CronSection from "./_components/CronSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -307,6 +308,7 @@ export default function SettingsPage() {
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
+            {activeSection === "cron" && <CronSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}
           </div>
         </div>
