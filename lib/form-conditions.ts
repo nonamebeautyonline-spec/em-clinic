@@ -26,10 +26,13 @@ export interface SingleCondition {
   value?: string;            // 比較値（not_empty / is_empty では不要）
 }
 
-/** 複合条件（AND/OR） */
+/** 条件項目（単一条件 または ネストされた複合条件） */
+export type ConditionItem = SingleCondition | CompoundCondition;
+
+/** 複合条件（AND/OR、ネスト対応） */
 export interface CompoundCondition {
   logic: "and" | "or";
-  conditions: SingleCondition[];
+  conditions: ConditionItem[];
 }
 
 /** display_conditions の型（単一 or 複合 or null） */
@@ -99,12 +102,52 @@ export function evaluateCondition(
 }
 
 /**
+ * 条件項目を評価する（単一条件 or ネストされた複合条件）
+ */
+export function evaluateConditionItem(
+  item: ConditionItem,
+  formValues: Record<string, unknown>
+): boolean {
+  if (isCompoundCondition(item)) {
+    return evaluateCompoundCondition(item, formValues);
+  }
+  return evaluateCondition(item, formValues);
+}
+
+/**
+ * 複合条件を評価する（ネスト対応）
+ */
+export function evaluateCompoundCondition(
+  compound: CompoundCondition,
+  formValues: Record<string, unknown>
+): boolean {
+  const { logic, conditions } = compound;
+
+  if (!conditions || conditions.length === 0) return true;
+
+  if (logic === "or") {
+    return conditions.some(c => evaluateConditionItem(c, formValues));
+  }
+  // デフォルトは AND
+  return conditions.every(c => evaluateConditionItem(c, formValues));
+}
+
+/**
  * 型ガード: CompoundCondition かどうか
  */
-function isCompoundCondition(
-  dc: SingleCondition | CompoundCondition
+export function isCompoundCondition(
+  dc: ConditionItem | SingleCondition | CompoundCondition
 ): dc is CompoundCondition {
   return "logic" in dc && "conditions" in dc;
+}
+
+/**
+ * 型ガード: SingleCondition かどうか
+ */
+export function isSingleCondition(
+  dc: ConditionItem
+): dc is SingleCondition {
+  return "when" in dc && "operator" in dc && !("logic" in dc);
 }
 
 /**
@@ -122,15 +165,7 @@ export function evaluateDisplayConditions(
 
   // 複合条件
   if (isCompoundCondition(displayConditions)) {
-    const { logic, conditions } = displayConditions;
-
-    if (!conditions || conditions.length === 0) return true;
-
-    if (logic === "or") {
-      return conditions.some(c => evaluateCondition(c, formValues));
-    }
-    // デフォルトは AND
-    return conditions.every(c => evaluateCondition(c, formValues));
+    return evaluateCompoundCondition(displayConditions, formValues);
   }
 
   // 単一条件
