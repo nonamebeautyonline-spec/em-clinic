@@ -7,7 +7,6 @@ import { jwtVerify } from "jose";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2CustomSchema } from "@/lib/validations/shipping";
-import { getYamatoConfig } from "@/lib/shipping/config";
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
@@ -75,9 +74,8 @@ export async function POST(req: NextRequest) {
       today.getDate()
     ).padStart(2, "0")}`;
 
-    // DB保存設定を取得してCSV生成
-    const yamatoConfig = await getYamatoConfig(tenantId ?? undefined);
-    const csv = generateYamatoB2Csv(items, shipDate, yamatoConfig);
+    // CSV生成
+    const csv = generateYamatoB2Csv(items, shipDate);
 
     // ★ CSV出力後、注文の shipping_list_created_at を更新（統合前を含む全payment_id）
     const now = new Date().toISOString();
