@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = await parseBody(req, lineSendSchema);
   if ("error" in parsed) return parsed.error;
-  const { patient_id, message, message_type, flex, template_name } = parsed.data;
+  const { patient_id, message, message_type, flex, template_name, scheduled_at } = parsed.data;
   if (!message?.trim() && !flex) {
     return badRequest("message または flex は必須です");
   }
@@ -41,6 +41,51 @@ export async function POST(req: NextRequest) {
       direction: "outgoing",
     });
     return NextResponse.json({ error: "LINE UIDが見つかりません", status: "no_uid" }, { status: 400 });
+  }
+
+  // --- 予約送信モード: scheduled_at が指定されている場合 ---
+  if (scheduled_at) {
+    const scheduledDate = new Date(scheduled_at);
+    // 過去の日時は拒否（5分未満の猶予は許容しない）
+    if (scheduledDate.getTime() < Date.now() + 3 * 60 * 1000) {
+      return badRequest("予約送信は現在時刻から5分以上先を指定してください");
+    }
+
+    // Flexメッセージの場合
+    let flexJson = null;
+    let msgContent = message || "";
+    if (message_type === "flex" && flex) {
+      const rawFlex = flex as Record<string, unknown>;
+      const rawContents = rawFlex.contents ?? rawFlex;
+      flexJson = sanitizeFlexContents(rawContents);
+      msgContent = (rawFlex.altText as string) || "Flex Message";
+    }
+
+    // scheduled_messages に登録
+    const { data: scheduled, error: schedErr } = await supabaseAdmin
+      .from("scheduled_messages")
+      .insert({
+        ...tenantPayload(tenantId),
+        patient_id,
+        line_uid: patient.line_id,
+        message_content: msgContent,
+        message_type: message_type || "text",
+        flex_json: flexJson,
+        scheduled_at,
+        created_by: "admin",
+      })
+      .select("id, scheduled_at, created_at")
+      .single();
+
+    if (schedErr) return serverError(schedErr.message);
+
+    return NextResponse.json({
+      ok: true,
+      status: "scheduled",
+      schedule_id: scheduled.id,
+      scheduled_at: scheduled.scheduled_at,
+      patient_name: patient.name,
+    });
   }
 
   // Flex Message送信

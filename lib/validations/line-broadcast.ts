@@ -35,6 +35,7 @@ export const lineSendSchema = z
     message_type: z.string().optional(),
     flex: z.unknown().optional(),
     template_name: z.string().optional(),
+    scheduled_at: z.string().optional().nullable(),
   })
   .passthrough();
 

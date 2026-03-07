@@ -378,6 +378,12 @@ export default function TalkPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectAbortRef = useRef<AbortController | null>(null);
 
+  // 予約送信
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduledMessages, setScheduledMessages] = useState<{ id: number; message_content: string; scheduled_at: string; status: string; created_at: string }[]>([]);
+  const [cancelingScheduleId, setCancelingScheduleId] = useState<number | null>(null);
+
   // テンプレート推薦
   const [recommendedTemplates, setRecommendedTemplates] = useState<{ template_id: number; template_name: string; reason: string }[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
@@ -671,6 +677,9 @@ export default function TalkPage() {
     setShowMenuPicker(false);
     setIsBlocked(false);
     setRecommendedTemplates([]);
+    setScheduleMode(false);
+    setScheduledAt("");
+    setScheduledMessages([]);
     setMobileView("message");
 
     shouldScrollToBottom.current = true;
@@ -737,8 +746,11 @@ export default function TalkPage() {
     if (bundleData.fields) setPatientFields(bundleData.fields);
     if (bundleData.detail?.found) setPatientDetail(bundleData.detail);
 
+    // 予約送信メッセージを取得
+    fetchScheduledMessages(friend.patient_id);
+
     setMessagesLoading(false);
-  }, []);
+  }, [fetchScheduledMessages]);
 
   // URLの ?pid= で指定された患者を自動選択
   const autoSelectedRef = useRef(false);
@@ -842,28 +854,79 @@ export default function TalkPage() {
     return () => clearInterval(interval);
   }, [pollFriendsList]);
 
-  // メッセージ送信
+  // 予約送信メッセージ一覧を取得
+  const fetchScheduledMessages = useCallback(async (patientId: string) => {
+    try {
+      const res = await fetch(`/api/admin/line/schedule?patient_id=${encodeURIComponent(patientId)}&status=scheduled`, { credentials: "include" });
+      const data = await res.json();
+      if (data.schedules) setScheduledMessages(data.schedules);
+    } catch { /* ignore */ }
+  }, []);
+
+  // 予約送信キャンセル
+  const cancelScheduledMessage = useCallback(async (scheduleId: number) => {
+    if (cancelingScheduleId) return;
+    setCancelingScheduleId(scheduleId);
+    try {
+      const res = await fetch(`/api/admin/line/schedule/${scheduleId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setScheduledMessages(prev => prev.filter(m => m.id !== scheduleId));
+      }
+    } catch { /* ignore */ }
+    setCancelingScheduleId(null);
+  }, [cancelingScheduleId]);
+
+  // メッセージ送信（通常 + 予約送信）
   const handleSend = async () => {
     if (!newMessage.trim() || sending || !selectedPatient) return;
     if (sendLockRef.current) return;
     sendLockRef.current = true;
     setSending(true);
     try {
-      const res = await fetch("/api/admin/line/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: newMessage }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        shouldScrollToBottom.current = true;
-        setMessages(prev => [...prev, {
-          id: data.messageId ?? Date.now(), content: newMessage, status: "sent",
-          message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
-          direction: "outgoing",
-        }]);
-        setNewMessage("");
+      // 予約送信モードの場合
+      if (scheduleMode && scheduledAt) {
+        const res = await fetch("/api/admin/line/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            patient_id: selectedPatient.patient_id,
+            message: newMessage,
+            scheduled_at: new Date(scheduledAt).toISOString(),
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setNewMessage("");
+          setScheduleMode(false);
+          setScheduledAt("");
+          // 予約メッセージ一覧を更新
+          fetchScheduledMessages(selectedPatient.patient_id);
+        } else {
+          alert(data.error || "予約送信に失敗しました");
+        }
+      } else {
+        // 通常の即時送信
+        const res = await fetch("/api/admin/line/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ patient_id: selectedPatient.patient_id, message: newMessage }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          shouldScrollToBottom.current = true;
+          setMessages(prev => [...prev, {
+            id: data.messageId ?? Date.now(), content: newMessage, status: "sent",
+            message_type: "individual", sent_at: data.sentAt || new Date().toISOString(),
+            direction: "outgoing",
+          }]);
+          setNewMessage("");
+        }
       }
     } finally {
       sendLockRef.current = false;
@@ -1694,6 +1757,73 @@ export default function TalkPage() {
               </div>
             )}
 
+            {/* 予約送信メッセージ一覧 */}
+            {scheduledMessages.length > 0 && (
+              <div className="flex-shrink-0 bg-amber-50/80 border-t border-amber-200 px-3 py-1.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <svg className="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span className="text-[10px] font-semibold text-amber-700">予約送信 ({scheduledMessages.length}件)</span>
+                </div>
+                <div className="space-y-1 max-h-24 overflow-y-auto">
+                  {scheduledMessages.map(sm => {
+                    const d = new Date(sm.scheduled_at);
+                    const dateStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+                    return (
+                      <div key={sm.id} className="flex items-center gap-2 bg-white/70 rounded-lg px-2.5 py-1.5 border border-amber-200/50">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] text-amber-600 font-medium">{dateStr} 送信予定</span>
+                          <p className="text-[11px] text-gray-700 truncate">{sm.message_content}</p>
+                        </div>
+                        <button
+                          onClick={() => cancelScheduledMessage(sm.id)}
+                          disabled={cancelingScheduleId === sm.id}
+                          className="flex-shrink-0 text-[10px] text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-0.5 rounded transition-colors disabled:opacity-50"
+                        >
+                          {cancelingScheduleId === sm.id ? "..." : "取消"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 予約送信モード: 日時選択パネル */}
+            {scheduleMode && (
+              <div className="flex-shrink-0 bg-blue-50/80 border-t border-blue-200 px-3 py-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span className="text-[11px] font-semibold text-blue-700">予約送信モード</span>
+                  </div>
+                  <button
+                    onClick={() => { setScheduleMode(false); setScheduledAt(""); }}
+                    className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    解除
+                  </button>
+                </div>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={e => setScheduledAt(e.target.value)}
+                  min={(() => {
+                    const d = new Date(Date.now() + 5 * 60 * 1000);
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                  })()}
+                  className="w-full px-3 py-1.5 border border-blue-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:border-blue-400"
+                />
+                {scheduledAt && (
+                  <p className="text-[10px] text-blue-600 mt-1">
+                    {(() => {
+                      const d = new Date(scheduledAt);
+                      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")} に送信されます`;
+                    })()}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* 入力 */}
             <div className="flex-shrink-0 bg-white border-t border-gray-100 px-3 py-2">
               <input
@@ -1719,25 +1849,56 @@ export default function TalkPage() {
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="メッセージを入力"
+                  placeholder={scheduleMode ? "予約送信するメッセージを入力" : "メッセージを入力"}
                   rows={2}
-                  className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50 transition-all"
+                  className={`flex-1 px-3 py-2 border rounded-xl text-sm resize-none focus:outline-none focus:ring-2 transition-all ${
+                    scheduleMode
+                      ? "border-blue-200 focus:ring-blue-300/20 focus:border-blue-400 bg-blue-50/30"
+                      : "border-gray-200 focus:ring-[#00B900]/20 focus:border-[#00B900] bg-gray-50/50"
+                  }`}
                   style={{ maxHeight: "200px" }}
                   onInput={(e) => { const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={sending || sendingImage || !newMessage.trim()}
-                  className="px-4 py-2 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex-shrink-0 flex items-center gap-1.5"
-                >
-                  {sending || sendingImage ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  {scheduleMode ? (
+                    <button
+                      onClick={handleSend}
+                      disabled={sending || !newMessage.trim() || !scheduledAt}
+                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
+                    >
+                      {sending ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      )}
+                      予約
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSend}
+                      disabled={sending || sendingImage || !newMessage.trim()}
+                      className="px-4 py-2 bg-gradient-to-r from-[#00B900] to-[#00a000] text-white rounded-xl text-sm font-medium hover:shadow-md disabled:opacity-30 transition-all flex items-center gap-1.5"
+                    >
+                      {sending || sendingImage ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                      )}
+                      送信
+                    </button>
                   )}
-                  送信
-                </button>
+                  <button
+                    onClick={() => { setScheduleMode(!scheduleMode); if (scheduleMode) setScheduledAt(""); }}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-all flex items-center gap-1 justify-center ${
+                      scheduleMode
+                        ? "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                        : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    }`}
+                    title="予約送信"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    予約
+                  </button>
+                </div>
               </div>
               <div className="text-[9px] text-gray-300 mt-1 text-right">
-                {sendingImage ? "画像送信中..." : "Enter で改行"}
+                {sendingImage ? "画像送信中..." : scheduleMode ? "日時を指定して予約送信" : "Enter で改行"}
               </div>
             </div>
           </>
