@@ -164,6 +164,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ===== 分割振込の検出（自動照合はしない） =====
+    // 同一注文に対する複数の入金（2回振込等）を検出し、合算金額を提示
+    const splitMatchedGroups: { transfers: Transfer[]; order: typeof pendingOrdersWithNames[number]; totalAmount: number }[] = [];
+    if (amountMismatchList.length >= 2) {
+      const mismatchByOrder = new Map<string, typeof amountMismatchList>();
+      for (const item of amountMismatchList) {
+        const orderId = item.order.id;
+        if (!mismatchByOrder.has(orderId)) {
+          mismatchByOrder.set(orderId, []);
+        }
+        mismatchByOrder.get(orderId)!.push(item);
+      }
+
+      const remainingMismatch: typeof amountMismatchList = [];
+
+      for (const [, items] of mismatchByOrder) {
+        if (items.length >= 2) {
+          const totalAmount = items.reduce((sum, item) => sum + item.transfer.amount, 0);
+          if (totalAmount === items[0].order.amount) {
+            // 合算で金額一致 → splitMatchedとして検出（照合はしない）
+            splitMatchedGroups.push({
+              transfers: items.map((item) => item.transfer),
+              order: items[0].order,
+              totalAmount,
+            });
+            console.log(`[Preview] 🔍 Split payment detected: ${items.length} transfers totaling ¥${totalAmount} for order (¥${items[0].order.amount})`);
+            continue;
+          }
+        }
+        remainingMismatch.push(...items);
+      }
+
+      if (splitMatchedGroups.length > 0) {
+        // 分割検出分をamountMismatchから除外
+        amountMismatchList.length = 0;
+        amountMismatchList.push(...remainingMismatch);
+      }
+    }
+
     console.log(`[Preview] Matched: ${matched.length}, AmountMismatch: ${amountMismatchList.length}, Unmatched: ${unmatched.length}`);
 
     // ★ デバッグ情報を追加
@@ -269,10 +308,20 @@ export async function POST(req: NextRequest) {
         },
         difference: m.difference,
       })),
+      splitMatched: splitMatchedGroups.map((g) => ({
+        transfers: g.transfers,
+        order: {
+          patient_id: g.order.patient_id,
+          product_code: g.order.product_code,
+          amount: g.order.amount,
+        },
+        totalAmount: g.totalAmount,
+      })),
       unmatched: unmatched.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")),
       summary: {
         total: transfers.length,
         matched: matched.length,
+        splitMatched: splitMatchedGroups.length,
         amountMismatch: amountMismatchList.length,
         unmatched: unmatched.length,
         updated: 0, // プレビューなので0

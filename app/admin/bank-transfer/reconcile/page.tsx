@@ -40,14 +40,26 @@ interface UnmatchedItem {
   reason: string;
 }
 
+interface SplitMatchedGroup {
+  transfers: Array<{ date: string; description: string; amount: number }>;
+  order: {
+    patient_id: string;
+    product_code: string;
+    amount: number;
+  };
+  totalAmount: number;
+}
+
 interface ReconcileResult {
   mode?: "order_based" | "statement_based";
   matched: MatchedItem[];
+  splitMatched?: SplitMatchedGroup[];
   amountMismatch?: AmountMismatchItem[];
   unmatched: UnmatchedItem[];
   summary: {
     total: number;
     matched: number;
+    splitMatched?: number;
     amountMismatch?: number;
     unmatched: number;
     updated: number;
@@ -114,6 +126,8 @@ export default function BankTransferReconcilePage() {
   const [csvFormat, setCsvFormat] = useState<"gmo" | "paypay">("paypay");
   // 金額不一致の選択状態
   const [selectedMismatches, setSelectedMismatches] = useState<Set<number>>(new Set());
+  // 分割振込の選択状態
+  const [selectedSplits, setSelectedSplits] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -124,7 +138,7 @@ export default function BankTransferReconcilePage() {
   const [stmtMonthData, setStmtMonthData] = useState<Record<string, { data: BankStatement[]; total: number; page: number; loading: boolean }>>({});
   const [stmtLoading, setStmtLoading] = useState(false);
   // 入出金詳細 フィルター
-  const [stmtFilter, setStmtFilter] = useState<"all" | "reconciled" | "unreconciled">("all");
+  const [stmtFilter, setStmtFilter] = useState<"all" | "reconciled" | "unreconciled">("unreconciled");
   // 手動紐づけ
   const [linkTarget, setLinkTarget] = useState<BankStatement | null>(null);
   const [linkOrderId, setLinkOrderId] = useState("");
@@ -211,7 +225,7 @@ export default function BankTransferReconcilePage() {
     }
   }, []);
 
-  const loadStatements = useCallback(async (filter = "all") => {
+  const loadStatements = useCallback(async (filter = "unreconciled") => {
     setStmtLoading(true);
     try {
       // まず月一覧を取得
@@ -318,7 +332,7 @@ export default function BankTransferReconcilePage() {
     setConfirming(true);
     setError("");
 
-    // matched + 選択された金額不一致項目を統合
+    // matched + 選択された金額不一致項目 + 選択された分割振込項目を統合
     const selectedMismatchItems = (previewResult.amountMismatch || [])
       .filter((_, i) => selectedMismatches.has(i))
       .map((item) => ({
@@ -327,7 +341,17 @@ export default function BankTransferReconcilePage() {
         newPaymentId: null,
         updateSuccess: false,
       }));
-    const allMatches = [...previewResult.matched, ...selectedMismatchItems];
+    const selectedSplitItems = (previewResult.splitMatched || [])
+      .filter((_, i) => selectedSplits.has(i))
+      .flatMap((group) =>
+        group.transfers.map((t) => ({
+          transfer: t,
+          order: group.order,
+          newPaymentId: null,
+          updateSuccess: false,
+        }))
+      );
+    const allMatches = [...previewResult.matched, ...selectedMismatchItems, ...selectedSplitItems];
 
     try {
       const res = await fetch("/api/admin/bank-transfer/reconcile/confirm", {
@@ -350,6 +374,7 @@ export default function BankTransferReconcilePage() {
       setFile(null);
       setFileInputKey((k) => k + 1);
       setSelectedMismatches(new Set());
+      setSelectedSplits(new Set());
       loadPendingOrders(); // 配送先情報フォームを更新
     } catch (err) {
       console.error("Confirm error:", err);
@@ -749,6 +774,75 @@ export default function BankTransferReconcilePage() {
             </div>
           )}
 
+          {/* 分割振込セクション */}
+          {previewResult.splitMatched && previewResult.splitMatched.length > 0 && (
+            <div className="border-t border-purple-200">
+              <div className="px-6 py-4 bg-purple-50">
+                <h3 className="text-base font-semibold text-purple-900">
+                  分割振込（{previewResult.splitMatched.length}件）
+                </h3>
+                <p className="text-sm text-purple-700 mt-1">
+                  複数回の振込を合算すると注文金額と一致します。確認して反映する場合はチェックしてください
+                </p>
+              </div>
+              <div className="divide-y divide-slate-200">
+                {previewResult.splitMatched.map((group, gi) => (
+                  <div key={gi} className="px-6 py-4 hover:bg-purple-50">
+                    <div className="flex items-start gap-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedSplits.has(gi)}
+                        onChange={(e) => {
+                          const next = new Set(selectedSplits);
+                          if (e.target.checked) {
+                            next.add(gi);
+                          } else {
+                            next.delete(gi);
+                          }
+                          setSelectedSplits(next);
+                        }}
+                        className="w-4 h-4 mt-1 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm font-medium text-slate-900">
+                            注文金額: ¥{group.order.amount.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                            合算一致
+                          </span>
+                          <button
+                            onClick={() => window.open(`/admin/line/talk?pid=${group.order.patient_id}`, '_blank')}
+                            className="text-xs text-blue-600 hover:underline font-mono"
+                          >
+                            {group.order.patient_id}
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {group.transfers.map((t, ti) => (
+                            <div key={ti} className="flex items-center gap-4 text-sm">
+                              <span className="text-slate-500 w-24">{t.date}</span>
+                              <span className="text-slate-700 flex-1">{t.description}</span>
+                              <span className="font-medium text-green-700">¥{t.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-4 text-sm pt-1 border-t border-slate-100">
+                            <span className="text-slate-500 w-24">合計</span>
+                            <span className="flex-1" />
+                            <span className="font-bold text-purple-700">
+                              ¥{group.totalAmount.toLocaleString()}
+                              {group.totalAmount === group.order.amount && " = 注文金額"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 金額不一致セクション */}
           {previewResult.amountMismatch && previewResult.amountMismatch.length > 0 && (
             <div className="border-t border-orange-200">
@@ -868,6 +962,14 @@ export default function BankTransferReconcilePage() {
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <div className="text-sm text-slate-600">
               マッチ: <span className="font-semibold text-green-600">{previewResult.matched.length}件</span>
+              {(previewResult.splitMatched?.length ?? 0) > 0 && (
+                <span className="ml-4">
+                  分割振込: <span className="font-semibold text-purple-600">
+                    {previewResult.splitMatched!.length}件
+                    {selectedSplits.size > 0 && `（${selectedSplits.size}件選択中）`}
+                  </span>
+                </span>
+              )}
               {(previewResult.amountMismatch?.length ?? 0) > 0 && (
                 <span className="ml-4">
                   金額不一致: <span className="font-semibold text-orange-600">
@@ -885,14 +987,14 @@ export default function BankTransferReconcilePage() {
             </div>
             <button
               onClick={handleConfirm}
-              disabled={confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0)}
+              disabled={confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0 && selectedSplits.size === 0)}
               className={`px-6 py-3 rounded-lg font-medium ${
-                confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0)
+                confirming || (previewResult.matched.length === 0 && selectedMismatches.size === 0 && selectedSplits.size === 0)
                   ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                   : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
-              {confirming ? "反映中..." : `このデータを反映する（${previewResult.matched.length + selectedMismatches.size}件）`}
+              {confirming ? "反映中..." : `このデータを反映する（${previewResult.matched.length + selectedMismatches.size + selectedSplits.size}件）`}
             </button>
           </div>
 
@@ -1104,9 +1206,9 @@ export default function BankTransferReconcilePage() {
             </div>
             <div className="flex gap-4 mt-3">
               {([
-                { value: "all" as const, label: "全て" },
-                { value: "reconciled" as const, label: "照合済み" },
                 { value: "unreconciled" as const, label: "未照合" },
+                { value: "reconciled" as const, label: "照合済み" },
+                { value: "all" as const, label: "全て" },
               ]).map((opt) => (
                 <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -1372,7 +1474,7 @@ export default function BankTransferReconcilePage() {
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-slate-700">
-                    入金と紐づいていない確認済み注文（{unlinkedOrders.length}件）
+                    未照合の注文（{unlinkedOrders.length}件）
                   </p>
                   {unlinkedOrders.map((order) => {
                     const isSelected = linkOrderId === order.id;

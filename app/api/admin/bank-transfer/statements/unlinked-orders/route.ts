@@ -20,12 +20,12 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // confirmed銀行振込注文を全取得
-    const { data: confirmedOrders, error } = await withTenant(
+    // 銀行振込注文（pending_confirmation / confirmed）を全取得
+    const { data: bankOrders, error } = await withTenant(
       supabase
         .from("orders")
-        .select("id, patient_id, amount, account_name, shipping_name, product_code, created_at")
-        .eq("status", "confirmed")
+        .select("id, patient_id, amount, account_name, shipping_name, product_code, created_at, status")
+        .in("status", ["pending_confirmation", "confirmed"])
         .eq("payment_method", "bank_transfer")
         .order("created_at", { ascending: false }),
       tenantId
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       return serverError(error.message);
     }
 
-    if (!confirmedOrders || confirmedOrders.length === 0) {
+    if (!bankOrders || bankOrders.length === 0) {
       return NextResponse.json({ orders: [] });
     }
 
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     );
 
     // 紐づいていない注文のみ返す
-    const unlinkedOrders = confirmedOrders.filter(
+    const unlinkedOrders = bankOrders.filter(
       (o: Record<string, unknown>) => !linkedOrderIds.has(o.id as string)
     );
 

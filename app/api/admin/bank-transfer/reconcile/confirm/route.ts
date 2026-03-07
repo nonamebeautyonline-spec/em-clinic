@@ -54,8 +54,23 @@ export async function POST(req: NextRequest) {
       error?: string;
     }> = [];
 
+    // 分割振込対応: 同一patient_idの重複処理を防ぐ
+    const confirmedPatients = new Map<string, { newId: string }>();
+
     for (const match of matches) {
       const patientId = match.order.patient_id;
+
+      // 同一バッチ内で既に確認済みの場合はスキップ（分割振込）
+      if (confirmedPatients.has(patientId)) {
+        const existing = confirmedPatients.get(patientId)!;
+        console.log(`[Confirm] Skipping duplicate for patient ${patientId} (split payment, already confirmed as ${existing.newId})`);
+        updateResults.push({
+          orderId: patientId,
+          newId: existing.newId,
+          success: true,
+        });
+        continue;
+      }
 
       // patient_idでpending_confirmationの注文を検索
       const { data: pendingOrders, error: fetchError } = await withTenant(
@@ -130,6 +145,7 @@ export async function POST(req: NextRequest) {
         });
       } else {
         console.log(`[Confirm] Updated ${orderId} → ${nextBtId} (confirmed)`);
+        confirmedPatients.set(patientId, { newId: nextBtId });
         updateResults.push({
           orderId,
           newId: nextBtId,
