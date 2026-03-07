@@ -13,6 +13,7 @@ import ConsultationSection from "./_components/ConsultationSection";
 import NotificationSection from "./_components/NotificationSection";
 import OptionsSection from "./_components/OptionsSection";
 import ReportSection from "./_components/ReportSection";
+import LegalSection from "./_components/LegalSection";
 import CronSection from "./_components/CronSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
@@ -311,6 +312,7 @@ export default function SettingsPage() {
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "notification" && <NotificationSection onToast={handleToast} />}
             {activeSection === "report" && <ReportSection onToast={handleToast} />}
+            {activeSection === "legal" && <LegalSection onToast={handleToast} />}
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
             {activeSection === "cron" && <CronSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}

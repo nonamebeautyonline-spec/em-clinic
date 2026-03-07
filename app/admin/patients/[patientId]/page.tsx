@@ -3,6 +3,9 @@
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { calcAge, formatBirthWithEra, formatDateJST } from "@/lib/patient-utils";
+import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
+import { emptySoapNote, noteToSoap, soapToNote } from "@/lib/soap-parser";
+import { KarteNoteEditor } from "@/components/karte/KarteNoteEditor";
 import { VoiceRecordButton } from "@/components/voice-record-button";
 import { VoiceKarteButton } from "@/components/voice-karte-button";
 
@@ -66,9 +69,10 @@ export default function PatientDetailPage({
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [reorders, setReorders] = useState<ReorderItem[]>([]);
 
-  // カルテ編集
+  // カルテ編集（SOAP対応）
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
+  const [soapDraft, setSoapDraft] = useState<SoapNote>(emptySoapNote());
+  const [noteFormat, setNoteFormat] = useState<NoteFormat>("plain");
   const [lastSavedAt, setLastSavedAt] = useState("");
 
   // 新規カルテ追加
@@ -85,6 +89,18 @@ export default function PatientDetailPage({
     const raw = selectedIntake.note || "";
     return raw.replace(/^最終更新: .+\n?/, "");
   }, [selectedIntake]);
+
+  // noteからSOAP/plainを自動判定
+  const detectedFormat = useMemo((): NoteFormat => {
+    if (!originalNote) return "soap";
+    try {
+      const parsed = JSON.parse(originalNote);
+      if (parsed && typeof parsed === "object" && ("s" in parsed || "o" in parsed || "a" in parsed || "p" in parsed)) {
+        return "soap";
+      }
+    } catch { /* plainテキスト */ }
+    return "plain";
+  }, [originalNote]);
 
   async function reloadBundle() {
     try {
@@ -132,8 +148,9 @@ export default function PatientDetailPage({
   }, [patientId]);
 
   useEffect(() => {
-    setNoteDraft(originalNote);
-  }, [originalNote]);
+    setNoteFormat(detectedFormat);
+    setSoapDraft(noteToSoap(originalNote, detectedFormat));
+  }, [originalNote, detectedFormat]);
 
   async function handleSave() {
     if (!selectedIntakeId) return;
@@ -143,7 +160,7 @@ export default function PatientDetailPage({
       const res = await fetch("/api/admin/patientnote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, note: noteDraft, intakeId: selectedIntakeId }),
+        body: JSON.stringify({ patientId, note: soapToNote(soapDraft, noteFormat), intakeId: selectedIntakeId }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.message || "save_failed");
@@ -371,19 +388,18 @@ export default function PatientDetailPage({
                 </span>
               </div>
 
-              {/* Dr. Note エディタ */}
+              {/* カルテ（SOAP対応） */}
               <div className="bg-white rounded-lg border border-gray-200">
                 <div className="px-4 py-2.5 border-b border-gray-200 flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-700">Dr. Note</h3>
+                  <h3 className="text-sm font-bold text-gray-700">カルテ</h3>
                   {lastSavedAt && <span className="text-xs text-gray-400">最終保存: {lastSavedAt}</span>}
                 </div>
                 <div className="p-4">
-                  <textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    className="w-full min-h-[180px] rounded-lg border border-gray-300 p-3 text-sm outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 leading-relaxed resize-y"
-                    placeholder="診察メモを入力..."
-                    disabled={saving}
+                  <KarteNoteEditor
+                    soap={soapDraft}
+                    onSoapChange={setSoapDraft}
+                    noteFormat={noteFormat}
+                    onNoteFormatChange={setNoteFormat}
                   />
                   <div className="flex items-center gap-2 mt-3">
                     <button
@@ -394,18 +410,15 @@ export default function PatientDetailPage({
                       {saving ? "保存中..." : "保存"}
                     </button>
                     <button
-                      onClick={() => setNoteDraft(originalNote)}
+                      onClick={() => {
+                        setNoteFormat(detectedFormat);
+                        setSoapDraft(noteToSoap(originalNote, detectedFormat));
+                      }}
                       disabled={saving}
                       className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                     >
                       元に戻す
                     </button>
-                    <VoiceRecordButton
-                      onTranscribed={(text) => setNoteDraft(prev => prev ? prev + "\n" + text : text)}
-                    />
-                    <VoiceKarteButton
-                      onKarteGenerated={(text) => setNoteDraft(prev => prev ? prev + "\n" + text : text)}
-                    />
                   </div>
                 </div>
               </div>
