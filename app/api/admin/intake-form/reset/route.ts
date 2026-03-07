@@ -16,9 +16,9 @@ export async function POST(req: NextRequest) {
 
   const tenantId = resolveTenantId(req);
 
-  // 既存レコードを確認
+  // アクティブなレコードを確認
   const { data: existing } = await withTenant(
-    supabaseAdmin.from("intake_form_definitions").select("id"),
+    supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
     tenantId,
   ).maybeSingle();
 

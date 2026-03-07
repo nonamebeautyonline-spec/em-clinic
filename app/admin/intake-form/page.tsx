@@ -13,6 +13,15 @@ import {
   DEFAULT_INTAKE_SETTINGS,
 } from "@/lib/intake-form-defaults";
 
+// テンプレート一覧用の型
+interface TemplateItem {
+  id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============================================================
 // 定数
 // ============================================================
@@ -342,6 +351,220 @@ function PreviewInput({
 }
 
 // ============================================================
+// テンプレート一覧モーダル
+// ============================================================
+
+function TemplateListModal({
+  open,
+  onClose,
+  onActivated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onActivated: () => void;
+}) {
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/intake-form/templates", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setTemplates(data.templates);
+      }
+    } catch {
+      // 取得失敗時は空リスト
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) fetchTemplates();
+  }, [open, fetchTemplates]);
+
+  // テンプレート複製
+  const handleDuplicate = async () => {
+    setActionLoading("duplicate");
+    try {
+      const res = await fetch("/api/admin/intake-form/duplicate", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await fetchTemplates();
+      } else {
+        alert("複製に失敗しました: " + (data.message || ""));
+      }
+    } catch {
+      alert("複製に失敗しました");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // テンプレート有効化
+  const handleActivate = async (id: string) => {
+    if (!confirm("このテンプレートを使用中に切り替えますか？\n現在使用中のテンプレートは非アクティブになります。"))
+      return;
+    setActionLoading(id);
+    try {
+      const res = await fetch("/api/admin/intake-form/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await fetchTemplates();
+        onActivated();
+      } else {
+        alert("有効化に失敗しました: " + (data.message || ""));
+      }
+    } catch {
+      alert("有効化に失敗しました");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // テンプレート削除
+  const handleDelete = async (id: string) => {
+    if (!confirm("このテンプレートを削除しますか？\nこの操作は取り消せません。"))
+      return;
+    setActionLoading(id);
+    try {
+      const res = await fetch("/api/admin/intake-form/templates", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await fetchTemplates();
+      } else {
+        alert("削除に失敗しました: " + (data.message || ""));
+      }
+    } catch {
+      alert("削除に失敗しました");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-800">テンプレート一覧</h2>
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* テンプレート一覧 */}
+        <div className="flex-1 overflow-y-auto px-5 py-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-center py-12 text-sm text-gray-400">
+              テンプレートがありません
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((t) => (
+                <div
+                  key={t.id}
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+                    t.is_active
+                      ? "border-blue-200 bg-blue-50/50"
+                      : "border-gray-100 bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800 truncate">
+                        {t.name}
+                      </span>
+                      {t.is_active && (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+                          使用中
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-0.5 block">
+                      更新: {new Date(t.updated_at || t.created_at).toLocaleDateString("ja-JP")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 ml-3 flex-shrink-0">
+                    {!t.is_active && (
+                      <button
+                        onClick={() => handleActivate(t.id)}
+                        disabled={!!actionLoading}
+                        className="px-2.5 py-1 text-[11px] text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40"
+                      >
+                        有効化
+                      </button>
+                    )}
+                    {!t.is_active && (
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        disabled={!!actionLoading}
+                        className="px-2.5 py-1 text-[11px] text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-40"
+                      >
+                        削除
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* フッター */}
+        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={handleDuplicate}
+            disabled={!!actionLoading || templates.length === 0}
+            className="px-4 py-2 text-sm text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            {actionLoading === "duplicate" ? "複製中..." : "使用中を複製"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            閉じる
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // メインコンポーネント
 // ============================================================
 
@@ -357,6 +580,7 @@ export default function IntakeFormEditorPage() {
     DEFAULT_INTAKE_SETTINGS,
   );
   const [expandedField, setExpandedField] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // データ取得
   const fetchDefinition = useCallback(async () => {
@@ -526,6 +750,15 @@ export default function IntakeFormEditorPage() {
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
+          <button
+            onClick={() => setShowTemplates(true)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            テンプレート一覧
+          </button>
           {editing ? (
             <>
               <button onClick={() => setEditing(false)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
@@ -1137,6 +1370,17 @@ export default function IntakeFormEditorPage() {
         </div>
       )}
       </div>
+
+      {/* テンプレート一覧モーダル */}
+      <TemplateListModal
+        open={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        onActivated={() => {
+          // テンプレート切替後にフォームデータを再取得
+          fetchDefinition();
+          setEditing(false);
+        }}
+      />
     </div>
   );
 }

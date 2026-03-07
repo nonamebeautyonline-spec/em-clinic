@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await withTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .select("fields, settings"),
+      .select("fields, settings")
+      .eq("is_active", true),
     tenantId,
   ).maybeSingle();
 
