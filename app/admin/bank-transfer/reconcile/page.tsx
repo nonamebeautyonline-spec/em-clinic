@@ -1620,6 +1620,7 @@ export default function BankTransferReconcilePage() {
                       setLinkTargets([]);
                       setSelectedStatements(new Set());
                       loadStatements(stmtFilter);
+                      loadPendingOrders();
                     } catch (err) {
                       setError(err instanceof Error ? err.message : "紐づけに失敗しました");
                     } finally {
