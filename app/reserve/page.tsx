@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useMemo, useState, useCallback } from "reac
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import LegalSection from "./_components/LegalSection";
 
 type ReserveStep = 1 | 2;
 
@@ -128,6 +129,7 @@ const ReserveInner: React.FC = () => {
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   // ▼ 問診完了チェック（未完了なら/intakeへリダイレクト）
   const [intakeChecked, setIntakeChecked] = useState(false);
@@ -625,6 +627,10 @@ setTimeout(() => {
                   : "予約内容をご確認のうえ、「予約を確定する」ボタンを押してください。"}
               </p>
 
+              {!isEdit && (
+                <LegalSection agreed={agreed} onAgree={setAgreed} />
+              )}
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -637,11 +643,11 @@ setTimeout(() => {
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={booking}
+                  disabled={booking || (!isEdit && !agreed)}
                   className={`
                     flex-1 h-11 rounded-2xl text-[13px] font-semibold shadow-sm
                     ${
-                      booking
+                      booking || (!isEdit && !agreed)
 ? "bg-gray-400 text-white cursor-not-allowed"
                         : "bg-blue-600 text-white active:scale-[0.98] active:bg-blue-700"
                     }
