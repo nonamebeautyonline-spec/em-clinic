@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { exportYamatoB2Schema } from "@/lib/validations/shipping";
+import { getYamatoConfig } from "@/lib/shipping/config";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -86,8 +87,9 @@ export async function POST(req: NextRequest) {
       today.getDate()
     ).padStart(2, "0")}`;
 
-    // CSV生成
-    const csv = generateYamatoB2Csv(csvData, shipDate);
+    // DB保存設定を取得してCSV生成
+    const yamatoConfig = await getYamatoConfig(tenantId ?? undefined);
+    const csv = generateYamatoB2Csv(csvData, shipDate, yamatoConfig);
 
     // CSVをレスポンスとして返す
     return new NextResponse(csv, {
