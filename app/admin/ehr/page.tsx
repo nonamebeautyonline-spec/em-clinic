@@ -34,6 +34,23 @@ interface ExternalPatient {
   tel: string | null;
 }
 
+/** EHR接続ステータス */
+interface EhrStatus {
+  connectionStatus: "connected" | "disconnected" | "error";
+  lastSyncAt: string | null;
+  lastSyncResult: "success" | "failed" | null;
+  syncStats: {
+    success: number;
+    failed: number;
+    total: number;
+  };
+  system: {
+    provider: string | null;
+    providerLabel: string | null;
+    version: string | null;
+  };
+}
+
 /* ---------- 定数 ---------- */
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -79,11 +96,14 @@ function StatusBadge({ status }: { status: string }) {
 
 /* ---------- メインコンポーネント ---------- */
 export default function EhrDashboardPage() {
-  // ステータスカード用
-  const [provider, setProvider] = useState<string | null>(null);
-  const [mappingCount, setMappingCount] = useState<number | null>(null);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  // EHR接続ステータス
+  const [ehrStatus, setEhrStatus] = useState<EhrStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testConnectionResult, setTestConnectionResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   // 手動同期フォーム
   const [syncDirection, setSyncDirection] = useState<"pull" | "push">("pull");
@@ -139,40 +159,50 @@ export default function EhrDashboardPage() {
 
   /* ========== データ取得 ========== */
 
-  /** ステータスカード情報を取得 */
+  /** EHR接続ステータスを取得 */
   const fetchStatus = useCallback(async () => {
     setStatusLoading(true);
     try {
-      // 設定からプロバイダー情報を取得
-      const settingsRes = await fetch("/api/admin/settings?category=ehr", {
+      const res = await fetch("/api/admin/ehr/status", {
         credentials: "include",
       });
-      if (settingsRes.ok) {
-        const settingsData = await settingsRes.json();
-        // 設定からプロバイダー名を抽出
-        const providerSetting = settingsData?.items?.find(
-          (item: { key: string }) => item.key === "ehr_provider"
-        );
-        setProvider(providerSetting?.value ?? null);
-      }
-
-      // 同期ログから最新情報とマッピング数を取得
-      const logsRes = await fetch("/api/admin/ehr/logs?limit=1", {
-        credentials: "include",
-      });
-      if (logsRes.ok) {
-        const logsData = await logsRes.json();
-        setMappingCount(logsData.mapping_count ?? 0);
-        if (logsData.logs?.length > 0) {
-          setLastSyncAt(logsData.logs[0].created_at);
-        }
+      if (res.ok) {
+        const data: EhrStatus = await res.json();
+        setEhrStatus(data);
       }
     } catch {
-      // ステータスカード取得失敗は静かに無視
+      // ステータス取得失敗は静かに無視
     } finally {
       setStatusLoading(false);
     }
   }, []);
+
+  /** 接続テストを実行 */
+  const handleTestConnection = async () => {
+    if (!ehrStatus?.system.provider) return;
+    setTestingConnection(true);
+    setTestConnectionResult(null);
+
+    try {
+      const res = await fetch("/api/admin/ehr/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ provider: ehrStatus.system.provider }),
+      });
+      const data = await res.json();
+      setTestConnectionResult({ ok: data.ok, message: data.message });
+      // テスト後にステータスを再取得
+      fetchStatus();
+    } catch {
+      setTestConnectionResult({
+        ok: false,
+        message: "接続テストリクエストに失敗しました",
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   /** 同期ログ一覧を取得 */
   const fetchLogs = useCallback(async (offset = 0, append = false) => {
@@ -570,45 +600,125 @@ export default function EhrDashboardPage() {
         </p>
       </div>
 
-      {/* ========== 1. ステータスカード ========== */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 連携プロバイダー */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            連携プロバイダー
-          </p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {statusLoading
-              ? "..."
-              : provider
-                ? PROVIDER_LABELS[provider] ?? provider
-                : "未設定"}
-          </p>
+      {/* ========== 1. 接続ステータスウィジェット ========== */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">接続ステータス</h2>
+          {ehrStatus?.system.provider && (
+            <button
+              onClick={handleTestConnection}
+              disabled={testingConnection}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {testingConnection ? "テスト中..." : "接続テスト"}
+            </button>
+          )}
         </div>
 
-        {/* 同期済み患者数 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            同期済み患者数
-          </p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {statusLoading ? "..." : `${mappingCount ?? 0} 人`}
-          </p>
-        </div>
+        {statusLoading ? (
+          <p className="text-sm text-gray-500">読み込み中...</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* 接続状態インジケーター */}
+              <div className="flex items-center gap-3">
+                <span
+                  className={`inline-block w-4 h-4 rounded-full ${
+                    ehrStatus?.connectionStatus === "connected"
+                      ? "bg-green-500"
+                      : ehrStatus?.connectionStatus === "error"
+                        ? "bg-red-500"
+                        : "bg-gray-400"
+                  }`}
+                />
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    接続状態
+                  </p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {ehrStatus?.connectionStatus === "connected"
+                      ? "接続中"
+                      : ehrStatus?.connectionStatus === "error"
+                        ? "エラー"
+                        : "未接続"}
+                  </p>
+                </div>
+              </div>
 
-        {/* 最終同期日時 */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            最終同期日時
-          </p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">
-            {statusLoading
-              ? "..."
-              : lastSyncAt
-                ? formatDateTime(lastSyncAt)
-                : "未同期"}
-          </p>
-        </div>
+              {/* 連携プロバイダー */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  EHRシステム
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {ehrStatus?.system.providerLabel ?? "未設定"}
+                </p>
+                {ehrStatus?.system.version && (
+                  <p className="text-xs text-gray-500">
+                    v{ehrStatus.system.version}
+                  </p>
+                )}
+              </div>
+
+              {/* 最終同期 */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  最終同期
+                </p>
+                <p className="mt-1 text-lg font-bold text-gray-900">
+                  {ehrStatus?.lastSyncAt
+                    ? formatDateTime(ehrStatus.lastSyncAt)
+                    : "未同期"}
+                </p>
+                {ehrStatus?.lastSyncResult && (
+                  <p
+                    className={`text-xs ${
+                      ehrStatus.lastSyncResult === "success"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {ehrStatus.lastSyncResult === "success" ? "成功" : "失敗"}
+                  </p>
+                )}
+              </div>
+
+              {/* 同期統計（直近24時間） */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  直近24時間の同期
+                </p>
+                <div className="mt-1 flex items-baseline gap-3">
+                  <span className="text-lg font-bold text-gray-900">
+                    {ehrStatus?.syncStats.total ?? 0}件
+                  </span>
+                </div>
+                <div className="flex gap-3 text-xs">
+                  <span className="text-green-600">
+                    成功: {ehrStatus?.syncStats.success ?? 0}
+                  </span>
+                  <span className="text-red-600">
+                    失敗: {ehrStatus?.syncStats.failed ?? 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 接続テスト結果 */}
+            {testConnectionResult && (
+              <div
+                className={`mt-4 p-3 rounded-lg text-sm ${
+                  testConnectionResult.ok
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-red-50 text-red-700 border border-red-200"
+                }`}
+              >
+                {testConnectionResult.ok ? "接続成功: " : "接続失敗: "}
+                {testConnectionResult.message}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* ========== 1.5. 同期スケジュール設定 ========== */}
