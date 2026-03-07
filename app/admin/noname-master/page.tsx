@@ -478,49 +478,49 @@ export default function NonameMasterPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   決済日時
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   決済方法
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   氏名
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   患者ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   商品名
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase">
                   金額
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  郵便番号
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
+                  〒
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   住所
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   電話番号
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   発送日
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   追跡番号
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
                   変更
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  購入回数
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
+                  回数
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-center text-xs font-medium text-slate-500 uppercase">
                   返金
                 </th>
               </tr>
@@ -535,7 +535,7 @@ export default function NonameMasterPage() {
               ) : (
                 orders.map((order) => (
                   <tr key={order.id} className={`hover:bg-slate-50 ${order.is_overdue ? "bg-red-50 border-l-4 border-l-red-500" : ""}`}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
                       <div className="flex items-center gap-2">
                         {order.is_overdue && (
                           <span className="px-2 py-0.5 text-xs font-bold rounded bg-red-600 text-white">
@@ -546,7 +546,7 @@ export default function NonameMasterPage() {
                         {order.payment_date_label && <span className="text-slate-500">{order.payment_date_label}</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">
                       <span
                         className={`px-3 py-1 text-xs font-medium rounded-full ${
                           order.payment_method === "クレジットカード"
@@ -557,10 +557,10 @@ export default function NonameMasterPage() {
                         {order.payment_method}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
                       {order.patient_name || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm">
                       <button
                         onClick={() => window.open(`/admin/line/talk?pid=${order.patient_id}`, '_blank')}
                         className="text-blue-600 hover:text-blue-900 hover:underline font-mono"
@@ -568,22 +568,22 @@ export default function NonameMasterPage() {
                         {order.patient_id}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
                       {order.product_name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-right text-slate-900">
                       {order.amount ? `¥${order.amount.toLocaleString()}` : "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-600 font-mono">
                       {order.postal_code || "-"}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" title={order.address}>
+                    <td className="px-3 py-2 text-sm text-slate-600 max-w-xs truncate" title={order.address}>
                       {order.address || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-600 font-mono">
                       {order.phone || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-600">
                       {order.shipping_date ? (
                         formatDateOnly(order.shipping_date)
                       ) : shippedInfoFor === order.id ? (
@@ -656,7 +656,7 @@ export default function NonameMasterPage() {
                         "-"
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm font-mono">
                       {order.tracking_number ? (
                         <a
                           href={buildTrackingUrl(order.tracking_number)}
@@ -690,7 +690,7 @@ export default function NonameMasterPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center relative">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center relative">
                       {order.tracking_number ? (
                         <div className="relative inline-block">
                           <button
@@ -763,12 +763,12 @@ export default function NonameMasterPage() {
                         <span className="text-slate-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
                       <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold">
                         {order.purchase_count}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
                       {order.refund_status === "COMPLETED" ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                           返金済
@@ -812,14 +812,14 @@ export default function NonameMasterPage() {
             className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-slate-200">
+            <div className="px-3 py-2 border-b border-slate-200">
               <h3 className="text-lg font-semibold text-slate-900">返金処理</h3>
               <p className="text-sm text-slate-600 mt-1">
                 {refundStep === "token" ? "管理者トークンを入力してください" : "返金内容を確認してください"}
               </p>
             </div>
 
-            <div className="px-6 py-4 space-y-4">
+            <div className="px-3 py-2 space-y-4">
               {/* 注文情報 */}
               <div className="bg-slate-50 rounded p-4 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -896,7 +896,7 @@ export default function NonameMasterPage() {
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+            <div className="px-3 py-2 border-t border-slate-200 flex justify-end gap-3">
               <button
                 onClick={() => {
                   if (refundStep === "confirm") {
