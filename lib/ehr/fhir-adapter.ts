@@ -1,6 +1,6 @@
 // lib/ehr/fhir-adapter.ts — HL7 FHIR R4 アダプター
 
-import type { EhrAdapter, EhrPatient, EhrKarte, FhirConfig } from "./types";
+import type { EhrAdapter, EhrPatient, EhrKarte, EhrPrescription, EhrAppointment, FhirConfig } from "./types";
 
 /** FHIR Patient リソース（簡易型定義） */
 interface FhirPatient {
@@ -41,13 +41,46 @@ interface FhirDocumentReference {
   description?: string;
 }
 
+/** FHIR MedicationRequest リソース（処方用） */
+interface FhirMedicationRequest {
+  resourceType: "MedicationRequest";
+  id?: string;
+  subject?: { reference: string };
+  medicationCodeableConcept?: { text?: string };
+  dosageInstruction?: Array<{
+    text?: string;
+    timing?: { code?: { text?: string } };
+    doseAndRate?: Array<{ doseQuantity?: { value?: number; unit?: string } }>;
+  }>;
+  dispenseRequest?: {
+    expectedSupplyDuration?: { value?: number; unit?: string };
+  };
+  requester?: { display?: string };
+  authoredOn?: string;
+}
+
+/** FHIR Appointment リソース（予約用） */
+interface FhirAppointment {
+  resourceType: "Appointment";
+  id?: string;
+  status?: string;
+  start?: string;
+  end?: string;
+  minutesDuration?: number;
+  participant?: Array<{
+    actor?: { reference?: string; display?: string };
+    status?: string;
+  }>;
+  comment?: string;
+}
+
 /** FHIR Bundle */
 interface FhirBundle {
   resourceType: "Bundle";
   type: string;
   total?: number;
   entry?: Array<{
-    resource: FhirPatient | FhirDocumentReference;
+    resource: FhirPatient | FhirDocumentReference | FhirMedicationRequest | FhirAppointment;
   }>;
 }
 
@@ -276,5 +309,133 @@ export class FhirAdapter implements EhrAdapter {
   async pushKarte(karte: EhrKarte): Promise<void> {
     const resource = this.karteToFhir(karte);
     await this.request("/DocumentReference", "POST", resource);
+  }
+
+  // ──────────────────── 処方変換ヘルパー ────────────────────
+
+  /** FHIR MedicationRequest → EhrPrescription */
+  private fhirToPrescription(
+    mr: FhirMedicationRequest,
+    patientId: string,
+  ): EhrPrescription {
+    const dosageInst = mr.dosageInstruction?.[0];
+    const doseQty = dosageInst?.doseAndRate?.[0]?.doseQuantity;
+    const dosage = doseQty
+      ? `${doseQty.value ?? ""}${doseQty.unit ?? ""}`
+      : dosageInst?.text || "";
+
+    const frequency = dosageInst?.timing?.code?.text || "";
+
+    const supplyDuration = mr.dispenseRequest?.expectedSupplyDuration;
+    const duration = supplyDuration
+      ? `${supplyDuration.value ?? ""}${supplyDuration.unit ?? ""}`
+      : "";
+
+    return {
+      externalId: mr.id,
+      patientExternalId: patientId,
+      medicationName: mr.medicationCodeableConcept?.text || "",
+      dosage,
+      frequency,
+      duration,
+      prescriber: mr.requester?.display || undefined,
+      prescribedAt:
+        mr.authoredOn || new Date().toISOString().slice(0, 10),
+    };
+  }
+
+  // ──────────────────── 予約変換ヘルパー ────────────────────
+
+  /** FHIR Appointment → EhrAppointment */
+  private fhirToAppointment(
+    appt: FhirAppointment,
+    patientId: string,
+  ): EhrAppointment {
+    // FHIRステータスをEhrAppointmentステータスにマッピング
+    const statusMap: Record<string, EhrAppointment["status"]> = {
+      proposed: "scheduled",
+      pending: "scheduled",
+      booked: "confirmed",
+      arrived: "confirmed",
+      fulfilled: "completed",
+      cancelled: "cancelled",
+      noshow: "no_show",
+    };
+    const status = statusMap[appt.status || ""] || "scheduled";
+
+    // 担当医の取得（参加者からactorのdisplayを取得）
+    const providerParticipant = appt.participant?.find(
+      (p) =>
+        p.actor?.reference?.startsWith("Practitioner/") ||
+        (!p.actor?.reference?.startsWith("Patient/") && p.actor?.display),
+    );
+
+    // 予約時間の計算
+    let durationMinutes = appt.minutesDuration || 30;
+    if (!appt.minutesDuration && appt.start && appt.end) {
+      const startMs = new Date(appt.start).getTime();
+      const endMs = new Date(appt.end).getTime();
+      if (!isNaN(startMs) && !isNaN(endMs)) {
+        durationMinutes = Math.round((endMs - startMs) / 60000);
+      }
+    }
+
+    return {
+      externalId: appt.id,
+      patientId,
+      scheduledAt: appt.start || new Date().toISOString(),
+      durationMinutes,
+      provider: providerParticipant?.actor?.display || undefined,
+      status,
+      notes: appt.comment || undefined,
+    };
+  }
+
+  // ──────────────────── 処方・予約 EhrAdapter 実装 ────────────────────
+
+  /** 処方一覧取得（FHIR MedicationRequest） */
+  async fetchPrescriptions(
+    patientExternalId: string,
+  ): Promise<EhrPrescription[]> {
+    try {
+      const bundle = await this.request<FhirBundle>(
+        `/MedicationRequest?subject=Patient/${patientExternalId}`,
+      );
+      return (
+        bundle.entry
+          ?.filter((e) => e.resource.resourceType === "MedicationRequest")
+          .map((e) =>
+            this.fhirToPrescription(
+              e.resource as FhirMedicationRequest,
+              patientExternalId,
+            ),
+          ) || []
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /** 予約一覧取得（FHIR Appointment） */
+  async fetchAppointments(
+    patientExternalId: string,
+  ): Promise<EhrAppointment[]> {
+    try {
+      const bundle = await this.request<FhirBundle>(
+        `/Appointment?actor=Patient/${patientExternalId}`,
+      );
+      return (
+        bundle.entry
+          ?.filter((e) => e.resource.resourceType === "Appointment")
+          .map((e) =>
+            this.fhirToAppointment(
+              e.resource as FhirAppointment,
+              patientExternalId,
+            ),
+          ) || []
+      );
+    } catch {
+      return [];
+    }
   }
 }

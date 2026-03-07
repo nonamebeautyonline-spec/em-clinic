@@ -9,6 +9,7 @@ import { toEhrPatient, fromEhrPatient, toEhrKarte, fromEhrKarte } from "./mapper
 import type {
   EhrAdapter,
   EhrProvider,
+  EhrResourceType,
   SyncResult,
   SyncDirection,
   OrcaConfig,
@@ -475,6 +476,184 @@ export async function pullKarte(
       provider: adapter.provider,
       direction: "pull",
       resourceType: "karte",
+      patientId,
+      status: "error",
+      detail: msg,
+    };
+    await logSync(result, tenantId);
+    return result;
+  }
+}
+
+// ──────────────────── 処方同期 ────────────────────
+
+/** 処方をプル（外部カルテ→Lオペ） */
+export async function pullPrescriptions(
+  patientId: string,
+  adapter: EhrAdapter,
+  tenantId?: string,
+): Promise<SyncResult> {
+  try {
+    const externalId = await getMapping(patientId, adapter.provider, tenantId);
+    if (!externalId) {
+      return {
+        provider: adapter.provider,
+        direction: "pull",
+        resourceType: "prescription",
+        patientId,
+        status: "skipped",
+        detail: "患者の外部IDマッピングがありません",
+      };
+    }
+
+    const prescriptions = await adapter.fetchPrescriptions(externalId);
+    if (prescriptions.length === 0) {
+      return {
+        provider: adapter.provider,
+        direction: "pull",
+        resourceType: "prescription",
+        patientId,
+        externalId,
+        status: "skipped",
+        detail: "外部カルテに処方データがありません",
+      };
+    }
+
+    // 各処方をehr_prescriptionsテーブルに保存（重複チェック付き）
+    let imported = 0;
+    for (const rx of prescriptions) {
+      // 重複チェック: 同一外部ID or 同一薬剤名+処方日
+      const { data: existing } = await supabaseAdmin
+        .from("ehr_prescriptions")
+        .select("id")
+        .eq("patient_id", patientId)
+        .eq("medication_name", rx.medicationName)
+        .eq("prescribed_at", rx.prescribedAt)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) continue;
+
+      await supabaseAdmin.from("ehr_prescriptions").insert({
+        patient_id: patientId,
+        external_id: rx.externalId || null,
+        medication_name: rx.medicationName,
+        dosage: rx.dosage,
+        frequency: rx.frequency,
+        duration: rx.duration,
+        prescriber: rx.prescriber || null,
+        prescribed_at: rx.prescribedAt,
+        tenant_id: tenantId || null,
+        provider: adapter.provider,
+      });
+      imported++;
+    }
+
+    const result: SyncResult = {
+      provider: adapter.provider,
+      direction: "pull",
+      resourceType: "prescription",
+      patientId,
+      externalId,
+      status: "success",
+      detail: `処方${imported}件をインポートしました（${prescriptions.length - imported}件スキップ）`,
+    };
+    await logSync(result, tenantId);
+    return result;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const result: SyncResult = {
+      provider: adapter.provider,
+      direction: "pull",
+      resourceType: "prescription",
+      patientId,
+      status: "error",
+      detail: msg,
+    };
+    await logSync(result, tenantId);
+    return result;
+  }
+}
+
+// ──────────────────── 予約同期 ────────────────────
+
+/** 予約をプル（外部カルテ→Lオペ） */
+export async function pullAppointments(
+  patientId: string,
+  adapter: EhrAdapter,
+  tenantId?: string,
+): Promise<SyncResult> {
+  try {
+    const externalId = await getMapping(patientId, adapter.provider, tenantId);
+    if (!externalId) {
+      return {
+        provider: adapter.provider,
+        direction: "pull",
+        resourceType: "appointment",
+        patientId,
+        status: "skipped",
+        detail: "患者の外部IDマッピングがありません",
+      };
+    }
+
+    const appointments = await adapter.fetchAppointments(externalId);
+    if (appointments.length === 0) {
+      return {
+        provider: adapter.provider,
+        direction: "pull",
+        resourceType: "appointment",
+        patientId,
+        externalId,
+        status: "skipped",
+        detail: "外部カルテに予約データがありません",
+      };
+    }
+
+    // 各予約をehr_appointmentsテーブルに保存（重複チェック付き）
+    let imported = 0;
+    for (const appt of appointments) {
+      // 重複チェック: 同一外部ID or 同一予約日時
+      const { data: existing } = await supabaseAdmin
+        .from("ehr_appointments")
+        .select("id")
+        .eq("patient_id", patientId)
+        .eq("scheduled_at", appt.scheduledAt)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) continue;
+
+      await supabaseAdmin.from("ehr_appointments").insert({
+        patient_id: patientId,
+        external_id: appt.externalId || null,
+        scheduled_at: appt.scheduledAt,
+        duration_minutes: appt.durationMinutes,
+        provider_name: appt.provider || null,
+        status: appt.status,
+        notes: appt.notes || null,
+        tenant_id: tenantId || null,
+        ehr_provider: adapter.provider,
+      });
+      imported++;
+    }
+
+    const result: SyncResult = {
+      provider: adapter.provider,
+      direction: "pull",
+      resourceType: "appointment",
+      patientId,
+      externalId,
+      status: "success",
+      detail: `予約${imported}件をインポートしました（${appointments.length - imported}件スキップ）`,
+    };
+    await logSync(result, tenantId);
+    return result;
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const result: SyncResult = {
+      provider: adapter.provider,
+      direction: "pull",
+      resourceType: "appointment",
       patientId,
       status: "error",
       detail: msg,

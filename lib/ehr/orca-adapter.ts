@@ -1,6 +1,6 @@
 // lib/ehr/orca-adapter.ts — ORCA（日レセ）REST/XML APIアダプター
 
-import type { EhrAdapter, EhrPatient, EhrKarte, OrcaConfig } from "./types";
+import type { EhrAdapter, EhrPatient, EhrKarte, EhrPrescription, EhrAppointment, OrcaConfig } from "./types";
 
 /** ORCA APIアダプター */
 export class OrcaAdapter implements EhrAdapter {
@@ -243,5 +243,68 @@ export class OrcaAdapter implements EhrAdapter {
   </medicalmodreq>
 </data>`;
     await this.request("/api01rv2/medicalmodv2", "POST", xml);
+  }
+
+  /** 処方一覧取得（ORCA 処方情報API） */
+  async fetchPrescriptions(
+    patientExternalId: string,
+  ): Promise<EhrPrescription[]> {
+    try {
+      const xml = await this.request(
+        `/api01rv2/medicationgetv2?id=${encodeURIComponent(patientExternalId)}`,
+      );
+      const blocks = this.extractBlocks(xml, "Medication_Information");
+      return blocks.map((block) => ({
+        externalId: this.extractTag(block, "Medication_ID") || undefined,
+        patientExternalId,
+        medicationName: this.extractTag(block, "Medication_Name") || "",
+        dosage: this.extractTag(block, "Dosage") || "",
+        frequency: this.extractTag(block, "Frequency") || "",
+        duration: this.extractTag(block, "Duration") || "",
+        prescriber: this.extractTag(block, "Prescriber_Name") || undefined,
+        prescribedAt:
+          this.formatDate(this.extractTag(block, "Prescribed_Date")) ||
+          new Date().toISOString().slice(0, 10),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /** 予約一覧取得（ORCA 予約情報API） */
+  async fetchAppointments(
+    patientExternalId: string,
+  ): Promise<EhrAppointment[]> {
+    try {
+      const xml = await this.request(
+        `/api01rv2/appointmentlistv2?id=${encodeURIComponent(patientExternalId)}`,
+      );
+      const blocks = this.extractBlocks(xml, "Appointment_Information");
+      return blocks.map((block) => {
+        const statusCode = this.extractTag(block, "Appointment_Status");
+        let status: EhrAppointment["status"] = "scheduled";
+        if (statusCode === "confirmed") status = "confirmed";
+        else if (statusCode === "cancelled") status = "cancelled";
+        else if (statusCode === "completed") status = "completed";
+        else if (statusCode === "no_show") status = "no_show";
+
+        return {
+          externalId: this.extractTag(block, "Appointment_ID") || undefined,
+          patientId: patientExternalId,
+          scheduledAt:
+            this.formatDate(this.extractTag(block, "Appointment_Date")) ||
+            new Date().toISOString().slice(0, 10),
+          durationMinutes: parseInt(
+            this.extractTag(block, "Appointment_Duration") || "30",
+            10,
+          ),
+          provider: this.extractTag(block, "Doctor_Name") || undefined,
+          status,
+          notes: this.extractTag(block, "Appointment_Note") || undefined,
+        };
+      });
+    } catch {
+      return [];
+    }
   }
 }

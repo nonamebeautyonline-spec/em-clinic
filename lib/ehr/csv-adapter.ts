@@ -1,6 +1,6 @@
 // lib/ehr/csv-adapter.ts — CSV連携アダプター
 
-import type { EhrAdapter, EhrPatient, EhrKarte } from "./types";
+import type { EhrAdapter, EhrPatient, EhrKarte, EhrPrescription, EhrAppointment } from "./types";
 import {
   PATIENT_CSV_HEADERS,
   KARTE_CSV_HEADERS,
@@ -171,6 +171,20 @@ export class CsvAdapter implements EhrAdapter {
 
   async pushKarte(karte: EhrKarte): Promise<void> {
     this.kartes.push(karte);
+  }
+
+  /** 処方一覧取得（CSV連携では未サポート） */
+  async fetchPrescriptions(
+    _patientExternalId: string,
+  ): Promise<EhrPrescription[]> {
+    return [];
+  }
+
+  /** 予約一覧取得（CSV連携では未サポート） */
+  async fetchAppointments(
+    _patientExternalId: string,
+  ): Promise<EhrAppointment[]> {
+    return [];
   }
 
   /** エクスポート用: 現在のデータをCSV文字列に変換 */
