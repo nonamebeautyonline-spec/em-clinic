@@ -2,6 +2,7 @@
 // Vercel Cron: 全テナント横断で scheduled_at <= now の pending ログを処理
 import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 import { processFollowups } from "@/lib/followup";
 import { acquireLock } from "@/lib/distributed-lock";
 
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error("[Cron/Followup] エラー:", err);
+    notifyCronFailure("followup", err).catch(() => {});
     return serverError(err instanceof Error ? err.message : "Unknown error");
   } finally {
     await lock.release();

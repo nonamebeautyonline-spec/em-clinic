@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { pushMessage } from "@/lib/line-push";
 import { buildReminderFlex } from "@/lib/reservation-flex";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 import {
   getJSTToday,
   addOneDay,
@@ -109,6 +110,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: totalSent });
   } catch (e) {
     console.error("[reminders] cron error:", e);
+    notifyCronFailure("generate-reminders", e).catch(() => {});
     return serverError((e as Error).message);
   } finally {
     await lock.release();

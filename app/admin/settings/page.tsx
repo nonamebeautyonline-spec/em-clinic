@@ -10,6 +10,7 @@ import AccountSection from "./_components/AccountSection";
 import SmsSection from "./_components/SmsSection";
 import EhrSection from "./_components/EhrSection";
 import ConsultationSection from "./_components/ConsultationSection";
+import NotificationSection from "./_components/NotificationSection";
 import OptionsSection from "./_components/OptionsSection";
 import CronSection from "./_components/CronSection";
 
@@ -307,6 +308,7 @@ export default function SettingsPage() {
             {activeSection === "mypage" && <MypageSection onToast={handleToast} />}
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
+            {activeSection === "notification" && <NotificationSection onToast={handleToast} />}
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}
             {activeSection === "cron" && <CronSection onToast={handleToast} />}
             {activeSection === "account" && <AccountSection onToast={handleToast} />}

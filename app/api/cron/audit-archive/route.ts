@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[audit-archive] Error:", err);
+    notifyCronFailure("audit-archive", err).catch(() => {});
     return serverError("サーバーエラー");
   } finally {
     await lock.release();

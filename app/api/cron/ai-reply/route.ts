@@ -3,6 +3,7 @@ import { unauthorized } from "@/lib/api-error";
 import { processPendingAiReplies, lastProcessLog } from "@/lib/ai-reply";
 import { redis } from "@/lib/redis";
 import { acquireLock } from "@/lib/distributed-lock";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 // Vercel Cron: AI返信デバウンス処理（毎分実行）
 export async function GET(req: NextRequest) {
@@ -44,6 +45,10 @@ export async function GET(req: NextRequest) {
       debug,
       timestamp: new Date().toISOString(),
     });
+  } catch (e) {
+    console.error("[ai-reply] cron error:", e);
+    notifyCronFailure("ai-reply", e).catch(() => {});
+    return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 500 });
   } finally {
     await lock.release();
   }

@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { acquireLock } from "@/lib/distributed-lock";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { generateOverageInvoice, type InvoiceResult } from "@/lib/generate-invoice";
+import { notifyCronFailure } from "@/lib/notifications/cron-failure";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[generate-invoices] 予期しないエラー:", err);
+    notifyCronFailure("generate-invoices", err).catch(() => {});
     await lock.release();
     return serverError("予期しないエラーが発生しました");
   }
