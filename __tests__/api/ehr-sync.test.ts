@@ -27,6 +27,14 @@ vi.mock("@/lib/settings", () => ({
   getSettingsByCategory: vi.fn().mockResolvedValue([]),
 }));
 
+const mockAcquireLock = vi.fn().mockResolvedValue({
+  acquired: true,
+  release: vi.fn(),
+});
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: (...args: unknown[]) => mockAcquireLock(...args),
+}));
+
 // ──────────────────── mapper テスト ────────────────────
 
 import {
@@ -611,6 +619,226 @@ describe("FhirAdapter", () => {
     expect(result).toBeNull();
 
     vi.restoreAllMocks();
+  });
+});
+
+// ──────────────────── EHR同期スケジュール設定API テスト ────────────────────
+
+import {
+  GET as scheduleGET,
+  PUT as schedulePUT,
+} from "@/app/api/admin/ehr/sync-schedule/route";
+
+vi.mock("@/lib/admin-auth", () => ({
+  verifyAdminAuth: vi.fn(() => Promise.resolve(true)),
+}));
+
+vi.mock("@/lib/tenant", () => ({
+  resolveTenantId: vi.fn(() => "tenant-1"),
+}));
+
+function buildAdminGetRequest(): NextRequest {
+  return new NextRequest("http://localhost/api/admin/ehr/sync-schedule", {
+    method: "GET",
+  });
+}
+
+function buildAdminPutRequest(body: unknown): NextRequest {
+  return new NextRequest("http://localhost/api/admin/ehr/sync-schedule", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+import { NextRequest } from "next/server";
+
+describe("GET /api/admin/ehr/sync-schedule", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("設定がない場合はデフォルト値を返す", async () => {
+    const res = await scheduleGET(buildAdminGetRequest());
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.schedule).toEqual({
+      interval: "daily",
+      enabled: false,
+      sync_time: "03:00",
+    });
+  });
+
+  it("保存済み設定を返す", async () => {
+    const { getSetting } = await import("@/lib/settings");
+    vi.mocked(getSetting).mockResolvedValueOnce(
+      JSON.stringify({
+        interval: "hourly",
+        enabled: true,
+        sync_time: "09:00",
+      })
+    );
+
+    const res = await scheduleGET(buildAdminGetRequest());
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.schedule.interval).toBe("hourly");
+    expect(json.schedule.enabled).toBe(true);
+    expect(json.schedule.sync_time).toBe("09:00");
+  });
+
+  it("不正なJSON設定の場合はデフォルト値を返す", async () => {
+    const { getSetting } = await import("@/lib/settings");
+    vi.mocked(getSetting).mockResolvedValueOnce("invalid-json");
+
+    const res = await scheduleGET(buildAdminGetRequest());
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.schedule).toEqual({
+      interval: "daily",
+      enabled: false,
+      sync_time: "03:00",
+    });
+  });
+});
+
+describe("PUT /api/admin/ehr/sync-schedule", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("全フィールドを更新できる", async () => {
+    const res = await schedulePUT(
+      buildAdminPutRequest({
+        interval: "every6h",
+        enabled: true,
+        sync_time: "12:00",
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.schedule.interval).toBe("every6h");
+    expect(json.schedule.enabled).toBe(true);
+    expect(json.schedule.sync_time).toBe("12:00");
+  });
+
+  it("部分更新ができる（既存設定とマージ）", async () => {
+    const { getSetting } = await import("@/lib/settings");
+    vi.mocked(getSetting).mockResolvedValueOnce(
+      JSON.stringify({
+        interval: "daily",
+        enabled: false,
+        sync_time: "03:00",
+      })
+    );
+
+    const res = await schedulePUT(
+      buildAdminPutRequest({ enabled: true })
+    );
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.schedule.interval).toBe("daily");
+    expect(json.schedule.enabled).toBe(true);
+    expect(json.schedule.sync_time).toBe("03:00");
+  });
+
+  it("不正なintervalの場合は400を返す", async () => {
+    const res = await schedulePUT(
+      buildAdminPutRequest({ interval: "invalid" })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("不正なenabledの場合は400を返す", async () => {
+    const res = await schedulePUT(
+      buildAdminPutRequest({ enabled: "yes" })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("不正なsync_timeの場合は400を返す", async () => {
+    const res = await schedulePUT(
+      buildAdminPutRequest({ sync_time: "25:00" })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("不正なsync_time形式の場合は400を返す", async () => {
+    const res = await schedulePUT(
+      buildAdminPutRequest({ sync_time: "9:00" })
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("EHR同期スケジュール認証テスト", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("未認証のGETリクエストは401を返す", async () => {
+    const { verifyAdminAuth } = await import("@/lib/admin-auth");
+    vi.mocked(verifyAdminAuth).mockResolvedValueOnce(false);
+
+    const res = await scheduleGET(buildAdminGetRequest());
+    expect(res.status).toBe(401);
+  });
+
+  it("未認証のPUTリクエストは401を返す", async () => {
+    const { verifyAdminAuth } = await import("@/lib/admin-auth");
+    vi.mocked(verifyAdminAuth).mockResolvedValueOnce(false);
+
+    const res = await schedulePUT(
+      buildAdminPutRequest({ enabled: true })
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+// ──────────────────── Cron EHR同期テスト ────────────────────
+
+import { GET as cronGET } from "@/app/api/cron/ehr-sync/route";
+
+describe("GET /api/cron/ehr-sync", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.CRON_SECRET;
+  });
+
+  it("CRON_SECRET認証が必要（不正トークン）", async () => {
+    process.env.CRON_SECRET = "test-secret";
+    const res = await cronGET(
+      new NextRequest("http://localhost/api/cron/ehr-sync", {
+        method: "GET",
+        headers: { authorization: "Bearer wrong-token" },
+      })
+    );
+    expect(res.status).toBe(401);
+    delete process.env.CRON_SECRET;
+  });
+
+  it("ロック取得失敗時はスキップする", async () => {
+    mockAcquireLock.mockResolvedValueOnce({
+      acquired: false,
+      release: vi.fn(),
+    });
+
+    const res = await cronGET(
+      new NextRequest("http://localhost/api/cron/ehr-sync", {
+        method: "GET",
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.skipped).toBe("別のプロセスが実行中");
   });
 });
 
