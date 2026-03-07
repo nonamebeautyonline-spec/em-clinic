@@ -283,7 +283,7 @@ export default function DoctorPage() {
         if (raw) {
           const d = JSON.parse(raw);
           if (typeof d.note === "string") setNote(d.note);
-          else setNote(String(row.doctor_note || row["doctor_note"] || ""));
+          else setNote(String(row.note || ""));
 
           const menu = d.selectedMenu;
           setSelectedMenu(
@@ -297,7 +297,7 @@ export default function DoctorPage() {
     }
 
     // 下書きがなければ既存データを表示
-    setNote(String(row.doctor_note || row["doctor_note"] || ""));
+    setNote(String(row.note || ""));
     const menu = String(row.prescription_menu || row["prescription_menu"] || "");
     setSelectedMenu(
       menu === "2.5mg" || menu === "5mg" || menu === "7.5mg" ? menu : ""
@@ -368,7 +368,7 @@ export default function DoctorPage() {
 
       updateRowLocal(reserveId, {
         status: "OK",
-        doctor_note: note,
+        note: note,
         prescription_menu: selectedMenu,
       });
       alert("処方内容を保存しました");
@@ -415,7 +415,7 @@ closeModalAndRefresh();
 
       updateRowLocal(reserveId, {
         status: "NG",
-        doctor_note: note,
+        note: note,
         prescription_menu: "",
       });
       alert("診察結果を保存しました");
