@@ -15,11 +15,13 @@ interface Broadcast {
   created_at: string;
   sent_at: string | null;
   scheduled_at?: string | null;
+  paused_at?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { text: string; bg: string; text_color: string; dot: string }> = {
   draft: { text: "下書き", bg: "bg-gray-50", text_color: "text-gray-600", dot: "bg-gray-400" },
   scheduled: { text: "予約済み", bg: "bg-blue-50", text_color: "text-blue-700", dot: "bg-blue-500" },
+  paused: { text: "一時停止", bg: "bg-amber-50", text_color: "text-amber-700", dot: "bg-amber-500" },
   sending: { text: "送信中", bg: "bg-amber-50", text_color: "text-amber-700", dot: "bg-amber-500 animate-pulse" },
   sent: { text: "送信完了", bg: "bg-emerald-50", text_color: "text-emerald-700", dot: "bg-emerald-500" },
   failed: { text: "失敗", bg: "bg-red-50", text_color: "text-red-700", dot: "bg-red-500" },
@@ -31,6 +33,9 @@ export default function BroadcastsPage() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // 一時停止/再開の確認ダイアログ
+  const [confirmAction, setConfirmAction] = useState<{ id: number; action: "pause" | "resume" } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +55,36 @@ export default function BroadcastsPage() {
   const getSuccessRate = (b: Broadcast) => {
     if (b.total_targets === 0) return 0;
     return Math.round((b.sent_count / b.total_targets) * 100);
+  };
+
+  // 一時停止/再開を実行
+  const handlePauseResume = async () => {
+    if (!confirmAction) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/line/broadcast/${confirmAction.id}/${confirmAction.action}`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.ok) {
+        // ローカルのbroadcastsリストを更新
+        setBroadcasts(prev => prev.map(b =>
+          b.id === confirmAction.id
+            ? {
+                ...b,
+                status: data.status,
+                paused_at: confirmAction.action === "pause" ? new Date().toISOString() : null,
+              }
+            : b
+        ));
+      }
+    } catch {
+      // エラー時は何もしない（UIが元の状態のまま）
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
   };
 
   return (
@@ -102,7 +137,7 @@ export default function BroadcastsPage() {
           </div>
 
           {/* サマリー */}
-          <div className="grid grid-cols-4 gap-3 mt-6">
+          <div className="grid grid-cols-5 gap-3 mt-6">
             <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-3 border border-gray-100/50 text-center">
               <div className="text-xl font-bold text-gray-700">{broadcasts.length}</div>
               <div className="text-[10px] text-gray-400 mt-0.5">総配信数</div>
@@ -114,6 +149,10 @@ export default function BroadcastsPage() {
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-3 border border-blue-100/50 text-center">
               <div className="text-xl font-bold text-blue-700">{broadcasts.filter(b => b.status === "scheduled").length}</div>
               <div className="text-[10px] text-blue-500 mt-0.5">予約中</div>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl p-3 border border-amber-100/50 text-center">
+              <div className="text-xl font-bold text-amber-700">{broadcasts.filter(b => b.status === "paused").length}</div>
+              <div className="text-[10px] text-amber-500 mt-0.5">一時停止</div>
             </div>
             <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-3 border border-red-100/50 text-center">
               <div className="text-xl font-bold text-red-700">{broadcasts.filter(b => b.status === "failed").length}</div>
@@ -175,12 +214,45 @@ export default function BroadcastsPage() {
                               <span className="text-xs text-blue-500">予約: {formatDate(b.scheduled_at)}</span>
                             </>
                           )}
+                          {b.paused_at && (
+                            <>
+                              <span className="text-xs text-gray-300">→</span>
+                              <span className="text-xs text-amber-500">停止: {formatDate(b.paused_at)}</span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${st.bg} ${st.text_color}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                        {st.text}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* 一時停止ボタン（scheduled のみ） */}
+                        {b.status === "scheduled" && (
+                          <button
+                            onClick={() => setConfirmAction({ id: b.id, action: "pause" })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors border border-amber-200"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            一時停止
+                          </button>
+                        )}
+                        {/* 再開ボタン（paused のみ） */}
+                        {b.status === "paused" && (
+                          <button
+                            onClick={() => setConfirmAction({ id: b.id, action: "resume" })}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border border-blue-200"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            再開
+                          </button>
+                        )}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${st.bg} ${st.text_color}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                          {st.text}
+                        </span>
+                      </div>
                     </div>
 
                     {/* メッセージプレビュー */}
@@ -242,6 +314,46 @@ export default function BroadcastsPage() {
           </div>
         )}
       </div>
+
+      {/* 一時停止/再開の確認ダイアログ */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm mx-4 w-full">
+            <h3 className="text-base font-bold text-gray-900 mb-2">
+              {confirmAction.action === "pause" ? "配信を一時停止しますか？" : "配信を再開しますか？"}
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">
+              {confirmAction.action === "pause"
+                ? "予約済みの配信を一時停止します。再開するまで配信されません。"
+                : "一時停止中の配信を再開します。予約日時になると配信されます。"}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmAction(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handlePauseResume}
+                disabled={actionLoading}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
+                  confirmAction.action === "pause"
+                    ? "bg-amber-500 hover:bg-amber-600"
+                    : "bg-blue-500 hover:bg-blue-600"
+                }`}
+              >
+                {actionLoading
+                  ? "処理中..."
+                  : confirmAction.action === "pause"
+                    ? "一時停止する"
+                    : "再開する"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -56,6 +56,7 @@ interface Broadcast {
 const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: string; dot: string }> = {
   draft: { text: "下書き", bg: "bg-gray-50", textColor: "text-gray-600", dot: "bg-gray-400" },
   scheduled: { text: "予約済み", bg: "bg-blue-50", textColor: "text-blue-700", dot: "bg-blue-500" },
+  paused: { text: "一時停止", bg: "bg-amber-50", textColor: "text-amber-700", dot: "bg-amber-500" },
   sending: { text: "送信中", bg: "bg-amber-50", textColor: "text-amber-700", dot: "bg-amber-500 animate-pulse" },
   sent: { text: "送信完了", bg: "bg-emerald-50", textColor: "text-emerald-700", dot: "bg-emerald-500" },
   failed: { text: "失敗", bg: "bg-red-50", textColor: "text-red-700", dot: "bg-red-500" },
