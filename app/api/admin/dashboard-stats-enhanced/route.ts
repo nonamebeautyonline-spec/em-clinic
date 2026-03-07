@@ -6,7 +6,6 @@ import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 // Supabaseクエリ結果用の型定義
 interface PatientIdRow { patient_id: string }
-interface LineIdRow { line_id: string }
 interface OrderAmountRow { amount: number; product_code: string; patient_id: string; created_at: string; paid_at?: string }
 interface RefundRow { amount: number; refunded_amount: number }
 
@@ -186,11 +185,11 @@ export async function GET(request: NextRequest) {
           .limit(10000),
         tenantId
       ),
-      // 15. LINE登録者
+      // 15. LINE登録者（line_daily_statsの最新フォロワー数）
       withTenant(
-        supabaseAdmin.from("patients").select("line_id")
-          .not("line_id", "is", null)
-          .limit(100000),
+        supabaseAdmin.from("line_daily_stats").select("followers")
+          .order("stat_date", { ascending: false })
+          .limit(1),
         tenantId
       ),
       // 16. アクティブ予約数
@@ -260,8 +259,8 @@ export async function GET(request: NextRequest) {
     // 新規患者数 = intakeIdsResult のレコード数（重複クエリ排除）
     const newPatients = intakeIdsResult.data?.length ?? 0;
 
-    // LINE登録者数
-    const lineRegisteredCount = new Set(lineIdResult.data?.map((r: LineIdRow) => r.line_id) || []).size;
+    // LINE登録者数（line_daily_statsの最新フォロワー数）
+    const lineRegisteredCount = (lineIdResult.data as { followers: number }[] | null)?.[0]?.followers ?? 0;
 
     // 売上集計
     const squareRevenue = allSquareOrders.reduce((sum: number, o: OrderAmountRow) => sum + (o.amount || 0), 0);

@@ -4,10 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 
 // recharts はクライアント専用のため dynamic import で SSR を回避
-const ChartWidget = dynamic(
-  () => import("./widgets/chart-widget"),
-  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
-);
 const SegmentWidget = dynamic(
   () => import("./widgets/segment-widget"),
   { ssr: false, loading: () => <SegmentWidgetSkeleton /> },
@@ -16,16 +12,8 @@ const ConversionWidget = dynamic(
   () => import("./widgets/conversion-widget"),
   { ssr: false, loading: () => <ChartWidgetSkeleton /> },
 );
-const LTVWidget = dynamic(
-  () => import("./widgets/ltv-widget"),
-  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
-);
 const KPITargetWidget = dynamic(
   () => import("./widgets/kpi-target-widget"),
-  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
-);
-const CohortWidget = dynamic(
-  () => import("./widgets/cohort-widget"),
   { ssr: false, loading: () => <ChartWidgetSkeleton /> },
 );
 
@@ -50,23 +38,15 @@ function SegmentWidgetSkeleton() {
 
 // ウィジェット表示設定の型
 interface WidgetSettings {
-  revenueChart: boolean;   // 売上推移グラフ
-  orderChart: boolean;     // 新規vs再処方グラフ
   segmentChart: boolean;   // セグメント分布
   conversionChart: boolean; // 初診→再診転換率
-  ltvChart: boolean;        // LTV分析
   kpiTargetChart: boolean;  // KPI目標vs実績
-  cohortChart: boolean;     // コホート分析
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
-  revenueChart: true,
-  orderChart: true,
   segmentChart: true,
   conversionChart: true,
-  ltvChart: true,
   kpiTargetChart: true,
-  cohortChart: true,
 };
 
 const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
@@ -537,24 +517,6 @@ export default function EnhancedDashboard() {
                 <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={widgetSettings.revenueChart}
-                    onChange={() => toggleWidget("revenueChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">売上推移グラフ</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={widgetSettings.orderChart}
-                    onChange={() => toggleWidget("orderChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">新規vs再処方グラフ</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
                     checked={widgetSettings.segmentChart}
                     onChange={() => toggleWidget("segmentChart")}
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
@@ -573,29 +535,11 @@ export default function EnhancedDashboard() {
                 <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={widgetSettings.ltvChart}
-                    onChange={() => toggleWidget("ltvChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">LTV分析</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
                     checked={widgetSettings.kpiTargetChart}
                     onChange={() => toggleWidget("kpiTargetChart")}
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-slate-700">KPI目標vs実績</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={widgetSettings.cohortChart}
-                    onChange={() => toggleWidget("cohortChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">コホート分析</span>
                 </label>
               </div>
             )}
@@ -859,16 +803,6 @@ export default function EnhancedDashboard() {
                 </div>
               </div>
 
-              {/* 売上推移グラフ（ウィジェット設定で表示/非表示を切り替え） */}
-              {(widgetSettings.revenueChart || widgetSettings.orderChart) &&
-                stats?.dailyBreakdown &&
-                stats.dailyBreakdown.length > 0 && (
-                <ChartWidget
-                  dailyBreakdown={stats.dailyBreakdown}
-                  showRevenueChart={widgetSettings.revenueChart}
-                  showOrderChart={widgetSettings.orderChart}
-                />
-              )}
             </div>
           )}
 
@@ -999,8 +933,6 @@ export default function EnhancedDashboard() {
       {/* 分析ウィジェット */}
       <div className="mt-8 space-y-6">
         {widgetSettings.conversionChart && <ConversionWidget />}
-        {widgetSettings.ltvChart && <LTVWidget />}
-        {widgetSettings.cohortChart && <CohortWidget />}
       </div>
 
       {/* トースト通知コンテナ */}

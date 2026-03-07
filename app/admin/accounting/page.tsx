@@ -23,6 +23,8 @@ interface DailyData {
   total: number;
   squareCount: number;
   bankCount: number;
+  firstCount: number;
+  reorderCount: number;
 }
 
 interface TodaySummary {
@@ -320,6 +322,45 @@ export default function AccountingPage() {
         <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">日別売上</h2>
         <DailyBarChart data={dailyData} />
       </div>
+
+      {/* 新規処方 vs 再処方 */}
+      {dailyData.some(d => d.firstCount > 0 || d.reorderCount > 0) && (
+        <div className="bg-white rounded-lg shadow p-6 overflow-visible">
+          <h2 className="text-lg font-bold text-slate-900 mb-4 border-b pb-2">新規処方 vs 再処方（日別件数）</h2>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="p-3 bg-blue-50 rounded-lg text-center">
+              <div className="text-blue-600 text-xs mb-1">新規処方</div>
+              <div className="text-xl font-bold text-blue-700">
+                {dailyData.reduce((sum, d) => sum + d.firstCount, 0)}件
+              </div>
+            </div>
+            <div className="p-3 bg-emerald-50 rounded-lg text-center">
+              <div className="text-emerald-600 text-xs mb-1">再処方</div>
+              <div className="text-xl font-bold text-emerald-700">
+                {dailyData.reduce((sum, d) => sum + d.reorderCount, 0)}件
+              </div>
+            </div>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyData.filter(d => d.firstCount > 0 || d.reorderCount > 0)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="date" tickFormatter={(d: string) => d.slice(5)} tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip
+                  labelFormatter={(d) => String(d)}
+                  formatter={(value, name) => [
+                    `${value}件`,
+                    name === "firstCount" ? "新規処方" : "再処方",
+                  ]}
+                />
+                <Bar dataKey="firstCount" name="firstCount" stackId="orders" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="reorderCount" name="reorderCount" stackId="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* 売上分析 */}
       <div className="bg-white rounded-lg shadow p-6">

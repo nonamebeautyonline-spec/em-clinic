@@ -38,13 +38,13 @@ export async function GET(req: NextRequest) {
     const startISO = new Date(new Date(`${startDate}T00:00:00`).getTime() - jstOffset).toISOString();
     const endISO = new Date(new Date(`${endDate}T23:59:59`).getTime() - jstOffset + 1000).toISOString();
 
-    // 3クエリを並列実行（逐次ページネーション→並列に最適化）
-    const [squareResult, bankResult, refundResult] = await Promise.all([
+    // 4クエリを並列実行
+    const [squareResult, bankResult, refundResult, previousOrdersResult] = await Promise.all([
       // カード決済（paid_atベース）
       withTenant(
         supabase
           .from("orders")
-          .select("id, amount, paid_at")
+          .select("id, amount, paid_at, patient_id")
           .eq("payment_method", "credit_card")
           .gte("paid_at", startISO)
           .lt("paid_at", endISO)
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       withTenant(
         supabase
           .from("orders")
-          .select("id, amount, created_at")
+          .select("id, amount, created_at, patient_id")
           .eq("payment_method", "bank_transfer")
           .in("status", ["pending_confirmation", "confirmed"])
           .gte("created_at", startISO)
@@ -75,42 +75,67 @@ export async function GET(req: NextRequest) {
           .limit(10000),
         tenantId
       ),
+      // 期間前に注文のある患者（再処方判定用）
+      withTenant(
+        supabase
+          .from("orders")
+          .select("patient_id")
+          .lt("created_at", startISO)
+          .not("patient_id", "is", null)
+          .limit(100000),
+        tenantId
+      ),
     ]);
 
     const allSquareOrders = squareResult.data || [];
     const allBankOrders = bankResult.data || [];
     const allRefundedOrders = refundResult.data || [];
 
+    // 期間前に注文のある患者セット（再処方判定用）
+    const previousPatientSet = new Set(
+      (previousOrdersResult.data || []).map((r: { patient_id: string }) => r.patient_id)
+    );
+
     // 日付ごとに集計
-    const dailyData: Record<string, { date: string; square: number; bank: number; refund: number; total: number; squareCount: number; bankCount: number }> = {};
+    const dailyData: Record<string, { date: string; square: number; bank: number; refund: number; total: number; squareCount: number; bankCount: number; firstCount: number; reorderCount: number }> = {};
 
     // 月の全日付を初期化
     const daysInMonth = new Date(year, month, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${yearMonth}-${String(d).padStart(2, "0")}`;
-      dailyData[dateStr] = { date: dateStr, square: 0, bank: 0, refund: 0, total: 0, squareCount: 0, bankCount: 0 };
+      dailyData[dateStr] = { date: dateStr, square: 0, bank: 0, refund: 0, total: 0, squareCount: 0, bankCount: 0, firstCount: 0, reorderCount: 0 };
     }
 
     // カード決済を集計
-    allSquareOrders.forEach((order) => {
+    allSquareOrders.forEach((order: { paid_at?: string; amount?: number; patient_id?: string }) => {
       if (order.paid_at) {
         const jstDate = new Date(new Date(order.paid_at).getTime() + jstOffset);
         const dateStr = jstDate.toISOString().split("T")[0];
         if (dailyData[dateStr]) {
           dailyData[dateStr].square += order.amount || 0;
           dailyData[dateStr].squareCount += 1;
+          if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+            dailyData[dateStr].reorderCount++;
+          } else {
+            dailyData[dateStr].firstCount++;
+          }
         }
       }
     });
 
     // 銀行振込を集計
-    allBankOrders.forEach((order) => {
+    allBankOrders.forEach((order: { created_at?: string; amount?: number; patient_id?: string }) => {
       if (order.created_at) {
         const jstDate = new Date(new Date(order.created_at).getTime() + jstOffset);
         const dateStr = jstDate.toISOString().split("T")[0];
         if (dailyData[dateStr]) {
           dailyData[dateStr].bank += order.amount || 0;
           dailyData[dateStr].bankCount += 1;
+          if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+            dailyData[dateStr].reorderCount++;
+          } else {
+            dailyData[dateStr].firstCount++;
+          }
         }
       }
     });
