@@ -195,41 +195,57 @@ export async function POST(req: NextRequest) {
       }
 
       const csvFilename = file.name || "unknown.csv";
-      const rows = allTransactions.map((t) => {
-        const dateNormalized = t.date.replace(/\//g, "-");
-        const monthStr = dateNormalized.substring(0, 7);
-        const matchKey = `${t.date}|${t.description}`;
-        // pendingマッチのみ（手動確認分は自動照合しない）
-        const matchedOrderId = matchedMap.get(matchKey) || null;
-        return {
-          tenant_id: tenantId || "00000000-0000-0000-0000-000000000001",
-          transaction_date: dateNormalized,
-          description: t.description,
-          deposit: t.deposit,
-          withdrawal: t.withdrawal,
-          balance: t.balance,
-          month: monthStr,
-          reconciled: !!matchedOrderId,
-          matched_order_id: matchedOrderId,
-          csv_filename: csvFilename,
-        };
-      });
+      const tid = tenantId || "00000000-0000-0000-0000-000000000001";
 
-      // 重複防止: 同一ファイル名の既存データを削除してから挿入
-      await withTenant(
-        supabase.from("bank_statements").delete().eq("csv_filename", csvFilename),
+      // 既存行を取得して重複チェック用キーセットを作成
+      const { data: existingRows } = await withTenant(
+        supabase
+          .from("bank_statements")
+          .select("transaction_date, description, deposit, withdrawal"),
         tenantId
       );
+      const existingKeys = new Set(
+        (existingRows || []).map((r: Record<string, unknown>) =>
+          `${r.transaction_date}|${r.description}|${r.deposit}|${r.withdrawal}`
+        )
+      );
 
-      // 一括INSERT（1000行ずつバッチ）
-      for (let i = 0; i < rows.length; i += 1000) {
-        const batch = rows.slice(i, i + 1000);
-        const { error: insertError } = await supabase.from("bank_statements").insert(batch);
-        if (insertError) {
-          console.error("[Preview] bank_statements insert error:", insertError);
+      // 新規行のみフィルタ
+      const newRows = allTransactions
+        .map((t) => {
+          const dateNormalized = t.date.replace(/\//g, "-");
+          const key = `${dateNormalized}|${t.description}|${t.deposit}|${t.withdrawal}`;
+          if (existingKeys.has(key)) return null; // 既存行はスキップ
+
+          const monthStr = dateNormalized.substring(0, 7);
+          const matchKey = `${t.date}|${t.description}`;
+          const matchedOrderId = matchedMap.get(matchKey) || null;
+          return {
+            tenant_id: tid,
+            transaction_date: dateNormalized,
+            description: t.description,
+            deposit: t.deposit,
+            withdrawal: t.withdrawal,
+            balance: t.balance,
+            month: monthStr,
+            reconciled: !!matchedOrderId,
+            matched_order_id: matchedOrderId,
+            csv_filename: csvFilename,
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+
+      // 新規行のみINSERT（1000行ずつバッチ）
+      if (newRows.length > 0) {
+        for (let i = 0; i < newRows.length; i += 1000) {
+          const batch = newRows.slice(i, i + 1000);
+          const { error: insertError } = await supabase.from("bank_statements").insert(batch);
+          if (insertError) {
+            console.error("[Preview] bank_statements insert error:", insertError);
+          }
         }
       }
-      console.log(`[Preview] Saved ${rows.length} transactions to bank_statements`);
+      console.log(`[Preview] Saved ${newRows.length} new transactions (${allTransactions.length - newRows.length} duplicates skipped)`);
     }
 
     return NextResponse.json({

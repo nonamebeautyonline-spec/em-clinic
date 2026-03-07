@@ -179,7 +179,7 @@ export default function BankTransferReconcilePage() {
   const loadStatements = useCallback(async (month?: string, page = 1) => {
     setStmtLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "100" });
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (month) params.set("month", month);
       const res = await fetch(`/api/admin/bank-transfer/statements?${params}`, { credentials: "include" });
       if (!res.ok) return;
@@ -787,56 +787,6 @@ export default function BankTransferReconcilePage() {
             </div>
           )}
 
-          {/* 未マッチセクション（プレビュー内） */}
-          {previewResult.unmatched.length > 0 && (
-            <div className={`border-t ${
-              reconcileMode === "statement_based" ? "border-red-200" : "border-yellow-200"
-            }`}>
-              <div className={`px-6 py-4 ${
-                reconcileMode === "statement_based" ? "bg-red-50" : "bg-yellow-50"
-              }`}>
-                <h3 className={`text-base font-semibold ${
-                  reconcileMode === "statement_based" ? "text-red-900" : "text-yellow-900"
-                }`}>
-                  {reconcileMode === "statement_based"
-                    ? `不明な入金（${previewResult.unmatched.length}件）`
-                    : `未マッチ（${previewResult.unmatched.length}件）`}
-                </h3>
-                <p className={`text-sm mt-1 ${
-                  reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
-                }`}>
-                  {reconcileMode === "statement_based"
-                    ? "専用口座への入金ですが、対応する注文が見つかりません。要確認"
-                    : "以下の振込データは該当する注文が見つかりませんでした"}
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">振込日</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要（名義人）</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">金額</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">理由</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {previewResult.unmatched.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{item.date}</td>
-                        <td className="px-6 py-4 text-sm text-slate-900">{item.description}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">¥{item.amount.toLocaleString()}</td>
-                        <td className={`px-6 py-4 text-sm ${
-                          reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
-                        }`}>{item.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
             <div className="text-sm text-slate-600">
               マッチ: <span className="font-semibold text-green-600">{previewResult.matched.length}件</span>
@@ -850,9 +800,8 @@ export default function BankTransferReconcilePage() {
               )}
               {previewResult.unmatched.length > 0 && (
                 <span className="ml-4">
-                  未マッチ: <span className={`font-semibold ${
-                    reconcileMode === "statement_based" ? "text-red-600" : "text-yellow-600"
-                  }`}>{previewResult.unmatched.length}件</span>
+                  未マッチ: <span className="font-semibold text-slate-500">{previewResult.unmatched.length}件</span>
+                  <span className="text-xs text-slate-400 ml-1">（入出金詳細で確認）</span>
                 </span>
               )}
             </div>
@@ -1056,51 +1005,10 @@ export default function BankTransferReconcilePage() {
           )}
 
           {result.unmatched.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className={`px-6 py-4 border-b ${
-                reconcileMode === "statement_based"
-                  ? "bg-red-50 border-red-200"
-                  : "bg-yellow-50 border-yellow-200"
-              }`}>
-                <h2 className={`text-lg font-semibold ${
-                  reconcileMode === "statement_based" ? "text-red-900" : "text-yellow-900"
-                }`}>
-                  {reconcileMode === "statement_based"
-                    ? `不明な入金（${result.unmatched.length}件）`
-                    : `未マッチ（${result.unmatched.length}件）`}
-                </h2>
-                <p className={`text-sm mt-1 ${
-                  reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
-                }`}>
-                  {reconcileMode === "statement_based"
-                    ? "専用口座への入金ですが、対応する注文が見つかりません。要確認"
-                    : "以下の振込データは該当する注文が見つかりませんでした"}
-                </p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">振込日</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要（名義人）</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">金額</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">理由</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {result.unmatched.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{item.date}</td>
-                        <td className="px-6 py-4 text-sm text-slate-900">{item.description}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">¥{item.amount.toLocaleString()}</td>
-                        <td className={`px-6 py-4 text-sm ${
-                          reconcileMode === "statement_based" ? "text-red-700" : "text-yellow-700"
-                        }`}>{item.reason}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="bg-white rounded-lg shadow overflow-hidden p-4">
+              <p className="text-sm text-slate-600">
+                未マッチ {result.unmatched.length}件は入出金詳細で確認・紐づけできます
+              </p>
             </div>
           )}
         </div>
@@ -1226,10 +1134,10 @@ export default function BankTransferReconcilePage() {
                   </div>
 
                   {/* ページネーション */}
-                  {stmtTotal > 100 && (
+                  {stmtTotal > 20 && (
                     <div className="px-6 py-3 border-t border-slate-200 flex items-center justify-between">
                       <span className="text-sm text-slate-600">
-                        {stmtTotal}件中 {(stmtPage - 1) * 100 + 1}〜{Math.min(stmtPage * 100, stmtTotal)}件
+                        {stmtTotal}件中 {(stmtPage - 1) * 20 + 1}〜{Math.min(stmtPage * 20, stmtTotal)}件
                       </span>
                       <div className="flex gap-2">
                         <button
@@ -1240,11 +1148,11 @@ export default function BankTransferReconcilePage() {
                           前へ
                         </button>
                         <span className="px-3 py-1 text-sm text-slate-600">
-                          {stmtPage} / {Math.ceil(stmtTotal / 100)}
+                          {stmtPage} / {Math.ceil(stmtTotal / 20)}
                         </span>
                         <button
                           onClick={() => loadStatements(stmtMonth, stmtPage + 1)}
-                          disabled={stmtPage * 100 >= stmtTotal}
+                          disabled={stmtPage * 20 >= stmtTotal}
                           className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
                         >
                           次へ
