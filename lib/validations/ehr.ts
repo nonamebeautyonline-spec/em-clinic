@@ -48,6 +48,24 @@ export const ehrCsvExportSchema = z.object({
   patient_ids: z.array(z.string()).optional(),
 });
 
+/** リトライリクエスト（単件） */
+export const ehrRetrySchema = z.object({
+  sync_id: z.string().uuid(),
+});
+
+/** 一括リトライリクエスト */
+export const ehrBulkRetrySchema = z.object({
+  sync_ids: z.array(z.string().uuid()).min(1).max(200),
+});
+
+/** 同期ログ取得（ページネーション対応） */
+export const ehrSyncLogsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+  status: z.enum(["success", "error", "skipped", "retrying"]).optional(),
+  provider: z.enum(["orca", "csv", "fhir"]).optional(),
+});
+
 /** EHR設定更新 */
 export const ehrSettingsSchema = z.object({
   provider: z.enum(["orca", "csv", "fhir"]),
