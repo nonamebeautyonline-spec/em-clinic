@@ -58,3 +58,4 @@ gas/**/.claspignore
 /playwright/.cache/
 e2e/.auth/
 e2e/.env.test
+.claude/worktrees/
