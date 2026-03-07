@@ -3,8 +3,10 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import PatientDataSection from "./_components/PatientDataSection";
+import DedupPatientsSection from "./_components/DedupPatientsSection";
 
-type TabType = "name-change" | "merge";
+type TabType = "name-change" | "merge" | "patient-data" | "dedup";
 
 type PatientInfo = {
   id: string;
@@ -40,10 +42,10 @@ export default function PatientInfoChangePage() {
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-slate-900">
-            患者情報変更・統合
+            患者情報変更
           </h1>
           <p className="text-xs text-slate-500">
-            患者の氏名変更やアカウント統合を行います。
+            患者の氏名変更・アカウント統合・予約問診削除・名寄せを行います。
           </p>
         </div>
 
@@ -56,7 +58,7 @@ export default function PatientInfoChangePage() {
       </header>
 
       {/* タブ切替 */}
-      <div className="border-b border-slate-200 flex gap-0">
+      <div className="border-b border-slate-200 flex gap-0 overflow-x-auto">
         <TabButton
           active={activeTab === "name-change"}
           onClick={() => setActiveTab("name-change")}
@@ -67,10 +69,22 @@ export default function PatientInfoChangePage() {
           onClick={() => setActiveTab("merge")}
           label="患者統合"
         />
+        <TabButton
+          active={activeTab === "patient-data"}
+          onClick={() => setActiveTab("patient-data")}
+          label="予約・問診削除"
+        />
+        <TabButton
+          active={activeTab === "dedup"}
+          onClick={() => setActiveTab("dedup")}
+          label="患者名寄せ"
+        />
       </div>
 
       {activeTab === "name-change" && <NameChangeSection />}
       {activeTab === "merge" && <MergeSection />}
+      {activeTab === "patient-data" && <PatientDataSection />}
+      {activeTab === "dedup" && <DedupPatientsSection />}
     </main>
   );
 }

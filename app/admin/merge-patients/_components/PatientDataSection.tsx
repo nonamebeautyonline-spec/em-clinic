@@ -1,0 +1,371 @@
+// 予約・問診削除セクション（patient-data機能の統合版）
+"use client";
+
+import { useState } from "react";
+
+interface Reservation {
+  id: number;
+  reserve_id: string;
+  reserved_date: string;
+  reserved_time: string;
+  status: string;
+  patient_name: string;
+}
+
+interface Intake {
+  id: number;
+  reserve_id: string | null;
+  created_at: string;
+}
+
+interface PatientData {
+  patient_id: string;
+  patient_name: string;
+  reservations: Reservation[];
+  intake: Intake | null;
+}
+
+export default function PatientDataSection() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState<"id" | "name">("id");
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<PatientData | null>(null);
+  const [error, setError] = useState("");
+  const [actionResult, setActionResult] = useState("");
+  const [candidates, setCandidates] = useState<{ id: string; name: string }[]>([]);
+
+  const loadPatientData = async (pid: string) => {
+    setLoading(true);
+    setError("");
+    setData(null);
+    setActionResult("");
+    setCandidates([]);
+
+    try {
+      const res = await fetch(
+        `/api/admin/delete-patient-data?patient_id=${encodeURIComponent(pid)}`,
+        { credentials: "include" }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        setError((json.message || json.error) || "検索失敗");
+        return;
+      }
+      setData(json);
+    } catch {
+      setError("通信エラー");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+
+    if (searchType === "id") {
+      await loadPatientData(searchQuery.trim());
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setData(null);
+    setActionResult("");
+    setCandidates([]);
+
+    try {
+      const res = await fetch(
+        `/api/admin/patient-lookup?q=${encodeURIComponent(searchQuery.trim())}&type=name`,
+        { cache: "no-store" }
+      );
+      const json = await res.json();
+
+      if (json.found && json.patient) {
+        await loadPatientData(json.patient.id);
+      } else if (json.candidates && json.candidates.length > 0) {
+        setCandidates(json.candidates);
+      } else {
+        setError("該当する患者が見つかりませんでした");
+      }
+    } catch {
+      setError("通信エラー");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (options: {
+    deleteReservation: boolean;
+    deleteIntake: boolean;
+    syncGas: boolean;
+  }) => {
+    if (!data?.patient_id) return;
+
+    const confirmMsg = [];
+    if (options.deleteReservation) confirmMsg.push("予約をキャンセル");
+    if (options.deleteIntake) confirmMsg.push("問診を削除");
+    if (options.syncGas) confirmMsg.push("GASシートから削除");
+
+    if (!confirm(`以下の操作を実行しますか？\n\n${confirmMsg.join("\n")}\n\n患者ID: ${data.patient_id}`)) {
+      return;
+    }
+
+    setLoading(true);
+    setActionResult("");
+
+    try {
+      const res = await fetch("/api/admin/delete-patient-data", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: data.patient_id,
+          delete_reservation: options.deleteReservation,
+          delete_intake: options.deleteIntake,
+          sync_gas: options.syncGas,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (json.ok) {
+        setActionResult("処理完了");
+        loadPatientData(data.patient_id);
+      } else {
+        setActionResult(`エラー: ${json.errors?.join(", ") || "不明"}`);
+      }
+    } catch {
+      setActionResult("通信エラー");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeReservations = data?.reservations?.filter(r => r.status !== "canceled") || [];
+  const canceledReservations = data?.reservations?.filter(r => r.status === "canceled") || [];
+
+  return (
+    <div className="space-y-4">
+      {/* 検索フォーム */}
+      <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-slate-800">患者検索</h2>
+        <p className="text-xs text-slate-500">Patient IDまたは氏名で患者を検索し、予約・問診データを削除できます。</p>
+
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 space-y-1">
+            <div className="flex gap-3 text-xs text-slate-600">
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="pdSearchType"
+                  checked={searchType === "id"}
+                  onChange={() => { setSearchType("id"); setCandidates([]); }}
+                  disabled={loading}
+                />
+                PID
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="radio"
+                  name="pdSearchType"
+                  checked={searchType === "name"}
+                  onChange={() => { setSearchType("name"); setCandidates([]); }}
+                  disabled={loading}
+                />
+                氏名
+              </label>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder={searchType === "id" ? "例: 20260130001" : "例: 山田太郎"}
+              className="w-full rounded-lg border border-slate-200 p-2 text-sm font-mono"
+              disabled={loading}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSearch}
+            disabled={loading || !searchQuery.trim()}
+            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium disabled:opacity-60 h-[38px]"
+          >
+            {loading ? "検索中..." : "検索"}
+          </button>
+        </div>
+      </section>
+
+      {/* 候補一覧 */}
+      {candidates.length > 0 && (
+        <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-slate-800">候補一覧（{candidates.length}件）</h2>
+          <div className="divide-y divide-slate-100">
+            {candidates.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => loadPatientData(c.id)}
+                className="w-full text-left px-3 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between"
+                disabled={loading}
+              >
+                <div>
+                  <span className="text-sm font-medium text-slate-800">{c.name || "（氏名なし）"}</span>
+                  <span className="ml-2 text-xs text-slate-400 font-mono">{c.id}</span>
+                </div>
+                <span className="text-xs text-blue-600">選択 →</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">{error}</div>
+      )}
+
+      {actionResult && (
+        <div className={`rounded-xl p-4 text-sm ${
+          actionResult.startsWith("処理完了") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+        }`}>
+          {actionResult}
+        </div>
+      )}
+
+      {data && (
+        <div className="space-y-4">
+          {/* 患者情報 */}
+          <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5">
+            <h2 className="text-sm font-semibold text-slate-800 mb-2">患者ID: {data.patient_id}</h2>
+            <div className="text-sm text-slate-600">
+              <p>氏名: {data.patient_name || "-"}</p>
+              {data.intake && <p>問診登録日: {data.intake.created_at?.slice(0, 10) || "-"}</p>}
+            </div>
+          </section>
+
+          {/* 有効な予約 */}
+          <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b bg-blue-50">
+              <h3 className="text-sm font-semibold text-slate-800">有効な予約 ({activeReservations.length}件)</h3>
+            </div>
+            {activeReservations.length > 0 ? (
+              <div className="p-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500">
+                      <th className="pb-2">予約ID</th>
+                      <th className="pb-2">日付</th>
+                      <th className="pb-2">時間</th>
+                      <th className="pb-2">ステータス</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeReservations.map((r) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="py-2 font-mono text-xs">{r.reserve_id}</td>
+                        <td className="py-2">{r.reserved_date}</td>
+                        <td className="py-2">{r.reserved_time}</td>
+                        <td className="py-2">
+                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">{r.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-4 text-sm text-slate-500">有効な予約はありません</div>
+            )}
+          </section>
+
+          {/* キャンセル済み予約 */}
+          {canceledReservations.length > 0 && (
+            <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b bg-gray-50">
+                <h3 className="text-sm font-semibold text-slate-500">キャンセル済み予約 ({canceledReservations.length}件)</h3>
+              </div>
+              <div className="p-4">
+                <table className="w-full text-sm text-gray-500">
+                  <thead>
+                    <tr className="text-left">
+                      <th className="pb-2">予約ID</th>
+                      <th className="pb-2">日付</th>
+                      <th className="pb-2">時間</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {canceledReservations.map((r) => (
+                      <tr key={r.id} className="border-t">
+                        <td className="py-2 font-mono text-xs">{r.reserve_id}</td>
+                        <td className="py-2">{r.reserved_date}</td>
+                        <td className="py-2">{r.reserved_time}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* 問診情報 */}
+          <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b bg-yellow-50">
+              <h3 className="text-sm font-semibold text-slate-800">問診データ</h3>
+            </div>
+            {data.intake ? (
+              <div className="p-4 text-sm">
+                <p><span className="text-gray-500">ID:</span> {data.intake.id}</p>
+                <p><span className="text-gray-500">reserve_id:</span> {data.intake.reserve_id || "-"}</p>
+              </div>
+            ) : (
+              <div className="p-4 text-sm text-slate-500">問診データがありません</div>
+            )}
+          </section>
+
+          {/* 削除アクション */}
+          <section className="bg-white rounded-2xl shadow-sm p-4 md:p-5">
+            <h3 className="text-sm font-semibold text-red-600 mb-3">データ削除</h3>
+            <div className="flex flex-wrap gap-3">
+              {activeReservations.length > 0 && (
+                <button
+                  onClick={() => handleDelete({ deleteReservation: true, deleteIntake: false, syncGas: false })}
+                  disabled={loading}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm"
+                >
+                  予約をキャンセル（DB）
+                </button>
+              )}
+              {activeReservations.length > 0 && (
+                <button
+                  onClick={() => handleDelete({ deleteReservation: true, deleteIntake: false, syncGas: true })}
+                  disabled={loading}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 text-sm"
+                >
+                  予約をキャンセル + GAS削除
+                </button>
+              )}
+              {data.intake && (
+                <button
+                  onClick={() => handleDelete({ deleteReservation: false, deleteIntake: true, syncGas: false })}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-sm"
+                >
+                  問診を削除
+                </button>
+              )}
+              {(activeReservations.length > 0 || data.intake) && (
+                <button
+                  onClick={() => handleDelete({ deleteReservation: true, deleteIntake: true, syncGas: true })}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-50 text-sm"
+                >
+                  全削除（予約+問診+GAS）
+                </button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}

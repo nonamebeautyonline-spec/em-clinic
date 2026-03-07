@@ -33,19 +33,18 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
-  { href: "/admin/schedule", icon: "🗓️", label: "予約管理" },
+  { href: "/admin/schedule", icon: "🗓️", label: "予約枠管理" },
   { href: "/admin/doctor", icon: "🩺", label: "簡易Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
   { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
-  { href: "/admin/inventory", icon: "📦", label: "在庫" },
-  { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
-  { href: "/admin/patient-data", icon: "🗑️", label: "予約・問診削除" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
-  { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更・統合" },
-  { href: "/admin/dedup-patients", icon: "🔍", label: "患者名寄せ" },
+  { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
+  { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
+  { href: "/admin/notification-settings", icon: "📩", label: "予約・発送通知" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
+  { href: "/admin/inventory", icon: "📦", label: "在庫" },
   { href: "/admin/settings", icon: "⚙️", label: "設定" },
   { href: "/admin/help", icon: "❓", label: "ヘルプ" },
 ];
@@ -414,7 +413,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/schedule"
             icon="🗓️"
-            label="予約管理"
+            label="予約枠管理"
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/schedule")}
           />
@@ -492,30 +491,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/shipping/settings"}
           />
-          <MenuItem
-            href="/admin/inventory"
-            icon="📦"
-            label="在庫"
-            isOpen={isSidebarOpen}
-            isActive={pathname.startsWith("/admin/inventory")}
-          />
 
-          <MenuSection label="患者管理" isOpen={isSidebarOpen} />
-          <MenuItem
-            href="/admin/intake-form"
-            icon="📝"
-            label="問診設定"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/intake-form"}
-            feature="form_builder"
-          />
-          <MenuItem
-            href="/admin/patient-data"
-            icon="🗑️"
-            label="予約・問診削除"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/patient-data"}
-          />
+          <MenuSection label="顧客管理" isOpen={isSidebarOpen} />
           <MenuItem
             href="/admin/view-mypage"
             icon="👁️"
@@ -526,28 +503,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/merge-patients"
             icon="🔗"
-            label="患者情報変更・統合"
+            label="患者情報変更"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/merge-patients"}
-          />
-          <MenuItem
-            href="/admin/dedup-patients"
-            icon="🔍"
-            label="患者名寄せ"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/dedup-patients"}
+            isActive={pathname === "/admin/merge-patients" || pathname === "/admin/patient-data" || pathname === "/admin/dedup-patients"}
           />
 
           <MenuSection label="業務管理" isOpen={isSidebarOpen} />
           <MenuItem
-            href="/admin/bank-transfer"
-            icon="💰"
-            label="銀行振込管理"
+            href="/admin/intake-form"
+            icon="📝"
+            label="問診設定"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/bank-transfer"}
+            isActive={pathname === "/admin/intake-form"}
+            feature="form_builder"
           />
-
-          <MenuSection label="システム" isOpen={isSidebarOpen} />
+          <MenuItem
+            href="/admin/notification-settings"
+            icon="📩"
+            label="予約・発送通知"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/notification-settings"}
+          />
           <MenuItem
             href="/admin/products"
             icon="💊"
@@ -555,6 +531,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/products"}
           />
+          <MenuItem
+            href="/admin/inventory"
+            icon="📦"
+            label="在庫"
+            isOpen={isSidebarOpen}
+            isActive={pathname.startsWith("/admin/inventory")}
+          />
+
+          <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
             href="/admin/settings"
             icon="⚙️"
