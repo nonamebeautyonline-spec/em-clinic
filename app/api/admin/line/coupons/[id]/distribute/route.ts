@@ -43,58 +43,77 @@ export async function POST(
   let distributed = 0;
   let sent = 0;
 
-  for (const target of withLineId) {
-    // 既に配布済みかチェック
-    const { data: existing } = await withTenant(
-      supabaseAdmin.from("coupon_issues")
-        .select("id")
-        .eq("coupon_id", coupon.id)
-        .eq("patient_id", target.patient_id)
-        .eq("status", "issued")
-        .limit(1),
-      tenantId
+  // 既に配布済みの患者を一括取得
+  const targetIds = withLineId.map(t => t.patient_id);
+  const { data: existingIssues } = await withTenant(
+    supabaseAdmin.from("coupon_issues")
+      .select("patient_id")
+      .eq("coupon_id", coupon.id)
+      .in("patient_id", targetIds)
+      .eq("status", "issued"),
+    tenantId
+  );
+  const alreadyIssuedSet = new Set((existingIssues || []).map((e: { patient_id: string }) => e.patient_id));
+
+  // 未配布の対象者のみ抽出
+  const newTargets = withLineId.filter(t => !alreadyIssuedSet.has(t.patient_id));
+
+  // 10件バッチで並列送信
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < newTargets.length; i += BATCH_SIZE) {
+    const batch = newTargets.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (target) => {
+        // coupon_issues に記録
+        await supabaseAdmin.from("coupon_issues").insert({
+          ...tenantPayload(tenantId),
+          coupon_id: coupon.id,
+          patient_id: target.patient_id,
+          status: "issued",
+        });
+
+        let pushSent = false;
+
+        // LINE通知
+        if (target.line_id) {
+          const discountText = coupon.discount_type === "percent"
+            ? `${coupon.discount_value}%OFF`
+            : `¥${coupon.discount_value.toLocaleString()}OFF`;
+
+          const defaultMsg = `クーポンをお届けします🎫\n\n【${coupon.name}】\n${discountText}\nコード: ${coupon.code}\n${coupon.valid_until ? `有効期限: ${new Date(coupon.valid_until).toLocaleDateString("ja-JP")}` : ""}`;
+
+          const pushRes = await pushMessage(target.line_id, [{
+            type: "text",
+            text: message || defaultMsg,
+          }], tenantId ?? undefined);
+
+          if (pushRes?.ok) {
+            pushSent = true;
+            await supabaseAdmin.from("message_log").insert({
+              ...tenantPayload(tenantId),
+              patient_id: target.patient_id,
+              line_uid: target.line_id,
+              direction: "outgoing",
+              event_type: "message",
+              message_type: "text",
+              content: message || defaultMsg,
+              status: "sent",
+            });
+          }
+        }
+
+        return { pushSent };
+      })
     );
 
-    if (existing && existing.length > 0) continue;
-
-    // coupon_issues に記録
-    await supabaseAdmin.from("coupon_issues").insert({
-      ...tenantPayload(tenantId),
-      coupon_id: coupon.id,
-      patient_id: target.patient_id,
-      status: "issued",
-    });
-    distributed++;
-
-    // LINE通知
-    if (target.line_id) {
-      const discountText = coupon.discount_type === "percent"
-        ? `${coupon.discount_value}%OFF`
-        : `¥${coupon.discount_value.toLocaleString()}OFF`;
-
-      const defaultMsg = `クーポンをお届けします🎫\n\n【${coupon.name}】\n${discountText}\nコード: ${coupon.code}\n${coupon.valid_until ? `有効期限: ${new Date(coupon.valid_until).toLocaleDateString("ja-JP")}` : ""}`;
-
-      try {
-        const pushRes = await pushMessage(target.line_id, [{
-          type: "text",
-          text: message || defaultMsg,
-        }], tenantId ?? undefined);
-
-        if (pushRes?.ok) {
-          sent++;
-          await supabaseAdmin.from("message_log").insert({
-            ...tenantPayload(tenantId),
-            patient_id: target.patient_id,
-            line_uid: target.line_id,
-            direction: "outgoing",
-            event_type: "message",
-            message_type: "text",
-            content: message || defaultMsg,
-            status: "sent",
-          });
-        }
-      } catch (err) {
-        console.error(`[coupon/distribute] push error for ${target.patient_id}:`, err);
+    // バッチ結果を集計
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j];
+      if (result.status === "fulfilled") {
+        distributed++;
+        if (result.value.pushSent) sent++;
+      } else {
+        console.error(`[coupon/distribute] push error for ${batch[j].patient_id}:`, result.reason);
       }
     }
   }

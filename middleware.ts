@@ -4,7 +4,10 @@ import { jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import { getRequiredPermission, hasPermission } from "@/lib/permissions";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+if (!JWT_SECRET) {
+  console.error("[middleware] JWT_SECRET and ADMIN_TOKEN are both missing");
+}
 
 // テナント slug → id のキャッシュ（プロセス内メモリ、1分TTL）
 const slugCache = new Map<string, { id: string; expires: number }>();

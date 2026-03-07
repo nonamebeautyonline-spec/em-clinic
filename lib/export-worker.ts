@@ -79,8 +79,9 @@ export async function executeFullExport(
     const recordCounts: Record<string, number> = {};
     const tablesIncluded: string[] = [];
 
-    for (const table of EXPORT_TABLES) {
-      try {
+    // 全テーブルを並列クエリで取得
+    const results = await Promise.allSettled(
+      EXPORT_TABLES.map(async (table) => {
         let query = supabaseAdmin
           .from(table.name)
           .select(table.select)
@@ -105,21 +106,27 @@ export async function executeFullExport(
           const rows = (retryData || []) as unknown as Record<string, unknown>[];
           const selectCols = table.select.split(",");
           const csv = toCSV(table.headers, rows, selectCols);
-          files.push({ name: `${table.name}.csv`, content: csv });
-          recordCounts[table.name] = rows.length;
-          tablesIncluded.push(table.name);
-          continue;
+          return { name: table.name, csv, rowCount: rows.length };
         }
 
         const rows = (data || []) as unknown as Record<string, unknown>[];
         const selectCols = table.select.split(",");
         const csv = toCSV(table.headers, rows, selectCols);
-        files.push({ name: `${table.name}.csv`, content: csv });
-        recordCounts[table.name] = rows.length;
-        tablesIncluded.push(table.name);
-      } catch {
+        return { name: table.name, csv, rowCount: rows.length };
+      })
+    );
+
+    // 結果を集約（テーブルごとにエラー処理）
+    for (let i = 0; i < EXPORT_TABLES.length; i++) {
+      const result = results[i];
+      const tableName = EXPORT_TABLES[i].name;
+      if (result.status === "fulfilled") {
+        files.push({ name: `${result.value.name}.csv`, content: result.value.csv });
+        recordCounts[result.value.name] = result.value.rowCount;
+        tablesIncluded.push(result.value.name);
+      } else {
         // テーブルが存在しない場合はスキップ
-        recordCounts[table.name] = 0;
+        recordCounts[tableName] = 0;
       }
     }
 

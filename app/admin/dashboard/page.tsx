@@ -76,8 +76,9 @@ function saveWidgetSettings(settings: WidgetSettings): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // localStorage がフルの場合等は無視
+  } catch (e) {
+    // localStorage がフルの場合等はログ出力
+    console.error("[dashboard] レイアウト保存失敗:", e);
   }
 }
 
@@ -219,6 +220,13 @@ export default function EnhancedDashboard() {
     setError("");
 
     try {
+      // カスタム日付範囲のバリデーション
+      if (dateRange === "custom" && startDate && endDate && startDate > endDate) {
+        setError("開始日は終了日より前に設定してください");
+        setLoading(false);
+        return;
+      }
+
       const params = new URLSearchParams({ range: dateRange });
       if (dateRange === "custom" && startDate && endDate) {
         params.append("start", startDate);

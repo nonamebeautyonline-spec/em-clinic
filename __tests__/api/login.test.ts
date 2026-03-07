@@ -1,5 +1,8 @@
 // __tests__/api/login.test.ts
 // 管理者ログインAPI テスト
+// JWT_SECRET をテスト環境で設定（モジュールインポート前に必要）
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret-for-vitest";
+
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 // Supabaseチェーンモックの型定義

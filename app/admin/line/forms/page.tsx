@@ -72,12 +72,16 @@ export default function FormsPage() {
   // フォルダ操作
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
-    await fetch("/api/admin/line/form-folders", {
+    const res = await fetch("/api/admin/line/form-folders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ name: newFolderName }),
     });
+    if (!res.ok) {
+      alert("エラーが発生しました");
+      return;
+    }
     setNewFolderName("");
     setShowNewFolder(false);
     fetchFolders();
@@ -85,19 +89,27 @@ export default function FormsPage() {
 
   const renameFolder = async (id: number) => {
     if (!editFolderName.trim()) return;
-    await fetch("/api/admin/line/form-folders", {
+    const res = await fetch("/api/admin/line/form-folders", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ id, name: editFolderName }),
     });
+    if (!res.ok) {
+      alert("エラーが発生しました");
+      return;
+    }
     setEditingFolder(null);
     fetchFolders();
   };
 
   const deleteFolder = async (id: number) => {
     if (!confirm("フォルダを削除しますか？中のフォームは未分類に移動されます。")) return;
-    await fetch(`/api/admin/line/form-folders?id=${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`/api/admin/line/form-folders?id=${id}`, { method: "DELETE", credentials: "include" });
+    if (!res.ok) {
+      alert("エラーが発生しました");
+      return;
+    }
     if (selectedFolder === id) setSelectedFolder(null);
     fetchFolders();
     fetchForms();
@@ -112,6 +124,10 @@ export default function FormsPage() {
       credentials: "include",
       body: JSON.stringify({ name: newFormName, folder_id: selectedFolder }),
     });
+    if (!res.ok) {
+      alert("エラーが発生しました");
+      return;
+    }
     const data = await res.json();
     setShowNewForm(false);
     setNewFormName("");
@@ -125,7 +141,11 @@ export default function FormsPage() {
 
   const deleteForm = async (id: number) => {
     if (!confirm("このフォームを削除しますか？回答データも削除されます。")) return;
-    await fetch(`/api/admin/line/forms/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`/api/admin/line/forms/${id}`, { method: "DELETE", credentials: "include" });
+    if (!res.ok) {
+      alert("エラーが発生しました");
+      return;
+    }
     fetchForms();
     fetchFolders();
   };

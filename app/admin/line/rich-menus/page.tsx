@@ -183,20 +183,22 @@ export default function RichMenuManagementPage() {
     const res = await fetch("/api/admin/line/rich-menus", { credentials: "include" });
     const data = await res.json();
     if (data.menus) setMenus(data.menus);
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchMenus();
-    fetch("/api/admin/line/forms", { credentials: "include" })
-      .then(r => r.json())
-      .then(data => { if (data.forms) setAllForms(data.forms); });
-    fetch("/api/admin/line/templates", { credentials: "include" })
-      .then(r => r.json())
-      .then(data => { if (data.templates) setAllTemplates(data.templates.map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))); });
-    fetch("/api/admin/line/marks", { credentials: "include" })
-      .then(r => r.json())
-      .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); });
+    // 4つのfetchを並列実行して初期ロードを高速化
+    Promise.all([
+      fetchMenus(),
+      fetch("/api/admin/line/forms", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => { if (data.forms) setAllForms(data.forms); }),
+      fetch("/api/admin/line/templates", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => { if (data.templates) setAllTemplates(data.templates.map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))); }),
+      fetch("/api/admin/line/marks", { credentials: "include" })
+        .then(r => r.json())
+        .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); }),
+    ]).finally(() => setLoading(false));
   }, []);
 
   // --- AI生成ハンドラ ---

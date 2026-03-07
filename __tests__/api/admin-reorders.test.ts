@@ -344,7 +344,7 @@ describe("POST /api/admin/reorders/approve", () => {
       data: { id: 1, patient_id: "P001", status: "pending", product_code: "MJ-2.5" },
       error: null,
     });
-    const updateChain = createChain({ data: null, error: null });
+    const updateChain = createChain({ data: [{ id: 1 }], error: null });
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
@@ -352,7 +352,7 @@ describe("POST /api/admin/reorders/approve", () => {
       if (table === "reorders") {
         reorderCallCount++;
         if (reorderCallCount === 1) return selectChain as ReturnType<typeof supabaseAdmin.from>;
-        return updateChain as ReturnType<typeof supabaseAdmin.from>; // status更新、karte_note更新、line_notify_result更新
+        return updateChain as ReturnType<typeof supabaseAdmin.from>; // status更新（.select("id")付き）、karte_note更新、line_notify_result更新
       }
       if (table === "patients") {
         return createChain({ data: { line_id: "U_LINE_001" }, error: null }) as ReturnType<typeof supabaseAdmin.from>;
@@ -373,7 +373,7 @@ describe("POST /api/admin/reorders/approve", () => {
       data: { id: 1, patient_id: "P001", status: "pending", product_code: "MJ-2.5" },
       error: null,
     });
-    const updateChain = createChain({ data: null, error: null });
+    const updateChain = createChain({ data: [{ id: 1 }], error: null });
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
@@ -399,7 +399,7 @@ describe("POST /api/admin/reorders/approve", () => {
       data: { id: 1, patient_id: "P001", status: "pending", product_code: "MJ-2.5" },
       error: null,
     });
-    const updateChain = createChain({ data: null, error: null });
+    const updateChain = createChain({ data: [{ id: 1 }], error: null });
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;
@@ -431,7 +431,7 @@ describe("POST /api/admin/reorders/approve", () => {
       data: { id: 1, patient_id: "P001", status: "pending", product_code: "MJ-2.5" },
       error: null,
     });
-    const updateChain = createChain({ data: null, error: null });
+    const updateChain = createChain({ data: [{ id: 1 }], error: null });
 
     const { supabaseAdmin } = await import("@/lib/supabase");
     let reorderCallCount = 0;

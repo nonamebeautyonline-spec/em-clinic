@@ -3,7 +3,7 @@
 
 // 権限定義
 export type Permission =
-  | "dashboard.view"
+  | "dashboard.view" | "dashboard.edit"
   | "patients.view" | "patients.edit"
   | "karte.view" | "karte.edit"
   | "reservations.view" | "reservations.edit"
@@ -21,7 +21,7 @@ export type Permission =
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   // オーナー: 全権限
   owner: [
-    "dashboard.view",
+    "dashboard.view", "dashboard.edit",
     "patients.view", "patients.edit",
     "karte.view", "karte.edit",
     "reservations.view", "reservations.edit",
@@ -38,7 +38,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
 
   // 管理者: メンバー管理以外は全権限
   admin: [
-    "dashboard.view",
+    "dashboard.view", "dashboard.edit",
     "patients.view", "patients.edit",
     "karte.view", "karte.edit",
     "reservations.view", "reservations.edit",
@@ -55,7 +55,7 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
 
   // 編集者: 設定・メンバー管理以外の閲覧・編集
   editor: [
-    "dashboard.view",
+    "dashboard.view", "dashboard.edit",
     "patients.view", "patients.edit",
     "karte.view", "karte.edit",
     "reservations.view", "reservations.edit",
@@ -182,9 +182,9 @@ export function getRequiredPermission(
   // パスルールに一致するものを探す（長いプレフィックスが先にマッチ）
   const rule = PATH_RULES.find((r) => path.startsWith(r.prefix));
   if (!rule) {
-    // ダッシュボードやその他のGET
+    // 未登録パスはGETならdashboard.view、変更系はdashboard.edit（権限チェック漏れ防止）
     if (method === "GET") return "dashboard.view";
-    return null;
+    return "dashboard.edit";
   }
 
   // GETは閲覧権限、それ以外は編集権限

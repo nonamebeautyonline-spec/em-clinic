@@ -374,8 +374,14 @@ $$;
  * SQLにテナントフィルター条件を注入する
  * 各テーブルのエイリアスに対して tenant_id = 'xxx' を追加
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function injectTenantFilter(sql: string, tenantId: string | null): string {
   if (!tenantId) return sql;
+  // tenantIdのUUID形式を検証（SQL注入防御）
+  if (!UUID_RE.test(tenantId)) {
+    throw new Error("Invalid tenantId format");
+  }
 
   // FROM/JOIN句のテーブル名とエイリアスを抽出
   const tableAliases: { table: string; alias: string }[] = [];

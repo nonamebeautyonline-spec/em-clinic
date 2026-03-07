@@ -131,14 +131,24 @@ export async function GET(req: NextRequest) {
     let skipped = 0;
     let errors = 0;
 
-    for (const tenant of tenants) {
-      try {
-        const result = await collectForTenant(tenant.id, dateStr, statDate);
-        if (result.skipped) skipped++;
-        else if (result.error) errors++;
+    // 全テナントを並列で処理
+    const results = await Promise.allSettled(
+      tenants.map(async (tenant) => {
+        try {
+          return await collectForTenant(tenant.id, dateStr, statDate);
+        } catch (e) {
+          console.error(`[collect-line-stats] tenant=${tenant.id} error:`, (e as Error).message);
+          return { error: (e as Error).message };
+        }
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === "fulfilled") {
+        if (r.value.skipped) skipped++;
+        else if (r.value.error) errors++;
         else collected++;
-      } catch (e) {
-        console.error(`[collect-line-stats] tenant=${tenant.id} error:`, (e as Error).message);
+      } else {
         errors++;
       }
     }

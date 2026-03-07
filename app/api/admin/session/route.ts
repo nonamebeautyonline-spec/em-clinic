@@ -3,7 +3,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+  if (!secret) throw new Error("JWT_SECRET or ADMIN_TOKEN environment variable is required");
+  return secret;
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +18,7 @@ export async function GET(req: NextRequest) {
     }
 
     // JWT検証
-    const secret = new TextEncoder().encode(JWT_SECRET);
+    const secret = new TextEncoder().encode(getJwtSecret());
     const { payload } = await jwtVerify(sessionCookie, secret);
 
     return NextResponse.json({

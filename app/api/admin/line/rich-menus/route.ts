@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     }
 
     // メニューごとの表示人数を計算
-    // 1. LINE連携済み全患者数（LINE_仮ID含む = デフォルトメニュー対象の母数）
+    // 1. LINE連携済み患者数2種（並列）
     const [registeredRes, allLineRes] = await Promise.all([
       withTenant(
         supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const registeredCount = registeredRes.count || 0;
     const allLineCount = allLineRes.count || 0;
 
-    // 2. 注文がある患者（処方後メニュー対象）のpatient_idを取得
+    // 2. 注文がある患者のpatient_idを取得（ページネーション）
     const orderPids = new Set<string>();
     let offset = 0;
     while (true) {
@@ -61,16 +61,25 @@ export async function GET(req: NextRequest) {
       offset += 5000;
     }
 
-    // 3. 注文患者のうちLINE連携済みの人数（patients テーブルで判定）
+    // 3. 注文患者のうちLINE連携済みの人数（並列チャンクで高速化）
     let rxCount = 0;
     const pidArr = [...orderPids];
-    for (let i = 0; i < pidArr.length; i += 100) {
-      const chunk = pidArr.slice(i, i + 100);
-      const { count } = await withTenant(
-        supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true }).in("patient_id", chunk).not("line_id", "is", null),
-        tenantId
+    if (pidArr.length > 0) {
+      const CHUNK = 500;
+      const chunks: string[][] = [];
+      for (let i = 0; i < pidArr.length; i += CHUNK) {
+        chunks.push(pidArr.slice(i, i + CHUNK));
+      }
+      const chunkResults = await Promise.all(
+        chunks.map(chunk =>
+          withTenant(
+            supabaseAdmin.from("patients").select("patient_id", { count: "exact", head: true })
+              .in("patient_id", chunk).not("line_id", "is", null),
+            tenantId
+          )
+        )
       );
-      rxCount += count || 0;
+      for (const r of chunkResults) rxCount += r.count || 0;
     }
 
     // 個人情報入力後 = 登録済み（LINE_除外）かつ注文なし

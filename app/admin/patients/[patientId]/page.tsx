@@ -89,13 +89,19 @@ export default function PatientDetailPage({
   async function reloadBundle() {
     try {
       const res = await fetch(`/api/admin/patientbundle?patientId=${encodeURIComponent(patientId)}`, { cache: "no-store" });
+      if (!res.ok) {
+        console.error(`[reloadBundle] API error: ${res.status} ${res.statusText}`);
+        return;
+      }
       const data = await res.json();
       if (data.ok) {
         setIntakes(data.intakes ?? []);
         setHistory(data.history ?? []);
         setReorders(data.reorders ?? []);
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.error("[reloadBundle] fetch error:", e);
+    }
   }
 
   useEffect(() => {

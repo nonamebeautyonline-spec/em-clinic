@@ -270,28 +270,54 @@ export async function bulkLinkRichMenu(lineUserIds: string[], richMenuId: string
   let linked = 0;
   let failed = 0;
 
+  // 500件ずつのバッチを作成
+  const batches: string[][] = [];
   for (let i = 0; i < lineUserIds.length; i += 500) {
-    const batch = lineUserIds.slice(i, i + 500);
-    const res = await fetch(`${LINE_API}/richmenu/bulk/link`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ richMenuId, userIds: batch }),
-    });
+    batches.push(lineUserIds.slice(i, i + 500));
+  }
 
-    if (res.ok) {
-      linked += batch.length;
-    } else {
-      // バルク失敗時は個別にフォールバック
-      for (const uid of batch) {
-        const r = await fetch(`${LINE_API}/user/${uid}/richmenu/${richMenuId}`, {
+  // 3並列でバッチを実行
+  const CONCURRENCY = 3;
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const chunk = batches.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map(async (batch) => {
+        const res = await fetch(`${LINE_API}/richmenu/bulk/link`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ richMenuId, userIds: batch }),
         });
-        if (r.ok) linked++;
-        else failed++;
+
+        if (res.ok) {
+          return { linked: batch.length, failed: 0 };
+        }
+
+        // バルク失敗時は個別にフォールバック
+        let batchLinked = 0;
+        let batchFailed = 0;
+        for (const uid of batch) {
+          const r = await fetch(`${LINE_API}/user/${uid}/richmenu/${richMenuId}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (r.ok) batchLinked++;
+          else batchFailed++;
+        }
+        return { linked: batchLinked, failed: batchFailed };
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        linked += result.value.linked;
+        failed += result.value.failed;
+      } else {
+        // Promise自体が拒否された場合（ネットワーク障害等）
+        const chunkIndex = results.indexOf(result);
+        failed += chunk[chunkIndex]?.length || 0;
       }
     }
   }

@@ -255,8 +255,8 @@ describe("getRequiredPermission", () => {
       expect(getRequiredPermission("/api/admin/unknown-endpoint", "GET")).toBe("dashboard.view");
     });
 
-    it("POSTはnullを返す", () => {
-      expect(getRequiredPermission("/api/admin/unknown-endpoint", "POST")).toBeNull();
+    it("POSTはdashboard.editを返す（権限チェック漏れ防止）", () => {
+      expect(getRequiredPermission("/api/admin/unknown-endpoint", "POST")).toBe("dashboard.edit");
     });
   });
 });

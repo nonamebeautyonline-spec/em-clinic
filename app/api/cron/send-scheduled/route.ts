@@ -44,10 +44,22 @@ export async function GET(req: NextRequest) {
     let sent = 0;
     let failed = 0;
 
-    for (const msg of messages) {
-      // 各メッセージが持つ tenant_id を使用
-      const msgTenantId: string | null = msg.tenant_id || null;
+    // 全患者名を一括取得（N+1クエリ防止）
+    const allPatientIds = [...new Set(messages.map(m => m.patient_id).filter(Boolean))];
+    const patientNameMap = new Map<string, string>();
+    if (allPatientIds.length > 0) {
+      const { data: patients } = await supabaseAdmin
+        .from("patients")
+        .select("patient_id, name")
+        .in("patient_id", allPatientIds);
+      for (const p of patients || []) {
+        if (p.name) patientNameMap.set(p.patient_id, p.name);
+      }
+    }
 
+    // LINE UIDなしのメッセージを先に処理
+    const validMessages = [];
+    for (const msg of messages) {
       if (!msg.line_uid) {
         await supabaseAdmin.from("scheduled_messages").update({
           status: "failed",
@@ -55,66 +67,81 @@ export async function GET(req: NextRequest) {
           sent_at: now,
         }).eq("id", msg.id);
         failed++;
-        continue;
+      } else {
+        validMessages.push(msg);
+      }
+    }
+
+    // 1メッセージの送信処理（バッチ並列用）
+    const processSingleMessage = async (msg: typeof messages[number]) => {
+      const msgTenantId: string | null = msg.tenant_id || null;
+      const patientName = patientNameMap.get(msg.patient_id) || "";
+
+      const resolvedMsg = msg.message_content
+        .replace(/\{name\}/g, patientName)
+        .replace(/\{patient_id\}/g, msg.patient_id);
+
+      // flex_json がある場合はFLEXメッセージ、なければテキスト
+      let res;
+      if (msg.flex_json) {
+        res = await pushMessage(msg.line_uid, [{
+          type: "flex",
+          altText: resolvedMsg,
+          contents: msg.flex_json,
+        }], msgTenantId ?? undefined);
+      } else {
+        res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }], msgTenantId ?? undefined);
       }
 
-      try {
-        // テンプレート変数を置換（patientsテーブルから患者名取得）
-        const { data: patient } = await supabaseAdmin
-          .from("patients")
-          .select("name")
-          .eq("patient_id", msg.patient_id)
-          .maybeSingle();
-
-        const resolvedMsg = msg.message_content
-          .replace(/\{name\}/g, patient?.name || "")
-          .replace(/\{patient_id\}/g, msg.patient_id);
-
-        // flex_json がある場合はFLEXメッセージ、なければテキスト
-        let res;
-        if (msg.flex_json) {
-          res = await pushMessage(msg.line_uid, [{
-            type: "flex",
-            altText: resolvedMsg,
-            contents: msg.flex_json,
-          }], msgTenantId ?? undefined);
-        } else {
-          res = await pushMessage(msg.line_uid, [{ type: "text", text: resolvedMsg }], msgTenantId ?? undefined);
-        }
-
-        if (res?.ok) {
-          await supabaseAdmin.from("scheduled_messages").update({
-            status: "sent",
-            sent_at: new Date().toISOString(),
-          }).eq("id", msg.id);
-
-          // メッセージログ
-          await supabaseAdmin.from("message_log").insert({
-            ...tenantPayload(msgTenantId),
-            patient_id: msg.patient_id,
-            line_uid: msg.line_uid,
-            message_type: "scheduled",
-            content: resolvedMsg,
-            flex_json: msg.flex_json || null,
-            status: "sent",
-            direction: "outgoing",
-          });
-          sent++;
-        } else {
-          await supabaseAdmin.from("scheduled_messages").update({
-            status: "failed",
-            error_message: "LINE API error",
-            sent_at: new Date().toISOString(),
-          }).eq("id", msg.id);
-          failed++;
-        }
-      } catch (err) {
+      if (res?.ok) {
         await supabaseAdmin.from("scheduled_messages").update({
-          status: "failed",
-          error_message: err instanceof Error ? err.message : "Unknown error",
+          status: "sent",
           sent_at: new Date().toISOString(),
         }).eq("id", msg.id);
-        failed++;
+
+        // メッセージログ
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(msgTenantId),
+          patient_id: msg.patient_id,
+          line_uid: msg.line_uid,
+          message_type: "scheduled",
+          content: resolvedMsg,
+          flex_json: msg.flex_json || null,
+          status: "sent",
+          direction: "outgoing",
+        });
+        return "sent" as const;
+      } else {
+        await supabaseAdmin.from("scheduled_messages").update({
+          status: "failed",
+          error_message: "LINE API error",
+          sent_at: new Date().toISOString(),
+        }).eq("id", msg.id);
+        return "failed" as const;
+      }
+    };
+
+    // 10件ずつバッチで並列送信
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < validMessages.length; i += BATCH_SIZE) {
+      const batch = validMessages.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(async (msg) => {
+          try {
+            return await processSingleMessage(msg);
+          } catch (err) {
+            await supabaseAdmin.from("scheduled_messages").update({
+              status: "failed",
+              error_message: err instanceof Error ? err.message : "Unknown error",
+              sent_at: new Date().toISOString(),
+            }).eq("id", msg.id);
+            return "failed" as const;
+          }
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value === "sent") sent++;
+        else failed++;
       }
     }
 

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id: patientId } = await params;
 
   // 全クエリを並列実行（サーバー側で統合）
-  const [messagesRes, tagsRes, markRes, fieldsRes, answererRes, allOrdersRes, reordersRes, latestResvRes, bankRes, intakeRecordRes] = await Promise.all([
+  const [messagesRes, tagsRes, markRes, fieldsRes, answererRes, allOrdersRes, reordersRes, latestResvRes, bankRes, intakeRecordRes, ansIdRes, latestResvForMenuRes] = await Promise.all([
     // メッセージログ（最新25件）
     withTenant(supabaseAdmin
       .from("message_log")
@@ -92,6 +92,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .order("id", { ascending: false })
       .limit(1)
       .maybeSingle(), tenantId),
+    // answerer_id取得（初期Promise.allに統合）
+    withTenant(supabaseAdmin
+      .from("intake")
+      .select("answerer_id")
+      .eq("patient_id", patientId)
+      .not("answerer_id", "is", null)
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle(), tenantId),
+    // prescription_menu取得（初期Promise.allに統合）
+    withTenant(supabaseAdmin
+      .from("reservations")
+      .select("prescription_menu")
+      .eq("patient_id", patientId)
+      .not("prescription_menu", "is", null)
+      .order("reserved_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(), tenantId),
   ]);
 
   // メッセージログ: direction補正
@@ -111,28 +129,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const pendingBankTransfer = bankRes.data;
   const intakeRecord = intakeRecordRes.data;
 
-  // answerer_id取得
-  const { data: ansIdRow } = await withTenant(
-    supabaseAdmin.from("intake").select("answerer_id")
-      .eq("patient_id", patientId)
-      .not("answerer_id", "is", null)
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    tenantId
-  );
-  const intakeAnswererId = ansIdRow?.answerer_id || "";
-
-  // prescription_menu取得
-  const { data: latestResvForMenu } = await withTenant(
-    supabaseAdmin.from("reservations").select("prescription_menu")
-      .eq("patient_id", patientId)
-      .not("prescription_menu", "is", null)
-      .order("reserved_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    tenantId
-  );
+  // answerer_id・prescription_menu は初期Promise.allで取得済み
+  const intakeAnswererId = ansIdRes.data?.answerer_id || "";
+  const latestResvForMenu = latestResvForMenuRes.data;
 
   const latestOrder = allOrders?.[0] || null;
   const formattedLatestOrder = latestOrder ? {

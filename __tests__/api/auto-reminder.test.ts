@@ -391,7 +391,7 @@ describe("send-scheduled: FLEX送信対応", () => {
         return chain as never;
       }
       if (table === "patients") {
-        return createChainMock({ data: { name: "テスト太郎" }, error: null }) as never;
+        return createChainMock({ data: [{ patient_id: "P001", name: "テスト太郎" }], error: null }) as never;
       }
       if (table === "message_log") {
         return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as never;
@@ -444,7 +444,7 @@ describe("send-scheduled: FLEX送信対応", () => {
         return chain as never;
       }
       if (table === "patients") {
-        return createChainMock({ data: { name: "テスト花子" }, error: null }) as never;
+        return createChainMock({ data: [{ patient_id: "P002", name: "テスト花子" }], error: null }) as never;
       }
       if (table === "message_log") {
         return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) } as never;

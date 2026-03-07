@@ -74,21 +74,32 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ステータス更新
-    const { error: dbError } = await withTenant(
+    // ステータス更新（レースコンディション防止: status=pending条件付き）
+    const { data: updatedRows, error: dbError } = await withTenant(
       supabaseAdmin
         .from("reorders")
         .update({
           status: "confirmed",
           approved_at: new Date().toISOString(),
         })
-        .eq("reorder_number", Number(id)),
+        .eq("reorder_number", Number(id))
+        .eq("status", "pending")
+        .select("id"),
       tenantId
     );
 
     if (dbError) {
       console.error("[admin/reorders/approve] DB update error:", dbError);
       return serverError("DB error");
+    }
+
+    // 更新件数0 = 別リクエストで既に処理済み
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log(`[admin/reorders/approve] Race condition detected: reorder ${id} already processed`);
+      return NextResponse.json({
+        ok: true,
+        message: "既に処理済みです",
+      });
     }
 
     console.log(`[admin/reorders/approve] Approved: reorder_num=${id}, patient=${reorderData.patient_id}`);

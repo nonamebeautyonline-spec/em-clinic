@@ -18,7 +18,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN || "fallback-secret";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
+  if (!secret) throw new Error("JWT_SECRET or ADMIN_TOKEN environment variable is required");
+  return secret;
+}
 
 // セッション有効期限: 24時間
 const SESSION_DURATION_SECONDS = 24 * 60 * 60;
@@ -103,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     // JWTトークン生成
-    const secret = new TextEncoder().encode(JWT_SECRET);
+    const secret = new TextEncoder().encode(getJwtSecret());
     const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
 
     const jwt = await new SignJWT({

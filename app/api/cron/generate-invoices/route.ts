@@ -45,24 +45,30 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const results: InvoiceResult[] = [];
+    // 全テナントを並列で処理
+    const settled = await Promise.allSettled(
+      tenants.map(async (tenant) => {
+        try {
+          return await generateOverageInvoice(tenant.id, lastMonth);
+        } catch (err) {
+          console.error(
+            `[generate-invoices] テナント ${tenant.id} の処理でエラー:`,
+            err,
+          );
+          return {
+            status: "error" as const,
+            tenantId: tenant.id,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      })
+    );
 
-    for (const tenant of tenants) {
-      try {
-        const result = await generateOverageInvoice(tenant.id, lastMonth);
-        results.push(result);
-      } catch (err) {
-        console.error(
-          `[generate-invoices] テナント ${tenant.id} の処理でエラー:`,
-          err,
-        );
-        results.push({
-          status: "error",
-          tenantId: tenant.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
+    const results: InvoiceResult[] = settled.map((r) =>
+      r.status === "fulfilled"
+        ? r.value
+        : { status: "error" as const, tenantId: "", error: String(r.reason) }
+    );
 
     await lock.release();
 

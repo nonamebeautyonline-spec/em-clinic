@@ -1,6 +1,8 @@
 // __tests__/api/small-routes-batch1.test.ts
 // 小型管理APIルートの一括テスト（カバレッジ向上用）
 // 各ルート: 認証テスト + 正常系1-2件の最小構成
+process.env.JWT_SECRET = process.env.JWT_SECRET || "test-jwt-secret-for-vitest";
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ============================================================

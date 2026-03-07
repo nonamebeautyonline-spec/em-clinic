@@ -44,31 +44,45 @@ export async function POST(
   const baseUrl = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
   let sent = 0;
 
-  for (const target of withLineId) {
-    const surveyUrl = `${baseUrl}/nps/${surveyId}?pid=${target.patient_id}`;
-    const text = message || `${survey.question_text}\n\n以下のURLからご回答をお願いいたします。\n${surveyUrl}`;
+  // 10件バッチで並列送信
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < withLineId.length; i += BATCH_SIZE) {
+    const batch = withLineId.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (target) => {
+        const surveyUrl = `${baseUrl}/nps/${surveyId}?pid=${target.patient_id}`;
+        const text = message || `${survey.question_text}\n\n以下のURLからご回答をお願いいたします。\n${surveyUrl}`;
 
-    try {
-      const pushRes = await pushMessage(target.line_id!, [{
-        type: "text",
-        text,
-      }], tenantId ?? undefined);
+        const pushRes = await pushMessage(target.line_id!, [{
+          type: "text",
+          text,
+        }], tenantId ?? undefined);
 
-      if (pushRes?.ok) {
+        if (pushRes?.ok) {
+          await supabaseAdmin.from("message_log").insert({
+            ...tenantPayload(tenantId),
+            patient_id: target.patient_id,
+            line_uid: target.line_id,
+            direction: "outgoing",
+            event_type: "message",
+            message_type: "text",
+            content: text,
+            status: "sent",
+          });
+          return { pushSent: true };
+        }
+        return { pushSent: false };
+      })
+    );
+
+    // バッチ結果を集計
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j];
+      if (result.status === "fulfilled" && result.value.pushSent) {
         sent++;
-        await supabaseAdmin.from("message_log").insert({
-          ...tenantPayload(tenantId),
-          patient_id: target.patient_id,
-          line_uid: target.line_id,
-          direction: "outgoing",
-          event_type: "message",
-          message_type: "text",
-          content: text,
-          status: "sent",
-        });
+      } else if (result.status === "rejected") {
+        console.error(`[nps/distribute] push error for ${batch[j].patient_id}:`, result.reason);
       }
-    } catch (err) {
-      console.error(`[nps/distribute] push error for ${target.patient_id}:`, err);
     }
   }
 
