@@ -247,9 +247,15 @@ export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("__all__");
   const [showModal, setShowModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  // カテゴリ管理
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
+  const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<Category | null>(null);
+  const [categoryMenuId, setCategoryMenuId] = useState<number | null>(null);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
@@ -307,9 +313,6 @@ export default function TemplateManagementPage() {
     if (tData.templates) setTemplates(tData.templates);
     if (cData.categories) {
       setCategories(cData.categories);
-      setSelectedCategory((prev) =>
-        prev === null && cData.categories.length > 0 ? cData.categories[0].name : prev,
-      );
     }
     // Flexプリセット取得
     if (fpRes.ok) {
@@ -543,7 +546,7 @@ export default function TemplateManagementPage() {
     }
   };
 
-  const filteredTemplates = selectedCategory === null
+  const filteredTemplates = selectedCategory === "__all__"
     ? templates
     : templates.filter(t => (t.category || "未分類") === selectedCategory);
 
@@ -660,6 +663,83 @@ export default function TemplateManagementPage() {
     setSaving(false);
   };
 
+  // カテゴリ名変更
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !editCategoryName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/line/template-categories/${editingCategory.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: editCategoryName.trim() }),
+      });
+      if (res.ok) {
+        const oldName = editingCategory.name;
+        const newName = editCategoryName.trim();
+        // 選択中カテゴリが変更されたカテゴリなら追従
+        if (selectedCategory === oldName) {
+          setSelectedCategory(newName);
+        }
+        await fetchData();
+        setEditingCategory(null);
+        setEditCategoryName("");
+      } else {
+        const data = await res.json();
+        alert((data.message || data.error) || "カテゴリ名変更に失敗しました");
+      }
+    } catch {
+      alert("カテゴリ名変更中にエラーが発生しました");
+    }
+    setSaving(false);
+  };
+
+  // カテゴリ削除
+  const handleDeleteCategory = async (cat: Category) => {
+    try {
+      const res = await fetch(`/api/admin/line/template-categories/${cat.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        if (selectedCategory === cat.name) {
+          setSelectedCategory("__all__");
+        }
+        await fetchData();
+        setDeleteCategoryConfirm(null);
+      } else {
+        const data = await res.json();
+        alert((data.message || data.error) || "カテゴリ削除に失敗しました");
+      }
+    } catch {
+      alert("カテゴリ削除中にエラーが発生しました");
+    }
+  };
+
+  // カテゴリ並び替え（上下移動）
+  const handleMoveCategory = async (catIndex: number, direction: "up" | "down") => {
+    const swapIndex = direction === "up" ? catIndex - 1 : catIndex + 1;
+    if (swapIndex < 0 || swapIndex >= categories.length) return;
+    const newCategories = [...categories];
+    [newCategories[catIndex], newCategories[swapIndex]] = [newCategories[swapIndex], newCategories[catIndex]];
+    // sort_order を再割り当て
+    const orders = newCategories.map((c, i) => ({ id: c.id, sort_order: i }));
+    setCategories(newCategories.map((c, i) => ({ ...c, sort_order: i })));
+
+    try {
+      await fetch("/api/admin/line/template-categories/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ orders }),
+      });
+      await fetchData();
+    } catch {
+      // 失敗時はリフレッシュ
+      await fetchData();
+    }
+  };
+
   const handleDelete = async (id: number) => {
     const res = await fetch(`/api/admin/line/templates/${id}`, {
       method: "DELETE",
@@ -754,7 +834,7 @@ export default function TemplateManagementPage() {
                 新しいフォルダ
               </button>
               <button
-                onClick={() => { resetForm(); setCategory(selectedCategory || "未分類"); setShowModal(true); }}
+                onClick={() => { resetForm(); setCategory(selectedCategory === "__all__" ? "未分類" : selectedCategory); setShowModal(true); }}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl text-sm font-medium hover:from-[#05b34d] hover:to-[#049a42] shadow-lg shadow-green-500/25 transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -773,24 +853,125 @@ export default function TemplateManagementPage() {
           {/* 左サイドバー - フォルダ */}
           <div className="w-56 flex-shrink-0">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              {/* 全て表示 */}
+              <button
+                onClick={() => setSelectedCategory("__all__")}
+                className={`w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors ${
+                  selectedCategory === "__all__" ? "bg-green-50 text-[#06C755] font-medium border-l-3 border-[#06C755]" : "text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  全て
+                </span>
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{templates.length}</span>
+              </button>
+
+              {/* 各カテゴリ */}
               {categories.map((cat, idx) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className={`w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors ${idx > 0 ? "border-t border-gray-50" : ""} ${
-                    selectedCategory === cat.name ? "bg-green-50 text-[#06C755] font-medium border-l-3 border-[#06C755]" : "text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    {cat.name}
-                  </span>
-                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{getCategoryCount(cat.name)}</span>
-                </button>
+                <div key={cat.id} className="relative">
+                  <button
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className={`w-full px-4 py-3 text-left text-sm flex items-center justify-between transition-colors border-t border-gray-50 ${
+                      selectedCategory === cat.name ? "bg-green-50 text-[#06C755] font-medium border-l-3 border-[#06C755]" : "text-gray-600 hover:bg-gray-50"
+                    } group`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      <span className="truncate">{cat.name}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{getCategoryCount(cat.name)}</span>
+                      {/* カテゴリメニューボタン */}
+                      <span
+                        onClick={(e) => { e.stopPropagation(); setCategoryMenuId(categoryMenuId === cat.id ? null : cat.id); }}
+                        className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="5" r="1.5" />
+                          <circle cx="12" cy="12" r="1.5" />
+                          <circle cx="12" cy="19" r="1.5" />
+                        </svg>
+                      </span>
+                    </span>
+                  </button>
+
+                  {/* カテゴリメニュー */}
+                  {categoryMenuId === cat.id && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setCategoryMenuId(null)} />
+                      <div className="absolute right-2 top-full mt-0.5 bg-white border border-gray-200 rounded-xl shadow-lg z-20 w-[140px] py-1">
+                        {/* 名前変更 */}
+                        <button
+                          onClick={() => { setCategoryMenuId(null); setEditCategoryName(cat.name); setEditingCategory(cat); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          名前変更
+                        </button>
+                        {/* 上に移動 */}
+                        {idx > 0 && (
+                          <button
+                            onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "up"); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                            上に移動
+                          </button>
+                        )}
+                        {/* 下に移動 */}
+                        {idx < categories.length - 1 && (
+                          <button
+                            onClick={() => { setCategoryMenuId(null); handleMoveCategory(idx, "down"); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                            下に移動
+                          </button>
+                        )}
+                        {/* 削除（「未分類」以外） */}
+                        {cat.name !== "未分類" && (
+                          <>
+                            <div className="border-t border-gray-100 my-1" />
+                            <button
+                              onClick={() => { setCategoryMenuId(null); setDeleteCategoryConfirm(cat); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 flex items-center gap-2"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              削除
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               ))}
             </div>
+
+            {/* フォルダ管理ボタン */}
+            <button
+              onClick={() => setShowCategoryManager(true)}
+              className="mt-3 w-full px-4 py-2 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              フォルダ管理
+            </button>
           </div>
 
           {/* 右メインエリア - テンプレート一覧 */}
@@ -1869,6 +2050,161 @@ export default function TemplateManagementPage() {
                   削除する
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* カテゴリ名変更モーダル */}
+      {editingCategory && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setEditingCategory(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col">
+              <h3 className="font-bold text-gray-900 mb-3">フォルダ名を変更</h3>
+              <input
+                type="text"
+                value={editCategoryName}
+                onChange={(e) => setEditCategoryName(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                placeholder="フォルダ名"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleUpdateCategory();
+                }}
+              />
+              <div className="flex gap-3 w-full mt-4">
+                <button onClick={() => setEditingCategory(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleUpdateCategory}
+                  disabled={!editCategoryName.trim() || saving}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#06C755] to-[#05a648] text-white rounded-xl disabled:opacity-40 text-sm font-medium shadow-lg shadow-green-500/25"
+                >
+                  変更
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* カテゴリ削除確認モーダル */}
+      {deleteCategoryConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setDeleteCategoryConfirm(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="font-bold text-gray-900 mb-1">フォルダを削除</h3>
+              <p className="text-sm text-gray-500 mb-2">
+                「{deleteCategoryConfirm.name}」フォルダを削除しますか？
+              </p>
+              <p className="text-xs text-gray-400 mb-5">
+                フォルダ内のテンプレート（{getCategoryCount(deleteCategoryConfirm.name)}件）は「未分類」に移動されます。
+              </p>
+              <div className="flex gap-3 w-full">
+                <button onClick={() => setDeleteCategoryConfirm(null)} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                  キャンセル
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(deleteCategoryConfirm)}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 text-sm font-medium shadow-lg shadow-red-500/25"
+                >
+                  削除する
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* フォルダ管理モーダル */}
+      {showCategoryManager && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCategoryManager(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="font-bold text-gray-900">フォルダ管理</h2>
+              <button onClick={() => setShowCategoryManager(false)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4">
+              <p className="text-xs text-gray-400 mb-4">フォルダの並び順を変更できます。テンプレートはフォルダごとに整理されます。</p>
+              <div className="space-y-2">
+                {categories.map((cat, idx) => (
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-100"
+                  >
+                    <span className="flex items-center gap-2 text-sm text-gray-700 min-w-0">
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      <span className="truncate font-medium">{cat.name}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">({getCategoryCount(cat.name)})</span>
+                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {/* 上移動 */}
+                      <button
+                        onClick={() => handleMoveCategory(idx, "up")}
+                        disabled={idx === 0}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="上に移動"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                      </button>
+                      {/* 下移動 */}
+                      <button
+                        onClick={() => handleMoveCategory(idx, "down")}
+                        disabled={idx === categories.length - 1}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="下に移動"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      {/* 名前変更 */}
+                      <button
+                        onClick={() => { setEditCategoryName(cat.name); setEditingCategory(cat); }}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                        title="名前変更"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      {/* 削除 */}
+                      {cat.name !== "未分類" && (
+                        <button
+                          onClick={() => setDeleteCategoryConfirm(cat)}
+                          className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                          title="削除"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => { setShowCategoryManager(false); setShowFolderModal(true); }}
+                className="w-full px-4 py-2.5 border border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-[#06C755] hover:text-[#06C755] hover:bg-green-50/50 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                新しいフォルダを追加
+              </button>
             </div>
           </div>
         </div>
