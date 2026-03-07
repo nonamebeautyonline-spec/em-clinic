@@ -13,7 +13,7 @@ interface SyncLog {
   resource_type: string; // "patient" | "karte" | "both"
   patient_id: string | null;
   external_id: string | null;
-  status: "success" | "error" | "skipped";
+  status: "success" | "error" | "skipped" | "retrying";
   detail: string | null;
 }
 
@@ -46,13 +46,23 @@ const STATUS_STYLES: Record<string, string> = {
   success: "bg-green-100 text-green-700",
   error: "bg-red-100 text-red-700",
   skipped: "bg-yellow-100 text-yellow-700",
+  retrying: "bg-blue-100 text-blue-700",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   success: "成功",
   error: "エラー",
   skipped: "スキップ",
+  retrying: "リトライ中",
 };
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "すべて" },
+  { value: "success", label: "成功" },
+  { value: "error", label: "エラー" },
+  { value: "skipped", label: "スキップ" },
+  { value: "retrying", label: "リトライ中" },
+] as const;
 
 /* ---------- ステータスバッジ ---------- */
 function StatusBadge({ status }: { status: string }) {
@@ -116,6 +126,14 @@ export default function EhrDashboardPage() {
   const [logsOffset, setLogsOffset] = useState(0);
   const [hasMoreLogs, setHasMoreLogs] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // エラーリカバリ
+  const [errorLogs, setErrorLogs] = useState<SyncLog[]>([]);
+  const [errorLogsLoading, setErrorLogsLoading] = useState(true);
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [bulkRetrying, setBulkRetrying] = useState(false);
+  const [retryMessage, setRetryMessage] = useState("");
+  const [errorStatusFilter, setErrorStatusFilter] = useState<string>("error");
 
   const LOGS_LIMIT = 50;
 
@@ -239,12 +257,36 @@ export default function EhrDashboardPage() {
     }
   };
 
+  /** エラーログ一覧を取得（リカバリUI用） */
+  const fetchErrorLogs = useCallback(async (statusFilter = "error") => {
+    setErrorLogsLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "50" });
+      if (statusFilter !== "all") {
+        params.set("status", statusFilter);
+      }
+      const res = await fetch(
+        `/api/admin/ehr/sync-logs?${params.toString()}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("エラーログ取得に失敗しました");
+
+      const data = await res.json();
+      setErrorLogs(data.logs ?? []);
+    } catch {
+      // エラーログ取得失敗は静かに無視
+    } finally {
+      setErrorLogsLoading(false);
+    }
+  }, []);
+
   // 初回読み込み
   useEffect(() => {
     fetchStatus();
     fetchLogs(0);
     fetchSchedule();
-  }, [fetchStatus, fetchLogs, fetchSchedule]);
+    fetchErrorLogs("error");
+  }, [fetchStatus, fetchLogs, fetchSchedule, fetchErrorLogs]);
 
   /* ========== 手動同期 ========== */
 
@@ -408,6 +450,93 @@ export default function EhrDashboardPage() {
     } finally {
       setSearching(false);
     }
+  };
+
+  /* ========== 単件リトライ ========== */
+
+  const handleRetry = async (syncId: string) => {
+    setRetryingIds((prev) => new Set(prev).add(syncId));
+    setRetryMessage("");
+
+    try {
+      const res = await fetch("/api/admin/ehr/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ sync_id: syncId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setRetryMessage(`リトライ失敗: ${(data.message || data.error) ?? "不明なエラー"}`);
+        return;
+      }
+
+      setRetryMessage(
+        `リトライ完了: 成功 ${data.summary?.success ?? 0}件, エラー ${data.summary?.error ?? 0}件`
+      );
+      // ログを再取得
+      fetchErrorLogs(errorStatusFilter);
+      fetchLogs(0);
+    } catch {
+      setRetryMessage("リトライリクエストに失敗しました");
+    } finally {
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(syncId);
+        return next;
+      });
+    }
+  };
+
+  /* ========== 一括リトライ ========== */
+
+  const handleBulkRetry = async () => {
+    const failedIds = errorLogs
+      .filter((log) => log.status === "error")
+      .map((log) => log.id);
+
+    if (failedIds.length === 0) {
+      setRetryMessage("リトライ対象のエラーログがありません");
+      return;
+    }
+
+    setBulkRetrying(true);
+    setRetryMessage("");
+
+    try {
+      const res = await fetch("/api/admin/ehr/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ sync_ids: failedIds }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setRetryMessage(`一括リトライ失敗: ${(data.message || data.error) ?? "不明なエラー"}`);
+        return;
+      }
+
+      setRetryMessage(
+        `一括リトライ完了: 成功 ${data.summary?.success ?? 0}件, エラー ${data.summary?.error ?? 0}件, スキップ ${data.summary?.skipped ?? 0}件`
+      );
+      // ログを再取得
+      fetchErrorLogs(errorStatusFilter);
+      fetchLogs(0);
+      fetchStatus();
+    } catch {
+      setRetryMessage("一括リトライリクエストに失敗しました");
+    } finally {
+      setBulkRetrying(false);
+    }
+  };
+
+  /* ========== エラーステータスフィルタ変更 ========== */
+
+  const handleErrorStatusFilterChange = (value: string) => {
+    setErrorStatusFilter(value);
+    fetchErrorLogs(value);
   };
 
   /* ========== もっと見る（ログ追加読み込み） ========== */
@@ -938,7 +1067,131 @@ export default function EhrDashboardPage() {
         )}
       </div>
 
-      {/* ========== 5. 同期ログ ========== */}
+      {/* ========== 5. エラーリカバリ ========== */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">
+            エラーリカバリ
+          </h2>
+          <div className="flex items-center gap-3">
+            {/* ステータスフィルタ */}
+            <select
+              value={errorStatusFilter}
+              onChange={(e) => handleErrorStatusFilterChange(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            {/* 一括リトライボタン */}
+            <button
+              onClick={handleBulkRetry}
+              disabled={
+                bulkRetrying ||
+                errorLogs.filter((l) => l.status === "error").length === 0
+              }
+              className="px-4 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {bulkRetrying ? "リトライ中..." : "失敗分を一括リトライ"}
+            </button>
+          </div>
+        </div>
+
+        {/* リトライメッセージ */}
+        {retryMessage && (
+          <p
+            className={`mb-4 text-sm ${
+              retryMessage.includes("失敗") ? "text-red-600" : "text-green-700"
+            }`}
+          >
+            {retryMessage}
+          </p>
+        )}
+
+        {errorLogsLoading ? (
+          <p className="text-sm text-gray-500">読み込み中...</p>
+        ) : errorLogs.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            対象のログがありません
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left">
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    日時
+                  </th>
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    リソース種別
+                  </th>
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    方向
+                  </th>
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    ステータス
+                  </th>
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    エラーメッセージ
+                  </th>
+                  <th className="py-2 px-3 text-xs font-medium text-gray-500">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {errorLogs.map((log) => (
+                  <tr
+                    key={log.id}
+                    className={`border-b border-gray-100 hover:bg-gray-50 ${
+                      log.status === "error" ? "bg-red-50/50" : ""
+                    }`}
+                  >
+                    <td className="py-2 px-3 text-gray-700 whitespace-nowrap">
+                      {formatDateTime(log.created_at)}
+                    </td>
+                    <td className="py-2 px-3 text-gray-700">
+                      {log.resource_type === "patient"
+                        ? "患者"
+                        : log.resource_type === "karte"
+                          ? "カルテ"
+                          : "両方"}
+                    </td>
+                    <td className="py-2 px-3 text-gray-700">
+                      {log.direction === "pull" ? "プル" : "プッシュ"}
+                    </td>
+                    <td className="py-2 px-3">
+                      <StatusBadge status={log.status} />
+                    </td>
+                    <td className="py-2 px-3 text-gray-500 text-xs max-w-sm">
+                      <span className="line-clamp-2">
+                        {log.detail ?? "-"}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3">
+                      {log.status === "error" && (
+                        <button
+                          onClick={() => handleRetry(log.id)}
+                          disabled={retryingIds.has(log.id)}
+                          className="px-3 py-1 bg-orange-500 text-white text-xs font-medium rounded hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {retryingIds.has(log.id) ? "処理中..." : "リトライ"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ========== 6. 同期ログ ========== */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">同期ログ</h2>
 
