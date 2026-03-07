@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateAiReplySettingsSchema } from "@/lib/validations/line-management";
+import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "@/lib/business-hours";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,23 @@ export async function GET(req: NextRequest) {
     tenantId
   );
 
-  return NextResponse.json({ settings, todayUsage: todayUsage || 0 });
+  // 営業時間設定を tenant_settings から取得
+  let businessHoursQuery = supabaseAdmin
+    .from("tenant_settings")
+    .select("value")
+    .eq("category", "ai_reply")
+    .eq("key", "business_hours");
+  if (tenantId) {
+    businessHoursQuery = businessHoursQuery.eq("tenant_id", tenantId);
+  } else {
+    businessHoursQuery = businessHoursQuery.is("tenant_id", null);
+  }
+  const { data: bhRow } = await businessHoursQuery.maybeSingle();
+  const businessHours: BusinessHoursConfig = bhRow?.value
+    ? { ...DEFAULT_BUSINESS_HOURS, ...(typeof bhRow.value === "string" ? JSON.parse(bhRow.value) : bhRow.value) }
+    : DEFAULT_BUSINESS_HOURS;
+
+  return NextResponse.json({ settings, todayUsage: todayUsage || 0, businessHours });
 }
 
 // 設定更新（upsert）
@@ -67,6 +84,7 @@ export async function PUT(req: NextRequest) {
     min_message_length,
     daily_limit,
     approval_timeout_hours,
+    business_hours,
   } = parsed.data;
 
   // 既存設定を確認
@@ -108,6 +126,22 @@ export async function PUT(req: NextRequest) {
 
   if (result.error) {
     return serverError(result.error.message);
+  }
+
+  // 営業時間設定を tenant_settings に保存（別テーブル管理）
+  if (business_hours) {
+    await supabaseAdmin
+      .from("tenant_settings")
+      .upsert(
+        {
+          tenant_id: tenantId || null,
+          category: "ai_reply",
+          key: "business_hours",
+          value: JSON.stringify(business_hours),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "tenant_id,category,key" }
+      );
   }
 
   return NextResponse.json({ ok: true, settings: result.data });

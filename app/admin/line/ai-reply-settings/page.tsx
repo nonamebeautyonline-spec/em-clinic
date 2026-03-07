@@ -13,6 +13,28 @@ interface AiReplySettings {
   approval_timeout_hours: number;
 }
 
+type DayOfWeek = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+interface DaySchedule {
+  start: string;
+  end: string;
+  closed: boolean;
+}
+
+interface BusinessHoursConfig {
+  enabled: boolean;
+  schedule: Record<DayOfWeek, DaySchedule>;
+  timezone: string;
+  outside_message: string;
+}
+
+const ALL_DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  mon: "月", tue: "火", wed: "水", thu: "木",
+  fri: "金", sat: "土", sun: "日",
+};
+
 const DEFAULT_SETTINGS: AiReplySettings = {
   is_enabled: false,
   mode: "approval",
@@ -21,6 +43,21 @@ const DEFAULT_SETTINGS: AiReplySettings = {
   min_message_length: 5,
   daily_limit: 100,
   approval_timeout_hours: 24,
+};
+
+const DEFAULT_BUSINESS_HOURS: BusinessHoursConfig = {
+  enabled: false,
+  schedule: {
+    mon: { start: "09:00", end: "18:00", closed: false },
+    tue: { start: "09:00", end: "18:00", closed: false },
+    wed: { start: "09:00", end: "18:00", closed: false },
+    thu: { start: "09:00", end: "18:00", closed: false },
+    fri: { start: "09:00", end: "18:00", closed: false },
+    sat: { start: "09:00", end: "18:00", closed: true },
+    sun: { start: "09:00", end: "18:00", closed: true },
+  },
+  timezone: "Asia/Tokyo",
+  outside_message: "営業時間外のため、翌営業日にご返信いたします。",
 };
 
 const KNOWLEDGE_PLACEHOLDER = `例:
@@ -55,6 +92,7 @@ type TabKey = (typeof TABS)[number]["key"];
 export default function AiReplySettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
   const [settings, setSettings] = useState<AiReplySettings>(DEFAULT_SETTINGS);
+  const [businessHours, setBusinessHours] = useState<BusinessHoursConfig>(DEFAULT_BUSINESS_HOURS);
   const [todayUsage, setTodayUsage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,6 +105,9 @@ export default function AiReplySettingsPage() {
         const data = await res.json();
         setSettings(data.settings);
         setTodayUsage(data.todayUsage ?? 0);
+        if (data.businessHours) {
+          setBusinessHours(data.businessHours);
+        }
       }
     } catch (e) {
       console.error("設定取得エラー:", e);
@@ -85,7 +126,7 @@ export default function AiReplySettingsPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, business_hours: businessHours }),
       });
       if (res.ok) {
         setMessage({ type: "success", text: "設定を保存しました" });
@@ -100,6 +141,17 @@ export default function AiReplySettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // 曜日スケジュール更新ヘルパー
+  const updateDaySchedule = (day: DayOfWeek, field: keyof DaySchedule, value: string | boolean) => {
+    setBusinessHours(prev => ({
+      ...prev,
+      schedule: {
+        ...prev.schedule,
+        [day]: { ...prev.schedule[day], [field]: value },
+      },
+    }));
   };
 
   if (loading) {
@@ -198,6 +250,95 @@ export default function AiReplySettingsPage() {
             </div>
           </label>
         </div>
+      </div>
+
+      {/* 営業時間設定 */}
+      <div className="bg-white rounded-lg border p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-700">営業時間設定</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              営業時間外はAI返信の代わりに定型メッセージを自動送信します
+            </p>
+          </div>
+          <button
+            onClick={() => setBusinessHours(prev => ({ ...prev, enabled: !prev.enabled }))}
+            className={`relative w-12 h-6 rounded-full transition-colors ${
+              businessHours.enabled ? "bg-purple-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                businessHours.enabled ? "translate-x-6" : ""
+              }`}
+            />
+          </button>
+        </div>
+
+        {businessHours.enabled && (
+          <>
+            {/* 曜日別スケジュール */}
+            <div className="space-y-2">
+              <label className="text-xs text-gray-500 block font-medium">曜日別スケジュール</label>
+              <div className="space-y-1.5">
+                {ALL_DAYS.map(day => (
+                  <div key={day} className="flex items-center gap-3">
+                    {/* 定休日チェックボックス */}
+                    <label className="flex items-center gap-1.5 w-16 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!businessHours.schedule[day].closed}
+                        onChange={e => updateDaySchedule(day, "closed", !e.target.checked)}
+                        className="accent-purple-600 w-4 h-4"
+                      />
+                      <span className={`text-sm font-medium ${
+                        businessHours.schedule[day].closed ? "text-gray-400" : "text-gray-700"
+                      }`}>
+                        {DAY_LABELS[day]}
+                      </span>
+                    </label>
+
+                    {/* 時刻入力 */}
+                    {businessHours.schedule[day].closed ? (
+                      <span className="text-xs text-gray-400 italic">定休日</span>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="time"
+                          value={businessHours.schedule[day].start}
+                          onChange={e => updateDaySchedule(day, "start", e.target.value)}
+                          className="border rounded px-2 py-1 text-sm w-28"
+                        />
+                        <span className="text-gray-400 text-sm">〜</span>
+                        <input
+                          type="time"
+                          value={businessHours.schedule[day].end}
+                          onChange={e => updateDaySchedule(day, "end", e.target.value)}
+                          className="border rounded px-2 py-1 text-sm w-28"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 営業時間外メッセージ */}
+            <div>
+              <label className="text-xs text-gray-500 block mb-1 font-medium">営業時間外メッセージ</label>
+              <textarea
+                value={businessHours.outside_message}
+                onChange={e => setBusinessHours(prev => ({ ...prev, outside_message: e.target.value }))}
+                placeholder="営業時間外のため、翌営業日にご返信いたします。"
+                rows={3}
+                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-y"
+              />
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                営業時間外に患者からメッセージが届いた場合、このメッセージを自動送信します
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ナレッジベース */}

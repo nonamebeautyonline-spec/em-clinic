@@ -51,6 +51,29 @@ export const executeActionSchema = z
 
 // ─── AI返信設定 ───────────────────────────
 
+/** 曜日別スケジュールのスキーマ */
+const dayScheduleSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+  closed: z.boolean(),
+});
+
+/** 営業時間設定のスキーマ */
+const businessHoursSchema = z.object({
+  enabled: z.boolean(),
+  schedule: z.object({
+    mon: dayScheduleSchema,
+    tue: dayScheduleSchema,
+    wed: dayScheduleSchema,
+    thu: dayScheduleSchema,
+    fri: dayScheduleSchema,
+    sat: dayScheduleSchema,
+    sun: dayScheduleSchema,
+  }),
+  timezone: z.string(),
+  outside_message: z.string(),
+});
+
 /** AI返信設定更新 PUT /api/admin/line/ai-reply-settings */
 export const updateAiReplySettingsSchema = z
   .object({
@@ -61,6 +84,7 @@ export const updateAiReplySettingsSchema = z
     min_message_length: z.number().int().optional(),
     daily_limit: z.number().int().optional(),
     approval_timeout_hours: z.number().int().optional(),
+    business_hours: businessHoursSchema.optional(),
   })
   .passthrough();
 

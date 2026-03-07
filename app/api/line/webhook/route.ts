@@ -11,6 +11,7 @@ import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@
 import { MERGE_TABLES } from "@/lib/merge-tables";
 import { getSettingOrEnv } from "@/lib/settings";
 import { scheduleAiReply, sendAiReply, processAiReply, clearAiReplyDebounce } from "@/lib/ai-reply";
+import { isWithinBusinessHours } from "@/lib/business-hours";
 import { acquireLock } from "@/lib/distributed-lock";
 import { checkSpamBurst } from "@/lib/spam-burst";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
@@ -736,10 +737,37 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
 
   // AI返信処理（テキスト・キーワード未マッチ時のみ）
   if (message.type === "text" && message.text && patient?.patient_id && !keywordMatched) {
-    // Redis デバウンスにも登録（cron バックアップ用）
-    scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
-    // after() で直接処理するためのターゲットに追加
-    pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
+    // 営業時間チェック: 営業時間外なら定型メッセージを送信してAI返信をスキップ
+    try {
+      const { withinHours, outsideMessage } = await isWithinBusinessHours(tenantId);
+      if (!withinHours && outsideMessage) {
+        console.log(`[webhook] 営業時間外: ${patient.patient_id} → 定型メッセージ送信`);
+        await pushMessage(lineUid, [{ type: "text", text: outsideMessage }], tenantId ?? undefined);
+        // 営業時間外メッセージをログに記録
+        await supabaseAdmin.from("message_log").insert({
+          ...tenantPayload(tenantId),
+          patient_id: patient.patient_id,
+          line_uid: lineUid,
+          direction: "outgoing",
+          event_type: "auto_reply",
+          message_type: "individual",
+          content: outsideMessage,
+          status: "sent",
+        });
+        // AI返信処理はスキップ（下記のscheduleAiReply等は実行しない）
+      } else {
+        // 営業時間内: 通常のAI返信フロー
+        // Redis デバウンスにも登録（cron バックアップ用）
+        scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
+        // after() で直接処理するためのターゲットに追加
+        pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
+      }
+    } catch (e) {
+      console.error("[webhook] 営業時間チェックエラー（AI返信フローにフォールバック）:", e);
+      // エラー時は安全側: 通常のAI返信フローを実行
+      scheduleAiReply(lineUid, patient.patient_id, patient.patient_name, message.text, tenantId).catch(() => {});
+      pendingAiReplyTargets.push({ lineUid, patientId: patient.patient_id, patientName: patient.patient_name, tenantId });
+    }
   }
 }
 
