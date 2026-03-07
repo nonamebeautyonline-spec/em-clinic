@@ -15,6 +15,7 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform/errors", icon: "⚠️", label: "エラーログ" },
   { href: "/platform/alerts", icon: "🔔", label: "アラート" },
   { href: "/platform/audit", icon: "🔍", label: "監査ログ" },
+  { href: "/platform/shared-templates", icon: "📋", label: "共有テンプレート" },
   { href: "/platform/system", icon: "⚙️", label: "システム設定" },
   { href: "/platform/settings", icon: "🔐", label: "アカウント設定" },
 ];
