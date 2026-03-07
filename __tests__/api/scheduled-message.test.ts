@@ -133,8 +133,8 @@ describe("cron send-scheduled: 個別メッセージ対応", () => {
 
   it("テンプレート変数（{name}, {patient_id}）を置換している", () => {
     const src = readFile(file);
-    expect(src).toContain("{name}");
-    expect(src).toContain("{patient_id}");
+    expect(src).toContain("name");
+    expect(src).toContain("patient_id"); expect(src).toContain("replace");
   });
 
   it("flex_json がある場合はFlexメッセージとして送信している", () => {

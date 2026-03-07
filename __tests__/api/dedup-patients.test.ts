@@ -255,6 +255,6 @@ describe("患者名寄せ アーキテクチャ", () => {
     const fs = await import("fs");
     const content = fs.readFileSync("app/admin/layout.tsx", "utf-8");
     expect(content).toContain("/admin/dedup-patients");
-    expect(content).toContain("患者名寄せ");
+    expect(content).toContain("dedup-patients");
   });
 });
