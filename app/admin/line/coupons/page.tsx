@@ -26,6 +26,7 @@ export default function CouponsPage() {
   const [showEditor, setShowEditor] = useState(false);
   const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
   const [showDistribute, setShowDistribute] = useState<Coupon | null>(null);
+  const [activeTab, setActiveTab] = useState<"coupons" | "rules">("coupons");
 
   // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
   useEffect(() => {
@@ -108,9 +109,33 @@ export default function CouponsPage() {
             </button>
           </div>
 
+          {/* タブ切り替え */}
+          <div className="flex gap-1 mt-6 bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setActiveTab("coupons")}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                activeTab === "coupons"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              クーポン一覧
+            </button>
+            <button
+              onClick={() => setActiveTab("rules")}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                activeTab === "rules"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              自動配布ルール
+            </button>
+          </div>
+
           {/* サマリーカード */}
-          {coupons.length > 0 && (
-            <div className="grid grid-cols-3 gap-4 mt-6">
+          {activeTab === "coupons" && coupons.length > 0 && (
+            <div className="grid grid-cols-3 gap-4 mt-4">
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100/50">
                 <div className="text-2xl font-bold text-amber-700">{coupons.length}</div>
                 <div className="text-xs text-amber-500 mt-0.5">クーポン数</div>
@@ -128,9 +153,11 @@ export default function CouponsPage() {
         </div>
       </div>
 
-      {/* クーポン一覧 */}
+      {/* タブコンテンツ */}
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-      {coupons.length === 0 ? (
+      {activeTab === "rules" ? (
+        <DistributionRulesPanel coupons={coupons} />
+      ) : coupons.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
             <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -594,6 +621,365 @@ function DistributeModal({
               </button>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==================== 自動配布ルールパネル ==================== */
+interface DistributionRule {
+  id: string;
+  name: string;
+  coupon_id: number;
+  trigger_type: "birthday" | "first_purchase_days" | "nth_visit" | "tag_added";
+  trigger_config: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  coupons?: { id: number; name: string; code: string; discount_type: string; discount_value: number } | null;
+}
+
+const TRIGGER_LABELS: Record<string, string> = {
+  birthday: "誕生日",
+  first_purchase_days: "初回購入後N日",
+  nth_visit: "N回目来院",
+  tag_added: "タグ付与時",
+};
+
+function DistributionRulesPanel({ coupons }: { coupons: Coupon[] }) {
+  const [rules, setRules] = useState<DistributionRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/admin/line/coupons/distribution-rules", { credentials: "include" });
+      const data = await res.json();
+      if (!cancelled) {
+        setRules(data.rules || []);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const loadRules = async () => {
+    const res = await fetch("/api/admin/line/coupons/distribution-rules", { credentials: "include" });
+    const data = await res.json();
+    setRules(data.rules || []);
+  };
+
+  const handleToggle = async (rule: DistributionRule) => {
+    await fetch(`/api/admin/line/coupons/distribution-rules/${rule.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ is_active: !rule.is_active }),
+    });
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, is_active: !r.is_active } : r));
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("このルールを削除しますか？")) return;
+    await fetch(`/api/admin/line/coupons/distribution-rules/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    setRules(prev => prev.filter(r => r.id !== id));
+  };
+
+  const getTriggerDescription = (rule: DistributionRule) => {
+    const config = rule.trigger_config;
+    switch (rule.trigger_type) {
+      case "birthday": return "毎年誕生日に自動配布";
+      case "first_purchase_days": return `初回購入から${config.days_after || 0}日後に配布`;
+      case "nth_visit": return `${config.visit_count || 1}回目の来院時に配布`;
+      case "tag_added": return `「${config.tag_name || ""}」タグ付与時に配布`;
+      default: return "";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+          <span className="text-sm text-gray-400">読み込み中...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-sm text-gray-500">条件に基づいてクーポンを自動配布するルールを管理します</p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl text-sm font-medium hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25 transition-all flex items-center gap-1.5"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          ルール作成
+        </button>
+      </div>
+
+      {rules.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+          <p className="text-gray-400 text-sm">自動配布ルールがありません</p>
+          <p className="text-gray-300 text-xs mt-1">条件を設定してクーポンを自動配布しましょう</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rules.map(rule => (
+            <div
+              key={rule.id}
+              className={`bg-white rounded-xl border p-4 transition-all ${
+                rule.is_active ? "border-gray-100 hover:border-gray-200 hover:shadow-md" : "border-gray-100 opacity-60"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">{rule.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">
+                      {TRIGGER_LABELS[rule.trigger_type] || rule.trigger_type}
+                    </span>
+                    <span className="text-xs text-gray-500">{getTriggerDescription(rule)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleToggle(rule)}
+                  className={`w-10 h-5 rounded-full relative transition-colors flex-shrink-0 ${
+                    rule.is_active ? "bg-[#06C755]" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                    style={{ left: 2, transform: rule.is_active ? "translateX(20px)" : "translateX(0)" }}
+                  />
+                </button>
+              </div>
+
+              {rule.coupons && (
+                <div className="text-xs text-gray-500 mt-2">
+                  対象クーポン: <span className="font-medium text-orange-600">{rule.coupons.name}</span>
+                  <span className="ml-2 font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">
+                    {rule.coupons.code}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-2 mt-2 border-t border-gray-50">
+                <span className="text-[10px] text-gray-400">
+                  作成: {new Date(rule.created_at).toLocaleDateString("ja-JP")}
+                </span>
+                <button
+                  onClick={() => handleDelete(rule.id)}
+                  className="px-3 py-1 text-[11px] font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-auto"
+                >
+                  削除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ルール作成モーダル */}
+      {showForm && (
+        <RuleCreateModal
+          coupons={coupons}
+          onClose={() => setShowForm(false)}
+          onSaved={() => { setShowForm(false); loadRules(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ==================== ルール作成モーダル ==================== */
+function RuleCreateModal({
+  coupons,
+  onClose,
+  onSaved,
+}: {
+  coupons: Coupon[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [couponId, setCouponId] = useState<number | "">(coupons[0]?.id || "");
+  const [triggerType, setTriggerType] = useState<string>("birthday");
+  const [daysAfter, setDaysAfter] = useState(30);
+  const [visitCount, setVisitCount] = useState(3);
+  const [tagName, setTagName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || !couponId) return;
+    setSaving(true);
+
+    const triggerConfig: Record<string, unknown> = {};
+    if (triggerType === "first_purchase_days") triggerConfig.days_after = daysAfter;
+    if (triggerType === "nth_visit") triggerConfig.visit_count = visitCount;
+    if (triggerType === "tag_added") triggerConfig.tag_name = tagName;
+
+    try {
+      const res = await fetch("/api/admin/line/coupons/distribution-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          coupon_id: couponId,
+          trigger_type: triggerType,
+          trigger_config: triggerConfig,
+        }),
+      });
+      if (res.ok) {
+        onSaved();
+      } else {
+        const data = await res.json();
+        alert(data.message || "保存に失敗しました");
+      }
+    } catch {
+      alert("保存中にエラーが発生しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              自動配布ルール作成
+            </h2>
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* ルール名 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">ルール名</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="例: 誕生日クーポン配布"
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+            />
+          </div>
+
+          {/* 対象クーポン */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">対象クーポン</label>
+            <select
+              value={couponId}
+              onChange={e => setCouponId(Number(e.target.value))}
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+            >
+              {coupons.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.name}（{c.code}）
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* トリガータイプ */}
+          <div>
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">トリガータイプ</label>
+            <select
+              value={triggerType}
+              onChange={e => setTriggerType(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+            >
+              <option value="birthday">誕生日</option>
+              <option value="first_purchase_days">初回購入後N日</option>
+              <option value="nth_visit">N回目来院</option>
+              <option value="tag_added">タグ付与時</option>
+            </select>
+          </div>
+
+          {/* トリガー条件入力 */}
+          {triggerType === "birthday" && (
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-3 border border-amber-100/50">
+              <p className="text-xs text-amber-700">毎日のCron実行時に、当日が誕生日の患者にクーポンを自動配布します。</p>
+            </div>
+          )}
+
+          {triggerType === "first_purchase_days" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">初回購入からの経過日数</label>
+              <input
+                type="number"
+                value={daysAfter}
+                onChange={e => setDaysAfter(Number(e.target.value))}
+                min={1}
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+              />
+            </div>
+          )}
+
+          {triggerType === "nth_visit" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">来院回数</label>
+              <input
+                type="number"
+                value={visitCount}
+                onChange={e => setVisitCount(Number(e.target.value))}
+                min={1}
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+              />
+            </div>
+          )}
+
+          {triggerType === "tag_added" && (
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">タグ名</label>
+              <input
+                type="text"
+                value={tagName}
+                onChange={e => setTagName(e.target.value)}
+                placeholder="例: VIP"
+                className="w-full px-3 py-2 text-sm border border-gray-200/75 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-300"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            キャンセル
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !name.trim() || !couponId || (triggerType === "tag_added" && !tagName.trim())}
+            className="px-5 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-300 rounded-xl shadow-lg shadow-amber-500/25 transition-all duration-200"
+          >
+            {saving ? "保存中..." : "保存"}
+          </button>
         </div>
       </div>
     </div>
