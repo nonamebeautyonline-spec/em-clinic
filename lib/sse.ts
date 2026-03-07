@@ -12,6 +12,7 @@ export type SSEEventType =
   | "reservation_update"
   | "payment_update"
   | "new_patient"
+  | "stats_update"
   | "ping";
 
 export interface SSEEvent {
@@ -57,6 +58,12 @@ export interface DashboardSnapshot {
   latestReservationAt: string | null;
   latestPaidAt: string | null;
   latestPatientAt: string | null;
+  /** オンライン管理者セッション数（有効期限内のセッション） */
+  activeAdminSessions: number;
+  /** 本日のメッセージ送受信数 */
+  todayMessageCount: number;
+  /** 本日の新規患者数（patientsテーブル基準） */
+  todayNewPatients: number;
 }
 
 /**
@@ -105,6 +112,23 @@ export function detectChanges(
       data: {
         newPatientCount: current.newPatientCount,
         diff: current.newPatientCount - prev.newPatientCount,
+      },
+      timestamp: now,
+    });
+  }
+
+  // リアルタイム統計の変更検出（オンライン管理者・メッセージ数・新規患者数）
+  if (
+    current.activeAdminSessions !== prev.activeAdminSessions ||
+    current.todayMessageCount !== prev.todayMessageCount ||
+    current.todayNewPatients !== prev.todayNewPatients
+  ) {
+    events.push({
+      type: "stats_update",
+      data: {
+        activeAdminSessions: current.activeAdminSessions,
+        todayMessageCount: current.todayMessageCount,
+        todayNewPatients: current.todayNewPatients,
       },
       timestamp: now,
     });

@@ -108,6 +108,8 @@ async function fetchSnapshot(
     return query;
   };
 
+  const nowISO = new Date().toISOString();
+
   // 並列でデータ取得（パフォーマンス最適化）
   const [
     reservationResult,
@@ -117,6 +119,9 @@ async function fetchSnapshot(
     latestReservation,
     latestPaid,
     latestPatient,
+    activeSessionsResult,
+    todayMessageResult,
+    todayNewPatientsResult,
   ] = await Promise.all([
     // 今日の予約数
     withTenant(
@@ -144,7 +149,7 @@ async function fetchSnapshot(
         .gte("paid_at", startISO)
         .lt("paid_at", endISO),
     ),
-    // 今日の新規患者数
+    // 今日の新規患者数（intake基準）
     withTenant(
       supabase
         .from("intake")
@@ -183,6 +188,33 @@ async function fetchSnapshot(
         .order("created_at", { ascending: false })
         .limit(1),
     ).maybeSingle(),
+    // オンライン管理者セッション数（有効期限内のセッション）
+    (() => {
+      let q = supabase
+        .from("admin_sessions")
+        .select("*", { count: "exact", head: true })
+        .gt("expires_at", nowISO);
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
+    // 本日のメッセージ数
+    (() => {
+      let q = supabase
+        .from("message_log")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startISO)
+        .lt("created_at", endISO);
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
+    // 本日の新規患者数（patientsテーブル基準）
+    withTenant(
+      supabase
+        .from("patients")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", startISO)
+        .lt("created_at", endISO),
+    ),
   ]);
 
   return {
@@ -193,6 +225,9 @@ async function fetchSnapshot(
     latestReservationAt: latestReservation.data?.created_at ?? null,
     latestPaidAt: latestPaid.data?.paid_at ?? null,
     latestPatientAt: latestPatient.data?.created_at ?? null,
+    activeAdminSessions: activeSessionsResult.count ?? 0,
+    todayMessageCount: todayMessageResult.count ?? 0,
+    todayNewPatients: todayNewPatientsResult.count ?? 0,
   };
 }
 

@@ -60,6 +60,9 @@ describe("sse", () => {
       latestReservationAt: "2026-02-22T00:00:00Z",
       latestPaidAt: "2026-02-22T00:00:00Z",
       latestPatientAt: "2026-02-22T00:00:00Z",
+      activeAdminSessions: 2,
+      todayMessageCount: 50,
+      todayNewPatients: 5,
     };
 
     it("変更なしの場合は空配列", () => {
@@ -119,6 +122,37 @@ describe("sse", () => {
       const events = detectChanges(baseSnapshot, current);
       expect(events).toHaveLength(1);
       expect(events[0].data.diff).toBe(-2);
+    });
+
+    it("オンライン管理者数の変更を検出", () => {
+      const current = { ...baseSnapshot, activeAdminSessions: 4 };
+      const events = detectChanges(baseSnapshot, current);
+      const statsEvent = events.find(e => e.type === "stats_update");
+      expect(statsEvent).toBeDefined();
+      expect(statsEvent!.data.activeAdminSessions).toBe(4);
+    });
+
+    it("メッセージ数の変更を検出", () => {
+      const current = { ...baseSnapshot, todayMessageCount: 55 };
+      const events = detectChanges(baseSnapshot, current);
+      const statsEvent = events.find(e => e.type === "stats_update");
+      expect(statsEvent).toBeDefined();
+      expect(statsEvent!.data.todayMessageCount).toBe(55);
+    });
+
+    it("新規患者数の変更を検出", () => {
+      const current = { ...baseSnapshot, todayNewPatients: 8 };
+      const events = detectChanges(baseSnapshot, current);
+      const statsEvent = events.find(e => e.type === "stats_update");
+      expect(statsEvent).toBeDefined();
+      expect(statsEvent!.data.todayNewPatients).toBe(8);
+    });
+
+    it("リアルタイム統計が変更なしの場合はstats_updateなし", () => {
+      const current = { ...baseSnapshot, reservationCount: 15 };
+      const events = detectChanges(baseSnapshot, current);
+      const statsEvent = events.find(e => e.type === "stats_update");
+      expect(statsEvent).toBeUndefined();
     });
   });
 

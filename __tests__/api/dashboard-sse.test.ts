@@ -23,7 +23,7 @@ function createMockQuery(table: string) {
   const methods = [
     "select", "eq", "neq", "in", "is", "not", "or",
     "ilike", "order", "limit", "single", "maybeSingle",
-    "gte", "lte", "lt", "like", "range",
+    "gte", "gt", "lte", "lt", "like", "range",
   ];
   methods.forEach((m) => {
     chain[m] = vi.fn().mockReturnValue(chain);
@@ -116,6 +116,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 5 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 3 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 2 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 1 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 10 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 2 };
 
       const res = await GET(createReq({ bearer: "test-admin-token" }));
       expect(res.status).toBe(200);
@@ -131,6 +134,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 0 };
 
       const res = await GET(createReq({ cookie: "valid-jwt-token" }));
       expect(res.status).toBe(200);
@@ -153,6 +159,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 10 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 5 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 3 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 1 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 10 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 2 };
 
       const res = await GET(createReq({ bearer: "test-admin-token" }));
       expect(res.headers.get("Content-Type")).toBe("text/event-stream");
@@ -162,6 +171,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 0 };
 
       const res = await GET(createReq({ bearer: "test-admin-token" }));
       expect(res.headers.get("Cache-Control")).toBe("no-cache, no-transform");
@@ -171,6 +183,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 0 };
 
       const res = await GET(createReq({ bearer: "test-admin-token" }));
       expect(res.body).toBeInstanceOf(ReadableStream);
@@ -180,6 +195,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 2 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 1 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 1 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 5 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 3 };
 
       const res = await GET(createReq({ bearer: "test-admin-token" }));
       expect(res.status).toBe(200);
@@ -202,6 +220,36 @@ describe("ダッシュボード SSE API", () => {
       // リーダーをキャンセル（クリーンアップ）
       await reader.cancel();
     });
+
+    it("初回スナップショットにリアルタイム統計が含まれる", async () => {
+      mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 3 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 42 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 7 };
+
+      const res = await GET(createReq({ bearer: "test-admin-token" }));
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+
+      const readPromise = reader.read();
+      await vi.advanceTimersByTimeAsync(0);
+      const { value } = await readPromise;
+
+      const text = decoder.decode(value);
+      expect(text).toContain("event: ping");
+
+      // スナップショットデータをパース
+      const dataLine = text.split("\n").find(l => l.startsWith("data: "));
+      expect(dataLine).toBeDefined();
+      const snapshot = JSON.parse(dataLine!.replace("data: ", "")).snapshot;
+      expect(snapshot.activeAdminSessions).toBe(3);
+      expect(snapshot.todayMessageCount).toBe(42);
+      expect(snapshot.todayNewPatients).toBe(7);
+
+      await reader.cancel();
+    });
   });
 
   // =============================================
@@ -212,6 +260,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 0 };
 
       const res = await GET(createReq({
         bearer: "test-admin-token",
@@ -225,6 +276,9 @@ describe("ダッシュボード SSE API", () => {
       mockSupabaseResults["reservations"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["orders"] = { data: null, error: null, count: 0 };
       mockSupabaseResults["intake"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["admin_sessions"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["message_log"] = { data: null, error: null, count: 0 };
+      mockSupabaseResults["patients"] = { data: null, error: null, count: 0 };
 
       const res = await GET(createReq({ cookie: "jwt-with-tenant" }));
       expect(res.status).toBe(200);
