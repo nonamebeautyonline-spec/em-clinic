@@ -158,6 +158,7 @@ describe("テナント分離: 全APIルートの withTenant 適用監査", () =>
     "app/api/cron/usage-alert/route.ts",
     "app/api/cron/report-usage/route.ts",
     "app/api/cron/generate-invoices/route.ts",
+    "app/api/cron/send-reports/route.ts",
     // 署名付きURL認証API（テナントIDはドラフトDBから取得）
     "app/api/ai-reply/[draftId]/route.ts",
     "app/api/ai-reply/[draftId]/reject/route.ts",

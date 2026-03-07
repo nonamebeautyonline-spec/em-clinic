@@ -144,7 +144,8 @@ describe("テナント分離: cron APIルート", () => {
       src.includes("resolveTenantId") ||
       src.includes("withTenant") ||
       src.includes("tenantPayload") ||
-      src.includes("tenant_id"); // テナント横断でも tenant_id を参照している
+      src.includes("tenant_id") || // テナント横断でも tenant_id を参照している
+      src.includes('from("tenants")'); // tenantsテーブルから全テナント取得してループ
     expect(hasTenantSupport).toBe(true);
   });
 });
