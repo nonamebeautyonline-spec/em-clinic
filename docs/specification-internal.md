@@ -4,7 +4,7 @@
 > 本文書は社内開発・運用目的に限定されます。
 > 当社の書面による事前承諾なく、本文書の全部または一部を複製、共有、開示することを禁じます。
 
-> 最終更新: 2026-02-23
+> 最終更新: 2026-03-08
 
 ---
 
@@ -54,7 +54,7 @@ AIによる音声カルテ自動生成・医学用語補正・自動返信機能
 | UI | Tailwind CSS v4 |
 | データベース | Supabase（PostgreSQL） |
 | メッセージング | LINE Messaging API |
-| 決済 | Square / GMO ペイメントゲートウェイ |
+| 決済 | Square / Stripe / GMO ペイメントゲートウェイ |
 | キャッシュ / レート制限 | Upstash Redis |
 | メール | Resend |
 | AI / LLM | Anthropic Claude API（カルテ生成・医学用語補正・AI返信） |
@@ -66,7 +66,7 @@ AIによる音声カルテ自動生成・医学用語補正・自動返信機能
 
 - **本番**: Vercel（自動デプロイ: `main` ブランチ）
 - **マルチテナント**: サブドメイン方式（`{slug}.lope.jp`）
-- **Cron ジョブ**: Vercel Cron（ヘルスレポート、統計収集、リマインダー、ステップ配信）
+- **Cron ジョブ**: Vercel Cron（17本: AI返信・リマインダー・ステップ配信・フォローアップ・GCal同期・EHR同期・クーポン配布・レポート送信・監査アーカイブ等）
 
 ---
 
@@ -116,7 +116,7 @@ em-clinic/
 | 管理者 | メール + パスワード | JWT Cookie（`admin_session`）、サーバー側セッション管理 |
 | 医師 | Basic 認証 | `middleware.ts` で `/doctor` 配下をガード |
 | 患者 | LINE OAuth | LINE ログイン → `line_id` で識別 |
-| 外部 Webhook | 署名検証 | Square: HMAC SHA256、LINE: 署名検証 |
+| 外部 Webhook | 署名検証 | Square: HMAC SHA256、LINE: 署名検証、GMO: SHA256 |
 
 ---
 
@@ -809,6 +809,7 @@ doctors → 1:N → doctor_date_overrides
 |---------|------|------------|
 | `lib/payment/index.ts` | プロバイダーファクトリ | `getPaymentProvider()` |
 | `lib/payment/square.ts` | Square実装 | `SquarePaymentProvider` |
+| `lib/payment/stripe.ts` | Stripe実装 | Checkout/Portal/Webhook |
 | `lib/payment/gmo.ts` | GMO実装 | `GmoPaymentProvider` |
 | `lib/payment/types.ts` | 共通型 | `PaymentProvider`, `CheckoutParams`, `WebhookEvent` |
 
@@ -888,7 +889,16 @@ doctors → 1:N → doctor_date_overrides
 | Webhook検証 | `lib/payment/square.ts` | HMAC SHA256 署名検証 |
 | 返金 | `lib/payment/square.ts` | `connect.squareup.com/v2/refunds` |
 
-### 7.3 GMO ペイメントゲートウェイ
+### 7.3 Stripe
+
+| 機能 | 実装箇所 | エンドポイント |
+|------|---------|--------------|
+| Checkout Session | `lib/payment/stripe.ts` | `api.stripe.com/v1/checkout/sessions` |
+| Customer Portal | `lib/payment/stripe.ts` | `api.stripe.com/v1/billing_portal/sessions` |
+| Webhook | `app/api/stripe/webhook/route.ts` | 署名検証（Stripe SDK） |
+| 請求書・サブスクリプション | `app/api/platform/billing/` | Stripe Billing API |
+
+### 7.4 GMO ペイメントゲートウェイ
 
 | 機能 | 実装箇所 | エンドポイント |
 |------|---------|--------------|
@@ -896,26 +906,38 @@ doctors → 1:N → doctor_date_overrides
 | 取引管理 | `lib/payment/gmo.ts` | `p01.mul-pay.jp/payment/` |
 | 返金 | `lib/payment/gmo.ts` | `AlterTran.idPass` |
 
-### 7.4 Supabase
+### 7.5 Twilio
+
+| 用途 | 実装箇所 |
+|------|---------|
+| 電話番号認証（SMS送信） | `app/api/verify/send/route.ts`, `app/api/verify/check/route.ts` |
+
+### 7.6 Google Calendar API
+
+| 用途 | 実装箇所 |
+|------|---------|
+| 予約→カレンダー同期（双方向） | `app/api/cron/gcal-sync/route.ts` |
+
+### 7.7 Supabase
 
 - **Anon Key**: クライアント側（RLS有効）
 - **Service Role Key**: サーバー側（RLS バイパス） — API処理は必ず `supabaseAdmin` を使用
 
-### 7.5 Upstash Redis
+### 7.8 Upstash Redis
 
 | 用途 | 実装箇所 |
 |------|---------|
 | レート制限 | `lib/rate-limit.ts` |
 | ダッシュボードキャッシュ | `lib/redis.ts` |
 
-### 7.6 Resend
+### 7.9 Resend
 
 | 用途 | 実装箇所 |
 |------|---------|
 | パスワードリセットメール | `lib/email.ts` |
 | ウェルカムメール | `lib/email.ts` |
 
-### 7.7 Deepgram（音声認識）
+### 7.10 Deepgram（音声認識）
 
 | 用途 | 実装箇所 |
 |------|---------|
@@ -925,7 +947,7 @@ doctors → 1:N → doctor_date_overrides
 - **機能**: Keyterm Prompting（医療辞書から動的キーワード生成）、confidence スコア判定
 - **依存**: `@deepgram/sdk`
 
-### 7.8 Groq（音声認識フォールバック）
+### 7.11 Groq（音声認識フォールバック）
 
 | 用途 | 実装箇所 |
 |------|---------|
@@ -935,7 +957,7 @@ doctors → 1:N → doctor_date_overrides
 - **トリガー**: Deepgram の confidence が閾値未満の場合に自動切替
 - **依存**: `groq-sdk`
 
-### 7.9 Anthropic Claude API
+### 7.12 Anthropic Claude API
 
 | 用途 | 実装箇所 | モデル |
 |------|---------|--------|
@@ -945,7 +967,7 @@ doctors → 1:N → doctor_date_overrides
 
 - **依存**: `@anthropic-ai/sdk`
 
-### 7.10 Sentry
+### 7.13 Sentry
 
 - エラートラッキング: `lib/logger.ts` で自動送信
 - Next.js自動計測: `next.config.ts` で設定
@@ -993,7 +1015,33 @@ doctors → 1:N → doctor_date_overrides
 - **通知方法**: 管理者メールアドレスへメール送信（Resend API）
 - **方式**: Fire-and-forget（ログイン処理をブロックしない）
 
-### 8.7 その他
+### 8.7 2要素認証（TOTP）
+
+- **実装**: `/api/platform/totp/*`
+- **方式**: TOTP（RFC 6238）+ バックアップコード
+- **対象**: プラットフォーム管理者
+- **フロー**: QRコード表示 → Authenticatorアプリ登録 → 検証 → 有効化
+
+### 8.8 パスワードポリシー
+
+- 8文字以上
+- 大文字・小文字・数字・記号それぞれ1文字以上
+- 90日有効期限（期限切れ時にリダイレクト）
+- 直近5回以内のパスワード再利用禁止
+
+### 8.9 Zodバリデーション
+
+- **実装**: `lib/validations/`（36スキーマ）
+- `parseBody()` ヘルパーで全APIの入力を検証
+- 不正入力はJSON構造化エラーとして返却
+
+### 8.10 分散ロック・冪等性
+
+- 分散ロック: `lib/distributed-lock.ts`（全Cronに適用）
+- 冪等性: `lib/idempotency.ts` + `webhook_events`（Webhook重複防止）
+- GMO署名検証: `verifyGmoSignature()` SHA256
+
+### 8.11 その他
 
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
@@ -1331,8 +1379,8 @@ settings.mode に応じて分岐:
 | `lab`（検査値） | 血圧、SpO2 |
 | `general`（その他） | バイタルサイン、副作用 |
 
-- **デフォルト辞書規模**: 951語（6診療科にわたる包括的な医療用語集）
-- **診療科別**: common（共通）/ beauty（美容）/ internal（内科）/ surgery（外科）/ orthopedics（整形）/ dermatology（皮膚科）
+- **デフォルト辞書規模**: 951語以上（10診療科にわたる包括的な医療用語集）
+- **診療科別**: common（共通）/ beauty（美容）/ internal（内科）/ surgery（外科）/ orthopedics（整形）/ dermatology（皮膚科）/ ophthalmology（眼科）/ ent（耳鼻咽喉科）/ urology（泌尿器科）/ obstetrics（産婦人科）
 - **テナント別カスタム辞書**: クリニック固有の用語を追加可能
 
 ---
@@ -1417,6 +1465,18 @@ settings.mode に応じて分岐:
 | `process-steps` | 日次 | ステップシナリオの進行管理・メッセージ送信 |
 | `collect-line-stats` | 日次 | LINE API経由で友だち数・ブロック数等を収集 |
 | `health-report` | 日次 | システムヘルスレポート生成 |
+| `segment-recalculate` | 日次 | RFMセグメントの再計算 |
+| `gcal-sync` | 日次 | Google Calendar双方向同期 |
+| `ehr-sync` | 日次 | EHR（電子カルテ）双方向同期 |
+| `distribute-coupons` | 日次 | クーポン自動配布ルールの実行 |
+| `send-reports` | 日次 | レポート自動送信 |
+| `generate-invoices` | 月次 | Stripeベースの請求書自動生成 |
+| `report-usage` | 日次 | テナント使用量レポート |
+| `usage-alert` | 日次 | 使用量アラート通知 |
+| `usage-check` | 日次 | 使用量チェック |
+| `audit-archive` | 日次 | 監査ログアーカイブ（3年以上経過分） |
+
+全17本のCronジョブに分散ロック（Redis SET NX EX）を適用済み。
 
 ---
 
@@ -1481,10 +1541,12 @@ settings.mode に応じて分岐:
 
 | 指標 | 数値 |
 |------|------|
-| Vitest テストファイル | 75ファイル |
-| Vitest テスト行数 | 18,694行 |
+| Vitest テストファイル | 195ファイル |
+| Vitest テストケース | 約5,743件 |
+| テストコード行数 | 99,476行 |
 | E2E テストファイル | 6ファイル |
 | テストフレームワーク | Vitest + Playwright |
+| カバレッジ | Lines 70.23%, Branches 58.49%, Functions 69.44% |
 
 ### 20.2 APIテスト（`__tests__/api/`）
 
@@ -1578,6 +1640,136 @@ settings.mode に応じて分岐:
 | パスワード | `demo1234` |
 
 ※ URLは推測困難なハッシュ付きパス。契約希望者にのみ直接共有する。
+
+---
+
+## 22. EHR連携
+
+### 22.1 アーキテクチャ
+
+3種のアダプター（ORCA / FHIR / CSV）でEHRとの双方向データ同期を実現。
+
+| ファイル | 役割 |
+|---------|------|
+| `lib/ehr/adapter-orca.ts` | ORCAアダプター |
+| `lib/ehr/adapter-fhir.ts` | HL7 FHIRアダプター |
+| `lib/ehr/adapter-csv.ts` | CSVアダプター |
+| `lib/ehr/schema-mapper.ts` | スキーママッピング |
+| `lib/ehr/sync-manager.ts` | 同期ジョブ管理 |
+| `lib/ehr/sync-state.ts` | 同期状態管理 |
+
+### 22.2 同期フロー
+
+```
+Cron（ehr-sync）→ アダプター選択 → スキーママッピング → データ同期（双方向）→ 同期状態更新
+```
+
+- 同期エラー時は手動リトライUIから再実行可能
+
+---
+
+## 23. ポイント管理
+
+| エンドポイント | メソッド | 役割 |
+|---------------|---------|------|
+| `/api/admin/points/balance` | GET | ポイント残高取得 |
+| `/api/admin/points/grant` | POST | ポイント付与 |
+| `/api/admin/points/consume` | POST | ポイント消費 |
+| `/api/mypage/points` | GET | 患者向けポイント履歴 |
+
+---
+
+## 24. チャットボットエンジン
+
+### 24.1 概要
+
+シナリオ型チャットボットをノーコードで構築可能。ノード・分岐・コンテキスト管理に対応。
+
+| ファイル | 役割 |
+|---------|------|
+| `lib/chatbot-engine.ts` | チャットボットエンジン本体 |
+| `app/admin/line/chatbot/` | チャットボットシナリオ管理UI |
+
+### 24.2 機能
+
+- ノードベースの会話フロー設計
+- 条件分岐（キーワード・コンテキスト変数）
+- コンテキスト変数の保持・更新
+- 営業時間に基づく自動切替
+- キーワード応答との連携
+
+---
+
+## 25. ワークフロー・フロービルダー
+
+### 25.1 D&Dフローエディタ
+
+`@dnd-kit` ベースのドラッグ&ドロップエディタで、ワークフローを視覚的に構築。
+
+- SVGベースのノード・エッジ描画
+- パン・ズーム対応
+- 6ステップタイプ: メッセージ送信 / タグ操作 / メニュー切替 / 条件分岐 / 待機 / API呼び出し
+- 5トリガー: 友だち追加 / タグ追加 / キーワード / フォーム回答 / 手動
+
+### 25.2 表示条件設定
+
+コンテンツ・メニューの表示をタグ・フィールド値・セグメント等の条件で制御。
+
+---
+
+## 26. データバックアップ
+
+| エンドポイント | メソッド | 役割 |
+|---------------|---------|------|
+| `/api/admin/backup/export` | POST | 全データエクスポート実行 |
+| `/api/admin/backup/status` | GET | エクスポート状態確認 |
+| `/api/admin/backup/download` | GET | エクスポートファイルダウンロード |
+| `/api/admin/backup/list` | GET | バックアップ一覧 |
+
+---
+
+## 27. Google Calendar連携
+
+- **双方向同期**: Cron（`gcal-sync`）で定期実行
+- 予約作成時にGoogleカレンダーへイベント自動作成
+- Googleカレンダーからの変更を予約に自動反映
+- 医師別カレンダーに対応
+
+---
+
+## 28. Stripe課金統合
+
+### 28.1 テナント課金
+
+| 機能 | 説明 |
+|------|------|
+| プラン管理 | Free/Basic/Pro/Enterprise プラン定義 |
+| Checkout | Stripe Checkoutによるサブスクリプション開始 |
+| Customer Portal | 顧客自身でプラン変更・支払い情報更新 |
+| Webhook | `checkout.session.completed`、`invoice.paid` 等のイベント処理 |
+| 請求書PDF | Stripe請求書のPDFダウンロード |
+| 使用量レポート | テナント別使用量の自動レポート |
+
+---
+
+## 29. 冪等性・排他制御
+
+### 29.1 分散ロック
+
+- **実装**: `lib/distributed-lock.ts`（Redis SET NX EX）
+- **適用**: 全17本のCronジョブ
+- **TTL**: ジョブ種別に応じて設定
+
+### 29.2 冪等チェック
+
+- **実装**: `lib/idempotency.ts` + `webhook_events` テーブル
+- **適用**: Square Webhook / GMO Webhook / リマインダー送信
+- **方式**: イベントID + 処理済みフラグ
+
+### 29.3 設計方針
+
+- Redis/DB障害時はサービス継続優先（graceful degradation）
+- ロック取得失敗時はスキップ（次回実行で再処理）
 
 ### 21.2 デモページ一覧（16画面）
 
