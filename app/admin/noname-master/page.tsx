@@ -557,7 +557,7 @@ export default function NonameMasterPage() {
                         {order.payment_method}
                       </span>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-900">
+                    <td className="px-3 py-2 text-sm text-slate-900 max-w-[200px] truncate" title={order.patient_name}>
                       {order.patient_name || "-"}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm">
