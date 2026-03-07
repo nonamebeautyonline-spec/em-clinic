@@ -42,7 +42,56 @@ interface InvoiceItem {
   created_at: string;
 }
 
-type TabKey = "contract" | "usage" | "invoices";
+interface PlanOption {
+  key: string;
+  label: string;
+  messageQuota: number;
+  monthlyPrice: number;
+  overageUnitPrice: number;
+  isCurrent: boolean;
+}
+
+interface StripeInfo {
+  id: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  cancelAt: string | null;
+  canceledAt: string | null;
+}
+
+interface SubscriptionInfo {
+  planName: string;
+  planLabel: string;
+  monthlyFee: number;
+  messageQuota: number;
+  overageUnitPrice: number;
+  startedAt: string | null;
+  nextBillingAt: string | null;
+  status: string;
+  hasStripe: boolean;
+  stripe: StripeInfo | null;
+}
+
+interface SubscriptionUsage {
+  yearMonth: string;
+  messageCount: number;
+  aiReplyCount: number;
+  voiceInputCount: number;
+}
+
+type TabKey = "contract" | "usage" | "invoices" | "subscription";
+
+/* ---------- 解約理由選択肢 ---------- */
+const CANCEL_REASONS = [
+  "コスト削減のため",
+  "他サービスへの移行",
+  "利用頻度が低いため",
+  "機能が合わなかった",
+  "サポート品質への不満",
+  "その他",
+] as const;
 
 /* ---------- ヘルパー ---------- */
 function formatYen(n: number): string {
@@ -60,6 +109,7 @@ function formatDate(s: string | null): string {
 
 const STATUS_LABELS: Record<string, string> = {
   active: "有効",
+  cancelling: "解約予約中",
   payment_failed: "支払い失敗",
   cancelled: "解約済み",
   pending: "保留中",
@@ -68,6 +118,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-700",
+  cancelling: "bg-yellow-100 text-yellow-700",
   payment_failed: "bg-red-100 text-red-700",
   cancelled: "bg-gray-100 text-gray-500",
   pending: "bg-yellow-100 text-yellow-700",
@@ -90,6 +141,97 @@ export default function AdminBillingPage() {
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // サブスクリプション管理用state
+  const [subInfo, setSubInfo] = useState<SubscriptionInfo | null>(null);
+  const [subUsage, setSubUsage] = useState<SubscriptionUsage | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>([]);
+  const [subLoading, setSubLoading] = useState(false);
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // サブスクリプション情報の取得
+  const loadSubscription = useCallback(async () => {
+    setSubLoading(true);
+    try {
+      const res = await fetch("/api/admin/billing/subscription", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok) {
+        setSubInfo(data.subscription);
+        setSubUsage(data.usage);
+        setAvailablePlans(data.availablePlans || []);
+      }
+    } catch {
+      // サブスク情報取得失敗は無視（タブ切替時にリトライ可能）
+    } finally {
+      setSubLoading(false);
+    }
+  }, []);
+
+  // プラン変更処理
+  const handleChangePlan = async () => {
+    if (!selectedPlan) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/billing/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "change_plan", newPlanKey: selectedPlan }),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setToast({ message: json.message || "プランを変更しました", type: "success" });
+        setShowChangePlan(false);
+        setSelectedPlan("");
+        loadSubscription();
+        loadData();
+      } else {
+        setToast({ message: json.message || "プラン変更に失敗しました", type: "error" });
+      }
+    } catch {
+      setToast({ message: "ネットワークエラー", type: "error" });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // 解約処理
+  const handleCancelSubscription = async () => {
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/billing/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          action: "cancel",
+          cancelAtPeriodEnd,
+          reason: cancelReason || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setToast({ message: json.message || "解約しました", type: "success" });
+        setShowCancel(false);
+        setCancelReason("");
+        loadSubscription();
+        loadData();
+      } else {
+        setToast({ message: json.message || "解約に失敗しました", type: "error" });
+      }
+    } catch {
+      setToast({ message: "ネットワークエラー", type: "error" });
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -170,10 +312,14 @@ export default function AdminBillingPage() {
             { key: "contract" as TabKey, label: "契約情報" },
             { key: "usage" as TabKey, label: "使用量" },
             { key: "invoices" as TabKey, label: "請求書・領収書" },
+            { key: "subscription" as TabKey, label: "プラン変更・解約" },
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => {
+                setActiveTab(tab.key);
+                if (tab.key === "subscription" && !subInfo) loadSubscription();
+              }}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? "border-purple-600 text-purple-600"
@@ -388,7 +534,317 @@ export default function AdminBillingPage() {
             )}
           </div>
         )}
+        {/* サブスクリプション管理タブ */}
+        {activeTab === "subscription" && (
+          <div className="space-y-6">
+            {subLoading ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-600 border-t-transparent" />
+                <p className="mt-4 text-gray-600">読み込み中...</p>
+              </div>
+            ) : subInfo ? (
+              <>
+                {/* 現在のプラン情報 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-bold text-gray-900">現在のサブスクリプション</h2>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[subInfo.status] || "bg-gray-100 text-gray-500"}`}>
+                      {STATUS_LABELS[subInfo.status] || subInfo.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">プラン名</p>
+                      <p className="text-xl font-bold text-gray-900">{subInfo.planLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">月額料金</p>
+                      <p className="text-xl font-bold text-gray-900">{formatYen(subInfo.monthlyFee)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">次回請求日</p>
+                      <p className="text-lg font-medium text-gray-900">
+                        {subInfo.stripe?.currentPeriodEnd
+                          ? formatDate(subInfo.stripe.currentPeriodEnd)
+                          : formatDate(subInfo.nextBillingAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 解約予約中の警告 */}
+                  {(subInfo.status === "cancelling" || subInfo.stripe?.cancelAtPeriodEnd) && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                      解約予約中です。
+                      {subInfo.stripe?.currentPeriodEnd && (
+                        <span>現在の請求期間（{formatDate(subInfo.stripe.currentPeriodEnd)}）終了後に解約されます。</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 利用状況バー */}
+                  {subUsage && (
+                    <div className="mt-4">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-600">メッセージ通数（{subUsage.yearMonth}）</span>
+                        <span className="font-medium text-gray-900">
+                          {subUsage.messageCount.toLocaleString()} / {subInfo.messageQuota.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            subUsage.messageCount / subInfo.messageQuota >= 0.9
+                              ? "bg-red-500"
+                              : subUsage.messageCount / subInfo.messageQuota >= 0.7
+                                ? "bg-amber-500"
+                                : "bg-purple-500"
+                          }`}
+                          style={{ width: `${Math.min(100, (subUsage.messageCount / subInfo.messageQuota) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 操作ボタン */}
+                  {subInfo.status !== "cancelled" && (
+                    <div className="flex gap-3 mt-6 pt-4 border-t border-gray-100">
+                      <button
+                        onClick={() => setShowChangePlan(true)}
+                        className="px-5 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                      >
+                        プラン変更
+                      </button>
+                      <button
+                        onClick={() => setShowCancel(true)}
+                        className="px-5 py-2.5 bg-white text-red-600 text-sm font-medium rounded-lg border border-red-300 hover:bg-red-50 transition-colors"
+                      >
+                        解約
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* プラン比較表 */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h2 className="text-base font-bold text-gray-900 mb-4">プラン一覧</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 px-3 text-gray-500 font-medium">プラン</th>
+                          <th className="text-right py-2 px-3 text-gray-500 font-medium">月額</th>
+                          <th className="text-right py-2 px-3 text-gray-500 font-medium">メッセージ枠</th>
+                          <th className="text-right py-2 px-3 text-gray-500 font-medium">超過単価</th>
+                          <th className="text-center py-2 px-3 text-gray-500 font-medium"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {availablePlans.map((p) => (
+                          <tr key={p.key} className={`border-b border-gray-50 ${p.isCurrent ? "bg-purple-50" : ""}`}>
+                            <td className="py-3 px-3 font-medium text-gray-900">
+                              {p.label}
+                              {p.isCurrent && <span className="ml-2 text-xs text-purple-600 font-normal">(現在)</span>}
+                            </td>
+                            <td className="py-3 px-3 text-right text-gray-900">{formatYen(p.monthlyPrice)}</td>
+                            <td className="py-3 px-3 text-right text-gray-900">{p.messageQuota.toLocaleString()}通</td>
+                            <td className="py-3 px-3 text-right text-gray-900">{p.overageUnitPrice}円</td>
+                            <td className="py-3 px-3 text-center">
+                              {!p.isCurrent && subInfo.status !== "cancelled" && (
+                                <button
+                                  onClick={() => { setSelectedPlan(p.key); setShowChangePlan(true); }}
+                                  className="text-xs text-purple-600 hover:text-purple-800 font-medium"
+                                >
+                                  変更
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                <p className="text-gray-500">サブスクリプション情報が見つかりません</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* トースト通知 */}
+      {toast && (
+        <BillingToast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* プラン変更ダイアログ */}
+      {showChangePlan && (
+        <BillingDialog onClose={() => { setShowChangePlan(false); setSelectedPlan(""); }}>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">プラン変更</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            変更先のプランを選択してください。日割り精算が適用されます。
+          </p>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {availablePlans
+              .filter((p) => !p.isCurrent)
+              .map((p) => (
+                <label
+                  key={p.key}
+                  className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedPlan === p.key
+                      ? "border-purple-500 bg-purple-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="plan"
+                      value={p.key}
+                      checked={selectedPlan === p.key}
+                      onChange={(e) => setSelectedPlan(e.target.value)}
+                      className="text-purple-600"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">{p.label}</p>
+                      <p className="text-xs text-gray-500">
+                        {p.messageQuota.toLocaleString()}通/月 | 超過 {p.overageUnitPrice}円/通
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatYen(p.monthlyPrice)}/月
+                  </span>
+                </label>
+              ))}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => { setShowChangePlan(false); setSelectedPlan(""); }}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleChangePlan}
+              disabled={!selectedPlan || processing}
+              className="px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? "処理中..." : "プランを変更する"}
+            </button>
+          </div>
+        </BillingDialog>
+      )}
+
+      {/* 解約ダイアログ */}
+      {showCancel && (
+        <BillingDialog onClose={() => { setShowCancel(false); setCancelReason(""); }}>
+          <h3 className="text-lg font-semibold text-red-700 mb-4">サブスクリプションの解約</h3>
+
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg mb-4 text-sm text-red-700">
+            解約すると、プランの機能が利用できなくなります。この操作は取り消しできません。
+          </div>
+
+          {/* 解約タイミング */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">解約タイミング</p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={cancelAtPeriodEnd}
+                  onChange={() => setCancelAtPeriodEnd(true)}
+                  className="text-red-600"
+                />
+                <span className="text-sm text-gray-700">
+                  現在の請求期間終了時に解約（推奨）
+                </span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={!cancelAtPeriodEnd}
+                  onChange={() => setCancelAtPeriodEnd(false)}
+                  className="text-red-600"
+                />
+                <span className="text-sm text-gray-700">即時解約</span>
+              </label>
+            </div>
+          </div>
+
+          {/* 解約理由 */}
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">解約理由（任意）</p>
+            <select
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+            >
+              <option value="">選択してください</option>
+              {CANCEL_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {reason}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => { setShowCancel(false); setCancelReason(""); }}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              戻る
+            </button>
+            <button
+              onClick={handleCancelSubscription}
+              disabled={processing}
+              className="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? "処理中..." : "解約する"}
+            </button>
+          </div>
+        </BillingDialog>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 汎用ダイアログ ---------- */
+function BillingDialog({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- トースト通知 ---------- */
+function BillingToast({ message, type, onClose }: { message: string; type: "success" | "error"; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div
+      className={`fixed top-6 right-6 z-[60] px-5 py-3 rounded-lg shadow-lg text-sm font-medium transition-all ${
+        type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+      }`}
+    >
+      {message}
     </div>
   );
 }
