@@ -12,11 +12,15 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
+  const { searchParams } = new URL(req.url);
+  const patientId = searchParams.get("patient_id");
+  const statusFilter = searchParams.get("status"); // "scheduled" でフィルタ可能
 
-  const { data, error } = await withTenant(
-    supabaseAdmin.from("scheduled_messages").select("*").order("scheduled_at", { ascending: true }),
-    tenantId
-  );
+  let query = supabaseAdmin.from("scheduled_messages").select("*").order("scheduled_at", { ascending: true });
+  if (patientId) query = query.eq("patient_id", patientId);
+  if (statusFilter) query = query.eq("status", statusFilter);
+
+  const { data, error } = await withTenant(query, tenantId);
 
   if (error) return serverError(error.message);
   return NextResponse.json({ schedules: data });
