@@ -39,15 +39,21 @@ function SegmentWidgetSkeleton() {
 
 // ウィジェット表示設定の型
 interface WidgetSettings {
-  segmentChart: boolean;   // セグメント分布
+  conversionKpi: boolean;   // 転換率KPI
+  subKpi: boolean;          // サブKPI（LINE登録者・アクティブ予約・顧客単価等）
+  segmentChart: boolean;    // セグメント分布
   conversionChart: boolean; // 初診→再診転換率
   kpiTargetChart: boolean;  // KPI目標vs実績
+  detailTabs: boolean;      // 詳細タブ（概要・予約/配送・売上/商品・患者）
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
+  conversionKpi: true,
+  subKpi: true,
   segmentChart: true,
   conversionChart: true,
   kpiTargetChart: true,
+  detailTabs: true,
 };
 
 /** API からウィジェット設定を読み込む */
@@ -510,33 +516,24 @@ export default function EnhancedDashboard() {
                     ウィジェット表示
                   </span>
                 </div>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={widgetSettings.segmentChart}
-                    onChange={() => toggleWidget("segmentChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">セグメント分布</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={widgetSettings.conversionChart}
-                    onChange={() => toggleWidget("conversionChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">初診→再診転換率</span>
-                </label>
-                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={widgetSettings.kpiTargetChart}
-                    onChange={() => toggleWidget("kpiTargetChart")}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-slate-700">KPI目標vs実績</span>
-                </label>
+                {([
+                  { key: "conversionKpi" as const, label: "転換率KPI" },
+                  { key: "subKpi" as const, label: "サブKPI（LINE・予約・単価等）" },
+                  { key: "kpiTargetChart" as const, label: "KPI目標vs実績" },
+                  { key: "detailTabs" as const, label: "詳細タブ" },
+                  { key: "segmentChart" as const, label: "セグメント分布" },
+                  { key: "conversionChart" as const, label: "初診→再診転換率" },
+                ]).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={widgetSettings[key]}
+                      onChange={() => toggleWidget(key)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">{label}</span>
+                  </label>
+                ))}
               </div>
             )}
           </div>
@@ -628,56 +625,41 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
-      {/* メインKPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      {/* 主要KPI */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPICard
-          title="純売上"
-          value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
-          subtitle="返金後の金額"
-          icon="💰"
+          title="予約件数"
+          value={`${stats?.reservations.total || 0}`}
+          subtitle={`完了: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
+          icon="📅"
           color="blue"
         />
         <KPICard
-          title="顧客単価"
-          value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
-          subtitle="平均注文額"
-          icon="💎"
-          color="rose"
-        />
-        <KPICard
-          title="LINE登録者"
-          value={`${stats?.kpi.lineRegisteredCount || 0}`}
-          subtitle="LINE友だち数"
-          icon="💬"
+          title="配送件数"
+          value={`${stats?.shipping.total || 0}`}
+          subtitle={`新規: ${stats?.shipping.first || 0} / 再処方: ${stats?.shipping.reorder || 0}`}
+          icon="📦"
           color="green"
         />
         <KPICard
-          title="アクティブ予約"
-          value={`${stats?.kpi.todayActiveReservations || 0}`}
-          subtitle="キャンセル除く有効予約数"
-          icon="📋"
-          color="sky"
-        />
-        <KPICard
-          title="本日の予約"
-          value={`${stats?.kpi.todayNewReservations || 0}`}
-          subtitle="新規予約数"
-          icon="📅"
+          title="純売上"
+          value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
+          subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`}
+          icon="💰"
           color="purple"
         />
         <KPICard
-          title="本日の決済"
-          value={`${stats?.kpi.todayPaidCount || 0}`}
-          subtitle="決済完了数"
-          icon="✅"
+          title="リピート率"
+          value={`${stats?.patients.repeatRate || 0}%`}
+          subtitle={`総患者: ${stats?.patients.total || 0} / 新規: ${stats?.patients.new || 0}`}
+          icon="🔄"
           color="orange"
         />
       </div>
 
       {/* 転換率KPI */}
-      <div className="mb-8">
-        <h2 className="text-lg font-bold text-slate-900 mb-4">転換率</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {widgetSettings.conversionKpi && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <ConversionCard
             title="診療後の決済率"
             rate={stats?.kpi.paymentRateAfterConsultation || 0}
@@ -694,7 +676,55 @@ export default function EnhancedDashboard() {
             description="予約後に診察を完了した患者の割合"
           />
         </div>
-      </div>
+      )}
+
+      {/* サブKPI */}
+      {widgetSettings.subKpi && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <KPICard
+            title="LINE登録者"
+            value={`${stats?.kpi.lineRegisteredCount || 0}`}
+            subtitle="LINE友だち数"
+            icon="💬"
+            color="green"
+          />
+          <KPICard
+            title="アクティブ予約"
+            value={`${stats?.kpi.todayActiveReservations || 0}`}
+            subtitle="キャンセル除く有効予約数"
+            icon="📋"
+            color="sky"
+          />
+          <KPICard
+            title="顧客単価"
+            value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+            subtitle="平均注文額"
+            icon="💎"
+            color="rose"
+          />
+          <KPICard
+            title="本日の予約"
+            value={`${stats?.kpi.todayNewReservations || 0}`}
+            subtitle="新規予約数"
+            icon="📝"
+            color="purple"
+          />
+          <KPICard
+            title="本日の決済"
+            value={`${stats?.kpi.todayPaidCount || 0}`}
+            subtitle="決済完了数"
+            icon="✅"
+            color="orange"
+          />
+          <KPICard
+            title="銀行振込状況"
+            value={`${stats?.bankTransfer.pending || 0}`}
+            subtitle={`入金待ち / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
+            icon="🏦"
+            color="sky"
+          />
+        </div>
+      )}
 
       {/* KPI目標 vs 実績 */}
       {widgetSettings.kpiTargetChart && (
@@ -704,7 +734,7 @@ export default function EnhancedDashboard() {
       )}
 
       {/* タブナビゲーション */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+      {widgetSettings.detailTabs && <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <div className="border-b border-slate-200">
           <nav className="flex -mb-px">
             <TabButton
@@ -915,7 +945,7 @@ export default function EnhancedDashboard() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* 分析ウィジェット */}
       <div className="mt-8 space-y-6">
