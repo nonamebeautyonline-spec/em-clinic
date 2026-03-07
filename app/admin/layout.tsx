@@ -45,6 +45,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/notification-settings", icon: "📩", label: "予約・発送通知" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
   { href: "/admin/inventory", icon: "📦", label: "在庫" },
+  { href: "/admin/legal-settings", icon: "📜", label: "利用規約設定" },
   { href: "/admin/settings", icon: "⚙️", label: "設定" },
   { href: "/admin/help", icon: "❓", label: "ヘルプ" },
 ];
@@ -537,6 +538,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="在庫"
             isOpen={isSidebarOpen}
             isActive={pathname.startsWith("/admin/inventory")}
+          />
+          <MenuItem
+            href="/admin/legal-settings"
+            icon="📜"
+            label="利用規約設定"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/legal-settings"}
           />
 
           <MenuSection label="システム" isOpen={isSidebarOpen} />

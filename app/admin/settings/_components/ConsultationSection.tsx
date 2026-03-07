@@ -44,6 +44,7 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // --- 初期読み込み ---
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
       const allOk = results.every(r => r.ok);
       if (allOk) {
         setSaved(true);
+        setEditing(false);
         onToast("診察設定を保存しました", "success");
         setTimeout(() => setSaved(false), 3000);
       } else {
@@ -128,17 +130,24 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {saving ? "保存中..." : "保存"}
-          </button>
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                キャンセル
+              </button>
+              <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {saving ? "保存中..." : "保存する"}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+              編集する
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="space-y-6">
+      <div className={`space-y-6 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
         {/* LINEコールURL設定 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">

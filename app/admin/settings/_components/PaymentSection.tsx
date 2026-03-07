@@ -221,6 +221,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [savingMode, setSavingMode] = useState(false);
   const [savingReconcile, setSavingReconcile] = useState(false);
   const [savingThreeDs, setSavingThreeDs] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // 口座情報（複数口座対応）
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -422,13 +423,26 @@ export default function PaymentSection({ settings, onSaved }: Props) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-gray-100">
-        <h2 className="text-sm font-bold text-gray-800">決済設定</h2>
-        <p className="text-xs text-gray-500 mt-0.5">決済プロバイダーの選択とAPIキーの管理</p>
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-gray-800">決済設定</h2>
+          <p className="text-xs text-gray-500 mt-0.5">決済プロバイダーの選択とAPIキーの管理</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+              キャンセル
+            </button>
+          ) : (
+            <button onClick={() => setEditing(true)} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+              編集する
+            </button>
+          )}
+        </div>
       </div>
 
       {/* プロバイダー選択 */}
-      <div className="px-5 py-4 border-b border-gray-100">
+      <div className={`px-5 py-4 border-b border-gray-100 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
         <p className="text-sm font-medium text-gray-900 mb-3">決済プロバイダー選択</p>
         <div className="space-y-3">
           {PROVIDER_OPTIONS.map((opt) => (
@@ -469,7 +483,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
 
       {/* チェックアウトモード（Squareの場合のみ表示） */}
       {selected === "square" && (
-        <div className="px-5 py-4 border-b border-gray-100">
+        <div className={`px-5 py-4 border-b border-gray-100 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           <p className="text-sm font-medium text-gray-900 mb-3">チェックアウトモード</p>
           <div className="space-y-3">
             <label
@@ -569,7 +583,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
 
       {/* 選択中プロバイダーのAPI Key設定 */}
       {selected && providerSettings.length > 0 && (
-        <div className="border-t border-gray-200">
+        <div className={`border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           <div className="px-5 py-3 bg-gray-50">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
               {selectedOption?.label} API設定
@@ -594,7 +608,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       )}
 
       {selected && providerSettings.length === 0 && (
-        <div className="px-5 py-6 text-center text-gray-400 text-sm border-t border-gray-200">
+        <div className={`px-5 py-6 text-center text-gray-400 text-sm border-t border-gray-200 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
           {selectedOption?.label} のAPI設定キーはまだ登録されていません。
           <br />
           上の保存ボタンを押してからページを再読み込みしてください。
@@ -602,7 +616,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       )}
 
       {/* 振込照合モード */}
-      <div className="px-5 py-4 border-t border-gray-100">
+      <div className={`px-5 py-4 border-t border-gray-100 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
         <p className="text-sm font-medium text-gray-900 mb-3">振込照合モード</p>
         <div className="space-y-3">
           {RECONCILE_MODE_OPTIONS.map((opt) => (
@@ -641,7 +655,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       </div>
 
       {/* 振込先口座情報 */}
-      <div className="px-5 py-4 border-t border-gray-100">
+      <div className={`px-5 py-4 border-t border-gray-100 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
         <p className="text-sm font-medium text-gray-900 mb-1">振込先口座情報</p>
         <p className="text-xs text-gray-500 mb-3">患者マイページの銀行振込画面に表示される口座情報（複数登録可）</p>
 

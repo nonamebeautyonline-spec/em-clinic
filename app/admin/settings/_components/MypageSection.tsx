@@ -124,6 +124,7 @@ export default function MypageSection({ onToast }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -150,6 +151,7 @@ export default function MypageSection({ onToast }: Props) {
     });
     if (res.ok) {
       setSaved(true);
+      setEditing(false);
       onToast("マイページ設定を保存しました", "success");
       setTimeout(() => setSaved(false), 3000);
     } else {
@@ -193,17 +195,28 @@ export default function MypageSection({ onToast }: Props) {
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
-          <button onClick={handleReset} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-            リセット
-          </button>
-          <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
-            {saving ? "保存中..." : "保存"}
-          </button>
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                キャンセル
+              </button>
+              <button onClick={handleReset} className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                リセット
+              </button>
+              <button onClick={handleSave} disabled={saving} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                {saving ? "保存中..." : "保存する"}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)} className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+              編集する
+            </button>
+          )}
         </div>
       </div>
 
       {/* 2カラム: 設定 + プレビュー */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className={`grid grid-cols-1 lg:grid-cols-5 gap-6 ${!editing ? "pointer-events-none opacity-60" : ""}`}>
         {/* 左カラム: 設定パネル */}
         <div className="lg:col-span-3 space-y-6">
           {/* 色設定 */}

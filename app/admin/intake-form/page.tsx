@@ -349,6 +349,7 @@ export default function IntakeFormEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"fields" | "settings" | "preview">("fields");
 
   const [fields, setFields] = useState<IntakeFormField[]>([]);
@@ -400,6 +401,7 @@ export default function IntakeFormEditorPage() {
       if (data.ok) {
         setFields(sorted);
         setSaved(true);
+        setEditing(false);
         setTimeout(() => setSaved(false), 2000);
       } else {
         alert("保存に失敗しました: " + ((data.message || data.error) || data.details?.join(", ")));
@@ -523,19 +525,24 @@ export default function IntakeFormEditorPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleReset}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            デフォルトに戻す
-          </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 shadow-sm"
-          >
-            {saving ? "保存中..." : saved ? "保存しました" : "保存"}
-          </button>
+          {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                キャンセル
+              </button>
+              <button onClick={handleReset} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                デフォルトに戻す
+              </button>
+              <button onClick={save} disabled={saving} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 shadow-sm">
+                {saving ? "保存中..." : "保存する"}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setEditing(true)} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+              編集する
+            </button>
+          )}
         </div>
       </div>
 
@@ -565,6 +572,7 @@ export default function IntakeFormEditorPage() {
         ))}
       </div>
 
+      <div className={!editing ? "pointer-events-none opacity-60" : ""}>
       {/* フィールドタブ */}
       {tab === "fields" && (
         <div>
@@ -1128,6 +1136,7 @@ export default function IntakeFormEditorPage() {
           <IntakePreview fields={fields} settings={settings} />
         </div>
       )}
+      </div>
     </div>
   );
 }
