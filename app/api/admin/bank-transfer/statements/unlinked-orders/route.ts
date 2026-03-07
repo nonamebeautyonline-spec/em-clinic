@@ -9,7 +9,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
- * 入金と紐づいていないconfirmed銀行振込注文一覧を取得
+ * 未確認（pending_confirmation）の銀行振込注文一覧を取得
  * GET /api/admin/bank-transfer/statements/unlinked-orders
  */
 export async function GET(req: NextRequest) {
@@ -20,12 +20,12 @@ export async function GET(req: NextRequest) {
     const tenantId = resolveTenantId(req);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 銀行振込注文（pending_confirmation / confirmed）を全取得
+    // 未確認の銀行振込注文のみ取得（confirmedは確認済みなので除外）
     const { data: bankOrders, error } = await withTenant(
       supabase
         .from("orders")
         .select("id, patient_id, amount, account_name, shipping_name, product_code, created_at, status")
-        .in("status", ["pending_confirmation", "confirmed"])
+        .eq("status", "pending_confirmation")
         .eq("payment_method", "bank_transfer")
         .order("created_at", { ascending: false }),
       tenantId
