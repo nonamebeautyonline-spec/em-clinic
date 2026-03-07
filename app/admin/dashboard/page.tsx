@@ -202,6 +202,13 @@ export default function EnhancedDashboard() {
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
+  // リアルタイム統計
+  const [realtimeStats, setRealtimeStats] = useState({
+    activeAdminSessions: 0,
+    todayMessageCount: 0,
+    todayNewPatients: 0,
+  });
+
   // セットアップ状態
   const [setupComplete, setSetupComplete] = useState(true);
   useEffect(() => {
@@ -366,9 +373,35 @@ export default function EnhancedDashboard() {
       }
     });
 
-    // ping（接続維持）
-    es.addEventListener("ping", () => {
+    // リアルタイム統計更新イベント
+    es.addEventListener("stats_update", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        setRealtimeStats({
+          activeAdminSessions: data.activeAdminSessions ?? 0,
+          todayMessageCount: data.todayMessageCount ?? 0,
+          todayNewPatients: data.todayNewPatients ?? 0,
+        });
+      } catch {
+        // パースエラーは無視
+      }
+    });
+
+    // ping（接続維持 + 初回スナップショットからリアルタイム統計取得）
+    es.addEventListener("ping", (e) => {
       setSSEStatus("connected");
+      try {
+        const data = JSON.parse(e.data);
+        if (data.snapshot) {
+          setRealtimeStats({
+            activeAdminSessions: data.snapshot.activeAdminSessions ?? 0,
+            todayMessageCount: data.snapshot.todayMessageCount ?? 0,
+            todayNewPatients: data.snapshot.todayNewPatients ?? 0,
+          });
+        }
+      } catch {
+        // パースエラーは無視
+      }
     });
 
     // エラー・切断時の再接続
@@ -603,6 +636,48 @@ export default function EnhancedDashboard() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg text-red-700">
           {error}
+        </div>
+      )}
+
+      {/* リアルタイム統計 */}
+      {dateRange === "today" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <RealtimeStatCard
+            label="オンライン管理者"
+            value={realtimeStats.activeAdminSessions}
+            unit="人"
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            color="emerald"
+            connected={sseStatus === "connected"}
+          />
+          <RealtimeStatCard
+            label="本日メッセージ数"
+            value={realtimeStats.todayMessageCount}
+            unit="件"
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            }
+            color="blue"
+            connected={sseStatus === "connected"}
+          />
+          <RealtimeStatCard
+            label="本日新規患者"
+            value={realtimeStats.todayNewPatients}
+            unit="人"
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            }
+            color="violet"
+            connected={sseStatus === "connected"}
+          />
         </div>
       )}
 
@@ -892,6 +967,66 @@ export default function EnhancedDashboard() {
 
       {/* トースト通知コンテナ */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
+    </div>
+  );
+}
+
+// ─── リアルタイム統計カード ───────────────────────────────
+
+interface RealtimeStatCardProps {
+  label: string;
+  value: number;
+  unit: string;
+  icon: React.ReactNode;
+  color: "emerald" | "blue" | "violet";
+  connected: boolean;
+}
+
+function RealtimeStatCard({ label, value, unit, icon, color, connected }: RealtimeStatCardProps) {
+  const colorMap = {
+    emerald: {
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      iconBg: "bg-emerald-100 text-emerald-600",
+      value: "text-emerald-700",
+      pulse: "bg-emerald-500",
+    },
+    blue: {
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      iconBg: "bg-blue-100 text-blue-600",
+      value: "text-blue-700",
+      pulse: "bg-blue-500",
+    },
+    violet: {
+      bg: "bg-violet-50",
+      border: "border-violet-200",
+      iconBg: "bg-violet-100 text-violet-600",
+      value: "text-violet-700",
+      pulse: "bg-violet-500",
+    },
+  };
+  const c = colorMap[color];
+
+  return (
+    <div className={`relative ${c.bg} border ${c.border} rounded-xl p-4 flex items-center gap-4 transition-all`}>
+      {/* SSEライブインジケーター */}
+      {connected && (
+        <span className="absolute top-2.5 right-2.5 flex h-2.5 w-2.5">
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${c.pulse} opacity-75`} />
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${c.pulse}`} />
+        </span>
+      )}
+      <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${c.iconBg}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-xs font-medium text-slate-500">{label}</div>
+        <div className={`text-2xl font-bold ${c.value}`}>
+          {value.toLocaleString()}
+          <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
+        </div>
+      </div>
     </div>
   );
 }
