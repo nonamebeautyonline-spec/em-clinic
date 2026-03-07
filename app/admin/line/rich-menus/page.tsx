@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { snapValue, generateGridLines, GRID_SIZES, type GridSize } from "@/lib/grid-snap";
 
 interface RichMenu {
   id: number;
@@ -179,6 +180,10 @@ export default function RichMenuManagementPage() {
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
+  // グリッドスナップ設定
+  const [gridSize, setGridSize] = useState<GridSize>(20);
+  const [shiftPressed, setShiftPressed] = useState(false);
+
   const fetchMenus = async () => {
     const res = await fetch("/api/admin/line/rich-menus", { credentials: "include" });
     const data = await res.json();
@@ -199,6 +204,18 @@ export default function RichMenuManagementPage() {
         .then(r => r.json())
         .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); }),
     ]).finally(() => setLoading(false));
+  }, []);
+
+  // Shiftキー検知（グリッドスナップ一時無効化用）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftPressed(true); };
+    const handleKeyUp = (e: KeyboardEvent) => { if (e.key === "Shift") setShiftPressed(false); };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
   }, []);
 
   // --- AI生成ハンドラ ---
@@ -406,13 +423,19 @@ export default function RichMenuManagementPage() {
     const sx = dragStart.current.x;
     const sy = dragStart.current.y;
 
+    // 実座標に変換してからスナップ
+    const rawX = Math.round(Math.min(sx, cx) / scaleX);
+    const rawY = Math.round(Math.min(sy, cy) / scaleY);
+    const rawW = Math.round(Math.abs(cx - sx) / scaleX);
+    const rawH = Math.round(Math.abs(cy - sy) / scaleY);
+
     setTempBounds({
-      x: Math.round(Math.min(sx, cx) / scaleX),
-      y: Math.round(Math.min(sy, cy) / scaleY),
-      width: Math.round(Math.abs(cx - sx) / scaleX),
-      height: Math.round(Math.abs(cy - sy) / scaleY),
+      x: snapValue(rawX, gridSize, e.shiftKey),
+      y: snapValue(rawY, gridSize, e.shiftKey),
+      width: snapValue(rawW, gridSize, e.shiftKey),
+      height: snapValue(rawH, gridSize, e.shiftKey),
     });
-  }, [scaleX, scaleY]);
+  }, [scaleX, scaleY, gridSize]);
 
   const handleCanvasMouseUp = useCallback(() => {
     isDragging.current = false;
@@ -1284,9 +1307,28 @@ export default function RichMenuManagementPage() {
           <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-bold text-gray-900 text-lg">領域設定</h2>
-              <button onClick={() => setBoundsModalIndex(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
+              <div className="flex items-center gap-3">
+                {/* スナップグリッドサイズ選択 */}
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4h1v1H4V4zm5 0h1v1H9V4zm5 0h1v1h-1V4zm5 0h1v1h-1V4zM4 9h1v1H4V9zm5 0h1v1H9V9zm5 0h1v1h-1V9zm5 0h1v1h-1V9zM4 14h1v1H4v-1zm5 0h1v1H9v-1zm5 0h1v1h-1v-1zm5 0h1v1h-1v-1zM4 19h1v1H4v-1zm5 0h1v1H9v-1zm5 0h1v1h-1v-1zm5 0h1v1h-1v-1z" />
+                  </svg>
+                  <select
+                    value={gridSize}
+                    onChange={e => setGridSize(Number(e.target.value) as GridSize)}
+                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-500"
+                    title="スナップグリッドサイズ"
+                  >
+                    {GRID_SIZES.map(s => (
+                      <option key={s} value={s}>{s}px</option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-gray-400">Shift: フリー</span>
+                </div>
+                <button onClick={() => setBoundsModalIndex(null)} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
             </div>
 
             <div className="px-6 py-6">
@@ -1301,6 +1343,20 @@ export default function RichMenuManagementPage() {
                 onMouseLeave={handleCanvasMouseUp}
               >
                 {imageUrl && <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                {/* グリッド線表示（ドラッグ中のみ、スナップ有効時） */}
+                {isDragging.current && gridSize > 0 && !shiftPressed && (() => {
+                  const { verticals, horizontals } = generateGridLines(CANVAS_W, CANVAS_H, gridSize, scaleX, scaleY);
+                  return (
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+                      {verticals.map((x, i) => (
+                        <line key={`v${i}`} x1={x} y1={0} x2={x} y2={CANVAS_H} stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+                      ))}
+                      {horizontals.map((y, i) => (
+                        <line key={`h${i}`} x1={0} y1={y} x2={CANVAS_W} y2={y} stroke="rgba(255,255,255,0.15)" strokeWidth={0.5} />
+                      ))}
+                    </svg>
+                  );
+                })()}
                 {/* 全ボタン領域表示 */}
                 {buttons.map((b, i) => (
                   <div key={i}
