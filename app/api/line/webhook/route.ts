@@ -996,7 +996,7 @@ async function handleChatbotMessage(
             },
           },
         };
-        await pushMessage(lineUid, [flexMsg as Record<string, unknown>], tenantId ?? undefined);
+        await pushMessage(lineUid, [flexMsg as { type: "flex"; altText: string; contents: Record<string, unknown> }], tenantId ?? undefined);
       } else {
         await pushMessage(lineUid, [{ type: "text", text: response.text }], tenantId ?? undefined);
       }
@@ -1049,7 +1049,7 @@ async function handleChatbotMessage(
         },
       },
     };
-    await pushMessage(lineUid, [flexMsg as Record<string, unknown>], tenantId ?? undefined);
+    await pushMessage(lineUid, [flexMsg as { type: "flex"; altText: string; contents: Record<string, unknown> }], tenantId ?? undefined);
   } else {
     await pushMessage(lineUid, [{ type: "text", text: firstMsg.text }], tenantId ?? undefined);
   }

@@ -311,7 +311,7 @@ async function handleChangePlan(
                               }[];
                             };
                           }
-                        ).items.data[0]?.price?.product || undefined,
+                        ).items.data[0]?.price?.product ?? "",
                       unit_amount: newPlan.monthlyPrice,
                       recurring: { interval: "month" },
                     },

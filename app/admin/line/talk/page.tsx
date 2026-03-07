@@ -648,6 +648,15 @@ export default function TalkPage() {
     return () => { if (msgSearchTimer.current) clearTimeout(msgSearchTimer.current); };
   }, [searchMessage, executeMessageSearch, clearMessageSearch]);
 
+  // 予約送信メッセージ一覧を取得
+  const fetchScheduledMessages = useCallback(async (patientId: string) => {
+    try {
+      const res = await fetch(`/api/admin/line/schedule?patient_id=${encodeURIComponent(patientId)}&status=scheduled`, { credentials: "include" });
+      const data = await res.json();
+      if (data.schedules) setScheduledMessages(data.schedules);
+    } catch { /* ignore */ }
+  }, []);
+
   // 患者選択
   const selectPatient = useCallback(async (friend: Friend) => {
     // 前のリクエストをキャンセル
@@ -853,15 +862,6 @@ export default function TalkPage() {
     const interval = setInterval(pollFriendsList, 15000);
     return () => clearInterval(interval);
   }, [pollFriendsList]);
-
-  // 予約送信メッセージ一覧を取得
-  const fetchScheduledMessages = useCallback(async (patientId: string) => {
-    try {
-      const res = await fetch(`/api/admin/line/schedule?patient_id=${encodeURIComponent(patientId)}&status=scheduled`, { credentials: "include" });
-      const data = await res.json();
-      if (data.schedules) setScheduledMessages(data.schedules);
-    } catch { /* ignore */ }
-  }, []);
 
   // 予約送信キャンセル
   const cancelScheduledMessage = useCallback(async (scheduleId: number) => {

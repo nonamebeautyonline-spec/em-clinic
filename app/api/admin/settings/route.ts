@@ -70,6 +70,11 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "cron_slack_webhook_url", label: "Cron通知 Slack Webhook URL" },
     { key: "cron_notify_line_uid", label: "Cron通知 LINE UID" },
   ],
+  report: [
+    { key: "enabled", label: "レポート送信", sensitive: false },
+    { key: "frequency", label: "送信頻度", sensitive: false },
+    { key: "emails", label: "送信先メールアドレス", sensitive: false },
+  ],
   ehr: [
     { key: "provider", label: "連携プロバイダー", sensitive: false },
     { key: "sync_direction", label: "同期方向", sensitive: false },

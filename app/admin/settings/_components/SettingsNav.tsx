@@ -2,8 +2,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
+
 export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "consultation" | "ehr" | "notification" | "account" | "options" | "cron" | "report";
+const SECTIONS: { key: SectionKey; label: string; icon: string; clinicOnly?: boolean }[] = [
   { key: "general", label: "基本情報", icon: "🏥" },
   { key: "line", label: "LINE連携", icon: "💬" },
   { key: "payment", label: "決済設定", icon: "💳" },
@@ -17,17 +18,20 @@ export type SectionKey = "general" | "payment" | "line" | "sms" | "mypage" | "co
   { key: "cron", label: "Cron実行履歴", icon: "⏱" },
   { key: "account", label: "アカウント", icon: "👤" },
 ];
+
 interface SettingsNavProps {
   active: SectionKey;
   onChange: (key: SectionKey) => void;
   industry?: string;
 }
+
 export default function SettingsNav({ active, onChange, industry = "clinic" }: SettingsNavProps) {
   const router = useRouter();
   const visibleSections = SECTIONS.filter((s) => {
     if (s.clinicOnly && industry !== "clinic") return false;
     return true;
   });
+
   return (
     <>
       {/* PC: 縦ナビ */}
@@ -57,6 +61,7 @@ export default function SettingsNav({ active, onChange, industry = "clinic" }: S
           </button>
         </div>
       </nav>
+
       {/* モバイル: セレクトボックス */}
       <div className="md:hidden mb-4">
         <select
@@ -71,11 +76,14 @@ export default function SettingsNav({ active, onChange, industry = "clinic" }: S
           }}
           className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
+          {visibleSections.map(({ key, label, icon }) => (
             <option key={key} value={key}>
               {icon} {label}
             </option>
+          ))}
           <option value="__billing__">💰 契約・課金</option>
         </select>
       </div>
     </>
   );
+}

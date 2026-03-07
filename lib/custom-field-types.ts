@@ -54,7 +54,7 @@ export interface FieldDefinition {
  * options から FieldMetadata を抽出する。
  * 旧形式（string[]）の場合は choices に変換して返す。
  */
-export function extractMetadata(options: FieldDefinition["options"]): FieldMetadata {
+export function extractMetadata(options: FieldDefinition["options"] | undefined): FieldMetadata {
   if (!options) return {};
   // 旧形式: string[] → { choices: [...] }
   if (Array.isArray(options)) {

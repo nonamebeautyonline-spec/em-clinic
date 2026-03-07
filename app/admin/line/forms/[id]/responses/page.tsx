@@ -416,7 +416,7 @@ function BarChartView({ options }: { options: OptionStat[] }) {
           />
           <Tooltip
             formatter={(value: unknown) => [`${value}件`, "回答数"]}
-            labelFormatter={(label: unknown, payload?: { payload?: { fullName?: string } }[]) => {
+            labelFormatter={(label: unknown, payload?: readonly { payload?: { fullName?: string } }[]) => {
               const full = payload?.[0]?.payload?.fullName;
               return full || String(label);
             }}

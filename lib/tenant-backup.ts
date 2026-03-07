@@ -2,7 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { encrypt, decrypt } from "@/lib/crypto";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 /** バックアップ対象テーブル一覧（tenant_id カラムを持つテーブル） */
 export const BACKUP_TABLES = [
@@ -99,7 +99,7 @@ function buildIdRemapping(
       // UUIDフォーマットのIDのみリマッピング
       const id = row.id;
       if (typeof id === "string" && isUUID(id)) {
-        idMap.set(id, uuidv4());
+        idMap.set(id, randomUUID());
       }
     }
   }

@@ -223,7 +223,7 @@ export default function ImageAnnotator({
 
   // --- イベントハンドラ ---
   function getCanvasPoint(
-    e: MouseEvent<HTMLCanvasElement> | globalThis.Touch
+    e: MouseEvent<HTMLCanvasElement> | { clientX: number; clientY: number }
   ): Point {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
