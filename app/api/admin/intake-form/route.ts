@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await withTenant(
     supabaseAdmin
       .from("intake_form_definitions")
-      .select("id, name, fields, settings, created_at, updated_at"),
+      .select("id, name, fields, settings, is_active, created_at, updated_at")
+      .eq("is_active", true),
     tenantId,
   ).maybeSingle();
 
@@ -58,9 +59,9 @@ export async function PUT(req: NextRequest) {
 
   const { name, fields, settings } = parsed.data;
 
-  // 既存レコードを確認
+  // アクティブなレコードを確認
   const { data: existing } = await withTenant(
-    supabaseAdmin.from("intake_form_definitions").select("id"),
+    supabaseAdmin.from("intake_form_definitions").select("id").eq("is_active", true),
     tenantId,
   ).maybeSingle();
 
@@ -82,7 +83,7 @@ export async function PUT(req: NextRequest) {
     if (error)
       return serverError(error.message);
   } else {
-    // INSERT
+    // INSERT（新規作成時はアクティブに設定）
     const { error } = await supabaseAdmin
       .from("intake_form_definitions")
       .insert({
@@ -90,6 +91,7 @@ export async function PUT(req: NextRequest) {
         name: name || "問診フォーム",
         fields,
         settings,
+        is_active: true,
       });
 
     if (error)
