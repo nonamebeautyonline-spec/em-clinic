@@ -47,6 +47,10 @@ vi.mock("@/lib/redis", () => ({
   invalidateDashboardCache: mockInvalidateCache,
 }));
 
+vi.mock("@/lib/payment-flex", () => ({
+  sendPaymentNotification: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 // --- ヘルパー ---
 function createMockRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/doctor/update", {

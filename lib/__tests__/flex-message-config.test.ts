@@ -59,6 +59,18 @@ describe("getFlexConfig", () => {
     expect(result).toEqual(DEFAULT_FLEX_CONFIG);
   });
 
+  it("payment部分上書き -> デフォルトとマージ", async () => {
+    const partial = {
+      payment: { header: "カスタム決済案内" },
+    };
+    mockGetSetting.mockResolvedValue(JSON.stringify(partial));
+
+    const result = await getFlexConfig();
+    expect(result.payment.header).toBe("カスタム決済案内");
+    expect(result.payment.body).toBe(DEFAULT_FLEX_CONFIG.payment.body);
+    expect(result.payment.buttonLabel).toBe(DEFAULT_FLEX_CONFIG.payment.buttonLabel);
+  });
+
   it("tenantId渡し -> getSettingに渡る", async () => {
     mockGetSetting.mockResolvedValue(null);
 
@@ -81,6 +93,7 @@ describe("setFlexConfig", () => {
     // デフォルト値がマージされている
     expect(saved.reservation).toEqual(DEFAULT_FLEX_CONFIG.reservation);
     expect(saved.shipping).toEqual(DEFAULT_FLEX_CONFIG.shipping);
+    expect(saved.payment).toEqual(DEFAULT_FLEX_CONFIG.payment);
   });
 
   it("setSettingが正しい引数で呼ばれる", async () => {

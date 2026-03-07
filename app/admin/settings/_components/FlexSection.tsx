@@ -34,10 +34,16 @@ interface FlexShippingTexts {
   progressBarUrl: string;
 }
 
+interface FlexPaymentTexts {
+  header: string;
+  body: string;
+}
+
 interface FlexMessageConfig {
   colors: FlexColorConfig;
   reservation: FlexReservationTexts;
   shipping: FlexShippingTexts;
+  payment: FlexPaymentTexts;
 }
 
 const DEFAULT_CONFIG: FlexMessageConfig = {
@@ -68,6 +74,10 @@ const DEFAULT_CONFIG: FlexMessageConfig = {
     truckImageUrl: "https://noname-beauty.l-ope.jp/images/truck-delivery.png",
     progressBarUrl: "https://noname-beauty.l-ope.jp/images/progress-bar.png",
   },
+  payment: {
+    header: "決済のご案内",
+    body: "診療後はマイページより決済が可能となっております。ご確認いただけますと幸いです。",
+  },
 };
 
 const COLOR_LABELS: { key: keyof FlexColorConfig; label: string }[] = [
@@ -78,7 +88,7 @@ const COLOR_LABELS: { key: keyof FlexColorConfig; label: string }[] = [
   { key: "buttonColor", label: "ボタン色" },
 ];
 
-type TabType = "reservation" | "shipping";
+type TabType = "reservation" | "shipping" | "payment";
 
 interface Props {
   onToast: (msg: string, type: "success" | "error") => void;
@@ -140,6 +150,9 @@ export default function FlexSection({ onToast }: Props) {
   const updateShipping = (key: keyof FlexShippingTexts, value: string) => {
     setConfig(prev => ({ ...prev, shipping: { ...prev.shipping, [key]: value } }));
   };
+  const updatePayment = (key: keyof FlexPaymentTexts, value: string) => {
+    setConfig(prev => ({ ...prev, payment: { ...prev.payment, [key]: value } }));
+  };
 
   if (loading) {
     return (
@@ -155,7 +168,7 @@ export default function FlexSection({ onToast }: Props) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">LINE通知設定</h2>
-          <p className="text-xs text-gray-500 mt-0.5">予約・発送時のFLEXメッセージをカスタマイズ</p>
+          <p className="text-xs text-gray-500 mt-0.5">予約・発送・決済案内時のFLEXメッセージをカスタマイズ</p>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
@@ -185,6 +198,7 @@ export default function FlexSection({ onToast }: Props) {
           {([
             { key: "reservation" as TabType, label: "予約通知" },
             { key: "shipping" as TabType, label: "発送通知" },
+            { key: "payment" as TabType, label: "決済案内" },
           ]).map(({ key, label }) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={`px-5 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -295,6 +309,28 @@ export default function FlexSection({ onToast }: Props) {
             </div>
           )}
 
+          {/* 決済案内テキスト */}
+          {activeTab === "payment" && (
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-800">決済案内テキスト</h3>
+                <p className="text-xs text-gray-500 mt-0.5">診察完了時に送信される決済案内メッセージの文言</p>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ヘッダー文言</label>
+                  <input type="text" value={config.payment.header} onChange={(e) => updatePayment("header", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">本文</label>
+                  <textarea value={config.payment.body} onChange={(e) => updatePayment("body", e.target.value)}
+                    rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none" />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 発送通知テキスト */}
           {activeTab === "shipping" && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -369,8 +405,10 @@ export default function FlexSection({ onToast }: Props) {
             <h3 className="text-sm font-semibold text-gray-700 mb-3">FLEXプレビュー</h3>
             {activeTab === "reservation" ? (
               <ReservationPreview config={config} subTab={reservationSubTab} />
-            ) : (
+            ) : activeTab === "shipping" ? (
               <ShippingPreview config={config} />
+            ) : (
+              <PaymentPreview config={config} />
             )}
           </div>
         </div>
@@ -425,6 +463,22 @@ function ReservationPreview({ config, subTab }: { config: FlexMessageConfig; sub
             <p className="text-sm leading-relaxed" style={{ color: colors.bodyText }}>{reservation.canceledNote}</p>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 決済案内プレビュー ---------- */
+function PaymentPreview({ config }: { config: FlexMessageConfig }) {
+  const { colors, payment } = config;
+
+  return (
+    <div className="mx-auto w-[320px] rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+      <div className="px-4 py-3" style={{ backgroundColor: colors.headerBg }}>
+        <p className="text-base font-bold" style={{ color: colors.headerText }}>{payment.header}</p>
+      </div>
+      <div className="bg-white px-4 py-4">
+        <p className="text-sm leading-relaxed" style={{ color: colors.bodyText }}>{payment.body}</p>
       </div>
     </div>
   );

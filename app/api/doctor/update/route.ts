@@ -4,6 +4,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { sendPaymentNotification } from "@/lib/payment-flex";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorUpdateSchema } from "@/lib/validations/doctor";
 
@@ -106,6 +107,35 @@ export async function POST(req: NextRequest) {
       } catch (cacheError) {
         console.error("[doctor/update] Failed to invalidate cache:", cacheError);
       }
+    }
+
+    // ★ Step 4: ステータスOK時に決済案内LINE通知（fire-and-forget）
+    if (status === "OK" && patientId) {
+      const tid = tenantId;
+      (async () => {
+        try {
+          const { data: patient } = await withTenant(
+            supabaseAdmin
+              .from("patients")
+              .select("line_id")
+              .eq("patient_id", patientId)
+              .maybeSingle(),
+            tid
+          );
+          if (patient?.line_id) {
+            await sendPaymentNotification({
+              patientId,
+              lineUid: patient.line_id,
+              tenantId: tid ?? undefined,
+            });
+            console.log(`[doctor/update] 決済案内通知送信: patient_id=${patientId}`);
+          } else {
+            console.warn(`[doctor/update] LINE UID未取得のため決済案内送信スキップ: patient_id=${patientId}`);
+          }
+        } catch (err) {
+          console.error("[doctor/update] 決済案内通知エラー（ステータス更新は成功）:", err);
+        }
+      })();
     }
 
     return NextResponse.json({ ok: true, patientId }, { status: 200 });

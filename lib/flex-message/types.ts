@@ -33,11 +33,18 @@ export interface FlexShippingTexts {
   progressBarUrl: string;    // プログレスバー画像URL
 }
 
+/** 決済案内通知テキスト設定 */
+export interface FlexPaymentTexts {
+  header: string;            // ヘッダー（例: "決済のご案内"）
+  body: string;              // 本文
+}
+
 /** FLEX設定全体 */
 export interface FlexMessageConfig {
   colors: FlexColorConfig;
   reservation: FlexReservationTexts;
   shipping: FlexShippingTexts;
+  payment: FlexPaymentTexts;
 }
 
 /** デフォルト設定（現在のハードコード値と一致） */
@@ -68,5 +75,9 @@ export const DEFAULT_FLEX_CONFIG: FlexMessageConfig = {
     footerNote: "マイページからも確認が可能です",
     truckImageUrl: `${process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp"}/images/truck-delivery.png`,
     progressBarUrl: `${process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp"}/images/progress-bar.png`,
+  },
+  payment: {
+    header: "決済のご案内",
+    body: "診療後はマイページより決済が可能となっております。ご確認いただけますと幸いです。",
   },
 };

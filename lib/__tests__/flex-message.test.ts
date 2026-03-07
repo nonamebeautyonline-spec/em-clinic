@@ -81,6 +81,7 @@ describe("Flex Message 設定マージ", () => {
       colors: { ...defaults.colors, ...overrides.colors },
       reservation: { ...defaults.reservation, ...overrides.reservation },
       shipping: { ...defaults.shipping, ...overrides.shipping },
+      payment: { ...defaults.payment, ...overrides.payment },
     };
   }
 

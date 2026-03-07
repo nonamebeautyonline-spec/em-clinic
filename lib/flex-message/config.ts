@@ -17,6 +17,7 @@ export async function getFlexConfig(tenantId?: string): Promise<FlexMessageConfi
       colors: { ...DEFAULT_FLEX_CONFIG.colors, ...parsed.colors },
       reservation: { ...DEFAULT_FLEX_CONFIG.reservation, ...parsed.reservation },
       shipping: { ...DEFAULT_FLEX_CONFIG.shipping, ...parsed.shipping },
+      payment: { ...DEFAULT_FLEX_CONFIG.payment, ...parsed.payment },
     };
   } catch {
     return DEFAULT_FLEX_CONFIG;
@@ -32,6 +33,7 @@ export async function setFlexConfig(config: Partial<FlexMessageConfig>, tenantId
     colors: { ...current.colors, ...(config.colors || {}) },
     reservation: { ...current.reservation, ...(config.reservation || {}) },
     shipping: { ...current.shipping, ...(config.shipping || {}) },
+    payment: { ...current.payment, ...(config.payment || {}) },
   };
   return setSetting(CATEGORY, SETTING_KEY, JSON.stringify(merged), tenantId);
 }
