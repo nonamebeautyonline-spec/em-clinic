@@ -9,6 +9,9 @@ interface Order {
   product_code: string;
   product_name: string;
   amount: number;
+  postal_code: string;
+  address: string;
+  phone: string;
   payment_method: string;
   payment_date: string;
   payment_date_label?: string; // "（申請日時）" or ""
@@ -497,6 +500,15 @@ export default function NonameMasterPage() {
                   金額
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  郵便番号
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  住所
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  電話番号
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   発送日
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -516,7 +528,7 @@ export default function NonameMasterPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={14} className="px-6 py-8 text-center text-slate-500">
                     注文データがありません
                   </td>
                 </tr>
@@ -561,6 +573,15 @@ export default function NonameMasterPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-slate-900">
                       {order.amount ? `¥${order.amount.toLocaleString()}` : "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
+                      {order.postal_code || "-"}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate" title={order.address}>
+                      {order.address || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono">
+                      {order.phone || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                       {order.shipping_date ? (

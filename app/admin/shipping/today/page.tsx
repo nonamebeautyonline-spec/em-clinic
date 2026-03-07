@@ -6,7 +6,6 @@ interface ShippingItem {
   id: string;
   patient_id: string;
   patient_name: string;
-  lstep_id: string;
   product_code: string;
   product_name: string;
   payment_method: string;
@@ -132,9 +131,6 @@ export default function TodayShippingListPage() {
                   患者名
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
-                  LステップID
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
                   商品
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase">
@@ -162,9 +158,6 @@ export default function TodayShippingListPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-slate-900">
                     {item.patient_name || "-"}
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap font-mono text-slate-600 text-xs">
-                    {item.lstep_id || "-"}
                   </td>
                   <td className="px-3 py-2 text-slate-900">
                     {item.product_name}

@@ -25,7 +25,6 @@ type SortMode = "dosage" | "date_asc" | "date_desc" | "name" | "price_desc" | "p
 
 interface PendingOrder {
   id: string;
-  lstep_id?: string;
   patient_id: string;
   patient_name?: string;
   postal_code?: string;
@@ -42,7 +41,6 @@ interface PendingOrder {
 
 interface ShippingItem {
   id: string;
-  user_id: string;
   patient_id: string;
   payment_id: string;
   payment_date: string;
@@ -118,7 +116,6 @@ export default function CreateShippingListPage() {
           const dosages = calculateDosage(order.product_code);
           return {
             id: order.id,
-            user_id: order.lstep_id || "",
             patient_id: order.patient_id,
             payment_id: order.id,
             payment_date: order.payment_date,
@@ -706,7 +703,6 @@ export default function CreateShippingListPage() {
                     className="rounded border-slate-300"
                   />
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">user_id</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">決済日時</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase min-w-[150px]">Name</th>
                 <th className="px-2 py-2 text-left text-xs font-medium text-slate-500 uppercase">Postal Code</th>
@@ -726,7 +722,7 @@ export default function CreateShippingListPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={15} className="px-6 py-8 text-center text-slate-500">
                     発送可能な注文がありません
                   </td>
                 </tr>
@@ -741,7 +737,6 @@ export default function CreateShippingListPage() {
                         className="rounded border-slate-300"
                       />
                     </td>
-                    <td className="px-2 py-2 text-xs font-mono">{item.user_id}</td>
                     <td className="px-2 py-2 text-xs whitespace-nowrap">
                       {new Date(item.payment_date).toLocaleString("ja-JP", {
                         year: "numeric",

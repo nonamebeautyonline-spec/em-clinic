@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     let dataQuery = withTenant(
       supabaseAdmin
         .from("orders")
-        .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, created_at, refund_status, refunded_at, refunded_amount"),
+        .select("id, patient_id, product_code, amount, payment_method, status, paid_at, shipping_date, tracking_number, shipping_name, postal_code, address, phone, created_at, refund_status, refunded_at, refunded_amount"),
       tenantId
     );
 
@@ -125,6 +125,9 @@ export async function GET(req: NextRequest) {
       shipping_date: string | null;
       tracking_number: string | null;
       shipping_name: string | null;
+      postal_code: string | null;
+      address: string | null;
+      phone: string | null;
       created_at: string;
       refund_status: string | null;
       refunded_at: string | null;
@@ -158,6 +161,9 @@ export async function GET(req: NextRequest) {
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
         amount: order.amount || 0,
+        postal_code: order.postal_code || "",
+        address: order.address || "",
+        phone: order.phone || "",
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",
         payment_date: paymentDate,
         payment_date_label: paymentDateLabel, // ★ 銀行振込の申請中のみ "（申請日時）"

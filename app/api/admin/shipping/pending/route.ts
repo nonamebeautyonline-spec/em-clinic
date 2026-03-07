@@ -29,16 +29,10 @@ interface PatientRow {
   name: string | null;
 }
 
-interface IntakeRow {
-  patient_id: string;
-  answerer_id: string | null;
-}
-
 interface FormattedOrder {
   id: string;
   patient_id: string;
   patient_name: string;
-  lstep_id: string;
   product_code: string;
   product_name: string;
   payment_method: string;
@@ -107,8 +101,8 @@ export async function GET(req: NextRequest) {
     // 全患者IDを取得
     const patientIds = [...new Set((orders || []).map((o: OrderRow) => o.patient_id))];
 
-    // ★ 患者名をpatientsテーブルから取得、LステップIDはintakeから取得
-    const patientInfoMap: Record<string, { name: string; lstep_id: string }> = {};
+    // ★ 患者名をpatientsテーブルから取得
+    const patientNameMap: Record<string, string> = {};
 
     if (patientIds.length > 0) {
       const { data: pData } = await withTenant(
@@ -116,23 +110,8 @@ export async function GET(req: NextRequest) {
         tenantId
       );
 
-      const { data: intakeData } = await withTenant(
-        supabaseAdmin.from("intake").select("patient_id, answerer_id").in("patient_id", patientIds).not("answerer_id", "is", null).limit(100000),
-        tenantId
-      );
-
-      const lstepMap = new Map<string, string>();
-      for (const i of intakeData || []) {
-        if (!lstepMap.has(i.patient_id)) {
-          lstepMap.set(i.patient_id, i.answerer_id || "");
-        }
-      }
-
       (pData || []).forEach((p: PatientRow) => {
-        patientInfoMap[p.patient_id] = {
-          name: p.name || "",
-          lstep_id: lstepMap.get(p.patient_id) || "",
-        };
+        patientNameMap[p.patient_id] = p.name || "";
       });
     }
 
@@ -152,16 +131,15 @@ export async function GET(req: NextRequest) {
 
     // ★ Plan A: データを整形（住所はordersから直接取得）
     const formattedOrders = (orders || []).map((order: OrderRow) => {
-      const patientInfo = patientInfoMap[order.patient_id] || { name: "", lstep_id: "" };
+      const patientName = patientNameMap[order.patient_id] || "";
       // ★ shipping_nameの正規化（"null"文字列や空文字をnullとして扱う）
       const shippingName = order.shipping_name && order.shipping_name !== "null" ? order.shipping_name : "";
 
       return {
         id: order.id,
         patient_id: order.patient_id,
-        // ★ 氏名: shipping_name優先、なければintake.patient_name
-        patient_name: shippingName || patientInfo.name || "",
-        lstep_id: patientInfo.lstep_id || "",
+        // ★ 氏名: shipping_name優先、なければpatients.name
+        patient_name: shippingName || patientName,
         product_code: order.product_code,
         product_name: PRODUCT_NAMES[order.product_code] || order.product_code,
         payment_method: order.payment_method === "credit_card" ? "クレジットカード" : "銀行振込",

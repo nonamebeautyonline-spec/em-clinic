@@ -7,7 +7,6 @@ interface Order {
   id: string;
   patient_id: string;
   patient_name: string;
-  lstep_id: string;
   product_code: string;
   product_name: string;
   payment_method: string;
@@ -222,9 +221,6 @@ export default function ShippingPendingPage() {
                   患者ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  LステップID
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   商品名
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -244,7 +240,7 @@ export default function ShippingPendingPage() {
             <tbody className="bg-white divide-y divide-slate-200">
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
                     発送待ちの注文はありません
                   </td>
                 </tr>
@@ -316,9 +312,6 @@ export default function ShippingPendingPage() {
                       >
                         {order.patient_id}
                       </button>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${isDisabled ? "text-slate-400" : "text-slate-600"}`}>
-                      {order.lstep_id || "-"}
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDisabled ? "text-slate-400" : "text-slate-900"}`}>
                       {order.product_name}
