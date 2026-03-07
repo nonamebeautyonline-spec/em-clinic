@@ -105,7 +105,7 @@ export default function LineDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(7);
-  const [activeTab, setActiveTab] = useState<"charts" | "table" | "broadcasts">("charts");
+  const [activeTab, setActiveTab] = useState<"data" | "charts" | "broadcasts">("data");
 
   // テスト送信設定（複数アカウント対応）
   const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
@@ -307,9 +307,9 @@ export default function LineDashboardPage() {
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {([
+            { key: "data" as const, label: "データ" },
             { key: "charts" as const, label: "グラフ" },
             { key: "broadcasts" as const, label: "配信別分析" },
-            { key: "table" as const, label: "詳細" },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -504,8 +504,8 @@ export default function LineDashboardPage() {
         </div>
       )}
 
-      {/* 詳細タブ（既存のテーブル表示） */}
-      {activeTab === "table" && (
+      {/* データタブ（友だち数推移 + 最新送信メッセージ） */}
+      {activeTab === "data" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 友だち数推移テーブル */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
