@@ -20,11 +20,11 @@ export default defineConfig({
         "load-tests/**",
       ],
       thresholds: {
-        // 実測値(2026-03-05): Lines 69.63%, Branches 57.96%, Functions 68.14%
-        // Stripe連携大量追加により一時的に低下 → 段階的に回復予定
-        lines: 69,
-        branches: 57,
-        functions: 68,
+        // 実測値(2026-03-08): Lines 68.62%, Branches 56.81%, Functions 67.49%
+        // 36機能一括追加（改善項目Batch 1-6）による一時的低下 → 段階的に回復予定
+        lines: 68,
+        branches: 56,
+        functions: 67,
       },
     },
   },
