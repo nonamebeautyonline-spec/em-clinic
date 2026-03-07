@@ -185,6 +185,89 @@ export async function POST(req: NextRequest) {
       totalPendingOrders: pendingOrdersWithNames.length,
     };
 
+    // ===== CSV全明細行をbank_statementsに保存 =====
+    const allTransactions = parseAllTransactions(parsedRows, csvFormat);
+    if (allTransactions.length > 0) {
+      // 1) 今回プレビューでマッチした注文（pending_confirmation → これから確定する分）
+      const matchedMap = new Map<string, string>();
+      for (const m of matched) {
+        matchedMap.set(`${m.transfer.date}|${m.transfer.description}`, m.order.id);
+      }
+
+      // 2) 既にconfirmed済みの銀行振込注文を取得し、入金行と自動照合
+      const { data: confirmedOrders } = await withTenant(
+        supabase
+          .from("orders")
+          .select("id, amount, account_name")
+          .eq("status", "confirmed")
+          .eq("payment_method", "bank_transfer"),
+        tenantId
+      );
+
+      // confirmed注文を金額+名義人でCSV入金行とマッチング
+      const confirmedMatchMap = new Map<string, string>();
+      if (confirmedOrders && confirmedOrders.length > 0) {
+        const usedConfirmedIds = new Set<string>();
+        for (const t of allTransactions) {
+          if (t.deposit <= 0) continue;
+          const key = `${t.date}|${t.description}`;
+          if (matchedMap.has(key)) continue; // 既にpendingでマッチ済み
+          for (const order of confirmedOrders) {
+            if (usedConfirmedIds.has(order.id)) continue;
+            const accountName = order.account_name || "";
+            if (!accountName) continue;
+            const descNormalized = normalizeKana(t.description);
+            const accountNormalized = normalizeKana(accountName);
+            if (descNormalized.includes(accountNormalized) || t.description.includes(accountName)) {
+              if (order.amount === t.deposit) {
+                confirmedMatchMap.set(key, order.id);
+                usedConfirmedIds.add(order.id);
+                break;
+              }
+            }
+          }
+        }
+        console.log(`[Preview] Auto-reconciled ${confirmedMatchMap.size} entries against confirmed orders`);
+      }
+
+      const csvFilename = file.name || "unknown.csv";
+      const rows = allTransactions.map((t) => {
+        const dateNormalized = t.date.replace(/\//g, "-");
+        const monthStr = dateNormalized.substring(0, 7);
+        const matchKey = `${t.date}|${t.description}`;
+        // pendingマッチ or confirmedマッチ
+        const matchedOrderId = matchedMap.get(matchKey) || confirmedMatchMap.get(matchKey) || null;
+        return {
+          tenant_id: tenantId || "00000000-0000-0000-0000-000000000001",
+          transaction_date: dateNormalized,
+          description: t.description,
+          deposit: t.deposit,
+          withdrawal: t.withdrawal,
+          balance: t.balance,
+          month: monthStr,
+          reconciled: !!matchedOrderId,
+          matched_order_id: matchedOrderId,
+          csv_filename: csvFilename,
+        };
+      });
+
+      // 重複防止: 同一ファイル名の既存データを削除してから挿入
+      await withTenant(
+        supabase.from("bank_statements").delete().eq("csv_filename", csvFilename),
+        tenantId
+      );
+
+      // 一括INSERT（1000行ずつバッチ）
+      for (let i = 0; i < rows.length; i += 1000) {
+        const batch = rows.slice(i, i + 1000);
+        const { error: insertError } = await supabase.from("bank_statements").insert(batch);
+        if (insertError) {
+          console.error("[Preview] bank_statements insert error:", insertError);
+        }
+      }
+      console.log(`[Preview] Saved ${rows.length} transactions to bank_statements`);
+    }
+
     return NextResponse.json({
       mode: reconcileMode,
       matched: matched.map((m) => ({
@@ -247,6 +330,15 @@ interface Transfer {
   date: string;
   description: string;
   amount: number;
+}
+
+/** 入出金すべての明細行 */
+interface BankTransaction {
+  date: string;        // YYYY/MM/DD or YYYY-MM-DD
+  description: string;
+  deposit: number;     // 入金額
+  withdrawal: number;  // 出金額
+  balance: number | null;
 }
 
 /** フォーマットに応じてCSV行から振込データを抽出 */
@@ -332,6 +424,88 @@ function parsePayPayCSV(parsedRows: string[][]): Transfer[] {
       return { date, description, amount: deposit };
     })
     .filter((t) => t.amount > 0);
+}
+
+/** フォーマットに応じてCSV全行（入金+出金）をパース */
+function parseAllTransactions(parsedRows: string[][], format: string): BankTransaction[] {
+  switch (format) {
+    case "paypay":
+      return parseAllPayPay(parsedRows);
+    case "gmo":
+    default:
+      return parseAllGmo(parsedRows);
+  }
+}
+
+/** 住信SBI全行パース: [日付, 摘要, 出金, 入金, 残高, ...] */
+function parseAllGmo(parsedRows: string[][]): BankTransaction[] {
+  const dataRows = parsedRows.slice(1);
+  return dataRows
+    .map((cols) => {
+      if (cols.length < 4) return null;
+      const date = cols[0] || "";
+      const description = cols[1] || "";
+      const withdrawalStr = cols[2]?.replace(/[,円]/g, "") || "0";
+      const depositStr = cols[3]?.replace(/[,円]/g, "") || "0";
+      const balanceStr = cols[4]?.replace(/[,円]/g, "") || "";
+      const withdrawal = parseInt(withdrawalStr, 10) || 0;
+      const deposit = parseInt(depositStr, 10) || 0;
+      const balance = balanceStr ? (parseInt(balanceStr, 10) || null) : null;
+      if (!date || (deposit === 0 && withdrawal === 0)) return null;
+      return { date, description, deposit, withdrawal, balance };
+    })
+    .filter((t): t is BankTransaction => t !== null);
+}
+
+/** PayPay銀行全行パース: ヘッダー検出 → 年月日・摘要・引出・預入・残高 */
+function parseAllPayPay(parsedRows: string[][]): BankTransaction[] {
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(5, parsedRows.length); i++) {
+    if (parsedRows[i].some((c) => c.includes("摘要"))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) return [];
+
+  const headers = parsedRows[headerIdx];
+  let descIdx = -1;
+  let depositIdx = -1;
+  let withdrawalIdx = -1;
+  let balanceIdx = -1;
+  let yearIdx = -1;
+  let monthIdx = -1;
+  let dayIdx = -1;
+
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i].trim();
+    if (h === "摘要") descIdx = i;
+    if (h.includes("お預り") || h.includes("預入")) depositIdx = i;
+    if (h.includes("お引出") || h.includes("引出")) withdrawalIdx = i;
+    if (h.includes("残高")) balanceIdx = i;
+    if (h.includes("操作日") && h.includes("年")) yearIdx = i;
+    if (h.includes("操作日") && h.includes("月")) monthIdx = i;
+    if (h.includes("操作日") && h.includes("日")) dayIdx = i;
+  }
+
+  const dataRows = parsedRows.slice(headerIdx + 1);
+  return dataRows
+    .map((cols) => {
+      const year = yearIdx >= 0 ? cols[yearIdx] || "" : "";
+      const month = monthIdx >= 0 ? (cols[monthIdx] || "").padStart(2, "0") : "";
+      const day = dayIdx >= 0 ? (cols[dayIdx] || "").padStart(2, "0") : "";
+      const date = year ? `${year}/${month}/${day}` : "";
+      const description = descIdx >= 0 ? cols[descIdx] || "" : "";
+      const depositStr = depositIdx >= 0 ? (cols[depositIdx] || "0").replace(/[,円]/g, "") : "0";
+      const withdrawalStr = withdrawalIdx >= 0 ? (cols[withdrawalIdx] || "0").replace(/[,円]/g, "") : "0";
+      const balanceStr = balanceIdx >= 0 ? (cols[balanceIdx] || "").replace(/[,円]/g, "") : "";
+      const deposit = parseInt(depositStr, 10) || 0;
+      const withdrawal = parseInt(withdrawalStr, 10) || 0;
+      const balance = balanceStr ? (parseInt(balanceStr, 10) || null) : null;
+      if (!date || (deposit === 0 && withdrawal === 0)) return null;
+      return { date, description, deposit, withdrawal, balance };
+    })
+    .filter((t): t is BankTransaction => t !== null);
 }
 
 /**

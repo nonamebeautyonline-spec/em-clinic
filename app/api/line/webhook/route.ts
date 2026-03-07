@@ -225,7 +225,7 @@ async function findOrCreatePatient(lineUid: string, tenantId: string | null, acc
       if (rpcResult.created) {
         console.log(`[webhook] RPC created patient for ${lineUid} -> ${rpcResult.patient_id}`);
       }
-      return { patient_id: rpcResult.patient_id as string, patient_name: (rpcResult.patient_name || "") as string };
+      return { patient_id: rpcResult.patient_id as string, patient_name: (rpcResult.patient_name || "") as string, lineProfile: profile };
     }
 
     if (rpcError) {
@@ -237,7 +237,7 @@ async function findOrCreatePatient(lineUid: string, tenantId: string | null, acc
 
   // ---- フォールバック: 従来ロジック ----
   const existing = await findPatientByLineUid(lineUid, tenantId);
-  if (existing) return existing;
+  if (existing) return { ...existing, lineProfile: profile };
 
   const displayName = profile.displayName || `LINE_${lineUid.slice(-6)}`;
   const patientId = `LINE_${lineUid.slice(-8)}`;
@@ -279,7 +279,7 @@ async function findOrCreatePatient(lineUid: string, tenantId: string | null, acc
   }
 
   console.log(`[webhook] auto-created patient for ${lineUid} -> ${patientId} (${displayName})`);
-  return { patient_id: patientId, patient_name: displayName };
+  return { patient_id: patientId, patient_name: displayName, lineProfile: profile };
 }
 
 // ===== message_log に記録 =====
@@ -651,32 +651,15 @@ async function handleMessage(lineUid: string, message: { type: string; id?: stri
   // PIDなしユーザーも自動作成してmessage_logにpatient_idを紐づける
   const patient = await findOrCreatePatient(lineUid, tenantId, accessToken);
 
-  // プロフィール未保存なら取得して更新（非ブロッキング）
-  if (patient?.patient_id) {
-    (async () => {
-      try {
-        const { data: pt } = await withTenant(
-          supabaseAdmin
-            .from("patients")
-            .select("line_picture_url")
-            .eq("patient_id", patient.patient_id)
-            .maybeSingle(),
-          tenantId
-        );
-        if (!pt?.line_picture_url) {
-          const profile = await getLineProfile(lineUid, accessToken);
-          if (profile.displayName || profile.pictureUrl) {
-            await withTenant(
-              supabaseAdmin.from("patients").update({
-                line_display_name: profile.displayName || null,
-                line_picture_url: profile.pictureUrl || null,
-              }).eq("patient_id", patient.patient_id),
-              tenantId
-            );
-          }
-        }
-      } catch {}
-    })();
+  // findOrCreatePatient で取得済みのプロフィールでDB更新（追加API呼び出し不要）
+  if (patient?.patient_id && "lineProfile" in patient && patient.lineProfile) {
+    withTenant(
+      supabaseAdmin.from("patients").update({
+        line_display_name: patient.lineProfile.displayName || null,
+        line_picture_url: patient.lineProfile.pictureUrl || null,
+      }).eq("patient_id", patient.patient_id),
+      tenantId
+    ).then(() => {}, () => {});
   }
 
   // 処方済み患者の自動タグ＋リッチメニュー付与（非ブロッキング）
