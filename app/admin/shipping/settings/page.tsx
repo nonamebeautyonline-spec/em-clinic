@@ -13,6 +13,7 @@ interface YamatoConfig {
   billingCategoryCode: string;
   fareManagementNo: string;
   itemName: string;
+  okinawaItemName: string;
   coolType: string;
   forecastMessage: string;
   completedMessage: string;
@@ -24,6 +25,7 @@ interface JapanPostConfig {
   senderAddress: string;
   senderPhone: string;
   itemName: string;
+  kyushuItemName: string;
   packageType: string;
 }
 
@@ -157,6 +159,7 @@ export default function ShippingSettingsPage() {
             </select>
           </div>
           <Field label="品名" value={config.yamato.itemName} onChange={v => updateYamato("itemName", v)} full />
+          <Field label="沖縄向け品名" value={config.yamato.okinawaItemName} onChange={v => updateYamato("okinawaItemName", v)} full hint="沖縄宛の場合に使用（航空輸送制限対応）" />
           <Field label="お届け予定メール文" value={config.yamato.forecastMessage} onChange={v => updateYamato("forecastMessage", v)} full />
           <Field label="お届け完了メール文" value={config.yamato.completedMessage} onChange={v => updateYamato("completedMessage", v)} full />
         </div>
@@ -173,6 +176,7 @@ export default function ShippingSettingsPage() {
           <Field label="差出人住所" value={config.japanpost.senderAddress} onChange={v => updateJapanPost("senderAddress", v)} full />
           <Field label="差出人電話番号" value={config.japanpost.senderPhone} onChange={v => updateJapanPost("senderPhone", v)} />
           <Field label="品名" value={config.japanpost.itemName} onChange={v => updateJapanPost("itemName", v)} />
+          <Field label="九州向け品名" value={config.japanpost.kyushuItemName} onChange={v => updateJapanPost("kyushuItemName", v)} full hint="九州宛の場合に使用（航空輸送制限対応）" />
           <div>
             <label className="text-xs text-gray-500 mb-1 block">配送方法</label>
             <select
@@ -197,12 +201,14 @@ function Field({
   onChange,
   full,
   placeholder,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   full?: boolean;
   placeholder?: string;
+  hint?: string;
 }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
@@ -214,6 +220,7 @@ function Field({
         placeholder={placeholder}
         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-gray-50/50"
       />
+      {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
     </div>
   );
 }

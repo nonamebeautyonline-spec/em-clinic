@@ -25,12 +25,11 @@ async function fetchAll(query) {
 async function main() {
   console.log("=== LINEプロフィール一括取得 ===\n");
 
-  // line_idあり & line_picture_urlなしの患者を取得
+  // line_idありの全患者を取得（古いURL無効化も検出するため全件対象）
   const patients = await fetchAll(() =>
-    supabase.from("intake")
+    supabase.from("patients")
       .select("patient_id, line_id, line_picture_url")
       .not("line_id", "is", null)
-      .is("line_picture_url", null)
   );
 
   console.log(`対象患者数: ${patients.length}\n`);
@@ -57,15 +56,15 @@ async function main() {
         const displayName = profile.displayName || null;
         const pictureUrl = profile.pictureUrl || null;
 
-        if (!pictureUrl && !displayName) {
-          noPicCount++;
-          return;
-        }
-
-        await supabase.from("intake").update({
+        // 画像削除済みの場合もDBをnullに更新（古い無効URLをクリア）
+        await supabase.from("patients").update({
           line_display_name: displayName,
           line_picture_url: pictureUrl,
         }).eq("patient_id", p.patient_id);
+
+        if (!pictureUrl) {
+          noPicCount++;
+        }
 
         successCount++;
       } catch {

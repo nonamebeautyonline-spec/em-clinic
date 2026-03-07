@@ -15,6 +15,7 @@ export interface YamatoB2Config {
   billingCategoryCode: string;
   fareManagementNo: string;
   itemName: string;
+  okinawaItemName?: string; // 沖縄向け品名
   coolType?: string;
   forecastMessage: string;
   completedMessage: string;
@@ -32,6 +33,7 @@ export const YAMATO_B2_CONFIG: YamatoB2Config = {
   billingCategoryCode: "",
   fareManagementNo: "01",
   itemName: "サプリメント（引火性・高圧ガスなし）",
+  okinawaItemName: "医薬品・注射器（未使用、引火性・高圧ガスなし）",
   coolType: "1",
   forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
   completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
@@ -194,7 +196,7 @@ export function generateYamatoB2Row(order: OrderData, shipDate: string, config?:
   // 沖縄判定：住所に「沖縄」が含まれている場合は品名を変更
   const isOkinawa = addressFull.includes("沖縄");
   const itemName = isOkinawa
-    ? "医薬品・注射器（未使用、引火性・高圧ガスなし）"
+    ? (cfg.okinawaItemName || "医薬品・注射器（未使用、引火性・高圧ガスなし）")
     : cfg.itemName;
 
   const cols: string[] = [];

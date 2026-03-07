@@ -18,6 +18,7 @@ export interface YamatoConfig {
   billingCategoryCode: string;
   fareManagementNo: string;
   itemName: string;
+  okinawaItemName: string; // 沖縄向け品名（航空輸送制限対応）
   coolType: string; // "0"=常温, "1"=冷蔵, "2"=冷凍
   forecastMessage: string;
   completedMessage: string;
@@ -29,6 +30,7 @@ export interface JapanPostConfig {
   senderAddress: string;
   senderPhone: string;
   itemName: string;
+  kyushuItemName: string; // 九州向け品名（航空輸送制限対応）
   packageType: string; // "ゆうパック" | "ゆうパケット" | "レターパック"
 }
 
@@ -55,6 +57,7 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
     billingCategoryCode: "",
     fareManagementNo: "01",
     itemName: "サプリメント（引火性・高圧ガスなし）",
+    okinawaItemName: "医薬品・注射器（未使用、引火性・高圧ガスなし）",
     coolType: "1",
     forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
     completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
@@ -65,6 +68,7 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
     senderAddress: "東京都中央区銀座７ー８ー８ー５Ｆ",
     senderPhone: "09086728115",
     itemName: "サプリメント",
+    kyushuItemName: "医薬品・注射器（未使用、引火性・高圧ガスなし）",
     packageType: "ゆうパック",
   },
 };
