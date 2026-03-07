@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBlockEditorDispatch } from "./BlockEditorContext";
 import { BLOCK_TYPE_LABELS, BLOCK_TYPE_ICONS, type BlockType } from "@/lib/flex-editor/block-types";
+import { DraggableToolboxItem } from "./DraggableToolboxItem";
 
 const BLOCK_MENU_ITEMS: { type: BlockType; label: string; icon: string }[] = [
   { type: "image", label: BLOCK_TYPE_LABELS.image, icon: BLOCK_TYPE_ICONS.image },
@@ -34,19 +35,21 @@ export function BlockAddDropdown() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1.5 min-w-[160px]">
+          <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-1.5 min-w-[180px]">
+            <div className="px-3 py-1 text-[10px] text-gray-400 font-medium">
+              クリックまたはドラッグで追加
+            </div>
             {BLOCK_MENU_ITEMS.map((item) => (
-              <button
+              <DraggableToolboxItem
                 key={item.type}
+                blockType={item.type}
+                label={item.label}
+                icon={item.icon}
                 onClick={() => {
                   dispatch({ type: "ADD_BLOCK", blockType: item.type });
                   setOpen(false);
                 }}
-                className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors"
-              >
-                <span className="w-5 text-center text-xs opacity-60">{item.icon}</span>
-                {item.label}
-              </button>
+              />
             ))}
           </div>
         </>

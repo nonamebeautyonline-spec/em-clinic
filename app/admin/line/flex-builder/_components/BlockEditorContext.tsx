@@ -23,6 +23,7 @@ import {
   createEmptyPanel,
   duplicatePanel,
 } from "@/lib/flex-editor/block-mapping";
+import { reorderBlocks, insertBlockAt } from "@/lib/flex-editor/dnd-utils";
 
 // ── 型定義 ──
 
@@ -52,6 +53,8 @@ export type BlockEditorAction =
   | { type: "UPDATE_BLOCK"; blockId: string; updates: Partial<BlockProps> }
   | { type: "DELETE_BLOCK"; blockId: string }
   | { type: "MOVE_BLOCK"; blockId: string; direction: "up" | "down" }
+  | { type: "REORDER_BLOCKS"; activeId: string; overId: string }
+  | { type: "INSERT_BLOCK_AT"; block: EditorBlock; overId: string | null }
   // テンプレート管理
   | { type: "SET_TEMPLATE_NAME"; name: string }
   | { type: "SET_EDITING_ID"; id: number | null }
@@ -246,6 +249,36 @@ function blockEditorReducer(
       return {
         ...state,
         panels: newPanels,
+        ...pushHistory(state, newPanels),
+      };
+    }
+
+    case "REORDER_BLOCKS": {
+      const panel = state.panels[state.activePanelIndex];
+      if (!panel) return state;
+      const newBlocks = reorderBlocks(panel.blocks, action.activeId, action.overId);
+      if (newBlocks === panel.blocks) return state;
+      const newPanels = state.panels.map((p, i) =>
+        i === state.activePanelIndex ? { ...p, blocks: newBlocks } : p,
+      );
+      return {
+        ...state,
+        panels: newPanels,
+        ...pushHistory(state, newPanels),
+      };
+    }
+
+    case "INSERT_BLOCK_AT": {
+      const panel = state.panels[state.activePanelIndex];
+      if (!panel) return state;
+      const newBlocks = insertBlockAt(panel.blocks, action.block, action.overId);
+      const newPanels = state.panels.map((p, i) =>
+        i === state.activePanelIndex ? { ...p, blocks: newBlocks } : p,
+      );
+      return {
+        ...state,
+        panels: newPanels,
+        selectedBlockId: action.block.id,
         ...pushHistory(state, newPanels),
       };
     }
