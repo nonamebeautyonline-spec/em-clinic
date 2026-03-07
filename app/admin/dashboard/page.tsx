@@ -37,19 +37,45 @@ function SegmentWidgetSkeleton() {
   );
 }
 
-// ウィジェット表示設定の型
+// ウィジェット表示設定の型（個別KPIカード + チャート/タブ）
 interface WidgetSettings {
-  conversionKpi: boolean;   // 転換率KPI
-  subKpi: boolean;          // サブKPI（LINE登録者・アクティブ予約・顧客単価等）
-  segmentChart: boolean;    // セグメント分布
-  conversionChart: boolean; // 初診→再診転換率
-  kpiTargetChart: boolean;  // KPI目標vs実績
-  detailTabs: boolean;      // 詳細タブ（概要・予約/配送・売上/商品・患者）
+  // 主要KPI（4枚）
+  kpi_reservations: boolean;
+  kpi_shipping: boolean;
+  kpi_revenue: boolean;
+  kpi_repeat_rate: boolean;
+  // 転換率KPI（3枚）
+  kpi_payment_rate: boolean;
+  kpi_reservation_rate: boolean;
+  kpi_consultation_rate: boolean;
+  // サブKPI（6枚）
+  kpi_line_registered: boolean;
+  kpi_active_reservations: boolean;
+  kpi_avg_order: boolean;
+  kpi_today_reservations: boolean;
+  kpi_today_paid: boolean;
+  kpi_bank_transfer: boolean;
+  // チャート・タブ
+  segmentChart: boolean;
+  conversionChart: boolean;
+  kpiTargetChart: boolean;
+  detailTabs: boolean;
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
-  conversionKpi: true,
-  subKpi: true,
+  kpi_reservations: true,
+  kpi_shipping: true,
+  kpi_revenue: true,
+  kpi_repeat_rate: true,
+  kpi_payment_rate: true,
+  kpi_reservation_rate: true,
+  kpi_consultation_rate: true,
+  kpi_line_registered: true,
+  kpi_active_reservations: true,
+  kpi_avg_order: true,
+  kpi_today_reservations: true,
+  kpi_today_paid: true,
+  kpi_bank_transfer: true,
   segmentChart: true,
   conversionChart: true,
   kpiTargetChart: true,
@@ -510,21 +536,49 @@ export default function EnhancedDashboard() {
 
             {/* ドロップダウンメニュー */}
             {showWidgetMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-2 max-h-[70vh] overflow-y-auto">
                 <div className="px-3 py-2 border-b border-slate-100">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    ウィジェット表示
+                    KPIカード
                   </span>
                 </div>
                 {([
-                  { key: "conversionKpi" as const, label: "転換率KPI" },
-                  { key: "subKpi" as const, label: "サブKPI（LINE・予約・単価等）" },
+                  { key: "kpi_reservations" as const, label: "予約件数" },
+                  { key: "kpi_shipping" as const, label: "配送件数" },
+                  { key: "kpi_revenue" as const, label: "純売上" },
+                  { key: "kpi_repeat_rate" as const, label: "リピート率" },
+                  { key: "kpi_payment_rate" as const, label: "診療後の決済率" },
+                  { key: "kpi_reservation_rate" as const, label: "問診後の予約率" },
+                  { key: "kpi_consultation_rate" as const, label: "予約後の受診率" },
+                  { key: "kpi_line_registered" as const, label: "LINE登録者" },
+                  { key: "kpi_active_reservations" as const, label: "アクティブ予約" },
+                  { key: "kpi_avg_order" as const, label: "顧客単価" },
+                  { key: "kpi_today_reservations" as const, label: "本日の予約" },
+                  { key: "kpi_today_paid" as const, label: "本日の決済" },
+                  { key: "kpi_bank_transfer" as const, label: "銀行振込状況" },
+                ]).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={widgetSettings[key]}
+                      onChange={() => toggleWidget(key)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">{label}</span>
+                  </label>
+                ))}
+                <div className="px-3 py-2 border-t border-b border-slate-100 mt-1">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    チャート・タブ
+                  </span>
+                </div>
+                {([
                   { key: "kpiTargetChart" as const, label: "KPI目標vs実績" },
                   { key: "detailTabs" as const, label: "詳細タブ" },
                   { key: "segmentChart" as const, label: "セグメント分布" },
                   { key: "conversionChart" as const, label: "初診→再診転換率" },
                 ]).map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <label key={key} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={widgetSettings[key]}
@@ -625,106 +679,89 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
-      {/* 主要KPI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <KPICard
-          title="予約件数"
-          value={`${stats?.reservations.total || 0}`}
-          subtitle={`完了: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
-          icon="📅"
-          color="blue"
-        />
-        <KPICard
-          title="配送件数"
-          value={`${stats?.shipping.total || 0}`}
-          subtitle={`新規: ${stats?.shipping.first || 0} / 再処方: ${stats?.shipping.reorder || 0}`}
-          icon="📦"
-          color="green"
-        />
-        <KPICard
-          title="純売上"
-          value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
-          subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`}
-          icon="💰"
-          color="purple"
-        />
-        <KPICard
-          title="リピート率"
-          value={`${stats?.patients.repeatRate || 0}%`}
-          subtitle={`総患者: ${stats?.patients.total || 0} / 新規: ${stats?.patients.new || 0}`}
-          icon="🔄"
-          color="orange"
-        />
-      </div>
+      {/* KPIカード（個別表示制御） */}
+      {(() => {
+        const mainKpiCards = [
+          widgetSettings.kpi_reservations && (
+            <KPICard key="reservations" title="予約件数" value={`${stats?.reservations.total || 0}`}
+              subtitle={`完了: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
+              icon="📅" color="blue" />
+          ),
+          widgetSettings.kpi_shipping && (
+            <KPICard key="shipping" title="配送件数" value={`${stats?.shipping.total || 0}`}
+              subtitle={`新規: ${stats?.shipping.first || 0} / 再処方: ${stats?.shipping.reorder || 0}`}
+              icon="📦" color="green" />
+          ),
+          widgetSettings.kpi_revenue && (
+            <KPICard key="revenue" title="純売上" value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
+              subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`}
+              icon="💰" color="purple" />
+          ),
+          widgetSettings.kpi_repeat_rate && (
+            <KPICard key="repeat_rate" title="リピート率" value={`${stats?.patients.repeatRate || 0}%`}
+              subtitle={`総患者: ${stats?.patients.total || 0} / 新規: ${stats?.patients.new || 0}`}
+              icon="🔄" color="orange" />
+          ),
+        ].filter(Boolean);
+        return mainKpiCards.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">{mainKpiCards}</div>
+        ) : null;
+      })()}
 
-      {/* 転換率KPI */}
-      {widgetSettings.conversionKpi && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <ConversionCard
-            title="診療後の決済率"
-            rate={stats?.kpi.paymentRateAfterConsultation || 0}
-            description="診察完了後に決済した患者の割合"
-          />
-          <ConversionCard
-            title="問診後の予約率"
-            rate={stats?.kpi.reservationRateAfterIntake || 0}
-            description="問診完了後に予約した患者の割合"
-          />
-          <ConversionCard
-            title="予約後の受診率"
-            rate={stats?.kpi.consultationCompletionRate || 0}
-            description="予約後に診察を完了した患者の割合"
-          />
-        </div>
-      )}
+      {/* 転換率KPIカード（個別表示制御） */}
+      {(() => {
+        const convCards = [
+          widgetSettings.kpi_payment_rate && (
+            <ConversionCard key="payment" title="診療後の決済率"
+              rate={stats?.kpi.paymentRateAfterConsultation || 0} description="診察完了後に決済した患者の割合" />
+          ),
+          widgetSettings.kpi_reservation_rate && (
+            <ConversionCard key="reservation" title="問診後の予約率"
+              rate={stats?.kpi.reservationRateAfterIntake || 0} description="問診完了後に予約した患者の割合" />
+          ),
+          widgetSettings.kpi_consultation_rate && (
+            <ConversionCard key="consultation" title="予約後の受診率"
+              rate={stats?.kpi.consultationCompletionRate || 0} description="予約後に診察を完了した患者の割合" />
+          ),
+        ].filter(Boolean);
+        return convCards.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">{convCards}</div>
+        ) : null;
+      })()}
 
-      {/* サブKPI */}
-      {widgetSettings.subKpi && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <KPICard
-            title="LINE登録者"
-            value={`${stats?.kpi.lineRegisteredCount || 0}`}
-            subtitle="LINE友だち数"
-            icon="💬"
-            color="green"
-          />
-          <KPICard
-            title="アクティブ予約"
-            value={`${stats?.kpi.todayActiveReservations || 0}`}
-            subtitle="キャンセル除く有効予約数"
-            icon="📋"
-            color="sky"
-          />
-          <KPICard
-            title="顧客単価"
-            value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
-            subtitle="平均注文額"
-            icon="💎"
-            color="rose"
-          />
-          <KPICard
-            title="本日の予約"
-            value={`${stats?.kpi.todayNewReservations || 0}`}
-            subtitle="新規予約数"
-            icon="📝"
-            color="purple"
-          />
-          <KPICard
-            title="本日の決済"
-            value={`${stats?.kpi.todayPaidCount || 0}`}
-            subtitle="決済完了数"
-            icon="✅"
-            color="orange"
-          />
-          <KPICard
-            title="銀行振込状況"
-            value={`${stats?.bankTransfer.pending || 0}`}
-            subtitle={`入金待ち / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
-            icon="🏦"
-            color="sky"
-          />
-        </div>
-      )}
+      {/* サブKPIカード（個別表示制御） */}
+      {(() => {
+        const subCards = [
+          widgetSettings.kpi_line_registered && (
+            <KPICard key="line" title="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}`}
+              subtitle="LINE友だち数" icon="💬" color="green" />
+          ),
+          widgetSettings.kpi_active_reservations && (
+            <KPICard key="active_res" title="アクティブ予約" value={`${stats?.kpi.todayActiveReservations || 0}`}
+              subtitle="キャンセル除く有効予約数" icon="📋" color="sky" />
+          ),
+          widgetSettings.kpi_avg_order && (
+            <KPICard key="avg_order" title="顧客単価" value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+              subtitle="平均注文額" icon="💎" color="rose" />
+          ),
+          widgetSettings.kpi_today_reservations && (
+            <KPICard key="today_res" title="本日の予約" value={`${stats?.kpi.todayNewReservations || 0}`}
+              subtitle="新規予約数" icon="📝" color="purple" />
+          ),
+          widgetSettings.kpi_today_paid && (
+            <KPICard key="today_paid" title="本日の決済" value={`${stats?.kpi.todayPaidCount || 0}`}
+              subtitle="決済完了数" icon="✅" color="orange" />
+          ),
+          widgetSettings.kpi_bank_transfer && (
+            <KPICard key="bank" title="銀行振込状況" value={`${stats?.bankTransfer.pending || 0}`}
+              subtitle={`入金待ち / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
+              icon="🏦" color="sky" />
+          ),
+        ].filter(Boolean);
+        return subCards.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">{subCards}</div>
+        ) : null;
+      })()}
 
       {/* KPI目標 vs 実績 */}
       {widgetSettings.kpiTargetChart && (
