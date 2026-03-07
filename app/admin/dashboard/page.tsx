@@ -24,6 +24,10 @@ const KPITargetWidget = dynamic(
   () => import("./widgets/kpi-target-widget"),
   { ssr: false, loading: () => <ChartWidgetSkeleton /> },
 );
+const CohortWidget = dynamic(
+  () => import("./widgets/cohort-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
 
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
@@ -52,6 +56,7 @@ interface WidgetSettings {
   conversionChart: boolean; // 初診→再診転換率
   ltvChart: boolean;        // LTV分析
   kpiTargetChart: boolean;  // KPI目標vs実績
+  cohortChart: boolean;     // コホート分析
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
@@ -61,6 +66,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   conversionChart: true,
   ltvChart: true,
   kpiTargetChart: true,
+  cohortChart: true,
 };
 
 const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
@@ -582,6 +588,15 @@ export default function EnhancedDashboard() {
                   />
                   <span className="text-sm text-slate-700">KPI目標vs実績</span>
                 </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.cohortChart}
+                    onChange={() => toggleWidget("cohortChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">コホート分析</span>
+                </label>
               </div>
             )}
           </div>
@@ -985,6 +1000,7 @@ export default function EnhancedDashboard() {
       <div className="mt-8 space-y-6">
         {widgetSettings.conversionChart && <ConversionWidget />}
         {widgetSettings.ltvChart && <LTVWidget />}
+        {widgetSettings.cohortChart && <CohortWidget />}
       </div>
 
       {/* トースト通知コンテナ */}
