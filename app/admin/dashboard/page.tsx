@@ -20,6 +20,10 @@ const LTVWidget = dynamic(
   () => import("./widgets/ltv-widget"),
   { ssr: false, loading: () => <ChartWidgetSkeleton /> },
 );
+const KPITargetWidget = dynamic(
+  () => import("./widgets/kpi-target-widget"),
+  { ssr: false, loading: () => <ChartWidgetSkeleton /> },
+);
 
 // ウィジェット読み込み中のスケルトン
 function ChartWidgetSkeleton() {
@@ -47,6 +51,7 @@ interface WidgetSettings {
   segmentChart: boolean;   // セグメント分布
   conversionChart: boolean; // 初診→再診転換率
   ltvChart: boolean;        // LTV分析
+  kpiTargetChart: boolean;  // KPI目標vs実績
 }
 
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
@@ -55,6 +60,7 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   segmentChart: true,
   conversionChart: true,
   ltvChart: true,
+  kpiTargetChart: true,
 };
 
 const WIDGET_STORAGE_KEY = "dashboard-widget-settings";
@@ -534,6 +540,15 @@ export default function EnhancedDashboard() {
                   />
                   <span className="text-sm text-slate-700">LTV分析</span>
                 </label>
+                <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={widgetSettings.kpiTargetChart}
+                    onChange={() => toggleWidget("kpiTargetChart")}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">KPI目標vs実績</span>
+                </label>
               </div>
             )}
           </div>
@@ -659,6 +674,13 @@ export default function EnhancedDashboard() {
           />
         </div>
       </div>
+
+      {/* KPI目標 vs 実績 */}
+      {widgetSettings.kpiTargetChart && (
+        <div className="mb-8">
+          <KPITargetWidget />
+        </div>
+      )}
 
       {/* タブナビゲーション */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
