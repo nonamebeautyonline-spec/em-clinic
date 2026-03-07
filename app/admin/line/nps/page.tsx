@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line,
+  PieChart, Pie, Cell, LineChart, Line, Legend,
+  ComposedChart,
 } from "recharts";
 
 interface NpsSurvey {
@@ -39,6 +40,36 @@ interface NpsResponse {
 
 const NPS_COLORS = { promoter: "#22c55e", passive: "#eab308", detractor: "#ef4444" };
 
+// トレンド比較用の色パレット
+const TREND_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+
+interface TrendOverallMonth {
+  month: string;
+  nps: number;
+  promoters: number;
+  passives: number;
+  detractors: number;
+  total: number;
+}
+
+interface TrendBySurvey {
+  survey_id: number;
+  survey_title: string;
+  monthly: TrendOverallMonth[];
+}
+
+interface TrendData {
+  summary: {
+    total: number;
+    nps: number | null;
+    promoters: number;
+    passives: number;
+    detractors: number;
+  };
+  overall: TrendOverallMonth[];
+  bySurvey: TrendBySurvey[];
+}
+
 export default function NpsPage() {
   const [surveys, setSurveys] = useState<NpsSurvey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +82,12 @@ export default function NpsPage() {
     monthly: { month: string; nps: number; total: number }[];
     responses: NpsResponse[];
   } | null>(null);
+
+  // トレンド比較用 state
+  const [showTrend, setShowTrend] = useState(false);
+  const [trendData, setTrendData] = useState<TrendData | null>(null);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [selectedSurveyIds, setSelectedSurveyIds] = useState<number[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -75,6 +112,36 @@ export default function NpsPage() {
     });
   };
 
+  const loadTrend = async (surveyIds?: number[]) => {
+    setTrendLoading(true);
+    const params = new URLSearchParams();
+    if (surveyIds && surveyIds.length > 0) {
+      params.set("survey_ids", surveyIds.join(","));
+    }
+    const res = await fetch(`/api/admin/line/nps/stats?${params.toString()}`, { credentials: "include" });
+    const data = await res.json();
+    setTrendData(data);
+    setTrendLoading(false);
+  };
+
+  const openTrend = () => {
+    setShowTrend(true);
+    setDetailSurvey(null);
+    setDetailData(null);
+    setSelectedSurveyIds([]);
+    loadTrend();
+  };
+
+  const toggleSurveyFilter = (surveyId: number) => {
+    setSelectedSurveyIds((prev) => {
+      const next = prev.includes(surveyId)
+        ? prev.filter((id) => id !== surveyId)
+        : [...prev, surveyId];
+      loadTrend(next);
+      return next;
+    });
+  };
+
   const handleDelete = async (id: number) => {
     if (!confirm("この調査を削除しますか？回答データも削除されます。")) return;
     await fetch(`/api/admin/line/nps?id=${id}`, { method: "DELETE", credentials: "include" });
@@ -96,6 +163,262 @@ export default function NpsPage() {
 
   const totalResponses = surveys.reduce((sum, s) => sum + s.response_count, 0);
   const activeCount = surveys.filter(s => s.is_active).length;
+
+  /* ==================== トレンド比較ダッシュボード ==================== */
+  if (showTrend) {
+    // 調査別折れ線グラフ用にデータを統合（月をキーにした横並びデータ）
+    const allMonths = new Set<string>();
+    trendData?.overall.forEach((m) => allMonths.add(m.month));
+    trendData?.bySurvey.forEach((s) => s.monthly.forEach((m) => allMonths.add(m.month)));
+    const sortedMonths = Array.from(allMonths).sort();
+
+    // 調査別比較用: 各月に各調査のNPSを格納
+    const comparisonData = sortedMonths.map((month) => {
+      const row: Record<string, unknown> = { month };
+      // 全体
+      const ov = trendData?.overall.find((m) => m.month === month);
+      row["全体"] = ov?.nps ?? null;
+      // 調査別
+      trendData?.bySurvey.forEach((s) => {
+        const sm = s.monthly.find((m) => m.month === month);
+        row[s.survey_title] = sm?.nps ?? null;
+      });
+      return row;
+    });
+
+    // 積み上げ棒グラフ用データ（全体の推奨者/中立者/批判者）
+    const stackedData = (trendData?.overall || []).map((m) => ({
+      month: m.month,
+      推奨者: m.promoters,
+      中立者: m.passives,
+      批判者: m.detractors,
+      NPS: m.nps,
+    }));
+
+    return (
+      <div className="min-h-full bg-gray-50/50">
+        {/* ヘッダー */}
+        <div className="bg-white border-b border-gray-100">
+          <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+            <button
+              onClick={() => setShowTrend(false)}
+              className="text-sm text-gray-400 hover:text-indigo-600 mb-3 flex items-center gap-1 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              一覧に戻る
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">NPS推移トレンド比較</h1>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  調査横断の月別NPSスコア推移を比較します
+                </p>
+              </div>
+            </div>
+
+            {/* 全体サマリーカード */}
+            {trendData && (
+              <div className="grid grid-cols-4 gap-4 mt-6">
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100/50 text-center">
+                  <div className={`text-3xl font-bold ${
+                    trendData.summary.nps === null ? "text-gray-300" :
+                    trendData.summary.nps >= 50 ? "text-green-600" :
+                    trendData.summary.nps >= 0 ? "text-yellow-600" : "text-red-600"
+                  }`}>
+                    {trendData.summary.nps !== null ? trendData.summary.nps : "-"}
+                  </div>
+                  <div className="text-xs text-indigo-500 mt-0.5">全体NPS</div>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100/50 text-center">
+                  <div className="text-2xl font-bold text-green-700">{trendData.summary.promoters}</div>
+                  <div className="text-xs text-green-500 mt-0.5">推奨者 (9-10)</div>
+                </div>
+                <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-4 border border-yellow-100/50 text-center">
+                  <div className="text-2xl font-bold text-yellow-700">{trendData.summary.passives}</div>
+                  <div className="text-xs text-yellow-600 mt-0.5">中立者 (7-8)</div>
+                </div>
+                <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-xl p-4 border border-red-100/50 text-center">
+                  <div className="text-2xl font-bold text-red-700">{trendData.summary.detractors}</div>
+                  <div className="text-xs text-red-500 mt-0.5">批判者 (0-6)</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 本体 */}
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 space-y-4">
+          {trendLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
+                <span className="text-sm text-gray-400">集計中...</span>
+              </div>
+            </div>
+          ) : !trendData || trendData.overall.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <p className="text-gray-400 text-sm">回答データがありません</p>
+            </div>
+          ) : (
+            <>
+              {/* 調査フィルタ */}
+              {surveys.length > 1 && (
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                    調査フィルタ
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {surveys.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => toggleSurveyFilter(s.id)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          selectedSurveyIds.length === 0 || selectedSurveyIds.includes(s.id)
+                            ? "bg-indigo-100 text-indigo-700 border border-indigo-200"
+                            : "bg-gray-50 text-gray-400 border border-gray-100 hover:bg-gray-100"
+                        }`}
+                      >
+                        {s.title}
+                      </button>
+                    ))}
+                    {selectedSurveyIds.length > 0 && (
+                      <button
+                        onClick={() => { setSelectedSurveyIds([]); loadTrend(); }}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-100 transition-colors"
+                      >
+                        全てクリア
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* NPS推移折れ線グラフ（全体＋積み上げ棒グラフ） */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-all duration-200">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                  月別NPS推移 + 回答者内訳
+                </h3>
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={stackedData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      allowDecimals={false}
+                      label={{ value: "回答数", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#94a3b8" } }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      domain={[-100, 100]}
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      label={{ value: "NPS", angle: 90, position: "insideRight", style: { fontSize: 11, fill: "#94a3b8" } }}
+                    />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar yAxisId="left" dataKey="推奨者" stackId="a" fill={NPS_COLORS.promoter} radius={[0, 0, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="中立者" stackId="a" fill={NPS_COLORS.passive} radius={[0, 0, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="批判者" stackId="a" fill={NPS_COLORS.detractor} radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="NPS" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 4, fill: "#6366f1" }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* 調査別NPS推移比較（折れ線のみ） */}
+              {trendData.bySurvey.length > 1 && (
+                <div className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md transition-all duration-200">
+                  <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                    調査別NPS推移比較
+                  </h3>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={comparisonData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                      <YAxis domain={[-100, 100]} tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Line
+                        type="monotone"
+                        dataKey="全体"
+                        stroke="#94a3b8"
+                        strokeWidth={2}
+                        strokeDasharray="6 3"
+                        dot={{ r: 3, fill: "#94a3b8" }}
+                        connectNulls
+                      />
+                      {trendData.bySurvey.map((s, i) => (
+                        <Line
+                          key={s.survey_id}
+                          type="monotone"
+                          dataKey={s.survey_title}
+                          stroke={TREND_COLORS[i % TREND_COLORS.length]}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: TREND_COLORS[i % TREND_COLORS.length] }}
+                          connectNulls
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* 月別詳細テーブル */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+                  月別詳細データ
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500">月</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500">回答数</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-green-600">推奨者</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-yellow-600">中立者</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-red-600">批判者</th>
+                        <th className="text-right py-2 px-3 text-xs font-semibold text-indigo-600">NPS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trendData.overall.map((m) => (
+                        <tr key={m.month} className="border-b border-gray-50 hover:bg-gray-50/50">
+                          <td className="py-2 px-3 font-medium text-gray-700">{m.month}</td>
+                          <td className="text-right py-2 px-3 text-gray-600">{m.total}</td>
+                          <td className="text-right py-2 px-3 text-green-700">{m.promoters}</td>
+                          <td className="text-right py-2 px-3 text-yellow-700">{m.passives}</td>
+                          <td className="text-right py-2 px-3 text-red-700">{m.detractors}</td>
+                          <td className="text-right py-2 px-3">
+                            <span className={`font-bold ${
+                              m.nps >= 50 ? "text-green-600" :
+                              m.nps >= 0 ? "text-yellow-600" : "text-red-600"
+                            }`}>
+                              {m.nps}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   /* ==================== 詳細ダッシュボード ==================== */
   if (detailSurvey && detailData) {
@@ -299,15 +622,26 @@ export default function NpsPage() {
               </h1>
               <p className="text-sm text-gray-400 mt-1">患者満足度を計測し、改善ポイントを把握します</p>
             </div>
-            <button
-              onClick={() => { setEditSurvey(null); setShowEditor(true); }}
-              className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              調査作成
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openTrend}
+                className="px-4 py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-50 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                トレンド比較
+              </button>
+              <button
+                onClick={() => { setEditSurvey(null); setShowEditor(true); }}
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                調査作成
+              </button>
+            </div>
           </div>
 
           {/* サマリーカード */}
