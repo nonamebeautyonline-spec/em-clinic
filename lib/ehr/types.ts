@@ -52,13 +52,56 @@ export interface EhrAdapter {
 
   /** カルテをプッシュ */
   pushKarte(karte: EhrKarte): Promise<void>;
+
+  /** 処方一覧取得 */
+  fetchPrescriptions(patientExternalId: string): Promise<EhrPrescription[]>;
+
+  /** 予約一覧取得 */
+  fetchAppointments(patientExternalId: string): Promise<EhrAppointment[]>;
 }
+
+/** 外部カルテの処方データ */
+export interface EhrPrescription {
+  externalId?: string;
+  patientExternalId: string;
+  /** 薬剤名 */
+  medicationName: string;
+  /** 用量（例: "10mg"） */
+  dosage: string;
+  /** 服用頻度（例: "1日3回毎食後"） */
+  frequency: string;
+  /** 処方期間（例: "14日分"） */
+  duration: string;
+  /** 処方医 */
+  prescriber?: string;
+  /** 処方日時 */
+  prescribedAt: string; // ISO 8601
+}
+
+/** 外部カルテの予約データ */
+export interface EhrAppointment {
+  externalId?: string;
+  patientId: string;
+  /** 予約日時 */
+  scheduledAt: string; // ISO 8601
+  /** 予約時間（分） */
+  durationMinutes: number;
+  /** 担当医・担当者 */
+  provider?: string;
+  /** 予約状態 */
+  status: "scheduled" | "confirmed" | "cancelled" | "completed" | "no_show";
+  /** 備考 */
+  notes?: string;
+}
+
+/** EHRリソースタイプ */
+export type EhrResourceType = "patient" | "karte" | "prescription" | "appointment";
 
 /** 同期結果 */
 export interface SyncResult {
   provider: EhrProvider;
   direction: SyncDirection;
-  resourceType: "patient" | "karte";
+  resourceType: EhrResourceType;
   patientId?: string;
   externalId?: string;
   status: "success" | "error" | "skipped";
