@@ -74,11 +74,6 @@ interface DashboardStats {
     todayNewReservations: number;
     todayPaidCount: number;
   };
-  dailyOrders: {
-    date: string;
-    first: number;
-    reorder: number;
-  }[];
 }
 
 // ウィジェット定義
@@ -86,7 +81,7 @@ type WidgetId =
   | "reservations" | "shipping" | "revenue" | "repeat_rate"
   | "payment_rate" | "reservation_rate" | "consultation_rate"
   | "line_registered" | "active_reservations" | "today_paid" | "avg_order"
-  | "daily_chart" | "product_sales" | "bank_transfer";
+  | "product_sales" | "bank_transfer";
 
 interface WidgetConfig {
   id: WidgetId;
@@ -109,7 +104,6 @@ const WIDGET_LABELS: Record<WidgetId, string> = {
   active_reservations: "アクティブ予約数",
   today_paid: "本日の決済人数",
   avg_order: "顧客単価",
-  daily_chart: "新規処方 vs 再処方グラフ",
   product_sales: "商品別売上",
   bank_transfer: "銀行振込状況",
 };
@@ -119,7 +113,6 @@ const WIDGET_GROUPS: Record<string, WidgetId[]> = {
   kpi_main: ["reservations", "shipping", "revenue", "repeat_rate"],
   kpi_conversion: ["payment_rate", "reservation_rate", "consultation_rate"],
   kpi_today: ["line_registered", "active_reservations", "today_paid", "avg_order"],
-  chart: ["daily_chart"],
   detail: ["product_sales", "bank_transfer"],
 };
 
@@ -272,7 +265,6 @@ export default function AdminDashboard() {
       case "active_reservations": return renderActiveReservations();
       case "today_paid": return renderTodayPaid();
       case "avg_order": return renderAvgOrder();
-      case "daily_chart": return renderDailyChart();
       case "product_sales": return renderProductSales();
       case "bank_transfer": return renderBankTransfer();
       default: return null;
@@ -496,66 +488,6 @@ export default function AdminDashboard() {
             </div>
             <div className="text-xs text-slate-500 mt-2">平均注文額</div>
           </>
-        )}
-      </div>
-    );
-  }
-
-  function renderDailyChart() {
-    return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-bold text-slate-900 mb-4">新規処方 vs 再処方（日別）</h2>
-        {loading ? (
-          <div className="animate-pulse h-48 bg-slate-100 rounded" />
-        ) : stats?.dailyOrders && stats.dailyOrders.length > 0 ? (
-          <>
-            <div className="flex items-center gap-4 mb-4 text-xs">
-              <div className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-blue-500" />
-                <span className="text-slate-600">新規処方</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded bg-orange-500" />
-                <span className="text-slate-600">再処方</span>
-              </div>
-            </div>
-            {(() => {
-              const maxTotal = Math.max(...stats.dailyOrders.map(d => d.first + d.reorder), 1);
-              const barMaxH = 180;
-              return (
-                <div className="flex items-end gap-1" style={{ height: barMaxH + 32 }}>
-                  {stats.dailyOrders.map((day) => {
-                    const total = day.first + day.reorder;
-                    const totalH = (total / maxTotal) * barMaxH;
-                    const firstH = total > 0 ? (day.first / total) * totalH : 0;
-                    const reorderH = total > 0 ? (day.reorder / total) * totalH : 0;
-                    return (
-                      <div key={day.date} className="flex flex-col items-center flex-1 min-w-0">
-                        <div className="text-xs text-slate-600 mb-1 font-medium">{total}</div>
-                        <div className="w-full flex flex-col justify-end" style={{ height: barMaxH }}>
-                          <div
-                            className="bg-orange-500 rounded-t-sm w-full"
-                            style={{ height: reorderH }}
-                            title={`再処方: ${day.reorder}`}
-                          />
-                          <div
-                            className="bg-blue-500 w-full"
-                            style={{ height: firstH, borderRadius: reorderH === 0 ? '2px 2px 0 0' : 0 }}
-                            title={`新規: ${day.first}`}
-                          />
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-1 truncate w-full text-center">
-                          {day.date.slice(5)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </>
-        ) : (
-          <div className="text-sm text-slate-400 text-center py-8">データがありません</div>
         )}
       </div>
     );
