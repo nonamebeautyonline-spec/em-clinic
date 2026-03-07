@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  FIELD_TYPE_CONFIG,
+  FIELD_TYPES,
+  type FieldType,
+  type FieldMetadata,
+  extractMetadata,
+  getChoices,
+} from "@/lib/custom-field-types";
 
 interface FieldDef {
   id: number;
   name: string;
   field_type: string;
-  options: string[] | null;
+  options: string[] | FieldMetadata | null;
   sort_order: number;
 }
-
-const TYPE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  text: { label: "テキスト", icon: "T", color: "from-blue-400 to-blue-500" },
-  number: { label: "数値", icon: "#", color: "from-violet-400 to-violet-500" },
-  date: { label: "日付", icon: "D", color: "from-amber-400 to-amber-500" },
-  select: { label: "選択肢", icon: "S", color: "from-emerald-400 to-emerald-500" },
-};
 
 export default function FriendFieldsPage() {
   const [fields, setFields] = useState<FieldDef[]>([]);
@@ -23,13 +24,16 @@ export default function FriendFieldsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingField, setEditingField] = useState<FieldDef | null>(null);
   const [name, setName] = useState("");
-  const [fieldType, setFieldType] = useState("text");
-  const [options, setOptions] = useState("");
+  const [fieldType, setFieldType] = useState<FieldType>("text");
+  const [choicesText, setChoicesText] = useState("");
+  const [numMin, setNumMin] = useState("");
+  const [numMax, setNumMax] = useState("");
+  const [placeholder, setPlaceholder] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
+  // 初回データ取得
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -43,13 +47,35 @@ export default function FriendFieldsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // 手動再読み込み用
   const fetchFields = useCallback(async () => {
     const res = await fetch("/api/admin/friend-fields", { credentials: "include" });
     const data = await res.json();
     if (data.fields) setFields(data.fields);
     setLoading(false);
   }, []);
+
+  /** options（メタデータ）を組み立てる */
+  const buildOptions = (): FieldMetadata | null => {
+    const meta: FieldMetadata = {};
+    let hasData = false;
+
+    if (fieldType === "select" && choicesText.trim()) {
+      meta.choices = choicesText.split(",").map(s => s.trim()).filter(Boolean);
+      hasData = true;
+    }
+
+    if (fieldType === "number") {
+      if (numMin !== "") { meta.min = Number(numMin); hasData = true; }
+      if (numMax !== "") { meta.max = Number(numMax); hasData = true; }
+    }
+
+    if ((fieldType === "text" || fieldType === "url") && placeholder.trim()) {
+      meta.placeholder = placeholder.trim();
+      hasData = true;
+    }
+
+    return hasData ? meta : null;
+  };
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;
@@ -58,10 +84,6 @@ export default function FriendFieldsPage() {
     const url = editingField ? `/api/admin/friend-fields/${editingField.id}` : "/api/admin/friend-fields";
     const method = editingField ? "PUT" : "POST";
 
-    const parsedOptions = fieldType === "select" && options.trim()
-      ? options.split(",").map(s => s.trim()).filter(Boolean)
-      : null;
-
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -69,7 +91,7 @@ export default function FriendFieldsPage() {
       body: JSON.stringify({
         name: name.trim(),
         field_type: fieldType,
-        options: parsedOptions,
+        options: buildOptions(),
         sort_order: sortOrder,
       }),
     });
@@ -95,8 +117,12 @@ export default function FriendFieldsPage() {
   const handleEdit = (f: FieldDef) => {
     setEditingField(f);
     setName(f.name);
-    setFieldType(f.field_type);
-    setOptions(f.options ? f.options.join(", ") : "");
+    setFieldType((FIELD_TYPES as readonly string[]).includes(f.field_type) ? f.field_type as FieldType : "text");
+    const meta = extractMetadata(f.options);
+    setChoicesText(getChoices(f.options).join(", "));
+    setNumMin(meta.min !== undefined ? String(meta.min) : "");
+    setNumMax(meta.max !== undefined ? String(meta.max) : "");
+    setPlaceholder(meta.placeholder ?? "");
     setSortOrder(f.sort_order);
     setShowModal(true);
   };
@@ -106,8 +132,42 @@ export default function FriendFieldsPage() {
     setEditingField(null);
     setName("");
     setFieldType("text");
-    setOptions("");
+    setChoicesText("");
+    setNumMin("");
+    setNumMax("");
+    setPlaceholder("");
     setSortOrder(0);
+  };
+
+  /** フィールド一覧カードのメタデータ表示 */
+  const renderFieldMeta = (f: FieldDef) => {
+    const meta = extractMetadata(f.options);
+    const choices = getChoices(f.options);
+
+    return (
+      <>
+        {choices.length > 0 && (
+          <div className="flex gap-1 mt-1.5 flex-wrap">
+            {choices.map((opt, oi) => (
+              <span key={oi} className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                {opt}
+              </span>
+            ))}
+          </div>
+        )}
+        {(meta.min !== undefined || meta.max !== undefined) && (
+          <div className="flex gap-2 mt-1 text-[10px] text-gray-400">
+            {meta.min !== undefined && <span>最小: {meta.min}</span>}
+            {meta.max !== undefined && <span>最大: {meta.max}</span>}
+          </div>
+        )}
+        {meta.placeholder && (
+          <div className="mt-1 text-[10px] text-gray-300 truncate">
+            プレースホルダー: {meta.placeholder}
+          </div>
+        )}
+      </>
+    );
   };
 
   return (
@@ -145,7 +205,7 @@ export default function FriendFieldsPage() {
               <div className="text-[10px] text-gray-400 mt-0.5">総フィールド</div>
             </div>
             {(["text", "number", "select"] as const).map(type => {
-              const cfg = TYPE_CONFIG[type];
+              const cfg = FIELD_TYPE_CONFIG[type];
               const count = fields.filter(f => f.field_type === type).length;
               return (
                 <div key={type} className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-3 border border-gray-100/50 text-center">
@@ -179,8 +239,8 @@ export default function FriendFieldsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {fields.map((f, index) => {
-              const cfg = TYPE_CONFIG[f.field_type] || { label: f.field_type, icon: "?", color: "from-gray-400 to-gray-500" };
+            {fields.map((f) => {
+              const cfg = FIELD_TYPE_CONFIG[f.field_type as FieldType] || { label: f.field_type, icon: "?", color: "from-gray-400 to-gray-500" };
               return (
                 <div
                   key={f.id}
@@ -203,15 +263,7 @@ export default function FriendFieldsPage() {
                         <h3 className="font-semibold text-gray-900 text-[15px]">{f.name}</h3>
                         <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{cfg.label}</span>
                       </div>
-                      {f.options && f.options.length > 0 && (
-                        <div className="flex gap-1 mt-1.5 flex-wrap">
-                          {(f.options as string[]).map((opt, oi) => (
-                            <span key={oi} className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
-                              {opt}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {renderFieldMeta(f)}
                     </div>
 
                     {/* アクション */}
@@ -244,8 +296,8 @@ export default function FriendFieldsPage() {
       {/* 作成/編集モーダル */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => resetForm()}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-gray-100">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <h2 className="font-bold text-gray-900">{editingField ? "フィールドを編集" : "新規フィールド作成"}</h2>
                 <button onClick={resetForm} className="p-1 rounded-lg hover:bg-gray-100 text-gray-400">
@@ -256,7 +308,7 @@ export default function FriendFieldsPage() {
               </div>
             </div>
 
-            <div className="px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
               {/* フィールド名 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">フィールド名</label>
@@ -273,46 +325,91 @@ export default function FriendFieldsPage() {
               {/* データ型 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">データ型</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
-                    <button
-                      key={key}
-                      onClick={() => setFieldType(key)}
-                      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
-                        fieldType === key
-                          ? "border-teal-400 bg-teal-50/50"
-                          : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${cfg.color} flex items-center justify-center shadow-sm`}>
-                        <span className="text-white text-sm font-bold">{cfg.icon}</span>
-                      </div>
-                      <span className="text-[11px] font-medium text-gray-600">{cfg.label}</span>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 gap-2">
+                  {FIELD_TYPES.map(type => {
+                    const cfg = FIELD_TYPE_CONFIG[type];
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setFieldType(type)}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                          fieldType === type
+                            ? "border-teal-400 bg-teal-50/50"
+                            : "border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${cfg.color} flex items-center justify-center shadow-sm`}>
+                          <span className="text-white text-sm font-bold">{cfg.icon}</span>
+                        </div>
+                        <span className="text-[11px] font-medium text-gray-600">{cfg.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* 選択肢 */}
+              {/* 型別の追加設定 */}
               {fieldType === "select" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">選択肢（カンマ区切り）</label>
                   <input
                     type="text"
-                    value={options}
-                    onChange={(e) => setOptions(e.target.value)}
+                    value={choicesText}
+                    onChange={(e) => setChoicesText(e.target.value)}
                     placeholder="例: 新規, リピーター, 休眠"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all"
                   />
-                  {options.trim() && (
+                  {choicesText.trim() && (
                     <div className="flex gap-1.5 mt-2 flex-wrap">
-                      {options.split(",").map((opt, i) => opt.trim() && (
+                      {choicesText.split(",").map((opt, i) => opt.trim() && (
                         <span key={i} className="text-[11px] px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
                           {opt.trim()}
                         </span>
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {fieldType === "number" && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">数値の範囲（任意）</label>
+                  <div className="flex gap-3 items-center">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-400 mb-1">最小値</label>
+                      <input
+                        type="number"
+                        value={numMin}
+                        onChange={(e) => setNumMin(e.target.value)}
+                        placeholder="制限なし"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all"
+                      />
+                    </div>
+                    <span className="text-gray-300 mt-5">~</span>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-400 mb-1">最大値</label>
+                      <input
+                        type="number"
+                        value={numMax}
+                        onChange={(e) => setNumMax(e.target.value)}
+                        placeholder="制限なし"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(fieldType === "text" || fieldType === "url") && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">プレースホルダー（任意）</label>
+                  <input
+                    type="text"
+                    value={placeholder}
+                    onChange={(e) => setPlaceholder(e.target.value)}
+                    placeholder={fieldType === "url" ? "例: https://example.com" : "例: 自由入力テキスト"}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all"
+                  />
                 </div>
               )}
 
@@ -328,7 +425,7 @@ export default function FriendFieldsPage() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
               <button onClick={resetForm} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium transition-colors">
                 キャンセル
               </button>

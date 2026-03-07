@@ -40,8 +40,16 @@ interface FieldValue {
   friend_field_definitions: { id: number; name: string };
 }
 
+interface FieldMetadataType {
+  choices?: string[];
+  min?: number;
+  max?: number;
+  placeholder?: string;
+}
+
 interface FieldDef {
-  id: number; name: string; field_type: string; options: string[] | null;
+  id: number; name: string; field_type: string;
+  options: string[] | FieldMetadataType | null;
 }
 
 interface Template {
@@ -107,6 +115,10 @@ export default function FriendDetailPage() {
   const [memo, setMemo] = useState("");
   const [editingMemo, setEditingMemo] = useState(false);
   const [savingMemo, setSavingMemo] = useState(false);
+
+  // カスタムフィールド編集
+  const [editingFieldValues, setEditingFieldValues] = useState<Record<number, string>>({});
+  const [savingFieldId, setSavingFieldId] = useState<number | null>(null);
 
   // タイムラインフィルター
   const [timelineFilters, setTimelineFilters] = useState<Set<TimelineFilter>>(
@@ -239,6 +251,47 @@ export default function FriendDetailPage() {
       method: "DELETE", credentials: "include",
     });
     setPatientTags(prev => prev.filter(t => t.tag_id !== tagId));
+  };
+
+  // ── カスタムフィールド値の保存 ──
+  const handleFieldValueSave = async (fieldId: number, newValue: string) => {
+    setSavingFieldId(fieldId);
+    const res = await fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/fields`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ values: [{ field_id: fieldId, value: newValue }] }),
+    });
+    if (res.ok) {
+      // ローカルステートを更新
+      setPatientFields(prev => {
+        const exists = prev.find(pf => pf.field_id === fieldId);
+        if (exists) {
+          return prev.map(pf => pf.field_id === fieldId ? { ...pf, value: newValue } : pf);
+        }
+        return [...prev, { field_id: fieldId, value: newValue, friend_field_definitions: { id: fieldId, name: "" } }];
+      });
+      // 編集ステートをクリア
+      setEditingFieldValues(prev => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+    }
+    setSavingFieldId(null);
+  };
+
+  /** メタデータヘルパー: optionsから抽出 */
+  const getFieldMeta = (options: FieldDef["options"]): FieldMetadataType => {
+    if (!options) return {};
+    if (Array.isArray(options)) return { choices: options };
+    return options as FieldMetadataType;
+  };
+
+  /** select用の選択肢を取得 */
+  const getFieldChoices = (options: FieldDef["options"]): string[] => {
+    const meta = getFieldMeta(options);
+    return meta.choices ?? [];
   };
 
   // ── クイック返信 ──
@@ -655,14 +708,160 @@ export default function FriendDetailPage() {
               </div>
               )}
 
-              {/* 友だち情報 */}
+              {/* 友だち情報（カスタムフィールド） */}
               {isSectionVisible("friendFields") && allFieldDefs.length > 0 && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <h3 className="text-sm font-bold text-gray-800 mb-4">友だち情報</h3>
-                  {allFieldDefs.map(fd => {
-                    const val = patientFields.find(pf => pf.field_id === fd.id);
-                    return <InfoRow key={fd.id} label={fd.name}>{val?.value || <span className="text-gray-200">—</span>}</InfoRow>;
-                  })}
+                  <div className="space-y-3">
+                    {allFieldDefs.map(fd => {
+                      const currentVal = patientFields.find(pf => pf.field_id === fd.id)?.value ?? "";
+                      const editingVal = editingFieldValues[fd.id];
+                      const isEditing = editingVal !== undefined;
+                      const displayVal = isEditing ? editingVal : currentVal;
+                      const isSaving = savingFieldId === fd.id;
+                      const meta = getFieldMeta(fd.options);
+                      const choices = getFieldChoices(fd.options);
+
+                      const startEdit = (val: string) => setEditingFieldValues(prev => ({ ...prev, [fd.id]: val }));
+                      const cancelEdit = () => setEditingFieldValues(prev => {
+                        const next = { ...prev }; delete next[fd.id]; return next;
+                      });
+                      const save = (val: string) => handleFieldValueSave(fd.id, val);
+
+                      // boolean: トグルスイッチ
+                      if (fd.field_type === "boolean") {
+                        const boolVal = currentVal === "true";
+                        return (
+                          <div key={fd.id} className="flex items-center justify-between py-1">
+                            <span className="text-xs text-gray-400">{fd.name}</span>
+                            <button
+                              onClick={() => save(boolVal ? "false" : "true")}
+                              disabled={isSaving}
+                              className={`relative w-10 h-5 rounded-full transition-colors ${boolVal ? "bg-teal-500" : "bg-gray-200"} ${isSaving ? "opacity-50" : ""}`}
+                            >
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${boolVal ? "left-5.5 translate-x-0" : "left-0.5"}`}
+                                style={{ left: boolVal ? "22px" : "2px" }} />
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      // select: セレクトボックス
+                      if (fd.field_type === "select" && choices.length > 0) {
+                        return (
+                          <div key={fd.id} className="flex items-center justify-between py-1 gap-2">
+                            <span className="text-xs text-gray-400 flex-shrink-0">{fd.name}</span>
+                            <select
+                              value={currentVal}
+                              onChange={(e) => save(e.target.value)}
+                              disabled={isSaving}
+                              className="text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:opacity-50 max-w-[180px]"
+                            >
+                              <option value="">--</option>
+                              {choices.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          </div>
+                        );
+                      }
+
+                      // date: 日付入力
+                      if (fd.field_type === "date") {
+                        return (
+                          <div key={fd.id} className="flex items-center justify-between py-1 gap-2">
+                            <span className="text-xs text-gray-400 flex-shrink-0">{fd.name}</span>
+                            <input
+                              type="date"
+                              value={currentVal}
+                              onChange={(e) => save(e.target.value)}
+                              disabled={isSaving}
+                              className="text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:opacity-50"
+                            />
+                          </div>
+                        );
+                      }
+
+                      // url: URL入力 + リンクアイコン
+                      if (fd.field_type === "url") {
+                        return (
+                          <div key={fd.id} className="py-1">
+                            <span className="text-xs text-gray-400 block mb-1">{fd.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {isEditing ? (
+                                <>
+                                  <input
+                                    type="url"
+                                    value={displayVal}
+                                    onChange={(e) => startEdit(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") save(displayVal); if (e.key === "Escape") cancelEdit(); }}
+                                    placeholder={meta.placeholder || "https://..."}
+                                    className="flex-1 text-xs text-gray-800 bg-gray-50 border border-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                                    autoFocus
+                                  />
+                                  <button onClick={() => save(displayVal)} disabled={isSaving} className="p-1 text-teal-500 hover:text-teal-700 disabled:opacity-50">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                  </button>
+                                  <button onClick={cancelEdit} className="p-1 text-gray-400 hover:text-gray-600">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-1.5 group/url cursor-pointer flex-1 min-w-0" onClick={() => startEdit(currentVal)}>
+                                  {currentVal ? (
+                                    <>
+                                      <span className="text-xs text-blue-600 truncate">{currentVal}</span>
+                                      <a href={currentVal} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-blue-400 hover:text-blue-600 flex-shrink-0">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                      </a>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-gray-200 group-hover/url:text-gray-400">--</span>
+                                  )}
+                                  <svg className="w-3 h-3 text-gray-200 group-hover/url:text-gray-400 flex-shrink-0 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // number / text: インライン編集
+                      return (
+                        <div key={fd.id} className="flex items-center justify-between py-1 gap-2">
+                          <span className="text-xs text-gray-400 flex-shrink-0">{fd.name}</span>
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type={fd.field_type === "number" ? "number" : "text"}
+                                value={displayVal}
+                                onChange={(e) => startEdit(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") save(displayVal); if (e.key === "Escape") cancelEdit(); }}
+                                min={fd.field_type === "number" && meta.min !== undefined ? meta.min : undefined}
+                                max={fd.field_type === "number" && meta.max !== undefined ? meta.max : undefined}
+                                placeholder={meta.placeholder || ""}
+                                className="w-32 text-xs text-gray-800 bg-gray-50 border border-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                                autoFocus
+                              />
+                              <button onClick={() => save(displayVal)} disabled={isSaving} className="p-1 text-teal-500 hover:text-teal-700 disabled:opacity-50">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              </button>
+                              <button onClick={cancelEdit} className="p-1 text-gray-400 hover:text-gray-600">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 group/field cursor-pointer" onClick={() => startEdit(currentVal)}>
+                              <span className={`text-xs ${currentVal ? "text-gray-800" : "text-gray-200 group-hover/field:text-gray-400"}`}>
+                                {currentVal || "--"}
+                              </span>
+                              <svg className="w-3 h-3 text-gray-200 group-hover/field:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
