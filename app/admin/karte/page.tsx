@@ -6,6 +6,7 @@ import { formatFullDateTimeJST, calcAge, formatDateJST } from "@/lib/patient-uti
 import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
 import { emptySoapNote, noteToSoap, soapToNote, soapToText, parseJsonToSoap, SOAP_LABELS } from "@/lib/soap-parser";
 import { KarteNoteEditor } from "@/components/karte/KarteNoteEditor";
+import { VoiceKarteInput } from "@/components/VoiceKarteInput";
 import PrescriptionTimeline from "@/components/karte/PrescriptionTimeline";
 import type { TimelineEntry } from "@/lib/prescription-timeline";
 
@@ -1280,6 +1281,17 @@ export default function KartePage() {
                                               )}
                                             </button>
                                           </div>
+                                          {/* 音声→カルテ自動記入 */}
+                                          <VoiceKarteInput
+                                            onApply={(soap, meta) => {
+                                              setEditSoap(soap);
+                                              setEditNoteFormat("soap");
+                                              setAiSummaryResult({
+                                                summary: meta.summary,
+                                                medications: meta.medications,
+                                              });
+                                            }}
+                                          />
                                           {/* AI要約サマリー表示 */}
                                           {aiSummaryResult && editingIntakeId === it.id && (
                                             <div className="rounded-lg bg-violet-50 border border-violet-200 p-3 space-y-1">
