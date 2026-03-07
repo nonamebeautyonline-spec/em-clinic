@@ -404,6 +404,21 @@ export async function processAiReply(
   lastProcessLog = log;
   const tid = tenantId ?? undefined;
 
+  // LINE_仮IDが統合済みの場合、最新のpatient_idを再取得
+  if (patientId.startsWith("LINE_")) {
+    const { data: current } = await withTenant(
+      supabaseAdmin.from("patients").select("patient_id, name")
+        .eq("line_id", lineUid).maybeSingle(),
+      tenantId
+    );
+    if (current && !current.patient_id.startsWith("LINE_")) {
+      log.push(`patientId統合検出: ${patientId} → ${current.patient_id}`);
+      console.log(`[AI Reply] patientId統合検出: ${patientId} → ${current.patient_id}`);
+      patientId = current.patient_id;
+      if (current.name) patientName = current.name;
+    }
+  }
+
   // 1. AI返信設定を取得
   log.push("step1: settings取得");
   const { data: settings } = await withTenant(
