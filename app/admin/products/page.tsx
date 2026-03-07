@@ -20,6 +20,8 @@ type Product = {
   discount_until: string | null;
   description: string | null;
   parent_id: string | null;
+  stock_alert_threshold: number | null;
+  stock_alert_enabled: boolean;
 };
 
 type FormData = {
@@ -38,6 +40,8 @@ type FormData = {
   discount_until: string;
   description: string;
   parent_id: string;
+  stock_alert_threshold: string;
+  stock_alert_enabled: boolean;
 };
 
 const EMPTY_FORM: FormData = {
@@ -56,6 +60,8 @@ const EMPTY_FORM: FormData = {
   discount_until: "",
   description: "",
   parent_id: "",
+  stock_alert_threshold: "",
+  stock_alert_enabled: false,
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -126,6 +132,8 @@ export default function ProductsPage() {
       discount_until: product.discount_until ? product.discount_until.slice(0, 10) : "",
       description: product.description || "",
       parent_id: product.parent_id || "",
+      stock_alert_threshold: product.stock_alert_threshold?.toString() || "",
+      stock_alert_enabled: product.stock_alert_enabled ?? false,
     });
     setSaveError("");
     setShowModal(true);
@@ -167,6 +175,8 @@ export default function ProductsPage() {
       discount_until: form.discount_until || null,
       description: form.description.trim() || null,
       parent_id: form.parent_id || null,
+      stock_alert_threshold: form.stock_alert_threshold ? Number(form.stock_alert_threshold) : null,
+      stock_alert_enabled: form.stock_alert_enabled,
     };
 
     try {
@@ -759,6 +769,38 @@ export default function ProductsPage() {
                     }
                   </select>
                 </div>
+              </div>
+
+              {/* 在庫アラート設定 */}
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-slate-700">在庫アラート</h4>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.stock_alert_enabled}
+                      onChange={(e) => setForm((prev) => ({ ...prev, stock_alert_enabled: e.target.checked }))}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                  </label>
+                </div>
+                {form.stock_alert_enabled && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      アラート閾値（この数以下で通知）
+                    </label>
+                    <input
+                      type="number"
+                      value={form.stock_alert_threshold}
+                      onChange={(e) => handleFormChange("stock_alert_threshold", e.target.value)}
+                      placeholder="例: 10"
+                      min="0"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">在庫数がこの値以下になるとアラートが表示されます</p>
+                  </div>
+                )}
               </div>
 
               {/* 割引価格 & 割引期限 - 横並び */}

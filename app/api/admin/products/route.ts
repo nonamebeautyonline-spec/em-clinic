@@ -5,6 +5,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { checkInventoryAlerts } from "@/lib/inventory-alert";
 import { parseBody } from "@/lib/validations/helpers";
 import { productCreateSchema, productUpdateSchema } from "@/lib/validations/admin-operations";
 
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
     code, title, drug_name, dosage, duration_months, quantity, price,
     category, sort_order, image_url, stock_quantity, discount_price,
     discount_until, description, parent_id,
+    stock_alert_threshold, stock_alert_enabled,
   } = parsed.data;
 
   const { data, error } = await supabaseAdmin
@@ -55,6 +57,8 @@ export async function POST(req: NextRequest) {
       discount_until: discount_until || null,
       description: description || null,
       parent_id: parent_id || null,
+      stock_alert_threshold: stock_alert_threshold ?? null,
+      stock_alert_enabled: stock_alert_enabled ?? false,
     })
     .select()
     .single();
@@ -63,6 +67,9 @@ export async function POST(req: NextRequest) {
     console.error("[products API] insert error:", error.message);
     return serverError(error.message);
   }
+
+  // 在庫アラートチェック（非同期、エラーは無視）
+  checkInventoryAlerts(tenantId).catch(() => {});
 
   return NextResponse.json({ product: data }, { status: 201 });
 }
@@ -88,6 +95,9 @@ export async function PUT(req: NextRequest) {
     console.error("[products API] update error:", error.message);
     return serverError(error.message);
   }
+
+  // 在庫アラートチェック（非同期、エラーは無視）
+  checkInventoryAlerts(tenantId).catch(() => {});
 
   return NextResponse.json({ product: data });
 }

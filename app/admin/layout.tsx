@@ -60,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [pendingReorderCount, setPendingReorderCount] = useState(0);
+  const [inventoryAlertCount, setInventoryAlertCount] = useState(0);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const [tenantRole, setTenantRole] = useState<string>("admin");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
@@ -83,6 +84,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (res.ok) {
         const data = await res.json();
         setPendingReorderCount(data.count ?? 0);
+      }
+    } catch { /* 無視 */ }
+  }, []);
+
+  // 在庫アラート件数取得
+  const fetchInventoryAlertCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/inventory/alerts/count", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setInventoryAlertCount(data.count ?? 0);
       }
     } catch { /* 無視 */ }
   }, []);
@@ -198,17 +210,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
 
-  // 未読カウント・再処方件数のポーリング（30秒間隔）
+  // 未読カウント・再処方件数・在庫アラート件数のポーリング（30秒間隔）
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchUnreadCount();
     fetchPendingReorderCount();
+    fetchInventoryAlertCount();
     const interval = setInterval(() => {
       fetchUnreadCount();
       fetchPendingReorderCount();
+      fetchInventoryAlertCount();
     }, 30000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, fetchUnreadCount, fetchPendingReorderCount]);
+  }, [isAuthenticated, fetchUnreadCount, fetchPendingReorderCount, fetchInventoryAlertCount]);
 
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
@@ -314,7 +328,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   label={item.label}
                   isActive={pathname === item.href || pathname?.startsWith(item.href + "/")}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  badge={item.href === "/admin/line/talk" ? unreadCount : item.href === "/admin/reorders" ? pendingReorderCount : undefined}
+                  badge={item.href === "/admin/line/talk" ? unreadCount : item.href === "/admin/reorders" ? pendingReorderCount : item.href === "/admin/inventory" ? inventoryAlertCount : undefined}
                   feature={item.feature}
                 />
               ))}
@@ -538,6 +552,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             label="在庫"
             isOpen={isSidebarOpen}
             isActive={pathname.startsWith("/admin/inventory")}
+            badge={inventoryAlertCount}
           />
           <MenuItem
             href="/admin/legal-settings"
