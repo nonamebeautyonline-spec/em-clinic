@@ -7,6 +7,7 @@ import { formSubmitSchema } from "@/lib/validations/forms";
 import { evaluateDisplayConditions } from "@/lib/form-conditions";
 import type { DisplayConditions } from "@/lib/form-conditions";
 import { badRequest, forbidden, notFound, serverError } from "@/lib/api-error";
+import { fireWorkflowTrigger } from "@/lib/workflow-engine";
 
 /**
  * フォーム送信後のアクション実行
@@ -105,7 +106,7 @@ export async function POST(
   const { data: form, error: formErr } = await withTenant(
     supabaseAdmin
       .from("forms")
-      .select("id, fields, settings, is_published")
+      .select("id, name, fields, settings, is_published")
       .eq("slug", slug)
       .single(),
     tenantId
@@ -283,17 +284,96 @@ export async function POST(
     }
   }
 
-  // フォーム名を取得してシステムイベントログを記録
-  if (line_user_id) {
-    const { data: formInfo } = await withTenant(
-      supabaseAdmin
-        .from("forms")
-        .select("name")
-        .eq("id", form.id)
-        .maybeSingle(),
-      tenantId
-    );
+  // 回答後自動アクション（post_submit_actions）実行
+  const postSubmitActions = Array.isArray(settings.post_submit_actions)
+    ? (settings.post_submit_actions as Array<Record<string, unknown>>)
+    : [];
 
+  if (postSubmitActions.length > 0 && patientId && line_user_id) {
+    for (const action of postSubmitActions) {
+      try {
+        switch (action.type) {
+          case "tag_add":
+            if (action.tag_id) {
+              await supabaseAdmin
+                .from("patient_tags")
+                .upsert(
+                  { ...tenantPayload(tenantId), patient_id: patientId, tag_id: action.tag_id, assigned_by: "form_submit_action" },
+                  { onConflict: "patient_id,tag_id" }
+                );
+            }
+            break;
+          case "tag_remove":
+            if (action.tag_id) {
+              await withTenant(
+                supabaseAdmin
+                  .from("patient_tags")
+                  .delete()
+                  .eq("patient_id", patientId)
+                  .eq("tag_id", action.tag_id),
+                tenantId
+              );
+            }
+            break;
+          case "send_message":
+            if (action.template_id) {
+              const { data: tpl } = await withTenant(
+                supabaseAdmin
+                  .from("message_templates")
+                  .select("content, message_type, flex_content")
+                  .eq("id", action.template_id)
+                  .maybeSingle(),
+                tenantId
+              );
+              if (tpl) {
+                if (tpl.message_type === "flex" && tpl.flex_content) {
+                  await pushMessage(
+                    line_user_id,
+                    [{ type: "flex", altText: tpl.content || "メッセージ", contents: tpl.flex_content as Record<string, unknown> }],
+                    tenantId ?? undefined
+                  );
+                } else if (tpl.content) {
+                  await pushMessage(line_user_id, [{ type: "text", text: tpl.content }], tenantId ?? undefined);
+                }
+              }
+            }
+            break;
+          case "workflow":
+            if (action.workflow_id) {
+              await fireWorkflowTrigger("form_submitted", {
+                form_id: form.id,
+                form_name: form.name,
+                patient_id: patientId,
+                line_user_id,
+                response_id: response?.id,
+              }, tenantId).catch(e => {
+                console.error(`[form-submit] workflow ${action.workflow_id} トリガーエラー:`, e);
+              });
+            }
+            break;
+        }
+      } catch (e) {
+        console.error(`[form-submit] post_submit_action ${action.type} 実行エラー:`, e);
+      }
+    }
+  }
+
+  // ワークフロートリガー（form_submitted）— fire-and-forget
+  // post_submit_actionsで明示的にworkflowを指定していなくても、
+  // trigger_type=form_submitted のワークフローがあれば自動実行
+  fireWorkflowTrigger("form_submitted", {
+    form_id: form.id,
+    form_name: form.name,
+    patient_id: patientId ?? undefined,
+    line_user_id: line_user_id || undefined,
+    answers,
+    response_id: response?.id,
+  }, tenantId).catch(e => {
+    console.error("[form-submit] fireWorkflowTrigger エラー:", e);
+  });
+
+  // システムイベントログを記録
+  if (line_user_id) {
     // 回答された項目名を収集
     const answeredFields = fields
       .filter((f: Record<string, unknown>) => f.type !== "heading_sm" && f.type !== "heading_md" && !f.hidden && answers?.[f.id as string])
@@ -309,7 +389,7 @@ export async function POST(
       line_uid: line_user_id,
       event_type: "system",
       message_type: "event",
-      content: `フォーム${formInfo?.name || slug}に回答しました${detail ? "\n" + detail : ""}`,
+      content: `フォーム${form.name || slug}に回答しました${detail ? "\n" + detail : ""}`,
       status: "received",
       direction: "incoming",
     });

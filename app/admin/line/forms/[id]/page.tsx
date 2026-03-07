@@ -54,6 +54,7 @@ interface FormSettings {
   thanks_message: string;
   allow_restore: boolean;
   post_actions: number[];
+  post_submit_actions: PostSubmitAction[];
 }
 
 interface FormData {
@@ -78,6 +79,32 @@ interface Folder {
 interface ActionDef {
   id: number;
   name: string;
+}
+
+interface TagDef {
+  id: number;
+  name: string;
+  color: string;
+}
+
+interface TemplateDef {
+  id: number;
+  name: string;
+  message_type: string;
+}
+
+interface WorkflowDef {
+  id: string;
+  name: string;
+  status: string;
+}
+
+/** 回答後自動アクション */
+interface PostSubmitAction {
+  type: "tag_add" | "tag_remove" | "send_message" | "workflow";
+  tag_id?: number;
+  template_id?: number;
+  workflow_id?: string;
 }
 
 interface FriendFieldDef {
@@ -135,6 +162,7 @@ const DEFAULT_SETTINGS: FormSettings = {
   thanks_message: "回答を受け付けました。ありがとうございます。",
   allow_restore: false,
   post_actions: [],
+  post_submit_actions: [],
 };
 
 // ============================================================
@@ -407,6 +435,9 @@ export default function FormEditorPage() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [actions, setActions] = useState<ActionDef[]>([]);
   const [friendFields, setFriendFields] = useState<FriendFieldDef[]>([]);
+  const [tagDefs, setTagDefs] = useState<TagDef[]>([]);
+  const [templateDefs, setTemplateDefs] = useState<TemplateDef[]>([]);
+  const [workflowDefs, setWorkflowDefs] = useState<WorkflowDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -437,15 +468,21 @@ export default function FormEditorPage() {
   }, [id]);
 
   const initFormEditor = useCallback(async () => {
-    const [, folderData, actionData, fieldData] = await Promise.all([
+    const [, folderData, actionData, fieldData, tagData, templateData, workflowData] = await Promise.all([
       fetchForm(),
       fetch("/api/admin/line/form-folders", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/line/actions", { credentials: "include" }).then(r => r.json()),
       fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/tags?simple=true", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
+      fetch("/api/admin/line/workflows", { credentials: "include" }).then(r => r.json()),
     ]);
     if (folderData.folders) setFolders(folderData.folders);
     if (actionData.actions) setActions(actionData.actions);
     if (fieldData.fields) setFriendFields(fieldData.fields);
+    if (tagData.tags) setTagDefs(tagData.tags);
+    if (templateData.templates) setTemplateDefs(templateData.templates);
+    if (workflowData.workflows) setWorkflowDefs(workflowData.workflows);
     setLoading(false);
   }, [fetchForm]);
 
@@ -1080,6 +1117,130 @@ export default function FormEditorPage() {
                         </label>
                       ))}
                     </div>
+                  )}
+                </td>
+              </tr>
+              {/* 回答後自動アクション */}
+              <tr className="border-b border-gray-100">
+                <td className="px-5 py-4 text-gray-700 font-medium align-top bg-gray-50/50">回答後アクション</td>
+                <td className="px-5 py-4">
+                  <p className="text-xs text-gray-400 mb-3">フォーム回答後に自動実行するアクションを設定（複数可・順番に実行）</p>
+
+                  {/* アクション一覧 */}
+                  {(settings.post_submit_actions || []).length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {(settings.post_submit_actions || []).map((action, ai) => (
+                        <div key={ai} className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
+                          <span className="text-xs text-gray-400 w-5 text-center flex-shrink-0">{ai + 1}</span>
+
+                          {/* アクション種別 */}
+                          <select
+                            value={action.type}
+                            onChange={e => {
+                              const newType = e.target.value as PostSubmitAction["type"];
+                              const updated = [...(settings.post_submit_actions || [])];
+                              updated[ai] = { type: newType };
+                              setSettings(s => ({ ...s, post_submit_actions: updated }));
+                            }}
+                            className="px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] flex-shrink-0"
+                          >
+                            <option value="tag_add">タグ追加</option>
+                            <option value="tag_remove">タグ削除</option>
+                            <option value="send_message">メッセージ送信</option>
+                            <option value="workflow">ワークフロー実行</option>
+                          </select>
+
+                          {/* タグ選択（tag_add / tag_remove） */}
+                          {(action.type === "tag_add" || action.type === "tag_remove") && (
+                            <select
+                              value={action.tag_id ?? ""}
+                              onChange={e => {
+                                const updated = [...(settings.post_submit_actions || [])];
+                                updated[ai] = { ...action, tag_id: e.target.value ? Number(e.target.value) : undefined };
+                                setSettings(s => ({ ...s, post_submit_actions: updated }));
+                              }}
+                              className="px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] flex-1 min-w-0"
+                            >
+                              <option value="">タグを選択...</option>
+                              {tagDefs.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          {/* テンプレート選択（send_message） */}
+                          {action.type === "send_message" && (
+                            <select
+                              value={action.template_id ?? ""}
+                              onChange={e => {
+                                const updated = [...(settings.post_submit_actions || [])];
+                                updated[ai] = { ...action, template_id: e.target.value ? Number(e.target.value) : undefined };
+                                setSettings(s => ({ ...s, post_submit_actions: updated }));
+                              }}
+                              className="px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] flex-1 min-w-0"
+                            >
+                              <option value="">テンプレートを選択...</option>
+                              {templateDefs.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          {/* ワークフロー選択（workflow） */}
+                          {action.type === "workflow" && (
+                            <select
+                              value={action.workflow_id ?? ""}
+                              onChange={e => {
+                                const updated = [...(settings.post_submit_actions || [])];
+                                updated[ai] = { ...action, workflow_id: e.target.value || undefined };
+                                setSettings(s => ({ ...s, post_submit_actions: updated }));
+                              }}
+                              className="px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-[#00B900] flex-1 min-w-0"
+                            >
+                              <option value="">ワークフローを選択...</option>
+                              {workflowDefs.filter(w => w.status === "active").map(w => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                              ))}
+                            </select>
+                          )}
+
+                          {/* 削除ボタン */}
+                          <button
+                            onClick={() => {
+                              const updated = (settings.post_submit_actions || []).filter((_, i) => i !== ai);
+                              setSettings(s => ({ ...s, post_submit_actions: updated }));
+                            }}
+                            className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0"
+                            title="アクションを削除"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* アクション追加ボタン */}
+                  <button
+                    onClick={() => {
+                      const newAction: PostSubmitAction = { type: "tag_add" };
+                      setSettings(s => ({
+                        ...s,
+                        post_submit_actions: [...(s.post_submit_actions || []), newAction],
+                      }));
+                    }}
+                    className="text-xs text-[#00B900] hover:underline flex items-center gap-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    アクションを追加
+                  </button>
+
+                  {(settings.post_submit_actions || []).length === 0 && (
+                    <p className="text-xs text-gray-400 mt-2">アクションが未設定です。LINE友だちに対してタグ付け・メッセージ送信・ワークフロー実行を自動化できます。</p>
                   )}
                 </td>
               </tr>
