@@ -194,49 +194,13 @@ export async function POST(req: NextRequest) {
         matchedMap.set(`${m.transfer.date}|${m.transfer.description}`, m.order.id);
       }
 
-      // 2) 既にconfirmed済みの銀行振込注文を取得し、入金行と自動照合
-      const { data: confirmedOrders } = await withTenant(
-        supabase
-          .from("orders")
-          .select("id, amount, account_name")
-          .eq("status", "confirmed")
-          .eq("payment_method", "bank_transfer"),
-        tenantId
-      );
-
-      // confirmed注文を金額+名義人でCSV入金行とマッチング
-      const confirmedMatchMap = new Map<string, string>();
-      if (confirmedOrders && confirmedOrders.length > 0) {
-        const usedConfirmedIds = new Set<string>();
-        for (const t of allTransactions) {
-          if (t.deposit <= 0) continue;
-          const key = `${t.date}|${t.description}`;
-          if (matchedMap.has(key)) continue; // 既にpendingでマッチ済み
-          for (const order of confirmedOrders) {
-            if (usedConfirmedIds.has(order.id)) continue;
-            const accountName = order.account_name || "";
-            if (!accountName) continue;
-            const descNormalized = normalizeKana(t.description);
-            const accountNormalized = normalizeKana(accountName);
-            if (descNormalized.includes(accountNormalized) || t.description.includes(accountName)) {
-              if (order.amount === t.deposit) {
-                confirmedMatchMap.set(key, order.id);
-                usedConfirmedIds.add(order.id);
-                break;
-              }
-            }
-          }
-        }
-        console.log(`[Preview] Auto-reconciled ${confirmedMatchMap.size} entries against confirmed orders`);
-      }
-
       const csvFilename = file.name || "unknown.csv";
       const rows = allTransactions.map((t) => {
         const dateNormalized = t.date.replace(/\//g, "-");
         const monthStr = dateNormalized.substring(0, 7);
         const matchKey = `${t.date}|${t.description}`;
-        // pendingマッチ or confirmedマッチ
-        const matchedOrderId = matchedMap.get(matchKey) || confirmedMatchMap.get(matchKey) || null;
+        // pendingマッチのみ（手動確認分は自動照合しない）
+        const matchedOrderId = matchedMap.get(matchKey) || null;
         return {
           tenant_id: tenantId || "00000000-0000-0000-0000-000000000001",
           transaction_date: dateNormalized,

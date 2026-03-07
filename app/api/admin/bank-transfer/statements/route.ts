@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     const { data: statements, error } = await withTenant(
       supabase
         .from("bank_statements")
-        .select("id, transaction_date, description, deposit, withdrawal, balance, reconciled, matched_order_id, csv_filename")
+        .select("id, transaction_date, description, deposit, withdrawal, balance, reconciled, matched_order_id, csv_filename, uploaded_at")
         .eq("month", targetMonth)
         .order("transaction_date", { ascending: false })
         .order("id", { ascending: false })
