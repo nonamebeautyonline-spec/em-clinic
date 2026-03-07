@@ -31,16 +31,24 @@ export async function GET(req: NextRequest) {
 
     const tenantId = resolveTenantId(req);
 
-    // pending_confirmation の銀行振込注文を取得
-    const { data: orders, error } = await withTenant(
-      supabase
-        .from("orders")
-        .select("id, patient_id, product_code, amount, shipping_name, account_name, address, postal_code, phone, created_at")
-        .eq("payment_method", "bank_transfer")
-        .eq("status", "pending_confirmation")
-        .order("created_at", { ascending: false }),
-      tenantId
-    );
+    // statusフィルター: pending_confirmation / confirmed / all
+    const { searchParams } = new URL(req.url);
+    const statusFilter = searchParams.get("status") || "pending_confirmation";
+
+    // 銀行振込注文を取得
+    let query = supabase
+      .from("orders")
+      .select("id, patient_id, product_code, amount, shipping_name, account_name, address, postal_code, phone, created_at, status")
+      .eq("payment_method", "bank_transfer")
+      .order("created_at", { ascending: false });
+
+    if (statusFilter === "all") {
+      query = query.in("status", ["pending_confirmation", "confirmed"]);
+    } else {
+      query = query.eq("status", statusFilter);
+    }
+
+    const { data: orders, error } = await withTenant(query, tenantId);
 
     if (error) {
       console.error("Supabase pending orders error:", error);
@@ -67,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
 
     // データを整形
-    const formattedOrders = (orders || []).map((order: { id: string; patient_id: string; product_code: string; amount: number; shipping_name: string | null; account_name: string | null; address: string | null; postal_code: string | null; phone: string | null; created_at: string }) => ({
+    const formattedOrders = (orders || []).map((order: { id: string; patient_id: string; product_code: string; amount: number; shipping_name: string | null; account_name: string | null; address: string | null; postal_code: string | null; phone: string | null; created_at: string; status: string }) => ({
       id: order.id,
       patient_id: order.patient_id,
       patient_name: patientNameMap[order.patient_id] || "",
@@ -80,6 +88,7 @@ export async function GET(req: NextRequest) {
       postal_code: order.postal_code || "",
       phone: order.phone || "",
       created_at: order.created_at,
+      status: order.status,
     }));
 
     return NextResponse.json({ orders: formattedOrders });

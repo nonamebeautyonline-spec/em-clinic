@@ -10,7 +10,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 /**
  * 入出金明細取得API
- * GET /api/admin/bank-transfer/statements?month=2026-03&page=1&limit=100
+ * GET /api/admin/bank-transfer/statements?month=2026-03&page=1&limit=50&filter=all|reconciled|unreconciled
  */
 export async function GET(req: NextRequest) {
   try {
@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") || "";
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "100", 10)));
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") || "50", 10)));
     const offset = (page - 1) * limit;
+    const filter = searchParams.get("filter") || "all"; // all, reconciled, unreconciled
 
     // 利用可能な月一覧を取得
     const { data: monthsData } = await withTenant(
@@ -45,20 +46,25 @@ export async function GET(req: NextRequest) {
     }
 
     // 件数取得
-    const { count } = await withTenant(
-      supabase
-        .from("bank_statements")
-        .select("id", { count: "exact", head: true })
-        .eq("month", targetMonth),
-      tenantId
-    );
+    let countQuery = supabase
+      .from("bank_statements")
+      .select("id", { count: "exact", head: true })
+      .eq("month", targetMonth);
+    if (filter === "reconciled") countQuery = countQuery.eq("reconciled", true);
+    if (filter === "unreconciled") countQuery = countQuery.eq("reconciled", false);
+
+    const { count } = await withTenant(countQuery, tenantId);
 
     // 明細取得
+    let dataQuery = supabase
+      .from("bank_statements")
+      .select("id, transaction_date, description, deposit, withdrawal, balance, reconciled, matched_order_id, csv_filename, uploaded_at")
+      .eq("month", targetMonth);
+    if (filter === "reconciled") dataQuery = dataQuery.eq("reconciled", true);
+    if (filter === "unreconciled") dataQuery = dataQuery.eq("reconciled", false);
+
     const { data: statements, error } = await withTenant(
-      supabase
-        .from("bank_statements")
-        .select("id, transaction_date, description, deposit, withdrawal, balance, reconciled, matched_order_id, csv_filename, uploaded_at")
-        .eq("month", targetMonth)
+      dataQuery
         .order("transaction_date", { ascending: false })
         .order("id", { ascending: false })
         .range(offset, offset + limit - 1),

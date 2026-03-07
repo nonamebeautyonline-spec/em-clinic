@@ -86,6 +86,7 @@ interface PendingOrder {
   postal_code: string;
   phone: string;
   created_at: string;
+  status: string;
 }
 
 export default function BankTransferReconcilePage() {
@@ -116,14 +117,14 @@ export default function BankTransferReconcilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(0);
+  // 配送先情報フォーム フィルター
+  const [pendingFilter, setPendingFilter] = useState<"pending_confirmation" | "confirmed" | "all">("pending_confirmation");
   // 入出金詳細
   const [stmtMonths, setStmtMonths] = useState<string[]>([]);
-  const [stmtMonth, setStmtMonth] = useState("");
-  const [stmtData, setStmtData] = useState<BankStatement[]>([]);
-  const [stmtTotal, setStmtTotal] = useState(0);
-  const [stmtPage, setStmtPage] = useState(1);
+  const [stmtMonthData, setStmtMonthData] = useState<Record<string, { data: BankStatement[]; total: number; page: number; loading: boolean }>>({});
   const [stmtLoading, setStmtLoading] = useState(false);
-  const [stmtExpandedMonths, setStmtExpandedMonths] = useState<Set<string>>(new Set());
+  // 入出金詳細 フィルター
+  const [stmtFilter, setStmtFilter] = useState<"all" | "reconciled" | "unreconciled">("all");
   // 手動紐づけ
   const [linkTarget, setLinkTarget] = useState<BankStatement | null>(null);
   const [linkOrderId, setLinkOrderId] = useState("");
@@ -156,10 +157,17 @@ export default function BankTransferReconcilePage() {
       .catch(() => {});
   }, []);
 
-  const loadPendingOrders = async () => {
+  const loadPendingOrders = async (status?: string) => {
     setLoadingPending(true);
+    const filterStatus = status || pendingFilter;
     try {
-      const res = await fetch("/api/admin/bank-transfer/pending", {
+      const params = new URLSearchParams();
+      if (filterStatus === "all") {
+        params.set("status", "all");
+      } else {
+        params.set("status", filterStatus);
+      }
+      const res = await fetch(`/api/admin/bank-transfer/pending?${params}`, {
         credentials: "include",
       });
 
@@ -176,29 +184,67 @@ export default function BankTransferReconcilePage() {
     }
   };
 
-  const loadStatements = useCallback(async (month?: string, page = 1) => {
-    setStmtLoading(true);
+  const loadStatementsForMonth = useCallback(async (month: string, page = 1, filter = "all") => {
+    setStmtMonthData((prev) => ({
+      ...prev,
+      [month]: { ...(prev[month] || { data: [], total: 0, page: 1 }), loading: true },
+    }));
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "20" });
-      if (month) params.set("month", month);
+      const params = new URLSearchParams({ month, page: String(page), limit: "50", filter });
       const res = await fetch(`/api/admin/bank-transfer/statements?${params}`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
-      setStmtData(data.statements || []);
-      setStmtTotal(data.total || 0);
-      setStmtMonths(data.months || []);
-      setStmtMonth(data.month || "");
-      setStmtPage(page);
-      // 最新月は自動展開
-      if (!month && data.month) {
-        setStmtExpandedMonths((prev) => new Set(prev).add(data.month));
+      setStmtMonthData((prev) => ({
+        ...prev,
+        [month]: {
+          data: data.statements || [],
+          total: data.total || 0,
+          page,
+          loading: false,
+        },
+      }));
+    } catch {
+      setStmtMonthData((prev) => ({
+        ...prev,
+        [month]: { ...(prev[month] || { data: [], total: 0, page: 1 }), loading: false },
+      }));
+    }
+  }, []);
+
+  const loadStatements = useCallback(async (filter = "all") => {
+    setStmtLoading(true);
+    try {
+      // まず月一覧を取得
+      const params = new URLSearchParams({ page: "1", limit: "50", filter });
+      const res = await fetch(`/api/admin/bank-transfer/statements?${params}`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const months: string[] = data.months || [];
+      setStmtMonths(months);
+      // 最新月のデータをセット
+      if (months.length > 0) {
+        setStmtMonthData((prev) => ({
+          ...prev,
+          [data.month]: {
+            data: data.statements || [],
+            total: data.total || 0,
+            page: 1,
+            loading: false,
+          },
+        }));
+        // 残りの月もロード
+        for (const m of months) {
+          if (m !== data.month) {
+            loadStatementsForMonth(m, 1, filter);
+          }
+        }
       }
     } catch {
       // サイレント
     } finally {
       setStmtLoading(false);
     }
-  }, []);
+  }, [loadStatementsForMonth]);
 
   // 初回ロード
   useEffect(() => {
@@ -257,7 +303,7 @@ export default function BankTransferReconcilePage() {
         setReconcileMode(data.mode);
       }
       // CSVプレビュー後に入出金詳細を自動リロード
-      loadStatements();
+      loadStatements(stmtFilter);
     } catch (err) {
       console.error("Preview error:", err);
       setError(err instanceof Error ? err.message : "照合プレビューに失敗しました");
@@ -304,7 +350,7 @@ export default function BankTransferReconcilePage() {
       setFile(null);
       setFileInputKey((k) => k + 1);
       setSelectedMismatches(new Set());
-      loadPendingOrders(); // 未照合一覧を更新
+      loadPendingOrders(); // 配送先情報フォームを更新
     } catch (err) {
       console.error("Confirm error:", err);
       setError(err instanceof Error ? err.message : "照合確定に失敗しました");
@@ -407,25 +453,48 @@ export default function BankTransferReconcilePage() {
         </p>
       </div>
 
-      {/* 未照合一覧 */}
+      {/* 配送先情報フォーム */}
       <div className="bg-white rounded-lg shadow mb-6">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">未照合一覧</h2>
-            <p className="text-sm text-slate-600 mt-1">振込確認待ちの注文（{pendingOrders.length}件）</p>
+        <div className="px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">配送先情報フォーム</h2>
+              <p className="text-sm text-slate-600 mt-1">銀行振込注文（{pendingOrders.length}件）</p>
+            </div>
+            <button
+              onClick={() => loadPendingOrders()}
+              className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
+            >
+              更新
+            </button>
           </div>
-          <button
-            onClick={loadPendingOrders}
-            className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg"
-          >
-            🔄 更新
-          </button>
+          <div className="flex gap-4 mt-3">
+            {([
+              { value: "pending_confirmation" as const, label: "未照合" },
+              { value: "confirmed" as const, label: "照合済み" },
+              { value: "all" as const, label: "全て" },
+            ]).map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="pendingFilter"
+                  checked={pendingFilter === opt.value}
+                  onChange={() => {
+                    setPendingFilter(opt.value);
+                    loadPendingOrders(opt.value);
+                  }}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm text-slate-700">{opt.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div className="overflow-x-auto">
           {loadingPending ? (
             <div className="p-8 text-center text-slate-500">読み込み中...</div>
           ) : pendingOrders.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">未照合の注文はありません</div>
+            <div className="p-8 text-center text-slate-500">該当する注文はありません</div>
           ) : (
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
@@ -488,25 +557,33 @@ export default function BankTransferReconcilePage() {
                       〒{order.postal_code} {order.address}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                      <button
-                        onClick={() => {
-                          setChangeProductOrder(order);
-                          setNewProductCode("");
-                          setChangeProductMemo("");
-                        }}
-                        className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs"
-                      >
-                        商品変更
-                      </button>
-                      <button
-                        onClick={() => {
-                          setManualConfirmOrder(order);
-                          setManualConfirmMemo("");
-                        }}
-                        className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
-                      >
-                        手動確認
-                      </button>
+                      {order.status === "pending_confirmation" ? (
+                        <>
+                          <button
+                            onClick={() => {
+                              setChangeProductOrder(order);
+                              setNewProductCode("");
+                              setChangeProductMemo("");
+                            }}
+                            className="px-3 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 text-xs"
+                          >
+                            商品変更
+                          </button>
+                          <button
+                            onClick={() => {
+                              setManualConfirmOrder(order);
+                              setManualConfirmMemo("");
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                          >
+                            手動確認
+                          </button>
+                        </>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                          確認済み
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -770,6 +847,7 @@ export default function BankTransferReconcilePage() {
                                 postal_code: "",
                                 phone: "",
                                 created_at: "",
+                                status: "pending_confirmation",
                               });
                               setNewProductCode("");
                               setChangeProductMemo("");
@@ -1018,152 +1096,157 @@ export default function BankTransferReconcilePage() {
       {stmtMonths.length > 0 && (
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">入出金詳細</h2>
-            <p className="text-sm text-slate-600 mt-1">CSVから取り込んだ入出金明細</p>
-          </div>
-
-          {/* 月タブ */}
-          <div className="px-6 py-3 border-b border-slate-200 flex flex-wrap gap-2">
-            {stmtMonths.map((m, i) => {
-              const isActive = stmtMonth === m && stmtExpandedMonths.has(m);
-              const label = (() => {
-                const [y, mo] = m.split("-");
-                return i === 0 ? `${parseInt(mo)}月（最新）` : `${y}年${parseInt(mo)}月`;
-              })();
-              return (
-                <button
-                  key={m}
-                  onClick={() => {
-                    const next = new Set(stmtExpandedMonths);
-                    if (isActive) {
-                      next.delete(m);
-                      setStmtExpandedMonths(next);
-                    } else {
-                      next.add(m);
-                      setStmtExpandedMonths(next);
-                      loadStatements(m, 1);
-                    }
-                  }}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                    isActive
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 明細テーブル */}
-          {stmtExpandedMonths.has(stmtMonth) && (
-            <div>
-              {stmtLoading ? (
-                <div className="p-8 text-center text-slate-500">読み込み中...</div>
-              ) : stmtData.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">明細データがありません</div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200">
-                      <thead className="bg-slate-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">日付</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">入金</th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">出金</th>
-                          <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">照合</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-slate-200">
-                        {stmtData.map((s) => (
-                          <tr key={s.id} className="hover:bg-slate-50">
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-900">
-                              <div>{s.transaction_date}</div>
-                              {s.uploaded_at && (
-                                <div className="text-xs text-slate-400">
-                                  {new Date(s.uploaded_at).toLocaleString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} 取込
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-3 text-sm text-slate-900 max-w-xs truncate">
-                              {s.description}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-right font-medium text-green-700">
-                              {s.deposit > 0 ? `¥${s.deposit.toLocaleString()}` : ""}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-right font-medium text-red-600">
-                              {s.withdrawal > 0 ? `¥${s.withdrawal.toLocaleString()}` : ""}
-                            </td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-center">
-                              {s.deposit > 0 ? (
-                                s.reconciled ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    済
-                                  </span>
-                                ) : (
-                                  <button
-                                    onClick={async () => {
-                                      setLinkTarget(s);
-                                      setLinkOrderId("");
-                                      setLoadingUnlinked(true);
-                                      try {
-                                        const res = await fetch("/api/admin/bank-transfer/statements/unlinked-orders", { credentials: "include" });
-                                        if (res.ok) {
-                                          const data = await res.json();
-                                          setUnlinkedOrders(data.orders || []);
-                                        }
-                                      } catch { /* */ } finally {
-                                        setLoadingUnlinked(false);
-                                      }
-                                    }}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer"
-                                  >
-                                    未 → 紐づけ
-                                  </button>
-                                )
-                              ) : (
-                                <span className="text-slate-400">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* ページネーション */}
-                  {stmtTotal > 20 && (
-                    <div className="px-6 py-3 border-t border-slate-200 flex items-center justify-between">
-                      <span className="text-sm text-slate-600">
-                        {stmtTotal}件中 {(stmtPage - 1) * 20 + 1}〜{Math.min(stmtPage * 20, stmtTotal)}件
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => loadStatements(stmtMonth, stmtPage - 1)}
-                          disabled={stmtPage <= 1}
-                          className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
-                        >
-                          前へ
-                        </button>
-                        <span className="px-3 py-1 text-sm text-slate-600">
-                          {stmtPage} / {Math.ceil(stmtTotal / 20)}
-                        </span>
-                        <button
-                          onClick={() => loadStatements(stmtMonth, stmtPage + 1)}
-                          disabled={stmtPage * 20 >= stmtTotal}
-                          className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
-                        >
-                          次へ
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">入出金詳細</h2>
+                <p className="text-sm text-slate-600 mt-1">CSVから取り込んだ入出金明細</p>
+              </div>
             </div>
-          )}
+            <div className="flex gap-4 mt-3">
+              {([
+                { value: "all" as const, label: "全て" },
+                { value: "reconciled" as const, label: "照合済み" },
+                { value: "unreconciled" as const, label: "未照合" },
+              ]).map((opt) => (
+                <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="stmtFilter"
+                    checked={stmtFilter === opt.value}
+                    onChange={() => {
+                      setStmtFilter(opt.value);
+                      setStmtMonthData({});
+                      loadStatements(opt.value);
+                    }}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm text-slate-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* 各月の明細 */}
+          {stmtMonths.map((m, i) => {
+            const monthInfo = stmtMonthData[m];
+            const monthLabel = (() => {
+              const [y, mo] = m.split("-");
+              return i === 0 ? `${parseInt(mo)}月（最新）` : `${y}年${parseInt(mo)}月`;
+            })();
+            return (
+              <div key={m} className="border-t border-slate-200">
+                <div className="px-6 py-3 bg-slate-50">
+                  <h3 className="text-sm font-semibold text-slate-700">
+                    {monthLabel}
+                    {monthInfo && <span className="ml-2 text-xs font-normal text-slate-500">（{monthInfo.total}件）</span>}
+                  </h3>
+                </div>
+                {!monthInfo || monthInfo.loading ? (
+                  <div className="p-6 text-center text-slate-500 text-sm">読み込み中...</div>
+                ) : monthInfo.data.length === 0 ? (
+                  <div className="p-6 text-center text-slate-500 text-sm">該当する明細がありません</div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">日付</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">摘要</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">入金</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">出金</th>
+                            <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">照合</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-200">
+                          {monthInfo.data.map((s) => (
+                            <tr key={s.id} className="hover:bg-slate-50">
+                              <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-900">
+                                <div>{s.transaction_date}</div>
+                                {s.uploaded_at && (
+                                  <div className="text-xs text-slate-400">
+                                    {new Date(s.uploaded_at).toLocaleString("ja-JP", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} 取込
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-6 py-3 text-sm text-slate-900 max-w-xs truncate">
+                                {s.description}
+                              </td>
+                              <td className="px-6 py-3 whitespace-nowrap text-sm text-right font-medium text-green-700">
+                                {s.deposit > 0 ? `¥${s.deposit.toLocaleString()}` : ""}
+                              </td>
+                              <td className="px-6 py-3 whitespace-nowrap text-sm text-right font-medium text-red-600">
+                                {s.withdrawal > 0 ? `¥${s.withdrawal.toLocaleString()}` : ""}
+                              </td>
+                              <td className="px-6 py-3 whitespace-nowrap text-sm text-center">
+                                {s.deposit > 0 ? (
+                                  s.reconciled ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      済
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={async () => {
+                                        setLinkTarget(s);
+                                        setLinkOrderId("");
+                                        setLoadingUnlinked(true);
+                                        try {
+                                          const res = await fetch("/api/admin/bank-transfer/statements/unlinked-orders", { credentials: "include" });
+                                          if (res.ok) {
+                                            const data = await res.json();
+                                            setUnlinkedOrders(data.orders || []);
+                                          }
+                                        } catch { /* */ } finally {
+                                          setLoadingUnlinked(false);
+                                        }
+                                      }}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer"
+                                    >
+                                      未 → 紐づけ
+                                    </button>
+                                  )
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* ページネーション */}
+                    {monthInfo.total > 50 && (
+                      <div className="px-6 py-3 border-t border-slate-200 flex items-center justify-between">
+                        <span className="text-sm text-slate-600">
+                          {monthInfo.total}件中 {(monthInfo.page - 1) * 50 + 1}〜{Math.min(monthInfo.page * 50, monthInfo.total)}件
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => loadStatementsForMonth(m, monthInfo.page - 1, stmtFilter)}
+                            disabled={monthInfo.page <= 1}
+                            className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                          >
+                            前へ
+                          </button>
+                          <span className="px-3 py-1 text-sm text-slate-600">
+                            {monthInfo.page} / {Math.ceil(monthInfo.total / 50)}
+                          </span>
+                          <button
+                            onClick={() => loadStatementsForMonth(m, monthInfo.page + 1, stmtFilter)}
+                            disabled={monthInfo.page * 50 >= monthInfo.total}
+                            className="px-3 py-1 text-sm rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
+                          >
+                            次へ
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -1363,7 +1446,7 @@ export default function BankTransferReconcilePage() {
                       throw new Error(d.message || d.error || "紐づけに失敗しました");
                     }
                     setLinkTarget(null);
-                    loadStatements(stmtMonth, stmtPage);
+                    loadStatements(stmtFilter);
                   } catch (err) {
                     setError(err instanceof Error ? err.message : "紐づけに失敗しました");
                   } finally {
