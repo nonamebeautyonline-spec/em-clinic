@@ -6,6 +6,7 @@ import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { patientFieldsUpdateSchema } from "@/lib/validations/admin-operations";
+import { validateFieldValue, isValidFieldType, type FieldType } from "@/lib/custom-field-types";
 
 // 患者の友達情報欄の値を取得
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +38,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const parsed = await parseBody(req, patientFieldsUpdateSchema);
   if ("error" in parsed) return parsed.error;
   const { values } = parsed.data;
+
+  // フィールド定義を取得してバリデーション
+  const fieldIds = values.map((v: { field_id: number }) => v.field_id);
+  const { data: fieldDefs } = await withTenant(
+    supabaseAdmin
+      .from("friend_field_definitions")
+      .select("id, field_type, options")
+      .in("id", fieldIds),
+    tenantId
+  );
+
+  // フィールド定義をマップ化
+  const defMap = new Map<number, { field_type: string; options: unknown }>();
+  if (fieldDefs) {
+    for (const fd of fieldDefs) {
+      defMap.set(fd.id, fd);
+    }
+  }
+
+  // 型バリデーション
+  for (const v of values as { field_id: number; value: string }[]) {
+    const def = defMap.get(v.field_id);
+    if (def && isValidFieldType(def.field_type)) {
+      const result = validateFieldValue(def.field_type as FieldType, v.value, def.options as never);
+      if (!result.valid) {
+        return NextResponse.json(
+          { error: "VALIDATION_ERROR", message: result.error },
+          { status: 400 },
+        );
+      }
+    }
+  }
 
   const upserts = values.map((v: { field_id: number; value: string }) => ({
     ...tenantPayload(tenantId),
