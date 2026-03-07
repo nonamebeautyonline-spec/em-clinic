@@ -203,7 +203,7 @@ describe("admin配下全ルート: 認証チェック", () => {
 
   // 認証不要なルート（ログイン・パスワードリセット・セッションチェック等）
   // google-calendar/callback: OAuth2コールバック（Googleからのリダイレクトで管理者セッションなし、stateで識別）
-  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse", "google-calendar/callback"];
+  const AUTH_EXEMPT = ["login", "logout", "csrf-token", "password-reset", "session", "update-order-address", "tenant-info", "dashboard-sse", "google-calendar/callback", "google-calendar/webhook"];
 
   it("全 admin ルートが verifyAdminAuth を呼んでいる（除外ルート以外）", () => {
     const violations: string[] = [];
