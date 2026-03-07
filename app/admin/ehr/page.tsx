@@ -101,6 +101,15 @@ export default function EhrDashboardPage() {
   const [searchResults, setSearchResults] = useState<ExternalPatient[]>([]);
   const [searchError, setSearchError] = useState("");
 
+  // 同期スケジュール設定
+  const [scheduleInterval, setScheduleInterval] = useState<"hourly" | "every6h" | "daily">("daily");
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleSyncTime, setScheduleSyncTime] = useState("03:00");
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleSaved, setScheduleSaved] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
+
   // 同期ログ
   const [logs, setLogs] = useState<SyncLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
@@ -178,11 +187,64 @@ export default function EhrDashboardPage() {
     }
   }, []);
 
+  // 同期スケジュール設定を取得
+  const fetchSchedule = useCallback(async () => {
+    setScheduleLoading(true);
+    try {
+      const res = await fetch("/api/admin/ehr/sync-schedule", {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.schedule) {
+          setScheduleInterval(data.schedule.interval || "daily");
+          setScheduleEnabled(data.schedule.enabled || false);
+          setScheduleSyncTime(data.schedule.sync_time || "03:00");
+        }
+      }
+    } catch {
+      // 取得失敗時はデフォルト値を維持
+    } finally {
+      setScheduleLoading(false);
+    }
+  }, []);
+
+  // 同期スケジュール設定を保存
+  const handleSaveSchedule = async () => {
+    setScheduleSaving(true);
+    setScheduleSaved(false);
+    setScheduleError("");
+    try {
+      const res = await fetch("/api/admin/ehr/sync-schedule", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          interval: scheduleInterval,
+          enabled: scheduleEnabled,
+          sync_time: scheduleSyncTime,
+        }),
+      });
+      if (res.ok) {
+        setScheduleSaved(true);
+        setTimeout(() => setScheduleSaved(false), 3000);
+      } else {
+        const data = await res.json();
+        setScheduleError(data.message || "保存に失敗しました");
+      }
+    } catch {
+      setScheduleError("保存リクエストに失敗しました");
+    } finally {
+      setScheduleSaving(false);
+    }
+  };
+
   // 初回読み込み
   useEffect(() => {
     fetchStatus();
     fetchLogs(0);
-  }, [fetchStatus, fetchLogs]);
+    fetchSchedule();
+  }, [fetchStatus, fetchLogs, fetchSchedule]);
 
   /* ========== 手動同期 ========== */
 
@@ -418,6 +480,109 @@ export default function EhrDashboardPage() {
                 : "未同期"}
           </p>
         </div>
+      </div>
+
+      {/* ========== 1.5. 同期スケジュール設定 ========== */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">同期スケジュール</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              自動同期の間隔と実行時刻を設定します
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {scheduleSaved && (
+              <span className="text-sm text-emerald-600 font-medium">
+                保存しました
+              </span>
+            )}
+            <button
+              onClick={handleSaveSchedule}
+              disabled={scheduleSaving || scheduleLoading}
+              className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {scheduleSaving ? "保存中..." : "保存"}
+            </button>
+          </div>
+        </div>
+
+        {scheduleLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* 有効/無効トグル */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setScheduleEnabled(!scheduleEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  scheduleEnabled ? "bg-blue-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    scheduleEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-gray-700">
+                {scheduleEnabled ? "自動同期: 有効" : "自動同期: 無効"}
+              </span>
+            </div>
+
+            {/* 同期間隔 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                同期間隔
+              </label>
+              <select
+                value={scheduleInterval}
+                onChange={(e) =>
+                  setScheduleInterval(
+                    e.target.value as "hourly" | "every6h" | "daily"
+                  )
+                }
+                disabled={!scheduleEnabled}
+                className="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:opacity-50"
+              >
+                <option value="hourly">毎時</option>
+                <option value="every6h">6時間ごと</option>
+                <option value="daily">日次</option>
+              </select>
+            </div>
+
+            {/* 実行時刻（daily の場合のみ表示） */}
+            {scheduleInterval === "daily" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  実行時刻（JST）
+                </label>
+                <input
+                  type="time"
+                  value={scheduleSyncTime}
+                  onChange={(e) => setScheduleSyncTime(e.target.value)}
+                  disabled={!scheduleEnabled}
+                  className="w-full max-w-xs px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                />
+              </div>
+            )}
+
+            {/* 説明テキスト */}
+            <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-500">
+              {scheduleInterval === "hourly" && "毎時0分にCronが実行され、マッピング済み患者のデータを同期します。"}
+              {scheduleInterval === "every6h" && "0時・6時・12時・18時にCronが実行され、マッピング済み患者のデータを同期します。"}
+              {scheduleInterval === "daily" && `毎日 ${scheduleSyncTime} にCronが実行され、マッピング済み患者のデータを同期します。`}
+            </div>
+
+            {/* エラー表示 */}
+            {scheduleError && (
+              <p className="text-sm text-red-600">{scheduleError}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========== 2. 手動同期セクション ========== */}
