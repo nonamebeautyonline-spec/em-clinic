@@ -327,7 +327,7 @@ export default function ProductsPage() {
   } | null>(null);
 
   // 表示モード・ソート
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortKey, setSortKey] = useState<SortKey>("sort_order");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
