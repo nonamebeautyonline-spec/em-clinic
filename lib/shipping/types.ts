@@ -19,7 +19,7 @@ export interface YamatoConfig {
   fareManagementNo: string;
   itemName: string;
   okinawaItemName: string; // 沖縄向け品名（航空輸送制限対応）
-  coolType: string; // "0"=常温, "1"=冷蔵, "2"=冷凍
+  coolType: string; // "0"=常温, "1"=冷凍, "2"=冷蔵
   forecastMessage: string;
   completedMessage: string;
 }
@@ -58,7 +58,7 @@ export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
     fareManagementNo: "01",
     itemName: "サプリメント（引火性・高圧ガスなし）",
     okinawaItemName: "医薬品・注射器（未使用、引火性・高圧ガスなし）",
-    coolType: "1",
+    coolType: "2",
     forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
     completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
   },

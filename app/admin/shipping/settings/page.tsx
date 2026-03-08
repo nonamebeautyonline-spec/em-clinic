@@ -154,8 +154,8 @@ export default function ShippingSettingsPage() {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <option value="0">常温</option>
-              <option value="1">冷蔵</option>
-              <option value="2">冷凍</option>
+              <option value="1">冷凍</option>
+              <option value="2">冷蔵</option>
             </select>
           </div>
           <Field label="品名" value={config.yamato.itemName} onChange={v => updateYamato("itemName", v)} full />
