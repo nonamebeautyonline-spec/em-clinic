@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
 
     // 管理画面の配送設定をDB→CSV生成に反映
     const yamatoConfig = await getYamatoConfig(tenantId ?? undefined);
+    console.log(`[ExportYamatoB2Custom] tenantId=${tenantId}, coolType=${yamatoConfig.coolType}, itemName=${yamatoConfig.itemName}`);
     const csv = generateYamatoB2Csv(items, shipDate, yamatoConfig);
 
     // ★ CSV出力後、注文の shipping_list_created_at を更新（統合前を含む全payment_id）

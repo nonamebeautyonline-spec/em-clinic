@@ -36,6 +36,7 @@ export default function ShippingPendingPage() {
   const [mergeableGroups, setMergeableGroups] = useState<MergeableGroup[]>([]);
   const [error, setError] = useState("");
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [editCreatedMode, setEditCreatedMode] = useState(false);
 
   // 今日の日付（発送日）
   const today = new Date();
@@ -99,8 +100,8 @@ export default function ShippingPendingPage() {
   };
 
   const toggleAllOrders = () => {
-    // ★ pending_confirmationとラベル作成済み以外の注文のみを対象にする
-    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at);
+    // ★ pending_confirmation以外の注文を対象にする（editCreatedModeならラベル作成済みも含む）
+    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at));
     const selectableIds = selectableOrders.map((o) => o.id);
 
     // 選択可能な注文が全て選択されているか確認
@@ -174,21 +175,36 @@ export default function ShippingPendingPage() {
           </button>
         </div>
         <div className="hidden md:flex items-center gap-2">
-          <button
-            onClick={() => {
-              if (selectedOrderIds.size === 0) {
-                alert("発送する注文を選択してください");
-                return;
-              }
-              // 選択された注文IDをクエリパラメータで渡す
-              const ids = Array.from(selectedOrderIds).join(",");
-              router.push(`/admin/shipping/create-list?ids=${encodeURIComponent(ids)}`);
-            }}
-            disabled={selectedOrderIds.size === 0}
-            className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
-          >
-            📋 発送リストを作る ({selectedOrderIds.size}件)
-          </button>
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={() => {
+                if (selectedOrderIds.size === 0) {
+                  alert("発送する注文を選択してください");
+                  return;
+                }
+                // 選択された注文IDをクエリパラメータで渡す
+                const ids = Array.from(selectedOrderIds).join(",");
+                router.push(`/admin/shipping/create-list?ids=${encodeURIComponent(ids)}`);
+              }}
+              disabled={selectedOrderIds.size === 0}
+              className="px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+            >
+              📋 発送リストを作る ({selectedOrderIds.size}件)
+            </button>
+            <button
+              onClick={() => {
+                setEditCreatedMode((prev) => !prev);
+                setSelectedOrderIds(new Set());
+              }}
+              className={`text-xs px-2 py-1 rounded ${
+                editCreatedMode
+                  ? "text-orange-700 bg-orange-100 hover:bg-orange-200"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              {editCreatedMode ? "✏️ 作成済み編集モード ON" : "作成済みリストを編集"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -201,8 +217,8 @@ export default function ShippingPendingPage() {
                   <input
                     type="checkbox"
                     checked={
-                      orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at).length > 0 &&
-                      orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at).every((o) => selectedOrderIds.has(o.id))
+                      orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at)).length > 0 &&
+                      orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at)).every((o) => selectedOrderIds.has(o.id))
                     }
                     onChange={toggleAllOrders}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
@@ -238,17 +254,22 @@ export default function ShippingPendingPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-200">
-              {orders.length === 0 ? (
+              {(() => {
+                // editCreatedMode: 作成済みのみ表示 / 通常: 作成済み以外を表示
+                const filteredOrders = editCreatedMode
+                  ? orders.filter((o) => !!o.shipping_list_created_at)
+                  : orders;
+                return filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-8 text-center text-slate-500">
-                    発送待ちの注文はありません
+                    {editCreatedMode ? "作成済みの注文はありません" : "発送待ちの注文はありません"}
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => {
+                filteredOrders.map((order) => {
                   const isPending = order.status === "pending_confirmation";
                   const isLabelCreated = !!order.shipping_list_created_at;
-                  const isDisabled = isPending || isLabelCreated;
+                  const isDisabled = editCreatedMode ? false : (isPending || isLabelCreated);
                   return (
                     <tr
                       key={order.id}
@@ -333,7 +354,8 @@ export default function ShippingPendingPage() {
                   </tr>
                   );
                 })
-              )}
+              );
+              })()}
             </tbody>
           </table>
         </div>
