@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Product } from "./types";
 
 type FormData = {
@@ -63,8 +63,10 @@ export function ProductEditModal({
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const savingRef = useRef(false);
 
   useEffect(() => {
+    savingRef.current = false;
     if (editingProduct) {
       setForm({
         code: editingProduct.code,
@@ -98,11 +100,13 @@ export function ProductEditModal({
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     if (!form.code.trim() || !form.title.trim() || !form.price.trim()) {
       setSaveError("商品コード、商品名、価格は必須です");
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     setSaveError("");
 
@@ -154,6 +158,7 @@ export function ProductEditModal({
       onClose();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "保存に失敗しました");
+      savingRef.current = false;
     } finally {
       setSaving(false);
     }

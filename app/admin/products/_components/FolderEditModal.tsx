@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Props = {
   isOpen: boolean;
@@ -14,20 +14,24 @@ export function FolderEditModal({ isOpen, initialName = "", title, onSave, onClo
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const savingRef = useRef(false);
 
   useEffect(() => {
     setName(initialName);
     setError("");
+    savingRef.current = false;
   }, [initialName, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     const trimmed = name.trim();
     if (!trimmed) {
       setError("フォルダ名を入力してください");
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -35,6 +39,7 @@ export function FolderEditModal({ isOpen, initialName = "", title, onSave, onClo
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
+      savingRef.current = false;
     } finally {
       setSaving(false);
     }
