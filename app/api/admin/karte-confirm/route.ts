@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const { intakeId } = parsed.data;
 
     const tenantId = resolveTenantId(req);
-    const adminUserId = getAdminUserId();
+    const adminUserId = await getAdminUserId(req);
 
     // 現在のカルテを取得
     const { data: intake } = await withTenant(
