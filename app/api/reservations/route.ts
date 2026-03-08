@@ -583,24 +583,24 @@ export async function POST(req: NextRequest) {
           supabaseAdmin
             .from("intake")
             .select("patient_id, status, answers")
-            .eq("patient_id", pid),
+            .eq("patient_id", pid)
+            .order("created_at", { ascending: false })
+            .limit(1),
           tenantId
-        )
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        ),
         // ★ patient_name, line_id は patients テーブルから取得
         withTenant(
           supabaseAdmin
             .from("patients")
             .select("name, line_id")
-            .eq("patient_id", pid),
+            .eq("patient_id", pid)
+            .maybeSingle(),
           tenantId
-        ).maybeSingle(),
+        ),
       ]);
 
       const intakeCheckError = intakeRes.error;
-      const intakeData = intakeRes.data;
+      const intakeData = intakeRes.data?.[0] ?? null;
 
       if (intakeCheckError) {
         console.error("[Reservation] Intake check error:", intakeCheckError);
