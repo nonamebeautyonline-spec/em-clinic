@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const { intakeId, note, changeReason } = parsed.data;
 
     const tenantId = resolveTenantId(req);
-    const adminUserId = getAdminUserId();
+    const adminUserId = await getAdminUserId(req);
 
     // 現在のカルテを取得（履歴記録 + ロック確認 + 確定チェック）
     const { data: intake } = await withTenant(
