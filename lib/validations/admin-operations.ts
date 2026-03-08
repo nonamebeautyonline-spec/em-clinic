@@ -385,6 +385,25 @@ export const bankTransferReconcileConfirmSchema = z
   })
   .passthrough();
 
+/** 商品カテゴリ（フォルダ）作成 POST /api/admin/product-categories */
+export const productCategoryCreateSchema = z
+  .object({
+    name: z.string().min(1, "カテゴリ名は必須です"),
+    parent_id: z.string().nullable().optional(),
+    sort_order: z.number().optional(),
+  })
+  .passthrough();
+
+/** 商品カテゴリ（フォルダ）更新 PUT /api/admin/product-categories */
+export const productCategoryUpdateSchema = z
+  .object({
+    id: z.union([z.string(), z.number()]).transform(String),
+    name: z.string().optional(),
+    parent_id: z.string().nullable().optional(),
+    sort_order: z.number().optional(),
+  })
+  .passthrough();
+
 /** 商品作成 POST /api/admin/products */
 export const productCreateSchema = z
   .object({
@@ -396,6 +415,7 @@ export const productCreateSchema = z
     duration_months: z.number().nullable().optional(),
     quantity: z.number().nullable().optional(),
     category: z.string().optional(),
+    category_id: z.string().nullable().optional(),
     sort_order: z.number().optional(),
     image_url: z.string().nullable().optional(),
     stock_quantity: z.number().nullable().optional(),

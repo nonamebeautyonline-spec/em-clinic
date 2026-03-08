@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if ("error" in parsed) return parsed.error;
   const {
     code, title, drug_name, dosage, duration_months, quantity, price,
-    category, sort_order, image_url, stock_quantity, discount_price,
+    category, category_id, sort_order, image_url, stock_quantity, discount_price,
     discount_until, description, parent_id,
     stock_alert_threshold, stock_alert_enabled,
   } = parsed.data;
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       quantity: quantity || null,
       price,
       category: category || "injection",
+      category_id: category_id || null,
       sort_order: sort_order || 0,
       is_active: true,
       image_url: image_url || null,
