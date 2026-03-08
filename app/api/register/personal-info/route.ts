@@ -163,13 +163,14 @@ export async function POST(req: NextRequest) {
     }
 
     // 6) intake の answers に個人情報をマージ（既存の問診・予約データはそのまま）
-    const { data: existingIntake } = await withTenant(supabaseAdmin
+    // ★ 複数intakeレコード対策: maybeSingleではなくlimit(1)で最新1件を取得
+    const { data: intakeRows } = await withTenant(supabaseAdmin
       .from("intake")
       .select("id, answers")
-      .eq("patient_id", patientId), tenantId)
+      .eq("patient_id", patientId)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1), tenantId);
+    const existingIntake = intakeRows?.[0] ?? null;
 
     const personalAnswers = {
       氏名: name.trim(),
