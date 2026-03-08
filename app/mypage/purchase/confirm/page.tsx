@@ -1,7 +1,7 @@
 // app/mypage/purchase/confirm/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, Suspense } from "react";
+import React, { useMemo, useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
 
@@ -139,6 +139,7 @@ function PurchaseConfirmContent() {
   // patientId は /api/mypage/identity から取得
   const [patientId, setPatientId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // inline決済用 state
@@ -175,6 +176,39 @@ function PurchaseConfirmContent() {
 
   // autoAddress + addressDetail を統合して shipping.address に反映
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
+
+  // submitting を true にしつつ30秒タイムアウトで自動リセット
+  const startSubmitting = useCallback(() => {
+    if (submittingTimer.current) clearTimeout(submittingTimer.current);
+    setSubmitting(true);
+    submittingTimer.current = setTimeout(() => {
+      setSubmitting(false);
+      setError("決済処理がタイムアウトしました。通信環境をご確認のうえ、再度お試しください。");
+    }, 30_000);
+  }, []);
+
+  const stopSubmitting = useCallback(() => {
+    if (submittingTimer.current) {
+      clearTimeout(submittingTimer.current);
+      submittingTimer.current = null;
+    }
+    setSubmitting(false);
+  }, []);
+
+  // ページ復帰時にsubmitting状態をリセット（バックグラウンド→復帰で固まる問題対策）
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && submitting) {
+        stopSubmitting();
+        setError("画面復帰により決済処理をリセットしました。再度お試しください。");
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (submittingTimer.current) clearTimeout(submittingTimer.current);
+    };
+  }, [submitting, stopSubmitting]);
 
   const isInline = sdkConfig?.enabled === true;
   const shippingValid =
@@ -265,7 +299,7 @@ function PurchaseConfirmContent() {
       return;
     }
     setError(null);
-    setSubmitting(true);
+    startSubmitting();
 
     try {
       const res = await fetch("/api/checkout", {
@@ -293,7 +327,7 @@ function PurchaseConfirmContent() {
       setError(
         e instanceof Error ? e.message : "決済の準備中にエラーが発生しました。時間をおいて再度お試しください。",
       );
-      setSubmitting(false);
+      stopSubmitting();
     }
   };
 
@@ -301,7 +335,7 @@ function PurchaseConfirmContent() {
   const submitInlinePayment = useCallback(
     async (sourceId: string) => {
       if (!product || !patientId || !shippingValid) return;
-      setSubmitting(true);
+      startSubmitting();
       setError(null);
 
       try {
@@ -325,12 +359,12 @@ function PurchaseConfirmContent() {
         router.push(`/mypage/purchase/complete?code=${product.code}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "決済処理中にエラーが発生しました");
-        setSubmitting(false);
+        stopSubmitting();
         // カードフォームを再マウントして新しいnonceを取得可能にする
         setCardFormKey((k) => k + 1);
       }
     },
-    [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router],
+    [product, patientId, modeParam, reorderIdParam, shipping, fullAddress, shippingValid, router, startSubmitting, stopSubmitting],
   );
 
   // 新規カードの nonce 受取
