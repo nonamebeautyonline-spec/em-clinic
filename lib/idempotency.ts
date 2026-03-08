@@ -32,12 +32,14 @@ export async function checkIdempotency(
   }
 
   try {
+    const payloadData = payload != null ? payload : null;
     const { error } = await supabaseAdmin.from("webhook_events").insert({
       tenant_id: tenantId,
       event_source: source,
       event_id: eventId,
       status: "processing",
-      payload: payload != null ? payload : null,
+      payload: payloadData,
+      original_payload: payloadData,
     });
 
     if (error?.code === "23505") {
@@ -67,7 +69,7 @@ export async function checkIdempotency(
           .update({
             status: "failed",
             completed_at: new Date().toISOString(),
-            ...(errorMsg ? { payload: { error: errorMsg } } : {}),
+            ...(errorMsg ? { error_message: errorMsg } : {}),
           })
           .eq("event_source", source)
           .eq("event_id", eventId);

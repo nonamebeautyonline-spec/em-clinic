@@ -225,6 +225,8 @@ describe("テナント分離: 主要テーブルのSELECT保護", () => {
     "keyword_auto_replies",
     "friend_field_definitions",
     "friend_field_values",
+    "webhook_events",
+    "karte_history",
   ];
 
   const allRoutes = findRouteFiles("app/api");

@@ -236,7 +236,7 @@ describe("supabaseAdmin: 重要ルートの使用確認", () => {
 describe("normalizeJPPhone: 電話番号保存ルートの正規化適用", () => {
   const PHONE_ROUTES = [
     { file: "app/api/intake/route.ts", description: "intake保存" },
-    { file: "app/api/square/webhook/route.ts", description: "Square決済webhook" },
+    { file: "lib/webhook-handlers/square.ts", description: "Square決済webhookハンドラ" },
     { file: "app/api/bank-transfer/shipping/route.ts", description: "銀行振込配送" },
     { file: "app/api/admin/patientbundle/route.ts", description: "patientbundle表示" },
   ];

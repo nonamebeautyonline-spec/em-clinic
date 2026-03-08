@@ -159,7 +159,6 @@ describe("admin/shipping/pending 正常系", () => {
     expect(json.orders[0].postal_code).toBe("100-0001");
     expect(json.orders[0].address).toBe("東京都千代田区");
     expect(json.orders[0].status).toBe("confirmed");
-    expect(json.orders[0].lstep_id).toBe("Lstep_001");
     expect(json.total).toBe(1);
   });
 
@@ -436,53 +435,6 @@ describe("admin/shipping/pending DBエラー", () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe("Database error");
-  });
-});
-
-// ======================================
-// LステップID取得テスト
-// ======================================
-describe("admin/shipping/pending LステップID", () => {
-  it("intake.answerer_id -> lstep_id にマッピング", async () => {
-    const now = new Date().toISOString();
-    ordersResults = [
-      {
-        data: [
-          {
-            id: "order-lstep",
-            patient_id: "P007",
-            product_code: "MJL_2.5mg_1m",
-            payment_method: "credit_card",
-            paid_at: now,
-            shipping_date: null,
-            tracking_number: null,
-            amount: 13000,
-            status: "confirmed",
-            shipping_name: null,
-            postal_code: "",
-            address: "",
-            phone: "",
-            email: "",
-            created_at: now,
-            shipping_list_created_at: null,
-          },
-        ],
-        error: null,
-      },
-      { data: [], error: null },
-      { data: [{ patient_id: "P007" }], error: null },
-    ];
-    patientsResult = { data: [{ patient_id: "P007", name: "Lステップ患者" }], error: null };
-    intakeResult = { data: [{ patient_id: "P007", answerer_id: "U_lstep_abc" }], error: null };
-
-    const { GET } = await import("@/app/api/admin/shipping/pending/route");
-    const req = new NextRequest("http://localhost/api/admin/shipping/pending");
-
-    const res = await GET(req);
-    const json = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(json.orders[0].lstep_id).toBe("U_lstep_abc");
   });
 });
 

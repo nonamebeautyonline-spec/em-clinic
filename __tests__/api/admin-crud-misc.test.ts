@@ -49,6 +49,11 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
+  getAdminUserId: vi.fn(() => "admin-test-user"),
+}));
+
+vi.mock("@/lib/karte-history", () => ({
+  recordKarteChange: vi.fn(),
 }));
 
 vi.mock("@/lib/tenant", () => ({
@@ -424,7 +429,7 @@ describe("karte-edit API", () => {
     const intakeChain = getOrCreateChain("intake");
     // single() がロック無しのintakeを返す
     intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
-      data: { id: 1, locked_at: null },
+      data: { id: 1, note: "旧メモ", locked_at: null, karte_status: "draft" },
       error: null,
     }));
 
@@ -442,7 +447,7 @@ describe("karte-edit API", () => {
   it("POST ロック済みカルテ → 403", async () => {
     const intakeChain = getOrCreateChain("intake");
     intakeChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
-      data: { id: 1, locked_at: "2026-01-01T00:00:00Z" },
+      data: { id: 1, note: "メモ", locked_at: "2026-01-01T00:00:00Z", karte_status: "draft" },
       error: null,
     }));
 

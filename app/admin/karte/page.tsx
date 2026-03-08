@@ -45,6 +45,7 @@ type IntakeItem = {
   answers: Record<string, any>;
   locked_at?: string | null;
   locked_by?: string | null;
+  karte_status?: string | null;
 };
 
 type HistoryItem = {
@@ -452,8 +453,36 @@ export default function KartePage() {
     setAiSummaryResult(null);
   };
 
+  const confirmKarte = async (intakeId: number) => {
+    if (!confirm("このカルテを確定しますか？\n確定後の編集には理由の入力が必要になります。")) return;
+    try {
+      const res = await fetch("/api/admin/karte-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intakeId }),
+      });
+      const data = await res.json();
+      if (!data.ok && data.error) throw new Error(data.error);
+      setIntakes(prev => prev.map(it =>
+        it.id === intakeId ? { ...it, karte_status: "confirmed" } : it
+      ));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "確定に失敗しました");
+    }
+  };
+
   const saveNote = async () => {
     if (!editingIntakeId) return;
+
+    // 確定済みカルテの場合、変更理由を要求
+    const currentIntake = intakes.find(it => it.id === editingIntakeId);
+    const isConfirmed = (currentIntake?.karte_status ?? "draft") === "confirmed";
+    let changeReason: string | null = null;
+    if (isConfirmed) {
+      changeReason = prompt("確定済みカルテを編集する理由を入力してください:");
+      if (!changeReason) return; // キャンセル
+    }
+
     setEditSaving(true);
     const noteToSave = soapToNote(editSoap, editNoteFormat);
     try {
@@ -463,6 +492,7 @@ export default function KartePage() {
         body: JSON.stringify({
           intakeId: editingIntakeId,
           note: noteToSave,
+          ...(changeReason ? { changeReason } : {}),
         }),
       });
       const data = await res.json();
@@ -1111,6 +1141,11 @@ export default function KartePage() {
                                   {isLocked && (
                                     <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-medium">ロック中</span>
                                   )}
+                                  {(it.karte_status ?? "draft") === "confirmed" ? (
+                                    <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-medium">確定済</span>
+                                  ) : it.note ? (
+                                    <span className="px-2 py-0.5 rounded bg-gray-50 text-gray-500 border border-gray-200 text-[10px] font-medium">下書き</span>
+                                  ) : null}
                                 </div>
                                 <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1335,6 +1370,25 @@ export default function KartePage() {
                                           ) : (
                                             <p className="text-sm text-gray-400 italic">メモなし</p>
                                           )}
+                                          {/* 確定ボタン + 変更履歴ボタン */}
+                                          <div className="flex items-center gap-2 mt-2">
+                                            {(it.karte_status ?? "draft") !== "confirmed" && it.note && (
+                                              <button
+                                                onClick={() => confirmKarte(it.id)}
+                                                className="px-3 py-1 rounded text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                              >
+                                                カルテ確定
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => {
+                                                window.open(`/admin/karte-history?intakeId=${it.id}`, "_blank", "width=600,height=500");
+                                              }}
+                                              className="px-3 py-1 rounded text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                                            >
+                                              変更履歴
+                                            </button>
+                                          </div>
                                         </>
                                       )}
                                     </div>

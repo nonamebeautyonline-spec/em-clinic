@@ -1,102 +1,17 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { invalidateDashboardCache } from "@/lib/redis";
-import { supabaseAdmin } from "@/lib/supabase";
-import { normalizeJPPhone } from "@/lib/phone";
-import { createReorderPaymentKarte } from "@/lib/reorder-karte";
-import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { resolveTenantId } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
 import { checkIdempotency } from "@/lib/idempotency";
-import { markReorderPaid } from "@/lib/payment/square-inline";
-import { getProductByCode } from "@/lib/products";
+import { processSquareEvent, type SquareEvent } from "@/lib/webhook-handlers/square";
 
 export const runtime = "nodejs";
-
 
 function timingSafeEqual(a: string, b: string) {
   const abuf = Buffer.from(a, "utf8");
   const bbuf = Buffer.from(b, "utf8");
   if (abuf.length !== bbuf.length) return false;
   return crypto.timingSafeEqual(abuf, bbuf);
-}
-
-/**
- * Square Webhook Signature verification
- * header: x-square-hmacsha1-signature
- * expected: base64( HMAC-SHA1( key, notificationUrl + body ) )
- */
-function verifySquareSignature(params: {
-  signatureKey: string;
-  signatureHeader: string | null;
-  notificationUrl: string;
-  body: string;
-}) {
-  const { signatureKey, signatureHeader, notificationUrl, body } = params;
-  if (!signatureKey) return true; // 段階導入：未設定ならスキップ可能
-  if (!signatureHeader) return false;
-
-  const payload = notificationUrl + body;
-  const digest = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
-  return timingSafeEqual(digest, signatureHeader);
-}
-
-async function squareGet(path: string, token: string, squareEnv: string) {
-  const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
-
-  const res = await fetch(baseUrl + path, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Square-Version": "2024-04-17",
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try { json = text ? JSON.parse(text) : null; } catch (_) {}
-
-  return { ok: res.ok, status: res.status, json, text };
-}
-
-async function squarePost(path: string, body: Record<string, unknown>, token: string, squareEnv: string) {
-  const baseUrl = squareEnv === "sandbox" ? "https://connect.squareupsandbox.com" : "https://connect.squareup.com";
-
-  const res = await fetch(baseUrl + path, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Square-Version": "2024-04-17",
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  let json: Record<string, unknown> | null = null;
-  try { json = text ? JSON.parse(text) : null; } catch (_) {}
-
-  return { ok: res.ok, status: res.status, json, text };
-}
-
-// normalizeJPPhone は @/lib/phone からimport
-
-function extractFromNote(note: string) {
-  const out = { patientId: "", productCode: "", reorderId: "" };
-  const n = note || "";
-  const pid = n.match(/PID:([^;]+)/);
-  if (pid?.[1]) out.patientId = pid[1].trim();
-
-  const prod = n.match(/Product:([^\s(]+)/);
-  if (prod?.[1]) out.productCode = prod[1].trim();
-
-  const re = n.match(/Reorder:([^;]+)/);
-  if (re?.[1]) out.reorderId = re[1].trim();
-
-  return out;
 }
 
 export async function GET() {
@@ -113,20 +28,18 @@ export async function POST(req: Request) {
   const squareToken = (await getSettingOrEnv("square", "access_token", "SQUARE_ACCESS_TOKEN", tid)) || "";
   const squareEnv = (await getSettingOrEnv("square", "env", "SQUARE_ENV", tid)) || "production";
 
-  // 署名検証（暫定：ヘッダ無しは通す）
+  // 署名検証
   const signatureHeader = req.headers.get("x-square-hmacsha1-signature");
-
   const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
   const verifyUrl = (notificationUrl || req.url.split("?")[0]).trim();
 
-  // ---- Signature check (temporary allow when header missing) ----
   if (signatureKey && !signatureHeader) {
-    console.error("Square signature header missing; accepting temporarily", {
+    console.error("Square signature header missing; rejecting", {
       verifyUrl,
       bodyLen: bodyText.length,
       keyLen: signatureKey.length,
     });
-    // skip
+    return new NextResponse("unauthorized", { status: 401 });
   } else if (signatureKey) {
     const payload = verifyUrl + bodyText;
     const expected = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
@@ -142,329 +55,27 @@ export async function POST(req: Request) {
       return new NextResponse("unauthorized", { status: 401 });
     }
   }
-  // --------------------------------------------------------------
-
-  // Squareへのレスポンスは最終的に200固定で返す（Square停止回避）
-  interface SquareRefund {
-    id?: string;
-    payment_id?: string;
-    status?: string;
-    amount_money?: { amount?: number; currency?: string };
-    updated_at?: string;
-    created_at?: string;
-  }
-
-  interface SquarePayment {
-    id?: string;
-    status?: string;
-    order_id?: string;
-    customer_id?: string;
-    note?: string;
-    payment_note?: string;
-    amount_money?: { amount?: number; currency?: string };
-    buyer_email_address?: string;
-    receipt_email?: string;
-    billing_address?: { first_name?: string; last_name?: string };
-    card_details?: { card?: { cardholder_name?: string } };
-    created_at?: string;
-  }
-
-  interface SquareEvent {
-    type?: string;
-    event_id?: string;
-    id?: string;
-    data?: {
-      object?: {
-        refund?: SquareRefund;
-        payment?: SquarePayment;
-      };
-    };
-  }
 
   let event: SquareEvent | null = null;
-  try { event = JSON.parse(bodyText); } catch (_) {}
+  try { event = JSON.parse(bodyText); } catch (_) { /* ignore */ }
 
   const eventType = String(event?.type || "");
   const eventId = String(event?.event_id || event?.id || "");
 
-  // 冪等チェック: 同一event_idの重複処理を防止
-  const idem = await checkIdempotency("square", eventId, tenantId, { eventType });
+  // 冪等チェック（ペイロード全体をoriginal_payloadとして保存）
+  const idem = await checkIdempotency("square", eventId, tenantId, event);
   if (idem.duplicate) {
     return new NextResponse("ok", { status: 200 });
   }
 
   try {
-    // ---- refund ----
-    if (eventType === "refund.created" || eventType === "refund.updated") {
-      const refund = event?.data?.object?.refund;
-      const paymentId = String(refund?.payment_id || "");
-      if (!paymentId) return new NextResponse("ok", { status: 200 });
-
-      const refundStatus = String(refund?.status || "");
-      const refundedAmount = refund?.amount_money?.amount != null ? String(refund.amount_money.amount) : "";
-      const refundId = String(refund?.id || "");
-      const refundedAtIso = String(refund?.updated_at || refund?.created_at || "");
-
-      // ★ Supabase ordersテーブルに返金情報を反映
-      try {
-        const { error: updateErr } = await withTenant(
-          supabaseAdmin
-            .from("orders")
-            .update({
-              refund_status: refundStatus || "COMPLETED",
-              refunded_amount: refundedAmount ? parseFloat(refundedAmount) : null,
-              refunded_at: refundedAtIso || new Date().toISOString(),
-              ...(refundStatus === "COMPLETED" ? { status: "refunded" } : {}),
-            })
-            .eq("id", paymentId),
-          tenantId
-        );
-        if (updateErr) {
-          console.error("[square/webhook] refund update failed:", updateErr);
-        } else {
-          console.log("[square/webhook] refund updated in orders:", paymentId, refundStatus);
-        }
-      } catch (e) {
-        console.error("[square/webhook] refund Supabase error:", e);
-      }
-
-      // ★ キャッシュ削除（返金時：paymentからpatientIdを取得）
-      try {
-        const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`, squareToken, squareEnv);
-        if (pRes.ok) {
-          const P = ((pRes.json?.payment ?? {}) as SquarePayment);
-          const note = String(P?.note || P?.payment_note || "");
-          const { patientId } = extractFromNote(note);
-          if (patientId) {
-            await invalidateDashboardCache(patientId);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to invalidate cache on refund:", error);
-      }
-
-      await idem.markCompleted();
-      return new NextResponse("ok", { status: 200 });
-    }
-
-    // ---- payment ----
-    if (eventType === "payment.created" || eventType === "payment.updated") {
-      const pay = event?.data?.object?.payment;
-      const paymentId = String(pay?.id || "");
-      if (!paymentId) return new NextResponse("ok", { status: 200 });
-
-      // statusがCOMPLETED以外なら無視
-      const status = String(pay?.status || "");
-      if (status && status !== "COMPLETED") {
-        return new NextResponse("ok", { status: 200 });
-      }
-
-      // COMPLETED のときだけ Square API で詳細を作る
-      const pRes = await squareGet(`/v2/payments/${encodeURIComponent(paymentId)}`, squareToken, squareEnv);
-      if (!pRes.ok) {
-        console.error("[square/webhook] Failed to get payment details:", paymentId);
-        return new NextResponse("ok", { status: 200 });
-      }
-
-      const P = ((pRes.json?.payment ?? {}) as SquarePayment);
-      const note = String(P?.note || P?.payment_note || "");
-      const { patientId, productCode, reorderId } = extractFromNote(note);
-
-if (reorderId) {
-  await markReorderPaid(reorderId, patientId, tenantId);
-
-  // ★ 決済時カルテ自動作成（用量比較付き）
-  if (patientId && productCode) {
-    try {
-      await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tenantId ?? undefined);
-    } catch (karteErr) {
-      console.error("[square/webhook] reorder payment karte error:", karteErr);
-    }
-  }
-}
-
-      const createdAtIso = String(P?.created_at || "");
-      const orderId = String(P?.order_id || "");
-      const customerId = String(P?.customer_id || "");
-
-      const amountText = (P?.amount_money?.amount != null) ? String(P.amount_money.amount) : "";
-      let email = String(P?.buyer_email_address || P?.receipt_email || "").trim();
-      let phone = "";
-      let billingName = "";
-
-      try {
-        // billing name
-        const ba = P?.billing_address;
-        if (ba) {
-          const parts = [ba.first_name, ba.last_name].filter(Boolean);
-          billingName = parts.join(" ").trim();
-        }
-        const card = P?.card_details?.card;
-        if (!billingName && card?.cardholder_name) billingName = String(card.cardholder_name).trim();
-      } catch (_) {}
-
-      // order から配送先・itemsを取る（customerは必要になったらだけ）
-      let shipName = "";
-      let postal = "";
-      let address = "";
-      let shipPhone = "";
-      let itemsText = "";
-
-      if (orderId) {
-        interface SquareLineItem { name?: string; quantity?: string }
-        interface SquareAddress { postal_code?: string; administrative_district_level_1?: string; locality?: string; address_line_1?: string; address_line_2?: string }
-        interface SquareRecipient { display_name?: string; phone_number?: string; email_address?: string; address?: SquareAddress }
-        interface SquareFulfillment { shipment_details?: { recipient?: SquareRecipient } }
-        interface SquareOrder { line_items?: SquareLineItem[]; fulfillments?: SquareFulfillment[] }
-
-        const oRes = await squarePost(`/v2/orders/batch-retrieve`, { order_ids: [orderId] }, squareToken, squareEnv);
-        const ordersArr = oRes.ok ? (oRes.json?.orders as SquareOrder[] | undefined) : undefined;
-        const order = ordersArr?.[0] ?? null;
-
-        if (order) {
-          // items（nameが空のline_itemはスキップ = inline決済の自動生成order）
-          if (Array.isArray(order.line_items) && order.line_items.length) {
-            itemsText = order.line_items
-              .filter((li) => li?.name)
-              .map((li) => `${li.name} x ${li?.quantity || "1"}`.trim())
-              .join(" / ");
-          }
-
-          // shipment recipient
-          const f0 = Array.isArray(order.fulfillments) && order.fulfillments[0] ? order.fulfillments[0] : null;
-          const rec = f0?.shipment_details?.recipient || null;
-
-          if (rec) {
-            if (rec.display_name) shipName = String(rec.display_name).trim();
-            if (rec.phone_number) shipPhone = String(rec.phone_number).trim();
-            const recEmail = rec.email_address ? String(rec.email_address).trim() : "";
-            if (!email && recEmail) email = recEmail;
-
-            const addr = rec.address || {} as SquareAddress;
-            postal = String(addr.postal_code || "").trim();
-            const parts = [
-              addr.administrative_district_level_1,
-              addr.locality,
-              addr.address_line_1,
-              addr.address_line_2,
-            ].filter(Boolean);
-            address = parts.join("").trim();
-          }
-        }
-      }
-
-      // customer は “email/phone不足時のみ” 補完
-      if (customerId && (!email || (!shipPhone && !phone))) {
-        interface SquareCustomer { email_address?: string; phone_number?: string }
-        const cRes = await squareGet(`/v2/customers/${encodeURIComponent(customerId)}`, squareToken, squareEnv);
-        const C: SquareCustomer = cRes.ok ? ((cRes.json?.customer ?? {}) as SquareCustomer) : {};
-        if (!email && C?.email_address) email = String(C.email_address).trim();
-        if (!shipPhone && C?.phone_number) phone = String(C.phone_number).trim();
-      }
-
-      const finalPhone = normalizeJPPhone(shipPhone || phone);
-      const finalEmail = (email || "").trim();
-
-      // ★ Supabase ordersテーブルにINSERT（マイページ用 + 発送管理用）
-      // 重要: 既存の注文がある場合、shipping情報（tracking_number, shipping_date, shipping_status）を上書きしない
-      if (patientId) {
-        try {
-          // 既存の注文を確認
-          const { data: existingOrder } = await withTenant(
-            supabaseAdmin
-              .from("orders")
-              .select("id, tracking_number, shipping_date, shipping_status")
-              .eq("id", paymentId),
-            tenantId
-          ).maybeSingle();
-
-          if (existingOrder) {
-            // 既存の注文がある場合は、shipping情報を保持してその他の情報のみ更新
-            // product_name: インライン決済で既に正しい商品名が入っている場合、空のitemsTextで上書きしない
-            const { error } = await withTenant(
-              supabaseAdmin
-                .from("orders")
-                .update({
-                  patient_id: patientId,
-                  product_code: productCode || null,
-                  ...(itemsText ? { product_name: itemsText } : {}),
-                  amount: amountText ? parseFloat(amountText) : 0,
-                  paid_at: createdAtIso || new Date().toISOString(),
-                  payment_status: "COMPLETED",
-                  payment_method: "credit_card",
-                  status: "confirmed",
-                  // shipping_status, tracking_number, shipping_date は保持（上書きしない）
-                  // 住所情報は既存のtracking_numberがなければ更新
-                  ...(!existingOrder.tracking_number && shipName ? { shipping_name: shipName } : {}),
-                  ...(!existingOrder.tracking_number && postal ? { postal_code: postal } : {}),
-                  ...(!existingOrder.tracking_number && address ? { address: address } : {}),
-                  ...(!existingOrder.tracking_number && finalPhone ? { phone: finalPhone } : {}),
-                  ...(!existingOrder.tracking_number && finalEmail ? { email: finalEmail } : {}),
-                })
-                .eq("id", paymentId),
-              tenantId
-            );
-
-            if (error) {
-              console.error("[square/webhook] Supabase update failed:", error);
-            } else {
-              console.log("[square/webhook] Supabase order updated (shipping preserved):", paymentId);
-            }
-          } else {
-            // 新規注文の場合はINSERT
-            // itemsTextが空（インライン決済等）の場合、productCodeから商品名を解決
-            let resolvedProductName = itemsText || null;
-            if (!resolvedProductName && productCode) {
-              const p = await getProductByCode(productCode, tid);
-              resolvedProductName = p?.title || productCode;
-            }
-            const { error } = await supabaseAdmin.from("orders").insert({
-              id: paymentId,
-              patient_id: patientId,
-              product_code: productCode || null,
-              product_name: resolvedProductName,
-              amount: amountText ? parseFloat(amountText) : 0,
-              paid_at: createdAtIso || new Date().toISOString(),
-              shipping_status: "pending",
-              payment_status: "COMPLETED",
-              payment_method: "credit_card",
-              status: "confirmed",
-              shipping_name: shipName || null,
-              postal_code: postal || null,
-              address: address || null,
-              phone: finalPhone || null,
-              email: finalEmail || null,
-              ...tenantPayload(tenantId),
-            });
-
-            if (error) {
-              console.error("[square/webhook] Supabase insert failed:", error);
-            } else {
-              console.log("[square/webhook] Supabase order inserted:", paymentId);
-            }
-          }
-        } catch (err) {
-          console.error("[square/webhook] Supabase error:", err);
-        }
-      }
-
-      // ★ キャッシュ削除（決済完了時）
-      if (patientId) {
-        await invalidateDashboardCache(patientId);
-      }
-
-      await idem.markCompleted();
-      return new NextResponse("ok", { status: 200 });
-    }
-
-    // その他イベントは無視
+    // 業務ロジック（リプレイ可能なハンドラに委譲）
+    await processSquareEvent({ event: event!, tenantId, squareToken, squareEnv });
     await idem.markCompleted();
     return new NextResponse("ok", { status: 200 });
-
   } catch (err) {
     console.error("webhook handler error:", err instanceof Error ? err.stack || err.message : err);
     await idem.markFailed(err instanceof Error ? err.message : "unknown error");
-    // Squareには200返して止められないようにする（後でバックフィル）
     return new NextResponse("ok", { status: 200 });
   }
 }

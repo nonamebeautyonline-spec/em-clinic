@@ -286,10 +286,12 @@ describe("決済webhook: テナント対応", () => {
   ];
 
   for (const { file, name } of webhookRoutes) {
-    it(`${name} は supabaseAdmin を使用している`, () => {
+    it(`${name} は supabaseAdmin を使用している（ルートまたはハンドラ）`, () => {
       if (!fileExists(file)) return;
       const src = readFile(file);
-      expect(src).toContain("supabaseAdmin");
+      // ハンドラ抽出後はroute.tsにsupabaseAdminがなくてもハンドラに委譲していればOK
+      const hasDb = src.includes("supabaseAdmin") || src.includes("processSquareEvent") || src.includes("processGmoEvent");
+      expect(hasDb).toBe(true);
     });
 
     it(`${name} はテナント対応している`, () => {
@@ -302,20 +304,21 @@ describe("決済webhook: テナント対応", () => {
 });
 
 // ===================================================================
-// Square webhook: normalizeJPPhone 使用確認
+// Square webhook: normalizeJPPhone 使用確認（ハンドラに移動済み）
 // ===================================================================
 describe("Square webhook: 電話番号正規化", () => {
-  const file = "app/api/square/webhook/route.ts";
+  // normalizeJPPhone はハンドラ（lib/webhook-handlers/square.ts）に抽出済み
+  const handlerFile = "lib/webhook-handlers/square.ts";
 
   it("normalizeJPPhone をインポートしている", () => {
-    if (!fileExists(file)) return;
-    const src = readFile(file);
+    if (!fileExists(handlerFile)) return;
+    const src = readFile(handlerFile);
     expect(src).toContain("normalizeJPPhone");
   });
 
   it("normalizeJPPhone を使用して電話番号を正規化している", () => {
-    if (!fileExists(file)) return;
-    const src = readFile(file);
+    if (!fileExists(handlerFile)) return;
+    const src = readFile(handlerFile);
     expect(src).toMatch(/normalizeJPPhone\(/);
   });
 });

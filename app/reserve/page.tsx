@@ -364,6 +364,9 @@ body: JSON.stringify({
       }
 
       const reserveId = data.reserveId ?? `mock-${Date.now()}`;
+      if (!data.reserveId) {
+        console.warn("[reserve] API returned ok but no reserveId — using mock fallback");
+      }
 
       setShowSuccess(true);
 

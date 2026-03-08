@@ -203,7 +203,7 @@ describe("Square Webhook API", () => {
       expect(res.status).toBe(200);
     });
 
-    it("署名キーあり＆署名ヘッダなしでも暫定的に通す", async () => {
+    it("署名キーあり＆署名ヘッダなしの場合は401を返す", async () => {
       vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
         if (key === "webhook_signature_key") return "test-secret-key";
         return "";
@@ -213,8 +213,35 @@ describe("Square Webhook API", () => {
       const req = createWebhookRequest(body);
 
       const res = await POST(req);
-      // ヘッダ無しは暫定的に通過
+      expect(res.status).toBe(401);
+    });
+
+    it("署名キーあり＆正しい署名の場合は通過する", async () => {
+      const signatureKey = "test-secret-key";
+      const notificationUrl = "http://localhost:3000/api/square/webhook";
+      process.env.SQUARE_WEBHOOK_NOTIFICATION_URL = notificationUrl;
+
+      vi.mocked(getSettingOrEnv).mockImplementation(async (_cat, key) => {
+        if (key === "webhook_signature_key") return signatureKey;
+        if (key === "access_token") return "sq-token";
+        if (key === "env") return "sandbox";
+        return "";
+      });
+
+      const body = { type: "unknown.event", data: {} };
+      const bodyStr = JSON.stringify(body);
+      const payload = notificationUrl + bodyStr;
+      const signature = crypto.createHmac("sha1", signatureKey).update(payload, "utf8").digest("base64");
+
+      const req = createWebhookRequest(body, {
+        "x-square-hmacsha1-signature": signature,
+      });
+
+      const res = await POST(req);
+      // 正しい署名で通過し、不明イベントとして200を返す
       expect(res.status).toBe(200);
+
+      delete process.env.SQUARE_WEBHOOK_NOTIFICATION_URL;
     });
   });
 

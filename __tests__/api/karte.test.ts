@@ -23,6 +23,10 @@ mockChain.select.mockReturnValue(mockChain);
 
 vi.mock("@/lib/admin-auth", () => ({
   verifyAdminAuth: (...args: unknown[]) => mockVerifyAdminAuth(...args),
+  getAdminUserId: vi.fn(() => "admin-user-1"),
+}));
+vi.mock("@/lib/karte-history", () => ({
+  recordKarteChange: vi.fn().mockResolvedValue({ error: null }),
 }));
 vi.mock("@/lib/supabase", () => ({
   supabaseAdmin: { from: vi.fn(() => mockChain) },

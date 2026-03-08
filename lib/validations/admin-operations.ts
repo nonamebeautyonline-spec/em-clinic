@@ -125,6 +125,17 @@ export const karteEditSchema = z
       { message: "intakeIdは必須です" },
     ),
     note: z.string().optional(),
+    changeReason: z.string().optional(),
+  })
+  .passthrough();
+
+/** カルテ確定 POST /api/admin/karte-confirm */
+export const karteConfirmSchema = z
+  .object({
+    intakeId: z.union([z.string(), z.number()]).refine(
+      (v) => v !== "" && v !== null && v !== undefined,
+      { message: "intakeIdは必須です" },
+    ),
   })
   .passthrough();
 
