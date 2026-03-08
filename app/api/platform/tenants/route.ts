@@ -279,6 +279,8 @@ export async function POST(req: NextRequest) {
         plan_name: data.planName,
         monthly_fee: data.monthlyFee,
         setup_fee: data.setupFee,
+        message_quota: data.messageQuota,
+        overage_unit_price: data.overageUnitPrice,
         started_at: new Date().toISOString(),
       });
 

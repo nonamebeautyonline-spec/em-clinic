@@ -29,9 +29,12 @@ export const createTenantSchema = z.object({
   lineChannelSecret: z.string().optional(),
   lineAccessToken: z.string().optional(),
   // プラン（任意）
-  planName: z.enum(["trial", "standard", "premium", "enterprise"]).default("standard"),
-  monthlyFee: z.number().int().min(0).default(50000),
+  planName: z.enum(["light", "standard", "pro", "business", "business_30", "business_50", "business_100"]).default("standard"),
+  monthlyFee: z.number().int().min(0).default(17000),
   setupFee: z.number().int().min(0).default(300000),
+  messageQuota: z.number().int().min(0).default(30000),
+  overageUnitPrice: z.number().min(0).default(0.7),
+  aiOptions: z.array(z.enum(["ai_reply", "voice_input", "ai_karte"])).default([]),
 });
 
 export const updateTenantSchema = z.object({
