@@ -44,6 +44,7 @@ interface Props {
   onTokenize: (nonce: string) => void;
   onError: (msg: string) => void;
   disabled?: boolean;
+  submitting?: boolean;
   threeDsEnabled?: boolean;
   verificationDetails?: VerificationDetails;
 }
@@ -55,6 +56,7 @@ export default function SquareCardForm({
   onTokenize,
   onError,
   disabled,
+  submitting,
   threeDsEnabled,
   verificationDetails,
 }: Props) {
@@ -186,7 +188,7 @@ export default function SquareCardForm({
         disabled={disabled || loading}
         className="w-full rounded-full bg-pink-500 text-white py-2.5 text-[12px] font-semibold disabled:opacity-60"
       >
-        {disabled ? "決済処理中..." : "このカードで決済する"}
+        {submitting ? "決済処理中..." : "このカードで決済する"}
       </button>
 
       {/* セキュリティ表示 */}

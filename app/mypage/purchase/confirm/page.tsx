@@ -713,6 +713,7 @@ function PurchaseConfirmContent() {
                   onTokenize={handleNonceReady}
                   onError={handleCardFormError}
                   disabled={submitting || !patientId || !shippingValid}
+                  submitting={submitting}
                   threeDsEnabled={sdkConfig.threeDsEnabled}
                   verificationDetails={product ? {
                     amount: String(product.price),
