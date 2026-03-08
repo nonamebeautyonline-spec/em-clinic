@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     query = query.eq("broadcast_id", Number(broadcastId));
   }
 
-  const { data, error } = await withTenant(query, tenantId).limit(100);
+  const { data, error } = await withTenant(query.limit(100), tenantId);
   if (error) return serverError(error.message);
 
   // クリック数を整形

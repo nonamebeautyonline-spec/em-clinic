@@ -39,7 +39,7 @@ export async function GET(
       .select("id, patient_id, note, note_format, prescription_menu, reserved_date, reserved_time, status, created_at, answers")
       .eq("id", intakeId);
 
-    const { data: intake, error: intakeErr } = await withTenant(intakeQuery, tenantId).maybeSingle();
+    const { data: intake, error: intakeErr } = await withTenant(intakeQuery.maybeSingle(), tenantId);
 
     if (intakeErr) {
       console.error("[karte/pdf] intake取得エラー:", intakeErr);
@@ -61,7 +61,7 @@ export async function GET(
         .eq("patient_id", intake.patient_id)
         .limit(1);
 
-      const { data: patient } = await withTenant(patientQuery, tenantId).maybeSingle();
+      const { data: patient } = await withTenant(patientQuery.maybeSingle(), tenantId);
       if (patient?.name) {
         patientName = patient.name;
       }

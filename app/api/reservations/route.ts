@@ -555,9 +555,10 @@ export async function POST(req: NextRequest) {
           .from("reservations")
           .select("reserve_id, reserved_date, reserved_time, status")
           .eq("patient_id", pid)
-          .not("status", "in", '("canceled","NG")'),
+          .not("status", "in", '("canceled","NG")')
+          .limit(1),
         tenantId
-      ).limit(1);
+      );
 
       if (existingReservations && existingReservations.length > 0) {
         const existing = existingReservations[0];
