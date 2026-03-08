@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -78,6 +78,7 @@ function DraggableFolder({
     return (
       <div
         ref={(node) => { setDragRef(node); setDropRef(node); }}
+        data-selection-key={`folder-${folder.id}`}
         {...attributes}
         {...listeners}
         onDoubleClick={onDoubleClick}
@@ -108,6 +109,7 @@ function DraggableFolder({
   return (
     <div
       ref={(node) => { setDragRef(node); setDropRef(node); }}
+      data-selection-key={`folder-${folder.id}`}
       {...attributes}
       {...listeners}
       onDoubleClick={onDoubleClick}
@@ -171,6 +173,7 @@ function DraggableProduct({
     return (
       <div
         ref={setNodeRef}
+        data-selection-key={`product-${product.id}`}
         {...attributes}
         {...listeners}
         onDoubleClick={onDoubleClick}
@@ -219,6 +222,7 @@ function DraggableProduct({
   return (
     <div
       ref={setNodeRef}
+      data-selection-key={`product-${product.id}`}
       {...attributes}
       {...listeners}
       onDoubleClick={onDoubleClick}
@@ -334,6 +338,93 @@ export default function ProductsPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
+
+  // ─── 矩形選択（マーキー） ───
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const marqueeActive = useRef(false);
+  const marqueeStartPoint = useRef({ x: 0, y: 0 });
+
+  const getMarqueeRect = useCallback(() => {
+    if (!marquee) return null;
+    return {
+      left: Math.min(marquee.startX, marquee.endX),
+      top: Math.min(marquee.startY, marquee.endY),
+      right: Math.max(marquee.startX, marquee.endX),
+      bottom: Math.max(marquee.startY, marquee.endY),
+    };
+  }, [marquee]);
+
+  const rectsIntersect = (a: { left: number; top: number; right: number; bottom: number }, b: DOMRect) => {
+    return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+  };
+
+  const updateMarqueeSelection = useCallback((endX: number, endY: number) => {
+    if (!containerRef.current) return;
+    const rect = {
+      left: Math.min(marqueeStartPoint.current.x, endX),
+      top: Math.min(marqueeStartPoint.current.y, endY),
+      right: Math.max(marqueeStartPoint.current.x, endX),
+      bottom: Math.max(marqueeStartPoint.current.y, endY),
+    };
+    const items = containerRef.current.querySelectorAll<HTMLElement>("[data-selection-key]");
+    const selected = new Set<SelectionKey>();
+    items.forEach((el) => {
+      const key = el.getAttribute("data-selection-key");
+      if (key && rectsIntersect(rect, el.getBoundingClientRect())) {
+        selected.add(key);
+      }
+    });
+    setSelectedItems(selected);
+  }, []);
+
+  const handleContainerMouseDown = useCallback((e: React.MouseEvent) => {
+    // アイテムやボタン上ではマーキー開始しない
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-selection-key]") || target.closest("button") || target.closest("a")) return;
+    // 左クリックのみ
+    if (e.button !== 0) return;
+
+    marqueeActive.current = true;
+    marqueeStartPoint.current = { x: e.clientX, y: e.clientY };
+    setMarquee(null);
+
+    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      setSelectedItems(new Set());
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!marqueeActive.current) return;
+      const dx = e.clientX - marqueeStartPoint.current.x;
+      const dy = e.clientY - marqueeStartPoint.current.y;
+      // 最低5px動いてから矩形表示
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && !marquee) return;
+
+      setMarquee({
+        startX: marqueeStartPoint.current.x,
+        startY: marqueeStartPoint.current.y,
+        endX: e.clientX,
+        endY: e.clientY,
+      });
+      updateMarqueeSelection(e.clientX, e.clientY);
+    };
+
+    const handleMouseUp = () => {
+      if (marqueeActive.current) {
+        marqueeActive.current = false;
+        setMarquee(null);
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [marquee, updateMarqueeSelection]);
 
   // ─── データ取得 ───
   const fetchData = useCallback(async () => {
@@ -820,10 +911,12 @@ export default function ProductsPage() {
         onDragCancel={handleDragCancel}
       >
         <div
-          className="bg-white rounded-xl shadow border border-slate-200 p-6 min-h-[400px]"
+          ref={containerRef}
+          className="bg-white rounded-xl shadow border border-slate-200 p-6 min-h-[400px] relative"
+          onMouseDown={handleContainerMouseDown}
           onClick={(e) => {
-            // 空エリアクリックで選択解除
-            if (e.target === e.currentTarget) clearSelection();
+            // 空エリアクリックで選択解除（マーキー中でなければ）
+            if (e.target === e.currentTarget && !marquee) clearSelection();
           }}
         >
           {/* 戻るボタン（ルートでない場合） */}
@@ -912,6 +1005,23 @@ export default function ProductsPage() {
           {renderDragOverlay()}
         </DragOverlay>
       </DndContext>
+
+      {/* マーキー選択矩形 */}
+      {marquee && (() => {
+        const r = getMarqueeRect();
+        if (!r) return null;
+        return (
+          <div
+            className="fixed pointer-events-none border border-blue-400 bg-blue-400/10 z-40"
+            style={{
+              left: r.left,
+              top: r.top,
+              width: r.right - r.left,
+              height: r.bottom - r.top,
+            }}
+          />
+        );
+      })()}
 
       {/* コンテキストメニュー */}
       {contextMenu && (
