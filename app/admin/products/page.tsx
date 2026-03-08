@@ -344,28 +344,20 @@ export default function ProductsPage() {
   const [marquee, setMarquee] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const marqueeActive = useRef(false);
   const marqueeStartPoint = useRef({ x: 0, y: 0 });
-
-  const getMarqueeRect = useCallback(() => {
-    if (!marquee) return null;
-    return {
-      left: Math.min(marquee.startX, marquee.endX),
-      top: Math.min(marquee.startY, marquee.endY),
-      right: Math.max(marquee.startX, marquee.endX),
-      bottom: Math.max(marquee.startY, marquee.endY),
-    };
-  }, [marquee]);
+  // DnDがアクティブになったらマーキーを中断
+  const dndActive = useRef(false);
 
   const rectsIntersect = (a: { left: number; top: number; right: number; bottom: number }, b: DOMRect) => {
     return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
   };
 
-  const updateMarqueeSelection = useCallback((endX: number, endY: number) => {
-    if (!containerRef.current) return;
+  const computeMarqueeSelection = useCallback((startX: number, startY: number, endX: number, endY: number) => {
+    if (!containerRef.current) return new Set<SelectionKey>();
     const rect = {
-      left: Math.min(marqueeStartPoint.current.x, endX),
-      top: Math.min(marqueeStartPoint.current.y, endY),
-      right: Math.max(marqueeStartPoint.current.x, endX),
-      bottom: Math.max(marqueeStartPoint.current.y, endY),
+      left: Math.min(startX, endX),
+      top: Math.min(startY, endY),
+      right: Math.max(startX, endX),
+      bottom: Math.max(startY, endY),
     };
     const items = containerRef.current.querySelectorAll<HTMLElement>("[data-selection-key]");
     const selected = new Set<SelectionKey>();
@@ -375,47 +367,41 @@ export default function ProductsPage() {
         selected.add(key);
       }
     });
-    setSelectedItems(selected);
+    return selected;
   }, []);
 
   const handleContainerMouseDown = useCallback((e: React.MouseEvent) => {
-    // アイテムやボタン上ではマーキー開始しない
+    // ボタン・リンク上ではマーキー開始しない
     const target = e.target as HTMLElement;
-    if (target.closest("[data-selection-key]") || target.closest("button") || target.closest("a")) return;
+    if (target.closest("button") || target.closest("a")) return;
     // 左クリックのみ
     if (e.button !== 0) return;
 
     marqueeActive.current = true;
+    dndActive.current = false;
     marqueeStartPoint.current = { x: e.clientX, y: e.clientY };
-    setMarquee(null);
-
-    if (!e.shiftKey && !e.metaKey && !e.ctrlKey) {
-      setSelectedItems(new Set());
-    }
   }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!marqueeActive.current) return;
-      const dx = e.clientX - marqueeStartPoint.current.x;
-      const dy = e.clientY - marqueeStartPoint.current.y;
-      // 最低5px動いてから矩形表示
-      if (Math.abs(dx) < 5 && Math.abs(dy) < 5 && !marquee) return;
+      if (!marqueeActive.current || dndActive.current) return;
+      const sx = marqueeStartPoint.current.x;
+      const sy = marqueeStartPoint.current.y;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      // 最低8px動いてから矩形表示（DnDのdistanceと同じ）
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
 
-      setMarquee({
-        startX: marqueeStartPoint.current.x,
-        startY: marqueeStartPoint.current.y,
-        endX: e.clientX,
-        endY: e.clientY,
-      });
-      updateMarqueeSelection(e.clientX, e.clientY);
+      // マーキーが始まったらテキスト選択防止
+      e.preventDefault();
+
+      setMarquee({ startX: sx, startY: sy, endX: e.clientX, endY: e.clientY });
+      setSelectedItems(computeMarqueeSelection(sx, sy, e.clientX, e.clientY));
     };
 
     const handleMouseUp = () => {
-      if (marqueeActive.current) {
-        marqueeActive.current = false;
-        setMarquee(null);
-      }
+      marqueeActive.current = false;
+      setMarquee(null);
     };
 
     document.addEventListener("mousemove", handleMouseMove);
@@ -424,7 +410,7 @@ export default function ProductsPage() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [marquee, updateMarqueeSelection]);
+  }, [computeMarqueeSelection]);
 
   // ─── データ取得 ───
   const fetchData = useCallback(async () => {
@@ -655,6 +641,11 @@ export default function ProductsPage() {
 
   // ─── DnD ───
   const handleDragStart = (event: DragStartEvent) => {
+    // DnD開始時はマーキーを中断
+    marqueeActive.current = false;
+    dndActive.current = true;
+    setMarquee(null);
+
     const data = event.active.data.current as DragItem;
     setActiveDrag(data);
     // ドラッグ開始時、対象が未選択なら選択をリセットしてそのアイテムだけ選択
@@ -915,8 +906,8 @@ export default function ProductsPage() {
           className="bg-white rounded-xl shadow border border-slate-200 p-6 min-h-[400px] relative"
           onMouseDown={handleContainerMouseDown}
           onClick={(e) => {
-            // 空エリアクリックで選択解除（マーキー中でなければ）
-            if (e.target === e.currentTarget && !marquee) clearSelection();
+            // 空エリアクリックで選択解除
+            if (e.target === e.currentTarget) clearSelection();
           }}
         >
           {/* 戻るボタン（ルートでない場合） */}
@@ -1007,21 +998,17 @@ export default function ProductsPage() {
       </DndContext>
 
       {/* マーキー選択矩形 */}
-      {marquee && (() => {
-        const r = getMarqueeRect();
-        if (!r) return null;
-        return (
-          <div
-            className="fixed pointer-events-none border border-blue-400 bg-blue-400/10 z-40"
-            style={{
-              left: r.left,
-              top: r.top,
-              width: r.right - r.left,
-              height: r.bottom - r.top,
-            }}
-          />
-        );
-      })()}
+      {marquee && (
+        <div
+          className="fixed pointer-events-none border border-blue-400 bg-blue-400/10 z-40"
+          style={{
+            left: Math.min(marquee.startX, marquee.endX),
+            top: Math.min(marquee.startY, marquee.endY),
+            width: Math.abs(marquee.endX - marquee.startX),
+            height: Math.abs(marquee.endY - marquee.startY),
+          }}
+        />
+      )}
 
       {/* コンテキストメニュー */}
       {contextMenu && (
