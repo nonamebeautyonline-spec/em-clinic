@@ -22,6 +22,9 @@ type ViewMode = "grid" | "list";
 type SortKey = "name" | "price" | "date" | "sort_order";
 type SortDir = "asc" | "desc";
 
+// 選択アイテムのキー形式: "folder-{id}" or "product-{id}"
+type SelectionKey = string;
+
 // ─── フォルダアイコンSVG ───
 function FolderIcon({ className = "w-full h-full" }: { className?: string }) {
   return (
@@ -46,14 +49,18 @@ function ProductIcon({ className = "w-full h-full" }: { className?: string }) {
 function DraggableFolder({
   folder,
   onDoubleClick,
+  onClick,
   onContextMenu,
   isDropTarget,
+  isSelected,
   viewMode,
 }: {
   folder: ProductCategory;
   onDoubleClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
   isDropTarget: boolean;
+  isSelected: boolean;
   viewMode: ViewMode;
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
@@ -74,10 +81,13 @@ function DraggableFolder({
         {...attributes}
         {...listeners}
         onDoubleClick={onDoubleClick}
+        onClick={onClick}
         onContextMenu={onContextMenu}
         className={`group flex items-center gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none
           ${isDragging ? "opacity-30" : ""}
-          ${highlight ? "border-blue-400 bg-blue-50" : "border-transparent hover:bg-slate-50"}`}
+          ${highlight ? "border-blue-400 bg-blue-50" : ""}
+          ${isSelected && !highlight ? "border-blue-300 bg-blue-50/60" : ""}
+          ${!highlight && !isSelected ? "border-transparent hover:bg-slate-50" : ""}`}
         style={{ touchAction: "none" }}
       >
         <div className="w-8 h-7 shrink-0"><FolderIcon /></div>
@@ -101,12 +111,15 @@ function DraggableFolder({
       {...attributes}
       {...listeners}
       onDoubleClick={onDoubleClick}
+      onClick={onClick}
       onContextMenu={onContextMenu}
       className={`group relative flex flex-col items-center p-4 rounded-xl border-2 transition-all cursor-pointer select-none
         ${isDragging ? "opacity-30" : ""}
         ${highlight
           ? "border-blue-400 bg-blue-50 scale-105"
-          : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+          : isSelected
+            ? "border-blue-300 bg-blue-50/60"
+            : "border-transparent hover:border-slate-200 hover:bg-slate-50"
         }`}
       style={{ touchAction: "none" }}
     >
@@ -114,6 +127,13 @@ function DraggableFolder({
       <span className="text-sm text-slate-700 font-medium text-center leading-tight line-clamp-2 max-w-[120px]">
         {folder.name}
       </span>
+      {isSelected && (
+        <div className="absolute top-2 left-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
         className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
@@ -130,12 +150,16 @@ function DraggableFolder({
 function DraggableProduct({
   product,
   onDoubleClick,
+  onClick,
   onContextMenu,
+  isSelected,
   viewMode,
 }: {
   product: Product;
   onDoubleClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  isSelected: boolean;
   viewMode: ViewMode;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -150,11 +174,12 @@ function DraggableProduct({
         {...attributes}
         {...listeners}
         onDoubleClick={onDoubleClick}
+        onClick={onClick}
         onContextMenu={onContextMenu}
         className={`group flex items-center gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none
           ${isDragging ? "opacity-30" : ""}
           ${!product.is_active ? "opacity-50" : ""}
-          border-transparent hover:bg-slate-50`}
+          ${isSelected ? "border-blue-300 bg-blue-50/60" : "border-transparent hover:bg-slate-50"}`}
         style={{ touchAction: "none" }}
       >
         <div className="w-8 h-7 shrink-0 flex items-center justify-center">
@@ -197,11 +222,15 @@ function DraggableProduct({
       {...attributes}
       {...listeners}
       onDoubleClick={onDoubleClick}
+      onClick={onClick}
       onContextMenu={onContextMenu}
       className={`group relative flex flex-col items-center p-4 rounded-xl border-2 transition-all cursor-pointer select-none
         ${isDragging ? "opacity-30" : ""}
         ${!product.is_active ? "opacity-50" : ""}
-        border-transparent hover:border-slate-200 hover:bg-slate-50`}
+        ${isSelected
+          ? "border-blue-300 bg-blue-50/60"
+          : "border-transparent hover:border-slate-200 hover:bg-slate-50"
+        }`}
       style={{ touchAction: "none" }}
     >
       <div className="w-16 h-14 relative mb-2 flex items-center justify-center">
@@ -227,6 +256,13 @@ function DraggableProduct({
           無効
         </span>
       )}
+      {isSelected && !(!product.is_active) && (
+        <div className="absolute top-2 left-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      )}
       <button
         onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
         className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
@@ -239,7 +275,7 @@ function DraggableProduct({
   );
 }
 
-// ─── ルートドロップゾーン（パンくずの「すべての商品」やフォルダ外エリア）───
+// ─── ルートドロップゾーン ───
 function RootDropZone({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "drop-root",
@@ -265,6 +301,9 @@ export default function ProductsPage() {
 
   // ナビゲーション
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // 選択
+  const [selectedItems, setSelectedItems] = useState<Set<SelectionKey>>(new Set());
 
   // モーダル
   const [folderModal, setFolderModal] = useState<{ open: boolean; editing: ProductCategory | null }>({
@@ -319,6 +358,9 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // フォルダ遷移時に選択をクリア
+  useEffect(() => { setSelectedItems(new Set()); }, [currentFolderId]);
+
   // ─── ソート関数 ───
   const sortItems = useCallback(<T extends { sort_order: number }>(
     items: T[],
@@ -366,6 +408,38 @@ export default function ProductsPage() {
       setSortDir("asc");
     }
   };
+
+  // ─── 選択操作 ───
+  const handleItemClick = (key: SelectionKey, e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      // Cmd/Ctrl+クリック: トグル
+      setSelectedItems((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) { next.delete(key); } else { next.add(key); }
+        return next;
+      });
+    } else if (e.shiftKey && selectedItems.size > 0) {
+      // Shift+クリック: 範囲選択
+      const allKeys = [
+        ...currentFolders.map((f) => `folder-${f.id}`),
+        ...currentProducts.map((p) => `product-${p.id}`),
+      ];
+      const lastSelected = [...selectedItems].pop();
+      const lastIdx = allKeys.indexOf(lastSelected!);
+      const currentIdx = allKeys.indexOf(key);
+      if (lastIdx >= 0 && currentIdx >= 0) {
+        const start = Math.min(lastIdx, currentIdx);
+        const end = Math.max(lastIdx, currentIdx);
+        const range = new Set(allKeys.slice(start, end + 1));
+        setSelectedItems((prev) => new Set([...prev, ...range]));
+      }
+    } else {
+      // 通常クリック: 単一選択
+      setSelectedItems(new Set([key]));
+    }
+  };
+
+  const clearSelection = () => setSelectedItems(new Set());
 
   // ─── フォルダ操作 ───
   const handleCreateFolder = async (name: string) => {
@@ -492,6 +566,11 @@ export default function ProductsPage() {
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as DragItem;
     setActiveDrag(data);
+    // ドラッグ開始時、対象が未選択なら選択をリセットしてそのアイテムだけ選択
+    const key = `${data.type}-${data.id}`;
+    if (!selectedItems.has(key)) {
+      setSelectedItems(new Set([key]));
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -509,17 +588,16 @@ export default function ProductsPage() {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    const draggedItems = [...selectedItems];
     setActiveDrag(null);
     setDropTargetFolderId(null);
 
-    const { active, over } = event;
+    const { over } = event;
     if (!over) return;
 
-    const dragData = active.data.current as DragItem;
     const dropData = over.data.current as { type: string; id?: string } | undefined;
     if (!dropData) return;
 
-    // ドロップ先を決定
     let targetFolderId: string | null = null;
     if (dropData.type === "folder") {
       targetFolderId = dropData.id ?? null;
@@ -529,30 +607,44 @@ export default function ProductsPage() {
       return;
     }
 
-    // 自分自身にドロップした場合は何もしない
-    if (dragData.type === "folder" && dragData.id === targetFolderId) return;
+    // 選択されたアイテムをまとめて移動
+    const movePromises: Promise<Response>[] = [];
+
+    for (const key of draggedItems) {
+      const [type, id] = [key.split("-")[0], key.slice(key.indexOf("-") + 1)];
+
+      // 自分自身にドロップした場合はスキップ
+      if (type === "folder" && id === targetFolderId) continue;
+
+      if (type === "folder") {
+        movePromises.push(
+          fetch("/api/admin/product-categories", {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, parent_id: targetFolderId }),
+          }),
+        );
+      } else {
+        movePromises.push(
+          fetch("/api/admin/products", {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, category_id: targetFolderId }),
+          }),
+        );
+      }
+    }
+
+    if (movePromises.length === 0) return;
 
     try {
-      if (dragData.type === "folder") {
-        // フォルダをフォルダに移動
-        const res = await fetch("/api/admin/product-categories", {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: dragData.id, parent_id: targetFolderId }),
-        });
-        if (!res.ok) throw new Error("移動に失敗しました");
-      } else {
-        // 商品をフォルダに移動
-        const res = await fetch("/api/admin/products", {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: dragData.id, category_id: targetFolderId }),
-        });
-        if (!res.ok) throw new Error("移動に失敗しました");
-      }
+      const results = await Promise.all(movePromises);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) throw new Error(`${failed.length}件の移動に失敗しました`);
       await fetchData();
+      setSelectedItems(new Set());
     } catch (err) {
       alert(err instanceof Error ? err.message : "移動に失敗しました");
     }
@@ -567,13 +659,21 @@ export default function ProductsPage() {
   const renderDragOverlay = () => {
     if (!activeDrag) return null;
 
+    const count = selectedItems.size;
+    const label = count > 1 ? `${count}件を移動` : null;
+
     if (activeDrag.type === "folder") {
       const folder = categories.find((c) => c.id === activeDrag.id);
       if (!folder) return null;
       return (
-        <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
+        <div className="relative flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
           <div className="w-16 h-14 mb-2"><FolderIcon /></div>
-          <span className="text-sm font-medium">{folder.name}</span>
+          <span className="text-sm font-medium">{label || folder.name}</span>
+          {count > 1 && (
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              {count}
+            </div>
+          )}
         </div>
       );
     }
@@ -581,9 +681,14 @@ export default function ProductsPage() {
     const product = products.find((p) => p.id === activeDrag.id);
     if (!product) return null;
     return (
-      <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
+      <div className="relative flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
         <div className="w-16 h-14 mb-2 flex items-center justify-center"><ProductIcon /></div>
-        <span className="text-sm font-medium">{product.title}</span>
+        <span className="text-sm font-medium">{label || product.title}</span>
+        {count > 1 && (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+            {count}
+          </div>
+        )}
       </div>
     );
   };
@@ -638,11 +743,18 @@ export default function ProductsPage() {
 
       {/* パンくずナビ + ツールバー */}
       <div className="flex items-center justify-between mb-4">
-        <Breadcrumb
-          categories={categories}
-          currentFolderId={currentFolderId}
-          onNavigate={setCurrentFolderId}
-        />
+        <div className="flex items-center gap-2 min-w-0">
+          <Breadcrumb
+            categories={categories}
+            currentFolderId={currentFolderId}
+            onNavigate={setCurrentFolderId}
+          />
+          {selectedItems.size > 0 && (
+            <span className="shrink-0 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full font-medium">
+              {selectedItems.size}件選択中
+            </span>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 shrink-0">
           {/* ソートメニュー */}
@@ -707,7 +819,13 @@ export default function ProductsPage() {
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="bg-white rounded-xl shadow border border-slate-200 p-6 min-h-[400px]">
+        <div
+          className="bg-white rounded-xl shadow border border-slate-200 p-6 min-h-[400px]"
+          onClick={(e) => {
+            // 空エリアクリックで選択解除
+            if (e.target === e.currentTarget) clearSelection();
+          }}
+        >
           {/* 戻るボタン（ルートでない場合） */}
           {currentFolderId && (
             <button
@@ -750,7 +868,9 @@ export default function ProductsPage() {
                           key={folder.id}
                           folder={folder}
                           viewMode={viewMode}
+                          isSelected={selectedItems.has(`folder-${folder.id}`)}
                           onDoubleClick={() => setCurrentFolderId(folder.id)}
+                          onClick={(e) => handleItemClick(`folder-${folder.id}`, e)}
                           onContextMenu={(e) => openFolderContextMenu(e, folder)}
                           isDropTarget={dropTargetFolderId === folder.id}
                         />
@@ -774,7 +894,9 @@ export default function ProductsPage() {
                           key={product.id}
                           product={product}
                           viewMode={viewMode}
+                          isSelected={selectedItems.has(`product-${product.id}`)}
                           onDoubleClick={() => setProductModal({ open: true, editing: product })}
+                          onClick={(e) => handleItemClick(`product-${product.id}`, e)}
                           onContextMenu={(e) => openProductContextMenu(e, product)}
                         />
                       ))}
