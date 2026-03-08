@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -18,17 +18,43 @@ import { FolderEditModal } from "./_components/FolderEditModal";
 import { ProductEditModal } from "./_components/ProductEditModal";
 import type { Product, ProductCategory, DragItem } from "./_components/types";
 
+type ViewMode = "grid" | "list";
+type SortKey = "name" | "price" | "date" | "sort_order";
+type SortDir = "asc" | "desc";
+
+// ─── フォルダアイコンSVG ───
+function FolderIcon({ className = "w-full h-full" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 56" fill="none" className={className}>
+      <path d="M4 8C4 5.79 5.79 4 8 4H24L30 12H56C58.21 12 60 13.79 60 16V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V8Z" fill="#FBBF24" />
+      <path d="M4 16H60V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V16Z" fill="#F59E0B" />
+    </svg>
+  );
+}
+
+// ─── 商品アイコンSVG ───
+function ProductIcon({ className = "w-full h-full" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 56" fill="none" className={className}>
+      <rect x="8" y="4" width="48" height="48" rx="6" fill="#E2E8F0" />
+      <path d="M24 20h16M24 28h16M24 36h10" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ─── ドラッグ可能なフォルダ ───
 function DraggableFolder({
   folder,
   onDoubleClick,
   onContextMenu,
   isDropTarget,
+  viewMode,
 }: {
   folder: ProductCategory;
   onDoubleClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   isDropTarget: boolean;
+  viewMode: ViewMode;
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: `folder-${folder.id}`,
@@ -39,6 +65,36 @@ function DraggableFolder({
     data: { type: "folder", id: folder.id },
   });
 
+  const highlight = isOver || isDropTarget;
+
+  if (viewMode === "list") {
+    return (
+      <div
+        ref={(node) => { setDragRef(node); setDropRef(node); }}
+        {...attributes}
+        {...listeners}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={onContextMenu}
+        className={`group flex items-center gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none
+          ${isDragging ? "opacity-30" : ""}
+          ${highlight ? "border-blue-400 bg-blue-50" : "border-transparent hover:bg-slate-50"}`}
+        style={{ touchAction: "none" }}
+      >
+        <div className="w-8 h-7 shrink-0"><FolderIcon /></div>
+        <span className="text-sm text-slate-700 font-medium truncate flex-1">{folder.name}</span>
+        <span className="text-xs text-slate-400">フォルダ</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
+          className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={(node) => { setDragRef(node); setDropRef(node); }}
@@ -48,23 +104,16 @@ function DraggableFolder({
       onContextMenu={onContextMenu}
       className={`group relative flex flex-col items-center p-4 rounded-xl border-2 transition-all cursor-pointer select-none
         ${isDragging ? "opacity-30" : ""}
-        ${isOver || isDropTarget
+        ${highlight
           ? "border-blue-400 bg-blue-50 scale-105"
           : "border-transparent hover:border-slate-200 hover:bg-slate-50"
         }`}
       style={{ touchAction: "none" }}
     >
-      {/* フォルダアイコン */}
-      <div className="w-16 h-14 relative mb-2">
-        <svg viewBox="0 0 64 56" fill="none" className="w-full h-full">
-          <path d="M4 8C4 5.79 5.79 4 8 4H24L30 12H56C58.21 12 60 13.79 60 16V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V8Z" fill="#FBBF24" />
-          <path d="M4 16H60V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V16Z" fill="#F59E0B" />
-        </svg>
-      </div>
+      <div className="w-16 h-14 relative mb-2"><FolderIcon /></div>
       <span className="text-sm text-slate-700 font-medium text-center leading-tight line-clamp-2 max-w-[120px]">
         {folder.name}
       </span>
-      {/* アクションボタン */}
       <button
         onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
         className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
@@ -82,15 +131,65 @@ function DraggableProduct({
   product,
   onDoubleClick,
   onContextMenu,
+  viewMode,
 }: {
   product: Product;
   onDoubleClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
+  viewMode: ViewMode;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `product-${product.id}`,
     data: { type: "product", id: product.id } satisfies DragItem,
   });
+
+  if (viewMode === "list") {
+    return (
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={onContextMenu}
+        className={`group flex items-center gap-3 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none
+          ${isDragging ? "opacity-30" : ""}
+          ${!product.is_active ? "opacity-50" : ""}
+          border-transparent hover:bg-slate-50`}
+        style={{ touchAction: "none" }}
+      >
+        <div className="w-8 h-7 shrink-0 flex items-center justify-center">
+          {product.image_url ? (
+            <img
+              src={product.image_url}
+              alt={product.title}
+              className="w-7 h-7 object-cover rounded"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          ) : (
+            <ProductIcon className="w-8 h-7" />
+          )}
+        </div>
+        <span className="text-sm text-slate-700 font-medium truncate flex-1">{product.title}</span>
+        {product.code && (
+          <span className="text-xs text-slate-400 font-mono hidden sm:block">{product.code}</span>
+        )}
+        <span className="text-sm text-slate-600 font-medium w-24 text-right">
+          ¥{product.price.toLocaleString()}
+        </span>
+        {!product.is_active && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 rounded">無効</span>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
+          className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -105,7 +204,6 @@ function DraggableProduct({
         border-transparent hover:border-slate-200 hover:bg-slate-50`}
       style={{ touchAction: "none" }}
     >
-      {/* 商品アイコン */}
       <div className="w-16 h-14 relative mb-2 flex items-center justify-center">
         {product.image_url ? (
           <img
@@ -115,10 +213,7 @@ function DraggableProduct({
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         ) : (
-          <svg viewBox="0 0 64 56" fill="none" className="w-full h-full">
-            <rect x="8" y="4" width="48" height="48" rx="6" fill="#E2E8F0" />
-            <path d="M24 20h16M24 28h16M24 36h10" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <ProductIcon />
         )}
       </div>
       <span className="text-sm text-slate-700 font-medium text-center leading-tight line-clamp-2 max-w-[120px]">
@@ -127,13 +222,11 @@ function DraggableProduct({
       <span className="text-xs text-slate-500 mt-0.5">
         ¥{product.price.toLocaleString()}
       </span>
-      {/* ステータスバッジ */}
       {!product.is_active && (
         <span className="absolute top-2 left-2 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-600 rounded">
           無効
         </span>
       )}
-      {/* アクションボタン */}
       <button
         onClick={(e) => { e.stopPropagation(); onContextMenu(e); }}
         className="absolute top-2 right-2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-slate-200 text-slate-400 transition-opacity"
@@ -190,6 +283,11 @@ export default function ProductsPage() {
     items: { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean }[];
   } | null>(null);
 
+  // 表示モード・ソート
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortKey, setSortKey] = useState<SortKey>("sort_order");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
   // DnD
   const [activeDrag, setActiveDrag] = useState<DragItem | null>(null);
   const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
@@ -221,14 +319,53 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ─── 現在のフォルダ配下のアイテム ───
-  const currentFolders = categories
-    .filter((c) => c.parent_id === currentFolderId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  // ─── ソート関数 ───
+  const sortItems = useCallback(<T extends { sort_order: number }>(
+    items: T[],
+    getName: (item: T) => string,
+    getPrice: (item: T) => number,
+    getDate: (item: T) => string,
+  ): T[] => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...items].sort((a, b) => {
+      switch (sortKey) {
+        case "name": return getName(a).localeCompare(getName(b)) * dir;
+        case "price": return (getPrice(a) - getPrice(b)) * dir;
+        case "date": return (getDate(a) < getDate(b) ? -1 : 1) * dir;
+        case "sort_order":
+        default: return (a.sort_order - b.sort_order) * dir;
+      }
+    });
+  }, [sortKey, sortDir]);
 
-  const currentProducts = products
-    .filter((p) => p.category_id === currentFolderId)
-    .sort((a, b) => a.sort_order - b.sort_order);
+  // ─── 現在のフォルダ配下のアイテム ───
+  const currentFolders = useMemo(() =>
+    sortItems(
+      categories.filter((c) => c.parent_id === currentFolderId),
+      (c) => c.name,
+      () => 0,
+      (c) => c.created_at,
+    ),
+  [categories, currentFolderId, sortItems]);
+
+  const currentProducts = useMemo(() =>
+    sortItems(
+      products.filter((p) => p.category_id === currentFolderId),
+      (p) => p.title,
+      (p) => p.price,
+      (p) => p.code,
+    ),
+  [products, currentFolderId, sortItems]);
+
+  // ─── ソートトグル ───
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
   // ─── フォルダ操作 ───
   const handleCreateFolder = async (name: string) => {
@@ -435,12 +572,7 @@ export default function ProductsPage() {
       if (!folder) return null;
       return (
         <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
-          <div className="w-16 h-14 mb-2">
-            <svg viewBox="0 0 64 56" fill="none" className="w-full h-full">
-              <path d="M4 8C4 5.79 5.79 4 8 4H24L30 12H56C58.21 12 60 13.79 60 16V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V8Z" fill="#FBBF24" />
-              <path d="M4 16H60V48C60 50.21 58.21 52 56 52H8C5.79 52 4 50.21 4 48V16Z" fill="#F59E0B" />
-            </svg>
-          </div>
+          <div className="w-16 h-14 mb-2"><FolderIcon /></div>
           <span className="text-sm font-medium">{folder.name}</span>
         </div>
       );
@@ -450,12 +582,7 @@ export default function ProductsPage() {
     if (!product) return null;
     return (
       <div className="flex flex-col items-center p-4 bg-white rounded-xl shadow-2xl border-2 border-blue-400 opacity-90">
-        <div className="w-16 h-14 mb-2 flex items-center justify-center">
-          <svg viewBox="0 0 64 56" fill="none" className="w-full h-full">
-            <rect x="8" y="4" width="48" height="48" rx="6" fill="#E2E8F0" />
-            <path d="M24 20h16M24 28h16M24 36h10" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </div>
+        <div className="w-16 h-14 mb-2 flex items-center justify-center"><ProductIcon /></div>
         <span className="text-sm font-medium">{product.title}</span>
       </div>
     );
@@ -509,12 +636,68 @@ export default function ProductsPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      {/* パンくずナビ */}
-      <Breadcrumb
-        categories={categories}
-        currentFolderId={currentFolderId}
-        onNavigate={setCurrentFolderId}
-      />
+      {/* パンくずナビ + ツールバー */}
+      <div className="flex items-center justify-between mb-4">
+        <Breadcrumb
+          categories={categories}
+          currentFolderId={currentFolderId}
+          onNavigate={setCurrentFolderId}
+        />
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* ソートメニュー */}
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-slate-400 hidden sm:block">並べ替え:</span>
+            {([
+              { key: "sort_order" as SortKey, label: "順番" },
+              { key: "name" as SortKey, label: "名前" },
+              { key: "price" as SortKey, label: "価格" },
+              { key: "date" as SortKey, label: "日付" },
+            ]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => handleSort(key)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  sortKey === key
+                    ? "bg-blue-100 text-blue-700 font-medium"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {label}
+                {sortKey === key && (
+                  <span className="ml-0.5">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* 表示切替 */}
+          <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden ml-2">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-1.5 transition-colors ${
+                viewMode === "grid" ? "bg-slate-200 text-slate-700" : "text-slate-400 hover:bg-slate-100"
+              }`}
+              title="グリッド表示"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-1.5 transition-colors ${
+                viewMode === "list" ? "bg-slate-200 text-slate-700" : "text-slate-400 hover:bg-slate-100"
+              }`}
+              title="リスト表示"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* ファイルマネージャー本体 */}
       <DndContext
@@ -558,11 +741,15 @@ export default function ProductsPage() {
                     <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                       フォルダ ({currentFolders.length})
                     </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                    <div className={viewMode === "grid"
+                      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2"
+                      : "flex flex-col gap-0.5"
+                    }>
                       {currentFolders.map((folder) => (
                         <DraggableFolder
                           key={folder.id}
                           folder={folder}
+                          viewMode={viewMode}
                           onDoubleClick={() => setCurrentFolderId(folder.id)}
                           onContextMenu={(e) => openFolderContextMenu(e, folder)}
                           isDropTarget={dropTargetFolderId === folder.id}
@@ -578,11 +765,15 @@ export default function ProductsPage() {
                     <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                       商品 ({currentProducts.length})
                     </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+                    <div className={viewMode === "grid"
+                      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2"
+                      : "flex flex-col gap-0.5"
+                    }>
                       {currentProducts.map((product) => (
                         <DraggableProduct
                           key={product.id}
                           product={product}
+                          viewMode={viewMode}
                           onDoubleClick={() => setProductModal({ open: true, editing: product })}
                           onContextMenu={(e) => openProductContextMenu(e, product)}
                         />
