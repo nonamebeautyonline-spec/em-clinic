@@ -2,9 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { badRequest, serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, tenantPayload } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorUpsertSchema } from "@/lib/validations/admin-operations";
+
+export async function GET(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return unauthorized();
+
+  const tenantId = resolveTenantId(req);
+
+  try {
+    const { data, error } = await withTenant(
+      supabaseAdmin
+        .from("doctors")
+        .select("doctor_id, doctor_name, is_active, sort_order, color")
+        .eq("is_active", true)
+        .order("sort_order"),
+      tenantId
+    );
+
+    if (error) {
+      console.error("doctors GET error:", error);
+      return serverError("DB_ERROR");
+    }
+
+    return NextResponse.json({ ok: true, doctors: data || [] });
+  } catch (error) {
+    console.error("doctors GET error:", error);
+    return serverError("SERVER_ERROR");
+  }
+}
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);

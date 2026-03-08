@@ -99,7 +99,9 @@ export default function MonthlySchedulePage() {
   const [showWeeklyEditor, setShowWeeklyEditor] = useState(false);
   const [editingWeeklyRules, setEditingWeeklyRules] = useState<WeeklyRule[]>([]);
 
-  const doctorId = "dr_default";
+  // 医師選択
+  const [doctors, setDoctors] = useState<{ doctor_id: string; doctor_name: string }[]>([]);
+  const [doctorId, setDoctorId] = useState("dr_default");
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const monthDisplay = `${year}年${month}月`;
 
@@ -153,6 +155,21 @@ export default function MonthlySchedulePage() {
     }
     return configs;
   }, [monthDays, weeklyMap, overrideMap]);
+
+  // 医師一覧取得
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/admin/doctors", { cache: "no-store", credentials: "include" });
+        const json = await res.json();
+        if (json.ok && json.doctors) {
+          setDoctors(json.doctors);
+        }
+      } catch (e) {
+        console.error("Doctors load error:", e);
+      }
+    })();
+  }, []);
 
   // データ読み込み
   useEffect(() => {
@@ -456,9 +473,20 @@ export default function MonthlySchedulePage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">月別スケジュール設定</h1>
               <p className="text-slate-600 mt-1">
-                カレンダーから日付を選択して予約枠を設定します
+                医師を選択してからカレンダーで予約枠を設定します
               </p>
             </div>
+            {doctors.length > 1 && (
+              <select
+                value={doctorId}
+                onChange={(e) => { setDoctorId(e.target.value); setSelectedDate(null); }}
+                className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {doctors.map((d) => (
+                  <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
