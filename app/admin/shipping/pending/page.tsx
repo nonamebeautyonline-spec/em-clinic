@@ -100,8 +100,10 @@ export default function ShippingPendingPage() {
   };
 
   const toggleAllOrders = () => {
-    // ★ pending_confirmation以外の注文を対象にする（editCreatedModeならラベル作成済みも含む）
-    const selectableOrders = orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at));
+    // ★ editCreatedMode: 作成済みのみ / 通常: pending_confirmationとラベル作成済み以外
+    const selectableOrders = editCreatedMode
+      ? orders.filter((o) => !!o.shipping_list_created_at)
+      : orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at);
     const selectableIds = selectableOrders.map((o) => o.id);
 
     // 選択可能な注文が全て選択されているか確認
@@ -217,8 +219,14 @@ export default function ShippingPendingPage() {
                   <input
                     type="checkbox"
                     checked={
-                      orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at)).length > 0 &&
-                      orders.filter((o) => o.status !== "pending_confirmation" && (editCreatedMode || !o.shipping_list_created_at)).every((o) => selectedOrderIds.has(o.id))
+                      (editCreatedMode
+                        ? orders.filter((o) => !!o.shipping_list_created_at)
+                        : orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at)
+                      ).length > 0 &&
+                      (editCreatedMode
+                        ? orders.filter((o) => !!o.shipping_list_created_at)
+                        : orders.filter((o) => o.status !== "pending_confirmation" && !o.shipping_list_created_at)
+                      ).every((o) => selectedOrderIds.has(o.id))
                     }
                     onChange={toggleAllOrders}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
