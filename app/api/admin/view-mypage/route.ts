@@ -127,12 +127,13 @@ async function getPatientInfoFromSupabase(
       supabaseAdmin
         .from("patients")
         .select("patient_id, name, line_id")
-        .eq("patient_id", patientId),
+        .eq("patient_id", patientId)
+        .maybeSingle(),
       tenantId
-    ).maybeSingle();
+    );
 
     // intakeから status, answers を取得（問診本体、answers が null の空レコードを除外）
-    const { data: intake } = await withTenant(
+    const { data: intakeRows } = await withTenant(
       supabaseAdmin
         .from("intake")
         .select("patient_id, status, answers")
@@ -141,7 +142,8 @@ async function getPatientInfoFromSupabase(
         .order("created_at", { ascending: false })
         .limit(1),
       tenantId
-    ).maybeSingle();
+    );
+    const intake = intakeRows?.[0] ?? null;
 
     const answers = (intake?.answers as Record<string, unknown>) || null;
     const hasCompletedQuestionnaire = !!answers && typeof answers.ng_check === "string" && answers.ng_check !== "";
@@ -163,7 +165,7 @@ async function getNextReservationFromSupabase(
   tenantId: string | null
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data, error } = await withTenant(
+    const { data: resvRows, error } = await withTenant(
       supabaseAdmin
         .from("reservations")
         .select("reserve_id, reserved_date, reserved_time, status")
@@ -171,12 +173,13 @@ async function getNextReservationFromSupabase(
         .not("reserve_id", "is", null)
         .not("reserved_date", "is", null)
         .not("reserved_time", "is", null)
-        .or("status.is.null,status.eq.")
+        .neq("status", "canceled")
         .order("reserved_date", { ascending: true })
         .order("reserved_time", { ascending: true })
         .limit(1),
       tenantId
-    ).maybeSingle();
+    );
+    const data = resvRows?.[0] ?? null;
 
     if (error || !data) return null;
 
