@@ -183,17 +183,17 @@ async function getNextReservationFromSupabase(
   tenantId: string | null
 ): Promise<{ id: string; datetime: string; title: string; status: string } | null> {
   try {
-    const { data, error } = await withTenant(supabaseAdmin
+    const { data: rows, error } = await withTenant(supabaseAdmin
       .from("reservations")
       .select("reserve_id, reserved_date, reserved_time, status")
-      .eq("patient_id", patientId), tenantId)
+      .eq("patient_id", patientId)
       .neq("status", "canceled")
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
       .order("reserved_date", { ascending: true })
       .order("reserved_time", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(1), tenantId);
+    const data = rows?.[0] ?? null;
 
     if (error || !data) {
       return null;
