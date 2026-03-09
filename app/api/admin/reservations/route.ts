@@ -269,3 +269,39 @@ export async function GET(req: NextRequest) {
     return serverError(error instanceof Error ? error.message : "Server error");
   }
 }
+
+// 予約の担当医師を変更
+export async function PATCH(req: NextRequest) {
+  const isAuthorized = await verifyAdminAuth(req);
+  if (!isAuthorized) return unauthorized();
+
+  const tenantId = resolveTenantId(req);
+
+  try {
+    const body = await req.json();
+    const reserveId = String(body.reserve_id || "").trim();
+    const doctorId = String(body.doctor_id || "").trim();
+
+    if (!reserveId || !doctorId) {
+      return badRequest("reserve_id and doctor_id required");
+    }
+
+    const { error } = await withTenant(
+      supabaseAdmin
+        .from("reservations")
+        .update({ doctor_id: doctorId })
+        .eq("reserve_id", reserveId),
+      tenantId
+    );
+
+    if (error) {
+      console.error("PATCH reservations error:", error);
+      return serverError("Database error");
+    }
+
+    return NextResponse.json({ ok: true, reserve_id: reserveId, doctor_id: doctorId });
+  } catch (error) {
+    console.error("PATCH reservations error:", error);
+    return serverError(error instanceof Error ? error.message : "Server error");
+  }
+}

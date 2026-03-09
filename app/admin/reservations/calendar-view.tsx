@@ -562,14 +562,53 @@ export default function CalendarView({
                 {popover.event.reserved_date} {popover.event.reserved_time}
               </span>
             </div>
-            {popover.event.doctor_name && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">担当</span>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">担当</span>
+              {doctors.length > 1 ? (
+                <select
+                  value={popover.event.doctor_id}
+                  onChange={async (e) => {
+                    const newDoctorId = e.target.value;
+                    const newDoctorName = doctors.find(d => d.doctor_id === newDoctorId)?.doctor_name || "";
+                    try {
+                      const res = await fetch("/api/admin/reservations", {
+                        method: "PATCH",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          reserve_id: popover.event.reserve_id,
+                          doctor_id: newDoctorId,
+                        }),
+                      });
+                      const json = await res.json();
+                      if (json.ok) {
+                        // ローカルstateを更新
+                        setAllEvents(prev => prev.map(ev =>
+                          ev.reserve_id === popover.event.reserve_id
+                            ? { ...ev, doctor_id: newDoctorId, doctor_name: newDoctorName }
+                            : ev
+                        ));
+                        setPopover(p => p ? {
+                          ...p,
+                          event: { ...p.event, doctor_id: newDoctorId, doctor_name: newDoctorName }
+                        } : null);
+                      }
+                    } catch (err) {
+                      console.error("担当変更エラー:", err);
+                    }
+                  }}
+                  className="text-xs px-2 py-1 rounded border border-slate-200 bg-white text-slate-900"
+                >
+                  {doctors.map(d => (
+                    <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}</option>
+                  ))}
+                </select>
+              ) : (
                 <span className="text-slate-900">
-                  {popover.event.doctor_name}
+                  {popover.event.doctor_name || "-"}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-500">ステータス</span>
               <span
