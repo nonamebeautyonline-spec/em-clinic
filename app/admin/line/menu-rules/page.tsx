@@ -33,6 +33,7 @@ interface MarkDef { value: string; label: string; color: string }
 interface FieldDef { id: number; name: string }
 interface RichMenu { id: number; name: string; is_active: boolean }
 
+export { MenuRulesPage };
 export default function MenuRulesPage() {
   const [rules, setRules] = useState<MenuAutoRule[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);

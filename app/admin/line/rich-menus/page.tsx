@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { snapValue, generateGridLines, GRID_SIZES, type GridSize } from "@/lib/grid-snap";
+import { MenuRulesPage } from "@/app/admin/line/menu-rules/page";
 
 interface RichMenu {
   id: number;
@@ -130,6 +131,7 @@ function createDefaultButton(index: number, total: number): ButtonConfig {
 }
 
 export default function RichMenuManagementPage() {
+  const [activeTab, setActiveTab] = useState<"menus" | "rules">("menus");
   const [menus, setMenus] = useState<RichMenu[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -518,10 +520,51 @@ export default function RichMenuManagementPage() {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
   };
 
+  // --- タブ切り替えバー ---
+  const tabBar = (
+    <div className="bg-white border-b border-gray-200">
+      <div className="max-w-5xl mx-auto px-4 md:px-8">
+        <div className="flex gap-0">
+          <button
+            onClick={() => setActiveTab("menus")}
+            className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "menus"
+                ? "border-[#06C755] text-[#06C755]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            リッチメニュー管理
+          </button>
+          <button
+            onClick={() => setActiveTab("rules")}
+            className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "rules"
+                ? "border-[#06C755] text-[#06C755]"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            メニュー自動切替
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- 自動切替ルールタブ ---
+  if (activeTab === "rules") {
+    return (
+      <div className="min-h-full bg-gray-50/50">
+        {tabBar}
+        <MenuRulesPage />
+      </div>
+    );
+  }
+
   // --- 一覧表示 ---
   if (!showEditor) {
     return (
       <div className="min-h-full bg-gray-50/50">
+        {tabBar}
         <div className="bg-white border-b border-gray-100">
           <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
             <div className="flex items-center justify-between">
