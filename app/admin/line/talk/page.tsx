@@ -902,6 +902,7 @@ export default function TalkPage() {
         const data = await res.json();
         if (data.ok) {
           setNewMessage("");
+          if (inputRef.current) inputRef.current.style.height = "auto";
           setScheduleMode(false);
           setScheduledAt("");
           // 予約メッセージ一覧を更新
@@ -926,6 +927,7 @@ export default function TalkPage() {
             direction: "outgoing",
           }]);
           setNewMessage("");
+          if (inputRef.current) inputRef.current.style.height = "auto";
         }
       }
     } finally {
@@ -1847,7 +1849,7 @@ export default function TalkPage() {
                 <textarea
                   ref={inputRef}
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => { setNewMessage(e.target.value); const t = e.target as HTMLTextAreaElement; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }}
                   onKeyDown={handleKeyDown}
                   placeholder={scheduleMode ? "予約送信するメッセージを入力" : "メッセージを入力"}
                   rows={2}
