@@ -209,7 +209,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
 
-  // 未読カウント・再処方件数・在庫アラート件数のポーリング（60秒間隔）
+  // 未読カウント・再処方件数・在庫アラート件数のポーリング（30秒間隔）
   // タブ非アクティブ時はポーリングを停止し、復帰時に即時再取得
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -221,14 +221,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     fetchAll();
-    let interval = setInterval(fetchAll, 60000);
+    let interval = setInterval(fetchAll, 30000);
 
     const handleVisibility = () => {
       if (document.hidden) {
         clearInterval(interval);
       } else {
         fetchAll();
-        interval = setInterval(fetchAll, 60000);
+        interval = setInterval(fetchAll, 30000);
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
