@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   buildDaySlots,
-  getTimeRange,
   type WeeklyRule,
   type DateOverride,
 } from "@/lib/schedule-utils";
@@ -777,25 +776,9 @@ function ScheduleWeekView({
     return toDateStr(d);
   });
 
-  // 全日の時間範囲を統合して算出（最小start〜最大end）
-  let globalStartHour = 20;
-  let globalEndHour = 9;
-  for (const dateStr of days) {
-    const { startHour, endHour } = getTimeRange(
-      dateStr,
-      weeklyRules,
-      overrides,
-      10,
-      19
-    );
-    globalStartHour = Math.min(globalStartHour, startHour);
-    globalEndHour = Math.max(globalEndHour, endHour);
-  }
-  // フォールバック
-  if (globalStartHour >= globalEndHour) {
-    globalStartHour = 9;
-    globalEndHour = 20;
-  }
+  // 固定の全時間帯を表示（10:00〜19:00）
+  const globalStartHour = 10;
+  const globalEndHour = 19;
 
   // 30分刻みの時間スロット
   const halfHourSlots: string[] = [];
