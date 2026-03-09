@@ -13,11 +13,10 @@ const MAIN_TABS = [
   { href: "/admin/line/templates", label: "テンプレート" },
   { href: "/admin/line/forms", label: "回答フォーム" },
   { href: "/admin/line/step-scenarios", label: "ステップ配信" },
-  { href: "/admin/line/flow-builder", label: "フロービルダー" },
-  { href: "/admin/line/lifecycle-events", label: "イベント設定" },
-  { href: "/admin/line/chatbot", label: "チャットボット" },
+  { href: "/admin/line/lifecycle-events", label: "固定イベント設定" },
   { href: "/admin/line/keyword-replies", label: "自動応答" },
   { href: "/admin/line/ai-reply-settings", label: "AI返信" },
+  { href: "/admin/line/reminder-rules", label: "リマインド" },
   { href: "/admin/line/tags", label: "タグ管理" },
   { href: "/admin/line/actions", label: "アクション管理" },
 ];
@@ -25,18 +24,18 @@ const MAIN_TABS = [
 // 2行目: 設定・管理系
 const SUB_TABS = [
   { href: "/admin/line/marks", label: "対応マーク" },
-  { href: "/admin/line/media", label: "メディア一覧" },
-  { href: "/admin/line/rich-menus", label: "リッチメニュー設定" },
+  { href: "/admin/line/friends/fields", label: "情報欄" },
+  { href: "/admin/line/media", label: "メディア" },
+  { href: "/admin/line/rich-menus", label: "リッチメニュー" },
   { href: "/admin/line/friend-settings", label: "友達追加時設定" },
-  { href: "/admin/line/friends/fields", label: "情報欄設定" },
+  { href: "/admin/line/chatbot", label: "チャットボット" },
+  { href: "/admin/line/flow-builder", label: "フロービルダー" },
   { href: "/admin/line/ab-test", label: "A/Bテスト" },
   { href: "/admin/line/coupons", label: "クーポン" },
-  { href: "/admin/line/messages", label: "送信履歴" },
   { href: "/admin/line/click-analytics", label: "クリック分析" },
   { href: "/admin/line/analytics", label: "配信効果分析" },
-  { href: "/admin/line/menu-rules", label: "メニュー自動切替" },
-  { href: "/admin/line/reminder-rules", label: "リマインド" },
   { href: "/admin/line/nps", label: "NPS" },
+  { href: "/admin/line/messages", label: "送信履歴" },
   { href: "/admin/line/column-settings", label: "表示設定" },
 ];
 
