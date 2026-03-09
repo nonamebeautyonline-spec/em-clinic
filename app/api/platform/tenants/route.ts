@@ -201,16 +201,8 @@ export async function POST(req: NextRequest) {
       return conflict("このスラグは既に使用されています");
     }
 
-    // メールアドレス重複チェック
-    const { data: existingUser } = await supabaseAdmin
-      .from("admin_users")
-      .select("id")
-      .eq("email", data.adminEmail)
-      .maybeSingle();
-
-    if (existingUser) {
-      return conflict("このメールアドレスは既に使用されています");
-    }
+    // メールアドレス重複チェック（同一メールでも別テナントなら許可）
+    // 注: 同一テナント内での重複はtenant作成直後にチェック不要（新規テナントのため）
 
     // 1. テナント作成
     const { data: tenant, error: tenantErr } = await supabaseAdmin
