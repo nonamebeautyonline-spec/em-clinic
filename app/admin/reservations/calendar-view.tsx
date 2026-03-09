@@ -548,7 +548,13 @@ export default function CalendarView({
             <div className="flex justify-between">
               <span className="text-slate-500">患者名</span>
               <span className="font-medium text-slate-900">
-                {popover.event.patient_name || "-"}
+                {popover.event.patient_name || "-"}{" "}
+                <a
+                  href={`/admin/line/talk?pid=${popover.event.patient_id}`}
+                  className="text-blue-600 underline hover:text-blue-800"
+                >
+                  {popover.event.patient_id}
+                </a>
               </span>
             </div>
             <div className="flex justify-between">
@@ -559,7 +565,7 @@ export default function CalendarView({
             </div>
             {popover.event.doctor_name && (
               <div className="flex justify-between">
-                <span className="text-slate-500">医師</span>
+                <span className="text-slate-500">担当</span>
                 <span className="text-slate-900">
                   {popover.event.doctor_name}
                 </span>
@@ -917,11 +923,18 @@ function ScheduleWeekView({
                             </span>
                           </div>
                           <div className="font-medium truncate">
-                            {ev.patient_name || "名前なし"}
+                            {ev.patient_name || "名前なし"}{" "}
+                            <a
+                              href={`/admin/line/talk?pid=${ev.patient_id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-normal underline opacity-60 hover:opacity-100"
+                            >
+                              {ev.patient_id}
+                            </a>
                           </div>
                           {ev.doctor_name && (
                             <div className="text-[9px] opacity-70 truncate">
-                              {ev.doctor_name}
+                              担当 {ev.doctor_name}
                             </div>
                           )}
                         </button>
