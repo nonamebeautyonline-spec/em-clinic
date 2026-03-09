@@ -5,7 +5,7 @@ import { badRequest, forbidden, notFound } from "@/lib/api-error";
 import { verifyDraftSignature } from "@/lib/ai-reply-sign";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendAiReply } from "@/lib/ai-reply";
-import { withTenant } from "@/lib/tenant";
+import { saveAiReplyExample } from "@/lib/embedding";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplySendSchema } from "@/lib/validations/ai-reply";
@@ -61,22 +61,17 @@ export async function POST(
       .update({ modified_reply: draft.draft_reply })
       .eq("id", draftId);
 
-    // ナレッジベースに自動追加（修正ページ経由 = 必ず修正があったとみなす）
+    // 学習例として保存（embedding付き）
     try {
-      const { data: settings } = await withTenant(
-        supabaseAdmin.from("ai_reply_settings").select("id, knowledge_base").maybeSingle(),
-        draft.tenant_id
-      );
-      if (settings) {
-        const newEntry = `\n\n### スタッフ修正例（自動追加）\nQ: ${draft.original_message}\nA: ${draft.draft_reply}`;
-        const updatedKb = (settings.knowledge_base || "") + newEntry;
-        await supabaseAdmin
-          .from("ai_reply_settings")
-          .update({ knowledge_base: updatedKb })
-          .eq("id", settings.id);
-      }
+      await saveAiReplyExample({
+        tenantId: draft.tenant_id,
+        question: draft.original_message,
+        answer: draft.draft_reply,
+        source: "staff_edit",
+        draftId: draft.id,
+      });
     } catch (err) {
-      console.error("[AI Reply] ナレッジ追加エラー:", err);
+      console.error("[AI Reply] 学習例保存エラー:", err);
     }
 
     // 管理グループに通知

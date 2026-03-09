@@ -84,6 +84,7 @@ LINEメニューの「予約する」ボタンから予約できます。
 // タブ定義
 const TABS = [
   { key: "settings" as const, label: "設定" },
+  { key: "examples" as const, label: "学習例" },
   { key: "stats" as const, label: "統計" },
 ] as const;
 
@@ -183,6 +184,9 @@ export default function AiReplySettingsPage() {
           ))}
         </nav>
       </div>
+
+      {/* 学習例タブ */}
+      {activeTab === "examples" && <AiReplyExamplesTab />}
 
       {/* 統計タブ */}
       {activeTab === "stats" && <AIReplyStatsContent />}
@@ -467,6 +471,118 @@ export default function AiReplySettingsPage() {
         </button>
       </div>
       </>}
+    </div>
+  );
+}
+
+// 学習例タブコンポーネント
+interface AiReplyExample {
+  id: number;
+  question: string;
+  answer: string;
+  source: "staff_edit" | "manual_reply";
+  used_count: number;
+  created_at: string;
+}
+
+function AiReplyExamplesTab() {
+  const [examples, setExamples] = useState<AiReplyExample[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  const fetchExamples = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/line/ai-reply-examples", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setExamples(data.examples);
+        setTotal(data.total);
+      }
+    } catch (e) {
+      console.error("学習例取得エラー:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchExamples(); }, [fetchExamples]);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("この学習例を削除しますか？")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch("/api/admin/line/ai-reply-examples", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        setExamples(prev => prev.filter(e => e.id !== id));
+        setTotal(prev => prev - 1);
+      }
+    } catch (e) {
+      console.error("学習例削除エラー:", e);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  if (loading) return <div className="text-gray-500 text-sm">読み込み中...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-gray-700">学習例一覧</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            スタッフの修正・手動返信から自動学習された Q&A です。AIは患者メッセージに類似する学習例を参考にして返信します。
+          </p>
+        </div>
+        <span className="text-sm text-gray-500">{total}件</span>
+      </div>
+
+      {examples.length === 0 ? (
+        <div className="bg-white rounded-lg border p-8 text-center text-gray-400 text-sm">
+          まだ学習例がありません。スタッフがAI返信を修正・手動返信すると自動的に蓄積されます。
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {examples.map(ex => (
+            <div key={ex.id} className="bg-white rounded-lg border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div>
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">患者メッセージ</span>
+                    <p className="text-sm text-gray-700 mt-0.5">{ex.question}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">スタッフ返信</span>
+                    <p className="text-sm text-gray-700 mt-0.5">{ex.answer}</p>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-gray-400">
+                    <span className={`px-1.5 py-0.5 rounded ${
+                      ex.source === "staff_edit" ? "bg-blue-50 text-blue-600" : "bg-green-50 text-green-600"
+                    }`}>
+                      {ex.source === "staff_edit" ? "修正送信" : "手動返信"}
+                    </span>
+                    <span>{new Date(ex.created_at).toLocaleDateString("ja-JP")}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDelete(ex.id)}
+                  disabled={deleting === ex.id}
+                  className="text-gray-400 hover:text-red-500 transition-colors text-sm p-1 shrink-0"
+                  title="削除"
+                >
+                  {deleting === ex.id ? "..." : "×"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
