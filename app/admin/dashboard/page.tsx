@@ -165,6 +165,8 @@ interface DashboardStats {
     lineRegisteredCount: number;
     todayNewReservations: number;
     todayActiveReservations: number;
+    todayActiveOK: number;
+    todayActiveNG: number;
     todayPaidCount: number;
   };
   dailyBreakdown?: DailyBreakdown[];
