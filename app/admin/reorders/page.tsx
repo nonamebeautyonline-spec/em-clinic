@@ -12,7 +12,6 @@ interface Reorder {
   status: string;
   note: string;
   line_uid?: string;
-  lstep_uid?: string;
   line_notify_result?: "sent" | "no_uid" | "failed" | null;
   history?: Array<{
     date: string;
@@ -125,11 +124,6 @@ export default function ReordersPage() {
     }
   };
 
-  const getLStepUrl = (lstepUid?: string) => {
-    if (!lstepUid) return null;
-    return `https://manager.linestep.net/line/visual?member=${encodeURIComponent(lstepUid)}`;
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -206,9 +200,6 @@ export default function ReordersPage() {
                   LINE通知
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Lステップ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   操作
                 </th>
               </tr>
@@ -216,7 +207,7 @@ export default function ReordersPage() {
             <tbody className="divide-y divide-slate-200">
               {reorders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     {filter === "pending"
                       ? "承認待ちの再処方申請はありません"
                       : "再処方申請はありません"}
@@ -274,20 +265,6 @@ export default function ReordersPage() {
                         <span className="text-red-600 font-medium">失敗</span>
                       ) : reorder.status === "pending" ? (
                         <span className="text-slate-400">-</span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {getLStepUrl(reorder.lstep_uid) ? (
-                        <a
-                          href={getLStepUrl(reorder.lstep_uid)!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-900 hover:underline"
-                        >
-                          開く
-                        </a>
                       ) : (
                         <span className="text-slate-400">-</span>
                       )}
