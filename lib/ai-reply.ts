@@ -654,6 +654,19 @@ export async function sendAiReply(
   patientId: string,
   tenantId: string | null
 ): Promise<void> {
+  // LINE_仮IDが統合済みの場合、正式IDに解決（message_logの整合性確保）
+  if (patientId.startsWith("LINE_")) {
+    const { data: current } = await withTenant(
+      supabaseAdmin.from("patients").select("patient_id")
+        .eq("line_id", lineUid).maybeSingle(),
+      tenantId
+    );
+    if (current && !current.patient_id.startsWith("LINE_")) {
+      console.log(`[AI Reply] sendAiReply patientId統合: ${patientId} → ${current.patient_id}`);
+      patientId = current.patient_id;
+    }
+  }
+
   const res = await pushMessage(
     lineUid,
     [{ type: "text", text: replyText }],
