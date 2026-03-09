@@ -684,7 +684,7 @@ export default function EnhancedDashboard() {
         const mainKpiCards = [
           widgetSettings.kpi_reservations && (
             <KPICard key="reservations" title="予約件数" value={`${stats?.reservations.total || 0}`}
-              subtitle={`診察済み: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
+              subtitle={`診察済み: ${stats?.reservations.completed || 0} / 未診察: ${(stats?.reservations.total || 0) - (stats?.reservations.completed || 0) - (stats?.reservations.cancelled || 0)}`}
               icon="📅" color="blue" />
           ),
           widgetSettings.kpi_shipping && (
@@ -737,10 +737,16 @@ export default function EnhancedDashboard() {
             <KPICard key="line" title="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}`}
               subtitle="LINE友だち数" icon="💬" color="green" />
           ),
-          widgetSettings.kpi_active_reservations && (
-            <KPICard key="active_res" title="本日の予約枠" value={`${stats?.kpi.todayActiveReservations || 0}`}
-              subtitle="キャンセル除く有効予約数" icon="📋" color="sky" />
-          ),
+          widgetSettings.kpi_active_reservations && (() => {
+            const active = stats?.kpi.todayActiveReservations || 0;
+            const ok = stats?.kpi.todayActiveOK || 0;
+            const ng = stats?.kpi.todayActiveNG || 0;
+            const pending = active - ok - ng;
+            return (
+              <KPICard key="active_res" title="本日の予約枠" value={`${active}`}
+                subtitle={`診察済み: ${ok} / 不通: ${ng} / 未診察: ${pending}`} icon="📋" color="sky" />
+            );
+          })(),
           widgetSettings.kpi_avg_order && (
             <KPICard key="avg_order" title="顧客単価" value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
               subtitle="平均注文額" icon="💎" color="rose" />

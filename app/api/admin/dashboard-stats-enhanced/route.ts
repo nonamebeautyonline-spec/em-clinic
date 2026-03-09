@@ -247,6 +247,8 @@ export async function GET(request: NextRequest) {
     ].filter((id): id is string => !!id))];
 
     // 診察完了患者数
+    const completedOKCount = completedOKResult.data?.length ?? 0;
+    const completedNGCount = completedNGResult.data?.length ?? 0;
     const allCompletedPatientIds = [
       ...(completedOKResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
       ...(completedNGResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
@@ -494,6 +496,8 @@ export async function GET(request: NextRequest) {
         consultationCompletionRate,
         lineRegisteredCount,
         todayActiveReservations,
+        todayActiveOK: completedOKCount,
+        todayActiveNG: completedNGCount,
         todayNewReservations,
         todayPaidCount,
       },
