@@ -202,8 +202,8 @@ async function fetchSnapshot(
       let q = supabase
         .from("message_log")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", startISO)
-        .lt("created_at", endISO);
+        .gte("sent_at", startISO)
+        .lt("sent_at", endISO);
       if (tenantId) q = q.eq("tenant_id", tenantId);
       return q;
     })(),

@@ -551,9 +551,9 @@ export default function EnhancedDashboard() {
                   { key: "kpi_reservation_rate" as const, label: "問診後の予約率" },
                   { key: "kpi_consultation_rate" as const, label: "予約後の受診率" },
                   { key: "kpi_line_registered" as const, label: "LINE登録者" },
-                  { key: "kpi_active_reservations" as const, label: "アクティブ予約" },
+                  { key: "kpi_active_reservations" as const, label: "本日の予約枠" },
                   { key: "kpi_avg_order" as const, label: "顧客単価" },
-                  { key: "kpi_today_reservations" as const, label: "本日の予約" },
+                  { key: "kpi_today_reservations" as const, label: "本日の新規予約" },
                   { key: "kpi_today_paid" as const, label: "本日の決済" },
                   { key: "kpi_bank_transfer" as const, label: "銀行振込状況" },
                 ]).map(({ key, label }) => (
@@ -665,7 +665,7 @@ export default function EnhancedDashboard() {
             connected={sseStatus === "connected"}
           />
           <RealtimeStatCard
-            label="本日新規患者"
+            label="本日の新規登録"
             value={realtimeStats.todayNewPatients}
             unit="人"
             icon={
@@ -684,7 +684,7 @@ export default function EnhancedDashboard() {
         const mainKpiCards = [
           widgetSettings.kpi_reservations && (
             <KPICard key="reservations" title="予約件数" value={`${stats?.reservations.total || 0}`}
-              subtitle={`完了: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
+              subtitle={`診察済み: ${stats?.reservations.completed || 0} / キャンセル: ${stats?.reservations.cancelled || 0}`}
               icon="📅" color="blue" />
           ),
           widgetSettings.kpi_shipping && (
@@ -694,10 +694,10 @@ export default function EnhancedDashboard() {
           ),
           widgetSettings.kpi_revenue && (
             <KPICard key="revenue" title="純売上" value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
-              subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()}`}
+              subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()} / 返金: -¥${(stats?.revenue.refunded || 0).toLocaleString()}`}
               icon="💰" color="purple" />
           ),
-          widgetSettings.kpi_repeat_rate && (
+          widgetSettings.kpi_repeat_rate && dateRange !== "today" && dateRange !== "yesterday" && (
             <KPICard key="repeat_rate" title="リピート率" value={`${stats?.patients.repeatRate || 0}%`}
               subtitle={`総患者: ${stats?.patients.total || 0} / 新規: ${stats?.patients.new || 0}`}
               icon="🔄" color="orange" />
@@ -710,17 +710,18 @@ export default function EnhancedDashboard() {
 
       {/* 転換率KPIカード（個別表示制御） */}
       {(() => {
+        const rangePrefix = dateRange === "today" ? "本日の" : dateRange === "yesterday" ? "昨日の" : "";
         const convCards = [
           widgetSettings.kpi_payment_rate && (
-            <ConversionCard key="payment" title="診療後の決済率"
-              rate={stats?.kpi.paymentRateAfterConsultation || 0} description="診察完了後に決済した患者の割合" />
+            <ConversionCard key="payment" title={`${rangePrefix}診療後決済率`}
+              rate={stats?.kpi.paymentRateAfterConsultation || 0} description={`${rangePrefix}診察完了後に決済した患者の割合`} />
           ),
           widgetSettings.kpi_reservation_rate && (
-            <ConversionCard key="reservation" title="問診後の予約率"
-              rate={stats?.kpi.reservationRateAfterIntake || 0} description="問診完了後に予約した患者の割合" />
+            <ConversionCard key="reservation" title={`${rangePrefix}問診後予約率`}
+              rate={stats?.kpi.reservationRateAfterIntake || 0} description={`${rangePrefix}問診完了後に予約した患者の割合`} />
           ),
           widgetSettings.kpi_consultation_rate && (
-            <ConversionCard key="consultation" title="予約後の受診率"
+            <ConversionCard key="consultation" title={`${rangePrefix}予約後受診率`}
               rate={stats?.kpi.consultationCompletionRate || 0} description="予約後に診察を完了した患者の割合" />
           ),
         ].filter(Boolean);
@@ -737,7 +738,7 @@ export default function EnhancedDashboard() {
               subtitle="LINE友だち数" icon="💬" color="green" />
           ),
           widgetSettings.kpi_active_reservations && (
-            <KPICard key="active_res" title="アクティブ予約" value={`${stats?.kpi.todayActiveReservations || 0}`}
+            <KPICard key="active_res" title="本日の予約枠" value={`${stats?.kpi.todayActiveReservations || 0}`}
               subtitle="キャンセル除く有効予約数" icon="📋" color="sky" />
           ),
           widgetSettings.kpi_avg_order && (
@@ -745,16 +746,16 @@ export default function EnhancedDashboard() {
               subtitle="平均注文額" icon="💎" color="rose" />
           ),
           widgetSettings.kpi_today_reservations && (
-            <KPICard key="today_res" title="本日の予約" value={`${stats?.kpi.todayNewReservations || 0}`}
-              subtitle="新規予約数" icon="📝" color="purple" />
+            <KPICard key="today_res" title="本日の新規予約" value={`${stats?.kpi.todayNewReservations || 0}`}
+              subtitle="本日新たに入った予約数" icon="📝" color="purple" />
           ),
           widgetSettings.kpi_today_paid && (
             <KPICard key="today_paid" title="本日の決済" value={`${stats?.kpi.todayPaidCount || 0}`}
               subtitle="決済完了数" icon="✅" color="orange" />
           ),
           widgetSettings.kpi_bank_transfer && (
-            <KPICard key="bank" title="銀行振込状況" value={`${stats?.bankTransfer.pending || 0}`}
-              subtitle={`入金待ち / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
+            <KPICard key="bank" title="銀行振込状況" value={`${(stats?.bankTransfer.pending || 0) + (stats?.bankTransfer.confirmed || 0)}`}
+              subtitle={`入金待ち: ${stats?.bankTransfer.pending || 0} / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
               icon="🏦" color="sky" />
           ),
         ].filter(Boolean);
@@ -866,7 +867,7 @@ export default function EnhancedDashboard() {
                 <h3 className="text-md font-bold text-slate-900 mb-4">予約</h3>
                 <div className="space-y-3">
                   <StatRow label="総予約数" value={`${stats?.reservations.total || 0}件`} />
-                  <StatRow label="完了" value={`${stats?.reservations.completed || 0}件`} />
+                  <StatRow label="診察済み" value={`${stats?.reservations.completed || 0}件`} />
                   <StatRow label="キャンセル" value={`${stats?.reservations.cancelled || 0}件`} />
                   <StatRow
                     label="キャンセル率"
