@@ -1,8 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import OnboardingChecklist from "@/components/admin/OnboardingChecklist";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // recharts はクライアント専用のため dynamic import で SSR を回避
 const SegmentWidget = dynamic(
@@ -62,6 +79,24 @@ interface WidgetSettings {
   detailTabs: boolean;
 }
 
+// カード並び順のデフォルト
+type KpiKey = keyof WidgetSettings;
+const DEFAULT_MAIN_ORDER: KpiKey[] = ["kpi_reservations", "kpi_shipping", "kpi_revenue", "kpi_repeat_rate"];
+const DEFAULT_CONV_ORDER: KpiKey[] = ["kpi_payment_rate", "kpi_reservation_rate", "kpi_consultation_rate"];
+const DEFAULT_SUB_ORDER: KpiKey[] = ["kpi_line_registered", "kpi_active_reservations", "kpi_avg_order", "kpi_today_reservations", "kpi_today_paid", "kpi_bank_transfer"];
+
+interface CardOrder {
+  main: KpiKey[];
+  conv: KpiKey[];
+  sub: KpiKey[];
+}
+
+const DEFAULT_CARD_ORDER: CardOrder = {
+  main: DEFAULT_MAIN_ORDER,
+  conv: DEFAULT_CONV_ORDER,
+  sub: DEFAULT_SUB_ORDER,
+};
+
 const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
   kpi_reservations: true,
   kpi_shipping: true,
@@ -83,27 +118,31 @@ const DEFAULT_WIDGET_SETTINGS: WidgetSettings = {
 };
 
 /** API からウィジェット設定を読み込む */
-async function loadWidgetSettings(): Promise<WidgetSettings> {
+async function loadWidgetSettings(): Promise<{ settings: WidgetSettings; order: CardOrder }> {
   try {
     const res = await fetch("/api/admin/dashboard-layout?scope=enhanced", { credentials: "include" });
-    if (!res.ok) return DEFAULT_WIDGET_SETTINGS;
+    if (!res.ok) return { settings: DEFAULT_WIDGET_SETTINGS, order: DEFAULT_CARD_ORDER };
     const data = await res.json();
-    if (data?.enhancedWidgets) {
-      return { ...DEFAULT_WIDGET_SETTINGS, ...data.enhancedWidgets };
-    }
-    return DEFAULT_WIDGET_SETTINGS;
+    const settings = data?.enhancedWidgets
+      ? { ...DEFAULT_WIDGET_SETTINGS, ...data.enhancedWidgets }
+      : DEFAULT_WIDGET_SETTINGS;
+    const order = data?.enhancedWidgets?.cardOrder
+      ? { ...DEFAULT_CARD_ORDER, ...data.enhancedWidgets.cardOrder }
+      : DEFAULT_CARD_ORDER;
+    return { settings, order };
   } catch {
-    return DEFAULT_WIDGET_SETTINGS;
+    return { settings: DEFAULT_WIDGET_SETTINGS, order: DEFAULT_CARD_ORDER };
   }
 }
 
 /** API にウィジェット設定を保存する */
-function saveWidgetSettings(settings: WidgetSettings): void {
+function saveWidgetSettings(settings: WidgetSettings, order?: CardOrder): void {
+  const payload = order ? { ...settings, cardOrder: order } : settings;
   fetch("/api/admin/dashboard-layout?scope=enhanced", {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enhancedWidgets: settings }),
+    body: JSON.stringify({ enhancedWidgets: payload }),
   }).catch((e) => {
     console.error("[dashboard] ウィジェット設定保存失敗:", e);
   });
@@ -197,19 +236,49 @@ export default function EnhancedDashboard() {
 
   // ウィジェット表示設定
   const [widgetSettings, setWidgetSettings] = useState<WidgetSettings>(DEFAULT_WIDGET_SETTINGS);
+  const [cardOrder, setCardOrder] = useState<CardOrder>(DEFAULT_CARD_ORDER);
   const [showWidgetMenu, setShowWidgetMenu] = useState(false);
   const widgetMenuRef = useRef<HTMLDivElement>(null);
 
+  // dnd-kit センサー
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   // 初期読み込み時に API から復元
   useEffect(() => {
-    loadWidgetSettings().then(setWidgetSettings);
+    loadWidgetSettings().then(({ settings, order }) => {
+      setWidgetSettings(settings);
+      setCardOrder(order);
+    });
   }, []);
 
   // ウィジェット設定の変更ハンドラ
   const toggleWidget = useCallback((key: keyof WidgetSettings) => {
     setWidgetSettings((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      saveWidgetSettings(next);
+      setCardOrder((currentOrder) => {
+        saveWidgetSettings(next, currentOrder);
+        return currentOrder;
+      });
+      return next;
+    });
+  }, []);
+
+  // ドラッグ終了ハンドラ
+  const handleDragEnd = useCallback((group: keyof CardOrder) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setCardOrder((prev) => {
+      const oldIndex = prev[group].indexOf(active.id as KpiKey);
+      const newIndex = prev[group].indexOf(over.id as KpiKey);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const next = { ...prev, [group]: arrayMove(prev[group], oldIndex, newIndex) };
+      setWidgetSettings((currentSettings) => {
+        saveWidgetSettings(currentSettings, next);
+        return currentSettings;
+      });
       return next;
     });
   }, []);
@@ -681,95 +750,121 @@ export default function EnhancedDashboard() {
         </div>
       )}
 
-      {/* KPIカード（個別表示制御） */}
+      {/* KPIカード（ドラッグ並び替え対応） */}
       {(() => {
-        const mainKpiCards = [
-          widgetSettings.kpi_reservations && (
-            <KPICard key="reservations" title="予約件数" value={`${stats?.reservations.total || 0}`}
+        const rangePrefix = dateRange === "today" ? "本日の" : dateRange === "yesterday" ? "昨日の" : "";
+        const activeOK = stats?.kpi.todayActiveOK || 0;
+        const activeNG = stats?.kpi.todayActiveNG || 0;
+        const activeTotal = stats?.kpi.todayActiveReservations || 0;
+
+        // 全カードの定義マップ
+        const cardMap: Record<KpiKey, ReactNode> = {
+          kpi_reservations: (
+            <KPICard title="予約件数" value={`${stats?.reservations.total || 0}`}
               subtitle={`診察済み: ${stats?.reservations.completed || 0} / 未診察: ${(stats?.reservations.total || 0) - (stats?.reservations.completed || 0) - (stats?.reservations.cancelled || 0)}`}
               icon="📅" color="blue" />
           ),
-          widgetSettings.kpi_shipping && (
-            <KPICard key="shipping" title="配送件数" value={`${stats?.shipping.total || 0}`}
+          kpi_shipping: (
+            <KPICard title="配送件数" value={`${stats?.shipping.total || 0}`}
               subtitle={`新規: ${stats?.shipping.first || 0} / 再処方: ${stats?.shipping.reorder || 0}`}
               icon="📦" color="green" />
           ),
-          widgetSettings.kpi_revenue && (
-            <KPICard key="revenue" title="純売上" value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
+          kpi_revenue: (
+            <KPICard title="純売上" value={`¥${(stats?.revenue.total || 0).toLocaleString()}`}
               subtitle={`カード: ¥${(stats?.revenue.square || 0).toLocaleString()} / 振込: ¥${(stats?.revenue.bankTransfer || 0).toLocaleString()} / 返金: -¥${(stats?.revenue.refunded || 0).toLocaleString()}`}
               icon="💰" color="purple" />
           ),
-          widgetSettings.kpi_repeat_rate && dateRange !== "today" && dateRange !== "yesterday" && (
-            <KPICard key="repeat_rate" title="リピート率" value={`${stats?.patients.repeatRate || 0}%`}
+          kpi_repeat_rate: dateRange !== "today" && dateRange !== "yesterday" ? (
+            <KPICard title="リピート率" value={`${stats?.patients.repeatRate || 0}%`}
               subtitle={`総患者: ${stats?.patients.total || 0} / 新規: ${stats?.patients.new || 0}`}
               icon="🔄" color="orange" />
-          ),
-        ].filter(Boolean);
-        return mainKpiCards.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">{mainKpiCards}</div>
-        ) : null;
-      })()}
-
-      {/* 転換率KPIカード（個別表示制御） */}
-      {(() => {
-        const rangePrefix = dateRange === "today" ? "本日の" : dateRange === "yesterday" ? "昨日の" : "";
-        const convCards = [
-          widgetSettings.kpi_payment_rate && (
-            <ConversionCard key="payment" title={`${rangePrefix}診療後決済率`}
+          ) : null,
+          kpi_payment_rate: (
+            <ConversionCard title={`${rangePrefix}診療後決済率`}
               rate={stats?.kpi.paymentRateAfterConsultation || 0} description={`${rangePrefix}診察完了後に決済した患者の割合`} />
           ),
-          widgetSettings.kpi_reservation_rate && (
-            <ConversionCard key="reservation" title={`${rangePrefix}問診後予約率`}
+          kpi_reservation_rate: (
+            <ConversionCard title={`${rangePrefix}問診後予約率`}
               rate={stats?.kpi.reservationRateAfterIntake || 0} description={`${rangePrefix}問診完了後に予約した患者の割合`} />
           ),
-          widgetSettings.kpi_consultation_rate && (
-            <ConversionCard key="consultation" title={`${rangePrefix}予約後受診率`}
+          kpi_consultation_rate: (
+            <ConversionCard title={`${rangePrefix}予約後受診率`}
               rate={stats?.kpi.consultationCompletionRate || 0} description="予約後に診察を完了した患者の割合" />
           ),
-        ].filter(Boolean);
-        return convCards.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">{convCards}</div>
-        ) : null;
-      })()}
-
-      {/* サブKPIカード（個別表示制御） */}
-      {(() => {
-        const subCards = [
-          widgetSettings.kpi_line_registered && (
-            <KPICard key="line" title="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}`}
+          kpi_line_registered: (
+            <KPICard title="LINE登録者" value={`${stats?.kpi.lineRegisteredCount || 0}`}
               subtitle="LINE友だち数" icon="💬" color="green" />
           ),
-          widgetSettings.kpi_active_reservations && (() => {
-            const active = stats?.kpi.todayActiveReservations || 0;
-            const ok = stats?.kpi.todayActiveOK || 0;
-            const ng = stats?.kpi.todayActiveNG || 0;
-            const pending = active - ok - ng;
-            return (
-              <KPICard key="active_res" title="本日の予約枠" value={`${active}`}
-                subtitle={`診察済み: ${ok} / 不通: ${ng} / 未診察: ${pending}`} icon="📋" color="sky" />
-            );
-          })(),
-          widgetSettings.kpi_avg_order && (
-            <KPICard key="avg_order" title="顧客単価" value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
+          kpi_active_reservations: (
+            <KPICard title="本日の予約枠" value={`${activeTotal}`}
+              subtitle={`診察済み: ${activeOK} / 不通: ${activeNG} / 未診察: ${activeTotal - activeOK - activeNG}`} icon="📋" color="sky" />
+          ),
+          kpi_avg_order: (
+            <KPICard title="顧客単価" value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}
               subtitle="平均注文額" icon="💎" color="rose" />
           ),
-          widgetSettings.kpi_today_reservations && (
-            <KPICard key="today_res" title="本日の新規予約" value={`${stats?.kpi.todayNewReservations || 0}`}
+          kpi_today_reservations: (
+            <KPICard title="本日の新規予約" value={`${stats?.kpi.todayNewReservations || 0}`}
               subtitle="本日新たに入った予約数" icon="📝" color="purple" />
           ),
-          widgetSettings.kpi_today_paid && (
-            <KPICard key="today_paid" title="本日の決済" value={`${stats?.kpi.todayPaidCount || 0}`}
+          kpi_today_paid: (
+            <KPICard title="本日の決済" value={`${stats?.kpi.todayPaidCount || 0}`}
               subtitle="決済完了数" icon="✅" color="orange" />
           ),
-          widgetSettings.kpi_bank_transfer && (
-            <KPICard key="bank" title="銀行振込状況" value={`${(stats?.bankTransfer.pending || 0) + (stats?.bankTransfer.confirmed || 0)}`}
+          kpi_bank_transfer: (
+            <KPICard title="銀行振込状況" value={`${(stats?.bankTransfer.pending || 0) + (stats?.bankTransfer.confirmed || 0)}`}
               subtitle={`入金待ち: ${stats?.bankTransfer.pending || 0} / 確認済み: ${stats?.bankTransfer.confirmed || 0}`}
               icon="🏦" color="sky" />
           ),
-        ].filter(Boolean);
-        return subCards.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">{subCards}</div>
-        ) : null;
+          // チャート・タブ用（ここでは使わない）
+          segmentChart: null, conversionChart: null, kpiTargetChart: null, detailTabs: null,
+        };
+
+        // 表示対象のカードをフィルタして並び順に取得
+        const getVisibleCards = (keys: KpiKey[]) =>
+          keys.filter((k) => widgetSettings[k] && cardMap[k]);
+
+        const mainKeys = getVisibleCards(cardOrder.main);
+        const convKeys = getVisibleCards(cardOrder.conv);
+        const subKeys = getVisibleCards(cardOrder.sub);
+
+        return (
+          <>
+            {mainKeys.length > 0 && (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd("main")}>
+                <SortableContext items={mainKeys} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {mainKeys.map((k) => (
+                      <SortableCard key={k} id={k}>{cardMap[k]}</SortableCard>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+            {convKeys.length > 0 && (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd("conv")}>
+                <SortableContext items={convKeys} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {convKeys.map((k) => (
+                      <SortableCard key={k} id={k}>{cardMap[k]}</SortableCard>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+            {subKeys.length > 0 && (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd("sub")}>
+                <SortableContext items={subKeys} strategy={rectSortingStrategy}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {subKeys.map((k) => (
+                      <SortableCard key={k} id={k}>{cardMap[k]}</SortableCard>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </>
+        );
       })()}
 
       {/* KPI目標 vs 実績 */}
@@ -1174,6 +1269,23 @@ function getTimeAgo(date: Date): string {
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}分前`;
   return `${Math.floor(minutes / 60)}時間前`;
+}
+
+// ─── ドラッグ可能カードラッパー ──────────────────────────────
+
+function SortableCard({ id, children }: { id: string; children: ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: "grab",
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
 }
 
 // ─── 既存のUI部品（変更なし） ──────────────────────────────
