@@ -288,22 +288,25 @@ export async function POST(req: NextRequest) {
       console.error("[platform/tenants] INSERT tenant_plan error:", planErr);
     }
 
-    // 5. LINE設定（任意）
+    // 5. LINE設定（任意）— tenant_settings は category/key/value 形式
     if (data.lineChannelId || data.lineChannelSecret || data.lineAccessToken) {
-      const { error: settingsErr } = await supabaseAdmin
-        .from("tenant_settings")
-        .insert({
-          tenant_id: tenantId,
-          line_channel_id: data.lineChannelId || null,
-          line_channel_secret: data.lineChannelSecret || null,
-          line_access_token: data.lineAccessToken || null,
-        });
+      const lineSettings = [
+        data.lineChannelId && { tenant_id: tenantId, category: "line", key: "channel_id", value: data.lineChannelId },
+        data.lineChannelSecret && { tenant_id: tenantId, category: "line", key: "channel_secret", value: data.lineChannelSecret },
+        data.lineAccessToken && { tenant_id: tenantId, category: "line", key: "access_token", value: data.lineAccessToken },
+      ].filter(Boolean);
 
-      if (settingsErr) {
-        console.error(
-          "[platform/tenants] INSERT tenant_settings error:",
-          settingsErr,
-        );
+      if (lineSettings.length > 0) {
+        const { error: settingsErr } = await supabaseAdmin
+          .from("tenant_settings")
+          .insert(lineSettings);
+
+        if (settingsErr) {
+          console.error(
+            "[platform/tenants] INSERT tenant_settings error:",
+            settingsErr,
+          );
+        }
       }
     }
 

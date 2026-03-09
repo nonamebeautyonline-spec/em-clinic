@@ -211,6 +211,15 @@ export default function CreateTenantPage() {
       errs.adminPassword = "パスワードは必須です";
     } else if (formData.adminPassword.length < 8) {
       errs.adminPassword = "パスワードは8文字以上です";
+    } else {
+      const missing: string[] = [];
+      if (!/[A-Z]/.test(formData.adminPassword)) missing.push("大文字");
+      if (!/[a-z]/.test(formData.adminPassword)) missing.push("小文字");
+      if (!/[0-9]/.test(formData.adminPassword)) missing.push("数字");
+      if (!/[^A-Za-z0-9]/.test(formData.adminPassword)) missing.push("記号");
+      if (missing.length > 0) {
+        errs.adminPassword = `${missing.join("・")}を含めてください`;
+      }
     }
     if (formData.adminPassword !== formData.adminPasswordConfirm) {
       errs.adminPasswordConfirm = "パスワードが一致しません";
@@ -294,7 +303,10 @@ export default function CreateTenantPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data?.error || "テナントの作成に失敗しました");
+        const msg = data?.details?.length
+          ? data.details.join("\n")
+          : data?.message || data?.error || "テナントの作成に失敗しました";
+        throw new Error(msg);
       }
 
       // 成功トースト表示
@@ -403,7 +415,7 @@ export default function CreateTenantPage() {
 
         {/* APIエラー */}
         {apiError && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm whitespace-pre-line">
             {apiError}
           </div>
         )}
@@ -617,14 +629,9 @@ export default function CreateTenantPage() {
                   {errors.adminPassword && (
                     <p className="mt-1 text-xs text-red-600">{errors.adminPassword}</p>
                   )}
-                  {formData.adminPassword && formData.adminPassword.length >= 8 && (
-                    <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      8文字以上
-                    </p>
-                  )}
+                  <p className="mt-1 text-xs text-slate-400">
+                    8文字以上・大文字・小文字・数字・記号を各1文字以上
+                  </p>
                 </div>
 
                 {/* パスワード確認 */}
