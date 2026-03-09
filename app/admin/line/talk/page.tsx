@@ -2743,6 +2743,9 @@ const FriendItem = memo(function FriendItem({ f, isPinned, isSelected, onSelect,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
             <span className="text-[15px] font-semibold text-gray-800 truncate">{f.patient_id?.startsWith("LINE_") ? "🟧 " : ""}{f.patient_name || f.line_display_name || "（名前なし）"}</span>
+            {f.line_display_name && f.patient_name && f.line_display_name !== f.patient_name && (
+              <span className="text-[10px] text-gray-400 truncate flex-shrink-0 max-w-[80px]">{f.line_display_name}</span>
+            )}
             {hasUnreadText && (
               <span className="w-3 h-3 rounded-full bg-[#00B900] flex-shrink-0" />
             )}
