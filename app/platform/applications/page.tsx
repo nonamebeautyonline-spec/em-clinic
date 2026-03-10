@@ -165,6 +165,7 @@ export default function ApplicationsPage() {
                             <p><span className="text-slate-400">業種:</span> {app.industry}</p>
                             {app.platform_name && <p><span className="text-slate-400">PF名:</span> {app.platform_name}</p>}
                             {app.ai_options.length > 0 && <p><span className="text-slate-400">AI:</span> {app.ai_options.join(", ")}</p>}
+                            {(app.extra_options || []).length > 0 && <p><span className="text-slate-400">その他:</span> {app.extra_options.join(", ")}</p>}
                             {app.setup_options.length > 0 && <p><span className="text-slate-400">構築:</span> {app.setup_options.join(", ")}</p>}
                             {app.note && <p><span className="text-slate-400">備考:</span> {app.note}</p>}
                           </div>
