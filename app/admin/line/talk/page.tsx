@@ -384,10 +384,6 @@ export default function TalkPage() {
   const [scheduledMessages, setScheduledMessages] = useState<{ id: number; message_content: string; scheduled_at: string; status: string; created_at: string }[]>([]);
   const [cancelingScheduleId, setCancelingScheduleId] = useState<number | null>(null);
 
-  // テンプレート推薦
-  const [recommendedTemplates, setRecommendedTemplates] = useState<{ template_id: number; template_name: string; reason: string }[]>([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
-
   // アクション実行
   const [showActionPicker, setShowActionPicker] = useState(false);
   const [actionList, setActionList] = useState<{ id: number; name: string; steps: { type: string; content?: string; tag_name?: string; mark?: string }[] }[]>([]);
@@ -685,7 +681,6 @@ export default function TalkPage() {
     setUserRichMenu(null);
     setShowMenuPicker(false);
     setIsBlocked(false);
-    setRecommendedTemplates([]);
     setScheduleMode(false);
     setScheduledAt("");
     setScheduledMessages([]);
@@ -957,25 +952,6 @@ export default function TalkPage() {
         }
       }
       setTemplatesLoading(false);
-    }
-    // テンプレート推薦を取得
-    if (selectedPatient && recommendedTemplates.length === 0 && !loadingRecommendations) {
-      setLoadingRecommendations(true);
-      try {
-        const recRes = await fetch("/api/admin/line/template-recommend", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ patient_id: selectedPatient.patient_id }),
-        });
-        const recData = await recRes.json();
-        if (recData.ok && recData.recommendations) {
-          setRecommendedTemplates(recData.recommendations);
-        }
-      } catch {
-        // 推薦取得失敗は無視（メイン機能に影響しない）
-      }
-      setLoadingRecommendations(false);
     }
   };
 
@@ -2096,48 +2072,6 @@ export default function TalkPage() {
 
             {/* テンプレートリスト */}
             <div className="flex-1 overflow-y-auto min-h-0">
-              {/* おすすめテンプレート */}
-              {(loadingRecommendations || recommendedTemplates.length > 0) && !templateSearch && !templateCategoryFilter && (
-                <div className="border-b border-gray-100">
-                  <div className="px-5 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    <span className="text-xs font-bold text-amber-700">AIおすすめ</span>
-                  </div>
-                  {loadingRecommendations ? (
-                    <div className="flex items-center justify-center py-6">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
-                        <span className="text-xs text-gray-400">推薦を取得中...</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-50">
-                      {recommendedTemplates.map((rec) => {
-                        const tpl = templates.find((t) => t.id === rec.template_id);
-                        if (!tpl) return null;
-                        return (
-                          <button
-                            key={`rec-${rec.template_id}`}
-                            onClick={() => confirmTemplate(tpl)}
-                            disabled={sending}
-                            className="w-full text-left px-5 py-3 hover:bg-amber-50/50 transition-colors group disabled:opacity-50"
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-gray-800 group-hover:text-amber-700 transition-colors">{rec.template_name}</span>
-                              <svg className="w-4 h-4 text-gray-300 group-hover:text-amber-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                            </div>
-                            <p className="text-[11px] text-amber-600 bg-amber-50 rounded px-2 py-1 mb-1">{rec.reason}</p>
-                            <p className="text-xs text-gray-400 line-clamp-1 leading-relaxed">{tpl.content}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
               {templatesLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
