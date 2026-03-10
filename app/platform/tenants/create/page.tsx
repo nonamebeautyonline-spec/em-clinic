@@ -49,101 +49,93 @@ const initialFormData: FormData = {
   lineChannelId: "",
   lineChannelSecret: "",
   lineAccessToken: "",
-  planName: "standard",
-  monthlyFee: 17000,
-  setupFee: 300000,
+  planName: "30000",
+  monthlyFee: 18700,
+  setupFee: 0,
   messageQuota: 30000,
-  overageUnitPrice: 0.7,
+  overageUnitPrice: 0.77,
   aiOptions: [],
 };
 
-// メッセージプラン定義（Lステップ2割減・税込）
+// メッセージプラン定義（税込・apply.tsと同期）
 const PLANS = [
   {
-    key: "light",
+    key: "5000",
     label: "ライト",
     desc: "5,000通/月",
-    monthly: 4000,
-    setup: 300000,
+    monthly: 4400,
     quota: 5000,
-    overagePrice: 1.0,
+    overagePrice: 1.1,
     color: "border-slate-300 bg-slate-50",
     badge: "bg-slate-100 text-slate-700",
   },
   {
-    key: "standard",
+    key: "30000",
     label: "スタンダード",
     desc: "30,000通/月",
-    monthly: 17000,
-    setup: 300000,
+    monthly: 18700,
     quota: 30000,
-    overagePrice: 0.7,
+    overagePrice: 0.77,
     color: "border-blue-300 bg-blue-50",
     badge: "bg-blue-100 text-blue-700",
     recommended: true,
   },
   {
-    key: "pro",
+    key: "50000",
     label: "プロ",
     desc: "50,000通/月",
-    monthly: 26000,
-    setup: 300000,
+    monthly: 30800,
     quota: 50000,
-    overagePrice: 0.6,
+    overagePrice: 0.62,
     color: "border-indigo-300 bg-indigo-50",
     badge: "bg-indigo-100 text-indigo-700",
   },
   {
-    key: "business",
+    key: "100000",
     label: "ビジネス",
     desc: "100,000通/月",
-    monthly: 70000,
-    setup: 300000,
+    monthly: 77000,
     quota: 100000,
-    overagePrice: 0.5,
+    overagePrice: 0.55,
     color: "border-purple-300 bg-purple-50",
     badge: "bg-purple-100 text-purple-700",
   },
   {
-    key: "business_30",
+    key: "300000",
     label: "ビジネス30万",
     desc: "300,000通/月",
-    monthly: 105000,
-    setup: 300000,
+    monthly: 115500,
     quota: 300000,
-    overagePrice: 0.4,
+    overagePrice: 0.44,
     color: "border-emerald-300 bg-emerald-50",
     badge: "bg-emerald-100 text-emerald-700",
   },
   {
-    key: "business_50",
+    key: "500000",
     label: "ビジネス50万",
     desc: "500,000通/月",
-    monthly: 115000,
-    setup: 300000,
+    monthly: 126500,
     quota: 500000,
-    overagePrice: 0.3,
+    overagePrice: 0.33,
     color: "border-teal-300 bg-teal-50",
     badge: "bg-teal-100 text-teal-700",
   },
   {
-    key: "business_100",
+    key: "1000000",
     label: "ビジネス100万",
     desc: "1,000,000通/月",
-    monthly: 158000,
-    setup: 300000,
+    monthly: 173800,
     quota: 1000000,
-    overagePrice: 0.2,
+    overagePrice: 0.22,
     color: "border-amber-300 bg-amber-50",
     badge: "bg-amber-100 text-amber-700",
   },
 ];
 
-// AIオプション定義
+// AIオプション定義（税込・apply.tsと同期）
 const AI_OPTIONS_UI = [
-  { key: "ai_reply", label: "AI返信", price: 20000, desc: "AIによるLINE自動返信" },
-  { key: "voice_input", label: "音声入力", price: 15000, desc: "音声からテキスト変換" },
-  { key: "ai_karte", label: "AIカルテ", price: 20000, desc: "AI自動カルテ生成" },
+  { key: "ai_reply", label: "AI自動返信", price: 22000, desc: "AIによるLINE自動返信" },
+  { key: "voice_karte", label: "音声カルテ", price: 16500, desc: "診察音声からSOAPカルテを自動生成" },
 ];
 
 export default function CreateTenantPage() {
@@ -174,7 +166,7 @@ export default function CreateTenantPage() {
     // AIオプションのマッピング（LP→ウィザード）
     const aiMap: Record<string, string> = {
       "AI自動返信": "ai_reply",
-      "音声カルテ": "voice_input",
+      "音声カルテ": "voice_karte",
     };
     const aiOptions = aiOptionsStr
       ? aiOptionsStr.split(",").map((k) => aiMap[k] || k).filter((k) => AI_OPTIONS_UI.some((o) => o.key === k))
@@ -290,7 +282,6 @@ export default function CreateTenantPage() {
   const selectPlan = (plan: (typeof PLANS)[number]) => {
     updateField("planName", plan.key);
     updateField("monthlyFee", plan.monthly);
-    updateField("setupFee", plan.setup);
     updateField("messageQuota", plan.quota);
     updateField("overageUnitPrice", plan.overagePrice);
   };
