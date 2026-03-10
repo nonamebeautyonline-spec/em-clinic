@@ -168,14 +168,6 @@ export default function RichMenuManagementPage() {
   // 対応マーク定義
   const [allMarks, setAllMarks] = useState<MarkDefinition[]>([]);
 
-  // AI画像生成
-  const [showAiGenerator, setShowAiGenerator] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiButtonLabels, setAiButtonLabels] = useState("");
-  const [aiStyle, setAiStyle] = useState<"card" | "gradient" | "banner">("card");
-  const [aiLayout, setAiLayout] = useState<string | null>(null);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiPreviewSvg, setAiPreviewSvg] = useState<string | null>(null);
 
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
@@ -221,128 +213,6 @@ export default function RichMenuManagementPage() {
       window.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
-
-  // --- レイアウトテンプレート定義 ---
-  type LayoutTemplate = { id: string; label: string; desc: string; buttonCount: number; cells: { x: number; y: number; w: number; h: number }[] };
-  const LAYOUT_TEMPLATES: LayoutTemplate[] = [
-    { id: "2x3", label: "2行×3列", desc: "均等6分割", buttonCount: 6, cells: [
-      { x: 0, y: 0, w: 833, h: 843 }, { x: 833, y: 0, w: 834, h: 843 }, { x: 1667, y: 0, w: 833, h: 843 },
-      { x: 0, y: 843, w: 833, h: 843 }, { x: 833, y: 843, w: 834, h: 843 }, { x: 1667, y: 843, w: 833, h: 843 },
-    ]},
-    { id: "2big-3small", label: "上2大＋下3小", desc: "上段大きめ2つ＋下段3つ", buttonCount: 5, cells: [
-      { x: 0, y: 0, w: 1250, h: 843 }, { x: 1250, y: 0, w: 1250, h: 843 },
-      { x: 0, y: 843, w: 833, h: 843 }, { x: 833, y: 843, w: 834, h: 843 }, { x: 1667, y: 843, w: 833, h: 843 },
-    ]},
-    { id: "2x2", label: "2行×2列", desc: "均等4分割", buttonCount: 4, cells: [
-      { x: 0, y: 0, w: 1250, h: 843 }, { x: 1250, y: 0, w: 1250, h: 843 },
-      { x: 0, y: 843, w: 1250, h: 843 }, { x: 1250, y: 843, w: 1250, h: 843 },
-    ]},
-    { id: "1big-3small", label: "左1大＋右3小", desc: "左に大きなエリア＋右に3段", buttonCount: 4, cells: [
-      { x: 0, y: 0, w: 1250, h: 1686 },
-      { x: 1250, y: 0, w: 1250, h: 562 }, { x: 1250, y: 562, w: 1250, h: 562 }, { x: 1250, y: 1124, w: 1250, h: 562 },
-    ]},
-    { id: "1x3", label: "1行×3列", desc: "横3分割", buttonCount: 3, cells: [
-      { x: 0, y: 0, w: 833, h: 1686 }, { x: 833, y: 0, w: 834, h: 1686 }, { x: 1667, y: 0, w: 833, h: 1686 },
-    ]},
-    { id: "1x2", label: "1行×2列", desc: "横2分割", buttonCount: 2, cells: [
-      { x: 0, y: 0, w: 1250, h: 1686 }, { x: 1250, y: 0, w: 1250, h: 1686 },
-    ]},
-  ];
-
-  const renderLayoutSvg = (layout: LayoutTemplate, selected: boolean) => {
-    const w = 150, h = 101; // 2500:1686 aspect ratio
-    const scaleX = w / 2500, scaleY = h / 1686;
-    const rects = layout.cells.map((c, i) => {
-      const gap = 2;
-      return `<rect x="${c.x * scaleX + gap}" y="${c.y * scaleY + gap}" width="${c.w * scaleX - gap * 2}" height="${c.h * scaleY - gap * 2}" rx="3" fill="${selected ? '#818CF8' : '#CBD5E1'}" stroke="${selected ? '#4F46E5' : '#94A3B8'}" stroke-width="1"/>`;
-    });
-    return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg"><rect width="${w}" height="${h}" rx="4" fill="${selected ? '#EEF2FF' : '#F8FAFC'}"/>${rects.join("")}</svg>`;
-  };
-
-  // --- AI生成ハンドラ ---
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim()) return;
-    setAiGenerating(true);
-    setAiPreviewSvg(null);
-    try {
-      const labels = aiButtonLabels.split(",").map(s => s.trim()).filter(Boolean);
-      const layoutHint = aiLayout ? LAYOUT_TEMPLATES.find(l => l.id === aiLayout) : null;
-      const res = await fetch("/api/admin/line/rich-menus/ai-generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          prompt: aiPrompt,
-          sizeType: "full",
-          buttonCount: layoutHint?.buttonCount ?? (labels.length || buttons.length || 6),
-          buttonLabels: labels.length > 0 ? labels : undefined,
-          style: aiStyle,
-          layoutCells: layoutHint?.cells,
-        }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error((json.message || json.error) || "生成失敗");
-      setAiPreviewSvg(json.svg);
-    } catch (e) {
-      alert(`AI生成エラー: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const handleUseAiImage = async () => {
-    if (!aiPreviewSvg) return;
-    try {
-      // SVG→PNG変換（Canvas）
-      const width = 2500;
-      const height = 1686;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas不可");
-
-      const svgBlob = new Blob([aiPreviewSvg], { type: "image/svg+xml;charset=utf-8" });
-      const svgUrl = URL.createObjectURL(svgBlob);
-
-      await new Promise<void>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, width, height);
-          URL.revokeObjectURL(svgUrl);
-          resolve();
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(svgUrl);
-          reject(new Error("SVG読み込み失敗"));
-        };
-        img.src = svgUrl;
-      });
-
-      // PNG→Blob→Supabase Storageにアップロード
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error("PNG変換失敗")), "image/png");
-      });
-
-      const formData = new FormData();
-      formData.append("file", blob, `ai-richmenu-${Date.now()}.png`);
-      formData.append("folder", "rich-menus");
-
-      const uploadRes = await fetch("/api/admin/media/upload", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      const uploadJson = await uploadRes.json();
-      if (!uploadJson.url) throw new Error("アップロード失敗");
-
-      setImageUrl(uploadJson.url);
-      setShowAiGenerator(false);
-      setAiPreviewSvg(null);
-    } catch (e) {
-      alert(`画像適用エラー: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
 
   // --- Editor helpers ---
   const handleCreateNew = () => {
@@ -733,9 +603,6 @@ export default function RichMenuManagementPage() {
                 <button onClick={openImagePicker} className="px-4 py-2 bg-[#06C755] text-white text-sm rounded-lg hover:bg-[#05b34d] w-fit flex-shrink-0">
                   メニュー画像選択
                 </button>
-                <button onClick={() => setShowAiGenerator(!showAiGenerator)} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 w-fit flex-shrink-0">
-                  AIで画像を生成
-                </button>
                 {imageUrl && (
                   <div className="flex items-center gap-3">
                     <img src={imageUrl} alt="メニュー画像" className="w-full max-w-md rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: "2500/1686" }} />
@@ -744,104 +611,6 @@ export default function RichMenuManagementPage() {
                 )}
               </div>
 
-              {/* AI生成パネル */}
-              {showAiGenerator && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
-                  <p className="text-sm font-medium text-indigo-800">AI画像生成</p>
-                  {/* スタイル選択 */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-600 shrink-0">スタイル:</span>
-                    {([
-                      { value: "card" as const, label: "カード型", desc: "白パネル＋影" },
-                      { value: "gradient" as const, label: "グラデーション型", desc: "鮮やかな背景" },
-                      { value: "banner" as const, label: "バナー型", desc: "上部バナー＋下部ボタン" },
-                    ]).map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setAiStyle(opt.value)}
-                        className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                          aiStyle === opt.value
-                            ? "bg-indigo-600 text-white border-indigo-600"
-                            : "bg-white text-gray-700 border-gray-300 hover:border-indigo-400"
-                        }`}
-                        title={opt.desc}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  {/* レイアウトテンプレート選択 */}
-                  <div>
-                    <span className="text-xs text-gray-600 mb-1.5 block">レイアウト:</span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {LAYOUT_TEMPLATES.map(lt => (
-                        <button
-                          key={lt.id}
-                          onClick={() => setAiLayout(aiLayout === lt.id ? null : lt.id)}
-                          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-colors ${
-                            aiLayout === lt.id
-                              ? "border-indigo-500 bg-indigo-50"
-                              : "border-gray-200 bg-white hover:border-indigo-300"
-                          }`}
-                          title={`${lt.label} (${lt.buttonCount}ボタン)`}
-                        >
-                          <div
-                            style={{ width: 75, height: 51 }}
-                            dangerouslySetInnerHTML={{ __html: renderLayoutSvg(lt, aiLayout === lt.id) }}
-                          />
-                          <span className={`text-[10px] leading-tight ${aiLayout === lt.id ? "text-indigo-700 font-medium" : "text-gray-500"}`}>
-                            {lt.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={aiPrompt}
-                    onChange={e => setAiPrompt(e.target.value)}
-                    placeholder="例: クリニック向け、青緑系の清潔感あるデザイン"
-                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <input
-                    type="text"
-                    value={aiButtonLabels}
-                    onChange={e => setAiButtonLabels(e.target.value)}
-                    placeholder="ボタンラベル（カンマ区切り）: 予約, 問診, マイページ, お問合せ"
-                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  />
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleAiGenerate}
-                      disabled={aiGenerating || !aiPrompt.trim()}
-                      className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                      {aiGenerating ? "生成中..." : "生成する"}
-                    </button>
-                    <button onClick={() => { setShowAiGenerator(false); setAiPreviewSvg(null); }} className="text-sm text-gray-500 hover:text-gray-700">
-                      閉じる
-                    </button>
-                  </div>
-
-                  {/* SVGプレビュー */}
-                  {aiPreviewSvg && (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs text-indigo-600 font-medium">プレビュー:</p>
-                      <div
-                        className="border border-indigo-200 rounded-lg overflow-hidden bg-white"
-                        style={{ maxWidth: "500px", aspectRatio: "2500/1686" }}
-                        dangerouslySetInnerHTML={{ __html: aiPreviewSvg }}
-                      />
-                      <button
-                        onClick={handleUseAiImage}
-                        className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-500"
-                      >
-                        この画像を使用する
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
