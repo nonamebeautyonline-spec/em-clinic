@@ -28,6 +28,7 @@ describe("applicationSchema バリデーション", () => {
     ai_options: [],
     extra_options: [],
     setup_options: [],
+    admin_password: "Test1234!",
     agreed_terms: true as const,
   };
 

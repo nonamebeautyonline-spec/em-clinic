@@ -1,5 +1,6 @@
 // lib/validations/apply.ts — SaaS申し込みフォーム バリデーション（税込価格）
 import { z } from "zod";
+import { strongPasswordSchema } from "@/lib/validations/password-policy";
 
 export const INDUSTRIES = [
   "美容皮膚科",
@@ -119,6 +120,7 @@ export const applicationSchema = z.object({
   ai_options: z.array(z.string()).default([]),
   extra_options: z.array(z.string()).default([]),
   setup_options: z.array(z.string()).default([]),
+  admin_password: strongPasswordSchema,
   note: z.string().max(1000).optional(),
   agreed_terms: z.literal(true, {
     error: "利用規約への同意が必要です",

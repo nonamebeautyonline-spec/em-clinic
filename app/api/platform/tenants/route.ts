@@ -227,7 +227,26 @@ export async function POST(req: NextRequest) {
     const tenantId = tenant.id;
 
     // 2. 初期管理者ユーザー作成（bcryptハッシュ + ユーザーID自動生成）
-    const passwordHash = await bcrypt.hash(data.adminPassword, 12);
+    // 申し込みから作成時はDBのパスワードハッシュを利用、それ以外は平文をハッシュ化
+    let passwordHash: string;
+    if (data.fromApplicationId) {
+      const { data: appRow } = await supabaseAdmin
+        .from("applications")
+        .select("admin_password_hash")
+        .eq("id", data.fromApplicationId)
+        .single();
+      if (appRow?.admin_password_hash) {
+        passwordHash = appRow.admin_password_hash;
+      } else if (data.adminPassword) {
+        passwordHash = await bcrypt.hash(data.adminPassword, 12);
+      } else {
+        return serverError("申し込みデータにパスワードが見つかりません");
+      }
+    } else if (data.adminPassword) {
+      passwordHash = await bcrypt.hash(data.adminPassword, 12);
+    } else {
+      return serverError("パスワードは必須です");
+    }
     const username = await generateUsername();
     const { data: adminUser, error: adminUserErr } = await supabaseAdmin
       .from("admin_users")

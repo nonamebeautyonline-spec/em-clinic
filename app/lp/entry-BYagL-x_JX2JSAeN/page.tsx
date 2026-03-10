@@ -30,6 +30,8 @@ type FormState = {
   ai_options: string[];
   extra_options: string[];
   setup_options: string[];
+  admin_password: string;
+  admin_password_confirm: string;
   note: string;
   agreed_terms: boolean;
 };
@@ -46,6 +48,8 @@ const initial: FormState = {
   ai_options: [],
   extra_options: [],
   setup_options: [],
+  admin_password: "",
+  admin_password_confirm: "",
   note: "",
   agreed_terms: false,
 };
@@ -131,6 +135,20 @@ export default function ApplyPage() {
       errs.email = "メールアドレスの形式が不正です";
     if (!form.feature_plan) errs.feature_plan = "機能プランを選択してください";
     if (!form.msg_plan) errs.msg_plan = "メッセージ通数を選択してください";
+    if (!form.admin_password) {
+      errs.admin_password = "パスワードは必須です";
+    } else {
+      const missing: string[] = [];
+      if (form.admin_password.length < 8) missing.push("8文字以上");
+      if (!/[A-Z]/.test(form.admin_password)) missing.push("大文字");
+      if (!/[a-z]/.test(form.admin_password)) missing.push("小文字");
+      if (!/[0-9]/.test(form.admin_password)) missing.push("数字");
+      if (!/[^A-Za-z0-9]/.test(form.admin_password)) missing.push("記号");
+      if (missing.length > 0) errs.admin_password = `${missing.join("・")}を含めてください`;
+    }
+    if (form.admin_password && form.admin_password !== form.admin_password_confirm) {
+      errs.admin_password_confirm = "パスワードが一致しません";
+    }
     if (!allPoliciesViewed) errs.agreed_terms = "すべての規約を確認してから同意してください";
     else if (!form.agreed_terms) errs.agreed_terms = "利用規約への同意が必要です";
     setFieldErrors(errs);
@@ -155,6 +173,7 @@ export default function ApplyPage() {
         ai_options: form.ai_options,
         extra_options: form.extra_options,
         setup_options: form.setup_options,
+        admin_password: form.admin_password,
         note: form.note.trim() || undefined,
         agreed_terms: true,
       };
@@ -599,8 +618,66 @@ export default function ApplyPage() {
           ))}
         </div>
 
+        {/* 管理者パスワード */}
+        <SectionTitle num={8} title="管理者パスワード" />
+        <p className="mb-3 text-xs text-slate-400">
+          テナント管理画面にログインするためのパスワードを設定してください
+        </p>
+        <div className="space-y-4">
+          <Field label="パスワード" required error={fieldErrors.admin_password}>
+            <input
+              type="password"
+              value={form.admin_password}
+              onChange={(e) => set("admin_password", e.target.value)}
+              placeholder="8文字以上（大文字・小文字・数字・記号を含む）"
+              className={inputCls(fieldErrors.admin_password)}
+            />
+            <div className="mt-2 space-y-1">
+              {[
+                { label: "8文字以上", ok: form.admin_password.length >= 8 },
+                { label: "大文字を含む", ok: /[A-Z]/.test(form.admin_password) },
+                { label: "小文字を含む", ok: /[a-z]/.test(form.admin_password) },
+                { label: "数字を含む", ok: /[0-9]/.test(form.admin_password) },
+                { label: "記号を含む", ok: /[^A-Za-z0-9]/.test(form.admin_password) },
+              ].map((req) => (
+                <div key={req.label} className="flex items-center gap-1.5">
+                  <span className={`text-xs ${req.ok ? "text-green-600" : "text-slate-300"}`}>
+                    {req.ok ? "✓" : "○"}
+                  </span>
+                  <span className={`text-xs ${req.ok ? "text-slate-900 font-medium" : "text-slate-400"}`}>
+                    {req.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Field>
+          <Field label="パスワード確認" required error={fieldErrors.admin_password_confirm}>
+            <input
+              type="password"
+              value={form.admin_password_confirm}
+              onChange={(e) => set("admin_password_confirm", e.target.value)}
+              placeholder="パスワードを再入力"
+              className={inputCls(fieldErrors.admin_password_confirm)}
+            />
+            {form.admin_password_confirm && form.admin_password === form.admin_password_confirm && (
+              <p className="mt-1.5 flex items-center gap-1 text-xs text-green-600">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                パスワードが一致しています
+              </p>
+            )}
+          </Field>
+        </div>
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          <p className="font-bold">このパスワードは必ず控えてください</p>
+          <p className="mt-1 leading-relaxed">
+            テナント開設後、管理画面へのログインに必要です。パスワードを忘れた場合、再設定のお手続きが必要になります。
+          </p>
+        </div>
+
         {/* 備考 */}
-        <SectionTitle num={8} title="備考（任意）" />
+        <SectionTitle num={9} title="備考（任意）" />
         <textarea
           value={form.note}
           onChange={(e) => set("note", e.target.value)}
@@ -611,7 +688,7 @@ export default function ApplyPage() {
         />
 
         {/* 規約確認・同意 */}
-        <SectionTitle num={9} title="規約確認・同意" />
+        <SectionTitle num={10} title="規約確認・同意" />
         <p className="mb-3 text-xs text-slate-400">
           以下の規約をすべて確認してから同意してください
         </p>

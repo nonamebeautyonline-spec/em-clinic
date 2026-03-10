@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { parseBody } from "@/lib/validations/helpers";
+import bcrypt from "bcryptjs";
 import {
   applicationSchema,
   getFeaturePlanPrice,
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
   // 電話番号正規化
   const phone = normalizeJPPhone(data.contact_phone);
 
+  // パスワードハッシュ化
+  const adminPasswordHash = await bcrypt.hash(data.admin_password, 12);
+
   // 見積もり計算（税抜き）
   const featurePrice = getFeaturePlanPrice(data.feature_plan);
   const msgPrice = getMsgPlanPrice(data.msg_plan);
@@ -61,6 +65,7 @@ export async function POST(req: NextRequest) {
     monthly_estimate: monthlyEstimate,
     initial_estimate: initialEstimate,
     note: data.note || null,
+    admin_password_hash: adminPasswordHash,
   });
 
   if (dbError) {

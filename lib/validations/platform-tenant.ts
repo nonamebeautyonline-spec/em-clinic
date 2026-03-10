@@ -21,7 +21,8 @@ export const createTenantSchema = z.object({
   // 初期管理者
   adminName: z.string().min(1, "管理者名は必須です").max(100),
   adminEmail: z.string().email("有効なメールアドレスを入力してください").max(255),
-  adminPassword: strongPasswordSchema,
+  adminPassword: strongPasswordSchema.optional(),
+  adminPasswordHash: z.string().optional(),
   // 業種
   industry: z.enum(["clinic", "salon", "retail", "other"]).default("clinic"),
   // LINE設定（任意）
@@ -38,6 +39,7 @@ export const createTenantSchema = z.object({
   overageUnitPrice: z.number().min(0).default(0.77),
   aiOptions: z.array(z.enum(["ai_reply", "voice_karte"])).default([]),
   extraOptions: z.array(z.enum(["linebot_notify"])).default([]),
+  fromApplicationId: z.string().uuid().optional(),
 });
 
 export const updateTenantSchema = z.object({

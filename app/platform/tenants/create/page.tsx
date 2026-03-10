@@ -273,22 +273,25 @@ export default function CreateTenantPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.adminEmail)) {
       errs.adminEmail = "有効なメールアドレスを入力してください";
     }
-    if (!formData.adminPassword) {
-      errs.adminPassword = "パスワードは必須です";
-    } else if (formData.adminPassword.length < 8) {
-      errs.adminPassword = "パスワードは8文字以上です";
-    } else {
-      const missing: string[] = [];
-      if (!/[A-Z]/.test(formData.adminPassword)) missing.push("大文字");
-      if (!/[a-z]/.test(formData.adminPassword)) missing.push("小文字");
-      if (!/[0-9]/.test(formData.adminPassword)) missing.push("数字");
-      if (!/[^A-Za-z0-9]/.test(formData.adminPassword)) missing.push("記号");
-      if (missing.length > 0) {
-        errs.adminPassword = `${missing.join("・")}を含めてください`;
+    // 申し込みからの場合はパスワード不要（申し込み時に設定済み）
+    if (!fromApplicationId) {
+      if (!formData.adminPassword) {
+        errs.adminPassword = "パスワードは必須です";
+      } else if (formData.adminPassword.length < 8) {
+        errs.adminPassword = "パスワードは8文字以上です";
+      } else {
+        const missing: string[] = [];
+        if (!/[A-Z]/.test(formData.adminPassword)) missing.push("大文字");
+        if (!/[a-z]/.test(formData.adminPassword)) missing.push("小文字");
+        if (!/[0-9]/.test(formData.adminPassword)) missing.push("数字");
+        if (!/[^A-Za-z0-9]/.test(formData.adminPassword)) missing.push("記号");
+        if (missing.length > 0) {
+          errs.adminPassword = `${missing.join("・")}を含めてください`;
+        }
       }
-    }
-    if (formData.adminPassword !== formData.adminPasswordConfirm) {
-      errs.adminPasswordConfirm = "パスワードが一致しません";
+      if (formData.adminPassword !== formData.adminPasswordConfirm) {
+        errs.adminPasswordConfirm = "パスワードが一致しません";
+      }
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -375,7 +378,9 @@ export default function CreateTenantPage() {
           address: formData.address || undefined,
           adminName: formData.adminName,
           adminEmail: formData.adminEmail,
-          adminPassword: formData.adminPassword,
+          ...(fromApplicationId
+            ? { fromApplicationId }
+            : { adminPassword: formData.adminPassword }),
           lineChannelId: formData.lineChannelId || undefined,
           lineChannelSecret: formData.lineChannelSecret || undefined,
           lineAccessToken: formData.lineAccessToken || undefined,
@@ -722,61 +727,73 @@ export default function CreateTenantPage() {
                   )}
                 </div>
 
-                {/* パスワード */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    パスワード <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={(e) => updateField("adminPassword", e.target.value)}
-                    placeholder="8文字以上"
-                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.adminPassword ? "border-red-300 bg-red-50" : "border-slate-300"
-                    }`}
-                  />
-                  {errors.adminPassword && (
-                    <p className="mt-1 text-xs text-red-600">{errors.adminPassword}</p>
-                  )}
-                  <div className="mt-2 space-y-1">
-                    {[
-                      { label: "8文字以上", ok: formData.adminPassword.length >= 8 },
-                      { label: "大文字を含む", ok: /[A-Z]/.test(formData.adminPassword) },
-                      { label: "小文字を含む", ok: /[a-z]/.test(formData.adminPassword) },
-                      { label: "数字を含む", ok: /[0-9]/.test(formData.adminPassword) },
-                      { label: "記号を含む", ok: /[^A-Za-z0-9]/.test(formData.adminPassword) },
-                    ].map((req) => (
-                      <div key={req.label} className="flex items-center gap-1.5">
-                        <span className={`text-xs ${req.ok ? "text-green-600" : "text-slate-300"}`}>
-                          {req.ok ? "✓" : "○"}
-                        </span>
-                        <span className={`text-xs ${req.ok ? "text-slate-900 font-medium" : "text-slate-400"}`}>
-                          {req.label}
-                        </span>
-                      </div>
-                    ))}
+                {/* パスワード（申し込みからの場合は不要） */}
+                {fromApplicationId ? (
+                  <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      パスワードは申し込み時に設定済みです
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        パスワード <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.adminPassword}
+                        onChange={(e) => updateField("adminPassword", e.target.value)}
+                        placeholder="8文字以上"
+                        className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          errors.adminPassword ? "border-red-300 bg-red-50" : "border-slate-300"
+                        }`}
+                      />
+                      {errors.adminPassword && (
+                        <p className="mt-1 text-xs text-red-600">{errors.adminPassword}</p>
+                      )}
+                      <div className="mt-2 space-y-1">
+                        {[
+                          { label: "8文字以上", ok: formData.adminPassword.length >= 8 },
+                          { label: "大文字を含む", ok: /[A-Z]/.test(formData.adminPassword) },
+                          { label: "小文字を含む", ok: /[a-z]/.test(formData.adminPassword) },
+                          { label: "数字を含む", ok: /[0-9]/.test(formData.adminPassword) },
+                          { label: "記号を含む", ok: /[^A-Za-z0-9]/.test(formData.adminPassword) },
+                        ].map((req) => (
+                          <div key={req.label} className="flex items-center gap-1.5">
+                            <span className={`text-xs ${req.ok ? "text-green-600" : "text-slate-300"}`}>
+                              {req.ok ? "✓" : "○"}
+                            </span>
+                            <span className={`text-xs ${req.ok ? "text-slate-900 font-medium" : "text-slate-400"}`}>
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                {/* パスワード確認 */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    パスワード確認 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={formData.adminPasswordConfirm}
-                    onChange={(e) => updateField("adminPasswordConfirm", e.target.value)}
-                    placeholder="パスワードを再入力"
-                    className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.adminPasswordConfirm ? "border-red-300 bg-red-50" : "border-slate-300"
-                    }`}
-                  />
-                  {errors.adminPasswordConfirm && (
-                    <p className="mt-1 text-xs text-red-600">{errors.adminPasswordConfirm}</p>
-                  )}
-                </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        パスワード確認 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.adminPasswordConfirm}
+                        onChange={(e) => updateField("adminPasswordConfirm", e.target.value)}
+                        placeholder="パスワードを再入力"
+                        className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          errors.adminPasswordConfirm ? "border-red-300 bg-red-50" : "border-slate-300"
+                        }`}
+                      />
+                      {errors.adminPasswordConfirm && (
+                        <p className="mt-1 text-xs text-red-600">{errors.adminPasswordConfirm}</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
