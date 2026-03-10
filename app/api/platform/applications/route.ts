@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { id, status } = body;
 
-    if (!id || !["approved", "rejected"].includes(status)) {
+    if (!id || !["approved", "rejected", "pending"].includes(status)) {
       return NextResponse.json({ ok: false, error: "INVALID_PARAMS" }, { status: 400 });
     }
 

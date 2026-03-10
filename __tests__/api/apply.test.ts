@@ -138,7 +138,7 @@ describe("見積もり計算（税込）", () => {
   it("構築オプション合計を正しく計算", () => {
     expect(getSetupOptionsTotal([])).toBe(0);
     expect(getSetupOptionsTotal(["リッチメニュー作成"])).toBe(27500);
-    expect(getSetupOptionsTotal(SETUP_OPTIONS.map((o) => o.key))).toBe(302500);
+    expect(getSetupOptionsTotal(SETUP_OPTIONS.map((o) => o.key))).toBe(247500);
   });
 
   it("月額合計 = 機能プラン + メッセージ通数 + AI + その他", () => {

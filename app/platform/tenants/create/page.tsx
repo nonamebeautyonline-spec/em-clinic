@@ -26,13 +26,15 @@ interface FormData {
   lineChannelId: string;
   lineChannelSecret: string;
   lineAccessToken: string;
+  featurePlan: string;
   planName: string;
   monthlyFee: number;
   setupFee: number;
   messageQuota: number;
   overageUnitPrice: number;
-  // AIオプション
+  // オプション
   aiOptions: string[];
+  extraOptions: string[];
 }
 
 const initialFormData: FormData = {
@@ -49,12 +51,14 @@ const initialFormData: FormData = {
   lineChannelId: "",
   lineChannelSecret: "",
   lineAccessToken: "",
+  featurePlan: "",
   planName: "30000",
   monthlyFee: 18700,
   setupFee: 0,
   messageQuota: 30000,
   overageUnitPrice: 0.77,
   aiOptions: [],
+  extraOptions: [],
 };
 
 // メッセージプラン定義（税込・apply.tsと同期）
@@ -132,10 +136,22 @@ const PLANS = [
   },
 ];
 
+// 機能プラン定義（税込・apply.tsと同期）
+const FEATURE_PLANS_UI = [
+  { key: "ライト", price: 22000, initialCost: 0, desc: "LINE配信・自動化で集患・リピートを強化" },
+  { key: "スタンダード", price: 71500, initialCost: 330000, desc: "予約・カルテ・問診まで診療業務をカバー", popular: true },
+  { key: "プロ", price: 121000, initialCost: 550000, desc: "決済・配送・分析まで業務をまるごとDX化" },
+];
+
 // AIオプション定義（税込・apply.tsと同期）
 const AI_OPTIONS_UI = [
   { key: "ai_reply", label: "AI自動返信", price: 22000, desc: "AIによるLINE自動返信" },
   { key: "voice_karte", label: "音声カルテ", price: 16500, desc: "診察音声からSOAPカルテを自動生成" },
+];
+
+// その他オプション定義（税込・apply.tsと同期）
+const EXTRA_OPTIONS_UI = [
+  { key: "linebot_notify", label: "LINEbot通知", price: 5500, desc: "予約・決済等のイベントをLINE botで自動通知" },
 ];
 
 export default function CreateTenantPage() {
@@ -157,11 +173,14 @@ export default function CreateTenantPage() {
     const contactPhone = searchParams.get("contactPhone") || "";
     const plan = searchParams.get("plan") || "";
     const aiOptionsStr = searchParams.get("ai_options") || "";
+    const extraOptionsStr = searchParams.get("extra_options") || "";
 
-    // プラン名からメッセージプランを特定（例: "スタンダード + 30,000通"）
+    // プラン名からメッセージプラン・機能プランを特定（例: "スタンダード + 30,000通"）
     const planParts = plan.split(" + ");
+    const featurePart = planParts[0]?.trim() || "";
     const msgPart = planParts[1]?.trim() || "";
     const matchedPlan = PLANS.find((p) => msgPart.includes(p.desc.replace("通/月", "通")));
+    const matchedFeature = FEATURE_PLANS_UI.find((p) => p.key === featurePart);
 
     // AIオプションのマッピング（LP→ウィザード）
     const aiMap: Record<string, string> = {
@@ -172,6 +191,14 @@ export default function CreateTenantPage() {
       ? aiOptionsStr.split(",").map((k) => aiMap[k] || k).filter((k) => AI_OPTIONS_UI.some((o) => o.key === k))
       : [];
 
+    // その他オプションのマッピング
+    const extraMap: Record<string, string> = {
+      "LINEbot通知": "linebot_notify",
+    };
+    const extraOptions = extraOptionsStr
+      ? extraOptionsStr.split(",").map((k) => extraMap[k] || k).filter((k) => EXTRA_OPTIONS_UI.some((o) => o.key === k))
+      : [];
+
     setFormData((prev) => ({
       ...prev,
       name,
@@ -179,6 +206,7 @@ export default function CreateTenantPage() {
       contactEmail,
       contactPhone,
       adminEmail: contactEmail,
+      ...(matchedFeature ? { featurePlan: matchedFeature.key } : {}),
       ...(matchedPlan
         ? {
             planName: matchedPlan.key,
@@ -188,6 +216,7 @@ export default function CreateTenantPage() {
           }
         : {}),
       aiOptions,
+      extraOptions,
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -296,13 +325,36 @@ export default function CreateTenantPage() {
     });
   };
 
+  // その他オプション切替
+  const toggleExtraOption = (optionKey: string) => {
+    setFormData((prev) => {
+      const current = prev.extraOptions;
+      const next = current.includes(optionKey)
+        ? current.filter((k) => k !== optionKey)
+        : [...current, optionKey];
+      return { ...prev, extraOptions: next };
+    });
+  };
+
+  // 機能プラン月額
+  const featurePlanPrice = FEATURE_PLANS_UI.find((p) => p.key === formData.featurePlan)?.price ?? 0;
+  const featurePlanInitialCost = FEATURE_PLANS_UI.find((p) => p.key === formData.featurePlan)?.initialCost ?? 0;
+
   // 月額合計計算
   const totalMonthly =
+    featurePlanPrice +
     formData.monthlyFee +
     AI_OPTIONS_UI.filter((o) => formData.aiOptions.includes(o.key)).reduce(
       (sum, o) => sum + o.price,
       0
+    ) +
+    EXTRA_OPTIONS_UI.filter((o) => formData.extraOptions.includes(o.key)).reduce(
+      (sum, o) => sum + o.price,
+      0
     );
+
+  // 初期費用合計
+  const totalInitial = featurePlanInitialCost + formData.setupFee;
 
   // テナント作成実行
   const handleSubmit = async () => {
@@ -737,6 +789,41 @@ export default function CreateTenantPage() {
                 LINE連携は後から設定することもできます
               </p>
 
+              {/* 機能プラン選択 */}
+              <div className="mb-8">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">機能プラン</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {FEATURE_PLANS_UI.map((fp) => (
+                    <button
+                      key={fp.key}
+                      type="button"
+                      onClick={() => updateField("featurePlan", fp.key)}
+                      className={`relative text-center p-4 rounded-lg border-2 transition-all ${
+                        formData.featurePlan === fp.key
+                          ? "border-blue-500 bg-blue-50 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      {fp.popular && (
+                        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full whitespace-nowrap">
+                          人気
+                        </span>
+                      )}
+                      <p className="text-sm font-bold text-slate-800">{fp.key}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">{fp.desc}</p>
+                      <p className="mt-2 text-lg font-bold text-blue-600">
+                        {formatCurrency(fp.price)}<span className="text-xs font-normal text-slate-400">/月</span>
+                      </p>
+                      {fp.initialCost > 0 ? (
+                        <p className="text-xs text-slate-500">初期 {formatCurrency(fp.initialCost)}</p>
+                      ) : (
+                        <p className="text-xs font-semibold text-green-600">初期費用無料</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* メッセージプラン選択 */}
               <div className="mb-8">
                 <h3 className="text-sm font-semibold text-slate-700 mb-3">メッセージプラン</h3>
@@ -810,6 +897,39 @@ export default function CreateTenantPage() {
                 </div>
               </div>
 
+              {/* その他オプション選択 */}
+              <div className="mb-8">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">その他オプション（月額追加）</h3>
+                <div className="space-y-2">
+                  {EXTRA_OPTIONS_UI.map((opt) => (
+                    <label
+                      key={opt.key}
+                      className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.extraOptions.includes(opt.key)
+                          ? "border-blue-300 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={formData.extraOptions.includes(opt.key)}
+                          onChange={() => toggleExtraOption(opt.key)}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-slate-900">{opt.label}</span>
+                          <span className="text-xs text-slate-500 ml-2">{opt.desc}</span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold text-slate-700">
+                        +{formatCurrency(opt.price)}/月
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* 月額合計 */}
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <div className="flex justify-between items-center">
@@ -818,9 +938,9 @@ export default function CreateTenantPage() {
                     {formatCurrency(totalMonthly)}/月
                   </span>
                 </div>
-                {formData.setupFee > 0 && (
+                {totalInitial > 0 && (
                   <p className="text-xs text-slate-400 mt-1 text-right">
-                    初期費用: {formatCurrency(formData.setupFee)}
+                    初期費用: {formatCurrency(totalInitial)}
                   </p>
                 )}
               </div>
@@ -917,12 +1037,13 @@ export default function CreateTenantPage() {
                   プラン・オプション
                 </h3>
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+                  {formData.featurePlan && (
+                    <ConfirmRow label="機能プラン" value={`${formData.featurePlan}（${formatCurrency(featurePlanPrice)}/月）`} />
+                  )}
                   <ConfirmRow
-                    label="プラン"
-                    value={PLANS.find((p) => p.key === formData.planName)?.label || formData.planName}
+                    label="メッセージ"
+                    value={`${PLANS.find((p) => p.key === formData.planName)?.label || formData.planName}（${formData.messageQuota.toLocaleString()}通/月・${formatCurrency(formData.monthlyFee)}）`}
                   />
-                  <ConfirmRow label="込み通数" value={`${formData.messageQuota.toLocaleString()}通/月`} />
-                  <ConfirmRow label="プラン月額" value={formatCurrency(formData.monthlyFee)} />
                   {formData.aiOptions.length > 0 && (
                     <ConfirmRow
                       label="AIオプション"
@@ -932,11 +1053,22 @@ export default function CreateTenantPage() {
                         .join("・")}
                     />
                   )}
+                  {formData.extraOptions.length > 0 && (
+                    <ConfirmRow
+                      label="その他"
+                      value={formData.extraOptions
+                        .map((k) => EXTRA_OPTIONS_UI.find((o) => o.key === k)?.label)
+                        .filter(Boolean)
+                        .join("・")}
+                    />
+                  )}
                   <ConfirmRow
                     label="月額合計"
                     value={formatCurrency(totalMonthly)}
                   />
-                  <ConfirmRow label="初期費用" value={formatCurrency(formData.setupFee)} />
+                  {totalInitial > 0 && (
+                    <ConfirmRow label="初期費用" value={formatCurrency(totalInitial)} />
+                  )}
                 </div>
               </div>
 

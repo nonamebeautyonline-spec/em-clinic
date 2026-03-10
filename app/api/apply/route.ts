@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     email: data.email,
     plan: `${data.feature_plan} + ${data.msg_plan}`,
     ai_options: data.ai_options,
+    extra_options: data.extra_options,
     setup_options: data.setup_options,
     monthly_estimate: monthlyEstimate,
     initial_estimate: initialEstimate,

@@ -14,6 +14,7 @@ type Application = {
   email: string;
   plan: string;
   ai_options: string[];
+  extra_options: string[];
   setup_options: string[];
   monthly_estimate: number;
   initial_estimate: number;
@@ -80,6 +81,7 @@ export default function ApplicationsPage() {
       industry: "clinic",
       plan: app.plan,
       ai_options: app.ai_options.join(","),
+      extra_options: (app.extra_options || []).join(","),
     });
     router.push(`/platform/tenants/create?${params.toString()}`);
   };
@@ -181,23 +183,23 @@ export default function ApplicationsPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {app.status === "pending" && (
-                            <>
-                              <button
-                                onClick={() => updateStatus(app.id, "approved")}
-                                disabled={updating === app.id}
-                                className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                              >
-                                承認
-                              </button>
-                              <button
-                                onClick={() => updateStatus(app.id, "rejected")}
-                                disabled={updating === app.id}
-                                className="px-2.5 py-1 text-xs font-medium bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
-                              >
-                                却下
-                              </button>
-                            </>
+                          {app.status !== "approved" && (
+                            <button
+                              onClick={() => updateStatus(app.id, "approved")}
+                              disabled={updating === app.id}
+                              className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                            >
+                              承認
+                            </button>
+                          )}
+                          {app.status !== "rejected" && (
+                            <button
+                              onClick={() => updateStatus(app.id, "rejected")}
+                              disabled={updating === app.id}
+                              className="px-2.5 py-1 text-xs font-medium bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                            >
+                              却下
+                            </button>
                           )}
                           {app.status === "approved" && (
                             <button
