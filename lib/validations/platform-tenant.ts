@@ -28,13 +28,16 @@ export const createTenantSchema = z.object({
   lineChannelId: z.string().optional(),
   lineChannelSecret: z.string().optional(),
   lineAccessToken: z.string().optional(),
-  // プラン（任意）
-  planName: z.enum(["light", "standard", "pro", "business", "business_30", "business_50", "business_100"]).default("standard"),
-  monthlyFee: z.number().int().min(0).default(17000),
-  setupFee: z.number().int().min(0).default(300000),
+  // 機能プラン（任意）
+  featurePlan: z.string().optional(),
+  // メッセージプラン（任意）
+  planName: z.enum(["5000", "30000", "50000", "100000", "300000", "500000", "1000000"]).default("30000"),
+  monthlyFee: z.number().min(0).default(18700),
+  setupFee: z.number().min(0).default(0),
   messageQuota: z.number().int().min(0).default(30000),
-  overageUnitPrice: z.number().min(0).default(0.7),
-  aiOptions: z.array(z.enum(["ai_reply", "voice_input", "ai_karte"])).default([]),
+  overageUnitPrice: z.number().min(0).default(0.77),
+  aiOptions: z.array(z.enum(["ai_reply", "voice_karte"])).default([]),
+  extraOptions: z.array(z.enum(["linebot_notify"])).default([]),
 });
 
 export const updateTenantSchema = z.object({
