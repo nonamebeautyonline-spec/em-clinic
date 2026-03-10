@@ -85,6 +85,11 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
+  // === /lp 配下は本番では非公開（ローカル開発専用） ===
+  if (pathname.startsWith("/lp") && !host.startsWith("localhost")) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   // === 旧サブドメインからの移行（ベアドメインはのなめLP用にスルー） ===
   const bareHost = host.replace(/:\d+$/, "");
   if (
