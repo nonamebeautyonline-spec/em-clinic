@@ -352,7 +352,6 @@ export default function ScheduleDashboard() {
               </div>
             </div>
           </Link>
-        </div>
 
           <Link
             href="/admin/schedule/settings"
