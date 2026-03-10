@@ -261,36 +261,45 @@ export async function buildReminderFlex(dateStr: string, timeStr: string, tenant
 }
 
 // ============================================
-// アクション設定チェック
+// アクション設定チェック + 実行
 // ============================================
 
-type ActionSetting = {
+import { linkRichMenuToUser } from "@/lib/line-richmenu";
+
+type ActionItem = {
+  action_type: string;
+  sort_order: number;
+  config: Record<string, unknown>;
+};
+
+type ActionSettingWithItems = {
   is_enabled: boolean;
-  use_custom_message: boolean;
-  custom_message: string | null;
+  items: ActionItem[];
 };
 
 // キャッシュ（テナント×イベント別）
-let actionSettingsCache: Map<string, { data: ActionSetting; cachedAt: number }> = new Map();
+let actionSettingsCache: Map<string, { data: ActionSettingWithItems; cachedAt: number }> = new Map();
 const ACTION_CACHE_TTL_MS = 60000; // 1分
 
-/** 指定イベントのアクション設定を取得（デフォルト: 有効） */
+type ReservationEventType = "reservation_created" | "reservation_changed" | "reservation_canceled";
+
+/** 指定イベントのアクション設定を取得（デフォルト: 有効、アイテムなし=デフォルトFlex） */
 export async function getActionSetting(
-  eventType: "reservation_created" | "reservation_changed" | "reservation_canceled",
+  eventType: ReservationEventType,
   tenantId?: string,
-): Promise<ActionSetting> {
+): Promise<ActionSettingWithItems> {
   const cacheKey = `${tenantId || "__default__"}:${eventType}`;
   const cached = actionSettingsCache.get(cacheKey);
   if (cached && Date.now() - cached.cachedAt < ACTION_CACHE_TTL_MS) {
     return cached.data;
   }
 
-  const defaultSetting: ActionSetting = { is_enabled: true, use_custom_message: false, custom_message: null };
+  const defaultSetting: ActionSettingWithItems = { is_enabled: true, items: [] };
 
   try {
     const query = supabaseAdmin
       .from("reservation_action_settings")
-      .select("is_enabled, use_custom_message, custom_message")
+      .select("is_enabled, reservation_action_items(action_type, sort_order, config)")
       .eq("event_type", eventType);
 
     if (tenantId) {
@@ -304,14 +313,175 @@ export async function getActionSetting(
       return defaultSetting;
     }
 
-    const setting: ActionSetting = data
-      ? { is_enabled: data.is_enabled, use_custom_message: data.use_custom_message, custom_message: data.custom_message }
-      : defaultSetting;
+    if (!data) {
+      actionSettingsCache.set(cacheKey, { data: defaultSetting, cachedAt: Date.now() });
+      return defaultSetting;
+    }
+
+    const setting: ActionSettingWithItems = {
+      is_enabled: data.is_enabled,
+      items: ((data as Record<string, unknown>).reservation_action_items as ActionItem[] || [])
+        .sort((a, b) => a.sort_order - b.sort_order),
+    };
 
     actionSettingsCache.set(cacheKey, { data: setting, cachedAt: Date.now() });
     return setting;
   } catch {
     return defaultSetting;
+  }
+}
+
+/** 予約イベントのアクションを全て実行（fire-and-forget向け） */
+export async function executeReservationActions(params: {
+  eventType: ReservationEventType;
+  patientId: string;
+  lineUid: string;
+  date: string;
+  time: string;
+  tenantId?: string;
+  /** 変更時の旧日時 */
+  oldDate?: string;
+  oldTime?: string;
+}): Promise<void> {
+  const { eventType, patientId, lineUid, date, time, tenantId, oldDate, oldTime } = params;
+
+  const setting = await getActionSetting(eventType, tenantId);
+  if (!setting.is_enabled) return;
+
+  // アイテムなし = デフォルトFlexを送信（後方互換）
+  if (setting.items.length === 0) {
+    await sendDefaultFlex(eventType, patientId, lineUid, date, time, tenantId, oldDate, oldTime);
+    return;
+  }
+
+  // アイテムを順次実行
+  for (const item of setting.items) {
+    try {
+      await executeActionItem(item, patientId, lineUid, date, time, tenantId, oldDate, oldTime);
+    } catch (err) {
+      console.error(`[executeReservationActions] ${item.action_type} error:`, err);
+    }
+  }
+}
+
+/** デフォルトFlexメッセージ送信（アイテム未設定時の後方互換） */
+async function sendDefaultFlex(
+  eventType: ReservationEventType,
+  patientId: string,
+  lineUid: string,
+  date: string,
+  time: string,
+  tenantId?: string,
+  oldDate?: string,
+  oldTime?: string,
+): Promise<void> {
+  let flex;
+  switch (eventType) {
+    case "reservation_created":
+      flex = await buildReservationCreatedFlex(date, time, tenantId);
+      break;
+    case "reservation_changed":
+      flex = await buildReservationChangedFlex(oldDate || date, oldTime || time, date, time, tenantId);
+      break;
+    case "reservation_canceled":
+      flex = await buildReservationCanceledFlex(date, time, tenantId);
+      break;
+  }
+  await sendReservationNotification({ patientId, lineUid, flex, messageType: eventType, tenantId });
+}
+
+/** 個別アクションアイテムを実行 */
+async function executeActionItem(
+  item: ActionItem,
+  patientId: string,
+  lineUid: string,
+  date: string,
+  time: string,
+  tenantId?: string,
+  oldDate?: string,
+  oldTime?: string,
+): Promise<void> {
+  switch (item.action_type) {
+    case "text_send": {
+      const msg = (item.config.message as string) || "";
+      if (!msg) return;
+      const text = msg
+        .replace(/\{date\}/g, `${date} ${time}`)
+        .replace(/\{name\}/g, "");
+      await pushMessage(lineUid, [{ type: "text", text: text.trim() }], tenantId);
+      // message_log記録
+      await supabaseAdmin.from("message_log").insert({
+        ...(tenantId ? { tenant_id: tenantId } : {}),
+        patient_id: patientId,
+        line_uid: lineUid,
+        direction: "outgoing",
+        event_type: "message",
+        message_type: "reservation_action",
+        content: text.trim(),
+        status: "sent",
+      });
+      break;
+    }
+    case "template_send": {
+      // デフォルトFlexを送信
+      await sendDefaultFlex(
+        "reservation_created", patientId, lineUid, date, time, tenantId, oldDate, oldTime
+      );
+      break;
+    }
+    case "tag_add": {
+      const tagId = item.config.tag_id as number;
+      if (!tagId) return;
+      await supabaseAdmin
+        .from("patient_tags")
+        .upsert({
+          patient_id: patientId,
+          tag_id: tagId,
+          assigned_by: "reservation_action",
+          ...(tenantId ? { tenant_id: tenantId } : {}),
+        }, { onConflict: "patient_id,tag_id" });
+      console.log(`[action] tag_add: patient=${patientId}, tag=${tagId}`);
+      break;
+    }
+    case "tag_remove": {
+      const removeTagId = item.config.tag_id as number;
+      if (!removeTagId) return;
+      await supabaseAdmin
+        .from("patient_tags")
+        .delete()
+        .eq("patient_id", patientId)
+        .eq("tag_id", removeTagId);
+      console.log(`[action] tag_remove: patient=${patientId}, tag=${removeTagId}`);
+      break;
+    }
+    case "mark_change": {
+      const mark = (item.config.mark as string) || "none";
+      await supabaseAdmin
+        .from("patient_marks")
+        .upsert({
+          patient_id: patientId,
+          mark,
+          updated_by: "reservation_action",
+          ...(tenantId ? { tenant_id: tenantId } : {}),
+        }, { onConflict: "patient_id" });
+      console.log(`[action] mark_change: patient=${patientId}, mark=${mark}`);
+      break;
+    }
+    case "menu_change": {
+      const richMenuId = item.config.rich_menu_id as number;
+      if (!richMenuId) return;
+      // DB から LINE上のメニューIDを取得
+      const { data: menuData } = await supabaseAdmin
+        .from("rich_menus")
+        .select("line_rich_menu_id")
+        .eq("id", richMenuId)
+        .maybeSingle();
+      if (menuData?.line_rich_menu_id) {
+        await linkRichMenuToUser(lineUid, menuData.line_rich_menu_id, tenantId);
+        console.log(`[action] menu_change: patient=${patientId}, menu=${richMenuId}`);
+      }
+      break;
+    }
   }
 }
 

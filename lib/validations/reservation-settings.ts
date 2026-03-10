@@ -33,7 +33,7 @@ export const slotCourseLinksSchema = z.object({
   course_ids: z.array(z.string().uuid()),
 }).passthrough();
 
-/** 予約アクション設定（イベント単位） */
+/** 予約アクション設定 */
 export const RESERVATION_EVENT_TYPES = [
   "reservation_created",
   "reservation_changed",
@@ -41,11 +41,30 @@ export const RESERVATION_EVENT_TYPES = [
 ] as const;
 export type ReservationEventType = typeof RESERVATION_EVENT_TYPES[number];
 
+export const ACTION_TYPES = [
+  "text_send",
+  "template_send",
+  "tag_add",
+  "tag_remove",
+  "mark_change",
+  "menu_change",
+] as const;
+export type ActionType = typeof ACTION_TYPES[number];
+
+/** アクションアイテム（1個の動作） */
+export const reservationActionItemSchema = z.object({
+  id: z.string().uuid().optional(), // 更新時のみ
+  action_type: z.enum(ACTION_TYPES),
+  sort_order: z.number().int().min(0).default(0),
+  config: z.record(z.string(), z.unknown()).default({}),
+}).passthrough();
+
+/** イベント単位のアクション設定 */
 export const reservationActionSettingSchema = z.object({
   event_type: z.enum(RESERVATION_EVENT_TYPES),
   is_enabled: z.boolean().default(true),
-  use_custom_message: z.boolean().default(false),
-  custom_message: z.string().optional().nullable(),
+  repeat_on_subsequent: z.boolean().default(true),
+  items: z.array(reservationActionItemSchema).default([]),
 }).passthrough();
 
 /** 予約アクション設定一括更新（3イベント分） */
