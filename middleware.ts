@@ -56,6 +56,7 @@ const CSRF_EXEMPT_PREFIXES = [
   "/api/verify/",
   "/api/csrf-token",
   "/api/doctor/",
+  "/api/apply",
 ];
 
 // フォーム送信（外部ユーザーがアクセス）も除外
