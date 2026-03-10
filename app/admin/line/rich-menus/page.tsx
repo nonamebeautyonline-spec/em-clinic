@@ -173,6 +173,7 @@ export default function RichMenuManagementPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiButtonLabels, setAiButtonLabels] = useState("");
   const [aiStyle, setAiStyle] = useState<"card" | "gradient" | "banner">("card");
+  const [aiLayout, setAiLayout] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiPreviewSvg, setAiPreviewSvg] = useState<string | null>(null);
 
@@ -221,6 +222,43 @@ export default function RichMenuManagementPage() {
     };
   }, []);
 
+  // --- レイアウトテンプレート定義 ---
+  type LayoutTemplate = { id: string; label: string; desc: string; buttonCount: number; cells: { x: number; y: number; w: number; h: number }[] };
+  const LAYOUT_TEMPLATES: LayoutTemplate[] = [
+    { id: "2x3", label: "2行×3列", desc: "均等6分割", buttonCount: 6, cells: [
+      { x: 0, y: 0, w: 833, h: 843 }, { x: 833, y: 0, w: 834, h: 843 }, { x: 1667, y: 0, w: 833, h: 843 },
+      { x: 0, y: 843, w: 833, h: 843 }, { x: 833, y: 843, w: 834, h: 843 }, { x: 1667, y: 843, w: 833, h: 843 },
+    ]},
+    { id: "2big-3small", label: "上2大＋下3小", desc: "上段大きめ2つ＋下段3つ", buttonCount: 5, cells: [
+      { x: 0, y: 0, w: 1250, h: 843 }, { x: 1250, y: 0, w: 1250, h: 843 },
+      { x: 0, y: 843, w: 833, h: 843 }, { x: 833, y: 843, w: 834, h: 843 }, { x: 1667, y: 843, w: 833, h: 843 },
+    ]},
+    { id: "2x2", label: "2行×2列", desc: "均等4分割", buttonCount: 4, cells: [
+      { x: 0, y: 0, w: 1250, h: 843 }, { x: 1250, y: 0, w: 1250, h: 843 },
+      { x: 0, y: 843, w: 1250, h: 843 }, { x: 1250, y: 843, w: 1250, h: 843 },
+    ]},
+    { id: "1big-3small", label: "左1大＋右3小", desc: "左に大きなエリア＋右に3段", buttonCount: 4, cells: [
+      { x: 0, y: 0, w: 1250, h: 1686 },
+      { x: 1250, y: 0, w: 1250, h: 562 }, { x: 1250, y: 562, w: 1250, h: 562 }, { x: 1250, y: 1124, w: 1250, h: 562 },
+    ]},
+    { id: "1x3", label: "1行×3列", desc: "横3分割", buttonCount: 3, cells: [
+      { x: 0, y: 0, w: 833, h: 1686 }, { x: 833, y: 0, w: 834, h: 1686 }, { x: 1667, y: 0, w: 833, h: 1686 },
+    ]},
+    { id: "1x2", label: "1行×2列", desc: "横2分割", buttonCount: 2, cells: [
+      { x: 0, y: 0, w: 1250, h: 1686 }, { x: 1250, y: 0, w: 1250, h: 1686 },
+    ]},
+  ];
+
+  const renderLayoutSvg = (layout: LayoutTemplate, selected: boolean) => {
+    const w = 150, h = 101; // 2500:1686 aspect ratio
+    const scaleX = w / 2500, scaleY = h / 1686;
+    const rects = layout.cells.map((c, i) => {
+      const gap = 2;
+      return `<rect x="${c.x * scaleX + gap}" y="${c.y * scaleY + gap}" width="${c.w * scaleX - gap * 2}" height="${c.h * scaleY - gap * 2}" rx="3" fill="${selected ? '#818CF8' : '#CBD5E1'}" stroke="${selected ? '#4F46E5' : '#94A3B8'}" stroke-width="1"/>`;
+    });
+    return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg"><rect width="${w}" height="${h}" rx="4" fill="${selected ? '#EEF2FF' : '#F8FAFC'}"/>${rects.join("")}</svg>`;
+  };
+
   // --- AI生成ハンドラ ---
   const handleAiGenerate = async () => {
     if (!aiPrompt.trim()) return;
@@ -228,14 +266,16 @@ export default function RichMenuManagementPage() {
     setAiPreviewSvg(null);
     try {
       const labels = aiButtonLabels.split(",").map(s => s.trim()).filter(Boolean);
+      const layoutHint = aiLayout ? LAYOUT_TEMPLATES.find(l => l.id === aiLayout) : null;
+      const layoutPrompt = layoutHint ? `\nレイアウト: ${layoutHint.label}（${layoutHint.desc}）` : "";
       const res = await fetch("/api/admin/line/rich-menus/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          prompt: aiPrompt,
+          prompt: aiPrompt + layoutPrompt,
           sizeType: "full",
-          buttonCount: buttons.length || 6,
+          buttonCount: layoutHint?.buttonCount ?? (labels.length || buttons.length || 6),
           buttonLabels: labels.length > 0 ? labels : undefined,
           style: aiStyle,
         }),
@@ -730,11 +770,37 @@ export default function RichMenuManagementPage() {
                       </button>
                     ))}
                   </div>
+                  {/* レイアウトテンプレート選択 */}
+                  <div>
+                    <span className="text-xs text-gray-600 mb-1.5 block">レイアウト:</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {LAYOUT_TEMPLATES.map(lt => (
+                        <button
+                          key={lt.id}
+                          onClick={() => setAiLayout(aiLayout === lt.id ? null : lt.id)}
+                          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-colors ${
+                            aiLayout === lt.id
+                              ? "border-indigo-500 bg-indigo-50"
+                              : "border-gray-200 bg-white hover:border-indigo-300"
+                          }`}
+                          title={`${lt.label} (${lt.buttonCount}ボタン)`}
+                        >
+                          <div
+                            style={{ width: 75, height: 51 }}
+                            dangerouslySetInnerHTML={{ __html: renderLayoutSvg(lt, aiLayout === lt.id) }}
+                          />
+                          <span className={`text-[10px] leading-tight ${aiLayout === lt.id ? "text-indigo-700 font-medium" : "text-gray-500"}`}>
+                            {lt.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <input
                     type="text"
                     value={aiPrompt}
                     onChange={e => setAiPrompt(e.target.value)}
-                    placeholder="例: クリニック向け、予約・問診・マイページ・お問合せの4ボタン、青緑系の清潔感あるデザイン"
+                    placeholder="例: クリニック向け、青緑系の清潔感あるデザイン"
                     className="w-full px-3 py-2 border border-indigo-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   />
                   <input
