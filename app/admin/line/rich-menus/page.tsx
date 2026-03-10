@@ -172,6 +172,7 @@ export default function RichMenuManagementPage() {
   const [showAiGenerator, setShowAiGenerator] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiButtonLabels, setAiButtonLabels] = useState("");
+  const [aiStyle, setAiStyle] = useState<"card" | "gradient" | "banner">("card");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiPreviewSvg, setAiPreviewSvg] = useState<string | null>(null);
 
@@ -236,6 +237,7 @@ export default function RichMenuManagementPage() {
           sizeType: "full",
           buttonCount: buttons.length || 6,
           buttonLabels: labels.length > 0 ? labels : undefined,
+          style: aiStyle,
         }),
       });
       const json = await res.json();
@@ -706,6 +708,28 @@ export default function RichMenuManagementPage() {
               {showAiGenerator && (
                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
                   <p className="text-sm font-medium text-indigo-800">AI画像生成</p>
+                  {/* スタイル選択 */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-600 shrink-0">スタイル:</span>
+                    {([
+                      { value: "card" as const, label: "カード型", desc: "白パネル＋影" },
+                      { value: "gradient" as const, label: "グラデーション型", desc: "鮮やかな背景" },
+                      { value: "banner" as const, label: "バナー型", desc: "上部バナー＋下部ボタン" },
+                    ]).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setAiStyle(opt.value)}
+                        className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                          aiStyle === opt.value
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : "bg-white text-gray-700 border-gray-300 hover:border-indigo-400"
+                        }`}
+                        title={opt.desc}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="text"
                     value={aiPrompt}
