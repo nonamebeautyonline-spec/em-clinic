@@ -37,7 +37,9 @@ interface ShippingConfig {
 
 export default function ShippingSettingsPage() {
   const [config, setConfig] = useState<ShippingConfig | null>(null);
+  const [originalConfig, setOriginalConfig] = useState<ShippingConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -45,7 +47,10 @@ export default function ShippingSettingsPage() {
     setLoading(true);
     const res = await fetch("/api/admin/shipping/config", { credentials: "include" });
     const data = await res.json();
-    if (data.config) setConfig(data.config);
+    if (data.config) {
+      setConfig(data.config);
+      setOriginalConfig(structuredClone(data.config));
+    }
     setLoading(false);
   }, []);
 
@@ -64,6 +69,8 @@ export default function ShippingSettingsPage() {
     });
     if (res.ok) {
       setSaved(true);
+      setEditing(false);
+      setOriginalConfig(structuredClone(config));
       setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);
@@ -90,25 +97,48 @@ export default function ShippingSettingsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-gray-900">配送設定</h1>
           <p className="text-sm text-gray-500 mt-1">差出人情報・配送業者の設定</p>
+          {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors flex items-center gap-2"
-        >
-          {saving ? (
-            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-          ) : saved ? (
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          ) : null}
-          {saved ? "保存しました" : "設定を保存"}
-        </button>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <button
+                onClick={() => {
+                  setConfig(originalConfig ? structuredClone(originalConfig) : null);
+                  setEditing(false);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-lg transition-colors flex items-center gap-2"
+              >
+                {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                保存する
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setEditing(true)}
+              className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              編集する
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 設定コンテンツ — 非編集時はロック */}
+      <div className={!editing ? "pointer-events-none opacity-60" : ""}>
 
       {/* デフォルトキャリア */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm mb-4">
@@ -191,6 +221,8 @@ export default function ShippingSettingsPage() {
           </div>
         </div>
       </div>
+
+      </div>{/* 非編集時ロック閉じ */}
     </div>
   );
 }
