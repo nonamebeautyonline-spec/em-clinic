@@ -85,8 +85,8 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const host = req.headers.get("host") || "";
 
-  // === /lp 配下は本番では非公開（ローカル開発専用） ===
-  if (pathname.startsWith("/lp") && !host.startsWith("localhost")) {
+  // === /lp 配下は lope.jp と localhost のみ許可 ===
+  if (pathname.startsWith("/lp") && !host.startsWith("localhost") && !host.includes("lope.jp")) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
