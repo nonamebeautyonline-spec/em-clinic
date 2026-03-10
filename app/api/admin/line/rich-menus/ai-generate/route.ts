@@ -19,17 +19,18 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, aiRichMenuGenerateSchema);
   if ("error" in parsed) return parsed.error;
 
-  const { prompt, sizeType, buttonCount, buttonLabels, style } = parsed.data as {
+  const { prompt, sizeType, buttonCount, buttonLabels, style, layoutCells } = parsed.data as {
     prompt: string;
     sizeType: "full" | "half";
     buttonCount: number;
     buttonLabels?: string[];
     style?: "card" | "gradient" | "banner";
+    layoutCells?: { x: number; y: number; w: number; h: number }[];
   };
 
   try {
     const result = await generateRichMenuImage(
-      { prompt, sizeType, buttonCount, buttonLabels, style },
+      { prompt, sizeType, buttonCount, buttonLabels, style, layoutCells },
       tenantId ?? undefined
     );
 

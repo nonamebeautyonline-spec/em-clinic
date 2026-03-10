@@ -267,17 +267,17 @@ export default function RichMenuManagementPage() {
     try {
       const labels = aiButtonLabels.split(",").map(s => s.trim()).filter(Boolean);
       const layoutHint = aiLayout ? LAYOUT_TEMPLATES.find(l => l.id === aiLayout) : null;
-      const layoutPrompt = layoutHint ? `\nレイアウト: ${layoutHint.label}（${layoutHint.desc}）` : "";
       const res = await fetch("/api/admin/line/rich-menus/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          prompt: aiPrompt + layoutPrompt,
+          prompt: aiPrompt,
           sizeType: "full",
           buttonCount: layoutHint?.buttonCount ?? (labels.length || buttons.length || 6),
           buttonLabels: labels.length > 0 ? labels : undefined,
           style: aiStyle,
+          layoutCells: layoutHint?.cells,
         }),
       });
       const json = await res.json();

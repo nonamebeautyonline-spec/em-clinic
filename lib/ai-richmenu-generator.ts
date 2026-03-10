@@ -5,6 +5,14 @@ import { getSettingOrEnv } from "@/lib/settings";
 /** デザインスタイル */
 export type RichMenuStyle = "card" | "gradient" | "banner";
 
+/** レイアウトセル座標 */
+export type LayoutCell = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
 /** AI生成リクエスト */
 export type AiRichMenuRequest = {
   prompt: string;
@@ -12,6 +20,7 @@ export type AiRichMenuRequest = {
   buttonCount: number;
   buttonLabels?: string[];
   style?: RichMenuStyle;
+  layoutCells?: LayoutCell[];
 };
 
 /** AI生成結果 */
@@ -89,12 +98,13 @@ const COMMON_RULES = `## 共通ルール
 - セル中心X = 列幅 × (列index + 0.5)
 - セル中心Y = 行高 × (行index + 0.5)
 
-## ボタン数→レイアウト
+## ボタン数→レイアウト（ユーザー指定がない場合のデフォルト）
 - 6個 → 2行3列
 - 5個 → 上部2つ大(1250px幅) + 下部3つ小(833px幅)
 - 4個 → 2行2列
 - 3個 → 1行3列
 - 2個 → 1行2列
+**重要: ユーザーメッセージにレイアウト座標指定がある場合、それを最優先で厳守すること**
 
 ## カラーパレット（プロンプトに応じて最適なものを選択）
 - 医療/クリニック系: 背景 #3B82F6系, アイコン #3B82F6
@@ -363,11 +373,38 @@ export async function generateRichMenuImage(
     ? `\nボタンのラベル: ${request.buttonLabels.join(", ")}`
     : "";
 
+  // レイアウトセルが指定されている場合、正確な座標をプロンプトに含める
+  let layoutInstruction = "";
+  if (request.layoutCells?.length) {
+    const gap = 25;
+    const cellDescs = request.layoutCells.map((cell, i) => {
+      const cardX = cell.x + gap;
+      const cardY = cell.y + gap;
+      const cardW = cell.w - gap * 2;
+      const cardH = cell.h - gap * 2;
+      const centerX = cell.x + cell.w / 2;
+      const centerY = cell.y + cell.h / 2;
+      return `  - カード${i + 1}: rect x=${cardX} y=${cardY} width=${cardW} height=${cardH} / セル中心(${Math.round(centerX)}, ${Math.round(centerY)})`;
+    });
+    layoutInstruction = `
+
+## 【最重要】レイアウト指定（厳守）
+以下の正確なカード座標を使ってください。このレイアウトは絶対に変更しないでください。
+バナー型やそれ以外のレイアウトに変えてはいけません。各カードの rect 座標を以下の通り正確に配置してください:
+
+${cellDescs.join("\n")}
+
+- gap=25px（カード間・外周すべて25px）
+- 上記の座標を正確に使うこと（独自のレイアウトを作らない）
+- カード数は${request.layoutCells.length}個（増減しない）`;
+  }
+
   const userPrompt = `以下の条件でLINEリッチメニュー画像のSVGを生成してください:
 
 - サイズ: ${width}×${height}px（${request.sizeType}）
 - ボタン数: ${request.buttonCount}個${labelsHint}
 - デザインの要望: ${request.prompt}
+${layoutInstruction}
 
 SVGコードとボタンラベル一覧をそれぞれコードブロックで出力してください。`;
 

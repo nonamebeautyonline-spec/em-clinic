@@ -63,6 +63,12 @@ export const aiRichMenuGenerateSchema = z
     buttonCount: z.number().int().min(1).max(6).default(6),
     buttonLabels: z.array(z.string()).optional(),
     style: z.enum(["card", "gradient", "banner"]).default("card"),
+    layoutCells: z.array(z.object({
+      x: z.number(),
+      y: z.number(),
+      w: z.number(),
+      h: z.number(),
+    })).optional(),
   })
   .passthrough();
 
