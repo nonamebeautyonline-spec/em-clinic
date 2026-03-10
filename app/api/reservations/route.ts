@@ -8,6 +8,7 @@ import {
   buildReservationChangedFlex,
   buildReservationCanceledFlex,
   sendReservationNotification,
+  getActionSetting,
 } from "@/lib/reservation-flex";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
@@ -906,18 +907,31 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信
+      // LINE Flex メッセージ送信（アクション設定チェック）
       const lineId = patientRes.data?.line_id;
       if (lineId && date && time) {
         try {
-          const flex = await buildReservationCreatedFlex(date, time, tenantId ?? undefined);
-          await sendReservationNotification({
-            patientId: pid,
-            lineUid: lineId,
-            flex,
-            messageType: "reservation_created",
-            tenantId: tenantId ?? undefined,
-          });
+          const actionSetting = await getActionSetting("reservation_created", tenantId ?? undefined);
+          if (actionSetting.is_enabled) {
+            if (actionSetting.use_custom_message && actionSetting.custom_message) {
+              // カスタムテキストメッセージ
+              const { pushMessage: pushMsg } = await import("@/lib/line-push");
+              const customText = actionSetting.custom_message
+                .replace(/\{date\}/g, `${date} ${time}`)
+                .replace(/\{name\}/g, "");
+              await pushMsg(lineId, [{ type: "text", text: customText.trim() }], tenantId ?? undefined);
+            } else {
+              // デフォルトFlexメッセージ
+              const flex = await buildReservationCreatedFlex(date, time, tenantId ?? undefined);
+              await sendReservationNotification({
+                patientId: pid,
+                lineUid: lineId,
+                flex,
+                messageType: "reservation_created",
+                tenantId: tenantId ?? undefined,
+              });
+            }
+          }
         } catch (err) {
           console.error("[reservations] LINE notification error:", err);
         }
@@ -1049,20 +1063,31 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信
+      // LINE Flex メッセージ送信（アクション設定チェック）
       const cancelLineId = cancelPatientInfo?.data?.line_id;
       const cancelDate = cancelResvInfo?.data?.reserved_date;
       const cancelTime = cancelResvInfo?.data?.reserved_time;
       if (cancelLineId && cancelDate && cancelTime) {
         try {
-          const flex = await buildReservationCanceledFlex(cancelDate, cancelTime, tenantId ?? undefined);
-          await sendReservationNotification({
-            patientId: pid,
-            lineUid: cancelLineId,
-            flex,
-            messageType: "reservation_canceled",
-            tenantId: tenantId ?? undefined,
-          });
+          const cancelActionSetting = await getActionSetting("reservation_canceled", tenantId ?? undefined);
+          if (cancelActionSetting.is_enabled) {
+            if (cancelActionSetting.use_custom_message && cancelActionSetting.custom_message) {
+              const { pushMessage: pushMsg } = await import("@/lib/line-push");
+              const customText = cancelActionSetting.custom_message
+                .replace(/\{date\}/g, `${cancelDate} ${cancelTime}`)
+                .replace(/\{name\}/g, "");
+              await pushMsg(cancelLineId, [{ type: "text", text: customText.trim() }], tenantId ?? undefined);
+            } else {
+              const flex = await buildReservationCanceledFlex(cancelDate, cancelTime, tenantId ?? undefined);
+              await sendReservationNotification({
+                patientId: pid,
+                lineUid: cancelLineId,
+                flex,
+                messageType: "reservation_canceled",
+                tenantId: tenantId ?? undefined,
+              });
+            }
+          }
         } catch (err) {
           console.error("[reservations] LINE cancel notification error:", err);
         }
@@ -1179,24 +1204,35 @@ export async function POST(req: NextRequest) {
         console.log(`[reservations] Cache invalidated for patient_id=${pid}`);
       }
 
-      // LINE Flex メッセージ送信
+      // LINE Flex メッセージ送信（アクション設定チェック）
       const changeLineId = changePatientInfo?.line_id;
       if (changeLineId && newDate && newTime) {
         try {
-          const flex = await buildReservationChangedFlex(
-            prevResvInfo?.reserved_date || newDate,
-            prevResvInfo?.reserved_time || newTime,
-            newDate,
-            newTime,
-            tenantId ?? undefined,
-          );
-          await sendReservationNotification({
-            patientId: pid,
-            lineUid: changeLineId,
-            flex,
-            messageType: "reservation_changed",
-            tenantId: tenantId ?? undefined,
-          });
+          const changeActionSetting = await getActionSetting("reservation_changed", tenantId ?? undefined);
+          if (changeActionSetting.is_enabled) {
+            if (changeActionSetting.use_custom_message && changeActionSetting.custom_message) {
+              const { pushMessage: pushMsg } = await import("@/lib/line-push");
+              const customText = changeActionSetting.custom_message
+                .replace(/\{date\}/g, `${newDate} ${newTime}`)
+                .replace(/\{name\}/g, "");
+              await pushMsg(changeLineId, [{ type: "text", text: customText.trim() }], tenantId ?? undefined);
+            } else {
+              const flex = await buildReservationChangedFlex(
+                prevResvInfo?.reserved_date || newDate,
+                prevResvInfo?.reserved_time || newTime,
+                newDate,
+                newTime,
+                tenantId ?? undefined,
+              );
+              await sendReservationNotification({
+                patientId: pid,
+                lineUid: changeLineId,
+                flex,
+                messageType: "reservation_changed",
+                tenantId: tenantId ?? undefined,
+              });
+            }
+          }
         } catch (err) {
           console.error("[reservations] LINE change notification error:", err);
         }

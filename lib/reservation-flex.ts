@@ -260,6 +260,61 @@ export async function buildReminderFlex(dateStr: string, timeStr: string, tenant
   };
 }
 
+// ============================================
+// アクション設定チェック
+// ============================================
+
+type ActionSetting = {
+  is_enabled: boolean;
+  use_custom_message: boolean;
+  custom_message: string | null;
+};
+
+// キャッシュ（テナント×イベント別）
+let actionSettingsCache: Map<string, { data: ActionSetting; cachedAt: number }> = new Map();
+const ACTION_CACHE_TTL_MS = 60000; // 1分
+
+/** 指定イベントのアクション設定を取得（デフォルト: 有効） */
+export async function getActionSetting(
+  eventType: "reservation_created" | "reservation_changed" | "reservation_canceled",
+  tenantId?: string,
+): Promise<ActionSetting> {
+  const cacheKey = `${tenantId || "__default__"}:${eventType}`;
+  const cached = actionSettingsCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < ACTION_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const defaultSetting: ActionSetting = { is_enabled: true, use_custom_message: false, custom_message: null };
+
+  try {
+    const query = supabaseAdmin
+      .from("reservation_action_settings")
+      .select("is_enabled, use_custom_message, custom_message")
+      .eq("event_type", eventType);
+
+    if (tenantId) {
+      query.eq("tenant_id", tenantId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[getActionSetting] error:", error);
+      return defaultSetting;
+    }
+
+    const setting: ActionSetting = data
+      ? { is_enabled: data.is_enabled, use_custom_message: data.use_custom_message, custom_message: data.custom_message }
+      : defaultSetting;
+
+    actionSettingsCache.set(cacheKey, { data: setting, cachedAt: Date.now() });
+    return setting;
+  } catch {
+    return defaultSetting;
+  }
+}
+
 /** LINE送信 + message_log 記録 */
 export async function sendReservationNotification(params: {
   patientId: string;
