@@ -183,7 +183,6 @@ export default function CreateTenantPage() {
         ? {
             planName: matchedPlan.key,
             monthlyFee: matchedPlan.monthly,
-            setupFee: matchedPlan.setup,
             messageQuota: matchedPlan.quota,
             overageUnitPrice: matchedPlan.overagePrice,
           }
