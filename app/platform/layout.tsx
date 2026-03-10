@@ -8,6 +8,7 @@ import Link from "next/link";
 const PLATFORM_MENU_ITEMS = [
   { href: "/platform", icon: "📊", label: "ダッシュボード" },
   { href: "/platform/tenants", icon: "🏥", label: "テナント管理" },
+  { href: "/platform/applications", icon: "📩", label: "申し込み管理" },
   { href: "/platform/members", icon: "👥", label: "メンバー管理" },
   { href: "/platform/billing", icon: "💳", label: "契約・請求" },
   { href: "/platform/analytics", icon: "📈", label: "分析" },
@@ -16,6 +17,7 @@ const PLATFORM_MENU_ITEMS = [
   { href: "/platform/alerts", icon: "🔔", label: "アラート" },
   { href: "/platform/audit", icon: "🔍", label: "監査ログ" },
   { href: "/platform/shared-templates", icon: "📋", label: "共有テンプレート" },
+  { href: "/platform/richmenu-generator", icon: "🎨", label: "リッチメニュー生成" },
   { href: "/platform/system", icon: "⚙️", label: "システム設定" },
   { href: "/platform/settings", icon: "🔐", label: "アカウント設定" },
 ];

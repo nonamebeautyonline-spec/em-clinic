@@ -3,8 +3,8 @@
 // app/platform/tenants/create/page.tsx
 // テナント作成ウィザード — 3ステップ + 確認画面
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // ステップの定義
 type WizardStep = 1 | 2 | 3 | 4; // 4 = 確認画面
@@ -148,12 +148,58 @@ const AI_OPTIONS_UI = [
 
 export default function CreateTenantPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<WizardStep>(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const fromApplicationId = searchParams.get("from_application");
+
+  // 申し込みデータから自動入力
+  useEffect(() => {
+    const name = searchParams.get("name");
+    if (!name) return;
+    const contactEmail = searchParams.get("contactEmail") || "";
+    const contactPhone = searchParams.get("contactPhone") || "";
+    const plan = searchParams.get("plan") || "";
+    const aiOptionsStr = searchParams.get("ai_options") || "";
+
+    // プラン名からメッセージプランを特定（例: "スタンダード + 30,000通"）
+    const planParts = plan.split(" + ");
+    const msgPart = planParts[1]?.trim() || "";
+    const matchedPlan = PLANS.find((p) => msgPart.includes(p.desc.replace("通/月", "通")));
+
+    // AIオプションのマッピング（LP→ウィザード）
+    const aiMap: Record<string, string> = {
+      "AI自動返信": "ai_reply",
+      "音声カルテ": "voice_input",
+    };
+    const aiOptions = aiOptionsStr
+      ? aiOptionsStr.split(",").map((k) => aiMap[k] || k).filter((k) => AI_OPTIONS_UI.some((o) => o.key === k))
+      : [];
+
+    setFormData((prev) => ({
+      ...prev,
+      name,
+      slug: name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 30),
+      contactEmail,
+      contactPhone,
+      adminEmail: contactEmail,
+      ...(matchedPlan
+        ? {
+            planName: matchedPlan.key,
+            monthlyFee: matchedPlan.monthly,
+            setupFee: matchedPlan.setup,
+            messageQuota: matchedPlan.quota,
+            overageUnitPrice: matchedPlan.overagePrice,
+          }
+        : {}),
+      aiOptions,
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // フォーム値更新ヘルパー
   const updateField = (field: keyof FormData, value: string | number) => {
@@ -309,6 +355,16 @@ export default function CreateTenantPage() {
         throw new Error(msg);
       }
 
+      // 申し込みからの作成時はステータスを更新
+      if (fromApplicationId) {
+        fetch("/api/platform/applications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ id: fromApplicationId, status: "approved" }),
+        }).catch(() => {});
+      }
+
       // 成功トースト表示
       setShowToast(true);
       setTimeout(() => {
@@ -362,7 +418,19 @@ export default function CreateTenantPage() {
             テナント一覧に戻る
           </button>
           <h1 className="text-2xl font-bold text-slate-900">テナント新規作成</h1>
-          <p className="mt-1 text-sm text-slate-500">新しいクリニックテナントを登録します</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {fromApplicationId
+              ? "申し込みデータから初期情報を入力済みです。内容を確認して進めてください。"
+              : "新しいクリニックテナントを登録します"}
+          </p>
+          {fromApplicationId && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs font-medium text-amber-700">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              申し込みからの簡単立ち上げ
+            </div>
+          )}
         </div>
 
         {/* ステップインジケーター */}
@@ -629,9 +697,24 @@ export default function CreateTenantPage() {
                   {errors.adminPassword && (
                     <p className="mt-1 text-xs text-red-600">{errors.adminPassword}</p>
                   )}
-                  <p className="mt-1 text-xs text-slate-400">
-                    8文字以上・大文字・小文字・数字・記号を各1文字以上
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    {[
+                      { label: "8文字以上", ok: formData.adminPassword.length >= 8 },
+                      { label: "大文字を含む", ok: /[A-Z]/.test(formData.adminPassword) },
+                      { label: "小文字を含む", ok: /[a-z]/.test(formData.adminPassword) },
+                      { label: "数字を含む", ok: /[0-9]/.test(formData.adminPassword) },
+                      { label: "記号を含む", ok: /[^A-Za-z0-9]/.test(formData.adminPassword) },
+                    ].map((req) => (
+                      <div key={req.label} className="flex items-center gap-1.5">
+                        <span className={`text-xs ${req.ok ? "text-green-600" : "text-slate-300"}`}>
+                          {req.ok ? "✓" : "○"}
+                        </span>
+                        <span className={`text-xs ${req.ok ? "text-slate-900 font-medium" : "text-slate-400"}`}>
+                          {req.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* パスワード確認 */}

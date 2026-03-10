@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Lオペ for CLINIC — Landing Page (Blue theme, Full feature showcase)
@@ -2122,7 +2123,7 @@ function Pricing() {
       </div>
 
       <div className="mt-10 text-center">
-        <a href="#contact" className="inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-10 py-4 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">まずは資料請求（無料）</a>
+        <Link href="/lp/entry-BYagL-x_JX2JSAeN" className="inline-block rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 px-10 py-4 text-[13px] font-bold text-white shadow-lg shadow-blue-500/20 transition hover:shadow-xl">お申し込み・お問い合わせ</Link>
       </div>
     </Section>
   );
@@ -2167,8 +2168,8 @@ function FinalCTA() {
         <h2 className="mb-4 text-[1.7rem] font-extrabold leading-snug text-white md:text-4xl">LINE活用で、<br className="md:hidden" />クリニック経営を次のステージへ</h2>
         <p className="mx-auto mb-10 max-w-xl text-[14px] leading-relaxed text-blue-100">まずは資料請求から。貴院の課題に合わせたデモのご案内も可能です。</p>
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href="mailto:info@example.com" className="w-full rounded-xl bg-white px-10 py-4 text-[13px] font-bold text-blue-700 shadow-lg transition hover:bg-blue-50 sm:w-auto">資料請求・お問い合わせ</a>
-          <a href="#" className="w-full rounded-xl border-2 border-white/25 px-10 py-4 text-[13px] font-bold text-white transition hover:bg-white/10 sm:w-auto">無料オンライン相談を予約</a>
+          <Link href="/lp/entry-BYagL-x_JX2JSAeN" className="w-full rounded-xl bg-white px-10 py-4 text-[13px] font-bold text-blue-700 shadow-lg transition hover:bg-blue-50 sm:w-auto">お申し込み・お問い合わせ</Link>
+          <a href="mailto:info@l-ope.jp" className="w-full rounded-xl border-2 border-white/25 px-10 py-4 text-[13px] font-bold text-white transition hover:bg-white/10 sm:w-auto">メールでお問い合わせ</a>
         </div>
         <p className="mt-6 text-[11px] text-blue-200">※ 無理な営業は一切行いません</p>
       </div>
@@ -2188,7 +2189,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-7 text-[11px] md:flex-row">
-          <div className="flex gap-5"><a href="#" className="hover:text-white">利用規約</a><a href="#" className="hover:text-white">プライバシーポリシー</a><a href="#" className="hover:text-white">特定商取引法に基づく表記</a></div>
+          <div className="flex gap-5"><Link href="/lp/terms" className="hover:text-white">利用規約</Link><Link href="/lp/privacy" className="hover:text-white">プライバシーポリシー</Link><Link href="/lp/cancel" className="hover:text-white">キャンセル・解約ポリシー</Link></div>
           <p>&copy; 2025 Lオペ for CLINIC. All rights reserved.</p>
         </div>
       </div>
