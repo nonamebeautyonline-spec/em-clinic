@@ -44,6 +44,8 @@ const TENANT_EXEMPT_ROUTES = new Set([
   "app/api/admin/google-calendar/callback/route.ts",
   // shared-templates: platformからインポートするため意図的にテナント横断
   "app/api/admin/shared-templates/[id]/import/route.ts",
+  // ジャンクションテーブル操作（tenant_idカラムなし、親テーブル経由でテナント分離）
+  "app/api/admin/reservation-slots/[id]/courses/route.ts",
 ]);
 
 const isPlatformRoute = (f: string) => f.startsWith("app/api/platform/");

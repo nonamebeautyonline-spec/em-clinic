@@ -484,7 +484,7 @@ describe("createFollowupRuleSchema", () => {
   it("正常値でparse成功（全フィールド指定）", () => {
     const result = createFollowupRuleSchema.safeParse({
       ...validInput,
-      trigger_event: "shipping_completed",
+      trigger_event: "reservation_completed",
       flex_json: { type: "bubble", body: {} },
       is_enabled: false,
     });
@@ -514,7 +514,7 @@ describe("createFollowupRuleSchema", () => {
     }
   });
 
-  it("delay_daysが0でparse失敗（1日以上必要）", () => {
+  it("delay_daysが0かつdelay_hoursも未指定でparse失敗", () => {
     const result = createFollowupRuleSchema.safeParse({
       ...validInput,
       delay_days: 0,
@@ -522,8 +522,17 @@ describe("createFollowupRuleSchema", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const msgs = result.error.issues.map((i) => i.message);
-      expect(msgs).toContain("1日以上を指定してください");
+      expect(msgs).toContain("送信タイミング（日数または時間）を指定してください");
     }
+  });
+
+  it("delay_daysが0でもdelay_hoursが指定されていればparse成功", () => {
+    const result = createFollowupRuleSchema.safeParse({
+      ...validInput,
+      delay_days: 0,
+      delay_hours: 24,
+    });
+    expect(result.success).toBe(true);
   });
 
   it("delay_daysが小数でparse失敗（int制約）", () => {

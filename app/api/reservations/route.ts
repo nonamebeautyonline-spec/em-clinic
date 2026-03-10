@@ -21,8 +21,96 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）
-const BOOKING_OPEN_DAY = 5;
+// ★ 翌月予約開放日の設定（毎月X日に翌月の予約を開放）— フォールバック用
+const BOOKING_OPEN_DAY_DEFAULT = 5;
+
+// ★ reservation_settings のキャッシュ（テナント別）
+type ReservationSettings = {
+  change_deadline_hours: number;
+  cancel_deadline_hours: number;
+  booking_start_days_before: number;
+  booking_deadline_hours_before: number;
+  booking_open_day: number;
+};
+
+const DEFAULT_SETTINGS: ReservationSettings = {
+  change_deadline_hours: 0,
+  cancel_deadline_hours: 0,
+  booking_start_days_before: 60,
+  booking_deadline_hours_before: 0,
+  booking_open_day: BOOKING_OPEN_DAY_DEFAULT,
+};
+
+let settingsCache: Map<string, { settings: ReservationSettings; cachedAt: number }> = new Map();
+const SETTINGS_CACHE_TTL_MS = 60000; // 1分
+
+async function getReservationSettings(tenantId: string | null): Promise<ReservationSettings> {
+  const cacheKey = tenantId || "__default__";
+  const cached = settingsCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < SETTINGS_CACHE_TTL_MS) {
+    return cached.settings;
+  }
+
+  try {
+    const { data, error } = await withTenant(
+      supabaseAdmin.from("reservation_settings").select("*"),
+      tenantId
+    ).maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[getReservationSettings] error:", error);
+      return DEFAULT_SETTINGS;
+    }
+
+    const settings: ReservationSettings = data
+      ? {
+          change_deadline_hours: data.change_deadline_hours ?? 0,
+          cancel_deadline_hours: data.cancel_deadline_hours ?? 0,
+          booking_start_days_before: data.booking_start_days_before ?? 60,
+          booking_deadline_hours_before: data.booking_deadline_hours_before ?? 0,
+          booking_open_day: data.booking_open_day ?? BOOKING_OPEN_DAY_DEFAULT,
+        }
+      : DEFAULT_SETTINGS;
+
+    settingsCache.set(cacheKey, { settings, cachedAt: Date.now() });
+    return settings;
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+// ★ 予約の期限チェック（変更・キャンセル用）
+function isWithinDeadline(
+  reservedDate: string,
+  reservedTime: string,
+  deadlineHours: number
+): boolean {
+  if (deadlineHours <= 0) return true; // 0=無制限
+
+  const now = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstNow = new Date(now.getTime() + jstOffset);
+
+  // 予約日時をJSTでパース
+  const [h, m] = reservedTime.split(":").map(Number);
+  const [y, mo, d] = reservedDate.split("-").map(Number);
+  const reservedJST = new Date(Date.UTC(y, mo - 1, d, h, m));
+
+  const diffMs = reservedJST.getTime() - jstNow.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  return diffHours >= deadlineHours;
+}
+
+// ★ 受付締切チェック（予約作成用）
+function isWithinBookingDeadline(
+  targetDate: string,
+  targetTime: string,
+  deadlineHours: number
+): boolean {
+  if (deadlineHours <= 0) return true; // 0=制限なし
+  return isWithinDeadline(targetDate, targetTime, deadlineHours);
+}
 
 // 早期開放設定のキャッシュ（パフォーマンス向上のため）
 let earlyOpenCache: Map<string, { isOpen: boolean; cachedAt: number }> = new Map();
@@ -60,7 +148,9 @@ async function isMonthEarlyOpen(targetMonth: string, tenantId: string | null): P
 }
 
 // 指定された日付が予約可能かどうかをチェック（非同期版）
-async function isDateBookable(targetDate: string, tenantId: string | null = null): Promise<boolean> {
+async function isDateBookable(targetDate: string, tenantId: string | null = null, settings?: ReservationSettings): Promise<boolean> {
+  const s = settings ?? await getReservationSettings(tenantId);
+
   // JSTで現在日時を取得
   const now = new Date();
   const jstOffset = 9 * 60 * 60 * 1000;
@@ -84,20 +174,28 @@ async function isDateBookable(targetDate: string, tenantId: string | null = null
     return false;
   }
 
+  // ★ 受付開始日チェック（booking_start_days_before）
+  const targetDateObj = new Date(Date.UTC(targetYear, targetMonth, Number(targetDate.split("-")[2])));
+  const diffDays = Math.floor((targetDateObj.getTime() - jstNow.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays > s.booking_start_days_before) {
+    return false;
+  }
+
   // ターゲット月をYYYY-MM形式で取得
   const targetMonthStr2 = `${targetYear}-${String(targetMonth + 1).padStart(2, "0")}`;
 
   // 翌月の場合
+  const bookingOpenDay = s.booking_open_day;
   const isNextMonth =
     (targetYear === currentYear && targetMonth === currentMonth + 1) ||
     (targetYear === currentYear + 1 && currentMonth === 11 && targetMonth === 0);
 
   if (isNextMonth) {
-    // 5日以上なら自動開放
-    if (currentDay >= BOOKING_OPEN_DAY) {
+    // N日以上なら自動開放
+    if (currentDay >= bookingOpenDay) {
       return true;
     }
-    // 5日未満でも、管理者が早期開放していればOK
+    // N日未満でも、管理者が早期開放していればOK
     return await isMonthEarlyOpen(targetMonthStr2, tenantId);
   }
 
@@ -422,6 +520,33 @@ export async function GET(req: NextRequest) {
 
   try {
     const doctorId = searchParams.get("doctor_id") || "dr_default";
+    const settings = await getReservationSettings(tenantId);
+
+    // 予約枠一覧を返すモード（患者側用）
+    if (searchParams.get("mode") === "slots") {
+      const { data: slotsData } = await withTenant(
+        supabaseAdmin
+          .from("reservation_slots")
+          .select("id, title, description, duration_minutes")
+          .eq("is_active", true)
+          .order("sort_order"),
+        tenantId
+      );
+      return NextResponse.json({ ok: true, slots: slotsData || [] });
+    }
+
+    // コース一覧を返すモード（患者側用）
+    if (searchParams.get("mode") === "courses") {
+      const { data: coursesData } = await withTenant(
+        supabaseAdmin
+          .from("reservation_courses")
+          .select("id, title, description, duration_minutes")
+          .eq("is_active", true)
+          .order("sort_order"),
+        tenantId
+      );
+      return NextResponse.json({ ok: true, courses: coursesData || [] });
+    }
 
     // 医師一覧を返すモード
     if (searchParams.get("mode") === "doctors") {
@@ -455,14 +580,26 @@ export async function GET(req: NextRequest) {
       );
 
       // 翌月予約開放日チェック: 予約不可の日付の場合は空の枠を返す
-      const bookable = await isDateBookable(date, tenantId);
-      const filteredOut = bookable ? out : [];
+      const bookable = await isDateBookable(date, tenantId, settings);
+
+      // 受付締切フィルタ（booking_deadline_hours_before）
+      let filteredOut = bookable ? out : [];
+      if (bookable && settings.booking_deadline_hours_before > 0) {
+        filteredOut = filteredOut.filter((s) =>
+          isWithinBookingDeadline(date, s.time, settings.booking_deadline_hours_before)
+        );
+      }
 
       return NextResponse.json(
         {
           date,
           slots: filteredOut.map((s) => ({ time: s.time, count: s.count })),
           bookingOpen: bookable,
+          settings: {
+            change_deadline_hours: settings.change_deadline_hours,
+            cancel_deadline_hours: settings.cancel_deadline_hours,
+            booking_deadline_hours_before: settings.booking_deadline_hours_before,
+          },
         },
         { status: 200 }
       );
@@ -494,17 +631,36 @@ export async function GET(req: NextRequest) {
     const dateBookableMap = new Map<string, boolean>();
     await Promise.all(
       uniqueDates.map(async (date) => {
-        const bookable = await isDateBookable(date, tenantId);
+        const bookable = await isDateBookable(date, tenantId, settings);
         dateBookableMap.set(date, bookable);
       })
     );
 
-    const slots = allSlots.map((slot) => ({
+    let slots = allSlots.map((slot) => ({
       ...slot,
       count: dateBookableMap.get(slot.date) ? slot.count : 0,
     }));
 
-    return NextResponse.json({ start, end, slots }, { status: 200 });
+    // 受付締切フィルタ（booking_deadline_hours_before）
+    if (settings.booking_deadline_hours_before > 0) {
+      slots = slots.map((slot) => ({
+        ...slot,
+        count: slot.count > 0 && !isWithinBookingDeadline(slot.date, slot.time, settings.booking_deadline_hours_before)
+          ? 0
+          : slot.count,
+      }));
+    }
+
+    return NextResponse.json({
+      start,
+      end,
+      slots,
+      settings: {
+        change_deadline_hours: settings.change_deadline_hours,
+        cancel_deadline_hours: settings.cancel_deadline_hours,
+        booking_deadline_hours_before: settings.booking_deadline_hours_before,
+      },
+    }, { status: 200 });
   } catch (err) {
     console.error("GET /api/reservations error");
     return serverError("server error");
@@ -537,14 +693,29 @@ export async function POST(req: NextRequest) {
       const time = validated.data.time || "";
       const pid = validated.data.patient_id || patientId;
       const createDoctorId = validated.data.doctor_id || "dr_default";
+      const createSlotId = validated.data.slot_id || null;
+      const createCourseId = validated.data.course_id || null;
+
+        // ★ 設定を取得
+      const createSettings = await getReservationSettings(tenantId);
 
       // ★★ 翌月予約開放日チェック ★★
-      if (date && !(await isDateBookable(date, tenantId))) {
+      if (date && !(await isDateBookable(date, tenantId, createSettings))) {
         console.log(`[Reservation] booking_not_open: date=${date}`);
         return NextResponse.json({
           ok: false,
           error: "booking_not_open",
-          message: `この日付はまだ予約を受け付けていません。毎月${BOOKING_OPEN_DAY}日に翌月の予約が開放されます。`,
+          message: `この日付はまだ予約を受け付けていません。毎月${createSettings.booking_open_day}日に翌月の予約が開放されます。`,
+        }, { status: 400 });
+      }
+
+      // ★★ 受付締切チェック ★★
+      if (date && time && !isWithinBookingDeadline(date, time, createSettings.booking_deadline_hours_before)) {
+        console.log(`[Reservation] booking_deadline_passed: date=${date}, time=${time}`);
+        return NextResponse.json({
+          ok: false,
+          error: "booking_deadline_passed",
+          message: "この時間帯の予約受付は締め切りました。",
         }, { status: 400 });
       }
 
@@ -666,6 +837,20 @@ export async function POST(req: NextRequest) {
 
       console.log(`✓ Reservation created: reserve_id=${reserveId}, booked=${rpcResult?.booked}/${rpcResult?.capacity}`);
 
+      // ★ slot_id, course_id を保存（RPCでINSERTされたレコードにUPDATE）
+      if (createSlotId || createCourseId) {
+        const updateFields: Record<string, unknown> = {};
+        if (createSlotId) updateFields.slot_id = createSlotId;
+        if (createCourseId) updateFields.course_id = createCourseId;
+        await withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .update(updateFields)
+            .eq("reserve_id", reserveId),
+          tenantId
+        );
+      }
+
       // intake テーブルに reserve_id を紐付け（最新1件のみ。全件更新すると重複の原因）
       if (pid) {
         try {
@@ -758,6 +943,27 @@ export async function POST(req: NextRequest) {
 
       if (!reserveId) {
         return badRequest("reserveId required");
+      }
+
+      // ★ キャンセル期限チェック
+      const cancelSettings = await getReservationSettings(tenantId);
+      if (cancelSettings.cancel_deadline_hours > 0) {
+        const { data: checkResv } = await withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .select("reserved_date, reserved_time")
+            .eq("reserve_id", reserveId),
+          tenantId
+        ).maybeSingle();
+
+        if (checkResv && !isWithinDeadline(checkResv.reserved_date, checkResv.reserved_time, cancelSettings.cancel_deadline_hours)) {
+          console.log(`[Reservation] cancel_deadline_passed: reserve_id=${reserveId}`);
+          return NextResponse.json({
+            ok: false,
+            error: "cancel_deadline_passed",
+            message: `予約キャンセルの受付期限（${cancelSettings.cancel_deadline_hours}時間前）を過ぎています。`,
+          }, { status: 400 });
+        }
       }
 
       // LINE通知用に予約情報と line_id を事前取得
@@ -882,13 +1088,43 @@ export async function POST(req: NextRequest) {
         return badRequest("missing parameters");
       }
 
+      // ★ 変更期限チェック
+      const updateSettings = await getReservationSettings(tenantId);
+      if (updateSettings.change_deadline_hours > 0) {
+        const { data: checkResv } = await withTenant(
+          supabaseAdmin
+            .from("reservations")
+            .select("reserved_date, reserved_time")
+            .eq("reserve_id", reserveId),
+          tenantId
+        ).maybeSingle();
+
+        if (checkResv && !isWithinDeadline(checkResv.reserved_date, checkResv.reserved_time, updateSettings.change_deadline_hours)) {
+          console.log(`[Reservation] change_deadline_passed: reserve_id=${reserveId}`);
+          return NextResponse.json({
+            ok: false,
+            error: "change_deadline_passed",
+            message: `予約変更の受付期限（${updateSettings.change_deadline_hours}時間前）を過ぎています。`,
+          }, { status: 400 });
+        }
+      }
+
       // ★★ 翌月予約開放日チェック ★★
-      if (!(await isDateBookable(newDate, tenantId))) {
+      if (!(await isDateBookable(newDate, tenantId, updateSettings))) {
         console.log(`[Reservation] booking_not_open for update: date=${newDate}`);
         return NextResponse.json({
           ok: false,
           error: "booking_not_open",
-          message: `この日付はまだ予約を受け付けていません。毎月${BOOKING_OPEN_DAY}日に翌月の予約が開放されます。`,
+          message: `この日付はまだ予約を受け付けていません。毎月${updateSettings.booking_open_day}日に翌月の予約が開放されます。`,
+        }, { status: 400 });
+      }
+
+      // ★★ 受付締切チェック（変更先の日時） ★★
+      if (!isWithinBookingDeadline(newDate, newTime, updateSettings.booking_deadline_hours_before)) {
+        return NextResponse.json({
+          ok: false,
+          error: "booking_deadline_passed",
+          message: "この時間帯の予約受付は締め切りました。",
         }, { status: 400 });
       }
 

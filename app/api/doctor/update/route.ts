@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { sendPaymentNotification } from "@/lib/payment-flex";
+import { scheduleReservationFollowups } from "@/lib/followup";
 import { parseBody } from "@/lib/validations/helpers";
 import { doctorUpdateSchema } from "@/lib/validations/doctor";
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ★ Step 4: ステータスOK時に決済案内LINE通知（fire-and-forget）
+    // ★ Step 4: ステータスOK時に決済案内LINE通知 + 来院フォロー（fire-and-forget）
     if (status === "OK" && patientId) {
       const tid = tenantId;
       (async () => {
@@ -136,6 +137,11 @@ export async function POST(req: NextRequest) {
           console.error("[doctor/update] 決済案内通知エラー（ステータス更新は成功）:", err);
         }
       })();
+
+      // 来院完了フォローアップをスケジュール（fire-and-forget）
+      scheduleReservationFollowups(reserveId, patientId, tenantId).catch((err) => {
+        console.error("[doctor/update] 来院フォロースケジュールエラー:", err);
+      });
     }
 
     return NextResponse.json({ ok: true, patientId }, { status: 200 });

@@ -107,6 +107,64 @@ function resolveTemplate(
 }
 
 /**
+ * 来院完了時にフォローアップログをスケジュール
+ * trigger_event='reservation_completed' のルールを取得し、
+ * delay_hours（またはdelay_days×24）でスケジュール
+ */
+export async function scheduleReservationFollowups(
+  reservationId: string,
+  patientId: string,
+  tenantId: string | null,
+) {
+  let query = supabaseAdmin
+    .from("followup_rules")
+    .select("*")
+    .eq("is_enabled", true)
+    .eq("trigger_event", "reservation_completed");
+  query = withTenant(query, tenantId);
+
+  const { data: rules, error } = await query;
+  if (error) {
+    console.error("[Followup] 来院フォロールール取得エラー:", error.message);
+    return;
+  }
+  if (!rules?.length) return;
+
+  const now = new Date();
+
+  const logs = rules.map((rule) => {
+    const scheduledAt = new Date(now);
+    // delay_hours があればそちら優先、なければ delay_days × 24
+    const delayHours = rule.delay_hours ?? (rule.delay_days * 24);
+    scheduledAt.setTime(scheduledAt.getTime() + delayHours * 60 * 60 * 1000);
+
+    // 日単位遅延の場合は送信時刻を10:00 JST（UTC 01:00）に固定
+    if (!rule.delay_hours && rule.delay_days) {
+      scheduledAt.setUTCHours(1, 0, 0, 0);
+    }
+
+    return {
+      ...tenantPayload(tenantId),
+      rule_id: rule.id,
+      patient_id: patientId,
+      reservation_id: reservationId,
+      scheduled_at: scheduledAt.toISOString(),
+      status: "pending",
+    };
+  });
+
+  const { error: insertError } = await supabaseAdmin
+    .from("followup_logs")
+    .insert(logs);
+
+  if (insertError) {
+    console.error("[Followup] 来院フォローログ作成エラー:", insertError.message);
+  } else {
+    console.log(`[Followup] ${logs.length}件の来院フォローアップをスケジュール（patient: ${patientId}, reservation: ${reservationId}）`);
+  }
+}
+
+/**
  * Cron用: 送信予定時刻を過ぎた pending ログを処理してLINE送信
  * tenantId を指定しない場合は全テナント横断
  */

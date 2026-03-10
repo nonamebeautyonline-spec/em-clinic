@@ -9,6 +9,8 @@ export const createReservationSchema = z
     time: z.string().min(1, "時刻は必須です"),
     patient_id: z.string().optional(),
     doctor_id: z.string().optional(),
+    slot_id: z.string().uuid().optional().nullable(),
+    course_id: z.string().uuid().optional().nullable(),
   })
   .passthrough();
 

@@ -363,6 +363,12 @@ const [mpLabels, setMpLabels] = useState({
 // 再処方予約必須設定
 const [reorderRequiresReservation, setReorderRequiresReservation] = useState(false);
 
+// 予約設定（期限制御用）
+const [reservationSettings, setReservationSettings] = useState<{
+  change_deadline_hours: number;
+  cancel_deadline_hours: number;
+} | null>(null);
+
 const fetchMypageSettings = useCallback(async () => {
   try {
     const r = await fetch("/api/mypage/settings");
@@ -563,6 +569,21 @@ useEffect(() => {
   initDashboard();
 }, [initDashboard]);
 
+// ★ 予約設定を取得（期限制御用）
+useEffect(() => {
+  if (!data?.nextReservation) return;
+  (async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await fetch(`/api/reservations?date=${today}`);
+      const json = await res.json();
+      if (json.settings) {
+        setReservationSettings(json.settings);
+      }
+    } catch {}
+  })();
+}, [data?.nextReservation]);
+
   // ▼ 日時変更
   const handleChangeReservation = () => {
     if (!data?.nextReservation) return;
@@ -608,7 +629,10 @@ useEffect(() => {
       const result = await res.json().catch(() => ({} as Record<string, unknown>));
 
       if (!res.ok || result.ok === false) {
-        alert("キャンセルに失敗しました。時間をおいて再度お試しください。");
+        const msg = result.error === "cancel_deadline_passed"
+          ? String(result.message || "キャンセルの受付期限を過ぎています。")
+          : "キャンセルに失敗しました。時間をおいて再度お試しください。";
+        alert(msg);
         return;
       }
 
@@ -811,6 +835,26 @@ const handleShowAllHistory = async () => {
   }
 
   const { patient, nextReservation, activeOrders, history, ordersFlags } = data;
+
+// ★ 期限制御: 変更・キャンセル可能かどうかをフロント判定
+const canChangeReservation = (() => {
+  if (!nextReservation || !reservationSettings) return true; // 設定未取得なら許可
+  const hours = reservationSettings.change_deadline_hours;
+  if (hours <= 0) return true;
+  const resvTime = new Date(nextReservation.datetime).getTime();
+  const now = Date.now();
+  return (resvTime - now) >= hours * 60 * 60 * 1000;
+})();
+
+const canCancelReservation = (() => {
+  if (!nextReservation || !reservationSettings) return true;
+  const hours = reservationSettings.cancel_deadline_hours;
+  if (hours <= 0) return true;
+  const resvTime = new Date(nextReservation.datetime).getTime();
+  const now = Date.now();
+  return (resvTime - now) >= hours * 60 * 60 * 1000;
+})();
+
 const getTimeSafe = (v?: string) => {
   if (!v) return 0;
   const t = new Date(v).getTime();
@@ -1180,22 +1224,34 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
     {/* ボタン群：詳細ボタンは削除 */}
     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
       {/* 日時変更ボタン */}
-      <button
-        type="button"
-        onClick={handleChangeReservation}
-        className="flex-1 inline-flex items-center justify-center rounded-xl border border-[var(--mp-primary)] bg-white px-3 py-2 text-sm text-[var(--mp-primary)] hover:bg-[var(--mp-light)] transition"
-      >
-        日時を変更する
-      </button>
+      {canChangeReservation ? (
+        <button
+          type="button"
+          onClick={handleChangeReservation}
+          className="flex-1 inline-flex items-center justify-center rounded-xl border border-[var(--mp-primary)] bg-white px-3 py-2 text-sm text-[var(--mp-primary)] hover:bg-[var(--mp-light)] transition"
+        >
+          日時を変更する
+        </button>
+      ) : (
+        <div className="flex-1 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">
+          変更期限を過ぎています
+        </div>
+      )}
 
       {/* キャンセルボタン */}
-      <button
-        type="button"
-        onClick={() => setShowCancelConfirm(true)}
-        className="flex-1 inline-flex items-center justify-center rounded-xl bg-[var(--mp-primary)] px-3 py-2 text-sm text-white hover:bg-[var(--mp-hover)] transition"
-      >
-        予約をキャンセルする
-      </button>
+      {canCancelReservation ? (
+        <button
+          type="button"
+          onClick={() => setShowCancelConfirm(true)}
+          className="flex-1 inline-flex items-center justify-center rounded-xl bg-[var(--mp-primary)] px-3 py-2 text-sm text-white hover:bg-[var(--mp-hover)] transition"
+        >
+          予約をキャンセルする
+        </button>
+      ) : (
+        <div className="flex-1 inline-flex items-center justify-center rounded-xl bg-slate-100 border border-slate-200 px-3 py-2 text-sm text-slate-400">
+          キャンセル期限を過ぎています
+        </div>
+      )}
     </div>
 
     <p className="mt-3 text-[11px] text-slate-500 leading-relaxed">

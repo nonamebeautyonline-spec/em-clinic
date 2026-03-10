@@ -291,7 +291,7 @@ export default function ScheduleDashboard() {
         )}
 
         {/* ナビゲーションカード */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <Link
             href="/admin/schedule/doctors"
             className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md hover:border-blue-200 transition-all overflow-hidden"
@@ -349,6 +349,48 @@ export default function ScheduleDashboard() {
               <div className="mt-4 flex items-baseline gap-1">
                 <span className="text-3xl font-bold text-slate-900">{loading ? "-" : thisMonthOverrides}</span>
                 <span className="text-sm text-slate-500">件（今月）</span>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+          <Link
+            href="/admin/schedule/settings"
+            className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md hover:border-violet-200 transition-all overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-50 to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center text-white text-xl mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-slate-800 group-hover:text-violet-600 transition">予約受付設定</h2>
+              <p className="text-sm text-slate-500 mt-1">期限・受付期間の設定</p>
+              <div className="mt-4 flex flex-wrap gap-1">
+                <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs rounded-full">変更期限</span>
+                <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs rounded-full">キャンセル期限</span>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/schedule/slots"
+            className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md hover:border-rose-200 transition-all overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-rose-50 to-transparent rounded-bl-full" />
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white text-xl mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-bold text-slate-800 group-hover:text-rose-600 transition">予約枠・コース</h2>
+              <p className="text-sm text-slate-500 mt-1">メニュー・コースの管理</p>
+              <div className="mt-4 flex flex-wrap gap-1">
+                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-full">予約枠</span>
+                <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-full">コース</span>
               </div>
             </div>
           </Link>

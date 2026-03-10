@@ -445,9 +445,9 @@ describe("POST createReservation", () => {
   // 10. 正常作成（RPC成功→ok:true）
   // ============================================
   it("正常作成 — RPC成功で ok:true を返す", async () => {
-    // intake チェーン: 問診データあり
+    // intake チェーン: 問診データあり（配列で返す — コードは data?.[0] を参照）
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     // patients チェーン: 患者名・LINE ID
@@ -461,6 +461,8 @@ describe("POST createReservation", () => {
     const intakeUpdateChain = createChainMock({ data: [{ patient_id: "p_001" }], error: null });
     // booking_open_settings チェーン
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    // reservation_settings チェーン（data: null → DEFAULT_SETTINGS使用）
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") {
@@ -470,6 +472,7 @@ describe("POST createReservation", () => {
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsSelectChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -548,20 +551,22 @@ describe("POST createReservation", () => {
   // 12. 問診未完了→questionnaire_not_completed (400)
   // ============================================
   it("問診未完了（ng_check欠如）→ questionnaire_not_completed (400)", async () => {
-    // intake: answersにng_checkがない
+    // intake: answersにng_checkがない（配列で返す — コードは data?.[0] を参照）
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { other_field: "value" } },
+      data: [{ patient_id: "p_001", status: null, answers: { other_field: "value" } }],
       error: null,
     });
     const patientsChain = createChainMock({ data: { name: "テスト太郎", line_id: "U1234" }, error: null });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -627,21 +632,23 @@ describe("POST createReservation", () => {
   // 14. RPC slot_full→slot_full (409)
   // ============================================
   it("RPC slot_full → slot_full (409)", async () => {
-    // intake: 問診完了
+    // intake: 問診完了（配列で返す — コードは data?.[0] を参照）
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({ data: { name: "テスト太郎", line_id: "U1234" }, error: null });
     // reservations: 既存予約なし
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1069,7 +1076,7 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("RPC DBエラー → db_error (500)", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({
@@ -1078,12 +1085,14 @@ describe("POST createReservation — エッジケース", () => {
     });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1152,9 +1161,9 @@ describe("POST createReservation — エッジケース", () => {
   // 25. NGステータスリセット成功パス
   // ============================================
   it("NG患者の再予約 → ステータスリセットされて予約成功", async () => {
-    // intake: NG状態
+    // intake: NG状態（配列で返す — コードは data?.[0] を参照）
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: "NG", answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: "NG", answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({
@@ -1163,12 +1172,14 @@ describe("POST createReservation — エッジケース", () => {
     });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1198,18 +1209,20 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("問診answersがnull → questionnaire_not_completed (400)", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: null },
+      data: [{ patient_id: "p_001", status: null, answers: null }],
       error: null,
     });
     const patientsChain = createChainMock({ data: { name: "テスト太郎", line_id: "U1234" }, error: null });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1232,18 +1245,20 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("ng_checkが空文字列 → questionnaire_not_completed (400)", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "" } }],
       error: null,
     });
     const patientsChain = createChainMock({ data: { name: "テスト太郎", line_id: "U1234" }, error: null });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1266,7 +1281,7 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("LINE IDなし → 予約成功するが通知スキップ", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     // line_id が null
@@ -1276,12 +1291,14 @@ describe("POST createReservation — エッジケース", () => {
     });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1361,7 +1378,7 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("cookieからpatient_id取得 → 正常作成", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_cookie", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_cookie", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({
@@ -1370,12 +1387,14 @@ describe("POST createReservation — エッジケース", () => {
     });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -1404,7 +1423,7 @@ describe("POST createReservation — エッジケース", () => {
   // ============================================
   it("__Host-patient_id cookieが優先される", async () => {
     const intakeChain = createChainMock({
-      data: { patient_id: "p_host", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_host", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({
@@ -1413,12 +1432,14 @@ describe("POST createReservation — エッジケース", () => {
     });
     const reservationsChain = createChainMock({ data: [], error: null });
     const bookingChain = createChainMock({ data: null, error: { code: "PGRST116" } });
+    const reservationSettingsChain = createChainMock({ data: null, error: null });
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
       if (table === "reservations") return reservationsChain;
       if (table === "booking_open_settings") return bookingChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 
@@ -2639,11 +2660,22 @@ describe("DB内部ヘルパー — エラーパス", () => {
     const bookingChain = createChainMock({ data: { is_open: true }, error: null });
     const reservationsChain = createChainMock({ data: [], error: null });
     const intakeChain = createChainMock({
-      data: { patient_id: "p_001", status: null, answers: { ng_check: "ok" } },
+      data: [{ patient_id: "p_001", status: null, answers: { ng_check: "ok" } }],
       error: null,
     });
     const patientsChain = createChainMock({
       data: { name: "テスト太郎", line_id: "U1234" },
+      error: null,
+    });
+    // booking_start_days_before を365に設定（3ヶ月先の日付でも受付可能にする）
+    const reservationSettingsChain = createChainMock({
+      data: {
+        change_deadline_hours: 0,
+        cancel_deadline_hours: 0,
+        booking_start_days_before: 365,
+        booking_deadline_hours_before: 0,
+        booking_open_day: 5,
+      },
       error: null,
     });
 
@@ -2652,6 +2684,7 @@ describe("DB内部ヘルパー — エラーパス", () => {
       if (table === "reservations") return reservationsChain;
       if (table === "intake") return intakeChain;
       if (table === "patients") return patientsChain;
+      if (table === "reservation_settings") return reservationSettingsChain;
       return createChainMock();
     });
 

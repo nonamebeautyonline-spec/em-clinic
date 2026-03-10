@@ -18,6 +18,7 @@ interface FollowupRule {
   name: string;
   trigger_event: string;
   delay_days: number;
+  delay_hours: number | null;
   message_template: string;
   flex_json: Record<string, unknown> | null;
   is_enabled: boolean;
@@ -25,6 +26,11 @@ interface FollowupRule {
   updated_at: string;
   recent_logs: FollowupLog[];
 }
+
+const TRIGGER_OPTIONS = [
+  { value: "payment_completed", label: "決済完了後" },
+  { value: "reservation_completed", label: "来院完了後" },
+] as const;
 
 // --- デフォルトテンプレート ---
 const DEFAULT_TEMPLATES = [
@@ -67,7 +73,10 @@ export default function FollowupRulesPage() {
 
   // フォーム
   const [formName, setFormName] = useState("");
+  const [formTriggerEvent, setFormTriggerEvent] = useState<string>("payment_completed");
   const [formDelayDays, setFormDelayDays] = useState<number>(3);
+  const [formDelayHours, setFormDelayHours] = useState<number | null>(null);
+  const [formDelayMode, setFormDelayMode] = useState<"days" | "hours">("days");
   const [formTemplate, setFormTemplate] = useState("");
   const [formEnabled, setFormEnabled] = useState(true);
 
@@ -87,7 +96,10 @@ export default function FollowupRulesPage() {
     setShowModal(false);
     setEditingRule(null);
     setFormName("");
+    setFormTriggerEvent("payment_completed");
     setFormDelayDays(3);
+    setFormDelayHours(null);
+    setFormDelayMode("days");
     setFormTemplate("");
     setFormEnabled(true);
   };
@@ -95,7 +107,11 @@ export default function FollowupRulesPage() {
   const handleEdit = (rule: FollowupRule) => {
     setEditingRule(rule);
     setFormName(rule.name);
+    setFormTriggerEvent(rule.trigger_event || "payment_completed");
     setFormDelayDays(rule.delay_days);
+    setFormDelayHours(rule.delay_hours);
+    // delay_hours が設定されていれば時間モード
+    setFormDelayMode(rule.delay_hours != null && rule.delay_hours > 0 ? "hours" : "days");
     setFormTemplate(rule.message_template);
     setFormEnabled(rule.is_enabled);
     setShowModal(true);
@@ -107,8 +123,9 @@ export default function FollowupRulesPage() {
 
     const body = {
       name: formName.trim(),
-      trigger_event: "payment_completed",
-      delay_days: formDelayDays,
+      trigger_event: formTriggerEvent,
+      delay_days: formDelayMode === "days" ? formDelayDays : 0,
+      delay_hours: formDelayMode === "hours" ? formDelayHours : null,
       message_template: formTemplate,
       is_enabled: formEnabled,
     };
@@ -185,7 +202,7 @@ export default function FollowupRulesPage() {
                 自動フォローアップ
               </h1>
               <p className="text-sm text-gray-400 mt-1">
-                決済完了後に自動でフォローアップメッセージをLINE送信します
+                決済完了・来院完了後に自動でフォローアップメッセージをLINE送信します
               </p>
             </div>
             <button
@@ -261,10 +278,19 @@ export default function FollowupRulesPage() {
                     {/* 上段: 名前 + トグル + 操作 */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-wrap">
                           <h3 className="font-semibold text-gray-900 text-[15px]">{rule.name}</h3>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            rule.trigger_event === "reservation_completed"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-purple-50 text-purple-700"
+                          }`}>
+                            {rule.trigger_event === "reservation_completed" ? "来院完了" : "決済完了"}
+                          </span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-50 text-teal-700">
-                            {rule.delay_days}日後
+                            {rule.delay_hours != null && rule.delay_hours > 0
+                              ? `${rule.delay_hours}時間後`
+                              : `${rule.delay_days}日後`}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
@@ -470,21 +496,86 @@ export default function FollowupRulesPage() {
                 />
               </div>
 
-              {/* 遅延日数 */}
+              {/* トリガーイベント */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  送信タイミング（決済完了から）{" "}
+                  トリガー{" "}
                   <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
                 </label>
+                <div className="flex gap-2">
+                  {TRIGGER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFormTriggerEvent(opt.value)}
+                      className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                        formTriggerEvent === opt.value
+                          ? opt.value === "reservation_completed"
+                            ? "border-blue-400 bg-blue-50 text-blue-700"
+                            : "border-purple-400 bg-purple-50 text-purple-700"
+                          : "border-gray-200 bg-gray-50/50 text-gray-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 送信タイミング */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  送信タイミング{" "}
+                  <span className="text-red-500 text-xs px-1.5 py-0.5 bg-red-50 rounded">必須</span>
+                </label>
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => { setFormDelayMode("days"); setFormDelayHours(null); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      formDelayMode === "days"
+                        ? "border-teal-400 bg-teal-50 text-teal-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    日単位
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setFormDelayMode("hours"); setFormDelayDays(0); setFormDelayHours(formDelayHours ?? 24); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      formDelayMode === "hours"
+                        ? "border-teal-400 bg-teal-50 text-teal-700"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    時間単位
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={formDelayDays}
-                    onChange={(e) => setFormDelayDays(Math.max(1, parseInt(e.target.value) || 1))}
-                    min={1}
-                    className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all text-center"
-                  />
-                  <span className="text-sm text-gray-500">日後</span>
+                  {formDelayMode === "days" ? (
+                    <>
+                      <input
+                        type="number"
+                        value={formDelayDays}
+                        onChange={(e) => setFormDelayDays(Math.max(1, parseInt(e.target.value) || 1))}
+                        min={1}
+                        className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all text-center"
+                      />
+                      <span className="text-sm text-gray-500">日後（10:00 JST送信）</span>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        value={formDelayHours ?? 24}
+                        onChange={(e) => setFormDelayHours(Math.max(1, parseInt(e.target.value) || 1))}
+                        min={1}
+                        className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-gray-50/50 transition-all text-center"
+                      />
+                      <span className="text-sm text-gray-500">時間後</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -550,7 +641,7 @@ export default function FollowupRulesPage() {
               <div className="flex items-center justify-between py-2">
                 <div>
                   <div className="text-sm font-medium text-gray-700">有効にする</div>
-                  <div className="text-xs text-gray-400">無効の場合、新しい決済に対してスケジュールされません</div>
+                  <div className="text-xs text-gray-400">無効の場合、新しいイベントに対してスケジュールされません</div>
                 </div>
                 <button
                   onClick={() => setFormEnabled(!formEnabled)}

@@ -7,7 +7,21 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import LegalSection from "./_components/LegalSection";
 
-type ReserveStep = 1 | 2;
+type ReserveStep = 0 | 1 | 2; // 0=枠・コース選択（設定時のみ）, 1=日時選択, 2=確認
+
+type ReservationSlot = {
+  id: string;
+  title: string;
+  description: string | null;
+  duration_minutes: number;
+};
+
+type ReservationCourse = {
+  id: string;
+  title: string;
+  description: string | null;
+  duration_minutes: number;
+};
 
 type SlotInfo = {
   start: string;
@@ -130,6 +144,41 @@ const ReserveInner: React.FC = () => {
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [agreed, setAgreed] = useState(false);
+
+  // ★ 予約枠・コース選択
+  const [reservationSlots, setReservationSlots] = useState<ReservationSlot[]>([]);
+  const [reservationCourses, setReservationCourses] = useState<ReservationCourse[]>([]);
+  const [selectedReservationSlotId, setSelectedReservationSlotId] = useState<string | null>(null);
+  const [selectedReservationCourseId, setSelectedReservationCourseId] = useState<string | null>(null);
+  const [hasSlotCourseConfig, setHasSlotCourseConfig] = useState(false);
+
+  // ★ 予約枠・コース情報を取得
+  useEffect(() => {
+    (async () => {
+      try {
+        const [slotsRes, coursesRes] = await Promise.all([
+          fetch("/api/reservations?mode=slots"),
+          fetch("/api/reservations?mode=courses"),
+        ]);
+        const slotsJson = await slotsRes.json();
+        const coursesJson = await coursesRes.json();
+
+        const slots = slotsJson.slots || [];
+        const courses = coursesJson.courses || [];
+
+        if (slots.length > 0 || courses.length > 0) {
+          setReservationSlots(slots);
+          setReservationCourses(courses);
+          setHasSlotCourseConfig(true);
+          if (!isEdit) {
+            setStep(0); // 枠・コース選択ステップから開始
+          }
+        }
+      } catch {
+        // 設定がなければ従来フロー
+      }
+    })();
+  }, [isEdit]);
 
   // ▼ 問診完了チェック（未完了なら/intakeへリダイレクト）
   const [intakeChecked, setIntakeChecked] = useState(false);
@@ -335,6 +384,8 @@ body: JSON.stringify({
   name: patientInfo.name,
   date: selectedDateKey,
   time: selectedSlot.start,
+  ...(selectedReservationSlotId && { slot_id: selectedReservationSlotId }),
+  ...(selectedReservationCourseId && { course_id: selectedReservationCourseId }),
 }),
 
 
@@ -486,6 +537,68 @@ setTimeout(() => {
             })}
           </div>
 
+          {/* STEP0: 予約枠・コース選択（設定がある場合のみ） */}
+          {step === 0 && hasSlotCourseConfig && (
+            <div className="space-y-4 mt-2">
+              {reservationSlots.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">予約枠を選択</h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {reservationSlots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        onClick={() => setSelectedReservationSlotId(slot.id)}
+                        className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                          selectedReservationSlotId === slot.id
+                            ? "border-pink-500 bg-pink-50 text-pink-700"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="font-medium text-sm">{slot.title}</div>
+                        {slot.description && <div className="text-xs text-slate-500 mt-0.5">{slot.description}</div>}
+                        <div className="text-xs text-slate-400 mt-1">{slot.duration_minutes}分</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {reservationCourses.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-2">コースを選択</h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {reservationCourses.map((course) => (
+                      <button
+                        key={course.id}
+                        onClick={() => setSelectedReservationCourseId(course.id)}
+                        className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                          selectedReservationCourseId === course.id
+                            ? "border-pink-500 bg-pink-50 text-pink-700"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="font-medium text-sm">{course.title}</div>
+                        {course.description && <div className="text-xs text-slate-500 mt-0.5">{course.description}</div>}
+                        <div className="text-xs text-slate-400 mt-1">{course.duration_minutes}分</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setStep(1)}
+                disabled={
+                  (reservationSlots.length > 0 && !selectedReservationSlotId) ||
+                  (reservationCourses.length > 0 && !selectedReservationCourseId)
+                }
+                className="w-full py-3 rounded-xl bg-pink-500 text-white text-sm font-semibold hover:bg-pink-600 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                日時を選択する
+              </button>
+            </div>
+          )}
+
           {/* STEP1 */}
           {step === 1 && (
             <div className="space-y-2 mt-2">
@@ -613,6 +726,18 @@ setTimeout(() => {
 
               <div className="bg-pink-50/70 rounded-2xl p-3 text-[14px] text-slate-800 space-y-1.5">
                 {isEdit && <p className="font-semibold text-slate-800">変更後の予約</p>}
+                {selectedReservationSlotId && (
+                  <p>
+                    <span className="text-[12px] text-slate-500">予約枠：</span>
+                    {reservationSlots.find((s) => s.id === selectedReservationSlotId)?.title}
+                  </p>
+                )}
+                {selectedReservationCourseId && (
+                  <p>
+                    <span className="text-[12px] text-slate-500">コース：</span>
+                    {reservationCourses.find((c) => c.id === selectedReservationCourseId)?.title}
+                  </p>
+                )}
                 <p>
                   <span className="text-[12px] text-slate-500">予約日：</span>
                   {selectedDateObj.getMonth() + 1}月{selectedDateObj.getDate()}日（
