@@ -875,6 +875,8 @@ export async function POST(req: NextRequest) {
                 .from("intake")
                 .update({
                   reserve_id: reserveId,
+                  call_status: null,
+                  call_status_updated_at: null,
                 })
                 .eq("id", latestIntake.id),
               tenantId
