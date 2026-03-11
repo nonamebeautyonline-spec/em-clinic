@@ -57,24 +57,24 @@ export async function POST(req: NextRequest) {
           ).then(r => ({ data: (r.data as { patient_id: string }[] | null)?.[0] ?? null }));
 
           if (intakeRow?.patient_id) {
-            // patientsからline_uidを取得
+            // patientsからline_idを取得
             const { data: patient } = await withTenant(
               supabaseAdmin
                 .from("patients")
-                .select("line_uid")
+                .select("line_id")
                 .eq("id", intakeRow.patient_id),
               tenantId
-            ).then(r => ({ data: (r.data as { line_uid: string }[] | null)?.[0] ?? null }));
+            ).then(r => ({ data: (r.data as { line_id: string }[] | null)?.[0] ?? null }));
 
-            if (patient?.line_uid) {
+            if (patient?.line_id) {
               const message = rules.noAnswerMessage || DEFAULT_NO_ANSWER_MESSAGE;
-              const res = await pushMessage(patient.line_uid, [{ type: "text", text: message }], tenantId ?? undefined);
+              const res = await pushMessage(patient.line_id, [{ type: "text", text: message }], tenantId ?? undefined);
               const status = res?.ok ? "sent" : "failed";
 
               await supabaseAdmin.from("message_log").insert({
                 ...tenantPayload(tenantId ?? null),
                 patient_id: intakeRow.patient_id,
-                line_uid: patient.line_uid,
+                line_uid: patient.line_id,
                 direction: "outgoing",
                 event_type: "message",
                 message_type: "no_answer_notify",
