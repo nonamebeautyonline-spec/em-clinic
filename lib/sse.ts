@@ -60,7 +60,11 @@ export interface DashboardSnapshot {
   latestPatientAt: string | null;
   /** オンライン管理者セッション数（有効期限内のセッション） */
   activeAdminSessions: number;
-  /** 本日のメッセージ送受信数 */
+  /** 本日の送信メッセージ数 */
+  todayOutgoingCount: number;
+  /** 本日の受信メッセージ数 */
+  todayIncomingCount: number;
+  /** 本日のメッセージ合計数 */
   todayMessageCount: number;
   /** 本日の新規患者数（patientsテーブル基準） */
   todayNewPatients: number;
@@ -121,12 +125,15 @@ export function detectChanges(
   if (
     current.activeAdminSessions !== prev.activeAdminSessions ||
     current.todayMessageCount !== prev.todayMessageCount ||
+    current.todayOutgoingCount !== prev.todayOutgoingCount ||
     current.todayNewPatients !== prev.todayNewPatients
   ) {
     events.push({
       type: "stats_update",
       data: {
         activeAdminSessions: current.activeAdminSessions,
+        todayOutgoingCount: current.todayOutgoingCount,
+        todayIncomingCount: current.todayIncomingCount,
         todayMessageCount: current.todayMessageCount,
         todayNewPatients: current.todayNewPatients,
       },

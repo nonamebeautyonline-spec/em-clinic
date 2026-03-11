@@ -120,7 +120,8 @@ async function fetchSnapshot(
     latestPaid,
     latestPatient,
     activeSessionsResult,
-    todayMessageResult,
+    todayOutgoingResult,
+    todayIncomingResult,
     todayNewPatientsResult,
   ] = await Promise.all([
     // 今日の予約数
@@ -197,13 +198,25 @@ async function fetchSnapshot(
       if (tenantId) q = q.eq("tenant_id", tenantId);
       return q;
     })(),
-    // 本日のメッセージ数
+    // 本日の送信メッセージ数
     (() => {
       let q = supabase
         .from("message_log")
         .select("*", { count: "exact", head: true })
         .gte("sent_at", startISO)
-        .lt("sent_at", endISO);
+        .lt("sent_at", endISO)
+        .eq("direction", "outgoing");
+      if (tenantId) q = q.eq("tenant_id", tenantId);
+      return q;
+    })(),
+    // 本日の受信メッセージ数
+    (() => {
+      let q = supabase
+        .from("message_log")
+        .select("*", { count: "exact", head: true })
+        .gte("sent_at", startISO)
+        .lt("sent_at", endISO)
+        .eq("direction", "incoming");
       if (tenantId) q = q.eq("tenant_id", tenantId);
       return q;
     })(),
@@ -226,7 +239,9 @@ async function fetchSnapshot(
     latestPaidAt: latestPaid.data?.paid_at ?? null,
     latestPatientAt: latestPatient.data?.created_at ?? null,
     activeAdminSessions: activeSessionsResult.count ?? 0,
-    todayMessageCount: todayMessageResult.count ?? 0,
+    todayOutgoingCount: todayOutgoingResult.count ?? 0,
+    todayIncomingCount: todayIncomingResult.count ?? 0,
+    todayMessageCount: (todayOutgoingResult.count ?? 0) + (todayIncomingResult.count ?? 0),
     todayNewPatients: todayNewPatientsResult.count ?? 0,
   };
 }

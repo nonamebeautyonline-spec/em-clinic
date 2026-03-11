@@ -304,6 +304,8 @@ export default function EnhancedDashboard() {
   // リアルタイム統計
   const [realtimeStats, setRealtimeStats] = useState({
     activeAdminSessions: 0,
+    todayOutgoingCount: 0,
+    todayIncomingCount: 0,
     todayMessageCount: 0,
     todayNewPatients: 0,
   });
@@ -470,6 +472,8 @@ export default function EnhancedDashboard() {
         const data = JSON.parse(e.data);
         setRealtimeStats({
           activeAdminSessions: data.activeAdminSessions ?? 0,
+          todayOutgoingCount: data.todayOutgoingCount ?? 0,
+          todayIncomingCount: data.todayIncomingCount ?? 0,
           todayMessageCount: data.todayMessageCount ?? 0,
           todayNewPatients: data.todayNewPatients ?? 0,
         });
@@ -486,6 +490,8 @@ export default function EnhancedDashboard() {
         if (data.snapshot) {
           setRealtimeStats({
             activeAdminSessions: data.snapshot.activeAdminSessions ?? 0,
+            todayOutgoingCount: data.snapshot.todayOutgoingCount ?? 0,
+            todayIncomingCount: data.snapshot.todayIncomingCount ?? 0,
             todayMessageCount: data.snapshot.todayMessageCount ?? 0,
             todayNewPatients: data.snapshot.todayNewPatients ?? 0,
           });
@@ -724,9 +730,10 @@ export default function EnhancedDashboard() {
             connected={sseStatus === "connected"}
           />
           <RealtimeStatCard
-            label="本日メッセージ数"
-            value={realtimeStats.todayMessageCount}
+            label="送信メッセージ"
+            value={realtimeStats.todayOutgoingCount}
             unit="件"
+            subText={`受信 ${realtimeStats.todayIncomingCount.toLocaleString()} / 合計 ${realtimeStats.todayMessageCount.toLocaleString()}`}
             icon={
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -1105,12 +1112,13 @@ interface RealtimeStatCardProps {
   label: string;
   value: number;
   unit: string;
+  subText?: string;
   icon: React.ReactNode;
   color: "emerald" | "blue" | "violet";
   connected: boolean;
 }
 
-function RealtimeStatCard({ label, value, unit, icon, color, connected }: RealtimeStatCardProps) {
+function RealtimeStatCard({ label, value, unit, subText, icon, color, connected }: RealtimeStatCardProps) {
   const colorMap = {
     emerald: {
       bg: "bg-emerald-50",
@@ -1154,6 +1162,9 @@ function RealtimeStatCard({ label, value, unit, icon, color, connected }: Realti
           {value.toLocaleString()}
           <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
         </div>
+        {subText && (
+          <div className="text-[11px] text-slate-400 mt-0.5">{subText}</div>
+        )}
       </div>
     </div>
   );
