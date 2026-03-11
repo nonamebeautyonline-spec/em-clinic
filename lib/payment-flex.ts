@@ -5,14 +5,15 @@
 import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
-import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
 import { tenantPayload } from "@/lib/tenant";
 
 /** 決済案内 Flex メッセージ */
 export async function buildPaymentFlex(tenantId?: string) {
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors, payment } = cfg;
+  const colors = getColorsForTab(cfg, "payment");
+  const { payment } = cfg;
 
   return {
     type: "flex" as const,

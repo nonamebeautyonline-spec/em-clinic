@@ -5,7 +5,7 @@
 import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
-import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
 import { tenantPayload } from "@/lib/tenant";
 
 // デフォルト色（DB未設定時のフォールバック）
@@ -33,7 +33,8 @@ export async function buildReservationCreatedFlex(dateStr: string, timeStr: stri
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors, reservation } = cfg;
+  const colors = getColorsForTab(cfg, "reservation");
+  const { reservation } = cfg;
 
   return {
     type: "flex" as const,
@@ -97,7 +98,8 @@ export async function buildReservationChangedFlex(
   const newFormatted = formatDateTime(newDateStr, newTimeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors, reservation } = cfg;
+  const colors = getColorsForTab(cfg, "reservation");
+  const { reservation } = cfg;
 
   return {
     type: "flex" as const,
@@ -159,7 +161,8 @@ export async function buildReservationCanceledFlex(dateStr: string, timeStr: str
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors, reservation } = cfg;
+  const colors = getColorsForTab(cfg, "reservation");
+  const { reservation } = cfg;
 
   return {
     type: "flex" as const,
@@ -216,7 +219,7 @@ export async function buildReminderFlex(dateStr: string, timeStr: string, tenant
   const formatted = formatDateTime(dateStr, timeStr);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors } = cfg;
+  const colors = getColorsForTab(cfg, "reservation");
 
   return {
     type: "flex" as const,

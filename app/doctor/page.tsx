@@ -451,9 +451,12 @@ closeModalAndRefresh();
       return;
     }
 
+    // 自動通知が送信された場合はステータスを no_answer_sent に
+    const finalStatus = json.notifySent ? "no_answer_sent" : "no_answer";
+
     // 一覧にも即反映（バッジがすぐ出る）
     updateRowLocal(reserveId, {
-      call_status: "no_answer",
+      call_status: finalStatus,
       call_status_updated_at: json.updated_at || "",
     });
 
@@ -462,13 +465,17 @@ closeModalAndRefresh();
       prev
         ? {
             ...prev,
-            call_status: "no_answer",
+            call_status: finalStatus,
             call_status_updated_at: json.updated_at || "",
           }
         : prev
     );
 
-    alert("不通として記録しました");
+    if (json.notifySent) {
+      alert("不通として記録し、患者へLINE通知を送信しました");
+    } else {
+      alert("不通として記録しました");
+    }
   } catch (e) {
     console.error(e);
     alert("不通の記録に失敗しました");

@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
-import { resolveTenantId, withTenant } from "@/lib/tenant";
+import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { callStatusSchema } from "@/lib/validations/doctor";
+import { getBusinessRules, DEFAULT_NO_ANSWER_MESSAGE } from "@/lib/business-rules";
+import { pushMessage } from "@/lib/line-push";
 
 export async function POST(req: NextRequest) {
   const isAuthorized = await verifyAdminAuth(req);
@@ -39,7 +41,69 @@ export async function POST(req: NextRequest) {
 
     console.log(`[doctor/callstatus] DB updated: reserve_id=${reserveId}, call_status=${callStatus}`);
 
-    return NextResponse.json({ ok: true, updated_at: updatedAt });
+    // 不通時のLINE自動通知
+    let notifySent = false;
+    if (callStatus === "no_answer") {
+      try {
+        const rules = await getBusinessRules(tenantId ?? undefined);
+        if (rules.notifyNoAnswer) {
+          // intakeからpatient_idを取得
+          const { data: intakeRow } = await withTenant(
+            supabaseAdmin
+              .from("intake")
+              .select("patient_id")
+              .eq("reserve_id", reserveId),
+            tenantId
+          ).then(r => ({ data: (r.data as { patient_id: string }[] | null)?.[0] ?? null }));
+
+          if (intakeRow?.patient_id) {
+            // patientsからline_uidを取得
+            const { data: patient } = await withTenant(
+              supabaseAdmin
+                .from("patients")
+                .select("line_uid")
+                .eq("id", intakeRow.patient_id),
+              tenantId
+            ).then(r => ({ data: (r.data as { line_uid: string }[] | null)?.[0] ?? null }));
+
+            if (patient?.line_uid) {
+              const message = rules.noAnswerMessage || DEFAULT_NO_ANSWER_MESSAGE;
+              const res = await pushMessage(patient.line_uid, [{ type: "text", text: message }], tenantId ?? undefined);
+              const status = res?.ok ? "sent" : "failed";
+
+              await supabaseAdmin.from("message_log").insert({
+                ...tenantPayload(tenantId ?? null),
+                patient_id: intakeRow.patient_id,
+                line_uid: patient.line_uid,
+                direction: "outgoing",
+                event_type: "message",
+                message_type: "no_answer_notify",
+                content: message,
+                status,
+              });
+
+              notifySent = status === "sent";
+              console.log(`[doctor/callstatus] no_answer_notify: patient=${intakeRow.patient_id}, status=${status}`);
+
+              // 送信成功時は call_status を no_answer_sent に更新
+              if (notifySent) {
+                await withTenant(
+                  supabaseAdmin
+                    .from("intake")
+                    .update({ call_status: "no_answer_sent" })
+                    .eq("reserve_id", reserveId),
+                  tenantId
+                );
+              }
+            }
+          }
+        }
+      } catch (notifyErr) {
+        console.error("[doctor/callstatus] no_answer_notify error:", notifyErr);
+      }
+    }
+
+    return NextResponse.json({ ok: true, updated_at: updatedAt, notifySent });
   } catch (e) {
     console.error("[doctor/callstatus] error:", e);
     return serverError(String(e));

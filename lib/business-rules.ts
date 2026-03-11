@@ -20,6 +20,10 @@ export interface BusinessRules {
   paymentThankMessage: string;
   /** 同量再処方の自動承認 */
   autoApproveSameDose: boolean;
+  /** 不通時のLINE自動通知ON/OFF */
+  notifyNoAnswer: boolean;
+  /** 不通時の通知メッセージ文言 */
+  noAnswerMessage: string;
 }
 
 // 既存動作を維持するデフォルト値（通知ON、制限OFF）
@@ -33,6 +37,8 @@ const DEFAULTS: BusinessRules = {
   approveMessage: "",
   paymentThankMessage: "",
   autoApproveSameDose: false,
+  notifyNoAnswer: false,
+  noAnswerMessage: "",
 };
 
 function parseBool(val: string | undefined, fallback: boolean): boolean {
@@ -61,6 +67,8 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
     approveMessage: get("approve_message") ?? DEFAULTS.approveMessage,
     paymentThankMessage: get("payment_thank_message") ?? DEFAULTS.paymentThankMessage,
     autoApproveSameDose: parseBool(get("auto_approve_same_dose"), DEFAULTS.autoApproveSameDose),
+    notifyNoAnswer: parseBool(get("notify_no_answer"), DEFAULTS.notifyNoAnswer),
+    noAnswerMessage: get("no_answer_message") ?? DEFAULTS.noAnswerMessage,
   };
 }
 
@@ -69,3 +77,11 @@ export const BUSINESS_RULES_DEFAULTS = DEFAULTS;
 
 /** 承認通知のデフォルト文言 */
 export const DEFAULT_APPROVE_MESSAGE = "再処方申請が承認されました\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください";
+
+/** 不通通知のデフォルト文言 */
+export const DEFAULT_NO_ANSWER_MESSAGE = `本日、診察予約のお時間に医師よりご連絡させていただきましたが、つながらず診察が完了しておりません💦
+
+診察をご希望の場合は、再度メッセージにてご連絡いただけますと幸いです💌
+その際、診察時間はあらためて調整させていただきますので、ご了承くださいませ☺️
+
+ご不明点などありましたら、いつでもお気軽にご連絡ください🫧`;

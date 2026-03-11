@@ -5,7 +5,7 @@
 import { pushMessage } from "@/lib/line-push";
 import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
-import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
 import { tenantPayload } from "@/lib/tenant";
 
 /** 追跡番号をハイフン区切りにフォーマット（12桁 → XXXX-XXXX-XXXX） */
@@ -40,7 +40,8 @@ export async function buildShippingFlex(
 ) {
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const { colors, shipping } = cfg;
+  const colors = getColorsForTab(cfg, "shipping");
+  const { shipping } = cfg;
 
   const primary = trackingInfo[0];
   const formatted = formatTrackingNumber(primary.number);

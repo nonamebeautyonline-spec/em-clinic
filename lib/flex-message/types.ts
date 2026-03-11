@@ -41,10 +41,26 @@ export interface FlexPaymentTexts {
 
 /** FLEX設定全体 */
 export interface FlexMessageConfig {
+  /** 共通色設定（フォールバック用 / 後方互換） */
   colors: FlexColorConfig;
+  /** 予約通知の個別配色（未設定時は colors を使用） */
+  reservationColors?: FlexColorConfig;
+  /** 発送通知の個別配色（未設定時は colors を使用） */
+  shippingColors?: FlexColorConfig;
+  /** 決済案内の個別配色（未設定時は colors を使用） */
+  paymentColors?: FlexColorConfig;
   reservation: FlexReservationTexts;
   shipping: FlexShippingTexts;
   payment: FlexPaymentTexts;
+}
+
+/** タブ種別に応じた配色を取得（個別設定があればそれを、なければ共通colorsを返す） */
+export function getColorsForTab(config: FlexMessageConfig, tab: "reservation" | "shipping" | "payment"): FlexColorConfig {
+  switch (tab) {
+    case "reservation": return config.reservationColors ?? config.colors;
+    case "shipping": return config.shippingColors ?? config.colors;
+    case "payment": return config.paymentColors ?? config.colors;
+  }
 }
 
 /** デフォルト設定（現在のハードコード値と一致） */

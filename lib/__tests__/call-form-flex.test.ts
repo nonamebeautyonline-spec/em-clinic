@@ -14,6 +14,10 @@ vi.mock("@/lib/flex-message/types", () => ({
       headerText: "#FFFFFF",
     },
   },
+  getColorsForTab: (config: { colors: Record<string, string>; reservationColors?: Record<string, string> }, tab: string) => {
+    if (tab === "reservation" && config.reservationColors) return config.reservationColors;
+    return config.colors;
+  },
 }));
 
 import { buildCallFormFlex } from "@/lib/call-form-flex";

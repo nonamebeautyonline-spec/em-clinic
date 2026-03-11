@@ -100,6 +100,8 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "intake_reminder_hours", label: "問診後リマインダー（時間）", sensitive: false },
     { key: "payment_thank_message", label: "決済完了メッセージ", sensitive: false },
     { key: "auto_approve_same_dose", label: "同量再処方の自動承認", sensitive: false },
+    { key: "notify_no_answer", label: "不通時LINE自動通知", sensitive: false },
+    { key: "no_answer_message", label: "不通通知メッセージ", sensitive: false },
   ],
 };
 

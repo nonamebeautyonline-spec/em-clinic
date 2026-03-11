@@ -1,6 +1,6 @@
 // lib/call-form-flex.ts — LINE通話フォーム Flex Message ビルダー
 import { getFlexConfig } from "@/lib/flex-message/config";
-import { DEFAULT_FLEX_CONFIG } from "@/lib/flex-message/types";
+import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
 
 /**
  * LINE通話フォーム Flex Message を構築
@@ -14,7 +14,7 @@ export async function buildCallFormFlex(
   try {
     cfg = await getFlexConfig(tenantId);
   } catch {}
-  const { colors } = cfg;
+  const colors = getColorsForTab(cfg, "reservation");
 
   return {
     type: "flex" as const,

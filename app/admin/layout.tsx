@@ -42,7 +42,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
   { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
-  { href: "/admin/notification-settings", icon: "📩", label: "予約・発送通知" },
+  { href: "/admin/notification-settings", icon: "📩", label: "イベント通知" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
   { href: "/admin/inventory", icon: "📦", label: "在庫" },
   { href: "/admin/settings", icon: "⚙️", label: "設定" },
@@ -550,7 +550,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <MenuItem
             href="/admin/notification-settings"
             icon="📩"
-            label="予約・発送通知"
+            label="イベント通知"
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/notification-settings"}
           />
