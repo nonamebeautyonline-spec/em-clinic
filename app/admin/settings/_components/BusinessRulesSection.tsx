@@ -1,4 +1,4 @@
-// ビジネスルール設定セクション — テナント固有の再処方・通知・自動化ルール
+// ビジネスルール設定セクション — 再処方制御 + イベント通知
 "use client";
 
 import { useState, useEffect } from "react";
@@ -9,8 +9,8 @@ interface BusinessRulesConfig {
   notifyReorderApply: boolean;
   notifyReorderApprove: boolean;
   notifyReorderPaid: boolean;
-  notifyReorderShipped: boolean;
   intakeReminderHours: number;
+  approveMessage: string;
   paymentThankMessage: string;
   autoApproveSameDose: boolean;
 }
@@ -21,11 +21,13 @@ const DEFAULT_CONFIG: BusinessRulesConfig = {
   notifyReorderApply: true,
   notifyReorderApprove: true,
   notifyReorderPaid: true,
-  notifyReorderShipped: true,
   intakeReminderHours: 0,
+  approveMessage: "",
   paymentThankMessage: "",
   autoApproveSameDose: false,
 };
+
+const DEFAULT_APPROVE_MESSAGE = "再処方申請が承認されました\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください";
 
 interface BusinessRulesSectionProps {
   onToast: (message: string, type: "success" | "error") => void;
@@ -83,8 +85,8 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
             notifyReorderApply: s.notify_reorder_apply !== undefined ? s.notify_reorder_apply !== "false" : prev.notifyReorderApply,
             notifyReorderApprove: s.notify_reorder_approve !== undefined ? s.notify_reorder_approve !== "false" : prev.notifyReorderApprove,
             notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
-            notifyReorderShipped: s.notify_reorder_shipped !== undefined ? s.notify_reorder_shipped !== "false" : prev.notifyReorderShipped,
             intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
+            approveMessage: s.approve_message || prev.approveMessage,
             paymentThankMessage: s.payment_thank_message || prev.paymentThankMessage,
             autoApproveSameDose: s.auto_approve_same_dose === "true",
           }));
@@ -108,8 +110,8 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
         { key: "notify_reorder_apply", value: String(config.notifyReorderApply) },
         { key: "notify_reorder_approve", value: String(config.notifyReorderApprove) },
         { key: "notify_reorder_paid", value: String(config.notifyReorderPaid) },
-        { key: "notify_reorder_shipped", value: String(config.notifyReorderShipped) },
         { key: "intake_reminder_hours", value: String(config.intakeReminderHours) },
+        { key: "approve_message", value: config.approveMessage },
         { key: "payment_thank_message", value: config.paymentThankMessage },
         { key: "auto_approve_same_dose", value: String(config.autoApproveSameDose) },
       ];
@@ -154,7 +156,7 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-bold text-gray-900">ビジネスルール</h2>
-          <p className="text-xs text-gray-500 mt-0.5">再処方制御・LINE通知・自動化の設定</p>
+          <p className="text-xs text-gray-500 mt-0.5">再処方制御・イベント通知の設定</p>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-emerald-600 font-medium">保存しました</span>}
@@ -228,44 +230,90 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
           </div>
         </div>
 
-        {/* カード2: LINE通知制御 */}
+        {/* カード2: イベント通知 */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-800">LINE通知制御</h3>
-            <p className="text-xs text-gray-500 mt-0.5">各イベントのLINE通知を個別にON/OFFできます</p>
+            <h3 className="text-sm font-bold text-gray-800">イベント通知</h3>
+            <p className="text-xs text-gray-500 mt-0.5">各イベントの通知ON/OFFと送信メッセージを設定します</p>
           </div>
-          <div className="p-5 space-y-4">
-            {([
-              { key: "notifyReorderApply" as const, label: "再処方申請通知", desc: "患者が再処方を申請した際に管理者グループへ通知" },
-              { key: "notifyReorderApprove" as const, label: "再処方承認通知", desc: "Dr承認時に患者へLINE通知" },
-              { key: "notifyReorderPaid" as const, label: "決済完了通知", desc: "決済完了時に管理者へ通知" },
-              { key: "notifyReorderShipped" as const, label: "発送完了通知", desc: "発送時に患者へLINE通知" },
-            ]).map(({ key, label, desc }) => (
-              <div key={key} className="flex items-center justify-between">
+          <div className="divide-y divide-gray-100">
+            {/* 再処方申請通知 */}
+            <div className="p-5">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                  <p className="text-sm font-medium text-gray-700">再処方申請通知</p>
+                  <p className="text-xs text-gray-400 mt-0.5">患者が再処方を申請した際に管理者LINEグループへ通知</p>
                 </div>
                 <Toggle
-                  checked={config[key]}
-                  onChange={(v) => setConfig(prev => ({ ...prev, [key]: v }))}
+                  checked={config.notifyReorderApply}
+                  onChange={(v) => setConfig(prev => ({ ...prev, notifyReorderApply: v }))}
                   disabled={!editing}
                 />
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* カード3: 自動メッセージ */}
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h3 className="text-sm font-bold text-gray-800">自動メッセージ</h3>
-            <p className="text-xs text-gray-500 mt-0.5">問診後リマインダーと決済後メッセージの設定</p>
-          </div>
-          <div className="p-5 space-y-5">
+            {/* 再処方承認通知 */}
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">再処方承認通知</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Dr承認時に患者へLINEメッセージを送信</p>
+                </div>
+                <Toggle
+                  checked={config.notifyReorderApprove}
+                  onChange={(v) => setConfig(prev => ({ ...prev, notifyReorderApprove: v }))}
+                  disabled={!editing}
+                />
+              </div>
+              {config.notifyReorderApprove && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">承認通知メッセージ</label>
+                  <textarea
+                    rows={3}
+                    value={config.approveMessage}
+                    onChange={(e) => setConfig(prev => ({ ...prev, approveMessage: e.target.value }))}
+                    placeholder={DEFAULT_APPROVE_MESSAGE}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">空の場合はデフォルト文言が使用されます</p>
+                </div>
+              )}
+            </div>
+
+            {/* 決済完了通知 */}
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">決済完了通知</p>
+                  <p className="text-xs text-gray-400 mt-0.5">決済完了時に患者へサンクスメッセージを送信</p>
+                </div>
+                <Toggle
+                  checked={config.notifyReorderPaid}
+                  onChange={(v) => setConfig(prev => ({ ...prev, notifyReorderPaid: v }))}
+                  disabled={!editing}
+                />
+              </div>
+              {config.notifyReorderPaid && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">決済完了メッセージ</label>
+                  <textarea
+                    rows={3}
+                    value={config.paymentThankMessage}
+                    onChange={(e) => setConfig(prev => ({ ...prev, paymentThankMessage: e.target.value }))}
+                    placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">空の場合、決済完了後のサンクスメッセージは送信されません</p>
+                </div>
+              )}
+            </div>
+
             {/* 問診後リマインダー */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">問診後リマインダー</label>
+            <div className="p-5 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700">問診後リマインダー</p>
+                <p className="text-xs text-gray-400 mt-0.5">問診完了後、指定時間以内に予約がなければ患者にLINEリマインダーを送信</p>
+              </div>
               <div className="flex items-center gap-3">
                 <input
                   type="number"
@@ -277,20 +325,6 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
                 />
                 <span className="text-sm text-gray-500">時間後（0 = 無効）</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">問診完了後、指定時間以内に予約がなければ患者にLINEリマインダーを送信します</p>
-            </div>
-
-            {/* 決済完了メッセージ */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">決済完了メッセージ</label>
-              <textarea
-                rows={3}
-                value={config.paymentThankMessage}
-                onChange={(e) => setConfig(prev => ({ ...prev, paymentThankMessage: e.target.value }))}
-                placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-              <p className="text-xs text-gray-400 mt-1">空の場合、決済完了後のサンクスメッセージは送信されません</p>
             </div>
           </div>
         </div>

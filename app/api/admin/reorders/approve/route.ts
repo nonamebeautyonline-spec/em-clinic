@@ -175,9 +175,11 @@ export async function POST(req: NextRequest) {
 
       if (patient?.line_id) {
         try {
+          const { DEFAULT_APPROVE_MESSAGE } = await import("@/lib/business-rules");
+          const approveText = rules.approveMessage || DEFAULT_APPROVE_MESSAGE;
           const pushRes = await pushMessage(patient.line_id, [{
             type: "text",
-            text: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+            text: approveText,
           }], tenantId ?? undefined);
           lineNotify = pushRes?.ok ? "sent" : "failed";
           if (pushRes?.ok) {
@@ -188,7 +190,7 @@ export async function POST(req: NextRequest) {
               direction: "outgoing",
               event_type: "message",
               message_type: "text",
-              content: "再処方申請が承認されました🌸\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください🫧",
+              content: approveText,
               status: "sent",
             });
           } else {

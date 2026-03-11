@@ -96,7 +96,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
     { key: "notify_reorder_apply", label: "再処方申請通知", sensitive: false },
     { key: "notify_reorder_approve", label: "再処方承認通知", sensitive: false },
     { key: "notify_reorder_paid", label: "決済完了通知", sensitive: false },
-    { key: "notify_reorder_shipped", label: "発送完了通知", sensitive: false },
+    { key: "approve_message", label: "承認通知メッセージ", sensitive: false },
     { key: "intake_reminder_hours", label: "問診後リマインダー（時間）", sensitive: false },
     { key: "payment_thank_message", label: "決済完了メッセージ", sensitive: false },
     { key: "auto_approve_same_dose", label: "同量再処方の自動承認", sensitive: false },

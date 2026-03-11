@@ -10,13 +10,13 @@ export interface BusinessRules {
   notifyReorderApply: boolean;
   /** 再処方承認通知ON/OFF */
   notifyReorderApprove: boolean;
-  /** 決済完了通知ON/OFF */
+  /** 決済完了通知ON/OFF（患者へサンクスメッセージ） */
   notifyReorderPaid: boolean;
-  /** 発送完了通知ON/OFF */
-  notifyReorderShipped: boolean;
   /** 問診後リマインダー時間（0=無効） */
   intakeReminderHours: number;
-  /** 決済完了メッセージ文言 */
+  /** 承認通知メッセージ文言（患者向け） */
+  approveMessage: string;
+  /** 決済完了メッセージ文言（患者向け） */
   paymentThankMessage: string;
   /** 同量再処方の自動承認 */
   autoApproveSameDose: boolean;
@@ -29,8 +29,8 @@ const DEFAULTS: BusinessRules = {
   notifyReorderApply: true,
   notifyReorderApprove: true,
   notifyReorderPaid: true,
-  notifyReorderShipped: true,
   intakeReminderHours: 0,
+  approveMessage: "",
   paymentThankMessage: "",
   autoApproveSameDose: false,
 };
@@ -57,8 +57,8 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
     notifyReorderApply: parseBool(get("notify_reorder_apply"), DEFAULTS.notifyReorderApply),
     notifyReorderApprove: parseBool(get("notify_reorder_approve"), DEFAULTS.notifyReorderApprove),
     notifyReorderPaid: parseBool(get("notify_reorder_paid"), DEFAULTS.notifyReorderPaid),
-    notifyReorderShipped: parseBool(get("notify_reorder_shipped"), DEFAULTS.notifyReorderShipped),
     intakeReminderHours: parseNum(get("intake_reminder_hours"), DEFAULTS.intakeReminderHours),
+    approveMessage: get("approve_message") ?? DEFAULTS.approveMessage,
     paymentThankMessage: get("payment_thank_message") ?? DEFAULTS.paymentThankMessage,
     autoApproveSameDose: parseBool(get("auto_approve_same_dose"), DEFAULTS.autoApproveSameDose),
   };
@@ -66,3 +66,6 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
 
 /** ビジネスルールのデフォルト値（UI表示用） */
 export const BUSINESS_RULES_DEFAULTS = DEFAULTS;
+
+/** 承認通知のデフォルト文言 */
+export const DEFAULT_APPROVE_MESSAGE = "再処方申請が承認されました\nマイページより決済のお手続きをお願いいたします。\n何かご不明な点がございましたら、お気軽にお知らせください";

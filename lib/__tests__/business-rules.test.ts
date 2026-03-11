@@ -26,12 +26,12 @@ describe("getBusinessRules", () => {
     expect(rules.notifyReorderApply).toBe(true);
     expect(rules.notifyReorderApprove).toBe(true);
     expect(rules.notifyReorderPaid).toBe(true);
-    expect(rules.notifyReorderShipped).toBe(true);
     // 制限はデフォルトOFF
     expect(rules.dosageChangeNotify).toBe(false);
     expect(rules.autoApproveSameDose).toBe(false);
     expect(rules.minReorderIntervalDays).toBe(0);
     expect(rules.intakeReminderHours).toBe(0);
+    expect(rules.approveMessage).toBe("");
     expect(rules.paymentThankMessage).toBe("");
   });
 
@@ -42,8 +42,8 @@ describe("getBusinessRules", () => {
       ["business_rules:notify_reorder_apply", "false"],
       ["business_rules:notify_reorder_approve", "true"],
       ["business_rules:notify_reorder_paid", "false"],
-      ["business_rules:notify_reorder_shipped", "true"],
       ["business_rules:intake_reminder_hours", "24"],
+      ["business_rules:approve_message", "承認しました"],
       ["business_rules:payment_thank_message", "ありがとうございます"],
       ["business_rules:auto_approve_same_dose", "true"],
     ]));
@@ -55,8 +55,8 @@ describe("getBusinessRules", () => {
     expect(rules.notifyReorderApply).toBe(false);
     expect(rules.notifyReorderApprove).toBe(true);
     expect(rules.notifyReorderPaid).toBe(false);
-    expect(rules.notifyReorderShipped).toBe(true);
     expect(rules.intakeReminderHours).toBe(24);
+    expect(rules.approveMessage).toBe("承認しました");
     expect(rules.paymentThankMessage).toBe("ありがとうございます");
     expect(rules.autoApproveSameDose).toBe(true);
   });
@@ -77,12 +77,14 @@ describe("getBusinessRules", () => {
     mockGetSettingsBulk.mockResolvedValue(new Map([
       ["business_rules:auto_approve_same_dose", "true"],
       ["business_rules:min_reorder_interval_days", "14"],
+      ["business_rules:approve_message", "カスタム承認メッセージ"],
     ]));
 
     const rules = await getBusinessRules("tenant-1");
 
     expect(rules.autoApproveSameDose).toBe(true);
     expect(rules.minReorderIntervalDays).toBe(14);
+    expect(rules.approveMessage).toBe("カスタム承認メッセージ");
     // 残りはデフォルト
     expect(rules.notifyReorderApply).toBe(true);
     expect(rules.dosageChangeNotify).toBe(false);
