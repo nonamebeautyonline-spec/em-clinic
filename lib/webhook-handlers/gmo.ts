@@ -4,6 +4,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
+import { getBusinessRules } from "@/lib/business-rules";
+import { pushMessage } from "@/lib/line-push";
 
 /** 再処方を決済済みに更新 */
 async function markReorderPaid(reorderId: string, patientId: string | undefined, tenantId: string | null) {
@@ -89,6 +91,35 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
           await createReorderPaymentKarte(patientId, productCode, paidAt, undefined, tenantId ?? undefined);
         } catch (karteErr) {
           console.error("[gmo/handler] reorder payment karte error:", karteErr);
+        }
+      }
+      // 決済完了サンクスメッセージ送信
+      if (patientId) {
+        try {
+          const rules = await getBusinessRules(tenantId ?? undefined);
+          if (rules.paymentThankMessage) {
+            const { data: pt } = await withTenant(
+              supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+              tenantId
+            );
+            if (pt?.line_id) {
+              const pushRes = await pushMessage(pt.line_id, [{ type: "text", text: rules.paymentThankMessage }], tenantId ?? undefined);
+              if (pushRes?.ok) {
+                await supabaseAdmin.from("message_log").insert({
+                  ...tenantPayload(tenantId),
+                  patient_id: patientId,
+                  line_uid: pt.line_id,
+                  direction: "outgoing",
+                  event_type: "message",
+                  message_type: "text",
+                  content: rules.paymentThankMessage,
+                  status: "sent",
+                });
+              }
+            }
+          }
+        } catch (thankErr) {
+          console.error("[gmo/handler] payment thank message error:", thankErr);
         }
       }
     }

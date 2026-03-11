@@ -9,6 +9,7 @@ import { formatProductCode } from "@/lib/patient-utils";
 import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { getBusinessRules } from "@/lib/business-rules";
 import { logAudit } from "@/lib/audit";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { parseBody } from "@/lib/validations/helpers";
@@ -149,13 +150,20 @@ export async function POST(req: NextRequest) {
       await invalidateDashboardCache(reorderData.patient_id);
     }
 
+    // ビジネスルール取得
+    const rules = await getBusinessRules(tenantId ?? undefined);
+
     // LINE通知（管理者グループ）
-    pushToGroup(`【再処方】承認しました（管理画面）\n申請ID: ${id}`, lineToken, lineGroupId).catch(() => {});
+    if (rules.notifyReorderApprove) {
+      pushToGroup(`【再処方】承認しました（管理画面）\n申請ID: ${id}`, lineToken, lineGroupId).catch(() => {});
+    }
 
     // LINE通知（患者へ承認通知）
-    let lineNotify: "sent" | "no_uid" | "failed" = "no_uid";
+    let lineNotify: "sent" | "no_uid" | "failed" | "skipped" = "no_uid";
 
-    if (reorderData.patient_id) {
+    if (!rules.notifyReorderApprove) {
+      lineNotify = "skipped";
+    } else if (reorderData.patient_id) {
       const { data: patient } = await withTenant(
         supabaseAdmin
           .from("patients")

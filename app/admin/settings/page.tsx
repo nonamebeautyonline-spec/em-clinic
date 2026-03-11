@@ -15,6 +15,7 @@ import OptionsSection from "./_components/OptionsSection";
 import ReportSection from "./_components/ReportSection";
 import LegalSection from "./_components/LegalSection";
 import CronSection from "./_components/CronSection";
+import BusinessRulesSection from "./_components/BusinessRulesSection";
 
 /* ---------- 共通型（子コンポーネントから参照） ---------- */
 export type CategoryKey = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "sms";
@@ -311,6 +312,7 @@ export default function SettingsPage() {
             {activeSection === "consultation" && <ConsultationSection onToast={handleToast} />}
             {activeSection === "ehr" && <EhrSection onToast={handleToast} />}
             {activeSection === "notification" && <NotificationSection onToast={handleToast} />}
+            {activeSection === "business_rules" && <BusinessRulesSection onToast={handleToast} />}
             {activeSection === "report" && <ReportSection onToast={handleToast} />}
             {activeSection === "legal" && <LegalSection onToast={handleToast} />}
             {activeSection === "options" && <OptionsSection enabledOptions={enabledOptions} />}

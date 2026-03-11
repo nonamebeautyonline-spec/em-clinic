@@ -6,6 +6,7 @@ import { supabase, supabaseAdmin } from "@/lib/supabase";
 import { normalizeJPPhone } from "@/lib/phone";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { MERGE_TABLES } from "@/lib/merge-tables";
+import { getBusinessRules } from "@/lib/business-rules";
 import { parseBody } from "@/lib/validations/helpers";
 import { intakeSchema } from "@/lib/validations/patient";
 
@@ -309,7 +310,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-return NextResponse.json({ ok: true });
+    // ★ 問診後リマインダー登録（ビジネスルール）
+    try {
+      const rules = await getBusinessRules(tenantId ?? undefined);
+      if (rules.intakeReminderHours > 0 && patientId && !patientId.startsWith("LINE_")) {
+        const remindAt = new Date(Date.now() + rules.intakeReminderHours * 60 * 60 * 1000).toISOString();
+        // line_id を取得
+        const { data: ptData } = await withTenant(
+          supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+          tenantId
+        );
+        if (ptData?.line_id) {
+          await supabaseAdmin.from("scheduled_messages").insert({
+            tenant_id: tenantId || null,
+            patient_id: patientId,
+            line_uid: ptData.line_id,
+            message_content: "問診のご回答ありがとうございます。まだ予約がお済みでない場合は、マイページより予約をお取りください。",
+            message_type: "text",
+            scheduled_at: remindAt,
+            status: "scheduled",
+            created_by: "intake_reminder",
+          });
+          console.log(`[intake] Reminder scheduled at ${remindAt} for patient=${patientId}`);
+        }
+      }
+    } catch (reminderErr) {
+      console.error("[intake] Reminder registration error (non-blocking):", reminderErr);
+    }
+
+    return NextResponse.json({ ok: true });
 
   } catch (error) {
     console.error("❌❌❌ [CRITICAL] Unhandled error in /api/intake ❌❌❌");

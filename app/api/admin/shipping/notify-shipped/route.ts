@@ -6,6 +6,7 @@ import { verifyAdminAuth } from "@/lib/admin-auth";
 import { buildShippingFlex, sendShippingNotification } from "@/lib/shipping-flex";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSettingOrEnv } from "@/lib/settings";
+import { getBusinessRules } from "@/lib/business-rules";
 
 export const maxDuration = 60;
 
@@ -87,6 +88,12 @@ export async function POST(req: NextRequest) {
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
+
+  // ビジネスルール: 発送通知OFF時はスキップ
+  const rules = await getBusinessRules(tenantId ?? undefined);
+  if (!rules.notifyReorderShipped) {
+    return NextResponse.json({ ok: true, message: "発送通知はOFFに設定されています", sent: 0 });
+  }
 
   try {
     const patients = await getTodayShippedPatients(tenantId);

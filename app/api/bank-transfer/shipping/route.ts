@@ -7,6 +7,8 @@ import { normalizeJPPhone } from "@/lib/phone";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { getProductNamesMap, getProductPricesMap } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
+import { getBusinessRules } from "@/lib/business-rules";
+import { pushMessage } from "@/lib/line-push";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferShippingSchema } from "@/lib/validations/payment";
 
@@ -133,6 +135,34 @@ export async function POST(req: NextRequest) {
         await createReorderPaymentKarte(patientId, productCode, new Date().toISOString(), undefined, tenantId ?? undefined);
       } catch (karteErr) {
         console.error("[BankTransfer] reorder payment karte error:", karteErr);
+      }
+
+      // ★ 決済完了サンクスメッセージ送信
+      try {
+        const rules = await getBusinessRules(tenantId ?? undefined);
+        if (rules.paymentThankMessage && patientId) {
+          const { data: pt } = await withTenant(
+            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+            tenantId
+          );
+          if (pt?.line_id) {
+            const pushRes = await pushMessage(pt.line_id, [{ type: "text", text: rules.paymentThankMessage }], tenantId ?? undefined);
+            if (pushRes?.ok) {
+              await supabaseAdmin.from("message_log").insert({
+                ...tenantPayload(tenantId),
+                patient_id: patientId,
+                line_uid: pt.line_id,
+                direction: "outgoing",
+                event_type: "message",
+                message_type: "text",
+                content: rules.paymentThankMessage,
+                status: "sent",
+              });
+            }
+          }
+        }
+      } catch (thankErr) {
+        console.error("[BankTransfer] payment thank message error:", thankErr);
       }
     }
 

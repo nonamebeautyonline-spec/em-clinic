@@ -7,6 +7,8 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getSetting, getSettingOrEnv } from "@/lib/settings";
+import { getBusinessRules } from "@/lib/business-rules";
+import { extractDose, buildKarteNote } from "@/lib/reorder-karte";
 import { parseBody } from "@/lib/validations/helpers";
 import { reorderApplySchema } from "@/lib/validations/reorder";
 
@@ -275,6 +277,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "duplicate_pending", message: "すでに処理中の再処方申請があります。キャンセルまたは決済完了後に再度お申し込みください。" }, { status: 400 });
     }
 
+    // ★ ビジネスルール取得
+    const rules = await getBusinessRules(tid);
+
+    // ★ 再処方間隔チェック
+    if (rules.minReorderIntervalDays > 0) {
+      const { data: lastPaid } = await withTenant(
+        supabaseAdmin
+          .from("reorders")
+          .select("paid_at")
+          .eq("patient_id", patientId)
+          .eq("status", "paid")
+          .not("paid_at", "is", null)
+          .order("paid_at", { ascending: false })
+          .limit(1),
+        tenantId
+      ).maybeSingle();
+
+      if (lastPaid?.paid_at) {
+        const daysSince = Math.floor((Date.now() - new Date(lastPaid.paid_at).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSince < rules.minReorderIntervalDays) {
+          const remaining = rules.minReorderIntervalDays - daysSince;
+          console.log(`[reorder/apply] Interval blocked: patient=${patientId}, daysSince=${daysSince}, required=${rules.minReorderIntervalDays}`);
+          return NextResponse.json({ ok: false, error: "interval_too_short", message: `前回の決済から${rules.minReorderIntervalDays}日以上経過する必要があります。あと${remaining}日お待ちください。` }, { status: 400 });
+        }
+      }
+    }
+
     // ★ DB: reorder_numberを生成（DBの最大値+1）
     const { data: maxRow } = await withTenant(
       supabaseAdmin
@@ -312,74 +341,142 @@ export async function POST(req: NextRequest) {
     // ★ キャッシュ削除（即時）
     await invalidateDashboardCache(patientId);
 
-    // ★ 患者名と処方歴を取得してLINE通知を送信（非同期）
-    (async () => {
-      try {
-        // 患者名を取得（patientsテーブルから）
-        const { data: patientData } = await withTenant(
+    // ★ 自動承認チェック: 同量再処方かつ autoApproveSameDose が有効
+    let autoApproved = false;
+    if (rules.autoApproveSameDose) {
+      const currentDose = extractDose(productCode);
+      if (currentDose !== null) {
+        const { data: lastPaidReorder } = await withTenant(
           supabaseAdmin
-            .from("patients")
-            .select("name")
-            .eq("patient_id", patientId),
+            .from("reorders")
+            .select("product_code")
+            .eq("patient_id", patientId)
+            .eq("status", "paid")
+            .order("paid_at", { ascending: false })
+            .limit(1),
           tenantId
         ).maybeSingle();
-        const patientName = patientData?.name || patientId;
 
-        // 過去の処方歴を取得（最新5件）
-        const { data: historyData } = await withTenant(
-          supabaseAdmin
-            .from("orders")
-            .select("product_code, shipping_date")
-            .eq("patient_id", patientId),
-          tenantId
-        )
-          .order("created_at", { ascending: false })
-          .limit(5);
-
-        let history = "";
-        if (historyData && historyData.length > 0) {
-          history = historyData.map(o => {
-            const product = (o.product_code || "")
-              .replace("MJL_", "")
-              .replace("_", " ");
-            const date = o.shipping_date || "";
-            return `${date} ${product}`;
-          }).join("\n");
+        if (lastPaidReorder) {
+          const prevDose = extractDose(lastPaidReorder.product_code || "");
+          if (prevDose !== null && currentDose === prevDose) {
+            // 同量 → 自動承認（status を confirmed に更新 + カルテ生成）
+            const note = buildKarteNote(productCode, prevDose, currentDose);
+            await supabaseAdmin
+              .from("reorders")
+              .update({ status: "confirmed", karte_note: note })
+              .eq("id", dbId);
+            autoApproved = true;
+            console.log(`[reorder/apply] Auto-approved (same dose ${currentDose}mg): patient=${patientId}, reorder=${reorderNumber}`);
+          }
         }
-
-        await sendReorderNotification(patientId, patientName, productCode, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
-      } catch (err) {
-        console.error("[reorder/apply] LINE notification error:", err);
       }
-    })();
+    }
 
-    // ★ 7.5mg初回申請チェック → 追加警告（非同期）
-    if (productCode.includes("7.5mg")) {
+    // ★ 患者名と処方歴を取得してLINE通知を送信（非同期）
+    if (rules.notifyReorderApply) {
       (async () => {
         try {
-          const { data: prev75Orders, error: prev75Error } = await withTenant(
+          const { data: patientData } = await withTenant(
+            supabaseAdmin
+              .from("patients")
+              .select("name")
+              .eq("patient_id", patientId),
+            tenantId
+          ).maybeSingle();
+          const patientName = patientData?.name || patientId;
+
+          const { data: historyData } = await withTenant(
             supabaseAdmin
               .from("orders")
-              .select("id")
-              .eq("patient_id", patientId)
-              .like("product_code", "%7.5mg%"),
+              .select("product_code, shipping_date")
+              .eq("patient_id", patientId),
             tenantId
-          ).limit(1);
+          )
+            .order("created_at", { ascending: false })
+            .limit(5);
 
-          if (prev75Error) {
-            console.error("[reorder/apply] 7.5mg history check error:", prev75Error);
-          } else if (!prev75Orders || prev75Orders.length === 0) {
-            console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
-            const alertText = `⚠️【7.5mg 初回申請】⚠️\n患者ID: ${patientId}\n\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。`;
-            await pushTextToAdminGroup(alertText, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+          let history = "";
+          if (historyData && historyData.length > 0) {
+            history = historyData.map(o => {
+              const product = (o.product_code || "")
+                .replace("MJL_", "")
+                .replace("_", " ");
+              const date = o.shipping_date || "";
+              return `${date} ${product}`;
+            }).join("\n");
+          }
+
+          await sendReorderNotification(patientId, patientName, productCode, reorderNumber, history, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+
+          // 自動承認された場合はその旨も通知
+          if (autoApproved) {
+            await pushTextToAdminGroup(`✅ 再処方 #${reorderNumber} は同量のため自動承認されました`, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
           }
         } catch (err) {
-          console.error("[reorder/apply] 7.5mg check exception:", err);
+          console.error("[reorder/apply] LINE notification error:", err);
         }
       })();
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    // ★ 用量変更通知（汎用）: 増量申請時に管理者へ警告
+    if (rules.dosageChangeNotify) {
+      (async () => {
+        try {
+          const currentDose = extractDose(productCode);
+          if (currentDose === null) return;
+
+          // 前回の決済済みreorderの用量を取得
+          const { data: prevPaid } = await withTenant(
+            supabaseAdmin
+              .from("reorders")
+              .select("product_code")
+              .eq("patient_id", patientId)
+              .eq("status", "paid")
+              .order("paid_at", { ascending: false })
+              .limit(1),
+            tenantId
+          ).maybeSingle();
+
+          if (!prevPaid) return; // 初回は通知しない
+          const prevDose = extractDose(prevPaid.product_code || "");
+          if (prevDose === null || currentDose <= prevDose) return; // 同量・減量は通知しない
+
+          const alertText = `⚠️【用量変更申請】\n患者ID: ${patientId}\n${prevDose}mg → ${currentDose}mg（増量）\n\n承認前にご確認ください。`;
+          await pushTextToAdminGroup(alertText, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+        } catch (err) {
+          console.error("[reorder/apply] dosage change notify error:", err);
+        }
+      })();
+    } else {
+      // 用量変更通知OFFでも既存の7.5mg初回チェックは維持
+      if (productCode.includes("7.5mg")) {
+        (async () => {
+          try {
+            const { data: prev75Orders, error: prev75Error } = await withTenant(
+              supabaseAdmin
+                .from("orders")
+                .select("id")
+                .eq("patient_id", patientId)
+                .like("product_code", "%7.5mg%"),
+              tenantId
+            ).limit(1);
+
+            if (prev75Error) {
+              console.error("[reorder/apply] 7.5mg history check error:", prev75Error);
+            } else if (!prev75Orders || prev75Orders.length === 0) {
+              console.log(`[reorder/apply] First 7.5mg request for patient=${patientId}`);
+              const alertText = `⚠️【7.5mg 初回申請】⚠️\n患者ID: ${patientId}\n\nこの患者は7.5mgの処方歴がありません。\n承認前にご確認ください。`;
+              await pushTextToAdminGroup(alertText, LINE_NOTIFY_TOKEN, LINE_ADMIN_GROUP_ID);
+            }
+          } catch (err) {
+            console.error("[reorder/apply] 7.5mg check exception:", err);
+          }
+        })();
+      }
+    }
+
+    return NextResponse.json({ ok: true, autoApproved }, { status: 200 });
   } catch (e) {
     console.error("POST /api/reorder/apply error", e);
     return NextResponse.json({ ok: false, error: "unexpected_error" }, { status: 500 });
