@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
               supabaseAdmin
                 .from("patients")
                 .select("line_id")
-                .eq("id", intakeRow.patient_id),
+                .eq("patient_id", intakeRow.patient_id),
               tenantId
             ).then(r => ({ data: (r.data as { line_id: string }[] | null)?.[0] ?? null }));
 
