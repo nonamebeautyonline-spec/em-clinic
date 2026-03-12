@@ -5,6 +5,7 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { withTenant, tenantPayload } from "@/lib/tenant";
 import { evaluateMenuRules } from "@/lib/menu-auto-rules";
 import { getBusinessRules } from "@/lib/business-rules";
+import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
 import { pushMessage } from "@/lib/line-push";
 
 /** 再処方を決済済みに更新 */
@@ -93,29 +94,33 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
           console.error("[gmo/handler] reorder payment karte error:", karteErr);
         }
       }
-      // 決済完了サンクスメッセージ送信
+      // 決済完了サンクスFlex送信（クレカ）
       if (patientId) {
         try {
           const rules = await getBusinessRules(tenantId ?? undefined);
-          if (rules.paymentThankMessage) {
+          if (rules.paymentThankMessageCard) {
+            // ordersから配送情報を取得（checkout時に保存済み）
+            const { data: orderShip } = paymentId ? await withTenant(
+              supabaseAdmin.from("orders").select("shipping_name, postal_code, address, phone, email").eq("id", paymentId).maybeSingle(),
+              tenantId
+            ) : { data: null };
             const { data: pt } = await withTenant(
               supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
               tenantId
             );
             if (pt?.line_id) {
-              const pushRes = await pushMessage(pt.line_id, [{ type: "text", text: rules.paymentThankMessage }], tenantId ?? undefined);
-              if (pushRes?.ok) {
-                await supabaseAdmin.from("message_log").insert({
-                  ...tenantPayload(tenantId),
-                  patient_id: patientId,
-                  line_uid: pt.line_id,
-                  direction: "outgoing",
-                  event_type: "message",
-                  message_type: "text",
-                  content: rules.paymentThankMessage,
-                  status: "sent",
-                });
-              }
+              await sendPaymentThankNotification({
+                patientId, lineUid: pt.line_id,
+                message: rules.paymentThankMessageCard,
+                shipping: orderShip ? {
+                  shippingName: orderShip.shipping_name, postalCode: orderShip.postal_code,
+                  address: orderShip.address, phone: orderShip.phone, email: orderShip.email,
+                } : undefined,
+                paymentMethod: "credit_card",
+                productName: productName || undefined,
+                amount: amountNum || undefined,
+                tenantId: tenantId ?? undefined,
+              });
             }
           }
         } catch (thankErr) {

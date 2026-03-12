@@ -7,6 +7,7 @@ import { invalidateDashboardCache } from "@/lib/redis";
 import { markReorderPaid } from "@/lib/payment/square-inline";
 import { getProductByCode } from "@/lib/products";
 import { getBusinessRules } from "@/lib/business-rules";
+import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
 import { pushMessage } from "@/lib/line-push";
 
 // --- 型定義 ---
@@ -184,35 +185,6 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
           console.error("[square/handler] reorder payment karte error:", karteErr);
         }
       }
-      // 決済完了サンクスメッセージ送信
-      if (patientId) {
-        try {
-          const rules = await getBusinessRules(tenantId ?? undefined);
-          if (rules.paymentThankMessage) {
-            const { data: pt } = await withTenant(
-              supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-              tenantId
-            );
-            if (pt?.line_id) {
-              const pushRes = await pushMessage(pt.line_id, [{ type: "text", text: rules.paymentThankMessage }], tenantId ?? undefined);
-              if (pushRes?.ok) {
-                await supabaseAdmin.from("message_log").insert({
-                  ...tenantPayload(tenantId),
-                  patient_id: patientId,
-                  line_uid: pt.line_id,
-                  direction: "outgoing",
-                  event_type: "message",
-                  message_type: "text",
-                  content: rules.paymentThankMessage,
-                  status: "sent",
-                });
-              }
-            }
-          }
-        } catch (thankErr) {
-          console.error("[square/handler] payment thank message error:", thankErr);
-        }
-      }
     }
 
     const createdAtIso = String(P?.created_at || "");
@@ -337,6 +309,32 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
         }
       } catch (err) {
         console.error("[square/handler] Supabase error:", err);
+      }
+    }
+
+    // 決済完了サンクスFlex送信（配送情報取得後）
+    if (patientId) {
+      try {
+        const rules = await getBusinessRules(tenantId ?? undefined);
+        if (rules.paymentThankMessageCard) {
+          const { data: pt } = await withTenant(
+            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+            tenantId
+          );
+          if (pt?.line_id) {
+            await sendPaymentThankNotification({
+              patientId, lineUid: pt.line_id,
+              message: rules.paymentThankMessageCard,
+              shipping: { shippingName: shipName, postalCode: postal, address, phone: finalPhone, email: finalEmail },
+              paymentMethod: "credit_card",
+              productName: itemsText || undefined,
+              amount: amountText ? parseFloat(amountText) : undefined,
+              tenantId: tenantId ?? undefined,
+            });
+          }
+        }
+      } catch (thankErr) {
+        console.error("[square/handler] payment thank message error:", thankErr);
       }
     }
 

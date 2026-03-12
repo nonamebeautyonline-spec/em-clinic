@@ -71,7 +71,8 @@ interface EventNotifyConfig {
   notifyReorderPaid: boolean;
   intakeReminderHours: number;
   approveMessage: string;
-  paymentThankMessage: string;
+  paymentThankMessageCard: string;
+  paymentThankMessageBank: string;
   notifyNoAnswer: boolean;
   noAnswerMessage: string;
 }
@@ -116,7 +117,8 @@ const DEFAULT_EVENT_CONFIG: EventNotifyConfig = {
   notifyReorderPaid: true,
   intakeReminderHours: 0,
   approveMessage: "",
-  paymentThankMessage: "",
+  paymentThankMessageCard: "",
+  paymentThankMessageBank: "",
   notifyNoAnswer: false,
   noAnswerMessage: "",
 };
@@ -197,7 +199,8 @@ export default function FlexSection({ onToast }: Props) {
               notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
               intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
               approveMessage: s.approve_message || prev.approveMessage,
-              paymentThankMessage: s.payment_thank_message || prev.paymentThankMessage,
+              paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
+              paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
               notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
               noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
             }));
@@ -229,7 +232,8 @@ export default function FlexSection({ onToast }: Props) {
         { key: "notify_reorder_paid", value: String(eventConfig.notifyReorderPaid) },
         { key: "intake_reminder_hours", value: String(eventConfig.intakeReminderHours) },
         { key: "approve_message", value: eventConfig.approveMessage },
-        { key: "payment_thank_message", value: eventConfig.paymentThankMessage },
+        { key: "payment_thank_message_card", value: eventConfig.paymentThankMessageCard },
+        { key: "payment_thank_message_bank", value: eventConfig.paymentThankMessageBank },
         { key: "notify_no_answer", value: String(eventConfig.notifyNoAnswer) },
         { key: "no_answer_message", value: eventConfig.noAnswerMessage },
       ];
@@ -385,13 +389,24 @@ export default function FlexSection({ onToast }: Props) {
               <Toggle checked={eventConfig.notifyReorderPaid} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyReorderPaid: v }))} disabled={!editing} />
             </div>
             {eventConfig.notifyReorderPaid && (
-              <div className="p-5">
-                <label className="block text-xs font-medium text-gray-500 mb-1">送信メッセージ</label>
-                <textarea rows={3} value={eventConfig.paymentThankMessage}
-                  onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessage: e.target.value }))}
-                  placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                <p className="text-xs text-gray-400 mt-1">空の場合、決済完了後のサンクスメッセージは送信されません</p>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">クレカ決済完了メッセージ</label>
+                  <textarea rows={3} value={eventConfig.paymentThankMessageCard}
+                    onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageCard: e.target.value }))}
+                    placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
+                    disabled={!editing}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">銀行振込完了メッセージ</label>
+                  <textarea rows={3} value={eventConfig.paymentThankMessageBank}
+                    onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageBank: e.target.value }))}
+                    placeholder="例: お振込の確認が取れました。発送準備を進めてまいります。"
+                    disabled={!editing}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+                </div>
+                <p className="text-xs text-gray-400">配送先情報（配送名義・郵便番号・住所・電話番号・メールアドレス）は自動で付加されます。空の場合はサンクスメッセージは送信されません。</p>
               </div>
             )}
           </div>

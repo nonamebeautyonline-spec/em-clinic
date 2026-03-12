@@ -8,6 +8,7 @@ import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { getProductNamesMap, getProductPricesMap } from "@/lib/products";
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { getBusinessRules } from "@/lib/business-rules";
+import { sendPaymentThankNotification } from "@/lib/payment-thank-flex";
 import { pushMessage } from "@/lib/line-push";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankTransferShippingSchema } from "@/lib/validations/payment";
@@ -137,28 +138,24 @@ export async function POST(req: NextRequest) {
         console.error("[BankTransfer] reorder payment karte error:", karteErr);
       }
 
-      // ★ 決済完了サンクスメッセージ送信
+      // ★ 決済完了サンクスFlex送信（銀行振込）
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
-        if (rules.paymentThankMessage && patientId) {
+        if (rules.paymentThankMessageBank && patientId) {
           const { data: pt } = await withTenant(
             supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
             tenantId
           );
           if (pt?.line_id) {
-            const pushRes = await pushMessage(pt.line_id, [{ type: "text", text: rules.paymentThankMessage }], tenantId ?? undefined);
-            if (pushRes?.ok) {
-              await supabaseAdmin.from("message_log").insert({
-                ...tenantPayload(tenantId),
-                patient_id: patientId,
-                line_uid: pt.line_id,
-                direction: "outgoing",
-                event_type: "message",
-                message_type: "text",
-                content: rules.paymentThankMessage,
-                status: "sent",
-              });
-            }
+            await sendPaymentThankNotification({
+              patientId, lineUid: pt.line_id,
+              message: rules.paymentThankMessageBank,
+              shipping: { shippingName, postalCode, address, phone: normalizeJPPhone(phoneNumber), email },
+              paymentMethod: "bank_transfer",
+              productName: productName || undefined,
+              amount: amount || undefined,
+              tenantId: tenantId ?? undefined,
+            });
           }
         }
       } catch (thankErr) {

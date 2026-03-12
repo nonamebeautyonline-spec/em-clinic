@@ -32,7 +32,8 @@ describe("getBusinessRules", () => {
     expect(rules.minReorderIntervalDays).toBe(0);
     expect(rules.intakeReminderHours).toBe(0);
     expect(rules.approveMessage).toBe("");
-    expect(rules.paymentThankMessage).toBe("");
+    expect(rules.paymentThankMessageCard).toBe("");
+    expect(rules.paymentThankMessageBank).toBe("");
   });
 
   it("設定値を正しくパースする", async () => {
@@ -44,7 +45,8 @@ describe("getBusinessRules", () => {
       ["business_rules:notify_reorder_paid", "false"],
       ["business_rules:intake_reminder_hours", "24"],
       ["business_rules:approve_message", "承認しました"],
-      ["business_rules:payment_thank_message", "ありがとうございます"],
+      ["business_rules:payment_thank_message_card", "ありがとうございます"],
+      ["business_rules:payment_thank_message_bank", "お振込確認しました"],
       ["business_rules:auto_approve_same_dose", "true"],
     ]));
 
@@ -57,7 +59,8 @@ describe("getBusinessRules", () => {
     expect(rules.notifyReorderPaid).toBe(false);
     expect(rules.intakeReminderHours).toBe(24);
     expect(rules.approveMessage).toBe("承認しました");
-    expect(rules.paymentThankMessage).toBe("ありがとうございます");
+    expect(rules.paymentThankMessageCard).toBe("ありがとうございます");
+    expect(rules.paymentThankMessageBank).toBe("お振込確認しました");
     expect(rules.autoApproveSameDose).toBe(true);
   });
 
@@ -88,7 +91,8 @@ describe("getBusinessRules", () => {
     // 残りはデフォルト
     expect(rules.notifyReorderApply).toBe(true);
     expect(rules.dosageChangeNotify).toBe(false);
-    expect(rules.paymentThankMessage).toBe("");
+    expect(rules.paymentThankMessageCard).toBe("");
+    expect(rules.paymentThankMessageBank).toBe("");
   });
 
   it("tenantId未指定でも動作する", async () => {
