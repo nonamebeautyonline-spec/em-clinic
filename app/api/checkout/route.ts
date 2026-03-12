@@ -9,14 +9,14 @@ import { getPaymentProvider } from "@/lib/payment";
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { checkoutSchema } from "@/lib/validations/checkout";
+import { getSettingOrEnv } from "@/lib/settings";
 
 type Mode = "current" | "first" | "reorder";
-
-const APP_BASE_URL = process.env.APP_BASE_URL;
 
 export async function POST(req: NextRequest) {
   try {
     const tenantId = resolveTenantId(req);
+    const APP_BASE_URL = await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined);
     if (!APP_BASE_URL) {
       return serverError("サーバー設定エラーです。管理者にお問い合わせください。");
     }

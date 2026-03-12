@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
         redirect: redirectUri || undefined, }, { status: 500 });
   }
 
-  // returnUrl対応: ログイン後に戻るURLをstateに含める
+  // returnUrl対応: ログイン後に戻るURLをstateに含める（テナントIDも含めて復元可能に）
   const returnUrl = req.nextUrl.searchParams.get("returnUrl") || "";
-  const statePayload = JSON.stringify({ csrf: crypto.randomUUID(), returnUrl });
+  const statePayload = JSON.stringify({ csrf: crypto.randomUUID(), returnUrl, tenantId });
   const state = Buffer.from(statePayload).toString("base64url");
   const nonce = crypto.randomUUID();
 

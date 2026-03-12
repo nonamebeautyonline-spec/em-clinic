@@ -1,6 +1,7 @@
 // lib/settings.ts — テナント設定の読み書き
 import { supabaseAdmin } from "@/lib/supabase";
 import { encrypt, decrypt } from "@/lib/crypto";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant";
 
 export type SettingCategory = "square" | "gmo" | "line" | "gas" | "general" | "payment" | "mypage" | "flex" | "sms" | "dashboard" | "ehr" | "feature_flags" | "consultation" | "notification" | "report" | "business_rules";
 
@@ -37,7 +38,8 @@ export async function getSetting(
   }
 }
 
-/** DB 優先、なければ環境変数にフォールバック */
+/** DB 優先、なければ環境変数にフォールバック
+ * ただしデフォルトテナント以外はenvフォールバック禁止（別テナントの値を返さない） */
 export async function getSettingOrEnv(
   category: SettingCategory,
   key: string,
@@ -46,6 +48,9 @@ export async function getSettingOrEnv(
 ): Promise<string | undefined> {
   const dbValue = await getSetting(category, key, tenantId);
   if (dbValue) return dbValue;
+  // デフォルトテナント or tenantId未指定 → envフォールバック（従来互換）
+  // それ以外のテナント → フォールバック禁止
+  if (tenantId && tenantId !== DEFAULT_TENANT_ID) return undefined;
   return process.env[envName];
 }
 

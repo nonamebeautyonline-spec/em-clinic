@@ -41,11 +41,15 @@ vi.mock("@/lib/validations/checkout", () => ({
   checkoutSchema: {},
 }));
 
+const mockGetSettingOrEnv = vi.fn().mockResolvedValue("https://example.com");
+vi.mock("@/lib/settings", () => ({
+  getSettingOrEnv: (...args: unknown[]) => mockGetSettingOrEnv(...args),
+}));
+
 // --- 動的import用 ---
 let POST: typeof import("@/app/api/checkout/route").POST;
 
 beforeAll(async () => {
-  process.env.APP_BASE_URL = "https://example.com";
   const mod = await import("@/app/api/checkout/route");
   POST = mod.POST;
 });
@@ -77,46 +81,20 @@ describe("checkout API 統合テスト", () => {
   });
 
   it("1. APP_BASE_URL未設定 → 500", async () => {
-    // APP_BASE_URLはモジュールレベルで評価済みなので、
-    // 再importが必要。vi.resetModules で再評価する
-    vi.resetModules();
+    // getSettingOrEnvがundefinedを返す場合
+    mockGetSettingOrEnv.mockResolvedValueOnce(undefined);
 
-    // 環境変数を未設定にしてから再import
-    const originalUrl = process.env.APP_BASE_URL;
-    delete process.env.APP_BASE_URL;
+    const { parseBody } = await import("@/lib/validations/helpers");
+    vi.mocked(parseBody).mockResolvedValue({
+      data: { productCode: "PROD1", mode: "current", patientId: null, reorderId: null },
+    } as { data: Record<string, unknown> });
 
-    // モックを再設定（resetModulesで消えるため）
-    vi.mock("@/lib/supabase", () => ({
-      supabaseAdmin: {
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          not: vi.fn().mockReturnThis(),
-          order: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-        })),
-      },
-    }));
-    vi.mock("@/lib/products", () => ({ getProductByCode: vi.fn() }));
-    vi.mock("@/lib/payment", () => ({ getPaymentProvider: vi.fn() }));
-    vi.mock("@/lib/tenant", () => ({
-      resolveTenantId: vi.fn().mockReturnValue("test-tenant"),
-      withTenant: vi.fn((query: unknown) => query),
-    }));
-    vi.mock("@/lib/validations/helpers", () => ({ parseBody: vi.fn() }));
-    vi.mock("@/lib/validations/checkout", () => ({ checkoutSchema: {} }));
-
-    const mod = await import("@/app/api/checkout/route");
     const req = createMockRequest();
-    const res = await mod.POST(req as unknown as Parameters<typeof POST>[0]);
+    const res = await POST(req as unknown as Parameters<typeof POST>[0]);
     const json = await parseJson(res);
 
     expect(res.status).toBe(500);
     expect(json.message).toContain("サーバー設定エラー");
-
-    // 環境変数を復元
-    process.env.APP_BASE_URL = originalUrl;
   });
 
   it("2. 商品が存在しない → 400", async () => {

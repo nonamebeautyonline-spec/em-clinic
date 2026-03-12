@@ -10,13 +10,12 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { generateUsername } from "@/lib/username";
 import { parseBody } from "@/lib/validations/helpers";
 import { createAdminUserSchema } from "@/lib/validations/admin-operations";
+import { getSettingOrEnv } from "@/lib/settings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
 /**
  * GET: 管理者一覧
@@ -116,7 +115,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 招待メール送信
-    const setupUrl = `${APP_BASE_URL}/admin/setup?token=${setupToken}`;
+    const appBaseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
+    const setupUrl = `${appBaseUrl}/admin/setup?token=${setupToken}`;
     const emailResult = await sendWelcomeEmail(email, name, setupUrl);
 
     if (!emailResult.success) {

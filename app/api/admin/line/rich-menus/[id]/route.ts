@@ -6,6 +6,7 @@ import { createLineRichMenu, uploadRichMenuImage, deleteLineRichMenu, setDefault
 import { resolveTenantId, withTenant } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { updateRichMenuSchema } from "@/lib/validations/line-management";
+import { getSettingOrEnv } from "@/lib/settings";
 
 /**
  * メニュー名に基づいて、個別リンク対象のLINE user IDを取得
@@ -110,7 +111,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ menu: data });
     }
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "";
+    const origin = req.headers.get("origin") || (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
     const syncLog: string[] = [];
 
     // Step 1: LINE APIに新メニュー作成

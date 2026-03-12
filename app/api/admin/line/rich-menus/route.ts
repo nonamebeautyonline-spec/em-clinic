@@ -7,6 +7,7 @@ import { createLineRichMenu, uploadRichMenuImage, setDefaultRichMenu } from "@/l
 import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { createRichMenuSchema } from "@/lib/validations/line-common";
+import { getSettingOrEnv } from "@/lib/settings";
 
 // リッチメニュー一覧（各メニューの表示人数付き）
 export async function GET(req: NextRequest) {
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
 
     // 2. 画像がある場合、LINE API登録をバックグラウンドで実行
     if (image_url) {
-      const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "";
+      const origin = req.headers.get("origin") || (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
       after(async () => {
         try {
           const lineRichMenuId = await createLineRichMenu(data, origin, tenantId ?? undefined);

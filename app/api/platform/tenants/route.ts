@@ -300,40 +300,29 @@ export async function POST(req: NextRequest) {
       console.error("[platform/tenants] INSERT tenant_plan error:", planErr);
     }
 
-    // 5. LINE設定（任意）— tenant_settings は category/key/value 形式
-    if (data.lineChannelId || data.lineChannelSecret || data.lineAccessToken) {
-      const lineSettings = [
-        data.lineChannelId && { tenant_id: tenantId, category: "line", key: "channel_id", value: data.lineChannelId },
-        data.lineChannelSecret && { tenant_id: tenantId, category: "line", key: "channel_secret", value: data.lineChannelSecret },
-        data.lineAccessToken && { tenant_id: tenantId, category: "line", key: "access_token", value: data.lineAccessToken },
-      ].filter(Boolean);
-
-      if (lineSettings.length > 0) {
-        const { error: settingsErr } = await supabaseAdmin
-          .from("tenant_settings")
-          .insert(lineSettings);
-
-        if (settingsErr) {
-          console.error(
-            "[platform/tenants] INSERT tenant_settings error:",
-            settingsErr,
-          );
-        }
-      }
-    }
-
-    // 5.5. app_base_url をslugから自動生成
+    // 5. テナント設定の自動投入（LINE設定 + app_base_url + redirect_uri）
     {
-      const { error: urlErr } = await supabaseAdmin
+      const tenantSettings: { tenant_id: string; category: string; key: string; value: string }[] = [];
+
+      // app_base_url（slugから自動生成）
+      tenantSettings.push({ tenant_id: tenantId, category: "general", key: "app_base_url", value: `https://${data.slug}.lope.jp` });
+
+      // LINE設定（指定された項目のみ投入）
+      if (data.lineChannelId) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "channel_id", value: data.lineChannelId });
+      if (data.lineChannelSecret) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "channel_secret", value: data.lineChannelSecret });
+      if (data.lineAccessToken) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "channel_access_token", value: data.lineAccessToken });
+      if (data.lineNotifyChannelSecret) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "notify_channel_secret", value: data.lineNotifyChannelSecret });
+      if (data.lineNotifyChannelAccessToken) tenantSettings.push({ tenant_id: tenantId, category: "line", key: "notify_channel_access_token", value: data.lineNotifyChannelAccessToken });
+
+      // redirect_uri（slugから自動生成）
+      tenantSettings.push({ tenant_id: tenantId, category: "line", key: "redirect_uri", value: `https://${data.slug}.lope.jp/api/line/callback` });
+
+      const { error: settingsErr } = await supabaseAdmin
         .from("tenant_settings")
-        .insert({
-          tenant_id: tenantId,
-          category: "general",
-          key: "app_base_url",
-          value: `https://${data.slug}.lope.jp`,
-        });
-      if (urlErr) {
-        console.error("[platform/tenants] INSERT app_base_url error:", urlErr);
+        .insert(tenantSettings);
+
+      if (settingsErr) {
+        console.error("[platform/tenants] INSERT tenant_settings error:", settingsErr);
       }
     }
 

@@ -29,6 +29,8 @@ export const createTenantSchema = z.object({
   lineChannelId: z.string().optional(),
   lineChannelSecret: z.string().optional(),
   lineAccessToken: z.string().optional(),
+  lineNotifyChannelSecret: z.string().optional(),
+  lineNotifyChannelAccessToken: z.string().optional(),
   // 機能プラン（任意）
   featurePlan: z.string().optional(),
   // メッセージプラン（任意）

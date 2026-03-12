@@ -8,6 +8,7 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { resolveTargets } from "@/app/api/admin/line/broadcast/route";
 import { parseBody } from "@/lib/validations/helpers";
 import { distributeNpsSchema } from "@/lib/validations/line-management";
+import { getSettingOrEnv } from "@/lib/settings";
 
 export async function POST(
   req: NextRequest,
@@ -41,7 +42,7 @@ export async function POST(
   }
 
   // 回答URL（テナントごとのベースURL）
-  const baseUrl = process.env.APP_BASE_URL || "";
+  const baseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
   let sent = 0;
 
   // 10件バッチで並列送信

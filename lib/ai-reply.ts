@@ -633,10 +633,9 @@ export async function processAiReply(
     await sendAiReply(draft.id, lineUid, aiResult.reply, patientId, tenantId);
     log.push("step9: auto送信完了");
   } else {
-    // origin: Vercelではホスト名から推定
-    const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : (process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "");
+    // origin: テナント設定のapp_base_url優先、なければVercelホスト名
+    const origin = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tid))
+      || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
     await sendApprovalFlexMessage(
       draft.id, patientId, patientName,
       originalMessage, aiResult.reply, aiResult.confidence,

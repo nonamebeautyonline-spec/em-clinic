@@ -11,16 +11,19 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get("code");
   const stateRaw = searchParams.get("state") || "";
 
-  // stateからreturnUrlを復元
+  // stateからreturnUrl・テナントIDを復元
   let returnUrl = "";
+  let stateTenantId: string | null = null;
   try {
     const stateJson = JSON.parse(Buffer.from(stateRaw, "base64url").toString());
     returnUrl = stateJson.returnUrl || "";
+    stateTenantId = stateJson.tenantId || null;
   } catch {
     // 旧形式のstate（UUID文字列）の場合は無視
   }
 
-  const tenantId = resolveTenantId(req);
+  // middleware解決を優先、fallbackとしてstateのtenantIdを使用
+  const tenantId = resolveTenantId(req) || stateTenantId;
   const tid = tenantId ?? undefined;
 
   const appBaseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tid)) || "";

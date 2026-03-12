@@ -57,6 +57,10 @@ vi.mock("@/lib/supabase", () => ({
   },
 }));
 
+vi.mock("@/lib/settings", () => ({
+  getSettingOrEnv: vi.fn().mockResolvedValue("https://example.com"),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   tableChains = {};

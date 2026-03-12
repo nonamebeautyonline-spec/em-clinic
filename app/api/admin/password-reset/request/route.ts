@@ -9,13 +9,12 @@ import { resolveTenantId, withTenant, tenantPayload } from "@/lib/tenant";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { parseBody } from "@/lib/validations/helpers";
 import { adminPasswordResetRequestSchema } from "@/lib/validations/admin-operations";
+import { getSettingOrEnv } from "@/lib/settings";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,7 +82,8 @@ export async function POST(req: NextRequest) {
     }
 
     // リセットメール送信
-    const resetUrl = `${APP_BASE_URL}/admin/reset-password?token=${resetToken}`;
+    const appBaseUrl = (await getSettingOrEnv("general", "app_base_url", "APP_BASE_URL", tenantId ?? undefined)) || "";
+    const resetUrl = `${appBaseUrl}/admin/reset-password?token=${resetToken}`;
     const emailResult = await sendPasswordResetEmail(email, resetUrl);
 
     if (!emailResult.success) {

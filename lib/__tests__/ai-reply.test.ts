@@ -1099,7 +1099,10 @@ describe("processAiReply（間接テスト）", () => {
       }
       return createChain();
     });
-    vi.mocked(getSettingOrEnv).mockResolvedValue("sk-test-key");
+    vi.mocked(getSettingOrEnv).mockImplementation(async (category: string, key: string) => {
+      if (category === "general" && key === "app_base_url") return undefined; // app_base_url未設定 → VERCEL_PROJECT_PRODUCTION_URLにフォールバック
+      return "sk-test-key";
+    });
     mockAnthropicCreate(aiResponse);
 
     // VERCEL_PROJECT_PRODUCTION_URL を設定
