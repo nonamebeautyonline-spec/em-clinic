@@ -286,7 +286,7 @@ function renderFlexBubble(bubble: FlexBubble): ReactNode {
 }
 
 const MAX_PINS = 15;
-const DISPLAY_BATCH = 50;
+const PAGE_SIZE = 50;
 const MSG_BATCH = 25;
 
 // コンポーネント外のユーティリティ関数（参照安定化）
@@ -349,11 +349,15 @@ export default function TalkPage() {
   const [searchId, setSearchId] = useState("");
   const [searchName, setSearchName] = useState("");
   const [searchMessage, setSearchMessage] = useState("");
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [friendsSearching, setFriendsSearching] = useState(false);
+  const friendsSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const friendsOffsetRef = useRef(0);
   const [msgSearchResults, setMsgSearchResults] = useState<{ patient_id: string; content: string; sent_at: string }[]>([]);
   const [msgSearching, setMsgSearching] = useState(false);
   const msgSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const [displayCount, setDisplayCount] = useState(DISPLAY_BATCH);
+  // displayCount は廃止（サーバーページネーション）
   const listRef = useRef<HTMLDivElement>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -522,18 +526,40 @@ export default function TalkPage() {
     }
   }, [pinnedIds]);
 
-  // 友達一覧を取得（SWR: キャッシュ即表示 → バックグラウンド更新）
+  // 友達一覧を取得（サーバーサイド検索・ページネーション）
   const FRIENDS_CACHE_KEY = "friends-list-cache";
-  const fetchFriends = useCallback(async () => {
+  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean }) => {
+    const id = opts?.id ?? "";
+    const name = opts?.name ?? "";
+    const offset = opts?.offset ?? 0;
+    const append = opts?.append ?? false;
     try {
-      const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
+      const params = new URLSearchParams();
+      if (id) params.set("id", id);
+      if (name) params.set("name", name);
+      params.set("offset", String(offset));
+      params.set("limit", String(PAGE_SIZE));
+      const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.patients) {
-        setFriends(data.patients);
-        try { sessionStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data.patients)); } catch { /* quota */ }
+        if (append) {
+          setFriends(prev => {
+            const ids = new Set(prev.map(f => f.patient_id));
+            return [...prev, ...data.patients.filter((f: Friend) => !ids.has(f.patient_id))];
+          });
+        } else {
+          setFriends(data.patients);
+          friendsOffsetRef.current = 0;
+          if (!id && !name) {
+            try { sessionStorage.setItem(FRIENDS_CACHE_KEY, JSON.stringify(data.patients)); } catch { /* quota */ }
+          }
+        }
+        friendsOffsetRef.current = offset + data.patients.length;
+        setServerHasMore(!!data.hasMore);
       }
     } catch { /* ignore */ }
     setFriendsLoading(false);
+    setFriendsSearching(false);
   }, []);
 
   const loadTagsAndFields = useCallback(async () => {
@@ -567,12 +593,10 @@ export default function TalkPage() {
   }, []);
 
   useEffect(() => {
-    // キャッシュがあれば即表示（体感0秒）
+    // キャッシュがあれば即表示（体感0秒）→ デバウンスuseEffectが最新データを取得
     restoreFriendsCache();
-    // バックグラウンドで最新データを取得
-    fetchFriends();
     loadTagsAndFields();
-  }, [restoreFriendsCache, fetchFriends, loadTagsAndFields]);
+  }, [restoreFriendsCache, loadTagsAndFields]);
 
   // プルダウンリフレッシュ（スマホのみ）
   const PULL_THRESHOLD = 60;
@@ -602,11 +626,11 @@ export default function TalkPage() {
     if (pullDistance >= PULL_THRESHOLD) {
       setPullRefreshing(true);
       setPullDistance(PULL_THRESHOLD);
-      await fetchFriends();
+      await fetchFriends({ id: searchId, name: searchName });
       setPullRefreshing(false);
     }
     setPullDistance(0);
-  }, [pullDistance, fetchFriends]);
+  }, [pullDistance, fetchFriends, searchId, searchName]);
 
   // 左カラム無限スクロール（デバウンス: 150ms）
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -615,16 +639,22 @@ export default function TalkPage() {
     scrollTimerRef.current = setTimeout(() => {
       const el = listRef.current;
       if (!el) return;
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100) {
-        setDisplayCount(prev => prev + DISPLAY_BATCH);
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100 && serverHasMore && !friendsSearching) {
+        setFriendsSearching(true);
+        fetchFriends({ id: searchId, name: searchName, offset: friendsOffsetRef.current, append: true });
       }
     }, 150);
-  }, []);
+  }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName]);
 
-  // 検索変更時にdisplayCountリセット
+  // 検索変更時にデバウンスでサーバー検索
   useEffect(() => {
-    setDisplayCount(DISPLAY_BATCH);
-  }, [searchId, searchName]);
+    if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
+    setFriendsSearching(true);
+    friendsSearchTimer.current = setTimeout(() => {
+      fetchFriends({ id: searchId, name: searchName });
+    }, 300);
+    return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
+  }, [searchId, searchName, fetchFriends]);
 
   // メッセージ検索実行
   const executeMessageSearch = useCallback(async (q: string) => {
@@ -857,14 +887,23 @@ export default function TalkPage() {
     return () => clearInterval(interval);
   }, [pollNewMessages]);
 
-  // ポーリング: 左カラムの友だちリストを更新
+  // ポーリング: 左カラムの友だちリストを更新（現在の検索条件で再取得）
   const pollFriendsList = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/line/friends-list", { credentials: "include" });
+      const params = new URLSearchParams();
+      if (searchId) params.set("id", searchId);
+      if (searchName) params.set("name", searchName);
+      params.set("offset", "0");
+      params.set("limit", String(Math.max(50, friends.length)));
+      const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
-      if (data.patients) setFriends(data.patients);
+      if (data.patients) {
+        setFriends(data.patients);
+        friendsOffsetRef.current = data.patients.length;
+        setServerHasMore(!!data.hasMore);
+      }
     } catch { /* ignore */ }
-  }, []);
+  }, [searchId, searchName, friends.length]);
 
   useEffect(() => {
     const interval = setInterval(pollFriendsList, 15000);
@@ -1293,17 +1332,8 @@ export default function TalkPage() {
     } catch { return null; }
   };
 
-  // 検索フィルタ（メモ化: friends/検索条件が変わった時だけ再計算）
-  const filteredFriends = useMemo(() => friends.filter(f => {
-    if (!f.patient_id) return false;
-    if (searchId && !f.patient_id.toLowerCase().includes(searchId.toLowerCase())) return false;
-    if (searchName) {
-      const q = searchName.replace(/[\s　]/g, "").toLowerCase();
-      const name = (f.patient_name || "").replace(/[\s　]/g, "").toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-    return true;
-  }), [friends, searchId, searchName]);
+  // サーバーサイド検索済みなのでfriendsをそのまま使用
+  const filteredFriends = friends;
 
   const unreadCount = useMemo(() => filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length, [filteredFriends, readTimestamps]);
   // 孤立ピン自動マイグレーション（LINE_* → 正規patient_id）& クリーンアップ
@@ -1345,10 +1375,10 @@ export default function TalkPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- savePins/pinnedIds/friends/allPatientIdsを依存配列に含めると無限ループになるため、.lengthで制御
   }, [friends.length, pinnedIds.length]);
 
-  const pinnedFriends = useMemo(() => filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds]);
-  const unpinnedFriends = useMemo(() => filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds]);
-  const visibleUnpinned = useMemo(() => unpinnedFriends.slice(0, displayCount), [unpinnedFriends, displayCount]);
-  const hasMore = unpinnedFriends.length > displayCount;
+  const isSearching = !!(searchId || searchName);
+  const pinnedFriends = useMemo(() => isSearching ? [] : filteredFriends.filter(f => pinnedIds.includes(f.patient_id)).sort(sortByLatestUtil), [filteredFriends, pinnedIds, isSearching]);
+  const unpinnedFriends = useMemo(() => isSearching ? filteredFriends : filteredFriends.filter(f => !pinnedIds.includes(f.patient_id)), [filteredFriends, pinnedIds, isSearching]);
+  const hasMore = serverHasMore;
 
   const getMarkColor = useCallback((mark: string) => getMarkColorUtil(markOptions, mark), [markOptions]);
   const getMarkLabel = useCallback((mark: string) => getMarkLabelUtil(markOptions, mark), [markOptions]);
@@ -1468,7 +1498,7 @@ export default function TalkPage() {
             )}
           </div>
           <div className="flex items-center gap-3 text-[10px] text-gray-400 pt-0.5">
-            <span>{filteredFriends.length}件</span>
+            <span>{filteredFriends.length}{hasMore ? "+" : ""}件</span>
             {pinnedFriends.length > 0 && (
               <span className="flex items-center gap-0.5 text-amber-500">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
@@ -1551,7 +1581,7 @@ export default function TalkPage() {
                 })}
               </div>
             )
-          ) : friendsLoading ? (
+          ) : friendsLoading || (friendsSearching && friends.length === 0) ? (
             <div className="flex items-center justify-center py-16">
               <div className="w-6 h-6 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin" />
             </div>
@@ -1571,7 +1601,7 @@ export default function TalkPage() {
                   readTimestamp={readTimestamps[f.patient_id]}
                 />
               ))}
-              {(showUnreadOnly ? unpinnedFriends : visibleUnpinned).filter(f => {
+              {unpinnedFriends.filter(f => {
                 if (!showUnreadOnly) return true;
                 return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
               }).map(f => (
@@ -1585,12 +1615,16 @@ export default function TalkPage() {
               ))}
               {hasMore && !showUnreadOnly && (
                 <div className="px-3 py-3 text-center">
+                  {friendsSearching ? (
+                    <div className="w-5 h-5 border-2 border-gray-200 border-t-[#00B900] rounded-full animate-spin mx-auto" />
+                  ) : (
                   <button
-                    onClick={() => setDisplayCount(prev => prev + DISPLAY_BATCH)}
+                    onClick={() => { setFriendsSearching(true); fetchFriends({ id: searchId, name: searchName, offset: friendsOffsetRef.current, append: true }); }}
                     className="text-[11px] text-[#00B900] hover:text-[#009900] font-medium transition-colors"
                   >
-                    さらに{Math.min(DISPLAY_BATCH, unpinnedFriends.length - displayCount)}件を表示
+                    さらに表示
                   </button>
+                  )}
                 </div>
               )}
             </>

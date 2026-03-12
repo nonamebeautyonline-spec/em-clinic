@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
 
-// 友達一覧（RPC 1回で全データ取得）
+// 友達一覧（サーバーサイド検索・ページネーション対応）
 export async function GET(req: NextRequest) {
   const t0 = Date.now();
 
@@ -13,11 +13,20 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized) return unauthorized();
 
   const tenantId = resolveTenantId(req);
+  const url = req.nextUrl;
+  const searchId = url.searchParams.get("id")?.trim() || "";
+  const searchName = url.searchParams.get("name")?.trim() || "";
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
 
-  // RPC 1回で friend_summaries + patients + patient_marks をJOIN取得
-  const { data, error } = await supabaseAdmin.rpc("get_friends_list", {
+  // RPC で検索・ページネーション
+  const { data, error } = await supabaseAdmin.rpc("get_friends_list_v2", {
     p_tenant_id: tenantId || null,
-  }).limit(10000);
+    p_search_id: searchId || null,
+    p_search_name: searchName || null,
+    p_limit: limit + 1, // +1 で次ページ有無を判定
+    p_offset: offset,
+  });
   const tRpc = Date.now();
 
   if (error) {
@@ -25,8 +34,12 @@ export async function GET(req: NextRequest) {
     return serverError(error.message);
   }
 
+  const rows = data || [];
+  const hasMore = rows.length > limit;
+  const sliced = hasMore ? rows.slice(0, limit) : rows;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const patients = (data || []).map((row: any) => {
+  const patients = sliced.map((row: any) => {
     const isBlocked = row.last_event_type === "unfollow";
     const eventDisplay = isBlocked ? "ブロックされました"
       : row.last_event_content?.includes("再追加") ? "友だち再登録"
@@ -45,7 +58,6 @@ export async function GET(req: NextRequest) {
       last_message: row.last_msg_content || tplName || row.last_outgoing_content || eventDisplay || null,
       last_sent_at: row.last_incoming_at || null,
       last_text_at: row.last_msg_at || null,
-      // 全やりとりの最新時刻（ソート用: incoming/outgoing両方を考慮）
       last_activity_at: [row.last_msg_at, row.last_incoming_at, row.last_outgoing_at]
         .filter(Boolean)
         .sort()
@@ -54,7 +66,6 @@ export async function GET(req: NextRequest) {
   });
   const tEnd = Date.now();
 
-  // デバッグ用タイミング（_timing でレスポンスに含める）
   const _timing = {
     auth_ms: tAuth - t0,
     rpc_ms: tRpc - tAuth,
@@ -64,5 +75,5 @@ export async function GET(req: NextRequest) {
   };
   console.log("[friends-list]", _timing);
 
-  return NextResponse.json({ patients, _timing });
+  return NextResponse.json({ patients, hasMore, _timing });
 }
