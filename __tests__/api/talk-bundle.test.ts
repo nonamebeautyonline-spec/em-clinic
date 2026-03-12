@@ -331,6 +331,40 @@ describe("admin/patients/[id]/talk-bundle API", () => {
     expect(json.detail.nextReservation).toContain("（NG）");
   });
 
+  it("最新intakeがstatus=nullでも予約紐づきintakeから診察済み判定する", async () => {
+    tableChains["message_log"] = createChain({ data: [], error: null });
+    tableChains["patient_tags"] = createChain({ data: [], error: null });
+    tableChains["patient_marks"] = createChain({ data: null, error: null });
+    tableChains["friend_field_values"] = createChain({ data: [], error: null });
+    tableChains["patients"] = createChain({ data: null, error: null });
+    tableChains["orders"] = createChain({ data: [], error: null });
+    tableChains["reorders"] = createChain({ data: [], error: null });
+    // 予約あり（reserve_id付き）
+    tableChains["reservations"] = createChain({
+      data: { reserve_id: "resv-123", reserved_date: "2026-02-01", reserved_time: "10:00" },
+      error: null,
+    });
+    // intakeの最新レコードはstatus=null（再処方で作られた空レコード）
+    // だがフォールバッククエリでreserve_id紐づきのstatus=OKが見つかる
+    let intakeCallCount = 0;
+    const intakeChain = createChain({ data: { answers: {}, created_at: "2026-03-12", status: null, reserve_id: null }, error: null });
+    const originalThen = intakeChain.then;
+    intakeChain.then = vi.fn((resolve: (val: unknown) => void) => {
+      intakeCallCount++;
+      if (intakeCallCount <= 2) {
+        // 初期Promise.allのintakeクエリ（本体 + answerer_id）: status=null
+        return originalThen(resolve);
+      }
+      // 3回目: フォールバッククエリ（reserve_id紐づきintake → status=OK）
+      return resolve({ data: { status: "OK" }, error: null });
+    });
+    tableChains["intake"] = intakeChain;
+
+    const res = await GET(makeReq(), makeCtx());
+    const json = await res.json();
+    expect(json.detail.nextReservation).toContain("（診察済み）");
+  });
+
   it("全データが空でも正常に200を返す", async () => {
     tableChains["message_log"] = createChain({ data: null, error: null });
     tableChains["patient_tags"] = createChain({ data: null, error: null });

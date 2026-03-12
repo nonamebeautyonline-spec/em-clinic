@@ -65,7 +65,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // 最新予約（キャンセル除外）
     withTenant(supabaseAdmin
       .from("reservations")
-      .select("reserved_date, reserved_time")
+      .select("reserve_id, reserved_date, reserved_time")
       .eq("patient_id", patientId)
       .not("reserved_date", "is", null)
       .not("reserved_time", "is", null)
@@ -163,8 +163,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   let formattedReservation: string | null = null;
   if (nextReservation) {
     const base = `${nextReservation.reserved_date} ${nextReservation.reserved_time}`;
-    // 診察済み判定は intake.status（SoT）のみ参照
-    const st = intakeRecord?.status || null;
+    // 診察済み判定: 最新予約に紐づくintakeのstatusを参照（最新intakeが空レコードの場合の誤判定を防止）
+    let st = intakeRecord?.status || null;
+    if (!st && nextReservation.reserve_id) {
+      const resvIntake = await withTenant(supabaseAdmin
+        .from("intake")
+        .select("status")
+        .eq("patient_id", patientId)
+        .eq("reserve_id", nextReservation.reserve_id)
+        .maybeSingle(), tenantId);
+      st = resvIntake.data?.status || null;
+    }
     if (st === "OK") formattedReservation = `${base}（診察済み）`;
     else if (st === "NG") formattedReservation = `${base}（NG）`;
     else formattedReservation = base;
