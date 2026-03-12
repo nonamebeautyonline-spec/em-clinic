@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   if (error) return serverError(error.message);
 
   // 計測用URLを生成
-  const baseUrl = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
+  const baseUrl = process.env.APP_BASE_URL || "";
   const trackingUrl = `${baseUrl}/r/${trackingCode}`;
 
   return NextResponse.json({ link: data, tracking_url: trackingUrl });

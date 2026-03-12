@@ -15,7 +15,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const APP_BASE_URL = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
+const APP_BASE_URL = process.env.APP_BASE_URL || "";
 
 export async function POST(req: NextRequest) {
   try {

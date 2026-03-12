@@ -39,24 +39,22 @@ beforeEach(() => {
 // getProducts: フォールバック動作
 // ===================================================================
 describe("getProducts — DBフォールバック", () => {
-  it("DB失敗時はフォールバック商品を返す", async () => {
+  it("DB失敗時はフォールバック（空配列）を返す", async () => {
     mockIs.mockResolvedValue({ data: null, error: { message: "connection error" } });
     const products = await getProducts();
-    expect(products.length).toBeGreaterThanOrEqual(12);
-    // フォールバック商品のIDは fallback- プレフィックス
-    expect(products[0].id).toMatch(/^fallback-/);
+    expect(products).toEqual([]);
   });
 
-  it("DB空データ時もフォールバック", async () => {
+  it("DB空データ時もフォールバック（空配列）", async () => {
     mockIs.mockResolvedValue({ data: [], error: null });
     const products = await getProducts();
-    expect(products.length).toBeGreaterThanOrEqual(12);
+    expect(products).toEqual([]);
   });
 
-  it("DB例外時もフォールバック", async () => {
+  it("DB例外時もフォールバック（空配列）", async () => {
     mockIs.mockRejectedValue(new Error("network error"));
     const products = await getProducts();
-    expect(products.length).toBeGreaterThanOrEqual(12);
+    expect(products).toEqual([]);
   });
 
   it("DB成功時はDBデータを返す", async () => {
@@ -128,14 +126,12 @@ describe("getProductByCode", () => {
     expect(result).toEqual(product);
   });
 
-  it("DB失敗時はフォールバック商品を返す（コード一致）", async () => {
+  it("DB失敗時はフォールバック（空なのでnull）を返す", async () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: { message: "error" } });
     mockEq.mockReturnValue({ eq: mockEq, is: mockIs, order: mockOrder, maybeSingle: mockMaybeSingle });
     mockIs.mockReturnValue({ maybeSingle: mockMaybeSingle });
     const result = await getProductByCode("MJL_2.5mg_1m");
-    expect(result).not.toBeNull();
-    expect(result!.code).toBe("MJL_2.5mg_1m");
-    expect(result!.id).toBe("fallback");
+    expect(result).toBeNull();
   });
 
   it("存在しないコード → null", async () => {
@@ -146,13 +142,12 @@ describe("getProductByCode", () => {
     expect(result).toBeNull();
   });
 
-  it("例外時もフォールバック商品を返す", async () => {
+  it("例外時もフォールバック（空なのでnull）を返す", async () => {
     mockMaybeSingle.mockRejectedValue(new Error("network"));
     mockEq.mockReturnValue({ eq: mockEq, is: mockIs, order: mockOrder, maybeSingle: mockMaybeSingle });
     mockIs.mockReturnValue({ maybeSingle: mockMaybeSingle });
     const result = await getProductByCode("MJL_5mg_1m");
-    expect(result).not.toBeNull();
-    expect(result!.code).toBe("MJL_5mg_1m");
+    expect(result).toBeNull();
   });
 });
 
@@ -160,72 +155,37 @@ describe("getProductByCode", () => {
 // マップ生成
 // ===================================================================
 describe("getProductNamesMap / getProductPricesMap", () => {
-  beforeEach(() => {
-    // フォールバック発動設定
+  it("DB成功時はマップを返す", async () => {
+    const dbProducts: Product[] = [
+      { id: "db-1", code: "TEST_1", title: "テスト商品1", drug_name: "テスト", dosage: "10mg", duration_months: 1, quantity: 4, price: 10000, is_active: true, sort_order: 1, category: "injection", image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false },
+      { id: "db-2", code: "TEST_2", title: "テスト商品2", drug_name: "テスト", dosage: "20mg", duration_months: 2, quantity: 8, price: 20000, is_active: true, sort_order: 2, category: "injection", image_url: null, stock_quantity: null, discount_price: null, discount_until: null, description: null, parent_id: null, stock_alert_threshold: null, stock_alert_enabled: false },
+    ];
+    mockIs.mockResolvedValue({ data: dbProducts, error: null });
+    const nameMap = await getProductNamesMap();
+    expect(nameMap["TEST_1"]).toBe("テスト商品1");
+    expect(Object.keys(nameMap).length).toBe(2);
+
+    mockIs.mockResolvedValue({ data: dbProducts, error: null });
+    const priceMap = await getProductPricesMap();
+    expect(priceMap["TEST_1"]).toBe(10000);
+    expect(Object.keys(priceMap).length).toBe(2);
+  });
+
+  it("DB失敗時は空マップを返す", async () => {
     mockIs.mockResolvedValue({ data: null, error: { message: "test" } });
-  });
-
-  it("getProductNamesMap: code → title マップを返す", async () => {
-    const map = await getProductNamesMap();
-    expect(map["MJL_2.5mg_1m"]).toBe("マンジャロ 2.5mg 1ヶ月");
-    expect(map["MJL_5mg_1m"]).toBe("マンジャロ 5mg 1ヶ月");
-    expect(Object.keys(map).length).toBeGreaterThanOrEqual(12);
-  });
-
-  it("getProductPricesMap: code → price マップを返す", async () => {
-    const map = await getProductPricesMap();
-    expect(map["MJL_2.5mg_1m"]).toBe(13000);
-    expect(map["MJL_5mg_1m"]).toBe(22850);
-    expect(Object.keys(map).length).toBeGreaterThanOrEqual(12);
+    const nameMap = await getProductNamesMap();
+    expect(Object.keys(nameMap).length).toBe(0);
   });
 });
 
 // ===================================================================
 // フォールバック商品データ検証
 // ===================================================================
-describe("フォールバック商品データ整合性", () => {
-  beforeEach(() => {
+describe("フォールバック商品データ", () => {
+  it("フォールバックは空配列（テナント別商品のため）", async () => {
     mockIs.mockResolvedValue({ data: null, error: { message: "test" } });
-  });
-
-  it("全商品がinjectionカテゴリ", async () => {
     const products = await getProducts();
-    for (const p of products) {
-      expect(p.category).toBe("injection");
-    }
-  });
-
-  it("全商品がis_active=true", async () => {
-    const products = await getProducts();
-    for (const p of products) {
-      expect(p.is_active).toBe(true);
-    }
-  });
-
-  it("sort_order が1から連番", async () => {
-    const products = await getProducts();
-    for (let i = 0; i < products.length; i++) {
-      expect(products[i].sort_order).toBe(i + 1);
-    }
-  });
-
-  it("用量は 2.5mg / 5mg / 7.5mg / 10mg", async () => {
-    const products = await getProducts();
-    const dosages = [...new Set(products.map((p) => p.dosage))];
-    expect(dosages).toEqual(expect.arrayContaining(["2.5mg", "5mg", "7.5mg", "10mg"]));
-  });
-
-  it("期間は 1 / 2 / 3 ヶ月", async () => {
-    const products = await getProducts();
-    const durations = [...new Set(products.map((p) => p.duration_months))];
-    expect(durations.sort()).toEqual([1, 2, 3]);
-  });
-
-  it("価格は正の数", async () => {
-    const products = await getProducts();
-    for (const p of products) {
-      expect(p.price).toBeGreaterThan(0);
-    }
+    expect(products).toEqual([]);
   });
 });
 

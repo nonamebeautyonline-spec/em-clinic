@@ -23,21 +23,8 @@ export type Product = {
   stock_alert_enabled: boolean;
 };
 
-// ハードコードフォールバック（DB接続失敗時用）
-const FALLBACK_PRODUCTS: Omit<Product, "id" | "image_url" | "stock_quantity" | "discount_price" | "discount_until" | "description" | "parent_id" | "stock_alert_threshold" | "stock_alert_enabled">[] = [
-  { code: "MJL_2.5mg_1m", title: "マンジャロ 2.5mg 1ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 1, quantity: 4, price: 13000, is_active: true, sort_order: 1, category: "injection" },
-  { code: "MJL_2.5mg_2m", title: "マンジャロ 2.5mg 2ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 2, quantity: 8, price: 25500, is_active: true, sort_order: 2, category: "injection" },
-  { code: "MJL_2.5mg_3m", title: "マンジャロ 2.5mg 3ヶ月", drug_name: "マンジャロ", dosage: "2.5mg", duration_months: 3, quantity: 12, price: 35000, is_active: true, sort_order: 3, category: "injection" },
-  { code: "MJL_5mg_1m", title: "マンジャロ 5mg 1ヶ月", drug_name: "マンジャロ", dosage: "5mg", duration_months: 1, quantity: 4, price: 22850, is_active: true, sort_order: 4, category: "injection" },
-  { code: "MJL_5mg_2m", title: "マンジャロ 5mg 2ヶ月", drug_name: "マンジャロ", dosage: "5mg", duration_months: 2, quantity: 8, price: 45500, is_active: true, sort_order: 5, category: "injection" },
-  { code: "MJL_5mg_3m", title: "マンジャロ 5mg 3ヶ月", drug_name: "マンジャロ", dosage: "5mg", duration_months: 3, quantity: 12, price: 63000, is_active: true, sort_order: 6, category: "injection" },
-  { code: "MJL_7.5mg_1m", title: "マンジャロ 7.5mg 1ヶ月", drug_name: "マンジャロ", dosage: "7.5mg", duration_months: 1, quantity: 4, price: 34000, is_active: true, sort_order: 7, category: "injection" },
-  { code: "MJL_7.5mg_2m", title: "マンジャロ 7.5mg 2ヶ月", drug_name: "マンジャロ", dosage: "7.5mg", duration_months: 2, quantity: 8, price: 65000, is_active: true, sort_order: 8, category: "injection" },
-  { code: "MJL_7.5mg_3m", title: "マンジャロ 7.5mg 3ヶ月", drug_name: "マンジャロ", dosage: "7.5mg", duration_months: 3, quantity: 12, price: 96000, is_active: true, sort_order: 9, category: "injection" },
-  { code: "MJL_10mg_1m", title: "マンジャロ 10mg 1ヶ月", drug_name: "マンジャロ", dosage: "10mg", duration_months: 1, quantity: 4, price: 35000, is_active: true, sort_order: 10, category: "injection" },
-  { code: "MJL_10mg_2m", title: "マンジャロ 10mg 2ヶ月", drug_name: "マンジャロ", dosage: "10mg", duration_months: 2, quantity: 8, price: 70000, is_active: true, sort_order: 11, category: "injection" },
-  { code: "MJL_10mg_3m", title: "マンジャロ 10mg 3ヶ月", drug_name: "マンジャロ", dosage: "10mg", duration_months: 3, quantity: 12, price: 105000, is_active: true, sort_order: 12, category: "injection" },
-];
+// テナントごとに商品が異なるためフォールバックは空（DB障害時は空配列を返す）
+const FALLBACK_PRODUCTS: Omit<Product, "id" | "image_url" | "stock_quantity" | "discount_price" | "discount_until" | "description" | "parent_id" | "stock_alert_threshold" | "stock_alert_enabled">[] = [];
 
 /** アクティブな商品一覧を取得 */
 export async function getProducts(tenantId?: string): Promise<Product[]> {

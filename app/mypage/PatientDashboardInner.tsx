@@ -350,14 +350,14 @@ const [addressSaving, setAddressSaving] = useState(false);
 // マイページ設定（管理者カスタマイズ）
 const [mpColors, setMpColors] = useState({ primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" });
 const [mpSections, setMpSections] = useState({ showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true });
-const [mpContent, setMpContent] = useState({ clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "https://lin.ee/BlKX38U", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" });
+const [mpContent, setMpContent] = useState({ clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" });
 const [mpLabels, setMpLabels] = useState({
   intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
-  reserveButtonLabel: "予約に進む", purchaseButtonLabel: "マンジャロを購入する（初回）", reorderButtonLabel: "再処方を申請する",
+  reserveButtonLabel: "予約に進む", purchaseButtonLabel: "決済に進む", reorderButtonLabel: "再処方を申請する",
   reservationTitle: "次回のご予約", ordersTitle: "注文／申請・発送状況", historyTitle: "これまでの処方歴", supportTitle: "お困りの方へ",
   noOrdersText: "現在、発送状況の確認が必要なお薬はありません。", noHistoryText: "まだ処方の履歴はありません。",
-  phoneNotice: "上記時間内に、090-からはじまる電話番号より携帯電話へお電話いたします。\n必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。\n前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。",
-  cancelNotice: "※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。",
+  phoneNotice: "",
+  cancelNotice: "",
 });
 
 // 再処方予約必須設定

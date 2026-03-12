@@ -41,6 +41,7 @@ vi.mock("@/lib/redis", () => ({
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: vi.fn().mockResolvedValue("test-token"),
   getSetting: vi.fn().mockResolvedValue(null),
+  getSettingsBulk: vi.fn().mockResolvedValue(new Map()),
 }));
 
 vi.mock("@/lib/validations/helpers", () => ({

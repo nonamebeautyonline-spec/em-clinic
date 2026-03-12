@@ -62,7 +62,7 @@ interface CarouselPanel {
 const EMPTY_BUTTON: PanelButton = { label: "", actionType: "url", actionValue: "" };
 const EMPTY_PANEL: CarouselPanel = { title: "", body: "", imageUrl: "", buttons: [{ ...EMPTY_BUTTON }] };
 
-const QA_PAGE_URL = "https://noname-beauty.l-ope.jp/mypage/qa";
+const QA_PAGE_URL = "/mypage/qa";
 const QA_COLOR_PRESETS = [
   { label: "ピンク", value: "#ec4899" },
   { label: "青", value: "#3b82f6" },

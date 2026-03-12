@@ -23,20 +23,20 @@ export interface YamatoB2Config {
 
 /** デフォルト設定（DB未設定時のフォールバック） */
 export const YAMATO_B2_CONFIG: YamatoB2Config = {
-  senderName: "のなめビューティー",
-  senderPostal: "1040061",
-  senderAddress: "東京都中央区銀座７ー８ー８ー５Ｆ",
-  senderPhone: "09086728115",
+  senderName: "",
+  senderPostal: "",
+  senderAddress: "",
+  senderPhone: "",
   senderPhoneBranch: "01",
-  senderEmail: "noname.beauty.online@gmail.com",
-  billingCustomerCode: "090867281159",
+  senderEmail: "",
+  billingCustomerCode: "",
   billingCategoryCode: "",
   fareManagementNo: "01",
   itemName: "サプリメント（引火性・高圧ガスなし）",
   okinawaItemName: "医薬品・注射器（未使用、引火性・高圧ガスなし）",
   coolType: "2",
-  forecastMessage: "のなめビューティーです。お荷物のお届け予定をお知らせします。",
-  completedMessage: "のなめビューティーです。お荷物の配達完了をお知らせします。",
+  forecastMessage: "",
+  completedMessage: "",
 };
 
 /**

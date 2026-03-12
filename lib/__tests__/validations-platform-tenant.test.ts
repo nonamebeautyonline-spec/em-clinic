@@ -23,10 +23,10 @@ describe("createTenantSchema", () => {
     const result = createTenantSchema.safeParse(validInput);
     expect(result.success).toBe(true);
     if (result.success) {
-      // デフォルト値が適用される
-      expect(result.data.planName).toBe("standard");
-      expect(result.data.monthlyFee).toBe(50000);
-      expect(result.data.setupFee).toBe(300000);
+      // デフォルト値が適用される（メッセージ通数プランベース）
+      expect(result.data.planName).toBe("30000");
+      expect(result.data.monthlyFee).toBe(18700);
+      expect(result.data.setupFee).toBe(0);
     }
   });
 
@@ -39,13 +39,13 @@ describe("createTenantSchema", () => {
       lineChannelId: "channel-id",
       lineChannelSecret: "channel-secret",
       lineAccessToken: "access-token",
-      planName: "premium",
+      planName: "100000",
       monthlyFee: 80000,
       setupFee: 500000,
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.planName).toBe("premium");
+      expect(result.data.planName).toBe("100000");
     }
   });
 

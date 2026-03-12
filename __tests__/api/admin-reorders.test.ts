@@ -68,6 +68,7 @@ vi.mock("@/lib/line-push", () => ({
 
 vi.mock("@/lib/settings", () => ({
   getSettingOrEnv: mockGetSettingOrEnv,
+  getSettingsBulk: vi.fn().mockResolvedValue(new Map()),
 }));
 
 vi.mock("@/lib/audit", () => ({

@@ -636,7 +636,7 @@ export async function processAiReply(
     // origin: Vercelではホスト名から推定
     const origin = process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : (process.env.NEXT_PUBLIC_BASE_URL || "https://noname-beauty.l-ope.jp");
+      : (process.env.NEXT_PUBLIC_BASE_URL || process.env.APP_BASE_URL || "");
     await sendApprovalFlexMessage(
       draft.id, patientId, patientName,
       originalMessage, aiResult.reply, aiResult.confidence,

@@ -128,10 +128,14 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
       expect(maskValue).toHaveBeenCalledWith("sk_test_abc123xyz");
     });
 
-    it("DB に値なし + 環境変数あり → source: env", async () => {
+    it("DB に値なし + 環境変数あり → デフォルトテナントは source: env", async () => {
       const bulkMap = new Map<string, string>();
       // DB には何もない
       mockGetSettingsBulk.mockResolvedValue(bulkMap);
+
+      // デフォルトテナントではenvフォールバックが効く
+      const { resolveTenantId } = await import("@/lib/tenant");
+      (resolveTenantId as ReturnType<typeof vi.fn>).mockReturnValueOnce("00000000-0000-0000-0000-000000000001");
 
       // 環境変数をセット
       const originalEnv = process.env.SQUARE_ACCESS_TOKEN;
@@ -147,6 +151,28 @@ describe("テナント設定 API (admin/settings/route.ts)", () => {
         expect(tokenSetting.maskedValue).toBeTruthy();
       } finally {
         // 環境変数を元に戻す
+        if (originalEnv === undefined) delete process.env.SQUARE_ACCESS_TOKEN;
+        else process.env.SQUARE_ACCESS_TOKEN = originalEnv;
+      }
+    });
+
+    it("DB に値なし + 環境変数あり → 非デフォルトテナントは source: none", async () => {
+      const bulkMap = new Map<string, string>();
+      mockGetSettingsBulk.mockResolvedValue(bulkMap);
+
+      // 環境変数をセット
+      const originalEnv = process.env.SQUARE_ACCESS_TOKEN;
+      process.env.SQUARE_ACCESS_TOKEN = "env_token_value";
+
+      try {
+        const req = createMockRequest("GET", "http://localhost/api/admin/settings");
+        const res = await GET(req);
+        const json = await res.json();
+        const squareSettings = json.settings.square;
+        const tokenSetting = squareSettings.find((s: SettingItem) => s.key === "access_token");
+        expect(tokenSetting.source).toBe("none");
+        expect(tokenSetting.maskedValue).toBeNull();
+      } finally {
         if (originalEnv === undefined) delete process.env.SQUARE_ACCESS_TOKEN;
         else process.env.SQUARE_ACCESS_TOKEN = originalEnv;
       }

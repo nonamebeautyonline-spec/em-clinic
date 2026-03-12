@@ -407,12 +407,12 @@ describe("POST /api/mypage", () => {
       setupDefaultTables({
         patient: { data: { patient_id: "pid-001", name: "太郎", line_id: null }, error: null },
         reservation: {
-          data: {
+          data: [{
             reserve_id: "res-001",
             reserved_date: "2026-03-01",
             reserved_time: "14:00",
             status: "confirmed",
-          },
+          }],
           error: null,
         },
       });

@@ -18,10 +18,10 @@ describe("Flex Message デフォルト設定", () => {
   it("reservation が全プロパティを持つ", () => {
     const { reservation } = DEFAULT_FLEX_CONFIG;
     expect(reservation.createdHeader).toBeTruthy();
-    expect(reservation.createdPhoneNotice).toBeTruthy();
+    expect(typeof reservation.createdPhoneNotice).toBe("string");
     expect(reservation.createdNote).toBeTruthy();
     expect(reservation.changedHeader).toBeTruthy();
-    expect(reservation.changedPhoneNotice).toBeTruthy();
+    expect(typeof reservation.changedPhoneNotice).toBe("string");
     expect(reservation.canceledHeader).toBeTruthy();
     expect(reservation.canceledNote).toBeTruthy();
   });
@@ -35,8 +35,8 @@ describe("Flex Message デフォルト設定", () => {
     expect(shipping.storageNotice2).toBeTruthy();
     expect(shipping.buttonLabel).toBeTruthy();
     expect(shipping.footerNote).toBeTruthy();
-    expect(shipping.truckImageUrl).toBeTruthy();
-    expect(shipping.progressBarUrl).toBeTruthy();
+    expect(typeof shipping.truckImageUrl).toBe("string");
+    expect(typeof shipping.progressBarUrl).toBe("string");
   });
 });
 
@@ -133,9 +133,9 @@ describe("Flex Message 追跡番号フォーマット", () => {
 
 // === 予約通知テキストの検証 ===
 describe("Flex Message 予約通知テキスト", () => {
-  it("予約確定通知に電話番号案内が含まれる", () => {
+  it("予約確定通知の電話番号案内はデフォルトで空（テナント設定で上書き）", () => {
     const { reservation } = DEFAULT_FLEX_CONFIG;
-    expect(reservation.createdPhoneNotice).toContain("090-");
+    expect(reservation.createdPhoneNotice).toBe("");
   });
 
   it("キャンセル通知にマイページ案内が含まれる", () => {
@@ -160,8 +160,8 @@ describe("Flex Message 発送通知テキスト", () => {
     expect(DEFAULT_FLEX_CONFIG.shipping.buttonLabel).toBe("配送状況を確認");
   });
 
-  it("画像URLが有効なURLフォーマット", () => {
-    expect(DEFAULT_FLEX_CONFIG.shipping.truckImageUrl).toMatch(/^https?:\/\//);
-    expect(DEFAULT_FLEX_CONFIG.shipping.progressBarUrl).toMatch(/^https?:\/\//);
+  it("画像URLパスが設定されている（APP_BASE_URL未設定時は相対パス）", () => {
+    expect(DEFAULT_FLEX_CONFIG.shipping.truckImageUrl).toContain("/images/truck-delivery.png");
+    expect(DEFAULT_FLEX_CONFIG.shipping.progressBarUrl).toContain("/images/progress-bar.png");
   });
 });

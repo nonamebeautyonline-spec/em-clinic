@@ -145,6 +145,10 @@ export async function GET(req: NextRequest) {
 
   const result: Record<string, { key: string; label: string; maskedValue: string | null; source: "db" | "env" | "none" }[]> = {};
 
+  // デフォルトテナント以外はenvフォールバックを使わない（他テナントの認証情報が表示されるのを防止）
+  const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+  const useEnvFallback = !tenantId || tenantId === DEFAULT_TENANT_ID;
+
   for (const cat of categories) {
     const defs = SETTING_DEFINITIONS[cat] || [];
     result[cat] = defs.map((def) => {
@@ -153,7 +157,7 @@ export async function GET(req: NextRequest) {
       if (dbValue) {
         return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(dbValue) : dbValue, source: "db" as const };
       }
-      if (def.envFallback && process.env[def.envFallback]) {
+      if (useEnvFallback && def.envFallback && process.env[def.envFallback]) {
         const envVal = process.env[def.envFallback]!;
         return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(envVal) : envVal, source: "env" as const };
       }

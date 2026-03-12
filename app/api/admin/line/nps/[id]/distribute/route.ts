@@ -41,7 +41,7 @@ export async function POST(
   }
 
   // 回答URL（テナントごとのベースURL）
-  const baseUrl = process.env.APP_BASE_URL || "https://noname-beauty.l-ope.jp";
+  const baseUrl = process.env.APP_BASE_URL || "";
   let sent = 0;
 
   // 10件バッチで並列送信

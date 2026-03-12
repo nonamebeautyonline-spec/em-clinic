@@ -9,6 +9,7 @@ import { saveAiReplyExample } from "@/lib/embedding";
 import { getSettingOrEnv } from "@/lib/settings";
 import { parseBody } from "@/lib/validations/helpers";
 import { aiReplySendSchema } from "@/lib/validations/ai-reply";
+import { resolveTenantId, withTenant } from "@/lib/tenant";
 
 export async function POST(
   request: NextRequest,
@@ -28,12 +29,14 @@ export async function POST(
     return forbidden("署名が無効または期限切れです");
   }
 
+  const tenantId = resolveTenantId(request);
+
   // ドラフト取得
-  const { data: draft, error } = await supabaseAdmin
+  const { data: draft, error } = await withTenant(supabaseAdmin
     .from("ai_reply_drafts")
     .select("*")
     .eq("id", draftId)
-    .single();
+    .single(), tenantId);
 
   if (error || !draft) {
     return notFound("ドラフトが見つかりません");
@@ -48,18 +51,18 @@ export async function POST(
 
   // modified_reply を保存（初期案と異なる場合のみ、ナレッジ学習用）
   // ※ sendAiReply内で status は sent に更新済み
-  const { data: updatedDraft } = await supabaseAdmin
+  const { data: updatedDraft } = await withTenant(supabaseAdmin
     .from("ai_reply_drafts")
     .select("status")
     .eq("id", draftId)
-    .single();
+    .single(), tenantId);
 
   if (updatedDraft?.status === "sent") {
     // modified_reply を記録
-    await supabaseAdmin
+    await withTenant(supabaseAdmin
       .from("ai_reply_drafts")
       .update({ modified_reply: draft.draft_reply })
-      .eq("id", draftId);
+      .eq("id", draftId), tenantId);
 
     // 学習例として保存（embedding付き）
     try {

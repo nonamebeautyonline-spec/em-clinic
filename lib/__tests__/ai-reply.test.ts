@@ -44,6 +44,10 @@ vi.mock("@/lib/line-push", () => ({ pushMessage: vi.fn() }));
 vi.mock("@/lib/ai-reply-filter", () => ({ shouldProcessWithAI: vi.fn() }));
 vi.mock("@/lib/ai-reply-approval", () => ({ sendApprovalFlexMessage: vi.fn() }));
 vi.mock("@/lib/settings", () => ({ getSettingOrEnv: vi.fn() }));
+vi.mock("@/lib/embedding", () => ({
+  saveAiReplyExample: vi.fn().mockResolvedValue(undefined),
+  searchSimilarExamples: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/lib/tenant", () => ({
   resolveTenantId: vi.fn(() => null),
   withTenant: vi.fn((q: unknown) => q),
@@ -1353,42 +1357,29 @@ describe("handleImplicitAiFeedback", () => {
     expect(tableChains.ai_reply_drafts.update).not.toHaveBeenCalled();
   });
 
-  it("pendingドラフトあり → expired更新+ナレッジ追記", async () => {
+  it("pendingドラフトあり → expired更新+学習例保存(embedding)", async () => {
     // 1回目: ai_reply_drafts select (pending)
     // 2回目: ai_reply_drafts update (expired)
-    // 3回目: ai_reply_settings select
-    // 4回目: ai_reply_settings update
 
     const pendingDrafts = [
       { id: 10, original_message: "元メッセージ", draft_reply: "AI返信" },
     ];
 
-    // テーブルごとのチェーンを最初から設定し直す
     const draftsSelectChain = createChain({ data: pendingDrafts, error: null });
     const draftsUpdateChain = createChain({ data: null, error: null });
-    const settingsSelectChain = createChain({
-      data: { id: 1, knowledge_base: "既存KB" },
-      error: null,
-    });
-    const settingsUpdateChain = createChain({ data: null, error: null });
 
     let draftsCallCount = 0;
-    let settingsCallCount = 0;
 
-    // supabaseAdmin.from のモック: テーブル名+呼び出し回数で振り分け
     const { supabaseAdmin } = await import("@/lib/supabase");
     vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "ai_reply_drafts") {
         draftsCallCount++;
-        // 1回目=select, 2回目=update
         return draftsCallCount === 1 ? draftsSelectChain : draftsUpdateChain;
-      }
-      if (table === "ai_reply_settings") {
-        settingsCallCount++;
-        return settingsCallCount === 1 ? settingsSelectChain : settingsUpdateChain;
       }
       return createChain();
     });
+
+    const { saveAiReplyExample } = await import("@/lib/embedding");
 
     await handleImplicitAiFeedback("p1", "スタッフ返信テスト", null);
 
@@ -1401,13 +1392,15 @@ describe("handleImplicitAiFeedback", () => {
       })
     );
 
-    // ナレッジベースが更新された
-    expect(settingsUpdateChain.update).toHaveBeenCalled();
-    const kbUpdateArgs = settingsUpdateChain.update.mock.calls[0][0];
-    expect(kbUpdateArgs.knowledge_base).toContain("既存KB");
-    expect(kbUpdateArgs.knowledge_base).toContain("スタッフ手動返信例");
-    expect(kbUpdateArgs.knowledge_base).toContain("元メッセージ");
-    expect(kbUpdateArgs.knowledge_base).toContain("スタッフ返信テスト");
+    // 学習例として保存された（embedding方式）
+    expect(saveAiReplyExample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        question: "元メッセージ",
+        answer: "スタッフ返信テスト",
+        source: "manual_reply",
+        draftId: 10,
+      })
+    );
   });
 
   it("AI返信設定が存在しない → ナレッジ追記スキップ（エラーなし）", async () => {
@@ -1533,40 +1526,36 @@ describe("handleImplicitAiFeedback", () => {
     expect(draftsUpdateChain.update).toHaveBeenCalled();
   });
 
-  it("既存ナレッジベースが空文字 → 空文字+追記で保存", async () => {
+  it("既存ナレッジベースが空文字 → embedding方式で学習例保存", async () => {
     const pendingDrafts = [
       { id: 10, original_message: "質問テスト", draft_reply: "AI返信テスト" },
     ];
     const draftsSelectChain = createChain({ data: pendingDrafts, error: null });
     const draftsUpdateChain = createChain({ data: null, error: null });
-    const settingsSelectChain = createChain({
-      data: { id: 1, knowledge_base: null },
-      error: null,
-    });
-    const settingsUpdateChain = createChain({ data: null, error: null });
 
     let draftsCallCount = 0;
-    let settingsCallCount = 0;
     const { supabaseAdmin } = await import("@/lib/supabase");
     vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
       if (table === "ai_reply_drafts") {
         draftsCallCount++;
         return draftsCallCount === 1 ? draftsSelectChain : draftsUpdateChain;
       }
-      if (table === "ai_reply_settings") {
-        settingsCallCount++;
-        return settingsCallCount === 1 ? settingsSelectChain : settingsUpdateChain;
-      }
       return createChain();
     });
 
+    const { saveAiReplyExample } = await import("@/lib/embedding");
+
     await handleImplicitAiFeedback("p1", "スタッフの返信", null);
 
-    // ナレッジベース更新が呼ばれた
-    expect(settingsUpdateChain.update).toHaveBeenCalled();
-    const kbUpdateArgs = settingsUpdateChain.update.mock.calls[0][0];
-    expect(kbUpdateArgs.knowledge_base).toContain("スタッフ手動返信例");
-    expect(kbUpdateArgs.knowledge_base).toContain("質問テスト");
+    // 学習例として保存された（embedding方式）
+    expect(saveAiReplyExample).toHaveBeenCalledWith(
+      expect.objectContaining({
+        question: "質問テスト",
+        answer: "スタッフの返信",
+        source: "manual_reply",
+        draftId: 10,
+      })
+    );
   });
 });
 

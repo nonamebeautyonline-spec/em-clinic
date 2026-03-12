@@ -96,7 +96,7 @@ describe("view-mypage API", () => {
       data: { patient_id: "p_001", name: "田中太郎", line_id: "U001" },
     };
     mockResultsByTable["intake"] = {
-      data: { patient_id: "p_001", status: null, answers: null },
+      data: [{ patient_id: "p_001", status: null, answers: null }],
     };
     mockResultsByTable["reservations"] = { data: null };
     mockResultsByTable["orders"] = { data: [] };
@@ -120,7 +120,7 @@ describe("view-mypage API", () => {
       data: { patient_id: "p_001", name: "田中太郎", line_id: "U001" },
     };
     mockResultsByTable["intake"] = {
-      data: { patient_id: "p_001", status: "OK", answers: { ng_check: "OK" } },
+      data: [{ patient_id: "p_001", status: "OK", answers: { ng_check: "OK" } }],
     };
     mockResultsByTable["reservations"] = { data: null };
     mockResultsByTable["orders"] = {
@@ -169,11 +169,11 @@ describe("view-mypage API", () => {
       data: { patient_id: "p_001", name: "テスト", line_id: "" },
     };
     mockResultsByTable["intake"] = {
-      data: {
+      data: [{
         patient_id: "p_001",
         status: "OK",
         answers: { ng_check: "OK", current_disease_yesno: "no" },
-      },
+      }],
     };
     mockResultsByTable["reservations"] = { data: null };
     mockResultsByTable["orders"] = { data: [] };
@@ -223,7 +223,7 @@ describe("view-mypage API", () => {
       data: { patient_id: "p_001", name: "テスト", line_id: "" },
     };
     mockResultsByTable["intake"] = {
-      data: { patient_id: "p_001", status: "NG", answers: null },
+      data: [{ patient_id: "p_001", status: "NG", answers: null }],
     };
     mockResultsByTable["reservations"] = { data: null };
     mockResultsByTable["orders"] = { data: [] };
@@ -243,7 +243,7 @@ describe("view-mypage API", () => {
       data: { patient_id: "p_001", name: "テスト", line_id: "" },
     };
     mockResultsByTable["intake"] = {
-      data: { patient_id: "p_001", status: "OK", answers: { ng_check: "OK" } },
+      data: [{ patient_id: "p_001", status: "OK", answers: { ng_check: "OK" } }],
     };
     mockResultsByTable["reservations"] = { data: null };
     mockResultsByTable["orders"] = {

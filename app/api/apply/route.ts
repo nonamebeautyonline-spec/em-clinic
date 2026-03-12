@@ -1,6 +1,7 @@
 // app/api/apply/route.ts — SaaS申し込みフォーム送信API
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { resolveTenantId, tenantPayload } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import bcrypt from "bcryptjs";
 import {
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
   const setupCost = getSetupOptionsTotal(data.setup_options);
   const initialEstimate = planInitialCost + setupCost;
 
+  // テナントID取得（SaaS申し込みはテナント未確定だが将来の拡張に備える）
+  const tenantId = resolveTenantId(req);
+
   // DB保存
   const { error: dbError } = await supabaseAdmin.from("applications").insert({
     company_name: data.company_name,
@@ -66,6 +70,7 @@ export async function POST(req: NextRequest) {
     initial_estimate: initialEstimate,
     note: data.note || null,
     admin_password_hash: adminPasswordHash,
+    ...tenantPayload(tenantId),
   });
 
   if (dbError) {

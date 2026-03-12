@@ -42,6 +42,7 @@ vi.mock("@/lib/reservation-flex", () => ({
   buildReservationChangedFlex: vi.fn().mockResolvedValue({ type: "flex", altText: "test", contents: {} }),
   buildReservationCanceledFlex: vi.fn().mockResolvedValue({ type: "flex", altText: "test", contents: {} }),
   sendReservationNotification: vi.fn().mockResolvedValue(undefined),
+  executeReservationActions: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/tenant", () => ({

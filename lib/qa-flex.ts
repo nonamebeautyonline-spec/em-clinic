@@ -1,7 +1,7 @@
 // lib/qa-flex.ts
 // QAカルーセルFlexメッセージ — テンプレート登録用JSON生成ヘルパー
 
-const QA_PAGE_URL = "https://noname-beauty.l-ope.jp/mypage/qa";
+const QA_PAGE_URL = `${process.env.APP_BASE_URL || ""}/mypage/qa`;
 
 // ── 共通カード定義 ──
 

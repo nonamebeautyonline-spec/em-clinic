@@ -77,7 +77,7 @@ const DEFAULT_CONFIG: MypageConfig = {
     clinicName: "",
     logoUrl: "",
     supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。",
-    supportUrl: "https://lin.ee/BlKX38U",
+    supportUrl: "",
     supportButtonLabel: "LINEで問い合わせる",
     supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。",
   },
@@ -87,7 +87,7 @@ const DEFAULT_CONFIG: MypageConfig = {
     intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。",
     intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
     reserveButtonLabel: "予約に進む",
-    purchaseButtonLabel: "マンジャロを購入する（初回）",
+    purchaseButtonLabel: "決済に進む",
     reorderButtonLabel: "再処方を申請する",
     reservationTitle: "次回のご予約",
     ordersTitle: "注文／申請・発送状況",
@@ -95,8 +95,8 @@ const DEFAULT_CONFIG: MypageConfig = {
     supportTitle: "お困りの方へ",
     noOrdersText: "現在、発送状況の確認が必要なお薬はありません。",
     noHistoryText: "まだ処方の履歴はありません。",
-    phoneNotice: "上記時間内に、090-からはじまる電話番号より携帯電話へお電話いたします。\n必ずしも開始時刻ちょうどではなく、予約枠（例：12:00〜12:15）の間に医師より順次ご連絡します。\n前の診療状況により、前後15分程度お時間が前後する場合があります。あらかじめご了承ください。",
-    cancelNotice: "※ 予約の変更・キャンセルは診察予定時刻の1時間前まで可能です。",
+    phoneNotice: "",
+    cancelNotice: "",
   },
 };
 
@@ -450,7 +450,7 @@ function MypagePreview({ config }: { config: MypageConfig }) {
                     <span className="text-[9px] text-gray-500">2026/2/10</span>
                     <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-600">発送済み</span>
                   </div>
-                  <p className="text-[10px] font-medium text-gray-800 mt-1">マンジャロ 2.5mg 1ヶ月</p>
+                  <p className="text-[10px] font-medium text-gray-800 mt-1">お薬 1ヶ月分</p>
                 </div>
               </div>
             )}
@@ -472,7 +472,7 @@ function MypagePreview({ config }: { config: MypageConfig }) {
                   {["2026/2/10", "2026/1/15"].map((d, i) => (
                     <div key={i} className="flex items-center justify-between border-b border-gray-50 pb-1.5">
                       <span className="text-[9px] text-gray-500">{d}</span>
-                      <span className="text-[9px] text-gray-700">マンジャロ 2.5mg {i + 1}ヶ月</span>
+                      <span className="text-[9px] text-gray-700">お薬 {i + 1}ヶ月分</span>
                     </div>
                   ))}
                 </div>
