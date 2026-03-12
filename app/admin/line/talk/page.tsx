@@ -804,15 +804,34 @@ export default function TalkPage() {
     setMessagesLoading(false);
   }, [fetchScheduledMessages]);
 
-  // URLの ?pid= で指定された患者を自動選択
+  // URLの ?pid= で指定された患者を自動選択（サーバー検索で取得）
   const autoSelectedRef = useRef(false);
   useEffect(() => {
-    if (autoSelectedRef.current || friendsLoading || !initialPid) return;
+    if (autoSelectedRef.current || !initialPid) return;
+    // まずfriends内を探す
     const target = friends.find(f => f.patient_id === initialPid);
     if (target) {
       autoSelectedRef.current = true;
       selectPatient(target);
+      return;
     }
+    // friendsに無い場合はAPIで個別取得
+    if (friendsLoading) return;
+    autoSelectedRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/line/friends-list?id=${encodeURIComponent(initialPid)}&limit=1`, { credentials: "include" });
+        const data = await res.json();
+        if (data.patients?.[0]) {
+          const f = data.patients[0];
+          setFriends(prev => {
+            if (prev.some(p => p.patient_id === f.patient_id)) return prev;
+            return [f, ...prev];
+          });
+          selectPatient(f);
+        }
+      } catch { /* ignore */ }
+    })();
   }, [friends, friendsLoading, initialPid, selectPatient]);
 
   // 過去メッセージ読み込み
