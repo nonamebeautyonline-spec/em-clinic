@@ -173,6 +173,10 @@ interface FlexNode {
   style?: string;
   action?: { type?: string; label?: string; uri?: string };
   backgroundColor?: string;
+  flex?: number;
+  layout?: string;
+  paddingAll?: string;
+  spacing?: string;
 }
 
 /** Flex Bubble の型定義 */
@@ -183,89 +187,97 @@ interface FlexBubble {
   footer?: FlexNode;
 }
 
-/** Flex Bubble をフラット方式でレンダリング（ツリーを1回走査→リーフ化→描画） */
+/** Flex ノードを再帰的にレンダリング（boxレイアウト維持） */
+function renderFlexNode(node: FlexNode, idx: number, isHeader = false): ReactNode {
+  if (!node) return null;
+  const mt = node.margin ? FLEX_MARGIN[node.margin] || node.margin : undefined;
+
+  if (node.type === "box") {
+    const isHorizontal = node.layout === "horizontal";
+    const s: CSSProperties = {
+      display: "flex",
+      flexDirection: isHorizontal ? "row" : "column",
+      gap: node.spacing ? (FLEX_MARGIN[node.spacing] || node.spacing) : undefined,
+    };
+    if (mt) s.marginTop = mt;
+    if (node.paddingAll) s.padding = node.paddingAll;
+    if (isHorizontal) s.alignItems = "baseline";
+    return (
+      <div key={idx} style={s}>
+        {(node.contents || []).map((c, i) => renderFlexNode(c, i, isHeader))}
+      </div>
+    );
+  }
+
+  if (node.type === "text") {
+    const s: CSSProperties = { lineHeight: 1.5, minWidth: 0 };
+    if (isHeader) { s.color = node.color || "#fff"; s.fontWeight = 700; s.fontSize = node.size ? (FLEX_SIZE[node.size] || node.size) : "16px"; }
+    else {
+      if (node.color) s.color = node.color;
+      if (node.size) s.fontSize = FLEX_SIZE[node.size] || node.size;
+      if (node.weight === "bold") s.fontWeight = 700;
+      if (node.decoration === "line-through") s.textDecoration = "line-through";
+      if (node.align) s.textAlign = node.align as CSSProperties["textAlign"];
+    }
+    if (mt) s.marginTop = mt;
+    if (node.wrap) { s.whiteSpace = "pre-wrap"; s.wordBreak = "break-word"; } else { s.whiteSpace = "nowrap"; s.overflow = "hidden"; s.textOverflow = "ellipsis"; }
+    if (node.flex !== undefined) s.flex = node.flex;
+    return <div key={idx} style={s}>{node.text}</div>;
+  }
+
+  if (node.type === "image") {
+    const s: CSSProperties = { maxWidth: "100%", display: "block" };
+    if (mt) s.marginTop = mt;
+    s.objectFit = node.aspectMode === "cover" ? "cover" : "contain";
+    if (node.size === "full") s.width = "100%";
+    if (node.aspectRatio) { const [w, h] = node.aspectRatio.split(":").map(Number); if (w && h) s.aspectRatio = `${w}/${h}`; }
+    return <img key={idx} src={node.url} alt="" style={s} loading="lazy" />;
+  }
+
+  if (node.type === "separator") {
+    return <div key={idx} style={{ borderTop: "1px solid #ddd", marginTop: mt || "8px" }} />;
+  }
+
+  if (node.type === "button") {
+    const s: CSSProperties = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
+    if (mt) s.marginTop = mt;
+    if (node.style === "primary") { s.backgroundColor = node.color || "#06C755"; s.color = "#fff"; }
+    else if (node.style === "secondary") { s.backgroundColor = "#f0f0f0"; s.color = node.color || "#333"; }
+    else { s.backgroundColor = "transparent"; s.color = node.color || "#06C755"; }
+    const label = node.action?.label || "ボタン";
+    if (node.action?.type === "uri" && node.action?.uri) {
+      return <a key={idx} href={node.action.uri} target="_blank" rel="noopener noreferrer" style={s}>{label}</a>;
+    }
+    return <div key={idx} style={s}>{label}</div>;
+  }
+
+  return null;
+}
+
+/** Flex Bubble をレンダリング（boxレイアウト維持、実際のLINE表示に近い外観） */
 function renderFlexBubble(bubble: FlexBubble): ReactNode {
   if (!bubble || bubble.type !== "bubble") return null;
 
-  // ツリーからリーフノードをフラット配列に収集（各ノードは厳密に1回だけ追加）
-  type Leaf = { node: FlexNode; section: "header" | "body" | "footer" };
-  const leaves: Leaf[] = [];
-  function collect(node: FlexNode, section: Leaf["section"]) {
-    if (!node) return;
-    if (node.type === "box") {
-      for (const c of (node.contents || [])) collect(c, section);
-      return;
-    }
-    leaves.push({ node, section });
-  }
-  if (bubble.header) collect(bubble.header, "header");
-  if (bubble.body) collect(bubble.body, "body");
-  if (bubble.footer) collect(bubble.footer, "footer");
-
-  const headerLeaves = leaves.filter(l => l.section === "header");
-  const bodyLeaves = leaves.filter(l => l.section === "body");
-  const footerLeaves = leaves.filter(l => l.section === "footer");
-
-  function renderLeaf(leaf: Leaf, idx: number): ReactNode {
-    const n = leaf.node;
-    const mt = n.margin ? FLEX_MARGIN[n.margin] || n.margin : undefined;
-
-    if (n.type === "text") {
-      const s: CSSProperties = { lineHeight: 1.5 };
-      if (leaf.section === "header") { s.color = "#fff"; s.fontWeight = 700; s.fontSize = "16px"; }
-      else {
-        if (n.color) s.color = n.color;
-        if (n.size) s.fontSize = FLEX_SIZE[n.size] || n.size;
-        if (n.weight === "bold") s.fontWeight = 700;
-        if (n.decoration === "line-through") s.textDecoration = "line-through";
-        if (n.align) s.textAlign = n.align as CSSProperties["textAlign"];
-      }
-      if (mt) s.marginTop = mt;
-      if (n.wrap) { s.whiteSpace = "pre-wrap"; s.wordBreak = "break-word"; }
-      return <div key={idx} style={s}>{n.text}</div>;
-    }
-    if (n.type === "image") {
-      const s: CSSProperties = { maxWidth: "100%", display: "block" };
-      if (mt) s.marginTop = mt;
-      s.objectFit = n.aspectMode === "cover" ? "cover" : "contain";
-      if (n.size === "full") s.width = "100%";
-      if (n.aspectRatio) { const [w, h] = n.aspectRatio.split(":").map(Number); if (w && h) s.aspectRatio = `${w}/${h}`; }
-      return <img key={idx} src={n.url} alt="" style={s} loading="lazy" />;
-    }
-    if (n.type === "separator") {
-      return <div key={idx} style={{ borderTop: "1px solid #ddd", marginTop: mt || "8px" }} />;
-    }
-    if (n.type === "button") {
-      const s: CSSProperties = { display: "block", width: "100%", padding: "10px", borderRadius: "8px", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "14px", textAlign: "center", textDecoration: "none" };
-      if (mt) s.marginTop = mt;
-      if (n.style === "primary") { s.backgroundColor = n.color || "#06C755"; s.color = "#fff"; }
-      else if (n.style === "secondary") { s.backgroundColor = "#f0f0f0"; s.color = n.color || "#333"; }
-      else { s.backgroundColor = "transparent"; s.color = n.color || "#06C755"; }
-      const label = n.action?.label || "ボタン";
-      if (n.action?.type === "uri" && n.action?.uri) {
-        return <a key={idx} href={n.action.uri} target="_blank" rel="noopener noreferrer" style={s}>{label}</a>;
-      }
-      return <div key={idx} style={s}>{label}</div>;
-    }
-    return null;
-  }
-
   const hdrBg = bubble.header?.backgroundColor || "#ec4899";
+  const hasHeader = bubble.header && (bubble.header.contents || []).length > 0;
+  const hasBody = bubble.body && (bubble.body.contents || []).length > 0;
+  const hasFooter = bubble.footer && (bubble.footer.contents || []).length > 0;
+
   return (
-    <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200" style={{ minWidth: 200, maxWidth: 300 }}>
-      {headerLeaves.length > 0 && (
-        <div style={{ backgroundColor: hdrBg, padding: "12px 16px" }}>
-          {headerLeaves.map((l, i) => renderLeaf(l, i))}
+    <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white" style={{ minWidth: 200, maxWidth: 300 }}>
+      {hasHeader && (
+        <div style={{ backgroundColor: hdrBg, padding: bubble.header!.paddingAll || "12px 16px" }}>
+          {(bubble.header!.contents || []).map((c, i) => renderFlexNode(c, i, true))}
         </div>
       )}
-      {bodyLeaves.length > 0 && (
-        <div style={{ padding: "16px" }}>
-          {bodyLeaves.map((l, i) => renderLeaf(l, i))}
+      {hasBody && (
+        <div style={{ backgroundColor: "#ffffff", padding: bubble.body!.paddingAll || "16px" }}>
+          {(bubble.body!.contents || []).map((c, i) => renderFlexNode(c, i))}
         </div>
       )}
-      {footerLeaves.length > 0 && (
-        <div style={{ padding: "12px 16px" }}>
-          {footerLeaves.map((l, i) => renderLeaf(l, i))}
+      {hasFooter && (
+        <div style={{ backgroundColor: "#ffffff", padding: bubble.footer!.paddingAll || "12px 16px" }}>
+          {(bubble.footer!.contents || []).map((c, i) => renderFlexNode(c, i))}
         </div>
       )}
     </div>
