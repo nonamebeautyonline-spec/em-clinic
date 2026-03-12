@@ -542,7 +542,8 @@ export default function TalkPage() {
     const name = opts?.name ?? "";
     const offset = opts?.offset ?? 0;
     const append = opts?.append ?? false;
-    const pinIds = opts?.pinIds;
+    // pinIds: 明示的に渡された場合はそれを使い、なければrefから取得
+    const pinIds = opts?.pinIds ?? pinnedIdsRef.current;
     try {
       const params = new URLSearchParams();
       if (id) params.set("id", id);
@@ -666,7 +667,7 @@ export default function TalkPage() {
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
-      fetchFriends({ id: searchId, name: searchName, pinIds: pinnedIdsRef.current });
+      fetchFriends({ id: searchId, name: searchName });
     }, 300);
     return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedIdsの変更で再検索は不要
