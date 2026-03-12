@@ -349,7 +349,7 @@ const [addressSaving, setAddressSaving] = useState(false);
 
 // マイページ設定（管理者カスタマイズ）
 const [mpColors, setMpColors] = useState({ primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" });
-const [mpSections, setMpSections] = useState({ showIntakeStatus: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true });
+const [mpSections, setMpSections] = useState({ showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true });
 const [mpContent, setMpContent] = useState({ clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "https://lin.ee/BlKX38U", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" });
 const [mpLabels, setMpLabels] = useState({
   intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
@@ -1092,46 +1092,48 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
       </header>
 
       {/* 上部CTA */}
-      {mpSections.showIntakeStatus && (
+      {(mpSections.showIntake || mpSections.showReserveButton) && (
       <div className="mx-auto max-w-4xl px-4 mt-3 space-y-2">
 {/* 問診 */}
-{hasIntake === null ? (
-  <button
-    type="button"
-    disabled
-    className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
-  >
-    問診状況を確認中…
-  </button>
-) : hasIntake === true ? (
-  <>
+{mpSections.showIntake && (
+  hasIntake === null ? (
     <button
       type="button"
       disabled
       className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
     >
-      {mpLabels.intakeCompleteText}
+      問診状況を確認中…
     </button>
-    <p className="mt-1 text-[11px] text-slate-500">
-      {mpLabels.intakeGuideText}
-    </p>
-  </>
-) : (
-  <>
-    <Link
-      href="/intake"
-      className="block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
-    >
-      {mpLabels.intakeButtonLabel}
-    </Link>
-    <p className="mt-1 text-[11px] text-slate-500">
-      {mpLabels.intakeNoteText}
-    </p>
-  </>
+  ) : hasIntake === true ? (
+    <>
+      <button
+        type="button"
+        disabled
+        className="block w-full rounded-xl bg-slate-200 text-slate-500 text-center py-3 text-base font-semibold cursor-not-allowed"
+      >
+        {mpLabels.intakeCompleteText}
+      </button>
+      <p className="mt-1 text-[11px] text-slate-500">
+        {mpLabels.intakeGuideText}
+      </p>
+    </>
+  ) : (
+    <>
+      <Link
+        href="/intake"
+        className="block w-full rounded-xl text-white text-center py-3 text-base font-semibold shadow-sm transition bg-[var(--mp-primary)] hover:bg-[var(--mp-hover)]"
+      >
+        {mpLabels.intakeButtonLabel}
+      </Link>
+      <p className="mt-1 text-[11px] text-slate-500">
+        {mpLabels.intakeNoteText}
+      </p>
+    </>
+  )
 )}
 
-
 {/* 予約（診察前だけ & 1件も予約が入っていないときだけ有効） */}
+{mpSections.showReserveButton && (
 <button
   type="button"
   disabled={!canReserve}
@@ -1148,6 +1150,7 @@ Patient ID: {patient.id ? `${patient.id.slice(0, 3)}***${patient.id.slice(-2)}` 
 >
   {mpLabels.reserveButtonLabel}
 </button>
+)}
 
 {/* ★ NG患者バナー */}
 {isNG && (

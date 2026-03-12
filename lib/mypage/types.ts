@@ -11,7 +11,8 @@ export interface MypageColorConfig {
 
 /** セクション表示/非表示 */
 export interface MypageSectionConfig {
-  showIntakeStatus: boolean;  // 問診ステータス + 予約ボタン
+  showIntake: boolean;        // 問診ステータス
+  showReserveButton: boolean; // 予約ボタン
   showReservation: boolean;   // 次回予約ブロック
   showOrders: boolean;        // 注文/発送状況
   showReorder: boolean;       // 再処方申請
@@ -66,7 +67,8 @@ export const DEFAULT_MYPAGE_CONFIG: MypageConfig = {
     primaryText: "#be185d",
   },
   sections: {
-    showIntakeStatus: true,
+    showIntake: true,
+    showReserveButton: true,
     showReservation: true,
     showOrders: true,
     showReorder: true,

@@ -11,11 +11,18 @@ export async function getMypageConfig(tenantId?: string): Promise<MypageConfig> 
   if (!raw) return DEFAULT_MYPAGE_CONFIG;
   try {
     const parsed = JSON.parse(raw);
+    // 後方互換: 旧 showIntakeStatus → showIntake + showReserveButton
+    const sections = { ...DEFAULT_MYPAGE_CONFIG.sections, ...parsed.sections };
+    if (parsed.sections && "showIntakeStatus" in parsed.sections && !("showIntake" in parsed.sections)) {
+      sections.showIntake = parsed.sections.showIntakeStatus;
+      sections.showReserveButton = parsed.sections.showIntakeStatus;
+    }
+    delete (sections as Record<string, unknown>).showIntakeStatus;
     return {
       ...DEFAULT_MYPAGE_CONFIG,
       ...parsed,
       colors: { ...DEFAULT_MYPAGE_CONFIG.colors, ...parsed.colors },
-      sections: { ...DEFAULT_MYPAGE_CONFIG.sections, ...parsed.sections },
+      sections,
       content: { ...DEFAULT_MYPAGE_CONFIG.content, ...parsed.content },
       labels: { ...DEFAULT_MYPAGE_CONFIG.labels, ...parsed.labels },
     };

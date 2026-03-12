@@ -13,7 +13,8 @@ interface MypageColorConfig {
 }
 
 interface MypageSectionConfig {
-  showIntakeStatus: boolean;
+  showIntake: boolean;
+  showReserveButton: boolean;
   showReservation: boolean;
   showOrders: boolean;
   showReorder: boolean;
@@ -64,7 +65,8 @@ const DEFAULT_CONFIG: MypageConfig = {
     primaryText: "#be185d",
   },
   sections: {
-    showIntakeStatus: true,
+    showIntake: true,
+    showReserveButton: true,
     showReservation: true,
     showOrders: true,
     showReorder: true,
@@ -99,7 +101,8 @@ const DEFAULT_CONFIG: MypageConfig = {
 };
 
 const SECTION_LABELS: { key: keyof MypageSectionConfig; label: string }[] = [
-  { key: "showIntakeStatus", label: "問診ステータス + 予約ボタン" },
+  { key: "showIntake", label: "問診ステータス" },
+  { key: "showReserveButton", label: "予約ボタン" },
   { key: "showReservation", label: "次回予約ブロック" },
   { key: "showOrders", label: "注文・発送状況" },
   { key: "showReorder", label: "再処方申請" },
@@ -411,9 +414,14 @@ function MypagePreview({ config }: { config: MypageConfig }) {
           </div>
 
           <div className="px-3 py-3 space-y-3">
-            {sections.showIntakeStatus && (
+            {sections.showIntake && (
               <button style={{ backgroundColor: colors.primary }} className="w-full rounded-xl text-white text-center py-2.5 text-xs font-semibold shadow-sm">
                 {labels.intakeButtonLabel}
+              </button>
+            )}
+            {sections.showReserveButton && (
+              <button className="w-full rounded-xl text-center py-2.5 text-xs font-semibold border" style={{ color: colors.primary, borderColor: colors.primary }}>
+                {labels.reserveButtonLabel}
               </button>
             )}
 
