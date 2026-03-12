@@ -138,30 +138,31 @@ export async function POST(req: NextRequest) {
         console.error("[BankTransfer] reorder payment karte error:", karteErr);
       }
 
-      // ★ 決済完了サンクスFlex送信（銀行振込）
-      try {
-        const rules = await getBusinessRules(tenantId ?? undefined);
-        if (rules.notifyReorderPaid && patientId) {
-          const thankMsg = rules.paymentThankMessageBank || "お振込の確認が取れました。発送準備を進めてまいります。";
-          const { data: pt } = await withTenant(
-            supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
-            tenantId
-          );
-          if (pt?.line_id) {
-            await sendPaymentThankNotification({
-              patientId, lineUid: pt.line_id,
-              message: thankMsg,
-              shipping: { shippingName, postalCode, address, phone: normalizeJPPhone(phoneNumber), email },
-              paymentMethod: "bank_transfer",
-              productName: productName || undefined,
-              amount: amount || undefined,
-              tenantId: tenantId ?? undefined,
-            });
-          }
+    }
+
+    // ★ 決済完了サンクスFlex送信（銀行振込 — 初回・再処方共通）
+    try {
+      const rules = await getBusinessRules(tenantId ?? undefined);
+      if (rules.notifyReorderPaid && patientId) {
+        const thankMsg = rules.paymentThankMessageBank || "お振込の確認が取れました。発送準備を進めてまいります。";
+        const { data: pt } = await withTenant(
+          supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
+          tenantId
+        );
+        if (pt?.line_id) {
+          await sendPaymentThankNotification({
+            patientId, lineUid: pt.line_id,
+            message: thankMsg,
+            shipping: { shippingName, postalCode, address, phone: normalizeJPPhone(phoneNumber), email },
+            paymentMethod: "bank_transfer",
+            productName: productName || undefined,
+            amount: amount || undefined,
+            tenantId: tenantId ?? undefined,
+          });
         }
-      } catch (thankErr) {
-        console.error("[BankTransfer] payment thank message error:", thankErr);
       }
+    } catch (thankErr) {
+      console.error("[BankTransfer] payment thank message error:", thankErr);
     }
 
     // ★ マイページキャッシュを無効化（直接Redis削除）
