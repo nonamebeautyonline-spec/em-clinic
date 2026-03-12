@@ -357,6 +357,7 @@ export default function TalkPage() {
   const [msgSearching, setMsgSearching] = useState(false);
   const msgSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const pinnedIdsRef = useRef<string[]>([]);
   // displayCount は廃止（サーバーページネーション）
   const listRef = useRef<HTMLDivElement>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -490,6 +491,7 @@ export default function TalkPage() {
       }
       if (resolvedPins.length > 0) {
         setPinnedIds(resolvedPins);
+        pinnedIdsRef.current = resolvedPins;
         // ピンID確定後に友達一覧を再取得（ピン留め患者を含める）
         fetchFriendsRef.current?.({ pinIds: resolvedPins });
       }
@@ -504,6 +506,7 @@ export default function TalkPage() {
 
   const savePins = (ids: string[]) => {
     setPinnedIds(ids);
+    pinnedIdsRef.current = ids;
     fetch("/api/admin/pins", {
       method: "PUT",
       credentials: "include",
@@ -663,7 +666,7 @@ export default function TalkPage() {
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
-      fetchFriends({ id: searchId, name: searchName, pinIds: pinnedIds });
+      fetchFriends({ id: searchId, name: searchName, pinIds: pinnedIdsRef.current });
     }, 300);
     return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedIdsの変更で再検索は不要
@@ -1633,7 +1636,7 @@ export default function TalkPage() {
                 if (!showUnreadOnly) return true;
                 return !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]));
               }).map(f => (
-                <FriendItem key={f.patient_id} f={f} isPinned={false}
+                <FriendItem key={f.patient_id} f={f} isPinned={pinnedIds.includes(f.patient_id)}
                   isSelected={selectedPatient?.patient_id === f.patient_id}
                   onSelect={selectPatient} onTogglePin={togglePin}
                   getMarkColor={getMarkColor} getMarkLabel={getMarkLabel} formatDateShort={formatDateShort}
