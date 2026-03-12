@@ -52,14 +52,14 @@ export async function POST(req: NextRequest) {
       return tooManyRequests("決済リクエストが多すぎます。しばらくしてから再度お試しください。");
     }
 
-    // 二重決済防止: 直近60秒以内の同一患者・同一商品の注文チェック
+    // 二重決済防止: 直近5分以内の同一患者・同一商品の注文チェック
     const { data: recentOrder } = await withTenant(
       supabaseAdmin
         .from("orders")
         .select("id")
         .eq("patient_id", patientId)
         .eq("product_code", productCode)
-        .gte("paid_at", new Date(Date.now() - 60_000).toISOString())
+        .gte("paid_at", new Date(Date.now() - 300_000).toISOString())
         .limit(1),
       tenantId,
     ).maybeSingle();
@@ -140,11 +140,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 冪等性キー: 患者+商品+分単位で決定的に生成（二重クリック防止）
+    // 冪等性キー: 患者+商品+10分単位で決定的に生成（二重決済防止）
     // Square API の idempotency_key は最大45文字
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 60000)}`)
+      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 600000)}`)
       .digest("base64url")
       .substring(0, 45);
 

@@ -177,14 +177,21 @@ function PurchaseConfirmContent() {
   // autoAddress + addressDetail を統合して shipping.address に反映
   const fullAddress = `${autoAddress}${addressDetail}`.trim();
 
-  // submitting を true にしつつ30秒タイムアウトで自動リセット
+  // 決済リクエストのAbortController（タイムアウト時にfetch自体をキャンセル）
+  const abortRef = useRef<AbortController | null>(null);
+
+  // submitting を true にしつつ90秒タイムアウトで自動リセット
   const startSubmitting = useCallback(() => {
     if (submittingTimer.current) clearTimeout(submittingTimer.current);
+    // 前回のリクエストがまだ残っていればキャンセル
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
     setSubmitting(true);
     submittingTimer.current = setTimeout(() => {
+      if (abortRef.current) abortRef.current.abort();
       setSubmitting(false);
-      setError("決済処理がタイムアウトしました。通信環境をご確認のうえ、再度お試しください。");
-    }, 30_000);
+      setError("決済処理がタイムアウトしました。決済が完了している可能性があります。マイページで注文状況をご確認ください。");
+    }, 90_000);
   }, []);
 
   const stopSubmitting = useCallback(() => {
@@ -195,12 +202,12 @@ function PurchaseConfirmContent() {
     setSubmitting(false);
   }, []);
 
-  // ページ復帰時にsubmitting状態をリセット（バックグラウンド→復帰で固まる問題対策）
+  // ページ復帰時: 決済中なら注意メッセージを表示（リセットはしない）
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "visible" && submitting) {
-        stopSubmitting();
-        setError("画面復帰により決済処理をリセットしました。再度お試しください。");
+        // 決済処理中のまま維持し、再試行を促さない
+        // タイムアウトまたはレスポンス受信で自然に解決される
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);
@@ -343,6 +350,7 @@ function PurchaseConfirmContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
+          signal: abortRef.current?.signal,
           body: JSON.stringify({
             sourceId,
             productCode: product.code,
@@ -358,6 +366,8 @@ function PurchaseConfirmContent() {
         if (!res.ok) throw new Error((data.message || data.error) || "決済に失敗しました");
         router.push(`/mypage/purchase/complete?code=${product.code}`);
       } catch (e) {
+        // AbortErrorの場合はタイムアウトハンドラで処理済み
+        if (e instanceof DOMException && e.name === "AbortError") return;
         setError(e instanceof Error ? e.message : "決済処理中にエラーが発生しました");
         stopSubmitting();
         // カードフォームを再マウントして新しいnonceを取得可能にする
