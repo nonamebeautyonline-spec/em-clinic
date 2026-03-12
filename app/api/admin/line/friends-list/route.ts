@@ -74,7 +74,8 @@ export async function GET(req: NextRequest) {
     const missingPinIds = pinIds.filter(id => !existingIds.has(id));
 
     if (missingPinIds.length > 0) {
-      // get_friends_list（v1）を patient_id IN で直接フィルタ
+      const tid = tenantId || "00000000-0000-0000-0000-000000000001";
+      // friend_summaries から取得
       const { data: pinRows } = await supabaseAdmin
         .from("friend_summaries")
         .select(`
@@ -86,10 +87,12 @@ export async function GET(req: NextRequest) {
           patient_marks(mark)
         `)
         .in("patient_id", missingPinIds)
-        .eq("tenant_id", tenantId || "00000000-0000-0000-0000-000000000001");
+        .eq("tenant_id", tid);
 
+      const foundIds = new Set<string>();
       if (pinRows) {
         for (const row of pinRows) {
+          foundIds.add(row.patient_id);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const p = row.patients as any;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,6 +113,39 @@ export async function GET(req: NextRequest) {
             last_outgoing_content: row.last_outgoing_content,
             last_outgoing_at: row.last_outgoing_at,
           }));
+        }
+      }
+
+      // friend_summaries にない患者は patients テーブルから直接取得
+      const stillMissing = missingPinIds.filter(id => !foundIds.has(id));
+      if (stillMissing.length > 0) {
+        const { data: patientRows } = await supabaseAdmin
+          .from("patients")
+          .select("patient_id, name, line_id, line_display_name, line_picture_url, patient_marks(mark)")
+          .in("patient_id", stillMissing)
+          .eq("tenant_id", tid);
+
+        if (patientRows) {
+          for (const row of patientRows) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pm = (row as any).patient_marks;
+            patients.push(transformRow({
+              patient_id: row.patient_id,
+              patient_name: row.name || "",
+              line_id: row.line_id,
+              line_display_name: row.line_display_name,
+              line_picture_url: row.line_picture_url,
+              mark: pm?.[0]?.mark || pm?.mark || "none",
+              last_msg_content: null,
+              last_msg_at: null,
+              last_incoming_at: null,
+              last_template_content: null,
+              last_event_content: null,
+              last_event_type: null,
+              last_outgoing_content: null,
+              last_outgoing_at: null,
+            }));
+          }
         }
       }
     }
