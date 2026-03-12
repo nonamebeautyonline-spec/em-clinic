@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
               notifySent = status === "sent";
               console.log(`[doctor/callstatus] no_answer_notify: patient=${intakeRow.patient_id}, status=${status}`);
 
-              // 送信成功時は call_status を no_answer_sent に更新
+              // 送信成功時は call_status を no_answer_sent に更新 + 対応マーク「不通」設定
               if (notifySent) {
                 await withTenant(
                   supabaseAdmin
@@ -94,6 +94,33 @@ export async function POST(req: NextRequest) {
                     .eq("reserve_id", reserveId),
                   tenantId
                 );
+
+                // 対応マークを「不通」に変更
+                try {
+                  const { data: futsuMark } = await withTenant(
+                    supabaseAdmin
+                      .from("mark_definitions")
+                      .select("value")
+                      .eq("label", "不通")
+                      .limit(1)
+                      .maybeSingle(),
+                    tenantId
+                  );
+                  if (futsuMark?.value) {
+                    await withTenant(
+                      supabaseAdmin
+                        .from("patient_marks")
+                        .upsert(
+                          { patient_id: intakeRow.patient_id, mark: futsuMark.value, ...tenantPayload(tenantId ?? null) },
+                          { onConflict: "patient_id" }
+                        ),
+                      tenantId
+                    );
+                    console.log(`[doctor/callstatus] mark set to 不通: patient=${intakeRow.patient_id}`);
+                  }
+                } catch (markErr) {
+                  console.warn("[doctor/callstatus] mark update failed:", markErr);
+                }
               }
             }
           }
