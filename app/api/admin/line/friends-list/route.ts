@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   // RPC 1回で friend_summaries + patients + patient_marks をJOIN取得
   const { data, error } = await supabaseAdmin.rpc("get_friends_list", {
     p_tenant_id: tenantId || null,
-  });
+  }).limit(10000);
   const tRpc = Date.now();
 
   if (error) {
