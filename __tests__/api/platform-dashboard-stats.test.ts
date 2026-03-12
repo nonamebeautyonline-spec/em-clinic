@@ -47,7 +47,7 @@ vi.mock("@/lib/supabase", () => {
 vi.mock("@/lib/platform-auth", () => ({
   verifyPlatformAdmin: vi.fn().mockResolvedValue({
     userId: "platform-admin-1",
-    email: "admin@lope.jp",
+    email: "admin@l-ope.jp",
     name: "プラットフォーム管理者",
     tenantId: null,
     platformRole: "platform_admin",
@@ -92,7 +92,7 @@ describe("GET /api/platform/dashboard-stats", () => {
     it("プラットフォーム管理者の場合は200を返す", async () => {
       vi.mocked(verifyPlatformAdmin).mockResolvedValue({
         userId: "admin-1",
-        email: "admin@lope.jp",
+        email: "admin@l-ope.jp",
         name: "管理者",
         tenantId: null,
         platformRole: "platform_admin",
@@ -118,7 +118,7 @@ describe("GET /api/platform/dashboard-stats", () => {
     beforeEach(() => {
       vi.mocked(verifyPlatformAdmin).mockResolvedValue({
         userId: "admin-1",
-        email: "admin@lope.jp",
+        email: "admin@l-ope.jp",
         name: "管理者",
         tenantId: null,
         platformRole: "platform_admin",
@@ -197,7 +197,7 @@ describe("GET /api/platform/dashboard-stats", () => {
     it("テナントが空の場合は空配列を返す", async () => {
       vi.mocked(verifyPlatformAdmin).mockResolvedValue({
         userId: "admin-1",
-        email: "admin@lope.jp",
+        email: "admin@l-ope.jp",
         name: "管理者",
         tenantId: null,
         platformRole: "platform_admin",
@@ -222,7 +222,7 @@ describe("GET /api/platform/dashboard-stats", () => {
     it("DB問い合わせでエラーが発生した場合は500を返す", async () => {
       vi.mocked(verifyPlatformAdmin).mockResolvedValue({
         userId: "admin-1",
-        email: "admin@lope.jp",
+        email: "admin@l-ope.jp",
         name: "管理者",
         tenantId: null,
         platformRole: "platform_admin",

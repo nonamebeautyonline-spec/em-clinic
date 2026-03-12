@@ -8,7 +8,7 @@ import path from "path";
 // middleware.ts のテナント解決ロジック再現テスト
 // ===================================================================
 
-const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127"]);
+const RESERVED_SLUGS = new Set(["app", "admin", "www", "localhost", "127", "l-ope"]);
 const CACHE_TTL = 5 * 60 * 1000;
 
 // slugCache の動作を再現
@@ -55,24 +55,24 @@ describe("サブドメイン解決ロジック", () => {
     return slug;
   }
 
-  it("my-clinic.lope.jp → 'my-clinic'", () => {
-    expect(extractSlug("my-clinic.lope.jp")).toBe("my-clinic");
+  it("my-clinic.l-ope.jp → 'my-clinic'", () => {
+    expect(extractSlug("my-clinic.l-ope.jp")).toBe("my-clinic");
   });
 
-  it("noname-beauty.lope.jp → 'noname-beauty'", () => {
-    expect(extractSlug("noname-beauty.lope.jp")).toBe("noname-beauty");
+  it("noname-beauty.l-ope.jp → 'noname-beauty'", () => {
+    expect(extractSlug("noname-beauty.l-ope.jp")).toBe("noname-beauty");
   });
 
-  it("app.lope.jp → null（予約語）", () => {
-    expect(extractSlug("app.lope.jp")).toBeNull();
+  it("app.l-ope.jp → null（予約語）", () => {
+    expect(extractSlug("app.l-ope.jp")).toBeNull();
   });
 
-  it("admin.lope.jp → null（予約語）", () => {
-    expect(extractSlug("admin.lope.jp")).toBeNull();
+  it("admin.l-ope.jp → null（予約語）", () => {
+    expect(extractSlug("admin.l-ope.jp")).toBeNull();
   });
 
-  it("www.lope.jp → null（予約語）", () => {
-    expect(extractSlug("www.lope.jp")).toBeNull();
+  it("www.l-ope.jp → null（予約語）", () => {
+    expect(extractSlug("www.l-ope.jp")).toBeNull();
   });
 
   it("localhost:3000 → null（予約語）", () => {
@@ -83,10 +83,9 @@ describe("サブドメイン解決ロジック", () => {
     expect(extractSlug("127.0.0.1:3000")).toBeNull();
   });
 
-  it("lope.jp（サブドメインなし）→ null", () => {
-    // ドットの前が 'lope' → 予約語ではないが、ドメイン本体なので実質スラグとしては不適切
-    // middleware ではドットが含まれるかチェックしている
-    expect(extractSlug("lope.jp")).toBe("lope"); // middleware 実装では通る（is_active チェックで弾かれる）
+  it("l-ope.jp（サブドメインなし）→ null（予約語）", () => {
+    // ドットの前が 'l-ope' → RESERVED_SLUGS に含まれるため null
+    expect(extractSlug("l-ope.jp")).toBeNull();
   });
 
   it("ポート付きサブドメイン: my-clinic.localhost:3000 → 'my-clinic'", () => {

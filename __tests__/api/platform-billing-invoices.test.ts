@@ -89,7 +89,7 @@ vi.mock("@/lib/supabase", () => {
 vi.mock("@/lib/platform-auth", () => ({
   verifyPlatformAdmin: vi.fn().mockResolvedValue({
     userId: "platform-admin-1",
-    email: "admin@lope.jp",
+    email: "admin@l-ope.jp",
     name: "プラットフォーム管理者",
     tenantId: null,
     platformRole: "platform_admin",
@@ -143,7 +143,7 @@ describe("platform/billing/invoices API", () => {
     globalThis.__testTableChains = {};
     vi.mocked(verifyPlatformAdmin).mockResolvedValue({
       userId: "platform-admin-1",
-      email: "admin@lope.jp",
+      email: "admin@l-ope.jp",
       name: "プラットフォーム管理者",
       tenantId: null,
       platformRole: "platform_admin",

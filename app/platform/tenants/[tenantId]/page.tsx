@@ -585,7 +585,7 @@ export default function TenantDetailPage() {
                 </span>
               </div>
               <p className="mt-1 text-sm text-slate-500 font-mono">
-                {tenant.slug}.lope.jp
+                {tenant.slug}.l-ope.jp
               </p>
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function TenantDetailPage() {
               <h2 className="text-base font-semibold text-slate-900 mb-4">基本情報</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
                 <InfoRow label="テナント名" value={tenant.name} />
-                <InfoRow label="URL" value={`${tenant.slug}.lope.jp`} mono />
+                <InfoRow label="URL" value={`${tenant.slug}.l-ope.jp`} mono />
                 <InfoRow label="連絡先メール" value={tenant.contact_email || "-"} />
                 <InfoRow label="電話番号" value={tenant.contact_phone || "-"} />
                 <InfoRow label="住所" value={tenant.address || "-"} />
@@ -974,7 +974,7 @@ export default function TenantDetailPage() {
                       className="flex-1 px-3 py-2.5 border border-slate-300 rounded-l-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="px-3 py-2.5 bg-slate-100 border border-l-0 border-slate-300 rounded-r-lg text-sm text-slate-500 font-mono">
-                      .lope.jp
+                      .l-ope.jp
                     </span>
                   </div>
                 </div>

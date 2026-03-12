@@ -184,6 +184,7 @@ export async function middleware(req: NextRequest) {
 
   // === テナントID解決 ===
   let tenantId: string | null = null;
+  let jwtTenantId: string | null = null;
   let tenantRole: string | null = null;
 
   // 1. admin_session Cookie から tenantId / tenantRole を抽出
@@ -192,11 +193,53 @@ export async function middleware(req: NextRequest) {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
       const { payload } = await jwtVerify(sessionCookie, secret);
-      tenantId = (payload as { tenantId?: string | null }).tenantId || null;
+      jwtTenantId = (payload as { tenantId?: string | null }).tenantId || null;
       tenantRole = (payload as { tenantRole?: string | null }).tenantRole || null;
     } catch {
       // JWT 無効 — tenantId なしで続行
     }
+  }
+
+  // 2. サブドメインからテナントIDを解決（JWTより優先）
+  const subdomainSlug = bareHost.split(".")[0];
+  const isSubdomainTenant = subdomainSlug && !RESERVED_SLUGS.has(subdomainSlug) && bareHost.includes(".");
+
+  if (isSubdomainTenant) {
+    try {
+      tenantId = await resolveSlugToTenantId(subdomainSlug);
+    } catch (e) {
+      console.error("[middleware] subdomain resolve error:", e);
+    }
+
+    // サブドメインが存在するのにテナント解決失敗 → 404
+    // ただし Cron / webhook / 患者向けAPIはテナント不要で動作するためスキップ
+    if (!tenantId && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/line/webhook") && !pathname.startsWith("/api/health")) {
+      return NextResponse.json(
+        { ok: false, error: "テナントが見つかりません" },
+        { status: 404 },
+      );
+    }
+
+    // JWTのtenantIdとサブドメインのtenantIdが不一致 → 別テナントのセッション
+    // 管理画面アクセス時はCookieをクリアしてログインページにリダイレクト
+    if (tenantId && jwtTenantId && tenantId !== jwtTenantId) {
+      if (pathname.startsWith("/admin") || pathname === "/") {
+        const loginUrl = new URL("/admin/login", req.url);
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete("admin_session");
+        return response;
+      }
+      // APIアクセスの場合は401を返す
+      if (pathname.startsWith("/api/admin/")) {
+        return NextResponse.json(
+          { ok: false, error: "別テナントのセッションです。再ログインしてください。" },
+          { status: 401 },
+        );
+      }
+    }
+  } else {
+    // サブドメインなし（localhost等）→ JWTのtenantIdを使用
+    tenantId = jwtTenantId;
   }
 
   // === 細粒度権限チェック ===
@@ -207,28 +250,6 @@ export async function middleware(req: NextRequest) {
         { ok: false, error: "この操作に対する権限がありません" },
         { status: 403 },
       );
-    }
-  }
-
-  // 2. JWTにテナントIDがなければサブドメインから解決
-  if (!tenantId) {
-    const host = req.headers.get("host") || "";
-    const slug = host.split(".")[0].split(":")[0];
-    if (slug && !RESERVED_SLUGS.has(slug) && host.includes(".")) {
-      try {
-        tenantId = await resolveSlugToTenantId(slug);
-      } catch (e) {
-        console.error("[middleware] subdomain resolve error:", e);
-      }
-
-      // サブドメインが存在するのにテナント解決失敗 → 404
-      // ただし Cron / webhook / 患者向けAPIはテナント不要で動作するためスキップ
-      if (!tenantId && !pathname.startsWith("/api/cron/") && !pathname.startsWith("/api/line/webhook") && !pathname.startsWith("/api/health")) {
-        return NextResponse.json(
-          { ok: false, error: "テナントが見つかりません" },
-          { status: 404 },
-        );
-      }
     }
   }
 

@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // ステップの定義
-type WizardStep = 1 | 2 | 3 | 4; // 4 = 確認画面
+type WizardStep = 1 | 2 | 3 | 4 | 5; // 4 = 確認画面, 5 = 完了画面
 
 interface FormData {
   // Step 1: 基本情報
@@ -162,6 +162,11 @@ export default function CreateTenantPage() {
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [createdTenant, setCreatedTenant] = useState<{
+    slug: string;
+    adminUsername: string;
+    adminEmail: string;
+  } | null>(null);
   const fromApplicationId = searchParams.get("from_application");
 
   // 申し込みデータから自動入力
@@ -411,11 +416,13 @@ export default function CreateTenantPage() {
         }).catch(() => {});
       }
 
-      // 成功トースト表示
-      setShowToast(true);
-      setTimeout(() => {
-        router.push("/platform/tenants");
-      }, 1500);
+      // 成功 → 完了画面表示（ユーザーID・テナントURL表示）
+      setCreatedTenant({
+        slug: data.tenant.slug,
+        adminUsername: data.adminUsername,
+        adminEmail: formData.adminEmail,
+      });
+      setStep(5 as WizardStep);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -479,8 +486,8 @@ export default function CreateTenantPage() {
           )}
         </div>
 
-        {/* ステップインジケーター */}
-        <div className="mb-8">
+        {/* ステップインジケーター（完了画面では非表示） */}
+        {step <= 4 && <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             {steps.map((s, idx) => (
               <div key={s.num} className="flex items-center flex-1">
@@ -525,7 +532,7 @@ export default function CreateTenantPage() {
               style={{ width: `${((step - 1) / 3) * 100}%` }}
             />
           </div>
-        </div>
+        </div>}
 
         {/* APIエラー */}
         {apiError && (
@@ -587,12 +594,12 @@ export default function CreateTenantPage() {
                       }`}
                     />
                     <span className="px-4 py-2.5 bg-slate-100 border border-l-0 border-slate-300 rounded-r-lg text-sm text-slate-500 font-mono">
-                      .lope.jp
+                      .l-ope.jp
                     </span>
                   </div>
                   {formData.slug && !errors.slug && (
                     <p className="mt-1 text-xs text-slate-500">
-                      URL: https://{formData.slug}.lope.jp
+                      URL: https://{formData.slug}.l-ope.jp
                     </p>
                   )}
                   {errors.slug && (
@@ -1021,7 +1028,7 @@ export default function CreateTenantPage() {
                 </h3>
                 <div className="bg-slate-50 rounded-lg p-4 space-y-2">
                   <ConfirmRow label="クリニック名" value={formData.name} />
-                  <ConfirmRow label="URL" value={`${formData.slug}.lope.jp`} mono />
+                  <ConfirmRow label="URL" value={`${formData.slug}.l-ope.jp`} mono />
                   <ConfirmRow label="業種" value={{ clinic: "クリニック", salon: "サロン", retail: "小売", other: "その他" }[formData.industry] || formData.industry} />
                   {formData.contactEmail && (
                     <ConfirmRow label="連絡先メール" value={formData.contactEmail} />
@@ -1112,7 +1119,73 @@ export default function CreateTenantPage() {
             </div>
           )}
 
-          {/* ナビゲーションボタン */}
+          {/* Step 5: 完了画面 */}
+          {step === 5 && createdTenant && (
+            <div>
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">テナントを作成しました</h2>
+                <p className="mt-1 text-sm text-slate-500">以下の情報をクリニック様にお伝えください</p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+                <h3 className="text-sm font-semibold text-blue-800 mb-3">ログイン情報</h3>
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-blue-600 block mb-0.5">管理画面URL</span>
+                    <code className="text-sm font-mono font-bold text-blue-900 bg-white px-2 py-1 rounded border border-blue-200 inline-block select-all">
+                      https://{createdTenant.slug}.l-ope.jp/admin
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-xs text-blue-600 block mb-0.5">ユーザーID</span>
+                    <code className="text-sm font-mono font-bold text-blue-900 bg-white px-2 py-1 rounded border border-blue-200 inline-block select-all">
+                      {createdTenant.adminUsername}
+                    </code>
+                  </div>
+                  <div>
+                    <span className="text-xs text-blue-600 block mb-0.5">メールアドレス</span>
+                    <span className="text-sm text-blue-900">{createdTenant.adminEmail}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-blue-600 block mb-0.5">パスワード</span>
+                    <span className="text-sm text-blue-900">
+                      {fromApplicationId ? "申し込み時に設定済み" : "作成時に入力したパスワード"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">ユーザーIDは再表示できません</p>
+                    <p className="text-xs text-amber-700 mt-0.5">この画面を閉じる前に必ず控えてください</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-center mt-8">
+                <button
+                  type="button"
+                  onClick={() => router.push("/platform/tenants")}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  テナント一覧に戻る
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ナビゲーションボタン（完了画面以外） */}
+          {step <= 4 && (
           <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-100">
             {step > 1 ? (
               <button
@@ -1163,6 +1236,7 @@ export default function CreateTenantPage() {
               </button>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>

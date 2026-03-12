@@ -362,7 +362,7 @@ export default function UsageDashboardPage() {
                         {tenant.tenantName}
                       </h3>
                       <p className="text-xs text-slate-400 font-mono mt-0.5">
-                        {tenant.slug}.lope.jp
+                        {tenant.slug}.l-ope.jp
                       </p>
                     </div>
                     <span

@@ -169,7 +169,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     });
 
     // テナント招待メール送信（fire-and-forget）
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://lope.jp"}/setup?token=${newUser.id}`;
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://l-ope.jp"}/setup?token=${newUser.id}`;
     sendTenantInviteEmail(
       data.email,
       admin.name || "プラットフォーム管理者",

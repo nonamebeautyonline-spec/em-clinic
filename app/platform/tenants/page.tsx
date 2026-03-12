@@ -346,7 +346,7 @@ export default function TenantsListPage() {
                           {tenant.name}
                         </h3>
                         <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                          {tenant.slug}.lope.jp
+                          {tenant.slug}.l-ope.jp
                         </p>
                       </div>
                       <span

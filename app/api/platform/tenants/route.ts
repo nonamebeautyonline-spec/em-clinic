@@ -12,6 +12,7 @@ import { createTenantSchema } from "@/lib/validations/platform-tenant";
 import { generateUsername } from "@/lib/username";
 import { seedTenantData } from "@/lib/tenant-seed";
 import { getStripeClient } from "@/lib/stripe";
+import { sendTenantSetupEmail } from "@/lib/email";
 
 /**
  * GET: テナント一覧取得
@@ -353,6 +354,20 @@ export async function POST(req: NextRequest) {
     seedTenantData(tenantId).catch((err) => {
       console.error(
         `[platform/tenants] 初期データ投入エラー (tenant: ${tenantId}):`,
+        err,
+      );
+    });
+
+    // テナント開設メール送信（fire-and-forget）
+    sendTenantSetupEmail({
+      to: data.adminEmail,
+      adminName: data.adminName,
+      tenantName: data.name,
+      slug: data.slug,
+      username,
+    }).catch((err) => {
+      console.error(
+        `[platform/tenants] 開設メール送信エラー (tenant: ${tenantId}):`,
         err,
       );
     });

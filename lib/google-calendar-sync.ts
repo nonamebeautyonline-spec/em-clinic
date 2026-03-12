@@ -413,7 +413,7 @@ export async function setupWatchChannel(
   const { accessToken, calendarId } = auth;
 
   const channelId = `gcal-sync-${tenantId}-${Date.now()}`;
-  const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://app.lope.jp"}/api/admin/google-calendar/webhook`;
+  const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://app.l-ope.jp"}/api/admin/google-calendar/webhook`;
 
   // Google Calendar API: events.watch
   const encodedCalendarId = encodeURIComponent(calendarId);
