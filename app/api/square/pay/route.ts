@@ -148,11 +148,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 冪等性キー: 患者+商品+10分単位で決定的に生成（二重決済防止）
-    // Square API の idempotency_key は最大45文字
+    // 冪等性キー: 患者+商品+分単位で生成（Square側の最終防御）
+    // 主防御はRedisロック+DB5分チェック。冪等キーは短めにして正当な再試行を許容
     const idempotencyKey = crypto
       .createHash("sha256")
-      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 600000)}`)
+      .update(`${patientId}:${productCode}:${Math.floor(Date.now() / 60000)}`)
       .digest("base64url")
       .substring(0, 45);
 
