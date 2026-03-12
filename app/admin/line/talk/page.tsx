@@ -528,17 +528,21 @@ export default function TalkPage() {
 
   // 友達一覧を取得（サーバーサイド検索・ページネーション）
   const FRIENDS_CACHE_KEY = "friends-list-cache";
-  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean }) => {
+  const fetchFriends = useCallback(async (opts?: { id?: string; name?: string; offset?: number; append?: boolean; pinIds?: string[] }) => {
     const id = opts?.id ?? "";
     const name = opts?.name ?? "";
     const offset = opts?.offset ?? 0;
     const append = opts?.append ?? false;
+    const pinIds = opts?.pinIds;
     try {
       const params = new URLSearchParams();
       if (id) params.set("id", id);
       if (name) params.set("name", name);
       params.set("offset", String(offset));
       params.set("limit", String(PAGE_SIZE));
+      if (pinIds && pinIds.length > 0 && !id && !name && offset === 0) {
+        params.set("pin_ids", pinIds.join(","));
+      }
       const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.patients) {
@@ -651,9 +655,10 @@ export default function TalkPage() {
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
-      fetchFriends({ id: searchId, name: searchName });
+      fetchFriends({ id: searchId, name: searchName, pinIds: pinnedIds });
     }, 300);
     return () => { if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pinnedIdsの変更で再検索は不要
   }, [searchId, searchName, fetchFriends]);
 
   // メッセージ検索実行
@@ -1336,21 +1341,19 @@ export default function TalkPage() {
   const filteredFriends = friends;
 
   const unreadCount = useMemo(() => filteredFriends.filter(f => !!(f.last_text_at && (!readTimestamps[f.patient_id] || f.last_text_at > readTimestamps[f.patient_id]))).length, [filteredFriends, readTimestamps]);
-  // 孤立ピン自動マイグレーション（LINE_* → 正規patient_id）& クリーンアップ
+  // 孤立ピンマイグレーション（LINE_* → 正規patient_id のみ。削除はしない）
   const allPatientIds = useMemo(() => new Set(friends.map(f => f.patient_id)), [friends]);
   useEffect(() => {
     if (friends.length === 0 || pinnedIds.length === 0) return;
     const orphanLineIds = pinnedIds.filter(id => id.startsWith("LINE_") && !allPatientIds.has(id));
-    const orphanOther = pinnedIds.filter(id => !id.startsWith("LINE_") && !allPatientIds.has(id));
-    if (orphanLineIds.length === 0 && orphanOther.length === 0) return;
+    if (orphanLineIds.length === 0) return;
 
     // LINE_* IDの末尾8文字でline_idを逆引き → 正規patient_idに変換
-    const lineIdSuffixMap = new Map<string, string>(); // suffix → pinId
+    const lineIdSuffixMap = new Map<string, string>();
     for (const pin of orphanLineIds) {
-      const suffix = pin.replace("LINE_", "");
-      lineIdSuffixMap.set(suffix, pin);
+      lineIdSuffixMap.set(pin.replace("LINE_", ""), pin);
     }
-    const migrated = new Map<string, string>(); // oldPin → newPatientId
+    const migrated = new Map<string, string>();
     for (const f of friends) {
       if (!f.line_id) continue;
       for (const [suffix, pin] of lineIdSuffixMap) {
@@ -1361,18 +1364,16 @@ export default function TalkPage() {
         }
       }
     }
+    if (migrated.size === 0) return;
 
     let newPins = pinnedIds.map(id => migrated.get(id) || id);
-    // 依然マッチしないIDを除去
-    newPins = newPins.filter(id => allPatientIds.has(id));
-    // 重複除去
     newPins = [...new Set(newPins)];
 
     if (JSON.stringify(newPins) !== JSON.stringify(pinnedIds)) {
-      console.log(`[pins] マイグレーション: ${migrated.size}件変換, ${pinnedIds.length - newPins.length}件除去`);
+      console.log(`[pins] マイグレーション: ${migrated.size}件変換`);
       savePins(newPins);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- savePins/pinnedIds/friends/allPatientIdsを依存配列に含めると無限ループになるため、.lengthで制御
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friends.length, pinnedIds.length]);
 
   const isSearching = !!(searchId || searchName);
