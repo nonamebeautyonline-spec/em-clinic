@@ -187,9 +187,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const medicalInfo = hasIntakeAnswers ? {
     hasIntake: true,
-    kana: answers?.カナ || answers?.name_kana || answerer?.name_kana || "",
-    gender: answers?.性別 || answers?.sex || answerer?.sex || "",
-    birthday: answers?.生年月日 || answers?.birth || answerer?.birthday || "",
+    kana: answerer?.name_kana || answers?.カナ || answers?.name_kana || "",
+    gender: answerer?.sex || answers?.性別 || answers?.sex || "",
+    birthday: answerer?.birthday || answers?.生年月日 || answers?.birth || "",
     medicalHistory: answers?.current_disease_yesno === "yes" ? (answers?.current_disease_detail || "") : "特記事項なし",
     glp1History: answers?.glp_history || "使用歴なし",
     medicationHistory: answers?.med_yesno === "yes" ? (answers?.med_detail || "") : "なし",

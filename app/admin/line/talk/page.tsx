@@ -470,14 +470,15 @@ export default function TalkPage() {
         fetch("/api/admin/line/column-settings", { credentials: "include" }),
       ]);
       const pinsData = await pinsRes.json();
+      let resolvedPins: string[] = [];
       if (Array.isArray(pinsData.pins) && pinsData.pins.length > 0) {
-        setPinnedIds(pinsData.pins);
+        resolvedPins = pinsData.pins;
       } else {
         const local = localStorage.getItem("talk_pinned_patients");
         if (local) {
           const ids = JSON.parse(local) as string[];
           if (ids.length > 0) {
-            setPinnedIds(ids);
+            resolvedPins = ids;
             fetch("/api/admin/pins", {
               method: "PUT",
               credentials: "include",
@@ -487,12 +488,17 @@ export default function TalkPage() {
           }
         }
       }
+      if (resolvedPins.length > 0) {
+        setPinnedIds(resolvedPins);
+        // ピンID確定後に友達一覧を再取得（ピン留め患者を含める）
+        fetchFriends({ pinIds: resolvedPins });
+      }
       const readsData = await readsRes.json();
       if (readsData.reads) setReadTimestamps(readsData.reads);
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
-  }, []);
+  }, [fetchFriends]);
 
   useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
 
