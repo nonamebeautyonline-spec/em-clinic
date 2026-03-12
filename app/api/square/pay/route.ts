@@ -12,6 +12,7 @@ import { inlinePaySchema } from "@/lib/validations/square-pay";
 import { createReorderPaymentKarte } from "@/lib/reorder-karte";
 import { invalidateDashboardCache } from "@/lib/redis";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { acquireLock } from "@/lib/distributed-lock";
 import {
   ensureSquareCustomer,
   saveCardOnFile,
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
       return tooManyRequests("決済リクエストが多すぎます。しばらくしてから再度お試しください。");
     }
 
+    // 分散ロック: 同一患者・同一商品の同時決済を防止（120秒TTL）
+    const lock = await acquireLock(`square-pay:${patientId}:${productCode}`, 120);
+    if (!lock.acquired) {
+      return conflict("決済処理中です。しばらくお待ちください。");
+    }
+
+    try {
     // 二重決済防止: 直近5分以内の同一患者・同一商品の注文チェック
     const { data: recentOrder } = await withTenant(
       supabaseAdmin
@@ -257,6 +265,9 @@ export async function POST(req: NextRequest) {
       paymentId,
       receiptUrl: payment.receipt_url,
     });
+    } finally {
+      await lock.release();
+    }
   } catch (err) {
     console.error("[square/pay] error:", err);
     return serverError("決済処理中にエラーが発生しました。時間をおいて再度お試しください。");
