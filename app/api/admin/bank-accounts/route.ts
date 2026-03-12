@@ -6,7 +6,7 @@ import { getSetting, setSetting } from "@/lib/settings";
 import { resolveTenantId } from "@/lib/tenant";
 import { parseBody } from "@/lib/validations/helpers";
 import { bankAccountsUpdateSchema } from "@/lib/validations/admin-operations";
-import { DEFAULT_BANK_ACCOUNT, type BankAccount } from "@/lib/bank-account";
+import { type BankAccount } from "@/lib/bank-account";
 
 /**
  * GET: 口座一覧 + アクティブIDを返す
@@ -50,11 +50,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ accounts, activeId: migrated.id });
     }
 
-    // 旧形式もなければデフォルト口座を登録
-    const defaults = [DEFAULT_BANK_ACCOUNT];
-    await setSetting("payment", "bank_accounts", JSON.stringify(defaults), tenantId);
-    await setSetting("payment", "active_bank_account_id", DEFAULT_BANK_ACCOUNT.id, tenantId);
-    return NextResponse.json({ accounts: defaults, activeId: DEFAULT_BANK_ACCOUNT.id });
+    // 旧形式もなければ空（テナントごとに設定画面から登録）
+    return NextResponse.json({ accounts: [], activeId: "" });
   } catch (e) {
     console.error("[BankAccounts GET] Error:", e);
     return serverError(e instanceof Error ? e.message : "サーバーエラー");

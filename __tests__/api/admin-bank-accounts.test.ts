@@ -84,18 +84,13 @@ describe("GET /api/admin/bank-accounts", () => {
     expect(mockSettings.bank_accounts).toBeTruthy();
   });
 
-  it("データが何もない場合、デフォルト口座（住信SBI）を自動登録して返す", async () => {
+  it("データが何もない場合、空配列を返す（テナントごとに設定画面から登録）", async () => {
     const res = await GET(buildGetRequest());
     expect(res.status).toBe(200);
 
     const json = await res.json();
-    expect(json.accounts).toHaveLength(1);
-    expect(json.accounts[0].bank_name).toBe("住信SBIネット銀行");
-    expect(json.accounts[0].bank_account_number).toBe("2931048");
-    expect(json.activeId).toBe("acc_default_sbi");
-    // 保存されたことを確認
-    expect(mockSettings.bank_accounts).toBeTruthy();
-    expect(mockSettings.active_bank_account_id).toBe("acc_default_sbi");
+    expect(json.accounts).toHaveLength(0);
+    expect(json.activeId).toBe("");
   });
 });
 

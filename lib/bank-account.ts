@@ -17,12 +17,12 @@ export const BANK_ACCOUNT_FIELDS = [
   { key: "bank_account_holder" as const, label: "口座名義", placeholder: "例: カ）コブシ" },
 ] as const;
 
-/** デフォルト口座（住信SBI） */
+/** デフォルト口座（空 — テナントごとに設定画面から登録） */
 export const DEFAULT_BANK_ACCOUNT: BankAccount = {
-  id: "acc_default_sbi",
-  bank_name: "住信SBIネット銀行",
-  bank_branch: "法人第一支店（106）",
-  bank_account_type: "普通",
-  bank_account_number: "2931048",
-  bank_account_holder: "カ）コブシ",
+  id: "",
+  bank_name: "",
+  bank_branch: "",
+  bank_account_type: "",
+  bank_account_number: "",
+  bank_account_holder: "",
 };
