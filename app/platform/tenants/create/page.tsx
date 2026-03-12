@@ -138,7 +138,6 @@ const PLANS = [
 
 // 機能プラン定義（税込・apply.tsと同期）
 const FEATURE_PLANS_UI = [
-  { key: "ライト", price: 22000, initialCost: 0, desc: "LINE配信・自動化で集患・リピートを強化" },
   { key: "スタンダード", price: 71500, initialCost: 330000, desc: "予約・カルテ・問診まで診療業務をカバー", popular: true },
   { key: "プロ", price: 121000, initialCost: 550000, desc: "決済・配送・分析まで業務をまるごとDX化" },
 ];

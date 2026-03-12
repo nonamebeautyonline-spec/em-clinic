@@ -20,13 +20,14 @@ export const INDUSTRIES = [
   "その他",
 ] as const;
 
-/** 機能プラン（3段階・税込） — 上位プランは下位の全機能を含む */
+/** 機能プラン（2段階・税込） — 上位プランは下位の全機能を含む */
 export const FEATURE_PLANS = [
   {
-    key: "ライト",
-    price: 22000,
-    initialCost: 0,
-    desc: "LINE配信・自動化で集患・リピートを強化",
+    key: "スタンダード",
+    price: 71500,
+    initialCost: 330000,
+    popular: true,
+    desc: "予約・カルテ・問診まで診療業務をカバー",
     features: [
       "管理画面",
       "友だち管理（CRM）",
@@ -38,15 +39,6 @@ export const FEATURE_PLANS = [
       "アクション自動化",
       "自動リマインド",
       "クーポン配信",
-    ],
-  },
-  {
-    key: "スタンダード",
-    price: 71500,
-    initialCost: 330000,
-    popular: true,
-    desc: "予約・カルテ・問診まで診療業務をカバー",
-    features: [
       "予約カレンダー",
       "カルテ管理",
       "問診フォーム",

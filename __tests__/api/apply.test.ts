@@ -102,13 +102,12 @@ describe("applicationSchema バリデーション", () => {
 
 describe("見積もり計算（税込）", () => {
   it("機能プラン価格を正しく取得", () => {
-    expect(getFeaturePlanPrice("ライト")).toBe(22000);
     expect(getFeaturePlanPrice("スタンダード")).toBe(71500);
     expect(getFeaturePlanPrice("プロ")).toBe(121000);
+    expect(getFeaturePlanPrice("ライト")).toBe(0); // 削除済み
   });
 
   it("機能プラン初期費用を正しく取得", () => {
-    expect(getFeaturePlanInitialCost("ライト")).toBe(0);
     expect(getFeaturePlanInitialCost("スタンダード")).toBe(330000);
     expect(getFeaturePlanInitialCost("プロ")).toBe(550000);
   });
@@ -156,31 +155,22 @@ describe("見積もり計算（税込）", () => {
     expect(planInitial + setup).toBe(550000 + 27500 + 110000);
   });
 
-  it("ライトプランは初期費用0", () => {
+  it("存在しないプランは初期費用0", () => {
     expect(getFeaturePlanInitialCost("ライト")).toBe(0);
   });
 });
 
 describe("getIncludedFeatures", () => {
-  it("ライトはライトの機能のみ", () => {
-    const features = getIncludedFeatures("ライト");
-    expect(features).toContain("管理画面");
-    expect(features).toContain("友だち管理（CRM）");
-    expect(features).toContain("LINEトーク");
-    expect(features).toContain("セグメント配信");
-    expect(features).not.toContain("予約カレンダー");
-  });
-
-  it("スタンダードはライト+スタンダードの機能", () => {
+  it("スタンダードはスタンダードの全機能", () => {
     const features = getIncludedFeatures("スタンダード");
-    expect(features).toContain("管理画面"); // ライト
-    expect(features).toContain("予約カレンダー"); // スタンダード
+    expect(features).toContain("管理画面");
+    expect(features).toContain("予約カレンダー");
     expect(features).not.toContain("決済管理"); // プロ
   });
 
   it("プロは全プランの機能", () => {
     const features = getIncludedFeatures("プロ");
-    expect(features).toContain("管理画面"); // ライト
+    expect(features).toContain("管理画面"); // スタンダード
     expect(features).toContain("予約カレンダー"); // スタンダード
     expect(features).toContain("決済管理"); // プロ
     expect(features).toContain("NPS調査"); // プロ
@@ -208,8 +198,8 @@ describe("定数の整合性", () => {
     }
   });
 
-  it("機能プランは3つ", () => {
-    expect(FEATURE_PLANS).toHaveLength(3);
+  it("機能プランは2つ", () => {
+    expect(FEATURE_PLANS).toHaveLength(2);
   });
 
   it("全AIオプションにprice・descが設定されている", () => {

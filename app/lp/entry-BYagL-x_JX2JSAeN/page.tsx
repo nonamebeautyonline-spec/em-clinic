@@ -340,7 +340,7 @@ export default function ApplyPage() {
         {fieldErrors.feature_plan && (
           <p className="mb-2 text-xs text-red-500">{fieldErrors.feature_plan}</p>
         )}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {FEATURE_PLANS.map((p, idx) => {
             const selected = form.feature_plan === p.key;
             const allFeatures: string[] = [];
@@ -369,16 +369,9 @@ export default function ApplyPage() {
                   {fmt(p.price)}
                   <span className="text-xs font-normal text-slate-400">/月</span>
                 </p>
-                {p.initialCost > 0 && (
-                  <p className="mt-1 text-center text-xs text-slate-500">
-                    初期費用 {fmt(p.initialCost)}
-                  </p>
-                )}
-                {p.initialCost === 0 && (
-                  <p className="mt-1 text-center text-xs font-semibold text-green-600">
-                    初期費用無料
-                  </p>
-                )}
+                <p className="mt-1 text-center text-xs text-slate-500">
+                  初期費用 {fmt(p.initialCost)}
+                </p>
                 <ul className="mt-4 flex-1 space-y-2 text-[11px]">
                   {allFeatures.map((f) => {
                     const isNew = (FEATURE_PLANS[idx].features as readonly string[]).includes(f);
