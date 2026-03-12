@@ -358,6 +358,7 @@ export default function TalkPage() {
   const msgSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const pinnedIdsRef = useRef<string[]>([]);
+  const pinsReadyRef = useRef(false);
   // displayCount は廃止（サーバーページネーション）
   const listRef = useRef<HTMLDivElement>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -492,14 +493,15 @@ export default function TalkPage() {
       if (resolvedPins.length > 0) {
         setPinnedIds(resolvedPins);
         pinnedIdsRef.current = resolvedPins;
-        // ピンID確定後に友達一覧を再取得（ピン留め患者を含める）
-        fetchFriendsRef.current?.({ pinIds: resolvedPins });
       }
       const readsData = await readsRes.json();
       if (readsData.reads) setReadTimestamps(readsData.reads);
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
+    // ピン取得完了 → 初回フェッチをトリガー
+    pinsReadyRef.current = true;
+    fetchFriendsRef.current?.();
   }, []);
 
   useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
@@ -662,8 +664,9 @@ export default function TalkPage() {
     }, 150);
   }, [serverHasMore, friendsSearching, fetchFriends, searchId, searchName]);
 
-  // 検索変更時にデバウンスでサーバー検索
+  // 検索変更時にデバウンスでサーバー検索（初回はinitPinsAndReads完了後にトリガー）
   useEffect(() => {
+    if (!pinsReadyRef.current) return; // ピン未取得の間はスキップ（initPinsAndReadsから直接フェッチ）
     if (friendsSearchTimer.current) clearTimeout(friendsSearchTimer.current);
     setFriendsSearching(true);
     friendsSearchTimer.current = setTimeout(() => {
