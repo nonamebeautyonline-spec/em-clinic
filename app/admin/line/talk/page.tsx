@@ -491,14 +491,14 @@ export default function TalkPage() {
       if (resolvedPins.length > 0) {
         setPinnedIds(resolvedPins);
         // ピンID確定後に友達一覧を再取得（ピン留め患者を含める）
-        fetchFriends({ pinIds: resolvedPins });
+        fetchFriendsRef.current?.({ pinIds: resolvedPins });
       }
       const readsData = await readsRes.json();
       if (readsData.reads) setReadTimestamps(readsData.reads);
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
-  }, [fetchFriends]);
+  }, []);
 
   useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
 
@@ -571,6 +571,8 @@ export default function TalkPage() {
     setFriendsLoading(false);
     setFriendsSearching(false);
   }, []);
+  const fetchFriendsRef = useRef(fetchFriends);
+  fetchFriendsRef.current = fetchFriends;
 
   const loadTagsAndFields = useCallback(async () => {
     try {
