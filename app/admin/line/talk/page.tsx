@@ -17,6 +17,7 @@ interface Friend {
   last_message?: string | null;
   last_sent_at?: string | null;
   last_text_at?: string | null;
+  last_activity_at?: string | null;
 }
 
 interface MessageLog {
@@ -312,8 +313,9 @@ function formatDateUtil(s: string) {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 function sortByLatestUtil(a: Friend, b: Friend) {
-  const ta = a.last_text_at ? new Date(a.last_text_at).getTime() : (a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0);
-  const tb = b.last_text_at ? new Date(b.last_text_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
+  // 最新やりとり時刻でソート（incoming/outgoing両方を考慮）
+  const ta = a.last_activity_at ? new Date(a.last_activity_at).getTime() : (a.last_sent_at ? new Date(a.last_sent_at).getTime() : 0);
+  const tb = b.last_activity_at ? new Date(b.last_activity_at).getTime() : (b.last_sent_at ? new Date(b.last_sent_at).getTime() : 0);
   return tb - ta;
 }
 function getMarkColorUtil(markOptions: MarkOption[], mark: string) {
@@ -2711,8 +2713,8 @@ const FriendItem = memo(function FriendItem({ f, isPinned, isSelected, onSelect,
           </p>
         </div>
         <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pt-0.5">
-          {(f.last_text_at || f.last_sent_at) && (
-            <span className="text-[12px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_text_at || f.last_sent_at!)}</span>
+          {(f.last_activity_at || f.last_text_at || f.last_sent_at) && (
+            <span className="text-[12px] text-gray-400 whitespace-nowrap">{formatDateShort(f.last_activity_at || f.last_text_at || f.last_sent_at!)}</span>
           )}
           {showMark && (
             <span className="text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-sm text-white whitespace-nowrap" style={{ backgroundColor: markColor }}>

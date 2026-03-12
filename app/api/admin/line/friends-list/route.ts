@@ -45,6 +45,11 @@ export async function GET(req: NextRequest) {
       last_message: row.last_msg_content || tplName || row.last_outgoing_content || eventDisplay || null,
       last_sent_at: row.last_incoming_at || null,
       last_text_at: row.last_msg_at || null,
+      // 全やりとりの最新時刻（ソート用: incoming/outgoing両方を考慮）
+      last_activity_at: [row.last_msg_at, row.last_incoming_at, row.last_outgoing_at]
+        .filter(Boolean)
+        .sort()
+        .pop() || null,
     };
   });
   const tEnd = Date.now();
