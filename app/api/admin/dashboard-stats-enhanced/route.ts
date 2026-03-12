@@ -293,19 +293,23 @@ export async function GET(request: NextRequest) {
       paidForConsultedResult,
       reservedForIntakeResult,
     ] = await Promise.all([
-      // 配送: 過去に注文がある患者を特定
+      // 配送: 過去に注文がある患者を特定（shipping_date基準で期間前の注文を検索）
       shippingPatientIds.length > 0
         ? withTenant(
-            supabaseAdmin.from("orders").select("patient_id")
-              .in("patient_id", shippingPatientIds).lt("created_at", startISO).limit(100000),
+            supabaseAdmin.from("orders").select("patient_id, shipping_date")
+              .in("patient_id", shippingPatientIds)
+              .not("shipping_date", "is", null)
+              .lt("shipping_date", shippingStartDate).limit(100000),
             tenantId
           )
         : Promise.resolve({ data: [] }),
-      // 決済: 過去に注文がある患者を特定（リピート率計算用）
+      // 決済: 過去に注文がある患者を特定（paid_at基準で期間前の決済を検索）
       paidPatientIds.length > 0
         ? withTenant(
             supabaseAdmin.from("orders").select("patient_id")
-              .in("patient_id", paidPatientIds).lt("created_at", startISO).limit(100000),
+              .in("patient_id", paidPatientIds)
+              .not("paid_at", "is", null)
+              .lt("paid_at", startISO).limit(100000),
             tenantId
           )
         : Promise.resolve({ data: [] }),
@@ -330,12 +334,13 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ data: [] }),
     ]);
 
-    // 配送: 新規/再処方の判定
+    // 配送: 新規/再処方の判定（patient_idがnullの注文は除外）
     let shippingFirst = 0;
     let shippingReorder = 0;
     if (shippingOrders.length > 0) {
       const prevShippingSet = new Set((prevShippingResult.data || []).map((o: PatientIdRow) => o.patient_id));
       for (const order of shippingOrders) {
+        if (!order.patient_id) continue;
         if (prevShippingSet.has(order.patient_id)) shippingReorder++;
         else shippingFirst++;
       }
@@ -419,7 +424,8 @@ export async function GET(request: NextRequest) {
       if (!dateStr) continue;
       const day = ensureDay(dateStr);
       day.square += order.amount || 0;
-      if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+      if (!order.patient_id) continue;
+      if (previousPatientSet.has(order.patient_id)) {
         day.reorder++;
         day.reorders++;
       } else {
@@ -434,7 +440,8 @@ export async function GET(request: NextRequest) {
       if (!dateStr) continue;
       const day = ensureDay(dateStr);
       day.bankTransfer += order.amount || 0;
-      if (order.patient_id && previousPatientSet.has(order.patient_id)) {
+      if (!order.patient_id) continue;
+      if (previousPatientSet.has(order.patient_id)) {
         day.reorder++;
         day.reorders++;
       } else {
