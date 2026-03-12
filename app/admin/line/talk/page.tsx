@@ -2598,6 +2598,17 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
             </div>
           </div>
         </div>
+      ) : m.flex_json ? (
+        /* Flex通知: LINE実際の表示に合わせてカード型で中央寄せ */
+        <div className="flex flex-col items-end gap-1">
+          <div className="max-w-[75%]">
+            {renderFlexBubble(m.flex_json as unknown as FlexBubble)}
+          </div>
+          <div className="flex items-center gap-1.5 mr-1">
+            {m.status === "failed" && <span className="text-[9px] text-red-400 font-medium">送信失敗</span>}
+            <span className="text-[9px] text-gray-400">{formatTimeUtil(m.sent_at)}</span>
+          </div>
+        </div>
       ) : (
         <div className="flex justify-end items-end gap-1.5">
           <div className="flex flex-col items-end gap-0.5 flex-shrink-0 pb-0.5">
@@ -2609,7 +2620,6 @@ const MessageItem = memo(function MessageItem({ m, showDate, isSystem, isIncomin
               <div className="text-[9px] text-purple-500 mb-0.5 text-right mr-1 font-medium">AI返信</div>
             )}
             {(() => {
-              if (m.flex_json) return renderFlexBubble(m.flex_json as unknown as FlexBubble);
               const mt = m.message_type || "";
               const isReservation = mt.startsWith("reservation_");
               const isShipping = mt === "shipping_notify";
