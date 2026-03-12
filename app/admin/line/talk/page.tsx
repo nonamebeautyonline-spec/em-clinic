@@ -499,9 +499,25 @@ export default function TalkPage() {
       const colData = await colRes.json();
       if (colData.sections) setVisibleSections(colData.sections);
     } catch { /* ignore */ }
-    // ピン取得完了 → 初回フェッチをトリガー
+    // ピン取得完了 → ピン付きで友達一覧を直接取得（ref経由ではなく直接fetch）
+    try {
+      const params = new URLSearchParams();
+      params.set("offset", "0");
+      params.set("limit", String(PAGE_SIZE));
+      if (pinnedIdsRef.current.length > 0) {
+        params.set("pin_ids", pinnedIdsRef.current.join(","));
+      }
+      const friendsRes = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
+      const friendsData = await friendsRes.json();
+      if (friendsData.patients) {
+        setFriends(friendsData.patients);
+        friendsOffsetRef.current = friendsData.patients.length;
+        setServerHasMore(!!friendsData.hasMore);
+        try { sessionStorage.setItem("friends-list-cache", JSON.stringify(friendsData.patients)); } catch { /* quota */ }
+      }
+    } catch { /* ignore */ }
+    setFriendsLoading(false);
     pinsReadyRef.current = true;
-    fetchFriendsRef.current?.();
   }, []);
 
   useEffect(() => { initPinsAndReads(); }, [initPinsAndReads]);
