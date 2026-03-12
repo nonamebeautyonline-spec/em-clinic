@@ -20,6 +20,10 @@ export interface BusinessRules {
   paymentThankMessageCard: string;
   /** 決済完了メッセージ文言（銀行振込） */
   paymentThankMessageBank: string;
+  /** 決済完了Flex: ヘッダー（クレカ） */
+  paymentThankHeaderCard: string;
+  /** 決済完了Flex: ヘッダー（銀行振込） */
+  paymentThankHeaderBank: string;
   /** 決済完了Flex: 商品名表示 */
   showProductName: boolean;
   /** 決済完了Flex: 金額表示 */
@@ -28,6 +32,16 @@ export interface BusinessRules {
   showPaymentMethod: boolean;
   /** 決済完了Flex: 配送先情報表示 */
   showShippingInfo: boolean;
+  /** 決済完了Flex: 配送名義表示 */
+  showShippingName: boolean;
+  /** 決済完了Flex: 郵便番号表示 */
+  showShippingPostal: boolean;
+  /** 決済完了Flex: 住所表示 */
+  showShippingAddress: boolean;
+  /** 決済完了Flex: 電話番号表示 */
+  showShippingPhone: boolean;
+  /** 決済完了Flex: メールアドレス表示 */
+  showShippingEmail: boolean;
   /** 同量再処方の自動承認 */
   autoApproveSameDose: boolean;
   /** 不通時のLINE自動通知ON/OFF */
@@ -47,10 +61,17 @@ const DEFAULTS: BusinessRules = {
   approveMessage: "",
   paymentThankMessageCard: "",
   paymentThankMessageBank: "",
+  paymentThankHeaderCard: "決済完了",
+  paymentThankHeaderBank: "情報入力完了",
   showProductName: true,
   showAmount: true,
   showPaymentMethod: true,
   showShippingInfo: true,
+  showShippingName: true,
+  showShippingPostal: true,
+  showShippingAddress: true,
+  showShippingPhone: true,
+  showShippingEmail: true,
   autoApproveSameDose: false,
   notifyNoAnswer: false,
   noAnswerMessage: "",
@@ -82,10 +103,17 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
     approveMessage: get("approve_message") ?? DEFAULTS.approveMessage,
     paymentThankMessageCard: get("payment_thank_message_card") ?? get("payment_thank_message") ?? DEFAULTS.paymentThankMessageCard,
     paymentThankMessageBank: get("payment_thank_message_bank") ?? DEFAULTS.paymentThankMessageBank,
+    paymentThankHeaderCard: get("payment_thank_header_card") ?? DEFAULTS.paymentThankHeaderCard,
+    paymentThankHeaderBank: get("payment_thank_header_bank") ?? DEFAULTS.paymentThankHeaderBank,
     showProductName: parseBool(get("show_product_name"), DEFAULTS.showProductName),
     showAmount: parseBool(get("show_amount"), DEFAULTS.showAmount),
     showPaymentMethod: parseBool(get("show_payment_method"), DEFAULTS.showPaymentMethod),
     showShippingInfo: parseBool(get("show_shipping_info"), DEFAULTS.showShippingInfo),
+    showShippingName: parseBool(get("show_shipping_name"), DEFAULTS.showShippingName),
+    showShippingPostal: parseBool(get("show_shipping_postal"), DEFAULTS.showShippingPostal),
+    showShippingAddress: parseBool(get("show_shipping_address"), DEFAULTS.showShippingAddress),
+    showShippingPhone: parseBool(get("show_shipping_phone"), DEFAULTS.showShippingPhone),
+    showShippingEmail: parseBool(get("show_shipping_email"), DEFAULTS.showShippingEmail),
     autoApproveSameDose: parseBool(get("auto_approve_same_dose"), DEFAULTS.autoApproveSameDose),
     notifyNoAnswer: parseBool(get("notify_no_answer"), DEFAULTS.notifyNoAnswer),
     noAnswerMessage: get("no_answer_message") ?? DEFAULTS.noAnswerMessage,

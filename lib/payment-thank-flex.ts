@@ -23,20 +23,22 @@ export async function buildPaymentThankFlex(params: {
   try { cfg = await getFlexConfig(tenantId); } catch {}
   const colors = getColorsForTab(cfg, "payment");
 
-  const headerText = paymentMethod === "bank_transfer" ? "お振込確認完了" : "決済完了";
+  const headerText = paymentMethod === "bank_transfer"
+    ? (rules.paymentThankHeaderBank || "情報入力完了")
+    : (rules.paymentThankHeaderCard || "決済完了");
 
-  // 配送情報の行
+  // 配送情報の行（各項目の表示設定に従う）
   const shippingRows: Record<string, unknown>[] = [];
   if (shipping) {
-    const items: [string, string | undefined][] = [
-      ["配送名義", shipping.shippingName],
-      ["郵便番号", shipping.postalCode],
-      ["住所", shipping.address],
-      ["電話番号", shipping.phone],
-      ["メールアドレス", shipping.email],
+    const items: [string, string | undefined, boolean][] = [
+      ["配送名義", shipping.shippingName, rules.showShippingName],
+      ["郵便番号", shipping.postalCode, rules.showShippingPostal],
+      ["住所", shipping.address, rules.showShippingAddress],
+      ["電話番号", shipping.phone, rules.showShippingPhone],
+      ["メールアドレス", shipping.email, rules.showShippingEmail],
     ];
-    for (const [label, value] of items) {
-      if (!value) continue;
+    for (const [label, value, show] of items) {
+      if (!value || !show) continue;
       shippingRows.push({
         type: "box",
         layout: "horizontal",

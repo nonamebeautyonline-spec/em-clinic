@@ -77,6 +77,13 @@ interface EventNotifyConfig {
   showAmount: boolean;
   showPaymentMethod: boolean;
   showShippingInfo: boolean;
+  showShippingName: boolean;
+  showShippingPostal: boolean;
+  showShippingAddress: boolean;
+  showShippingPhone: boolean;
+  showShippingEmail: boolean;
+  paymentThankHeaderCard: string;
+  paymentThankHeaderBank: string;
   notifyNoAnswer: boolean;
   noAnswerMessage: string;
 }
@@ -127,6 +134,13 @@ const DEFAULT_EVENT_CONFIG: EventNotifyConfig = {
   showAmount: true,
   showPaymentMethod: true,
   showShippingInfo: true,
+  showShippingName: true,
+  showShippingPostal: true,
+  showShippingAddress: true,
+  showShippingPhone: true,
+  showShippingEmail: true,
+  paymentThankHeaderCard: "決済完了",
+  paymentThankHeaderBank: "情報入力完了",
   notifyNoAnswer: false,
   noAnswerMessage: "",
 };
@@ -213,6 +227,13 @@ export default function FlexSection({ onToast }: Props) {
               showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
               showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
               showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
+              showShippingName: s.show_shipping_name !== undefined ? s.show_shipping_name !== "false" : prev.showShippingName,
+              showShippingPostal: s.show_shipping_postal !== undefined ? s.show_shipping_postal !== "false" : prev.showShippingPostal,
+              showShippingAddress: s.show_shipping_address !== undefined ? s.show_shipping_address !== "false" : prev.showShippingAddress,
+              showShippingPhone: s.show_shipping_phone !== undefined ? s.show_shipping_phone !== "false" : prev.showShippingPhone,
+              showShippingEmail: s.show_shipping_email !== undefined ? s.show_shipping_email !== "false" : prev.showShippingEmail,
+              paymentThankHeaderCard: s.payment_thank_header_card || prev.paymentThankHeaderCard,
+              paymentThankHeaderBank: s.payment_thank_header_bank || prev.paymentThankHeaderBank,
               notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
               noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
             }));
@@ -250,6 +271,13 @@ export default function FlexSection({ onToast }: Props) {
         { key: "show_amount", value: String(eventConfig.showAmount) },
         { key: "show_payment_method", value: String(eventConfig.showPaymentMethod) },
         { key: "show_shipping_info", value: String(eventConfig.showShippingInfo) },
+        { key: "show_shipping_name", value: String(eventConfig.showShippingName) },
+        { key: "show_shipping_postal", value: String(eventConfig.showShippingPostal) },
+        { key: "show_shipping_address", value: String(eventConfig.showShippingAddress) },
+        { key: "show_shipping_phone", value: String(eventConfig.showShippingPhone) },
+        { key: "show_shipping_email", value: String(eventConfig.showShippingEmail) },
+        { key: "payment_thank_header_card", value: eventConfig.paymentThankHeaderCard },
+        { key: "payment_thank_header_bank", value: eventConfig.paymentThankHeaderBank },
         { key: "notify_no_answer", value: String(eventConfig.notifyNoAnswer) },
         { key: "no_answer_message", value: eventConfig.noAnswerMessage },
       ];
@@ -446,6 +474,32 @@ export default function FlexSection({ onToast }: Props) {
                     </div>
                   </div>
 
+                  {/* ヘッダー設定 */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100">
+                      <h3 className="text-sm font-bold text-gray-800">ヘッダー設定</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">決済方法ごとのヘッダーテキスト</p>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">クレカ決済時</label>
+                        <input type="text" value={eventConfig.paymentThankHeaderCard}
+                          onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankHeaderCard: e.target.value }))}
+                          placeholder="決済完了"
+                          disabled={!editing}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">銀行振込時</label>
+                        <input type="text" value={eventConfig.paymentThankHeaderBank}
+                          onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankHeaderBank: e.target.value }))}
+                          placeholder="情報入力完了"
+                          disabled={!editing}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* 表示項目 */}
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-100">
@@ -453,17 +507,38 @@ export default function FlexSection({ onToast }: Props) {
                       <p className="text-xs text-gray-500 mt-0.5">Flexメッセージに表示する情報を選択</p>
                     </div>
                     <div className="p-5 space-y-3">
+                      <p className="text-xs font-medium text-gray-500">注文情報</p>
                       {([
                         { key: "showProductName" as const, label: "商品名" },
                         { key: "showAmount" as const, label: "金額" },
                         { key: "showPaymentMethod" as const, label: "決済方法" },
-                        { key: "showShippingInfo" as const, label: "配送先情報" },
                       ]).map(({ key, label }) => (
                         <div key={key} className="flex items-center justify-between">
                           <span className="text-sm text-gray-700">{label}</span>
                           <Toggle checked={eventConfig[key]} onChange={(v) => setEventConfig(prev => ({ ...prev, [key]: v }))} disabled={!editing} />
                         </div>
                       ))}
+                      <hr className="border-gray-100" />
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-500">配送先情報</p>
+                        <Toggle checked={eventConfig.showShippingInfo} onChange={(v) => setEventConfig(prev => ({ ...prev, showShippingInfo: v }))} disabled={!editing} />
+                      </div>
+                      {eventConfig.showShippingInfo && (
+                        <div className="pl-3 space-y-3 border-l-2 border-gray-100">
+                          {([
+                            { key: "showShippingName" as const, label: "配送名義" },
+                            { key: "showShippingPostal" as const, label: "郵便番号" },
+                            { key: "showShippingAddress" as const, label: "住所" },
+                            { key: "showShippingPhone" as const, label: "電話番号" },
+                            { key: "showShippingEmail" as const, label: "メールアドレス" },
+                          ]).map(({ key, label }) => (
+                            <div key={key} className="flex items-center justify-between">
+                              <span className="text-sm text-gray-700">{label}</span>
+                              <Toggle checked={eventConfig[key]} onChange={(v) => setEventConfig(prev => ({ ...prev, [key]: v }))} disabled={!editing} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -844,7 +919,7 @@ function PaymentThankPreview({ config, eventConfig }: { config: FlexMessageConfi
   return (
     <div className="mx-auto w-[320px] rounded-2xl overflow-hidden shadow-lg border border-gray-200">
       <div className="px-4 py-3" style={{ backgroundColor: colors.headerBg }}>
-        <p className="text-base font-bold" style={{ color: colors.headerText }}>決済完了</p>
+        <p className="text-base font-bold" style={{ color: colors.headerText }}>{eventConfig.paymentThankHeaderCard || "決済完了"}</p>
       </div>
       <div className="bg-white px-4 py-4 space-y-3">
         {/* 注文情報 */}
@@ -859,15 +934,15 @@ function PaymentThankPreview({ config, eventConfig }: { config: FlexMessageConfi
         {(eventConfig.showProductName || eventConfig.showAmount || eventConfig.showPaymentMethod) && <hr className="border-gray-200" />}
 
         {/* 配送先情報 */}
-        {eventConfig.showShippingInfo && (
+        {eventConfig.showShippingInfo && (eventConfig.showShippingName || eventConfig.showShippingPostal || eventConfig.showShippingAddress || eventConfig.showShippingPhone || eventConfig.showShippingEmail) && (
           <>
             <div className="space-y-1.5">
               <p className="text-xs font-bold" style={{ color: colors.accentColor }}>配送先情報</p>
-              <InfoRow label="配送名義" value="山田 太郎" />
-              <InfoRow label="郵便番号" value="1000001" />
-              <InfoRow label="住所" value="東京都千代田区千代田1-1" />
-              <InfoRow label="電話番号" value="09012345678" />
-              <InfoRow label="メールアドレス" value="example@mail.com" />
+              {eventConfig.showShippingName && <InfoRow label="配送名義" value="山田 太郎" />}
+              {eventConfig.showShippingPostal && <InfoRow label="郵便番号" value="1000001" />}
+              {eventConfig.showShippingAddress && <InfoRow label="住所" value="東京都千代田区千代田1-1" />}
+              {eventConfig.showShippingPhone && <InfoRow label="電話番号" value="09012345678" />}
+              {eventConfig.showShippingEmail && <InfoRow label="メールアドレス" value="example@mail.com" />}
               <p className="text-[9px]" style={{ color: "#999999" }}>配送名義・郵便番号・住所に変更がある場合はマイページから変更が可能です。</p>
             </div>
             <hr className="border-gray-200" />
