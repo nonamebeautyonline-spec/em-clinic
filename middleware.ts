@@ -221,12 +221,28 @@ export async function middleware(req: NextRequest) {
     }
 
     // JWTのtenantIdとサブドメインのtenantIdが不一致 → 別テナントのセッション
-    // 管理画面アクセス時はCookieをクリアしてログインページにリダイレクト
+    // ログインページ自体は除外（リダイレクトループ防止）、Cookieをクリアして通過させる
     if (tenantId && jwtTenantId && tenantId !== jwtTenantId) {
+      if (pathname === "/admin/login" || pathname === "/admin/login/") {
+        // ログインページはCookieクリアして通過（サブドメインのtenantIdをヘッダーに設定）
+        const headers = new Headers(req.headers);
+        headers.set("x-tenant-id", tenantId);
+        const response = NextResponse.next({ request: { headers } });
+        response.cookies.set("admin_session", "", {
+          maxAge: 0,
+          path: "/",
+          domain: ".l-ope.jp",
+        });
+        return response;
+      }
       if (pathname.startsWith("/admin") || pathname === "/") {
         const loginUrl = new URL("/admin/login", req.url);
         const response = NextResponse.redirect(loginUrl);
-        response.cookies.delete("admin_session");
+        response.cookies.set("admin_session", "", {
+          maxAge: 0,
+          path: "/",
+          domain: ".l-ope.jp",
+        });
         return response;
       }
       // APIアクセスの場合は401を返す
