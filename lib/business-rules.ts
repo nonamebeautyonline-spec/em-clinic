@@ -20,6 +20,14 @@ export interface BusinessRules {
   paymentThankMessageCard: string;
   /** 決済完了メッセージ文言（銀行振込） */
   paymentThankMessageBank: string;
+  /** 決済完了Flex: 商品名表示 */
+  showProductName: boolean;
+  /** 決済完了Flex: 金額表示 */
+  showAmount: boolean;
+  /** 決済完了Flex: 決済方法表示 */
+  showPaymentMethod: boolean;
+  /** 決済完了Flex: 配送先情報表示 */
+  showShippingInfo: boolean;
   /** 同量再処方の自動承認 */
   autoApproveSameDose: boolean;
   /** 不通時のLINE自動通知ON/OFF */
@@ -39,6 +47,10 @@ const DEFAULTS: BusinessRules = {
   approveMessage: "",
   paymentThankMessageCard: "",
   paymentThankMessageBank: "",
+  showProductName: true,
+  showAmount: true,
+  showPaymentMethod: true,
+  showShippingInfo: true,
   autoApproveSameDose: false,
   notifyNoAnswer: false,
   noAnswerMessage: "",
@@ -70,6 +82,10 @@ export async function getBusinessRules(tenantId?: string): Promise<BusinessRules
     approveMessage: get("approve_message") ?? DEFAULTS.approveMessage,
     paymentThankMessageCard: get("payment_thank_message_card") ?? get("payment_thank_message") ?? DEFAULTS.paymentThankMessageCard,
     paymentThankMessageBank: get("payment_thank_message_bank") ?? DEFAULTS.paymentThankMessageBank,
+    showProductName: parseBool(get("show_product_name"), DEFAULTS.showProductName),
+    showAmount: parseBool(get("show_amount"), DEFAULTS.showAmount),
+    showPaymentMethod: parseBool(get("show_payment_method"), DEFAULTS.showPaymentMethod),
+    showShippingInfo: parseBool(get("show_shipping_info"), DEFAULTS.showShippingInfo),
     autoApproveSameDose: parseBool(get("auto_approve_same_dose"), DEFAULTS.autoApproveSameDose),
     notifyNoAnswer: parseBool(get("notify_no_answer"), DEFAULTS.notifyNoAnswer),
     noAnswerMessage: get("no_answer_message") ?? DEFAULTS.noAnswerMessage,

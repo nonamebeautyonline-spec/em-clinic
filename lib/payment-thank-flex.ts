@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { getFlexConfig } from "@/lib/flex-message/config";
 import { DEFAULT_FLEX_CONFIG, getColorsForTab } from "@/lib/flex-message/types";
 import { tenantPayload } from "@/lib/tenant";
-import type { ShippingInfo } from "@/lib/business-rules";
+import { type ShippingInfo, getBusinessRules } from "@/lib/business-rules";
 
 /** 決済完了サンクス Flex（クレカ / 銀行振込 共通） */
 export async function buildPaymentThankFlex(params: {
@@ -18,6 +18,7 @@ export async function buildPaymentThankFlex(params: {
   tenantId?: string;
 }) {
   const { message, shipping, paymentMethod, productName, amount, tenantId } = params;
+  const rules = await getBusinessRules(tenantId);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
   const colors = getColorsForTab(cfg, "payment");
@@ -52,34 +53,36 @@ export async function buildPaymentThankFlex(params: {
 
   const bodyContents: Record<string, unknown>[] = [];
 
-  // 注文情報ブロック
+  // 注文情報ブロック（表示設定に従う）
   const orderRows: [string, string][] = [];
-  if (productName) orderRows.push(["商品", productName]);
-  if (amount != null && amount > 0) orderRows.push(["金額", `¥${amount.toLocaleString()}`]);
-  orderRows.push(["決済方法", paymentMethodLabel]);
+  if (rules.showProductName && productName) orderRows.push(["商品", productName]);
+  if (rules.showAmount && amount != null && amount > 0) orderRows.push(["金額", `¥${amount.toLocaleString()}`]);
+  if (rules.showPaymentMethod) orderRows.push(["決済方法", paymentMethodLabel]);
 
-  bodyContents.push({
-    type: "text",
-    text: "ご注文内容",
-    size: "sm",
-    weight: "bold",
-    color: colors.accentColor,
-  });
-  for (const [label, value] of orderRows) {
+  if (orderRows.length > 0) {
     bodyContents.push({
-      type: "box",
-      layout: "horizontal",
-      contents: [
-        { type: "text", text: label, size: "xs", color: "#999999", flex: 0, wrap: false },
-        { type: "text", text: value, size: "xs", color: colors.bodyText, flex: 1, wrap: true, align: "end" },
-      ],
-      margin: "sm",
+      type: "text",
+      text: "ご注文内容",
+      size: "sm",
+      weight: "bold",
+      color: colors.accentColor,
     });
+    for (const [label, value] of orderRows) {
+      bodyContents.push({
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: label, size: "xs", color: "#999999", flex: 0, wrap: false },
+          { type: "text", text: value, size: "xs", color: colors.bodyText, flex: 1, wrap: true, align: "end" },
+        ],
+        margin: "sm",
+      });
+    }
+    bodyContents.push({ type: "separator", margin: "lg" });
   }
-  bodyContents.push({ type: "separator", margin: "lg" });
 
-  // 配送先情報ブロック
-  if (shippingRows.length > 0) {
+  // 配送先情報ブロック（表示設定に従う）
+  if (rules.showShippingInfo && shippingRows.length > 0) {
     bodyContents.push({
       type: "text",
       text: "配送先情報",
@@ -106,7 +109,7 @@ export async function buildPaymentThankFlex(params: {
     size: "sm",
     color: colors.bodyText,
     wrap: true,
-    margin: shippingRows.length > 0 ? "lg" : "none",
+    margin: bodyContents.length > 1 ? "lg" : "none",
   });
 
   return {

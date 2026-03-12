@@ -73,6 +73,10 @@ interface EventNotifyConfig {
   approveMessage: string;
   paymentThankMessageCard: string;
   paymentThankMessageBank: string;
+  showProductName: boolean;
+  showAmount: boolean;
+  showPaymentMethod: boolean;
+  showShippingInfo: boolean;
   notifyNoAnswer: boolean;
   noAnswerMessage: string;
 }
@@ -119,6 +123,10 @@ const DEFAULT_EVENT_CONFIG: EventNotifyConfig = {
   approveMessage: "",
   paymentThankMessageCard: "",
   paymentThankMessageBank: "",
+  showProductName: true,
+  showAmount: true,
+  showPaymentMethod: true,
+  showShippingInfo: true,
   notifyNoAnswer: false,
   noAnswerMessage: "",
 };
@@ -201,6 +209,10 @@ export default function FlexSection({ onToast }: Props) {
               approveMessage: s.approve_message || prev.approveMessage,
               paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
               paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
+              showProductName: s.show_product_name !== undefined ? s.show_product_name !== "false" : prev.showProductName,
+              showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
+              showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
+              showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
               notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
               noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
             }));
@@ -234,6 +246,10 @@ export default function FlexSection({ onToast }: Props) {
         { key: "approve_message", value: eventConfig.approveMessage },
         { key: "payment_thank_message_card", value: eventConfig.paymentThankMessageCard },
         { key: "payment_thank_message_bank", value: eventConfig.paymentThankMessageBank },
+        { key: "show_product_name", value: String(eventConfig.showProductName) },
+        { key: "show_amount", value: String(eventConfig.showAmount) },
+        { key: "show_payment_method", value: String(eventConfig.showPaymentMethod) },
+        { key: "show_shipping_info", value: String(eventConfig.showShippingInfo) },
         { key: "notify_no_answer", value: String(eventConfig.notifyNoAnswer) },
         { key: "no_answer_message", value: eventConfig.noAnswerMessage },
       ];
@@ -380,33 +396,114 @@ export default function FlexSection({ onToast }: Props) {
         )}
 
         {activeTab === "reorder_paid" && (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
-              <div>
-                <h3 className="text-sm font-bold text-gray-800">決済完了通知</h3>
-                <p className="text-xs text-gray-500 mt-0.5">決済完了時に患者へサンクスメッセージを送信</p>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {/* 左カラム: 設定 */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* ON/OFF */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">決済完了通知</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">決済完了時に患者へサンクスメッセージを送信</p>
+                  </div>
+                  <Toggle checked={eventConfig.notifyReorderPaid} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyReorderPaid: v }))} disabled={!editing} />
+                </div>
               </div>
-              <Toggle checked={eventConfig.notifyReorderPaid} onChange={(v) => setEventConfig(prev => ({ ...prev, notifyReorderPaid: v }))} disabled={!editing} />
+
+              {eventConfig.notifyReorderPaid && (
+                <>
+                  {/* 配色設定（paymentタブの配色を共有） */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100">
+                      <h3 className="text-sm font-bold text-gray-800">配色設定</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">決済案内と共通の配色</p>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      {(() => {
+                        const tabColors = getColorsForTab(flexConfig, "payment");
+                        return COLOR_LABELS.map(({ key, label }) => (
+                          <div key={key} className="flex items-center gap-4">
+                            <input type="color" value={tabColors[key]} onChange={(e) => {
+                              const current = getColorsForTab(flexConfig, "payment");
+                              setFlexConfig(prev => ({ ...prev, paymentColors: { ...current, [key]: e.target.value } }));
+                            }}
+                              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" disabled={!editing} />
+                            <div className="flex-1">
+                              <label className="text-sm text-gray-700 font-medium">{label}</label>
+                              <input type="text" value={tabColors[key]}
+                                onChange={(e) => {
+                                  if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) {
+                                    const current = getColorsForTab(flexConfig, "payment");
+                                    setFlexConfig(prev => ({ ...prev, paymentColors: { ...current, [key]: e.target.value } }));
+                                  }
+                                }}
+                                disabled={!editing}
+                                className="mt-0.5 block w-28 px-2 py-1 text-xs border border-gray-200 rounded font-mono focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-50" />
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 表示項目 */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100">
+                      <h3 className="text-sm font-bold text-gray-800">表示項目</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Flexメッセージに表示する情報を選択</p>
+                    </div>
+                    <div className="p-5 space-y-3">
+                      {([
+                        { key: "showProductName" as const, label: "商品名" },
+                        { key: "showAmount" as const, label: "金額" },
+                        { key: "showPaymentMethod" as const, label: "決済方法" },
+                        { key: "showShippingInfo" as const, label: "配送先情報" },
+                      ]).map(({ key, label }) => (
+                        <div key={key} className="flex items-center justify-between">
+                          <span className="text-sm text-gray-700">{label}</span>
+                          <Toggle checked={eventConfig[key]} onChange={(v) => setEventConfig(prev => ({ ...prev, [key]: v }))} disabled={!editing} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* メッセージ設定 */}
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100">
+                      <h3 className="text-sm font-bold text-gray-800">メッセージ設定</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">決済方法ごとに異なるメッセージを設定</p>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">クレカ決済完了メッセージ</label>
+                        <textarea rows={3} value={eventConfig.paymentThankMessageCard}
+                          onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageCard: e.target.value }))}
+                          placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
+                          disabled={!editing}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">銀行振込完了メッセージ</label>
+                        <textarea rows={3} value={eventConfig.paymentThankMessageBank}
+                          onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageBank: e.target.value }))}
+                          placeholder="例: お振込の確認が取れました。発送準備を進めてまいります。"
+                          disabled={!editing}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+                      </div>
+                      <p className="text-xs text-gray-400">空の場合、該当の決済方法ではサンクスメッセージは送信されません。</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
+
+            {/* 右カラム: プレビュー */}
             {eventConfig.notifyReorderPaid && (
-              <div className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">クレカ決済完了メッセージ</label>
-                  <textarea rows={3} value={eventConfig.paymentThankMessageCard}
-                    onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageCard: e.target.value }))}
-                    placeholder="例: お支払いありがとうございます。発送準備を進めてまいります。"
-                    disabled={!editing}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
+              <div className="lg:col-span-2">
+                <div className="sticky top-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">FLEXプレビュー</h3>
+                  <PaymentThankPreview config={flexConfig} eventConfig={eventConfig} />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">銀行振込完了メッセージ</label>
-                  <textarea rows={3} value={eventConfig.paymentThankMessageBank}
-                    onChange={(e) => setEventConfig(prev => ({ ...prev, paymentThankMessageBank: e.target.value }))}
-                    placeholder="例: お振込の確認が取れました。発送準備を進めてまいります。"
-                    disabled={!editing}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
-                </div>
-                <p className="text-xs text-gray-400">配送先情報（配送名義・郵便番号・住所・電話番号・メールアドレス）は自動で付加されます。空の場合はサンクスメッセージは送信されません。</p>
               </div>
             )}
           </div>
@@ -728,6 +825,57 @@ function PaymentPreview({ config }: { config: FlexMessageConfig }) {
       </div>
       <div className="bg-white px-4 py-4">
         <p className="text-sm leading-relaxed" style={{ color: colors.bodyText }}>{payment.body}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 決済完了サンクスプレビュー ---------- */
+function PaymentThankPreview({ config, eventConfig }: { config: FlexMessageConfig; eventConfig: EventNotifyConfig }) {
+  const colors = getColorsForTab(config, "payment");
+  const sampleMsg = eventConfig.paymentThankMessageCard || "お支払いありがとうございます。\n発送準備を進めてまいります。";
+  const InfoRow = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex justify-between gap-2">
+      <span className="text-[10px] shrink-0" style={{ color: "#999999" }}>{label}</span>
+      <span className="text-[10px] text-right" style={{ color: colors.bodyText }}>{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="mx-auto w-[320px] rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+      <div className="px-4 py-3" style={{ backgroundColor: colors.headerBg }}>
+        <p className="text-base font-bold" style={{ color: colors.headerText }}>決済完了</p>
+      </div>
+      <div className="bg-white px-4 py-4 space-y-3">
+        {/* 注文情報 */}
+        {(eventConfig.showProductName || eventConfig.showAmount || eventConfig.showPaymentMethod) && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold" style={{ color: colors.accentColor }}>ご注文内容</p>
+            {eventConfig.showProductName && <InfoRow label="商品" value="マンジャロ 2.5mg 1ヶ月" />}
+            {eventConfig.showAmount && <InfoRow label="金額" value="¥13,000" />}
+            {eventConfig.showPaymentMethod && <InfoRow label="決済方法" value="クレジットカード" />}
+          </div>
+        )}
+        {(eventConfig.showProductName || eventConfig.showAmount || eventConfig.showPaymentMethod) && <hr className="border-gray-200" />}
+
+        {/* 配送先情報 */}
+        {eventConfig.showShippingInfo && (
+          <>
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold" style={{ color: colors.accentColor }}>配送先情報</p>
+              <InfoRow label="配送名義" value="山田 太郎" />
+              <InfoRow label="郵便番号" value="1000001" />
+              <InfoRow label="住所" value="東京都千代田区千代田1-1" />
+              <InfoRow label="電話番号" value="09012345678" />
+              <InfoRow label="メールアドレス" value="example@mail.com" />
+              <p className="text-[9px]" style={{ color: "#999999" }}>配送名義・郵便番号・住所に変更がある場合はマイページから変更が可能です。</p>
+            </div>
+            <hr className="border-gray-200" />
+          </>
+        )}
+
+        {/* メッセージ */}
+        <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: colors.bodyText }}>{sampleMsg}</p>
       </div>
     </div>
   );
