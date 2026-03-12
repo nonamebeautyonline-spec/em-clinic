@@ -25,6 +25,7 @@ export interface SettingItem {
   label: string;
   maskedValue: string;
   source: "db" | "env" | "未設定";
+  readonly?: boolean;
 }
 
 export type SettingsMap = Record<CategoryKey, SettingItem[]>;
@@ -117,8 +118,8 @@ export function SettingRow({
     <div className="border-b border-gray-100 last:border-b-0">
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors text-left"
+        onClick={() => !item.readonly && setExpanded((v) => !v)}
+        className={`w-full flex items-center justify-between px-5 py-4 transition-colors text-left ${item.readonly ? "cursor-default" : "hover:bg-gray-50"}`}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="min-w-0">
@@ -127,11 +128,14 @@ export function SettingRow({
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {item.readonly && <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">自動設定</span>}
           <SourceBadge source={item.source} />
-          <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          {!item.readonly && (
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
         </div>
       </button>
       {expanded && (

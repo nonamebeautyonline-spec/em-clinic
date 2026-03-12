@@ -322,6 +322,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 5.5. app_base_url をslugから自動生成
+    {
+      const { error: urlErr } = await supabaseAdmin
+        .from("tenant_settings")
+        .insert({
+          tenant_id: tenantId,
+          category: "general",
+          key: "app_base_url",
+          value: `https://${data.slug}.lope.jp`,
+        });
+      if (urlErr) {
+        console.error("[platform/tenants] INSERT app_base_url error:", urlErr);
+      }
+    }
+
     // 6. Stripe Customer自動作成（Stripeキー設定済みの場合のみ）
     try {
       const stripe = await getStripeClient();

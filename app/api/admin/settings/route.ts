@@ -10,7 +10,7 @@ import { settingsUpdateSchema } from "@/lib/validations/admin-operations";
 
 // 管理可能な設定キーの定義
 // sensitive: false → 値をマスクせずにそのまま返す（checkout_mode等の選択肢型設定）
-type SettingDef = { key: string; label: string; envFallback?: string; sensitive?: boolean };
+type SettingDef = { key: string; label: string; envFallback?: string; sensitive?: boolean; readonly?: boolean };
 const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
   square: [
     { key: "access_token", label: "Access Token", envFallback: "SQUARE_ACCESS_TOKEN" },
@@ -39,7 +39,7 @@ const SETTING_DEFINITIONS: Record<SettingCategory, SettingDef[]> = {
   gas: [],
   general: [
     { key: "clinic_name", label: "クリニック名", sensitive: false },
-    { key: "app_base_url", label: "App Base URL", envFallback: "APP_BASE_URL", sensitive: false },
+    { key: "app_base_url", label: "App Base URL", envFallback: "APP_BASE_URL", sensitive: false, readonly: true },
   ],
   payment: [
     { key: "provider", label: "決済プロバイダー", sensitive: false },
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
   // 全カテゴリ一括取得（1回のDBクエリ）
   const bulk = await getSettingsBulk(categories, tenantId ?? undefined);
 
-  const result: Record<string, { key: string; label: string; maskedValue: string | null; source: "db" | "env" | "none" }[]> = {};
+  const result: Record<string, { key: string; label: string; maskedValue: string | null; source: "db" | "env" | "none"; readonly?: boolean }[]> = {};
 
   // デフォルトテナント以外はenvフォールバックを使わない（他テナントの認証情報が表示されるのを防止）
   const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -154,14 +154,15 @@ export async function GET(req: NextRequest) {
     result[cat] = defs.map((def) => {
       const dbValue = bulk.get(`${cat}:${def.key}`);
       const shouldMask = def.sensitive !== false;
+      const ro = def.readonly ? true : undefined;
       if (dbValue) {
-        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(dbValue) : dbValue, source: "db" as const };
+        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(dbValue) : dbValue, source: "db" as const, readonly: ro };
       }
       if (useEnvFallback && def.envFallback && process.env[def.envFallback]) {
         const envVal = process.env[def.envFallback]!;
-        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(envVal) : envVal, source: "env" as const };
+        return { key: def.key, label: def.label, maskedValue: shouldMask ? maskValue(envVal) : envVal, source: "env" as const, readonly: ro };
       }
-      return { key: def.key, label: def.label, maskedValue: null, source: "none" as const };
+      return { key: def.key, label: def.label, maskedValue: null, source: "none" as const, readonly: ro };
     });
   }
 
@@ -181,8 +182,12 @@ export async function PUT(req: NextRequest) {
 
   // 設定キーがホワイトリストに含まれるか確認
   const defs = SETTING_DEFINITIONS[category];
-  if (!defs || !defs.find((d) => d.key === key)) {
+  const def = defs?.find((d) => d.key === key);
+  if (!defs || !def) {
     return badRequest("不正な設定キーです");
+  }
+  if (def.readonly) {
+    return badRequest("この設定はシステムが自動管理しているため変更できません");
   }
 
   const success = await setSetting(category, key, value, tenantId ?? undefined);
