@@ -141,7 +141,8 @@ export async function POST(req: NextRequest) {
       // ★ 決済完了サンクスFlex送信（銀行振込）
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
-        if (rules.paymentThankMessageBank && patientId) {
+        if (rules.notifyReorderPaid && patientId) {
+          const thankMsg = rules.paymentThankMessageBank || "お振込の確認が取れました。発送準備を進めてまいります。";
           const { data: pt } = await withTenant(
             supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
             tenantId
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
           if (pt?.line_id) {
             await sendPaymentThankNotification({
               patientId, lineUid: pt.line_id,
-              message: rules.paymentThankMessageBank,
+              message: thankMsg,
               shipping: { shippingName, postalCode, address, phone: normalizeJPPhone(phoneNumber), email },
               paymentMethod: "bank_transfer",
               productName: productName || undefined,

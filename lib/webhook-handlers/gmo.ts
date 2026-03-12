@@ -98,7 +98,8 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
       if (patientId) {
         try {
           const rules = await getBusinessRules(tenantId ?? undefined);
-          if (rules.paymentThankMessageCard) {
+          if (rules.notifyReorderPaid) {
+            const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
             // ordersから配送情報を取得（checkout時に保存済み）
             const { data: orderShip } = paymentId ? await withTenant(
               supabaseAdmin.from("orders").select("shipping_name, postal_code, address, phone, email").eq("id", paymentId).maybeSingle(),
@@ -111,7 +112,7 @@ export async function processGmoEvent(params: GmoHandlerParams): Promise<void> {
             if (pt?.line_id) {
               await sendPaymentThankNotification({
                 patientId, lineUid: pt.line_id,
-                message: rules.paymentThankMessageCard,
+                message: thankMsg,
                 shipping: orderShip ? {
                   shippingName: orderShip.shipping_name, postalCode: orderShip.postal_code,
                   address: orderShip.address, phone: orderShip.phone, email: orderShip.email,

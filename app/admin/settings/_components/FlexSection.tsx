@@ -565,7 +565,7 @@ export default function FlexSection({ onToast }: Props) {
                           disabled={!editing}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50" />
                       </div>
-                      <p className="text-xs text-gray-400">空の場合、該当の決済方法ではサンクスメッセージは送信されません。</p>
+                      <p className="text-xs text-gray-400">空の場合はデフォルト文言が使用されます。送信ON/OFFは上の「決済完了通知」トグルで制御できます。</p>
                     </div>
                   </div>
                 </>

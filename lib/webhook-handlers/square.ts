@@ -316,7 +316,8 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
     if (patientId) {
       try {
         const rules = await getBusinessRules(tenantId ?? undefined);
-        if (rules.paymentThankMessageCard) {
+        if (rules.notifyReorderPaid) {
+          const thankMsg = rules.paymentThankMessageCard || "お支払いありがとうございます。発送準備を進めてまいります。";
           const { data: pt } = await withTenant(
             supabaseAdmin.from("patients").select("line_id").eq("patient_id", patientId).maybeSingle(),
             tenantId
@@ -324,7 +325,7 @@ export async function processSquareEvent(params: SquareHandlerParams): Promise<v
           if (pt?.line_id) {
             await sendPaymentThankNotification({
               patientId, lineUid: pt.line_id,
-              message: rules.paymentThankMessageCard,
+              message: thankMsg,
               shipping: { shippingName: shipName, postalCode: postal, address, phone: finalPhone, email: finalEmail },
               paymentMethod: "credit_card",
               productName: itemsText || undefined,
