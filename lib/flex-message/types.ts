@@ -49,17 +49,20 @@ export interface FlexMessageConfig {
   shippingColors?: FlexColorConfig;
   /** 決済案内の個別配色（未設定時は colors を使用） */
   paymentColors?: FlexColorConfig;
+  /** 決済完了通知の個別配色（未設定時は colors を使用） */
+  paymentThankColors?: FlexColorConfig;
   reservation: FlexReservationTexts;
   shipping: FlexShippingTexts;
   payment: FlexPaymentTexts;
 }
 
 /** タブ種別に応じた配色を取得（個別設定があればそれを、なければ共通colorsを返す） */
-export function getColorsForTab(config: FlexMessageConfig, tab: "reservation" | "shipping" | "payment"): FlexColorConfig {
+export function getColorsForTab(config: FlexMessageConfig, tab: "reservation" | "shipping" | "payment" | "paymentThank"): FlexColorConfig {
   switch (tab) {
     case "reservation": return config.reservationColors ?? config.colors;
     case "shipping": return config.shippingColors ?? config.colors;
     case "payment": return config.paymentColors ?? config.colors;
+    case "paymentThank": return config.paymentThankColors ?? config.colors;
   }
 }
 

@@ -44,25 +44,28 @@ interface FlexMessageConfig {
   reservationColors?: FlexColorConfig;
   shippingColors?: FlexColorConfig;
   paymentColors?: FlexColorConfig;
+  paymentThankColors?: FlexColorConfig;
   reservation: FlexReservationTexts;
   shipping: FlexShippingTexts;
   payment: FlexPaymentTexts;
 }
 
-type FlexTabType = "reservation" | "shipping" | "payment";
+type FlexTabType = "reservation" | "shipping" | "payment" | "paymentThank";
 
 function getColorsForTab(config: FlexMessageConfig, tab: FlexTabType): FlexColorConfig {
   switch (tab) {
     case "reservation": return config.reservationColors ?? config.colors;
     case "shipping": return config.shippingColors ?? config.colors;
     case "payment": return config.paymentColors ?? config.colors;
+    case "paymentThank": return config.paymentThankColors ?? config.colors;
   }
 }
 
-const COLOR_KEY_MAP: Record<FlexTabType, "reservationColors" | "shippingColors" | "paymentColors"> = {
+const COLOR_KEY_MAP: Record<FlexTabType, "reservationColors" | "shippingColors" | "paymentColors" | "paymentThankColors"> = {
   reservation: "reservationColors",
   shipping: "shippingColors",
   payment: "paymentColors",
+  paymentThank: "paymentThankColors",
 };
 
 interface EventNotifyConfig {
@@ -440,20 +443,20 @@ export default function FlexSection({ onToast }: Props) {
 
               {eventConfig.notifyReorderPaid && (
                 <>
-                  {/* 配色設定（paymentタブの配色を共有） */}
+                  {/* 配色設定（決済完了通知専用） */}
                   <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-100">
                       <h3 className="text-sm font-bold text-gray-800">配色設定</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">決済案内と共通の配色</p>
+                      <p className="text-xs text-gray-500 mt-0.5">決済完了通知の配色</p>
                     </div>
                     <div className="p-5 space-y-4">
                       {(() => {
-                        const tabColors = getColorsForTab(flexConfig, "payment");
+                        const tabColors = getColorsForTab(flexConfig, "paymentThank");
                         return COLOR_LABELS.map(({ key, label }) => (
                           <div key={key} className="flex items-center gap-4">
                             <input type="color" value={tabColors[key]} onChange={(e) => {
-                              const current = getColorsForTab(flexConfig, "payment");
-                              setFlexConfig(prev => ({ ...prev, paymentColors: { ...current, [key]: e.target.value } }));
+                              const current = getColorsForTab(flexConfig, "paymentThank");
+                              setFlexConfig(prev => ({ ...prev, paymentThankColors: { ...current, [key]: e.target.value } }));
                             }}
                               className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5" disabled={!editing} />
                             <div className="flex-1">
@@ -461,8 +464,8 @@ export default function FlexSection({ onToast }: Props) {
                               <input type="text" value={tabColors[key]}
                                 onChange={(e) => {
                                   if (/^#[0-9a-fA-F]{0,6}$/.test(e.target.value)) {
-                                    const current = getColorsForTab(flexConfig, "payment");
-                                    setFlexConfig(prev => ({ ...prev, paymentColors: { ...current, [key]: e.target.value } }));
+                                    const current = getColorsForTab(flexConfig, "paymentThank");
+                                    setFlexConfig(prev => ({ ...prev, paymentThankColors: { ...current, [key]: e.target.value } }));
                                   }
                                 }}
                                 disabled={!editing}
@@ -907,7 +910,7 @@ function PaymentPreview({ config }: { config: FlexMessageConfig }) {
 
 /* ---------- 決済完了サンクスプレビュー ---------- */
 function PaymentThankPreview({ config, eventConfig }: { config: FlexMessageConfig; eventConfig: EventNotifyConfig }) {
-  const colors = getColorsForTab(config, "payment");
+  const colors = getColorsForTab(config, "paymentThank");
   const sampleMsg = eventConfig.paymentThankMessageCard || "お支払いありがとうございます。\n発送準備を進めてまいります。";
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <div className="flex justify-between gap-2">

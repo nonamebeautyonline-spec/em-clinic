@@ -21,7 +21,7 @@ export async function buildPaymentThankFlex(params: {
   const rules = await getBusinessRules(tenantId);
   let cfg = DEFAULT_FLEX_CONFIG;
   try { cfg = await getFlexConfig(tenantId); } catch {}
-  const colors = getColorsForTab(cfg, "payment");
+  const colors = getColorsForTab(cfg, "paymentThank");
 
   const headerText = paymentMethod === "bank_transfer"
     ? (rules.paymentThankHeaderBank || "情報入力完了")
