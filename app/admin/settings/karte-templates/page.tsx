@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 type TemplateCategory = "general" | "glp1" | "measurement" | "soap_s" | "soap_o" | "soap_a" | "soap_p";
@@ -36,10 +37,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   soap_p: "bg-purple-100 text-purple-700",
 };
 
+const KARTE_KEY = "/api/admin/karte-templates";
+
 export default function KarteTemplatesPage() {
-  const [templates, setTemplates] = useState<KarteTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fromDefaults, setFromDefaults] = useState(false);
+  const { data: karteData, isLoading: loading } = useSWR<{ templates: KarteTemplate[]; fromDefaults?: boolean }>(KARTE_KEY);
+  const templates = karteData?.templates ?? [];
+  const fromDefaults = !!karteData?.fromDefaults;
+
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   // フィルタ
@@ -61,26 +65,6 @@ export default function KarteTemplatesPage() {
   const [versionTarget, setVersionTarget] = useState<KarteTemplate | null>(null);
   const [versions, setVersions] = useState<{ id: number; version: number; name: string; body: string; created_at: string; changed_by: string | null }[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
-
-  // --- データ取得 ---
-  const fetchTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/karte-templates", { credentials: "include" });
-      if (!res.ok) throw new Error("取得に失敗しました");
-      const data = await res.json();
-      setTemplates(data.templates || []);
-      setFromDefaults(!!data.fromDefaults);
-    } catch (err) {
-      setToast({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
 
   // トースト自動消去
   useEffect(() => {
@@ -165,7 +149,7 @@ export default function KarteTemplatesPage() {
       }
 
       resetForm();
-      fetchTemplates();
+      mutate(KARTE_KEY);
     } catch (err) {
       setToast({ message: err instanceof Error ? err.message : "保存に失敗しました", type: "error" });
     } finally {
@@ -187,7 +171,7 @@ export default function KarteTemplatesPage() {
       }
       setToast({ message: `「${deleteTarget.name}」を削除しました`, type: "success" });
       setDeleteTarget(null);
-      fetchTemplates();
+      mutate(KARTE_KEY);
     } catch (err) {
       setToast({ message: err instanceof Error ? err.message : "削除に失敗しました", type: "error" });
     }
@@ -221,7 +205,7 @@ export default function KarteTemplatesPage() {
       if (!res.ok) throw new Error("復元に失敗しました");
       setToast({ message: "テンプレートを復元しました", type: "success" });
       setVersionTarget(null);
-      fetchTemplates();
+      mutate(KARTE_KEY);
     } catch (err) {
       setToast({ message: err instanceof Error ? err.message : "復元に失敗しました", type: "error" });
     }

@@ -441,14 +441,96 @@ describe("SWR移行ルール", () => {
   });
 
   // SWR移行済みページリスト: 移行完了時にここに追加
+  // 完全移行: useEffect内fetchが全てSWRに置換済み
   const SWR_MIGRATED_PAGES = [
+    // 段階1-2: パイロット+中程度ページ
     "app/admin/line/tags/page.tsx",
     "app/admin/line/marks/page.tsx",
     "app/admin/shipping/settings/page.tsx",
     "app/admin/products/page.tsx",
     "app/admin/inventory/page.tsx",
     "app/admin/line/templates/page.tsx",
+    "app/admin/line/friends/page.tsx",
+    // 段階4: Simple (1-2 fetches)
+    "app/admin/shipping/today/page.tsx",
+    "app/admin/shipping/pending/page.tsx",
+    "app/admin/refunds/page.tsx",
+    "app/admin/line/messages/page.tsx",
+    "app/admin/line/ai-reply-stats/page.tsx",
+    "app/admin/karte-history/page.tsx",
+    "app/admin/noname-master/square/page.tsx",
+    "app/admin/webhook-events/page.tsx",
+    "app/admin/line/broadcasts/page.tsx",
+    "app/admin/line/analytics/page.tsx",
+    "app/admin/schedule/settings/page.tsx",
+    "app/admin/schedule/doctors/page.tsx",
+    "app/admin/noname-master/bank-transfer/page.tsx",
+    "app/admin/line/forms/[id]/responses/page.tsx",
+    "app/admin/accounting/statement/page.tsx",
+    // 段階4: Medium (3-5 fetches)
+    "app/admin/reorders/page.tsx",
+    "app/admin/onboarding/page.tsx",
+    "app/admin/line/column-settings/page.tsx",
+    "app/admin/dedup-patients/page.tsx",
+    "app/admin/line/followup-rules/page.tsx",
+    "app/admin/line/click-analytics/page.tsx",
+    "app/admin/line/ai-reply-settings/page.tsx",
+    "app/admin/inventory/journal/page.tsx",
+    "app/admin/bank-transfer/page.tsx",
+    "app/admin/segments/page.tsx",
+    "app/admin/line/step-scenarios/page.tsx",
+    "app/admin/line/friends/fields/page.tsx",
+    // 段階4: Medium-High (5-7 fetches)
+    "app/admin/billing/page.tsx",
+    "app/admin/accounting/page.tsx",
+    "app/admin/schedule/slots/page.tsx",
+    "app/admin/line/keyword-replies/page.tsx",
+    "app/admin/line/actions/page.tsx",
+    "app/admin/line/rich-menus/page.tsx",
+    "app/admin/line/media/page.tsx",
+    "app/admin/line/chatbot/page.tsx",
+    "app/admin/line/menu-rules/page.tsx",
+    "app/admin/noname-master/page.tsx",
   ];
+
+  // 部分移行: SWR導入済みだがイベント駆動fetchやpollingが残るページ
+  // （検索デバウンス、heartbeat、edit session polling等）
+  const SWR_PARTIAL_PAGES = [
+    "app/admin/karte/page.tsx",
+    "app/admin/line/talk/_components/TalkClient.tsx",
+    "app/admin/layout.tsx",
+    // 段階4: 複雑ページ（部分移行）
+    "app/admin/doctor/page.tsx",
+    "app/admin/line/friends/[id]/page.tsx",
+    "app/admin/line/send/page.tsx",
+    "app/admin/line/coupons/page.tsx",
+    "app/admin/ehr/page.tsx",
+    "app/admin/bank-transfer/reconcile/page.tsx",
+    "app/admin/line/forms/[id]/page.tsx",
+    "app/admin/schedule/monthly/page.tsx",
+    "app/admin/line/step-scenarios/[id]/page.tsx",
+    "app/admin/dashboard/page.tsx",
+    "app/admin/kartesearch/page.tsx",
+    "app/admin/settings/page.tsx",
+    "app/admin/schedule/page.tsx",
+    "app/admin/patients/[patientId]/page.tsx",
+    "app/admin/line/page.tsx",
+    "app/admin/accounting/input/page.tsx",
+    "app/admin/intake-form/page.tsx",
+    "app/admin/line/friend-settings/page.tsx",
+    "app/admin/line/flex-builder/page.tsx",
+    "app/admin/line/flow-builder/page.tsx",
+    "app/admin/shipping/create-list/page.tsx",
+    "app/admin/schedule/weekly/page.tsx",
+    "app/admin/reservations/calendar-view.tsx",
+  ];
+
+  for (const pagePath of SWR_PARTIAL_PAGES) {
+    it(`部分移行ページ ${pagePath} がuseSWRを使用している`, () => {
+      const src = readFile(pagePath);
+      expect(src).toMatch(/useSWR[<(]/);
+    });
+  }
 
   for (const pagePath of SWR_MIGRATED_PAGES) {
     describe(`移行済みページ: ${pagePath}`, () => {

@@ -3,8 +3,9 @@
 // app/platform/tenants/[tenantId]/page.tsx
 // テナント詳細ページ — 概要/メンバー/設定/分析のタブ形式
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import useSWR, { mutate } from "swr";
 import dynamic from "next/dynamic";
 
 // Rechartsコンポーネントを動的インポート（SSR回避）
@@ -84,10 +85,6 @@ export default function TenantDetailPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
 
-  const [tenant, setTenant] = useState<TenantDetail | null>(null);
-  const [stats, setStats] = useState<TenantStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   // メンバータブ用
@@ -116,8 +113,6 @@ export default function TenantDetailPage() {
   const [saveError, setSaveError] = useState("");
 
   // AIオプション管理用
-  const [aiOptions, setAiOptions] = useState<{ key: string; label: string; monthlyPrice: number; isActive: boolean }[]>([]);
-  const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsSaving, setOptionsSaving] = useState<string | null>(null);
 
   // トースト
@@ -132,101 +127,41 @@ export default function TenantDetailPage() {
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  // 分析タブ用
-  const [analyticsData, setAnalyticsData] = useState<MonthlyAnalytics[]>([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  // --- SWR: テナント詳細取得 ---
+  const tenantKey = `/api/platform/tenants/${tenantId}`;
+  const { data: tenantData, error: tenantError, isLoading: loading } = useSWR<{ tenant: TenantDetail }>(tenantKey);
+  const tenant = tenantData?.tenant ?? null;
+  const error = tenantError?.message || "";
 
-  // テナント詳細取得
-  const fetchTenant = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/platform/tenants/${tenantId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "テナント情報の取得に失敗しました");
-      }
-      const data = await res.json();
-      setTenant(data.tenant);
+  // --- SWR: 統計取得 ---
+  const { data: statsData } = useSWR<{ stats: TenantStats }>(`/api/platform/tenants/${tenantId}/stats`);
+  const stats = statsData?.stats ?? null;
 
-      // 編集フォームを初期化
-      if (data.tenant) {
-        setEditForm({
-          name: data.tenant.name || "",
-          slug: data.tenant.slug || "",
-          contactEmail: data.tenant.contact_email || "",
-          contactPhone: data.tenant.contact_phone || "",
-          address: data.tenant.address || "",
-          notes: data.tenant.notes || "",
-          logoUrl: data.tenant.logo_url || "",
-          industry: data.tenant.industry || "clinic",
-        });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId]);
+  // --- SWR: 分析データ取得（タブ選択時のみ） ---
+  const analyticsKey = activeTab === "analytics" ? `/api/platform/tenants/${tenantId}/analytics?months=6` : null;
+  const { data: analyticsRaw, isLoading: analyticsLoading } = useSWR<{ ok: boolean; monthly: MonthlyAnalytics[] }>(analyticsKey);
+  const analyticsData = analyticsRaw?.monthly ?? [];
 
-  // 統計取得
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/platform/tenants/${tenantId}/stats`,
-        { credentials: "include" },
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-      }
-    } catch {
-      // 統計取得失敗は無視
-    }
-  }, [tenantId]);
+  // --- SWR: AIオプション取得（設定タブ選択時のみ） ---
+  const optionsKey = activeTab === "settings" ? `/api/platform/billing/options?tenant_id=${tenantId}` : null;
+  const { data: optionsData, isLoading: optionsLoading } = useSWR<{ options: { key: string; label: string; monthlyPrice: number; isActive: boolean }[] }>(optionsKey);
+  const aiOptions = optionsData?.options ?? [];
 
-  // 分析データ取得
-  const fetchAnalytics = useCallback(async () => {
-    setAnalyticsLoading(true);
-    try {
-      const res = await fetch(
-        `/api/platform/tenants/${tenantId}/analytics?months=6`,
-        { credentials: "include" },
-      );
-      if (res.ok) {
-        const json = await res.json();
-        if (json.ok) setAnalyticsData(json.monthly || []);
-      }
-    } catch {
-      // 分析データ取得失敗は無視
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  }, [tenantId]);
-
+  // テナントデータが取得されたら編集フォームを初期化
   useEffect(() => {
-    fetchTenant();
-    fetchStats();
-  }, [fetchTenant, fetchStats]);
-
-  // AIオプション取得
-  const fetchOptions = useCallback(async () => {
-    if (!tenantId) return;
-    setOptionsLoading(true);
-    try {
-      const res = await fetch(`/api/platform/billing/options?tenant_id=${tenantId}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setAiOptions(data.options || []);
-      }
-    } catch {
-      // 取得失敗は無視（UIには空配列が表示される）
-    } finally {
-      setOptionsLoading(false);
+    if (tenant) {
+      setEditForm({
+        name: tenant.name || "",
+        slug: tenant.slug || "",
+        contactEmail: tenant.contact_email || "",
+        contactPhone: tenant.contact_phone || "",
+        address: tenant.address || "",
+        notes: tenant.notes || "",
+        logoUrl: tenant.logo_url || "",
+        industry: tenant.industry || "clinic",
+      });
     }
-  }, [tenantId]);
+  }, [tenant]);
 
   // AIオプション切替
   const toggleOption = async (optionKey: string, isActive: boolean) => {
@@ -239,7 +174,7 @@ export default function TenantDetailPage() {
         body: JSON.stringify({ tenantId, optionKey, isActive }),
       });
       if (res.ok) {
-        await fetchOptions();
+        await mutate(optionsKey);
         showToast(`${isActive ? "有効化" : "無効化"}しました`);
       }
     } catch {
@@ -248,20 +183,6 @@ export default function TenantDetailPage() {
       setOptionsSaving(null);
     }
   };
-
-  // 分析タブ選択時にデータ取得
-  useEffect(() => {
-    if (activeTab === "analytics" && analyticsData.length === 0) {
-      fetchAnalytics();
-    }
-  }, [activeTab, analyticsData.length, fetchAnalytics]);
-
-  // 設定タブ選択時にAIオプション取得
-  useEffect(() => {
-    if (activeTab === "settings" && aiOptions.length === 0) {
-      fetchOptions();
-    }
-  }, [activeTab, aiOptions.length, fetchOptions]);
 
   // 金額フォーマット
   const formatCurrency = (amount: number) =>
@@ -324,7 +245,7 @@ export default function TenantDetailPage() {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || "ステータス変更に失敗しました");
       }
-      setTenant((prev) => (prev ? { ...prev, is_active: newStatus } : prev));
+      await mutate(tenantKey);
       showToast(newStatus ? "テナントを有効化しました" : "テナントを無効化しました");
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -370,7 +291,7 @@ export default function TenantDetailPage() {
         throw new Error(data?.error || "更新に失敗しました");
       }
 
-      await fetchTenant();
+      await mutate(tenantKey);
       showToast("テナント情報を更新しました");
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "エラーが発生しました");
@@ -423,7 +344,7 @@ export default function TenantDetailPage() {
 
       setShowAddMember(false);
       setMemberForm({ name: "", email: "", password: "", role: "admin" });
-      await fetchTenant();
+      await mutate(tenantKey);
       showToast("メンバーを追加しました");
     } catch (err) {
       setMemberError(
@@ -450,7 +371,7 @@ export default function TenantDetailPage() {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || "ロール変更に失敗しました");
       }
-      await fetchTenant();
+      await mutate(tenantKey);
       showToast("ロールを変更しました");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "エラーが発生しました");
@@ -472,7 +393,7 @@ export default function TenantDetailPage() {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error || "メンバーの削除に失敗しました");
       }
-      await fetchTenant();
+      await mutate(tenantKey);
       showToast("メンバーを削除しました");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "エラーが発生しました");

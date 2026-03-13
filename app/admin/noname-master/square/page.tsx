@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 interface Order {
   id: string;
@@ -15,37 +16,10 @@ interface Order {
 }
 
 export default function NonameMasterSquarePage() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [error, setError] = useState("");
   const [limit, setLimit] = useState(100);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch(`/api/admin/noname-master/square?limit=${limit}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
-
-      const data = await res.json();
-      setOrders(data.orders || []);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [limit]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+  const { data, error, isLoading: loading } = useSWR<{ orders: Order[] }>(`/api/admin/noname-master/square?limit=${limit}`);
+  const orders = data?.orders || [];
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -83,7 +57,7 @@ export default function NonameMasterSquarePage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error.message}</div>
       )}
 
       <div className="mb-4 flex items-center gap-4">

@@ -3,7 +3,8 @@
 // コホート分析ウィジェット
 // 月別初回購入コホートのリテンション率をヒートマップで表示
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
+import useSWR from "swr";
 
 /** コホートAPIレスポンスの型 */
 interface CohortRetention {
@@ -59,33 +60,11 @@ function formatMonthLabel(month: string): string {
 }
 
 export default function CohortWidget() {
-  const [data, setData] = useState<CohortRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: rawData, error, isLoading } = useSWR<{ cohort: CohortRow[] }>("/api/admin/analytics?type=cohort");
+  const data = rawData?.cohort || [];
   const [period, setPeriod] = useState<PeriodFilter>("12");
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const fetchCohort = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/analytics?type=cohort", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("コホートデータの取得に失敗しました");
-      const json = await res.json();
-      setData(json.cohort || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCohort();
-  }, [fetchCohort]);
 
   // 期間フィルタに応じてデータを絞り込む
   const filteredData = (() => {
@@ -125,7 +104,7 @@ export default function CohortWidget() {
   };
 
   // ローディング
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
         <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
@@ -140,7 +119,7 @@ export default function CohortWidget() {
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
         <h3 className="text-lg font-bold text-slate-900 mb-2">コホート分析</h3>
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
+          {error instanceof Error ? error.message : "エラーが発生しました"}
         </div>
       </div>
     );

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
+import useSWR from "swr";
 
 type Override = {
   doctor_id: string;
@@ -84,7 +85,6 @@ function formatDateStr(d: Date): string {
 export default function MonthlySchedulePage() {
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth() + 2); // 翌月
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [weeklyRules, setWeeklyRules] = useState<WeeklyRule[]>([]);
   const [overrides, setOverrides] = useState<Override[]>([]);
@@ -100,10 +100,40 @@ export default function MonthlySchedulePage() {
   const [editingWeeklyRules, setEditingWeeklyRules] = useState<WeeklyRule[]>([]);
 
   // 医師選択
-  const [doctors, setDoctors] = useState<{ doctor_id: string; doctor_name: string }[]>([]);
   const [doctorId, setDoctorId] = useState("dr_default");
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
   const monthDisplay = `${year}年${month}月`;
+
+  // 医師一覧取得
+  const { data: doctorsData } = useSWR<{ ok: boolean; doctors: { doctor_id: string; doctor_name: string }[] }>("/api/admin/doctors");
+  const doctors = doctorsData?.doctors || [];
+
+  // スケジュールデータ取得
+  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  const scheduleKey = `/api/admin/schedule?start=${startDate}&end=${endDate}`;
+
+  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ ok: boolean; weekly_rules: WeeklyRule[]; overrides: Override[] }>(scheduleKey, {
+    onSuccess: (data) => {
+      if (data.ok) {
+        setWeeklyRules(data.weekly_rules || []);
+        setOverrides(data.overrides || []);
+      }
+    },
+  });
+
+  // 月の開放状態
+  const bookingOpenKey = `/api/admin/booking-open?month=${monthStr}`;
+  const { data: bookingOpenData, isLoading: bookingLoading } = useSWR<{ ok: boolean; is_open: boolean }>(bookingOpenKey, {
+    onSuccess: (data) => {
+      if (data.ok) {
+        setIsMonthOpen(data.is_open);
+      }
+    },
+  });
+
+  const loading = scheduleLoading || bookingLoading;
 
   // 月の日数配列
   const monthDays = useMemo(() => getMonthDays(year, month), [year, month]);
@@ -156,57 +186,8 @@ export default function MonthlySchedulePage() {
     return configs;
   }, [monthDays, weeklyMap, overrideMap]);
 
-  // 医師一覧取得
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/doctors", { cache: "no-store", credentials: "include" });
-        const json = await res.json();
-        if (json.ok && json.doctors) {
-          setDoctors(json.doctors);
-        }
-      } catch (e) {
-        console.error("Doctors load error:", e);
-      }
-    })();
-  }, []);
-
-  // データ読み込み
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setMsg(null);
-      try {
-        const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-        const lastDay = new Date(year, month, 0).getDate();
-        const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-        const res = await fetch(`/api/admin/schedule?start=${startDate}&end=${endDate}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (json.ok) {
-          setWeeklyRules(json.weekly_rules || []);
-          setOverrides(json.overrides || []);
-        }
-
-        // 月の開放状態を確認
-        const openRes = await fetch(`/api/admin/booking-open?month=${monthStr}`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const openJson = await openRes.json();
-        if (openJson.ok) {
-          setIsMonthOpen(openJson.is_open);
-        }
-      } catch (e) {
-        console.error("Load error:", e);
-        setMsg({ type: "error", text: "読み込みに失敗しました" });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [year, month, monthStr]);
+  // SWRのonSuccessで初回はweeklyRules/overridesを設定済み
+  // 月変更時にmsgをリセット（scheduleKeyの変更でSWRが再フェッチ）
 
   // 日付選択時
   function onSelectDate(dateStr: string) {

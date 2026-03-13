@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 
@@ -55,10 +56,12 @@ function formatDate(s: string | null): string {
 // --- メインページ ---
 
 export default function DedupPatientsPage() {
-  const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
   const [minScore, setMinScore] = useState(70);
-  const [error, setError] = useState<string | null>(null);
+
+  const swrKey = `/api/admin/dedup-patients?min_score=${minScore}`;
+  const { data: swrData, error: swrError, isLoading: loading } = useSWR<{ ok: boolean; candidates: DuplicateCandidate[]; message?: string; error?: string }>(swrKey);
+  const candidates = swrData?.ok ? (swrData.candidates ?? []) : [];
+  const error = swrError ? "通信エラーが発生しました" : (swrData && !swrData.ok ? ((swrData.message || swrData.error) || "取得に失敗しました") : null);
 
   // 統合確認モーダル
   const [mergeModal, setMergeModal] = useState<{
@@ -72,29 +75,7 @@ export default function DedupPatientsPage() {
   // 無視処理中
   const [ignoringPair, setIgnoringPair] = useState<string | null>(null);
 
-  const fetchCandidates = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/dedup-patients?min_score=${minScore}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setCandidates(data.candidates);
-      } else {
-        setError((data.message || data.error) || "取得に失敗しました");
-      }
-    } catch {
-      setError("通信エラーが発生しました");
-    }
-    setLoading(false);
-  }, [minScore]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ
-    fetchCandidates();
-  }, [fetchCandidates]);
+  const fetchCandidates = () => mutate(swrKey);
 
   // 統合実行
   const handleMerge = async () => {
@@ -115,14 +96,7 @@ export default function DedupPatientsPage() {
       const data = await res.json();
       if (data.ok) {
         setMergeResult({ ok: true, message: data.message });
-        // 候補一覧から統合済みペアを除去
-        setCandidates((prev) =>
-          prev.filter(
-            (c) =>
-              !(c.patientA.patient_id === mergeModal.candidate.patientA.patient_id &&
-                c.patientB.patient_id === mergeModal.candidate.patientB.patient_id),
-          ),
-        );
+        mutate(swrKey);
         // モーダルを閉じる
         setTimeout(() => {
           setMergeModal(null);
@@ -154,14 +128,7 @@ export default function DedupPatientsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        // 候補一覧から除去
-        setCandidates((prev) =>
-          prev.filter(
-            (c) =>
-              !(c.patientA.patient_id === candidate.patientA.patient_id &&
-                c.patientB.patient_id === candidate.patientB.patient_id),
-          ),
-        );
+        mutate(swrKey);
       }
     } catch {
       // エラーは無視

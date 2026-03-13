@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import useSWR, { mutate } from "swr";
 
 // ============================================
 // 型定義
@@ -47,38 +48,31 @@ const ACTION_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 // ============================================
 // メインコンポーネント
 // ============================================
+const ACTIONS_KEY = "/api/admin/reservation-actions";
+
 export default function ReservationActionsPage() {
+  const { data: actionsData, isLoading: actionsLoading } = useSWR<{ ok: boolean; actions: ActionSetting[] }>(ACTIONS_KEY);
+  const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags?simple=true");
+  const { data: marksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks?simple=true");
+  const { data: menusData } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus?simple=true");
+
   const [actions, setActions] = useState<ActionSetting[]>([]);
-  const [tags, setTags] = useState<TagDef[]>([]);
-  const [marks, setMarks] = useState<MarkDef[]>([]);
-  const [menus, setMenus] = useState<RichMenu[]>([]);
-  const [loading, setLoading] = useState(true);
+  const tags = tagsData?.tags ?? [];
+  const marks = marksData?.marks ?? [];
+  const menus = menusData?.menus ?? [];
+  const loading = actionsLoading;
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   // どのイベントのアクション追加モーダルを開いているか
   const [addingFor, setAddingFor] = useState<string | null>(null);
 
-  // データ読み込み
-  useEffect(() => {
-    (async () => {
-      try {
-        const [actionsRes, tagsRes, marksRes, menusRes] = await Promise.all([
-          fetch("/api/admin/reservation-actions", { credentials: "include" }).then((r) => r.json()),
-          fetch("/api/admin/tags?simple=true", { credentials: "include" }).then((r) => r.json()).catch(() => ({ tags: [] })),
-          fetch("/api/admin/line/marks?simple=true", { credentials: "include" }).then((r) => r.json()).catch(() => ({ marks: [] })),
-          fetch("/api/admin/line/rich-menus?simple=true", { credentials: "include" }).then((r) => r.json()).catch(() => ({ menus: [] })),
-        ]);
-        if (actionsRes.ok && actionsRes.actions) setActions(actionsRes.actions);
-        if (tagsRes.tags) setTags(tagsRes.tags);
-        if (marksRes.marks) setMarks(marksRes.marks);
-        if (menusRes.menus) setMenus(menusRes.menus);
-      } catch (e) {
-        console.error("Load error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // SWRからactionsが届いたらローカルステートに反映（編集用）
+  const [actionsInitialized, setActionsInitialized] = useState(false);
+  if (actionsData?.ok && actionsData.actions && !actionsInitialized) {
+    setActions(actionsData.actions);
+    setActionsInitialized(true);
+  }
 
   // アクション設定更新ヘルパー
   const updateAction = useCallback((eventType: string, updates: Partial<ActionSetting>) => {
@@ -153,6 +147,7 @@ export default function ReservationActionsPage() {
       const json = await res.json();
       if (json.ok) {
         setMessage({ type: "success", text: "設定を保存しました" });
+        mutate(ACTIONS_KEY);
       } else {
         setMessage({ type: "error", text: json.message || "保存に失敗しました" });
       }

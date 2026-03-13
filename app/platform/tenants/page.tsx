@@ -3,8 +3,9 @@
 // app/platform/tenants/page.tsx
 // テナント一覧ページ — カード型レイアウト、検索、フィルター、ページネーション
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 
 // テナントデータ型
 interface TenantPlan {
@@ -42,15 +43,7 @@ type SortOption = "created_at" | "name" | "patients_count";
 
 export default function TenantsListPage() {
   const router = useRouter();
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    total: 0,
-    page: 1,
-    limit: 25,
-    totalPages: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sort, setSort] = useState<SortOption>("created_at");
@@ -58,49 +51,30 @@ export default function TenantsListPage() {
 
   // 検索のデバウンス
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
-  // テナント一覧取得
-  const fetchTenants = useCallback(
-    async (page = 1) => {
-      setLoading(true);
-      setError("");
-      try {
-        const params = new URLSearchParams({
-          page: String(page),
-          limit: "25",
-          status: statusFilter,
-          sort,
-        });
-        if (debouncedSearch) params.set("search", debouncedSearch);
+  // 動的SWRキー
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: "25",
+    status: statusFilter,
+    sort,
+  });
+  if (debouncedSearch) params.set("search", debouncedSearch);
 
-        const res = await fetch(
-          `/api/platform/tenants?${params.toString()}`,
-          { credentials: "include" },
-        );
+  const { data: rawData, error: swrError, isLoading: loading } = useSWR<{
+    tenants: Tenant[];
+    pagination: Pagination;
+  }>(`/api/platform/tenants?${params.toString()}`);
 
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.error || "テナント一覧の取得に失敗しました");
-        }
-
-        const data = await res.json();
-        setTenants(data.tenants || []);
-        setPagination(data.pagination || { total: 0, page: 1, limit: 25, totalPages: 0 });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "エラーが発生しました");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [debouncedSearch, statusFilter, sort],
-  );
-
-  useEffect(() => {
-    fetchTenants(1);
-  }, [fetchTenants]);
+  const tenants = rawData?.tenants || [];
+  const pagination = rawData?.pagination || { total: 0, page: 1, limit: 25, totalPages: 0 };
+  const error = swrError?.message || "";
 
   // 金額フォーマット
   const formatCurrency = (amount: number) =>
@@ -420,7 +394,7 @@ export default function TenantsListPage() {
             {pagination.totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-8">
                 <button
-                  onClick={() => fetchTenants(pagination.page - 1)}
+                  onClick={() => setPage(pagination.page - 1)}
                   disabled={pagination.page <= 1}
                   className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
@@ -449,7 +423,7 @@ export default function TenantsListPage() {
                           <span className="px-2 text-slate-400">...</span>
                         )}
                         <button
-                          onClick={() => fetchTenants(p)}
+                          onClick={() => setPage(p)}
                           className={`px-3 py-2 text-sm rounded-lg transition-colors ${
                             p === pagination.page
                               ? "bg-blue-600 text-white shadow-sm"
@@ -462,7 +436,7 @@ export default function TenantsListPage() {
                     );
                   })}
                 <button
-                  onClick={() => fetchTenants(pagination.page + 1)}
+                  onClick={() => setPage(pagination.page + 1)}
                   disabled={pagination.page >= pagination.totalPages}
                   className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 interface ReminderRule {
@@ -144,46 +145,19 @@ function FlexPreviewMini() {
 }
 
 /* ---------- メインページ ---------- */
+const RULES_KEY = "/api/admin/line/reminder-rules";
+const LOGS_KEY = "/api/admin/line/reminder-rules/logs";
+
 export default function ReminderRulesPage() {
-  const [rules, setRules] = useState<ReminderRule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rulesData, isLoading: loading } = useSWR<{ rules: ReminderRule[] }>(RULES_KEY);
+  const rules = rulesData?.rules ?? [];
+
+  const { data: logsData, isLoading: logsLoading } = useSWR<{ logs: SendLog[] }>(LOGS_KEY);
+  const sendLogs = logsData?.logs ?? [];
+
   const [showModal, setShowModal] = useState(false);
   const [editRule, setEditRule] = useState<Partial<ReminderRule> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/reminder-rules", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setRules(d.rules || []);
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadLogs = useCallback(async () => {
-    setLogsLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/reminder-rules/logs", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setSendLogs(d.logs || []);
-      }
-    } catch (e) {
-      console.error("ログ取得エラー:", e);
-    } finally {
-      setLogsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); loadLogs(); }, [loadData, loadLogs]);
 
   const handleCreate = () => {
     setEditRule({
@@ -216,7 +190,7 @@ export default function ReminderRulesPage() {
       if (res.ok) {
         setShowModal(false);
         setEditRule(null);
-        loadData();
+        mutate(RULES_KEY);
       } else {
         const d = await res.json().catch(() => ({}));
         alert(d.error || "保存に失敗しました");
@@ -233,13 +207,13 @@ export default function ReminderRulesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...rule, is_enabled: !rule.is_enabled }),
     });
-    loadData();
+    mutate(RULES_KEY);
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("このリマインドルールを削除しますか？")) return;
     await fetch(`/api/admin/line/reminder-rules?id=${id}`, { method: "DELETE", credentials: "include" });
-    loadData();
+    mutate(RULES_KEY);
   };
 
   /** タイミングタイプ変更時のデフォルト値設定 */

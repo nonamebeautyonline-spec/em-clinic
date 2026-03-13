@@ -3,7 +3,8 @@
 // app/platform/errors/page.tsx
 // プラットフォーム管理: エラーログダッシュボード
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   BarChart,
   Bar,
@@ -47,42 +48,24 @@ interface ErrorData {
 }
 
 export default function ErrorsDashboardPage() {
-  const [data, setData] = useState<ErrorData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [days, setDays] = useState(7);
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tenantFilter, setTenantFilter] = useState("");
 
-  const fetchErrors = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        days: String(days),
-        page: String(page),
-        limit: "50",
-      });
-      if (tenantFilter) params.set("tenant_id", tenantFilter);
+  // 動的SWRキー
+  const errorParams = new URLSearchParams({
+    days: String(days),
+    page: String(page),
+    limit: "50",
+  });
+  if (tenantFilter) errorParams.set("tenant_id", tenantFilter);
 
-      const res = await fetch(`/api/platform/errors?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("エラーログ取得失敗");
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
-      setData(json);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [days, page, tenantFilter]);
+  const { data, error: swrError, isLoading: loading } = useSWR<ErrorData & { ok: boolean; error?: string }>(
+    `/api/platform/errors?${errorParams}`
+  );
 
-  useEffect(() => {
-    fetchErrors();
-  }, [fetchErrors]);
+  const error = swrError?.message || (data && !data.ok ? (data.error || "エラーログ取得失敗") : "");
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);

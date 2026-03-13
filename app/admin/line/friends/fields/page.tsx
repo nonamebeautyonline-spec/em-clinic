@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import {
   FIELD_TYPE_CONFIG,
   FIELD_TYPES,
@@ -19,8 +20,9 @@ interface FieldDef {
 }
 
 export default function FriendFieldsPage() {
-  const [fields, setFields] = useState<FieldDef[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey = "/api/admin/friend-fields";
+  const { data: swrData, isLoading: loading } = useSWR(swrKey);
+  const fields: FieldDef[] = swrData?.fields || [];
   const [showModal, setShowModal] = useState(false);
   const [editingField, setEditingField] = useState<FieldDef | null>(null);
   const [name, setName] = useState("");
@@ -32,27 +34,6 @@ export default function FriendFieldsPage() {
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-
-  // 初回データ取得
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/admin/friend-fields", { credentials: "include" });
-      const data = await res.json();
-      if (!cancelled) {
-        if (data.fields) setFields(data.fields);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const fetchFields = useCallback(async () => {
-    const res = await fetch("/api/admin/friend-fields", { credentials: "include" });
-    const data = await res.json();
-    if (data.fields) setFields(data.fields);
-    setLoading(false);
-  }, []);
 
   /** options（メタデータ）を組み立てる */
   const buildOptions = (): FieldMetadata | null => {
@@ -87,7 +68,6 @@ export default function FriendFieldsPage() {
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({
         name: name.trim(),
         field_type: fieldType,
@@ -97,7 +77,7 @@ export default function FriendFieldsPage() {
     });
 
     if (res.ok) {
-      await fetchFields();
+      await mutate(swrKey);
       resetForm();
     } else {
       const data = await res.json();
@@ -107,9 +87,9 @@ export default function FriendFieldsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/admin/friend-fields/${id}`, { method: "DELETE", credentials: "include" });
+    const res = await fetch(`/api/admin/friend-fields/${id}`, { method: "DELETE" });
     if (res.ok) {
-      await fetchFields();
+      await mutate(swrKey);
       setDeleteConfirm(null);
     }
   };

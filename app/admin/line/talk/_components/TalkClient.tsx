@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo, memo, type ReactNode, type CSSProperties } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -397,8 +398,13 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [showCallConfirm, setShowCallConfirm] = useState(false);
   const [sendingCall, setSendingCall] = useState(false);
   const sendLockRef = useRef(false);
-  const [lineCallUrl, setLineCallUrl] = useState("");
-  const [lineCallEnabled, setLineCallEnabled] = useState(true);
+  const [lineCallUrl, setLineCallUrl] = useState(process.env.NEXT_PUBLIC_LINE_CALL_URL || "");
+  // 診察モード設定（SWR）
+  const { data: consultSettingsData } = useSWR<{ settings: { type?: string; line_call_url?: string } }>("/api/admin/settings?category=consultation");
+  const lineCallEnabled = useMemo(() => {
+    const t = consultSettingsData?.settings?.type || "online_all";
+    return t !== "online_phone" && t !== "in_person";
+  }, [consultSettingsData]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const selectAbortRef = useRef<AbortController | null>(null);
 
@@ -419,13 +425,20 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [patientMark, setPatientMark] = useState("none");
   const [patientFields, setPatientFields] = useState<FieldValue[]>([]);
   const [patientDetail, setPatientDetail] = useState<PatientDetail | null>(null);
-  const [allTags, setAllTags] = useState<TagDef[]>([]);
-  const [allFieldDefs, setAllFieldDefs] = useState<FieldDef[]>([]);
+  // マスターデータ（SWR）
+  const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
+  const { data: fieldsData } = useSWR<{ fields: FieldDef[] }>("/api/admin/friend-fields");
+  const { data: marksData } = useSWR<{ marks: { value: string; label: string; color: string; icon: string }[] }>("/api/admin/line/marks");
+  const allTags = tagsData?.tags ?? [];
+  const allFieldDefs = fieldsData?.fields ?? [];
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [showMarkDropdown, setShowMarkDropdown] = useState(false);
   const [markNote, setMarkNote] = useState("");
   const [savingMark, setSavingMark] = useState(false);
-  const [markOptions, setMarkOptions] = useState<MarkOption[]>(DEFAULT_MARK_OPTIONS);
+  const markOptions: MarkOption[] = useMemo(() => {
+    if (!marksData?.marks) return DEFAULT_MARK_OPTIONS;
+    return marksData.marks.map(m => ({ value: m.value, label: m.label, color: m.color, icon: m.icon || "●" }));
+  }, [marksData]);
   const [userRichMenu, setUserRichMenu] = useState<{ id?: number; name: string; image_url: string | null; line_rich_menu_id: string; is_default: boolean } | null>(null);
   const [showMenuPicker, setShowMenuPicker] = useState(false);
   const [allRichMenus, setAllRichMenus] = useState<{ id: number; name: string; image_url: string | null; line_rich_menu_id: string }[]>([]);
@@ -449,24 +462,14 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   // LINEコールURL取得（設定 → 環境変数フォールバック）
-  const fetchLineCallSettings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-      const data = await res.json();
-      const t = data.settings?.type || "online_all";
-      setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-      if (data.settings?.line_call_url) {
-        setLineCallUrl(data.settings.line_call_url);
-        return;
-      }
-    } catch {}
-    // 設定未登録の場合は環境変数をフォールバック
-    if (process.env.NEXT_PUBLIC_LINE_CALL_URL) {
+  // SWR設定データからlineCallUrlを更新
+  useEffect(() => {
+    if (consultSettingsData?.settings?.line_call_url) {
+      setLineCallUrl(consultSettingsData.settings.line_call_url);
+    } else if (process.env.NEXT_PUBLIC_LINE_CALL_URL) {
       setLineCallUrl(process.env.NEXT_PUBLIC_LINE_CALL_URL);
     }
-  }, []);
-
-  useEffect(() => { fetchLineCallSettings(); }, [fetchLineCallSettings]);
+  }, [consultSettingsData]);
 
   // ピン留め初期化（DB）& 既読タイムスタンプ初期化（DB）& 右カラム表示設定
   const initPinsAndReads = useCallback(async () => {
@@ -601,25 +604,6 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   const fetchFriendsRef = useRef(fetchFriends);
   fetchFriendsRef.current = fetchFriends;
 
-  const loadTagsAndFields = useCallback(async () => {
-    try {
-      const [tagsData, fieldsData, marksData] = await Promise.all([
-        fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-        fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-      ]);
-      if (tagsData.tags) setAllTags(tagsData.tags);
-      if (fieldsData.fields) setAllFieldDefs(fieldsData.fields);
-      if (marksData.marks) {
-        setMarkOptions(marksData.marks.map((m: { value: string; label: string; color: string; icon: string }) => ({
-          value: m.value,
-          label: m.label,
-          color: m.color,
-          icon: m.icon || "●",
-        })));
-      }
-    } catch { /* ignore */ }
-  }, []);
 
   const restoreFriendsCache = useCallback(() => {
     // SSRで初期データが渡されている場合はsessionStorage復元をスキップ
@@ -636,8 +620,7 @@ export default function TalkClient({ initialFriends, initialHasMore }: TalkClien
   useEffect(() => {
     // キャッシュがあれば即表示（体感0秒）→ デバウンスuseEffectが最新データを取得
     restoreFriendsCache();
-    loadTagsAndFields();
-  }, [restoreFriendsCache, loadTagsAndFields]);
+  }, [restoreFriendsCache]);
 
   // プルダウンリフレッシュ（スマホのみ）
   const PULL_THRESHOLD = 60;

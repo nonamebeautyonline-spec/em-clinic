@@ -2,9 +2,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import type { IntakeFormField, IntakeFormSettings } from "@/lib/intake-form-defaults";
 import { DEFAULT_INTAKE_FIELDS, DEFAULT_INTAKE_SETTINGS } from "@/lib/intake-form-defaults";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 type AnswerMap = Record<string, string>;
 
@@ -98,32 +106,16 @@ export default function IntakePage() {
   const [alreadyAnswered, setAlreadyAnswered] = useState(false);
   const [checkError, setCheckError] = useState<string>("");
 
-  // ★ 動的フォーム定義
-  const [questionItems, setQuestionItems] = useState<IntakeFormField[]>(DEFAULT_INTAKE_FIELDS);
-  const [formSettings, setFormSettings] = useState<IntakeFormSettings>(DEFAULT_INTAKE_SETTINGS);
-  const [formLoading, setFormLoading] = useState(true);
+  // ★ 動的フォーム定義（SWRで取得）
+  const { data: formData, isLoading: formLoading } = useSWR<{
+    fields?: IntakeFormField[];
+    settings?: Partial<IntakeFormSettings>;
+  }>("/api/intake/form-definition", swrFetcher);
 
-  // フォーム定義をAPIから取得
-  const fetchFormDefinition = useCallback(async () => {
-    try {
-      const r = await fetch("/api/intake/form-definition");
-      const data = await r.json();
-      if (data.fields?.length) {
-        setQuestionItems(data.fields);
-      }
-      if (data.settings) {
-        setFormSettings({ ...DEFAULT_INTAKE_SETTINGS, ...data.settings });
-      }
-    } catch {
-      // フォールバック: デフォルト値を使用
-    } finally {
-      setFormLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchFormDefinition();
-  }, [fetchFormDefinition]);
+  const questionItems = formData?.fields?.length ? formData.fields : DEFAULT_INTAKE_FIELDS;
+  const formSettings = formData?.settings
+    ? { ...DEFAULT_INTAKE_SETTINGS, ...formData.settings }
+    : DEFAULT_INTAKE_SETTINGS;
 
   const total = questionItems.length;
   const current = questionItems[currentIndex];

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
 interface Tag {
   id: number;
@@ -18,6 +20,8 @@ interface TagPatient {
   has_line: boolean;
 }
 
+const TAGS_KEY = "/api/admin/tags";
+
 const PRESET_COLORS = [
   { hex: "#EF4444", name: "レッド" },
   { hex: "#F97316", name: "オレンジ" },
@@ -32,8 +36,9 @@ const PRESET_COLORS = [
 ];
 
 export default function TagManagementPage() {
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR<{ tags: Tag[] }>(TAGS_KEY);
+  const tags = data?.tags ?? [];
+
   const [showModal, setShowModal] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [name, setName] = useState("");
@@ -48,19 +53,9 @@ export default function TagManagementPage() {
   const handleShowPatients = async (tag: Tag) => {
     setPatientsModal({ tag, patients: [], loading: true });
     const res = await fetch(`/api/admin/tags/${tag.id}`, { credentials: "include" });
-    const data = await res.json();
-    setPatientsModal({ tag, patients: data.patients || [], loading: false });
+    const resData = await res.json();
+    setPatientsModal({ tag, patients: resData.patients || [], loading: false });
   };
-
-  const fetchTags = useCallback(async () => {
-    const res = await fetch("/api/admin/tags", { credentials: "include" });
-    const data = await res.json();
-    if (data.tags) setTags(data.tags);
-    setLoading(false);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
-  useEffect(() => { fetchTags(); }, [fetchTags]);
 
   const handleSave = async () => {
     if (!name.trim() || saving) return;
@@ -77,24 +72,36 @@ export default function TagManagementPage() {
     });
 
     if (res.ok) {
-      await fetchTags();
+      await mutate(TAGS_KEY);
       resetForm();
     } else {
-      const data = await res.json();
-      alert((data.message || data.error) || "保存失敗");
+      const resData = await res.json();
+      alert((resData.message || resData.error) || "保存失敗");
     }
     setSaving(false);
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/admin/tags/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.ok) {
-      await fetchTags();
-      setDeleteConfirm(null);
-    }
+    setDeleteConfirm(null);
+    // 楽観的更新: 即座にUIからタグを除去し、失敗時はロールバック
+    await mutate(
+      TAGS_KEY,
+      async (current: { tags: Tag[] } | undefined) => {
+        const res = await fetch(`/api/admin/tags/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("削除失敗");
+        return { tags: (current?.tags ?? []).filter(t => t.id !== id) };
+      },
+      {
+        optimisticData: (current: { tags: Tag[] } | undefined) => ({
+          tags: (current?.tags ?? []).filter(t => t.id !== id),
+        }),
+        rollbackOnError: true,
+        revalidate: false,
+      },
+    );
   };
 
   const handleEdit = (tag: Tag) => {
@@ -112,6 +119,8 @@ export default function TagManagementPage() {
     setColor("#3B82F6");
     setDescription("");
   };
+
+  if (error) return <ErrorFallback error={error} retry={() => mutate(TAGS_KEY)} />;
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -161,7 +170,7 @@ export default function TagManagementPage() {
 
       {/* タグ一覧 */}
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-violet-200 border-t-violet-500 rounded-full animate-spin" />

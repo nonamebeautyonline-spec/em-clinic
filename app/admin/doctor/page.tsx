@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import useSWR from "swr";
 import { VoiceRecordButton } from "@/components/voice-record-button";
 import { VoiceKarteButton } from "@/components/voice-karte-button";
 
@@ -257,18 +258,12 @@ export default function DoctorPage() {
   }, [fetchList]);
 
   // 診察モード取得（LINE通話フォームボタン表示制御）
-  const loadConsultationSettings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-      const data = await res.json();
-      const t = (data.settings as Record<string, unknown>)?.type || "online_all";
+  useSWR<{ settings: Record<string, unknown> }>("/api/admin/settings?category=consultation", {
+    onSuccess: (data) => {
+      const t = data.settings?.type || "online_all";
       setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-    } catch { /* 設定取得失敗時はデフォルト値のまま */ }
-  }, []);
-
-  useEffect(() => {
-    loadConsultationSettings();
-  }, [loadConsultationSettings]);
+    },
+  });
 
 
   const handleOpenDetail = (row: IntakeRow) => {

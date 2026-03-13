@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface TrackingLink {
   id: number;
@@ -20,8 +21,9 @@ interface ClickEvent {
 }
 
 export default function ClickAnalyticsPage() {
-  const [links, setLinks] = useState<TrackingLink[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey = "/api/admin/line/click-track/stats";
+  const { data: swrData, isLoading: loading } = useSWR(swrKey);
+  const links: TrackingLink[] = swrData?.stats || [];
   const [showCreate, setShowCreate] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -33,36 +35,12 @@ export default function ClickAnalyticsPage() {
   const [events, setEvents] = useState<ClickEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
-  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/admin/line/click-track/stats", { credentials: "include" });
-      const data = await res.json();
-      if (!cancelled) {
-        if (data.stats) setLinks(data.stats);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // 手動再読み込み用
-  const loadLinks = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/line/click-track/stats", { credentials: "include" });
-    const data = await res.json();
-    if (data.stats) setLinks(data.stats);
-    setLoading(false);
-  }, []);
-
   const handleCreate = async () => {
     if (!newUrl.trim()) return;
     setCreating(true);
     const res = await fetch("/api/admin/line/click-track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ original_url: newUrl.trim(), label: newLabel.trim() || undefined }),
     });
     if (res.ok) {
@@ -72,7 +50,7 @@ export default function ClickAnalyticsPage() {
       setNewUrl("");
       setNewLabel("");
       setShowCreate(false);
-      await loadLinks();
+      await mutate(swrKey);
     }
     setCreating(false);
   };
@@ -87,7 +65,7 @@ export default function ClickAnalyticsPage() {
   const handleShowDetail = async (link: TrackingLink) => {
     setSelectedLink(link);
     setLoadingEvents(true);
-    const res = await fetch(`/api/admin/line/click-track/stats?link_id=${link.id}`, { credentials: "include" });
+    const res = await fetch(`/api/admin/line/click-track/stats?link_id=${link.id}`);
     const data = await res.json();
     setEvents(data.events || []);
     setLoadingEvents(false);

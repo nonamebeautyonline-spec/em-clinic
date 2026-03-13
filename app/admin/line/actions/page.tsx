@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -62,11 +63,27 @@ const STEP_TYPES = [
 ] as const;
 
 export default function ActionsPage() {
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [actions, setActions] = useState<Action[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // SWRでマスターデータ取得
+  const { data: foldersData } = useSWR<{ folders: Folder[] }>("/api/admin/line/action-folders");
+  const actionsKey = selectedFolder
+    ? `/api/admin/line/actions?folder_id=${selectedFolder}`
+    : "/api/admin/line/actions";
+  const { data: actionsData, isLoading: actionsLoading } = useSWR<{ actions: Action[] }>(actionsKey);
+  const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
+  const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+  const { data: marksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+  const { data: richMenusData } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus");
+
+  const folders = foldersData?.folders ?? [];
+  const actions = actionsData?.actions ?? [];
+  const allTags = tagsData?.tags ?? [];
+  const allTemplates = templatesData?.templates ?? [];
+  const allMarks = marksData?.marks ?? [];
+  const allRichMenus = richMenusData?.menus ?? [];
+  const loading = actionsLoading;
 
   // モーダル
   const [showModal, setShowModal] = useState(false);
@@ -83,55 +100,11 @@ export default function ActionsPage() {
   const [editingFolder, setEditingFolder] = useState<number | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
 
-  // タグ・テンプレート・マーク・リッチメニュー一覧
-  const [allTags, setAllTags] = useState<TagDef[]>([]);
-  const [allTemplates, setAllTemplates] = useState<Template[]>([]);
-  const [allMarks, setAllMarks] = useState<MarkDef[]>([]);
-  const [allRichMenus, setAllRichMenus] = useState<RichMenu[]>([]);
-
   // 条件ビルダーモーダル
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
-  const fetchFolders = useCallback(async () => {
-    const res = await fetch("/api/admin/line/action-folders", { credentials: "include" });
-    const data = await res.json();
-    if (data.folders) setFolders(data.folders);
-  }, []);
-
-  const fetchActions = useCallback(async () => {
-    const url = selectedFolder
-      ? `/api/admin/line/actions?folder_id=${selectedFolder}`
-      : "/api/admin/line/actions";
-    const res = await fetch(url, { credentials: "include" });
-    const data = await res.json();
-    if (data.actions) setActions(data.actions);
-  }, [selectedFolder]);
-
-  const fetchMasterData = useCallback(async () => {
-    setLoading(true);
-    const [, tagsData, tmplData, marksData, rmData] = await Promise.all([
-      fetchFolders(),
-      fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/rich-menus", { credentials: "include" }).then(r => r.json()),
-    ]);
-    if (tagsData.tags) setAllTags(tagsData.tags);
-    if (tmplData.templates) setAllTemplates(tmplData.templates);
-    if (marksData.marks) setAllMarks(marksData.marks);
-    if (rmData.menus) setAllRichMenus(rmData.menus);
-    setLoading(false);
-  }, [fetchFolders]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchMasterData();
-  }, [fetchMasterData]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchActions();
-  }, [fetchActions]);
+  const revalidateActions = () => { mutate(actionsKey); mutate("/api/admin/line/action-folders"); };
+  const revalidateFolders = () => { mutate("/api/admin/line/action-folders"); };
 
   // フォルダ操作
   const createFolder = async () => {
@@ -144,7 +117,7 @@ export default function ActionsPage() {
     });
     setNewFolderName("");
     setShowNewFolder(false);
-    fetchFolders();
+    revalidateFolders();
   };
 
   const renameFolder = async (id: number) => {
@@ -156,15 +129,14 @@ export default function ActionsPage() {
       body: JSON.stringify({ id, name: editFolderName }),
     });
     setEditingFolder(null);
-    fetchFolders();
+    revalidateFolders();
   };
 
   const deleteFolder = async (id: number) => {
     if (!confirm("フォルダを削除しますか？中のアクションは未分類に移動されます。")) return;
     await fetch(`/api/admin/line/action-folders?id=${id}`, { method: "DELETE", credentials: "include" });
     if (selectedFolder === id) setSelectedFolder(null);
-    fetchFolders();
-    fetchActions();
+    revalidateActions();
   };
 
   // アクション操作
@@ -204,15 +176,13 @@ export default function ActionsPage() {
     });
     setSaving(false);
     setShowModal(false);
-    fetchActions();
-    fetchFolders();
+    revalidateActions();
   };
 
   const deleteAction = async (id: number) => {
     if (!confirm("このアクションを削除しますか？")) return;
     await fetch(`/api/admin/line/actions?id=${id}`, { method: "DELETE", credentials: "include" });
-    fetchActions();
-    fetchFolders();
+    revalidateActions();
   };
 
   // ステップ操作

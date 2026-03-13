@@ -3,7 +3,8 @@
 // app/platform/members/page.tsx
 // プラットフォーム管理: メンバー管理ページ
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 // ---- 型定義 ----
 
@@ -48,10 +49,7 @@ interface MembersResponse {
 // ---- メインコンポーネント ----
 
 export default function PlatformMembersPage() {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [tenants, setTenants] = useState<TenantOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [tenantsCache, setTenantsCache] = useState<TenantOption[]>([]);
 
   // フィルター
   const [search, setSearch] = useState("");
@@ -60,46 +58,33 @@ export default function PlatformMembersPage() {
 
   // ページネーション
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
   const limit = 20;
 
-  const loadMembers = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-      });
-      if (search) params.set("search", search);
-      if (tenantFilter) params.set("tenant_id", tenantFilter);
-      if (roleFilter) params.set("role", roleFilter);
+  // 動的SWRキー
+  const memberParams = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (search) memberParams.set("search", search);
+  if (tenantFilter) memberParams.set("tenant_id", tenantFilter);
+  if (roleFilter) memberParams.set("role", roleFilter);
 
-      const res = await fetch(
-        `/api/platform/members?${params}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("データ取得失敗");
-      const data: MembersResponse = await res.json();
-      if (!data.ok) throw new Error("エラーが発生しました");
-
-      setMembers(data.members);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
-      if (data.tenants.length > 0) {
-        setTenants(data.tenants);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
+  const { data: rawData, error: swrError, isLoading: loading } = useSWR<MembersResponse>(
+    `/api/platform/members?${memberParams}`,
+    {
+      onSuccess: (data) => {
+        if (data.tenants && data.tenants.length > 0) {
+          setTenantsCache(data.tenants);
+        }
+      },
     }
-  }, [page, search, tenantFilter, roleFilter]);
+  );
 
-  useEffect(() => {
-    loadMembers();
-  }, [loadMembers]);
+  const members = rawData?.members || [];
+  const total = rawData?.total || 0;
+  const totalPages = rawData?.totalPages || 1;
+  const tenants = tenantsCache;
+  const error = swrError?.message || (rawData && !rawData.ok ? "エラーが発生しました" : "");
 
   // 検索実行（デバウンス）
   const [searchInput, setSearchInput] = useState("");

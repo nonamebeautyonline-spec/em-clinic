@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 
 interface SessionItem {
   id: string;
@@ -59,38 +60,21 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export default function PlatformSessionsPage() {
-  const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [revokingAll, setRevokingAll] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   // セッション一覧を取得
-  const fetchSessions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/platform/sessions", {
-        credentials: "include",
-      });
+  const { data: rawData, error: swrError, isLoading: loading, mutate: refreshSessions } = useSWR<{
+    ok: boolean;
+    sessions: SessionItem[];
+    error?: string;
+  }>("/api/platform/sessions");
 
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        setError(data.error || "セッション情報の取得に失敗しました");
-        return;
-      }
-
-      setSessions(data.sessions || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+  const sessions = rawData?.sessions || [];
+  // SWRエラーまたはAPIレスポンスエラーを表示
+  const fetchError = swrError?.message || (rawData && !rawData.ok ? (rawData.error || "セッション情報の取得に失敗しました") : "");
 
   // セッション削除
   const handleRevoke = async (sessionId: string) => {
@@ -113,7 +97,7 @@ export default function PlatformSessionsPage() {
 
       setSuccess("セッションをログアウトしました");
       // 一覧を再取得
-      await fetchSessions();
+      await refreshSessions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -155,7 +139,7 @@ export default function PlatformSessionsPage() {
       }
 
       // 一覧を再取得
-      await fetchSessions();
+      await refreshSessions();
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -193,9 +177,9 @@ export default function PlatformSessionsPage() {
             <p className="text-green-300 text-sm">{success}</p>
           </div>
         )}
-        {error && (
+        {(error || fetchError) && (
           <div className="p-3 bg-red-900/50 border border-red-700 rounded-lg">
-            <p className="text-red-300 text-sm">{error}</p>
+            <p className="text-red-300 text-sm">{error || fetchError}</p>
           </div>
         )}
 

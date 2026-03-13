@@ -3,7 +3,7 @@
 // LTV分析ウィジェット
 // 患者あたり累計売上の分布ヒストグラムとセグメント別LTVを表示
 
-import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import {
   BarChart,
   Bar,
@@ -60,31 +60,9 @@ function DistributionTooltip({ active, payload, label }: { active?: boolean; pay
 }
 
 export default function LTVWidget() {
-  const [data, setData] = useState<LTVData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, error, isLoading } = useSWR<LTVData>("/api/admin/dashboard-ltv");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/dashboard-ltv", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("LTVデータの取得に失敗しました");
-      setData(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
         <div className="h-4 w-32 bg-slate-200 rounded mb-4" />
@@ -97,7 +75,7 @@ export default function LTVWidget() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">LTV分析</h3>
-        <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error}</div>
+        <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
     );
   }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 interface NotificationConfig {
   slackWebhookUrl: string;
@@ -19,32 +20,22 @@ interface NotificationSectionProps {
 
 export default function NotificationSection({ onToast }: NotificationSectionProps) {
   const [config, setConfig] = useState<NotificationConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  // 初期読み込み
+  const { data, isLoading } = useSWR<{ settings: Record<string, string> }>(
+    "/api/admin/settings?category=notification",
+  );
+
+  // SWRから取得したデータでローカルstateを同期
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/settings?category=notification", { credentials: "include" });
-        const data = await res.json();
-        if (!ignore && data.settings && typeof data.settings === "object") {
-          setConfig({
-            slackWebhookUrl: data.settings.cron_slack_webhook_url || "",
-            lineNotifyUid: data.settings.cron_notify_line_uid || "",
-          });
-        }
-      } catch {
-        // エラー時はデフォルトのまま
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    })();
-    return () => { ignore = true; };
-  }, []);
+    if (data?.settings && typeof data.settings === "object") {
+      setConfig({
+        slackWebhookUrl: data.settings.cron_slack_webhook_url || "",
+        lineNotifyUid: data.settings.cron_notify_line_uid || "",
+      });
+    }
+  }, [data]);
 
   // 保存
   const handleSave = async () => {
@@ -63,8 +54,8 @@ export default function NotificationSection({ onToast }: NotificationSectionProp
           body: JSON.stringify(s),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || data.error || `保存失敗 (${res.status})`);
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.message || d.error || `保存失敗 (${res.status})`);
         }
       }
       onToast("通知設定を保存しました", "success");
@@ -85,8 +76,8 @@ export default function NotificationSection({ onToast }: NotificationSectionProp
         headers: { "Content-Type": "application/json" },
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || data.error || `テスト送信失敗 (${res.status})`);
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || d.error || `テスト送信失敗 (${res.status})`);
       }
       onToast("テスト通知を送信しました", "success");
     } catch (err) {
@@ -96,7 +87,7 @@ export default function NotificationSection({ onToast }: NotificationSectionProp
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-blue-600 border-t-transparent" />

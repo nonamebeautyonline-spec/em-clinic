@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, Suspense } from "react";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface FinancialData {
@@ -70,46 +71,16 @@ function AccountingStatementContent() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<FinancialData | null>(null);
-  const [costData, setCostData] = useState<CostData | null>(null);
+  const { data: financialSwrData, isLoading: financialLoading } = useSWR<{ ok?: boolean; data?: FinancialData }>(
+    `/api/admin/financials?year_month=${selectedMonth}`
+  );
+  const { data: costSwrData, isLoading: costLoading } = useSWR<{ ok?: boolean; data?: CostData }>(
+    `/api/admin/cost-calculation?year_month=${selectedMonth}`
+  );
 
-  const loadData = useCallback(async (yearMonth: string) => {
-    setLoading(true);
-
-    try {
-      const [financialRes, costRes] = await Promise.all([
-        fetch(`/api/admin/financials?year_month=${yearMonth}`, {
-          credentials: "include",
-        }),
-        fetch(`/api/admin/cost-calculation?year_month=${yearMonth}`, {
-          credentials: "include",
-        }),
-      ]);
-
-      if (financialRes.ok) {
-        const json = await financialRes.json();
-        if (json.ok) {
-          setData(json.data);
-        }
-      }
-
-      if (costRes.ok) {
-        const costJson = await costRes.json();
-        if (costJson.ok) {
-          setCostData(costJson.data);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData(selectedMonth);
-  }, [selectedMonth, loadData]);
+  const loading = financialLoading || costLoading;
+  const data = financialSwrData?.ok ? (financialSwrData.data ?? null) : null;
+  const costData = costSwrData?.ok ? (costSwrData.data ?? null) : null;
 
   // 月選択オプション生成（過去12ヶ月）
   const monthOptions = [];

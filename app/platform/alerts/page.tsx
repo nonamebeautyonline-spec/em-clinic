@@ -3,7 +3,8 @@
 // app/platform/alerts/page.tsx
 // プラットフォーム管理: セキュリティアラート一覧ページ
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 interface Alert {
   id: string;
@@ -33,42 +34,25 @@ const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string;
 };
 
 export default function AlertsPage() {
-  const [data, setData] = useState<AlertsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<"all" | "true" | "false">("false"); // デフォルト: 未確認
   const [severityFilter, setSeverityFilter] = useState("");
   const [ackingId, setAckingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const fetchAlerts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: "50",
-        acknowledged: filter,
-      });
-      if (severityFilter) params.set("severity", severityFilter);
+  // 動的SWRキー
+  const alertParams = new URLSearchParams({
+    page: String(page),
+    limit: "50",
+    acknowledged: filter,
+  });
+  if (severityFilter) alertParams.set("severity", severityFilter);
 
-      const res = await fetch(`/api/platform/alerts?${params}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("アラート取得失敗");
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error);
-      setData(json);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, filter, severityFilter]);
+  const { data, error: swrError, isLoading: loading, mutate: refreshAlerts } = useSWR<AlertsData & { ok: boolean; error?: string }>(
+    `/api/platform/alerts?${alertParams}`
+  );
 
-  useEffect(() => {
-    fetchAlerts();
-  }, [fetchAlerts]);
+  const fetchError = swrError?.message || (data && !data.ok ? (data.error || "アラート取得失敗") : "");
 
   const handleAcknowledge = async (alertId: string) => {
     setAckingId(alertId);
@@ -79,7 +63,7 @@ export default function AlertsPage() {
       });
       if (!res.ok) throw new Error("確認処理に失敗しました");
       // リストを再取得
-      await fetchAlerts();
+      await refreshAlerts();
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -156,9 +140,9 @@ export default function AlertsPage() {
       </div>
 
       {/* エラー表示 */}
-      {error && (
+      {(error || fetchError) && (
         <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg text-red-700 text-sm">
-          {error}
+          {error || fetchError}
         </div>
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 interface FollowupLog {
@@ -63,8 +64,9 @@ const LOG_STATUS_CONFIG: Record<string, { text: string; bg: string; textColor: s
 };
 
 export default function FollowupRulesPage() {
-  const [rules, setRules] = useState<FollowupRule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey = "/api/admin/line/followup-rules";
+  const { data: swrData, isLoading: loading } = useSWR(swrKey);
+  const rules: FollowupRule[] = swrData?.rules || [];
   const [showModal, setShowModal] = useState(false);
   const [editingRule, setEditingRule] = useState<FollowupRule | null>(null);
   const [saving, setSaving] = useState(false);
@@ -79,18 +81,6 @@ export default function FollowupRulesPage() {
   const [formDelayMode, setFormDelayMode] = useState<"days" | "hours">("days");
   const [formTemplate, setFormTemplate] = useState("");
   const [formEnabled, setFormEnabled] = useState(true);
-
-  const fetchRules = useCallback(async () => {
-    const res = await fetch("/api/admin/line/followup-rules", { credentials: "include" });
-    const data = await res.json();
-    if (data.rules) setRules(data.rules);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchRules();
-  }, [fetchRules]);
 
   const resetForm = () => {
     setShowModal(false);
@@ -138,12 +128,11 @@ export default function FollowupRulesPage() {
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify(body),
     });
 
     if (res.ok) {
-      await fetchRules();
+      await mutate(swrKey);
       resetForm();
     } else {
       const data = await res.json();
@@ -156,21 +145,19 @@ export default function FollowupRulesPage() {
     const res = await fetch(`/api/admin/line/followup-rules/${rule.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ is_enabled: !rule.is_enabled }),
     });
     if (res.ok) {
-      await fetchRules();
+      await mutate(swrKey);
     }
   };
 
   const handleDelete = async (id: number) => {
     const res = await fetch(`/api/admin/line/followup-rules/${id}`, {
       method: "DELETE",
-      credentials: "include",
     });
     if (res.ok) {
-      await fetchRules();
+      await mutate(swrKey);
       setDeleteConfirm(null);
     }
   };

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import useSWR from "swr";
 
 interface HistoryEntry {
   id: number;
@@ -23,23 +23,11 @@ const STATUS_LABELS: Record<string, string> = {
 export default function KarteHistoryPage() {
   const searchParams = useSearchParams();
   const intakeId = searchParams.get("intakeId");
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!intakeId) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/admin/karte-history?intakeId=${intakeId}`);
-        const data = await res.json();
-        setHistory(data.history || []);
-      } catch (err) {
-        console.error("履歴取得エラー:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [intakeId]);
+  const { data, isLoading: loading } = useSWR<{ history: HistoryEntry[] }>(
+    intakeId ? `/api/admin/karte-history?intakeId=${intakeId}` : null
+  );
+  const history = data?.history || [];
 
   const formatDate = (iso: string) => {
     try {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import useSWR, { mutate } from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 import {
   DndContext,
   DragOverlay,
@@ -296,12 +298,17 @@ function RootDropZone({ children }: { children: React.ReactNode }) {
   );
 }
 
+const CATEGORIES_KEY = "/api/admin/product-categories";
+const PRODUCTS_KEY = "/api/admin/products";
+
 // ─── メインページ ───
 export default function ProductsPage() {
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: catData, error: catError, isLoading: catLoading } = useSWR<{ categories: ProductCategory[] }>(CATEGORIES_KEY);
+  const { data: prodData, error: prodError, isLoading: prodLoading } = useSWR<{ products: Product[] }>(PRODUCTS_KEY);
+  const categories = catData?.categories ?? [];
+  const products = prodData?.products ?? [];
+  const loading = catLoading || prodLoading;
+  const swrError = catError || prodError;
 
   // ナビゲーション
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -412,28 +419,11 @@ export default function ProductsPage() {
     };
   }, [computeMarqueeSelection]);
 
-  // ─── データ取得 ───
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [catRes, prodRes] = await Promise.all([
-        fetch("/api/admin/product-categories", { credentials: "include" }),
-        fetch("/api/admin/products", { credentials: "include" }),
-      ]);
-      if (!catRes.ok) throw new Error(`カテゴリ取得失敗 (${catRes.status})`);
-      if (!prodRes.ok) throw new Error(`商品取得失敗 (${prodRes.status})`);
-      const [catData, prodData] = await Promise.all([catRes.json(), prodRes.json()]);
-      setCategories(catData.categories || []);
-      setProducts(prodData.products || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
+  // ─── データ再検証 ───
+  const revalidateAll = useCallback(() => {
+    mutate(CATEGORIES_KEY);
+    mutate(PRODUCTS_KEY);
   }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   // フォルダ遷移時に選択をクリア
   useEffect(() => { setSelectedItems(new Set()); }, [currentFolderId]);
@@ -530,7 +520,7 @@ export default function ProductsPage() {
       const data = await res.json();
       throw new Error(data.message || "作成に失敗しました");
     }
-    await fetchData();
+    revalidateAll();
   };
 
   const handleRenameFolder = async (id: string, name: string) => {
@@ -544,7 +534,7 @@ export default function ProductsPage() {
       const data = await res.json();
       throw new Error(data.message || "名前変更に失敗しました");
     }
-    await fetchData();
+    revalidateAll();
   };
 
   const handleDeleteFolder = async (id: string) => {
@@ -558,33 +548,46 @@ export default function ProductsPage() {
       alert(data.message || "削除に失敗しました");
       return;
     }
-    await fetchData();
+    revalidateAll();
   };
 
-  // ─── 商品操作 ───
+  // ─── 商品操作（Optimistic UI） ───
   const handleToggleActive = async (product: Product) => {
-    try {
-      if (product.is_active) {
-        const res = await fetch(`/api/admin/products?id=${product.id}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (!res.ok) throw new Error("無効化に失敗しました");
-      } else {
-        const res = await fetch("/api/admin/products", {
-          method: "PUT",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: product.id, is_active: true }),
-        });
-        if (!res.ok) throw new Error("有効化に失敗しました");
-      }
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, is_active: !p.is_active } : p)),
-      );
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "操作に失敗しました");
-    }
+    const newActive = !product.is_active;
+    await mutate(
+      PRODUCTS_KEY,
+      async (current: { products: Product[] } | undefined) => {
+        if (newActive) {
+          const res = await fetch("/api/admin/products", {
+            method: "PUT",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: product.id, is_active: true }),
+          });
+          if (!res.ok) throw new Error("有効化に失敗しました");
+        } else {
+          const res = await fetch(`/api/admin/products?id=${product.id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!res.ok) throw new Error("無効化に失敗しました");
+        }
+        return {
+          products: (current?.products ?? []).map((p) =>
+            p.id === product.id ? { ...p, is_active: newActive } : p
+          ),
+        };
+      },
+      {
+        optimisticData: (current: { products: Product[] } | undefined) => ({
+          products: (current?.products ?? []).map((p) =>
+            p.id === product.id ? { ...p, is_active: newActive } : p
+          ),
+        }),
+        rollbackOnError: true,
+        revalidate: false,
+      },
+    );
   };
 
   // ─── コンテキストメニュー ───
@@ -725,7 +728,7 @@ export default function ProductsPage() {
       const results = await Promise.all(movePromises);
       const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) throw new Error(`${failed.length}件の移動に失敗しました`);
-      await fetchData();
+      revalidateAll();
       setSelectedItems(new Set());
     } catch (err) {
       alert(err instanceof Error ? err.message : "移動に失敗しました");
@@ -775,6 +778,9 @@ export default function ProductsPage() {
     );
   };
 
+  // ─── エラー ───
+  if (swrError) return <ErrorFallback error={swrError} retry={revalidateAll} />;
+
   // ─── ローディング ───
   if (loading) {
     return (
@@ -818,10 +824,6 @@ export default function ProductsPage() {
           </button>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
-      )}
 
       {/* パンくずナビ + ツールバー */}
       <div className="flex items-center justify-between mb-4">
@@ -1041,7 +1043,7 @@ export default function ProductsPage() {
         editingProduct={productModal.editing}
         products={products}
         categoryId={currentFolderId}
-        onSave={fetchData}
+        onSave={revalidateAll}
         onClose={() => setProductModal({ open: false, editing: null })}
       />
     </div>

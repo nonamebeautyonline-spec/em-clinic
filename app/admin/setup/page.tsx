@@ -1,7 +1,18 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
+
+// 認証不要ページ用のfetcher（adminFetcherは使えない）
+const publicFetcher = async (url: string) => {
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    throw new Error((data.message || data.error) || "無効または期限切れのリンクです");
+  }
+  return data;
+};
 
 function SetupContent() {
   const router = useRouter();
@@ -11,40 +22,18 @@ function SetupContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [tokenError, setTokenError] = useState("");
-  const [userName, setUserName] = useState("");
-  const [userEmail, setUserEmail] = useState("");
 
-  useEffect(() => {
-    if (!token) {
-      setTokenError("無効なリンクです");
-      setValidating(false);
-      return;
-    }
+  // トークン検証をSWRで実行（tokenがない場合はフェッチしない）
+  const { data: tokenData, error: tokenValidationError, isLoading: validating } = useSWR(
+    token ? `/api/admin/password-reset/confirm?token=${token}` : null,
+    publicFetcher,
+  );
 
-    const validateToken = async () => {
-      try {
-        const res = await fetch(`/api/admin/password-reset/confirm?token=${token}`);
-        const data = await res.json();
-
-        if (!res.ok || !data.ok) {
-          setTokenError((data.message || data.error) || "無効または期限切れのリンクです");
-        } else {
-          setUserName(data.user?.name || "");
-          setUserEmail(data.user?.email || "");
-        }
-      } catch {
-        setTokenError("検証に失敗しました");
-      } finally {
-        setValidating(false);
-      }
-    };
-
-    validateToken();
-  }, [token]);
+  const tokenError = !token ? "無効なリンクです" : tokenValidationError ? (tokenValidationError instanceof Error ? tokenValidationError.message : "検証に失敗しました") : "";
+  const userName = tokenData?.user?.name || "";
+  const userEmail = tokenData?.user?.email || "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

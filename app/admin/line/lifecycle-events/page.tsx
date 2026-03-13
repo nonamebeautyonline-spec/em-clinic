@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
+import useSWR, { mutate } from "swr";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -100,13 +101,18 @@ function convertLegacyToSteps(sv: EventSetting["setting_value"]): ActionStep[] {
 
 // ── メインコンポーネント ────────────────────────────────
 
+const FRIEND_SETTINGS_KEY = "/api/admin/line/friend-settings";
+
 export default function LifecycleEventsPage() {
-  const [settings, setSettings] = useState<EventSetting[]>([]);
+  const { data: settingsData, isLoading: loading } = useSWR<{ settings: EventSetting[] }>(FRIEND_SETTINGS_KEY);
+  const settings = (settingsData?.settings ?? []).filter((s) =>
+    LIFECYCLE_KEYS.includes(s.setting_key as typeof LIFECYCLE_KEYS[number])
+  );
+
   const [marks, setMarks] = useState<MarkDef[]>([]);
   const [tags, setTags] = useState<TagDef[]>([]);
   const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // モーダル用ステート
@@ -115,18 +121,6 @@ export default function LifecycleEventsPage() {
 
   // 条件ビルダーモーダル
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
-
-  // 初回は設定データのみ取得（高速表示）
-  const fetchSettings = useCallback(async () => {
-    const res = await fetch("/api/admin/line/friend-settings", { credentials: "include" });
-    const data = await res.json();
-    if (data.settings) {
-      setSettings(data.settings.filter((s: EventSetting) =>
-        LIFECYCLE_KEYS.includes(s.setting_key as typeof LIFECYCLE_KEYS[number])
-      ));
-    }
-    setLoading(false);
-  }, []);
 
   // モーダル用データは編集時に遅延取得
   const modalDataLoaded = useRef(false);
@@ -151,11 +145,6 @@ export default function LifecycleEventsPage() {
     modalDataLoaded.current = true;
     setModalLoading(false);
   };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchSettings();
-  }, [fetchSettings]);
 
   const handleEdit = async (setting: EventSetting) => {
     setEditingKey(setting.setting_key);
@@ -186,7 +175,7 @@ export default function LifecycleEventsPage() {
     });
 
     if (res.ok) {
-      await fetchSettings();
+      await mutate(FRIEND_SETTINGS_KEY);
       setEditingKey(null);
     } else {
       const data = await res.json();
@@ -207,7 +196,7 @@ export default function LifecycleEventsPage() {
         enabled: false,
       }),
     });
-    await fetchSettings();
+    await mutate(FRIEND_SETTINGS_KEY);
     setSaving(false);
   };
 

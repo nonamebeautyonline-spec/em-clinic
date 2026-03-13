@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 
 interface MediaFolder {
   id: number;
@@ -42,9 +43,6 @@ const FILE_TYPE_ACCEPT: Record<FileTypeFilter, string> = {
 };
 
 export default function MediaManagementPage() {
-  const [folders, setFolders] = useState<MediaFolder[]>([]);
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [typeFilters, setTypeFilters] = useState<Set<FileTypeFilter>>(new Set(["image", "menu_image", "pdf"]));
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,39 +68,18 @@ export default function MediaManagementPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
 
-  const fetchFolders = useCallback(async () => {
-    const res = await fetch("/api/admin/line/media-folders", { credentials: "include" });
-    const data = await res.json();
-    if (data.folders) setFolders(data.folders);
-  }, []);
+  // SWRでフォルダ取得
+  const { data: foldersData, isLoading: foldersLoading, mutate: mutateFolders } = useSWR<{ folders: MediaFolder[] }>("/api/admin/line/media-folders");
+  const folders = foldersData?.folders || [];
 
-  const fetchFiles = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (selectedFolderId !== null) params.set("folder_id", String(selectedFolderId));
-    if (searchQuery) params.set("search", searchQuery);
-
-    const res = await fetch(`/api/admin/line/media?${params}`, { credentials: "include" });
-    const data = await res.json();
-    if (data.files) setFiles(data.files);
-  }, [selectedFolderId, searchQuery]);
-
-  const initialLoadDone = useRef(false);
-
-  const initLoad = useCallback(async () => {
-    await Promise.all([fetchFolders(), fetchFiles()]);
-    setLoading(false);
-    initialLoadDone.current = true;
-  }, [fetchFolders, fetchFiles]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    initLoad();
-  }, [initLoad]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackでフィルタ変更時再フェッチ
-    if (initialLoadDone.current) fetchFiles();
-  }, [fetchFiles]);
+  // SWRでファイル取得（フォルダID・検索クエリが変わるとキーが変わり自動再フェッチ）
+  const filesParams = new URLSearchParams();
+  if (selectedFolderId !== null) filesParams.set("folder_id", String(selectedFolderId));
+  if (searchQuery) filesParams.set("search", searchQuery);
+  const filesKey = `/api/admin/line/media?${filesParams}`;
+  const { data: filesData, isLoading: filesLoading, mutate: mutateFiles } = useSWR<{ files: MediaFile[] }>(filesKey);
+  const files = filesData?.files || [];
+  const loading = foldersLoading || filesLoading;
 
   const filteredFiles = files.filter((f) => typeFilters.has(f.file_type));
 
@@ -179,7 +156,7 @@ export default function MediaManagementPage() {
 
     setPendingFiles([]);
     setUploading(false);
-    await Promise.all([fetchFolders(), fetchFiles()]);
+    await Promise.all([mutateFolders(), mutateFiles()]);
   };
 
   // 圧縮確認ダイアログで「圧縮してアップロード」を選択した場合
@@ -212,7 +189,7 @@ export default function MediaManagementPage() {
     });
 
     if (res.ok) {
-      await fetchFiles();
+      await mutateFiles();
       setShowRenameModal(false);
       setRenamingFile(null);
     } else {
@@ -233,7 +210,7 @@ export default function MediaManagementPage() {
     });
 
     if (res.ok) {
-      await Promise.all([fetchFolders(), fetchFiles()]);
+      await Promise.all([mutateFolders(), mutateFiles()]);
     }
     setMoveFile(null);
   };
@@ -247,7 +224,7 @@ export default function MediaManagementPage() {
     });
 
     if (res.ok) {
-      await Promise.all([fetchFolders(), fetchFiles()]);
+      await Promise.all([mutateFolders(), mutateFiles()]);
     }
     setDeleteConfirm(null);
   };
@@ -270,7 +247,7 @@ export default function MediaManagementPage() {
     });
 
     if (res.ok) {
-      await fetchFolders();
+      await mutateFolders();
       setShowFolderModal(false);
       setFolderName("");
       setEditingFolder(null);
@@ -291,7 +268,7 @@ export default function MediaManagementPage() {
 
     if (res.ok) {
       if (selectedFolderId === deleteFolderConfirm.id) setSelectedFolderId(null);
-      await Promise.all([fetchFolders(), fetchFiles()]);
+      await Promise.all([mutateFolders(), mutateFiles()]);
     } else {
       const data = await res.json();
       alert((data.message || data.error) || "削除失敗");

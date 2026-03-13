@@ -4,7 +4,8 @@
 // プラットフォーム管理: テナント使用量ダッシュボード
 // テナントごとのメッセージ数/quota、ストレージ使用量、AI呼出数をプログレスバーで視覚化
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 // --- 型定義 ---
 
@@ -63,10 +64,6 @@ const ALERT_FILTERS: { key: AlertFilter; label: string }[] = [
 ];
 
 export default function UsageDashboardPage() {
-  const [tenants, setTenants] = useState<TenantUsage[]>([]);
-  const [summary, setSummary] = useState<UsageSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [filter, setFilter] = useState<AlertFilter>("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -78,30 +75,14 @@ export default function UsageDashboardPage() {
   }, [search]);
 
   // データ取得
-  const fetchUsage = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/platform/usage", {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "使用量データの取得に失敗しました");
-      }
-      const data = await res.json();
-      setTenants(data.tenants || []);
-      setSummary(data.summary || null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: rawData, error: swrError, isLoading: loading, mutate: refreshUsage } = useSWR<{
+    tenants: TenantUsage[];
+    summary: UsageSummary;
+  }>("/api/platform/usage");
 
-  useEffect(() => {
-    fetchUsage();
-  }, [fetchUsage]);
+  const tenants = rawData?.tenants || [];
+  const summary = rawData?.summary || null;
+  const error = swrError?.message || "";
 
   // フィルタリング
   const filteredTenants = tenants.filter((t) => {
@@ -234,7 +215,7 @@ export default function UsageDashboardPage() {
 
             {/* 更新ボタン */}
             <button
-              onClick={fetchUsage}
+              onClick={() => refreshUsage()}
               disabled={loading}
               className="px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
             >

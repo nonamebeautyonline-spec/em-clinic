@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 
 // 2FA設定のステップ
 type TotpStep = "idle" | "setup" | "verify" | "done";
@@ -19,41 +20,21 @@ export default function PlatformSettingsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showDisable, setShowDisable] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(true);
 
-  // 初回: 2FA有効状態をチェック
-  useEffect(() => {
-    const checkTotpStatus = async () => {
-      try {
-        const res = await fetch("/api/admin/session", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ok && data.user) {
-            // セッション情報から totp_enabled を判定
-            // admin/session API が totp_enabled を返さない場合は
-            // 別途チェックが必要。ここでは設定ページ表示時に
-            // setup API の応答で判断する方式を補助的に使う
-          }
+  // 初回: 2FA有効状態をチェック（SWR）
+  const { isLoading: checkingStatus } = useSWR(
+    "/api/admin/session",
+    {
+      onSuccess: () => {
+        // localStorage から totp_enabled を復元
+        const stored = typeof window !== "undefined" ? localStorage.getItem("platform-totp-enabled") : null;
+        if (stored === "true") {
+          setTotpEnabled(true);
         }
-      } catch {
-        // エラーは無視
-      }
-
-      // totp_enabled の状態確認用に totp/setup を試して判定する代わりに
-      // admin_users のフラグを直接確認するAPIを叩く
-      // 簡易実装: setup を呼ばずにページ上で状態管理
-      // 実際の状態は localStorage に保存し、disable/enable 成功時に更新
-      const stored = localStorage.getItem("platform-totp-enabled");
-      if (stored === "true") {
-        setTotpEnabled(true);
-      }
-      setCheckingStatus(false);
-    };
-
-    checkTotpStatus();
-  }, []);
+      },
+      revalidateOnFocus: false,
+    }
+  );
 
   // 2FA設定開始
   const handleSetupTotp = async () => {

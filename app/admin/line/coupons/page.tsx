@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import dynamic from "next/dynamic";
 
 const BarChart = dynamic(() => import("recharts").then((m) => m.BarChart), { ssr: false });
@@ -58,40 +59,20 @@ interface CouponStat {
 }
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: couponsData, isLoading: loading } = useSWR<{ coupons: Coupon[] }>("/api/admin/line/coupons");
+  const coupons = couponsData?.coupons ?? [];
+
   const [showEditor, setShowEditor] = useState(false);
   const [editCoupon, setEditCoupon] = useState<Coupon | null>(null);
   const [showDistribute, setShowDistribute] = useState<Coupon | null>(null);
   const [activeTab, setActiveTab] = useState<"coupons" | "rules" | "analytics">("coupons");
 
-  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/admin/line/coupons", { credentials: "include" });
-      const data = await res.json();
-      if (!cancelled) {
-        if (data.coupons) setCoupons(data.coupons);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // 手動再読み込み用
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/line/coupons", { credentials: "include" });
-    const data = await res.json();
-    if (data.coupons) setCoupons(data.coupons);
-    setLoading(false);
-  }, []);
+  const revalidateCoupons = () => { mutate("/api/admin/line/coupons"); };
 
   const handleDelete = async (id: number) => {
     if (!confirm("このクーポンを削除しますか？")) return;
     await fetch(`/api/admin/line/coupons?id=${id}`, { method: "DELETE", credentials: "include" });
-    setCoupons(prev => prev.filter(c => c.id !== id));
+    revalidateCoupons();
   };
 
   const handleToggle = async (coupon: Coupon) => {
@@ -101,7 +82,7 @@ export default function CouponsPage() {
       credentials: "include",
       body: JSON.stringify({ ...coupon, is_active: !coupon.is_active }),
     });
-    setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, is_active: !c.is_active } : c));
+    revalidateCoupons();
   };
 
   const totalIssued = coupons.reduce((sum, c) => sum + c.issued_count, 0);
@@ -330,7 +311,7 @@ export default function CouponsPage() {
             }
             setShowEditor(false);
             setEditCoupon(null);
-            load();
+            revalidateCoupons();
           }}
           onClose={() => { setShowEditor(false); setEditCoupon(null); }}
         />
@@ -341,7 +322,7 @@ export default function CouponsPage() {
         <DistributeModal
           coupon={showDistribute}
           onClose={() => setShowDistribute(null)}
-          onDone={() => { setShowDistribute(null); load(); }}
+          onDone={() => { setShowDistribute(null); revalidateCoupons(); }}
         />
       )}
       </div>
@@ -696,28 +677,11 @@ const TRIGGER_LABELS: Record<string, string> = {
 };
 
 function DistributionRulesPanel({ coupons }: { coupons: Coupon[] }) {
-  const [rules, setRules] = useState<DistributionRule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rulesData, isLoading: loading } = useSWR<{ rules: DistributionRule[] }>("/api/admin/line/coupons/distribution-rules");
+  const rules = rulesData?.rules ?? [];
   const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const res = await fetch("/api/admin/line/coupons/distribution-rules", { credentials: "include" });
-      const data = await res.json();
-      if (!cancelled) {
-        setRules(data.rules || []);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const loadRules = async () => {
-    const res = await fetch("/api/admin/line/coupons/distribution-rules", { credentials: "include" });
-    const data = await res.json();
-    setRules(data.rules || []);
-  };
+  const revalidateRules = () => { mutate("/api/admin/line/coupons/distribution-rules"); };
 
   const handleToggle = async (rule: DistributionRule) => {
     await fetch(`/api/admin/line/coupons/distribution-rules/${rule.id}`, {
@@ -726,7 +690,7 @@ function DistributionRulesPanel({ coupons }: { coupons: Coupon[] }) {
       credentials: "include",
       body: JSON.stringify({ is_active: !rule.is_active }),
     });
-    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, is_active: !r.is_active } : r));
+    revalidateRules();
   };
 
   const handleDelete = async (id: string) => {
@@ -735,7 +699,7 @@ function DistributionRulesPanel({ coupons }: { coupons: Coupon[] }) {
       method: "DELETE",
       credentials: "include",
     });
-    setRules(prev => prev.filter(r => r.id !== id));
+    revalidateRules();
   };
 
   const getTriggerDescription = (rule: DistributionRule) => {
@@ -847,7 +811,7 @@ function DistributionRulesPanel({ coupons }: { coupons: Coupon[] }) {
         <RuleCreateModal
           coupons={coupons}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadRules(); }}
+          onSaved={() => { setShowForm(false); revalidateRules(); }}
         />
       )}
     </div>
@@ -1037,35 +1001,21 @@ function RuleCreateModal({
 
 /* ==================== 効果測定コンポーネント ==================== */
 function CouponAnalytics() {
-  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [daily, setDaily] = useState<DailyPoint[]>([]);
-  const [byCoupon, setByCoupon] = useState<CouponStat[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const analyticsKey = (() => {
     const params = new URLSearchParams();
     if (dateFrom) params.set("from", dateFrom);
     if (dateTo) params.set("to", dateTo);
     const qs = params.toString() ? `?${params.toString()}` : "";
-    try {
-      const res = await fetch(`/api/admin/line/coupons/analytics${qs}`, { credentials: "include" });
-      const data = await res.json();
-      setSummary(data.summary || null);
-      setDaily(data.daily || []);
-      setByCoupon(data.by_coupon || []);
-    } catch {
-      console.error("効果測定データ取得失敗");
-    } finally {
-      setLoading(false);
-    }
-  }, [dateFrom, dateTo]);
+    return `/api/admin/line/coupons/analytics${qs}`;
+  })();
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data: analyticsData, isLoading: loading } = useSWR<{ summary: AnalyticsSummary; daily: DailyPoint[]; by_coupon: CouponStat[] }>(analyticsKey);
+  const summary = analyticsData?.summary ?? null;
+  const daily = analyticsData?.daily ?? [];
+  const byCoupon = analyticsData?.by_coupon ?? [];
 
   if (loading) {
     return (

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import LZString from "lz-string";
 import {
   DndContext,
@@ -70,7 +71,6 @@ interface ShippingItem {
 
 export default function CreateShippingListPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<ShippingItem[]>([]);
   const [originalItems, setOriginalItems] = useState<ShippingItem[]>([]); // 統合前の状態を保存
   const [isMerged, setIsMerged] = useState(false); // 統合済みフラグ
@@ -81,84 +81,75 @@ export default function CreateShippingListPage() {
   const [showSortModal, setShowSortModal] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("dosage");
   const tableRef = useRef<HTMLTableElement>(null);
+  const [dataInitialized, setDataInitialized] = useState(false);
 
-  const loadPendingOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/shipping/pending", {
-        credentials: "include",
-      });
+  const { isLoading: loading } = useSWR<{ orders: PendingOrder[]; mergeableGroups: { patient_id: string; patient_name: string; count: number }[] }>(
+    "/api/admin/shipping/pending",
+    {
+      revalidateOnFocus: false,
+      onSuccess: (data) => {
+        if (dataInitialized) return; // ローカル編集中は上書きしない
+        const orders = data.orders || [];
+        setMergeableGroups(data.mergeableGroups || []);
 
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
+        // ★ URLクエリパラメータから選択されたIDを取得（クライアントサイドのみ）
+        const urlParams = new URLSearchParams(window.location.search);
+        const idsParam = urlParams.get("ids");
+        const selectedIds = idsParam ? idsParam.split(",").map(id => id.trim()) : null;
 
-      const data = await res.json();
-      const orders = data.orders || [];
-      setMergeableGroups(data.mergeableGroups || []);
-
-      // ★ URLクエリパラメータから選択されたIDを取得（クライアントサイドのみ）
-      const urlParams = new URLSearchParams(window.location.search);
-      const idsParam = urlParams.get("ids");
-      const selectedIds = idsParam ? idsParam.split(",").map(id => id.trim()) : null;
-
-      // 用量を計算してフォーマット
-      const formattedItems: ShippingItem[] = orders
-        .filter((o: PendingOrder) => o.status === "confirmed") // 確認済みのみ
-        .filter((o: PendingOrder) => {
-          // ★ idsパラメータがある場合は、そのIDだけをフィルタ
-          if (selectedIds && selectedIds.length > 0) {
-            return selectedIds.includes(o.id);
-          }
-          return true; // idsパラメータがない場合は全て表示
-        })
-        .map((order: PendingOrder) => {
-          const dosages = calculateDosage(order.product_code);
-          return {
-            id: order.id,
-            patient_id: order.patient_id,
-            payment_id: order.id,
-            payment_date: order.payment_date,
-            name: order.patient_name || "",
-            postal_code: order.postal_code || "",
-            address: order.address || "",
-            email: order.email || "",
-            phone: order.phone || "",
-            product_name: order.product_name,
-            product_code: order.product_code,
-            price: order.amount || 0,
-            dosage_2_5mg: dosages["2.5mg"],
-            dosage_5mg: dosages["5mg"],
-            dosage_7_5mg: dosages["7.5mg"],
-            dosage_10mg: dosages["10mg"],
-            tracking_number: "",
-            status: order.status,
-            selected: true, // デフォルトで全選択（フィルタリング済みリスト）
-            shipping_list_created_at: order.shipping_list_created_at || null,
-            isListCreated: false,
-            editable: {
+        // 用量を計算してフォーマット
+        const formattedItems: ShippingItem[] = orders
+          .filter((o: PendingOrder) => o.status === "confirmed") // 確認済みのみ
+          .filter((o: PendingOrder) => {
+            // ★ idsパラメータがある場合は、そのIDだけをフィルタ
+            if (selectedIds && selectedIds.length > 0) {
+              return selectedIds.includes(o.id);
+            }
+            return true; // idsパラメータがない場合は全て表示
+          })
+          .map((order: PendingOrder) => {
+            const dosages = calculateDosage(order.product_code);
+            return {
+              id: order.id,
+              patient_id: order.patient_id,
+              payment_id: order.id,
+              payment_date: order.payment_date,
               name: order.patient_name || "",
               postal_code: order.postal_code || "",
               address: order.address || "",
-            },
-          };
-        });
+              email: order.email || "",
+              phone: order.phone || "",
+              product_name: order.product_name,
+              product_code: order.product_code,
+              price: order.amount || 0,
+              dosage_2_5mg: dosages["2.5mg"],
+              dosage_5mg: dosages["5mg"],
+              dosage_7_5mg: dosages["7.5mg"],
+              dosage_10mg: dosages["10mg"],
+              tracking_number: "",
+              status: order.status,
+              selected: true, // デフォルトで全選択（フィルタリング済みリスト）
+              shipping_list_created_at: order.shipping_list_created_at || null,
+              isListCreated: false,
+              editable: {
+                name: order.patient_name || "",
+                postal_code: order.postal_code || "",
+                address: order.address || "",
+              },
+            };
+          });
 
-      // 用量順にソート（2.5mg → 5mg → 7.5mg → 10mg、本数が多い順）
-      const sorted = sortByDosage(formattedItems);
-      setItems(sorted);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadPendingOrders();
-  }, [loadPendingOrders]);
+        // 用量順にソート（2.5mg → 5mg → 7.5mg → 10mg、本数が多い順）
+        const sorted = sortByDosage(formattedItems);
+        setItems(sorted);
+        setDataInitialized(true);
+      },
+      onError: (err) => {
+        console.error("Orders fetch error:", err);
+        setError(err instanceof Error ? err.message : "エラーが発生しました");
+      },
+    },
+  );
 
   const calculateDosage = (productCode: string): Record<string, number> => {
     const dosages: Record<string, number> = { "2.5mg": 0, "5mg": 0, "7.5mg": 0, "10mg": 0 };

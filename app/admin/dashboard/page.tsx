@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, ReactNode, useMemo } from "react";
+import useSWR, { mutate } from "swr";
 import dynamic from "next/dynamic";
 import OnboardingChecklist from "@/components/admin/OnboardingChecklist";
 import {
@@ -246,13 +247,23 @@ export default function EnhancedDashboard() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // 初期読み込み時に API から復元
-  useEffect(() => {
-    loadWidgetSettings().then(({ settings, order }) => {
-      setWidgetSettings(settings);
-      setCardOrder(order);
-    });
-  }, []);
+  // ウィジェット設定をSWRで取得
+  useSWR<{ enhancedWidgets?: WidgetSettings & { cardOrder?: CardOrder } }>(
+    "/api/admin/dashboard-layout?scope=enhanced",
+    {
+      onSuccess: (data) => {
+        const settings = data?.enhancedWidgets
+          ? { ...DEFAULT_WIDGET_SETTINGS, ...data.enhancedWidgets }
+          : DEFAULT_WIDGET_SETTINGS;
+        const order = data?.enhancedWidgets?.cardOrder
+          ? { ...DEFAULT_CARD_ORDER, ...data.enhancedWidgets.cardOrder }
+          : DEFAULT_CARD_ORDER;
+        setWidgetSettings(settings);
+        setCardOrder(order);
+      },
+      revalidateOnFocus: false,
+    },
+  );
 
   // ウィジェット設定の変更ハンドラ
   const toggleWidget = useCallback((key: keyof WidgetSettings) => {
@@ -315,44 +326,56 @@ export default function EnhancedDashboard() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadStats = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  // カスタム日付範囲のバリデーション
+  const customDateError = dateRange === "custom" && startDate && endDate && startDate > endDate
+    ? "開始日は終了日より前に設定してください"
+    : "";
 
-    try {
-      // カスタム日付範囲のバリデーション
-      if (dateRange === "custom" && startDate && endDate && startDate > endDate) {
-        setError("開始日は終了日より前に設定してください");
-        setLoading(false);
-        return;
-      }
+  // SWRキーを構築（バリデーションエラー時はnullでフェッチしない）
+  const statsSwrKey = useMemo(() => {
+    if (customDateError) return null;
+    const params = new URLSearchParams({ range: dateRange });
+    if (dateRange === "custom" && startDate && endDate) {
+      params.append("start", startDate);
+      params.append("end", endDate);
+    }
+    return `/api/admin/dashboard-stats-enhanced?${params}`;
+  }, [dateRange, startDate, endDate, customDateError]);
 
-      const params = new URLSearchParams({ range: dateRange });
-      if (dateRange === "custom" && startDate && endDate) {
-        params.append("start", startDate);
-        params.append("end", endDate);
-      }
+  const { data: statsData, error: statsError, isLoading: statsLoading } = useSWR<DashboardStats>(statsSwrKey);
 
-      const res = await fetch(`/api/admin/dashboard-stats-enhanced?${params}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("データ取得失敗");
-      }
-
-      const data = await res.json();
-      setStats(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
+  // SWRの結果をstateに反映
+  useEffect(() => {
+    if (statsData) {
+      setStats(statsData);
+      setError("");
       setLoading(false);
     }
-  }, [dateRange, startDate, endDate]);
+  }, [statsData]);
 
   useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+    if (statsError) {
+      setError(statsError instanceof Error ? statsError.message : "エラーが発生しました");
+      setLoading(false);
+    }
+  }, [statsError]);
+
+  useEffect(() => {
+    if (customDateError) {
+      setError(customDateError);
+      setLoading(false);
+    }
+  }, [customDateError]);
+
+  useEffect(() => {
+    if (statsLoading) {
+      setLoading(true);
+    }
+  }, [statsLoading]);
+
+  const loadStats = useCallback(() => {
+    if (statsSwrKey) mutate(statsSwrKey);
+  }, [statsSwrKey]);
 
   // デバウンス用: SSEイベントで頻繁にloadStatsが呼ばれるのを防ぐ
   const reloadTimerRef = useRef<NodeJS.Timeout | null>(null);

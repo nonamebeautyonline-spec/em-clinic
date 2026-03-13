@@ -3,8 +3,8 @@
 // app/platform/page.tsx
 // プラットフォーム管理ダッシュボード
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 
 // ---- 型定義 ----
 
@@ -37,31 +37,12 @@ interface DashboardStats {
 // ---- メインコンポーネント ----
 
 export default function PlatformDashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: rawData, error: swrError, isLoading: loading } = useSWR<{ ok: boolean; stats: DashboardStats; error?: string }>(
+    "/api/platform/dashboard-stats"
+  );
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/platform/dashboard-stats", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("データ取得失敗");
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || "エラーが発生しました");
-      setStats(data.stats);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const stats = rawData?.ok ? rawData.stats : null;
+  const error = swrError?.message || (rawData && !rawData.ok ? (rawData.error || "エラーが発生しました") : "");
 
   // 月別推移グラフの最大値（棒グラフのスケール用）
   const maxRevenue = stats

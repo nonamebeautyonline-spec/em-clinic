@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 
 interface ShippingItem {
   id: string;
@@ -19,52 +20,22 @@ interface ShippingItem {
 }
 
 export default function TodayShippingListPage() {
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<ShippingItem[]>([]);
-  const [error, setError] = useState("");
-  const [cutoffTime, setCutoffTime] = useState<string>("");
+  const { data, error, isLoading: loading } = useSWR<{ orders: ShippingItem[] }>("/api/admin/shipping/pending");
+  const items = data?.orders || [];
 
-  useEffect(() => {
-    loadTodayShippingList();
+  const cutoffTime = useMemo(() => {
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(15, 0, 0, 0);
+    return yesterday.toLocaleString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }, []);
-
-  const loadTodayShippingList = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const now = new Date();
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(15, 0, 0, 0);
-
-      setCutoffTime(
-        yesterday.toLocaleString("ja-JP", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      );
-
-      const res = await fetch("/api/admin/shipping/pending", {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
-
-      const data = await res.json();
-      setItems(data.orders || []);
-    } catch (err) {
-      console.error("Shipping list fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePrint = () => {
     window.print();
@@ -111,7 +82,7 @@ export default function TodayShippingListPage() {
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 print:hidden">
-          {error}
+          {error.message}
         </div>
       )}
 

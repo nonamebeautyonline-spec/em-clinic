@@ -3,7 +3,8 @@
 // KPI目標 vs 実績ウィジェット
 // プログレスバー + 達成率% 表示、目標設定モーダル付き
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // KPI目標データの型
 interface KPITarget {
@@ -63,33 +64,15 @@ function getCurrentYearMonth(): string {
 }
 
 export default function KPITargetWidget() {
-  const [targets, setTargets] = useState<KPITarget[]>([]);
-  const [actuals, setActuals] = useState<Record<string, number>>({});
   const [yearMonth, setYearMonth] = useState(getCurrentYearMonth());
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  const fetchTargets = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admin/kpi-targets?year_month=${yearMonth}&with_actuals=true`,
-        { credentials: "include" },
-      );
-      if (!res.ok) throw new Error("取得失敗");
-      const data: KPITargetResponse = await res.json();
-      setTargets(data.targets || []);
-      setActuals(data.actuals || {});
-    } catch (err) {
-      console.error("[kpi-target-widget] fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [yearMonth]);
+  const swrKey = `/api/admin/kpi-targets?year_month=${yearMonth}&with_actuals=true`;
+  const { data: kpiData, isLoading: loading } = useSWR<KPITargetResponse>(swrKey);
+  const targets = kpiData?.targets ?? [];
+  const actuals = kpiData?.actuals ?? {};
 
-  useEffect(() => {
-    fetchTargets();
-  }, [fetchTargets]);
+  const fetchTargets = () => mutate(swrKey);
 
   // 達成率に応じた色を返す
   const getProgressColor = (rate: number | null): string => {

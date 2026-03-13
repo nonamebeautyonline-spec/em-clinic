@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -11,8 +12,13 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
-  const [tenantName, setTenantName] = useState<string | null>(null);
-  const [tenantLogo, setTenantLogo] = useState<string | null>(null);
+  // テナント情報取得（テナントURLの場合のみブランディング表示）
+  const { data: tenantData } = useSWR<{ name?: string; logo_url?: string }>("/api/admin/tenant-info", {
+    // 認証不要の公開APIなのでエラー時リトライ不要
+    errorRetryCount: 0,
+  });
+  const tenantName = tenantData?.name ?? null;
+  const tenantLogo = tenantData?.logo_url ?? null;
 
   useEffect(() => {
     // セッションチェック
@@ -40,15 +46,6 @@ export default function AdminLoginPage() {
     };
 
     checkSession();
-
-    // テナント情報取得（テナントURLの場合のみブランディング表示）
-    fetch("/api/admin/tenant-info")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.name) setTenantName(d.name);
-        if (d.logo_url) setTenantLogo(d.logo_url);
-      })
-      .catch(() => {});
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {

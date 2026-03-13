@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
 interface MarkDef {
   id: number;
@@ -24,9 +26,12 @@ const PRESET_COLORS = [
   "#D97706", "#65A30D", "#0D9488", "#7C3AED", "#6B7280",
 ];
 
+const MARKS_KEY = "/api/admin/line/marks";
+
 export default function MarkManagementPage() {
-  const [marks, setMarks] = useState<MarkDef[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR<{ marks: MarkDef[] }>(MARKS_KEY);
+  const marks = data?.marks ?? [];
+
   const [showModal, setShowModal] = useState(false);
   const [editingMark, setEditingMark] = useState<MarkDef | null>(null);
   const [label, setLabel] = useState("");
@@ -37,18 +42,6 @@ export default function MarkManagementPage() {
   const [patientList, setPatientList] = useState<MarkPatient[]>([]);
   const [patientListMark, setPatientListMark] = useState<MarkDef | null>(null);
   const [loadingPatients, setLoadingPatients] = useState(false);
-
-  const fetchMarks = useCallback(async () => {
-    const res = await fetch("/api/admin/line/marks", { credentials: "include" });
-    const data = await res.json();
-    if (data.marks) setMarks(data.marks);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchMarks();
-  }, [fetchMarks]);
 
   const handleSave = async () => {
     if (!label.trim() || saving) return;
@@ -65,7 +58,7 @@ export default function MarkManagementPage() {
     });
 
     if (res.ok) {
-      await fetchMarks();
+      await mutate(MARKS_KEY);
       resetForm();
     } else {
       const data = await res.json();
@@ -75,16 +68,32 @@ export default function MarkManagementPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const res = await fetch(`/api/admin/line/marks/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (res.ok) {
-      await fetchMarks();
-      setDeleteConfirm(null);
-    } else {
-      const data = await res.json();
-      alert((data.message || data.error) || "削除失敗");
+    setDeleteConfirm(null);
+    // 楽観的更新: 即座にUIからマークを除去し、失敗時はロールバック
+    try {
+      await mutate(
+        MARKS_KEY,
+        async (current: { marks: MarkDef[] } | undefined) => {
+          const res = await fetch(`/api/admin/line/marks/${id}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error((data.message || data.error) || "削除失敗");
+          }
+          return { marks: (current?.marks ?? []).filter(m => m.id !== id) };
+        },
+        {
+          optimisticData: (current: { marks: MarkDef[] } | undefined) => ({
+            marks: (current?.marks ?? []).filter(m => m.id !== id),
+          }),
+          rollbackOnError: true,
+          revalidate: false,
+        },
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "削除失敗");
     }
   };
 
@@ -111,6 +120,8 @@ export default function MarkManagementPage() {
     setLabel("");
     setColor("#6B7280");
   };
+
+  if (error) return <ErrorFallback error={error} retry={() => mutate(MARKS_KEY)} />;
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -144,7 +155,7 @@ export default function MarkManagementPage() {
 
       {/* マーク一覧テーブル - Lステップ風 */}
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-6">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-green-200 border-t-green-500 rounded-full animate-spin" />

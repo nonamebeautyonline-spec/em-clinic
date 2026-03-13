@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import useSWR, { mutate } from "swr";
 
 interface Product {
   id: string;
@@ -69,10 +70,11 @@ const selectOnFocus = (e: React.FocusEvent<HTMLInputElement>) => e.target.select
 
 export default function InventoryJournalPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr());
+  const swrKey = `/api/admin/inventory?date=${selectedDate}`;
+  const { data: swrData, isLoading: loading, error: swrError } = useSWR(swrKey);
   const [locations, setLocations] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved">("");
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -90,45 +92,38 @@ export default function InventoryJournalPage() {
   const [pkgEdits, setPkgEdits] = useState<Record<string, ValMap>>({});
   const [pkgOriginal, setPkgOriginal] = useState<Record<string, ValMap>>({});
 
-  // データ取得
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const res = await fetch(`/api/admin/inventory?date=${selectedDate}`, { credentials: "include" });
-      if (!res.ok) throw new Error("取得失敗");
-      const data = await res.json();
-      setProducts(data.products || []);
-
-      const locs: string[] = data.locations || ["本院"];
-      setLocations(locs);
-
-      const logs: LogEntry[] = data.logs || [];
-      const bMap: ValMap = {};
-      const pMap: Record<string, ValMap> = {};
-      for (const loc of locs) pMap[loc] = {};
-
-      for (const log of logs) {
-        if (log.location === SHARED_LOCATION || log.section === "box") {
-          bMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
-        } else if (pMap[log.location]) {
-          pMap[log.location][log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
-        }
-      }
-
-      setBoxEdits(bMap);
-      setBoxOriginal(bMap);
-      setPkgEdits(pMap);
-      setPkgOriginal(pMap);
-      isInitialLoad.current = true;
-    } catch {
+  // SWRデータをローカルステートに反映
+  useEffect(() => {
+    if (swrError) {
       setMessage("データの取得に失敗しました");
-    } finally {
-      setLoading(false);
+      return;
     }
-  }, [selectedDate]);
+    if (!swrData) return;
+    setMessage("");
+    setProducts(swrData.products || []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+    const locs: string[] = swrData.locations || ["本院"];
+    setLocations(locs);
+
+    const logs: LogEntry[] = swrData.logs || [];
+    const bMap: ValMap = {};
+    const pMap: Record<string, ValMap> = {};
+    for (const loc of locs) pMap[loc] = {};
+
+    for (const log of logs) {
+      if (log.location === SHARED_LOCATION || log.section === "box") {
+        bMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+      } else if (pMap[log.location]) {
+        pMap[log.location][log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+      }
+    }
+
+    setBoxEdits(bMap);
+    setBoxOriginal(bMap);
+    setPkgEdits(pMap);
+    setPkgOriginal(pMap);
+    isInitialLoad.current = true;
+  }, [swrData, swrError]);
 
   // エントリ組み立て（仕訳の入力 + 台帳のpackagedデータを保持）
   const buildEntries = useCallback(() => {
@@ -220,14 +215,13 @@ export default function InventoryJournalPage() {
       const entries = buildEntries();
       const res = await fetch("/api/admin/inventory", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ date: selectedDate, entries }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setMessage(`${data.saved}件保存しました`);
-      await fetchData();
+      await mutate(swrKey);
     } catch {
       setMessage("保存に失敗しました");
     } finally {
@@ -251,7 +245,6 @@ export default function InventoryJournalPage() {
         const entries = buildEntries();
         const res = await fetch("/api/admin/inventory", {
           method: "POST",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ date: selectedDate, entries }),
         });
@@ -278,7 +271,7 @@ export default function InventoryJournalPage() {
   const handleAutoFill = async () => {
     setAutoFillLoading(true);
     try {
-      const res = await fetch(`/api/admin/inventory/shipping-summary?date=${selectedDate}`, { credentials: "include" });
+      const res = await fetch(`/api/admin/inventory/shipping-summary?date=${selectedDate}`);
       if (!res.ok) throw new Error("取得失敗");
       const data = await res.json();
       const summary: Record<string, number> = data.summary || {};

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -78,18 +79,6 @@ export default function AccountingPage() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   });
-  const [dailyData, setDailyData] = useState<DailyData[]>([]);
-  const dailyDataRef = useRef<DailyData[]>([]);
-  const [dailySummary, setDailySummary] = useState({
-    totalSquare: 0,
-    totalBank: 0,
-    totalRefund: 0,
-    totalNet: 0,
-    totalSquareCount: 0,
-    totalBankCount: 0,
-    totalCount: 0,
-    avgOrderValue: 0,
-  });
   const [todaySummary, setTodaySummary] = useState<TodaySummary>({
     totalSquare: 0,
     totalBank: 0,
@@ -101,11 +90,34 @@ export default function AccountingPage() {
 
   // 売上分析用のstate
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("revenue");
-  const [analyticsDaily, setAnalyticsDaily] = useState<AnalyticsDailyData[]>([]);
-  const [ltv, setLtv] = useState<LTVData | null>(null);
-  const [cohort, setCohort] = useState<CohortRow[]>([]);
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // SWRで月次データ取得
+  const dailyRevenueKey = `/api/admin/daily-revenue?year_month=${selectedMonth}`;
+  const { data: dailyRevenueData } = useSWR<{ ok: boolean; data: DailyData[]; summary: { totalSquare: number; totalBank: number; totalRefund: number; totalNet: number; totalSquareCount: number; totalBankCount: number; totalCount: number; avgOrderValue: number } }>(dailyRevenueKey);
+  const dailyData = dailyRevenueData?.data ?? [];
+  const dailyDataRef = useRef<DailyData[]>([]);
+  const dailySummary = dailyRevenueData?.summary ?? {
+    totalSquare: 0, totalBank: 0, totalRefund: 0, totalNet: 0,
+    totalSquareCount: 0, totalBankCount: 0, totalCount: 0, avgOrderValue: 0,
+  };
+
+  // SWRで売上分析データ取得（タブに応じた動的キー）
+  const analyticsKey = (() => {
+    const from = `${selectedMonth}-01`;
+    const [y, m] = selectedMonth.split("-").map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
+    if (analyticsTab === "revenue") return `/api/admin/analytics?type=daily&from=${from}&to=${to}`;
+    if (analyticsTab === "ltv") return "/api/admin/analytics?type=ltv";
+    if (analyticsTab === "cohort") return "/api/admin/analytics?type=cohort";
+    if (analyticsTab === "products") return `/api/admin/analytics?type=products&from=${from}&to=${to}`;
+    return null;
+  })();
+  const { data: analyticsData, isLoading: analyticsLoading } = useSWR<Record<string, unknown>>(analyticsKey);
+  const analyticsDaily = (analyticsTab === "revenue" ? (analyticsData?.daily as AnalyticsDailyData[] | undefined) : undefined) ?? [];
+  const ltv = (analyticsTab === "ltv" ? (analyticsData?.ltv as LTVData | undefined) : undefined) ?? null;
+  const cohort = (analyticsTab === "cohort" ? (analyticsData?.cohort as CohortRow[] | undefined) : undefined) ?? [];
+  const products = (analyticsTab === "products" ? (analyticsData?.products as ProductData[] | undefined) : undefined) ?? [];
 
   // 日別データから選択日のサマリーを抽出するヘルパー
   const extractDateSummary = useCallback((data: DailyData[], dateStr: string) => {
@@ -124,81 +136,21 @@ export default function AccountingPage() {
     }
   }, []);
 
-  // 月次データ取得（日別サマリーも同時に抽出して2重呼び出しを排除）
-  const loadDailyData = useCallback(async (yearMonth: string, dateStr: string) => {
-    try {
-      const res = await fetch(`/api/admin/daily-revenue?year_month=${yearMonth}`, {
-        credentials: "include",
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        if (json.ok) {
-          setDailyData(json.data);
-          dailyDataRef.current = json.data;
-          setDailySummary(json.summary);
-          extractDateSummary(json.data, dateStr);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [extractDateSummary]);
-
-  // 売上分析データ取得（月選択と連動）
-  const loadAnalyticsData = useCallback(async (tab: AnalyticsTab, yearMonth: string) => {
-    setAnalyticsLoading(true);
-    const from = `${yearMonth}-01`;
-    const [y, m] = yearMonth.split("-").map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${yearMonth}-${String(lastDay).padStart(2, "0")}`;
-
-    try {
-      if (tab === "revenue") {
-        const res = await fetch(`/api/admin/analytics?type=daily&from=${from}&to=${to}`, { credentials: "include" });
-        const data = await res.json();
-        setAnalyticsDaily(data.daily || []);
-      } else if (tab === "ltv") {
-        const res = await fetch("/api/admin/analytics?type=ltv", { credentials: "include" });
-        const data = await res.json();
-        setLtv(data.ltv || null);
-      } else if (tab === "cohort") {
-        const res = await fetch("/api/admin/analytics?type=cohort", { credentials: "include" });
-        const data = await res.json();
-        setCohort(data.cohort || []);
-      } else if (tab === "products") {
-        const res = await fetch(`/api/admin/analytics?type=products&from=${from}&to=${to}`, { credentials: "include" });
-        const data = await res.json();
-        setProducts(data.products || []);
-      }
-    } catch {
-      // ignore
-    }
-    setAnalyticsLoading(false);
-  }, []);
-
-  // 月変更時: daily-revenue + analytics を並列取得
+  // SWRデータからdailyDataRefを同期 & 日別サマリーを抽出
   useEffect(() => {
-    loadDailyData(selectedMonth, selectedDate);
-    loadAnalyticsData(analyticsTab, selectedMonth);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedDate変更時の再取得は別のuseEffectで行う
-  }, [selectedMonth, loadDailyData, loadAnalyticsData, analyticsTab]);
+    if (dailyRevenueData?.ok && dailyRevenueData.data) {
+      dailyDataRef.current = dailyRevenueData.data;
+      extractDateSummary(dailyRevenueData.data, selectedDate);
+    }
+  }, [dailyRevenueData, selectedDate, extractDateSummary]);
 
-  // 日付変更時: 同月内ならキャッシュ済みのdailyDataから抽出（API呼び出し不要）
+  // 日付変更時: 同月内ならキャッシュ済みのdailyDataから抽出
   useEffect(() => {
     const dateMonth = selectedDate.slice(0, 7);
     if (dateMonth === selectedMonth && dailyDataRef.current.length > 0) {
       extractDateSummary(dailyDataRef.current, selectedDate);
-    } else if (dateMonth !== selectedMonth) {
-      // 別月の日付が選ばれた場合のみAPI呼び出し
-      loadDailyData(dateMonth, selectedDate);
     }
-  }, [selectedDate, selectedMonth, extractDateSummary, loadDailyData]);
-
-  // 分析タブ変更時
-  useEffect(() => {
-    loadAnalyticsData(analyticsTab, selectedMonth);
-  }, [analyticsTab, selectedMonth, loadAnalyticsData]);
+  }, [selectedDate, selectedMonth, extractDateSummary]);
 
   // 月選択オプション生成（過去12ヶ月）
   const monthOptions = [];

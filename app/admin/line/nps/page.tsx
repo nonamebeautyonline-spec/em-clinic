@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, Legend,
@@ -70,9 +71,12 @@ interface TrendData {
   bySurvey: TrendBySurvey[];
 }
 
+const NPS_KEY = "/api/admin/line/nps";
+
 export default function NpsPage() {
-  const [surveys, setSurveys] = useState<NpsSurvey[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: npsData, isLoading: loading } = useSWR<{ surveys: NpsSurvey[] }>(NPS_KEY);
+  const surveys = npsData?.surveys ?? [];
+
   const [showEditor, setShowEditor] = useState(false);
   const [editSurvey, setEditSurvey] = useState<NpsSurvey | null>(null);
   const [detailSurvey, setDetailSurvey] = useState<number | null>(null);
@@ -89,16 +93,6 @@ export default function NpsPage() {
   const [trendLoading, setTrendLoading] = useState(false);
   const [selectedSurveyIds, setSelectedSurveyIds] = useState<number[]>([]);
 
-  const load = async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/line/nps", { credentials: "include" });
-    const data = await res.json();
-    if (data.surveys) setSurveys(data.surveys);
-    setLoading(false);
-  };
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ（初回マウント時のみ実行）
-  useEffect(() => { load(); }, []);
 
   const loadDetail = async (surveyId: number) => {
     setDetailSurvey(surveyId);
@@ -145,7 +139,7 @@ export default function NpsPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("この調査を削除しますか？回答データも削除されます。")) return;
     await fetch(`/api/admin/line/nps?id=${id}`, { method: "DELETE", credentials: "include" });
-    setSurveys(prev => prev.filter(s => s.id !== id));
+    mutate(NPS_KEY);
     if (detailSurvey === id) { setDetailSurvey(null); setDetailData(null); }
   };
 
@@ -798,7 +792,7 @@ export default function NpsPage() {
             }
             setShowEditor(false);
             setEditSurvey(null);
-            load();
+            mutate(NPS_KEY);
           }}
           onClose={() => { setShowEditor(false); setEditSurvey(null); }}
         />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR, { mutate } from "swr";
 
 interface CostData {
   totalRevenue: number;
@@ -96,51 +97,25 @@ function AccountingInputContent() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [costData, setCostData] = useState<CostData | null>(null);
   const [formData, setFormData] = useState<FinancialData>(defaultFinancialData);
+  const [formInitialized, setFormInitialized] = useState<string>("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const loadData = useCallback(async (yearMonth: string) => {
-    setLoading(true);
-    setMessage(null);
+  const costKey = `/api/admin/cost-calculation?year_month=${selectedMonth}`;
+  const financialKey = `/api/admin/financials?year_month=${selectedMonth}`;
 
-    try {
-      // コスト計算データと保存済みデータを並行取得
-      const [costRes, financialRes] = await Promise.all([
-        fetch(`/api/admin/cost-calculation?year_month=${yearMonth}`, {
-          credentials: "include",
-        }),
-        fetch(`/api/admin/financials?year_month=${yearMonth}`, {
-          credentials: "include",
-        }),
-      ]);
+  const { data: costRaw, isLoading: costLoading } = useSWR<{ ok: boolean; data: CostData }>(costKey);
+  const { data: financialRaw, isLoading: financialLoading } = useSWR<{ ok: boolean; data: FinancialData }>(financialKey);
 
-      if (costRes.ok) {
-        const costJson = await costRes.json();
-        if (costJson.ok) {
-          setCostData(costJson.data);
-        }
-      }
+  const loading = costLoading || financialLoading;
+  const costData = costRaw?.ok ? costRaw.data : null;
 
-      if (financialRes.ok) {
-        const financialJson = await financialRes.json();
-        if (financialJson.ok) {
-          setFormData({ ...defaultFinancialData, ...financialJson.data, year_month: yearMonth });
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load data:", err);
-      setMessage({ type: "error", text: "データの読み込みに失敗しました" });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData(selectedMonth);
-  }, [selectedMonth, loadData]);
+  // financialデータが変わったらフォームに反映
+  if (financialRaw?.ok && financialRaw.data && formInitialized !== selectedMonth) {
+    setFormData({ ...defaultFinancialData, ...financialRaw.data, year_month: selectedMonth });
+    setFormInitialized(selectedMonth);
+  }
 
   const handleSave = async () => {
     setSaving(true);
@@ -149,7 +124,6 @@ function AccountingInputContent() {
     try {
       const res = await fetch("/api/admin/financials", {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -160,6 +134,7 @@ function AccountingInputContent() {
         const json = await res.json();
         if (json.ok) {
           setMessage({ type: "success", text: "保存しました" });
+          mutate(financialKey);
         } else {
           setMessage({ type: "error", text: "保存に失敗しました" });
         }

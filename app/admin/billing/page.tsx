@@ -3,7 +3,8 @@
 // app/admin/billing/page.tsx
 // テナント側課金ダッシュボード: 契約情報・使用量・請求書/領収書
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 interface PlanInfo {
@@ -133,20 +134,36 @@ const INVOICE_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 /* ---------- メインコンポーネント ---------- */
+const SUMMARY_KEY = "/api/admin/billing/summary";
+const SUBSCRIPTION_KEY = "/api/admin/billing/subscription";
+
 export default function AdminBillingPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("contract");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [plan, setPlan] = useState<PlanInfo | null>(null);
-  const [usage, setUsage] = useState<UsageInfo | null>(null);
-  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // サブスクリプション管理用state
-  const [subInfo, setSubInfo] = useState<SubscriptionInfo | null>(null);
-  const [subUsage, setSubUsage] = useState<SubscriptionUsage | null>(null);
-  const [availablePlans, setAvailablePlans] = useState<PlanOption[]>([]);
-  const [subLoading, setSubLoading] = useState(false);
+  // SWRで課金サマリーを取得
+  const { data: summaryData, isLoading: loading, error: summaryError } = useSWR<{
+    plan: PlanInfo;
+    usage: UsageInfo;
+    invoices: InvoiceItem[];
+  }>(SUMMARY_KEY);
+  const plan = summaryData?.plan ?? null;
+  const usage = summaryData?.usage ?? null;
+  const invoices = summaryData?.invoices ?? [];
+  const error = summaryError ? (summaryError instanceof Error ? summaryError.message : "エラーが発生しました") : "";
+
+  // サブスクリプション管理用state（タブ切替時に遅延取得）
+  const [subFetchEnabled, setSubFetchEnabled] = useState(false);
+  const { data: subData, isLoading: subLoading } = useSWR<{
+    ok: boolean;
+    subscription: SubscriptionInfo;
+    usage: SubscriptionUsage;
+    availablePlans: PlanOption[];
+  }>(subFetchEnabled ? SUBSCRIPTION_KEY : null);
+  const subInfo = subData?.ok ? subData.subscription : null;
+  const subUsage = subData?.ok ? subData.usage : null;
+  const availablePlans = subData?.ok ? (subData.availablePlans || []) : [];
+
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("");
@@ -154,25 +171,6 @@ export default function AdminBillingPage() {
   const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
-
-  // サブスクリプション情報の取得
-  const loadSubscription = useCallback(async () => {
-    setSubLoading(true);
-    try {
-      const res = await fetch("/api/admin/billing/subscription", { credentials: "include" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.ok) {
-        setSubInfo(data.subscription);
-        setSubUsage(data.usage);
-        setAvailablePlans(data.availablePlans || []);
-      }
-    } catch {
-      // サブスク情報取得失敗は無視（タブ切替時にリトライ可能）
-    } finally {
-      setSubLoading(false);
-    }
-  }, []);
 
   // プラン変更処理
   const handleChangePlan = async () => {
@@ -190,8 +188,8 @@ export default function AdminBillingPage() {
         setToast({ message: json.message || "プランを変更しました", type: "success" });
         setShowChangePlan(false);
         setSelectedPlan("");
-        loadSubscription();
-        loadData();
+        mutate(SUBSCRIPTION_KEY);
+        mutate(SUMMARY_KEY);
       } else {
         setToast({ message: json.message || "プラン変更に失敗しました", type: "error" });
       }
@@ -221,8 +219,8 @@ export default function AdminBillingPage() {
         setToast({ message: json.message || "解約しました", type: "success" });
         setShowCancel(false);
         setCancelReason("");
-        loadSubscription();
-        loadData();
+        mutate(SUBSCRIPTION_KEY);
+        mutate(SUMMARY_KEY);
       } else {
         setToast({ message: json.message || "解約に失敗しました", type: "error" });
       }
@@ -233,24 +231,7 @@ export default function AdminBillingPage() {
     }
   };
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/billing/summary", { credentials: "include" });
-      if (!res.ok) throw new Error(`データ取得失敗 (${res.status})`);
-      const data = await res.json();
-      setPlan(data.plan);
-      setUsage(data.usage);
-      setInvoices(data.invoices || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  // loadData は useSWR(SUMMARY_KEY) に置き換え済み
 
   // 領収書PDFダウンロード
   const handleDownloadReceipt = async (invoiceId: string, invoiceNumber: string) => {
@@ -318,7 +299,7 @@ export default function AdminBillingPage() {
               key={tab.key}
               onClick={() => {
                 setActiveTab(tab.key);
-                if (tab.key === "subscription" && !subInfo) loadSubscription();
+                if (tab.key === "subscription" && !subFetchEnabled) setSubFetchEnabled(true);
               }}
               className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key

@@ -1,8 +1,16 @@
 // app/mypage/purchase/bank-transfer/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, Suspense } from "react";
+import React, { useMemo, useState, Suspense } from "react";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error("API error");
+    return r.json();
+  });
 
 type ProductCode =
   | "MJL_2.5mg_1m"
@@ -109,53 +117,32 @@ function BankTransferContent() {
   const [patientId, setPatientId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bankAccount, setBankAccount] = useState<Record<string, string> | null>(null);
-  const [bankLoading, setBankLoading] = useState(true);
 
-  // patientId取得
-  useEffect(() => {
-    const fetchIdentity = async () => {
-      try {
-        const res = await fetch("/api/mypage/identity", {
-          cache: "no-store",
-          credentials: "include",
-        });
-
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok || json?.ok === false) {
-          setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
-          return;
-        }
-
-        if (json?.patientId) {
-          setPatientId(String(json.patientId));
-          return;
-        }
-
-        setError("本人確認情報の取得に失敗しました。");
-      } catch {
-        setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+  // patientIdをSWRで取得
+  const { data: identityData } = useSWR("/api/mypage/identity", swrFetcher, {
+    revalidateOnFocus: false,
+    onSuccess: (json) => {
+      if (json?.ok === false) {
+        setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
+        return;
       }
-    };
+      if (json?.patientId) {
+        setPatientId(String(json.patientId));
+        return;
+      }
+      setError("本人確認情報の取得に失敗しました。");
+    },
+    onError: () => {
+      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+    },
+  });
+  void identityData;
 
-    fetchIdentity();
-  }, []);
-
-  // 口座情報取得
-  useEffect(() => {
-    const fetchBankAccount = async () => {
-      try {
-        const res = await fetch("/api/mypage/bank-account", { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        if (res.ok && json?.bankAccount) {
-          setBankAccount(json.bankAccount);
-        }
-      } catch { /* 取得失敗時は空表示 */ }
-      setBankLoading(false);
-    };
-    fetchBankAccount();
-  }, []);
+  // 口座情報をSWRで取得
+  const { data: bankData, isLoading: bankLoading } = useSWR("/api/mypage/bank-account", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+  const bankAccount = bankData?.bankAccount ?? null;
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode"); // ★ 追加

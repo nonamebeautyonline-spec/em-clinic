@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR, { mutate } from "swr";
 
 interface Folder {
   id: number;
@@ -20,12 +21,11 @@ interface Form {
   updated_at: string;
 }
 
+const FOLDERS_KEY = "/api/admin/line/form-folders";
+
 export default function FormsPage() {
   const router = useRouter();
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [forms, setForms] = useState<Form[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   // フォルダ
@@ -38,36 +38,14 @@ export default function FormsPage() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [newFormName, setNewFormName] = useState("");
 
-  const fetchFolders = useCallback(async () => {
-    const res = await fetch("/api/admin/line/form-folders", { credentials: "include" });
-    const data = await res.json();
-    if (data.folders) setFolders(data.folders);
-  }, []);
+  const { data: foldersData, isLoading: loading } = useSWR<{ folders: Folder[] }>(FOLDERS_KEY);
+  const folders = foldersData?.folders ?? [];
 
-  const fetchForms = useCallback(async () => {
-    const url = selectedFolder
-      ? `/api/admin/line/forms?folder_id=${selectedFolder}`
-      : "/api/admin/line/forms";
-    const res = await fetch(url, { credentials: "include" });
-    const data = await res.json();
-    if (data.forms) setForms(data.forms);
-  }, [selectedFolder]);
-
-  const initFolders = useCallback(async () => {
-    setLoading(true);
-    await fetchFolders();
-    setLoading(false);
-  }, [fetchFolders]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    initFolders();
-  }, [initFolders]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchForms();
-  }, [fetchForms]);
+  const formsKey = selectedFolder
+    ? `/api/admin/line/forms?folder_id=${selectedFolder}`
+    : "/api/admin/line/forms";
+  const { data: formsData } = useSWR<{ forms: Form[] }>(formsKey);
+  const forms = formsData?.forms ?? [];
 
   // フォルダ操作
   const createFolder = async () => {
@@ -84,7 +62,7 @@ export default function FormsPage() {
     }
     setNewFolderName("");
     setShowNewFolder(false);
-    fetchFolders();
+    mutate(FOLDERS_KEY);
   };
 
   const renameFolder = async (id: number) => {
@@ -100,7 +78,7 @@ export default function FormsPage() {
       return;
     }
     setEditingFolder(null);
-    fetchFolders();
+    mutate(FOLDERS_KEY);
   };
 
   const deleteFolder = async (id: number) => {
@@ -111,8 +89,8 @@ export default function FormsPage() {
       return;
     }
     if (selectedFolder === id) setSelectedFolder(null);
-    fetchFolders();
-    fetchForms();
+    mutate(FOLDERS_KEY);
+    mutate(formsKey);
   };
 
   // フォーム作成
@@ -134,8 +112,8 @@ export default function FormsPage() {
     if (data.form?.id) {
       router.push(`/admin/line/forms/${data.form.id}`);
     } else {
-      fetchForms();
-      fetchFolders();
+      mutate(formsKey);
+      mutate(FOLDERS_KEY);
     }
   };
 
@@ -146,8 +124,8 @@ export default function FormsPage() {
       alert("エラーが発生しました");
       return;
     }
-    fetchForms();
-    fetchFolders();
+    mutate(formsKey);
+    mutate(FOLDERS_KEY);
   };
 
   const filteredForms = forms.filter(f =>

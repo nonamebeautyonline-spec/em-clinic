@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface MenuRuleCondition {
   type: "tag" | "mark" | "field" | "visit_count" | "purchase_amount" | "last_visit" | "reorder_count";
@@ -35,41 +36,29 @@ interface RichMenu { id: number; name: string; is_active: boolean }
 
 export { MenuRulesPage };
 export default function MenuRulesPage() {
-  const [rules, setRules] = useState<MenuAutoRule[]>([]);
-  const [tags, setTags] = useState<TagDef[]>([]);
-  const [marks, setMarks] = useState<MarkDef[]>([]);
-  const [fields, setFields] = useState<FieldDef[]>([]);
-  const [menus, setMenus] = useState<RichMenu[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rulesData, isLoading: rulesLoading } = useSWR<{ rules: MenuAutoRule[] }>("/api/admin/line/menu-rules");
+  const { data: tagsData, isLoading: tagsLoading } = useSWR<{ tags: TagDef[] }>("/api/admin/tags?simple=true");
+  const { data: marksData, isLoading: marksLoading } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks?simple=true");
+  const { data: fieldsData, isLoading: fieldsLoading } = useSWR<{ fields: FieldDef[] }>("/api/admin/friend-fields");
+  const { data: menusData, isLoading: menusLoading } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus?simple=true");
+
+  const rules = rulesData?.rules || [];
+  const tags = tagsData?.tags || [];
+  const marks = marksData?.marks || [];
+  const fields = fieldsData?.fields || [];
+  const menus = menusData?.menus || [];
+  const loading = rulesLoading || tagsLoading || marksLoading || fieldsLoading || menusLoading;
+
   const [syncing, setSyncing] = useState(false);
 
   // 編集モーダル
   const [editRule, setEditRule] = useState<MenuAutoRule | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
-  const load = useCallback(async () => {
-    const [rulesRes, tagsRes, marksRes, fieldsRes, menusRes] = await Promise.all([
-      fetch("/api/admin/line/menu-rules", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/tags?simple=true", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/marks?simple=true", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/rich-menus?simple=true", { credentials: "include" }).then(r => r.json()),
-    ]);
-    if (rulesRes.rules) setRules(rulesRes.rules);
-    if (tagsRes.tags) setTags(tagsRes.tags);
-    if (marksRes.marks) setMarks(marksRes.marks);
-    if (fieldsRes.fields) setFields(fieldsRes.fields);
-    if (menusRes.menus) setMenus(menusRes.menus);
-    setLoading(false);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
-  useEffect(() => { load(); }, [load]);
-
   const handleDelete = async (id: string) => {
     if (!confirm("このルールを削除しますか？")) return;
     await fetch(`/api/admin/line/menu-rules?id=${id}`, { method: "DELETE", credentials: "include" });
-    setRules(prev => prev.filter(r => r.id !== id));
+    mutate("/api/admin/line/menu-rules");
   };
 
   const handleToggle = async (rule: MenuAutoRule) => {
@@ -80,18 +69,17 @@ export default function MenuRulesPage() {
       credentials: "include",
       body: JSON.stringify({ rule: updated }),
     });
-    setRules(prev => prev.map(r => r.id === rule.id ? updated : r));
+    mutate("/api/admin/line/menu-rules");
   };
 
   const handleSave = async (rule: Partial<MenuAutoRule>) => {
-    const res = await fetch("/api/admin/line/menu-rules", {
+    await fetch("/api/admin/line/menu-rules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ rule }),
     });
-    const data = await res.json();
-    if (data.rules) setRules(data.rules);
+    mutate("/api/admin/line/menu-rules");
     setShowEditor(false);
     setEditRule(null);
   };

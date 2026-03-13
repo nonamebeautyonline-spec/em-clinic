@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -39,32 +40,15 @@ const TRIGGER_ICONS: Record<string, string> = {
 /* ---------- メインページ ---------- */
 export default function StepScenariosPage() {
   const router = useRouter();
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey = "/api/admin/line/step-scenarios";
+  const { data: swrData, isLoading: loading } = useSWR(swrKey);
+  const scenarios: Scenario[] = swrData?.scenarios || [];
   const [statsScenarioId, setStatsScenarioId] = useState<number | null>(null);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/step-scenarios", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setScenarios(d.scenarios || []);
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
 
   const handleCreate = async () => {
     try {
       const res = await fetch("/api/admin/line/step-scenarios", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "新しいシナリオ",
@@ -85,20 +69,18 @@ export default function StepScenariosPage() {
   const handleToggle = async (s: Scenario) => {
     await fetch("/api/admin/line/step-scenarios", {
       method: "PUT",
-      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: s.id, is_enabled: !s.is_enabled }),
     });
-    loadData();
+    mutate(swrKey);
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("このシナリオを削除しますか？登録者データも全て削除されます。")) return;
     await fetch(`/api/admin/line/step-scenarios?id=${id}`, {
       method: "DELETE",
-      credentials: "include",
     });
-    loadData();
+    mutate(swrKey);
   };
 
   const activeCount = scenarios.filter(s => s.is_enabled).length;

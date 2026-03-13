@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import {
   ComposedChart, LineChart, BarChart, AreaChart,
@@ -102,32 +103,26 @@ interface TestAccount {
 }
 
 export default function LineDashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(7);
   const [activeTab, setActiveTab] = useState<"data" | "charts" | "broadcasts">("data");
 
+  // ダッシュボードデータ
+  const dashboardKey = `/api/admin/line/dashboard?period=${period}`;
+  const { data, isLoading: loading } = useSWR<DashboardData>(dashboardKey);
+
   // テスト送信設定（複数アカウント対応）
-  const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
+  const testAccountKey = "/api/admin/line/test-account";
+  const { data: testAccountData } = useSWR(testAccountKey);
+  const testAccounts: TestAccount[] = (() => {
+    if (!testAccountData) return [];
+    if (testAccountData.accounts && testAccountData.accounts.length > 0) return testAccountData.accounts;
+    if (testAccountData.patient_id) return [{ patient_id: testAccountData.patient_id, patient_name: testAccountData.patient_name, has_line_uid: testAccountData.has_line_uid }];
+    return [];
+  })();
+
   const [testPid, setTestPid] = useState("");
   const [testSaving, setTestSaving] = useState(false);
   const [testError, setTestError] = useState("");
-
-  // テスト送信アカウント読み込み
-  const fetchTestAccounts = async () => {
-    try {
-      const res = await fetch("/api/admin/line/test-account", { credentials: "include" });
-      const json = await res.json();
-      if (json.accounts && json.accounts.length > 0) {
-        setTestAccounts(json.accounts);
-      } else if (json.patient_id) {
-        // 後方互換
-        setTestAccounts([{ patient_id: json.patient_id, patient_name: json.patient_name, has_line_uid: json.has_line_uid }]);
-      } else {
-        setTestAccounts([]);
-      }
-    } catch { /* ignore */ }
-  };
 
   // テスト送信アカウント追加
   const handleAddTestAccount = async () => {
@@ -138,12 +133,11 @@ export default function LineDashboardPage() {
       const res = await fetch("/api/admin/line/test-account", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ patient_id: testPid.trim() }),
       });
       const json = await res.json();
       if (res.ok && json.account) {
-        setTestAccounts(prev => [...prev, json.account]);
+        mutate(testAccountKey);
         setTestPid("");
       } else {
         setTestError((json.message || json.error) || "設定に失敗しました");
@@ -160,30 +154,10 @@ export default function LineDashboardPage() {
     await fetch("/api/admin/line/test-account", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ patient_id: patientId }),
     });
-    setTestAccounts(prev => prev.filter(a => a.patient_id !== patientId));
+    mutate(testAccountKey);
   };
-
-  useEffect(() => {
-    fetchTestAccounts();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/admin/line/dashboard?period=${period}`, { credentials: "include" });
-        const json = await res.json();
-        setData(json);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [period]);
 
   const formatDate = (s: string) => {
     const d = new Date(s);

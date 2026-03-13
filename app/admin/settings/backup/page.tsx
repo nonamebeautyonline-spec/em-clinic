@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import useSWR, { mutate } from "swr";
 
 /** バックアップレコード型 */
 interface Backup {
@@ -45,9 +46,12 @@ function StatusBadge({ status }: { status: Backup["status"] }) {
   );
 }
 
+const SWR_KEY = "/api/admin/backup";
+
 export default function BackupPage() {
-  const [backups, setBackups] = useState<Backup[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: backupData, isLoading: loading } = useSWR<{ ok: boolean; backups: Backup[] }>(SWR_KEY);
+  const backups = backupData?.backups ?? [];
+
   const [creating, setCreating] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -62,25 +66,6 @@ export default function BackupPage() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
-
-  /** バックアップ一覧取得 */
-  const fetchBackups = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/backup");
-      const data = await res.json();
-      if (data.ok) {
-        setBackups(data.backups);
-      }
-    } catch {
-      showToast("バックアップ一覧の取得に失敗しました", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [showToast]);
-
-  useEffect(() => {
-    fetchBackups();
-  }, [fetchBackups]);
 
   /** 新規バックアップ作成 */
   const handleCreate = async () => {
@@ -99,7 +84,7 @@ export default function BackupPage() {
         showToast("バックアップを作成しました", "success");
         setShowCreateForm(false);
         setNewBackup({ name: "", description: "" });
-        fetchBackups();
+        mutate(SWR_KEY);
       } else {
         showToast(data.message || "バックアップの作成に失敗しました", "error");
       }
@@ -155,7 +140,7 @@ export default function BackupPage() {
       const data = await res.json();
       if (data.ok) {
         showToast("リストアが完了しました", "success");
-        fetchBackups();
+        mutate(SWR_KEY);
       } else {
         showToast(data.message || "リストアに失敗しました", "error");
       }
@@ -175,7 +160,7 @@ export default function BackupPage() {
       const data = await res.json();
       if (data.ok) {
         showToast("バックアップを削除しました", "success");
-        fetchBackups();
+        mutate(SWR_KEY);
       } else {
         showToast("削除に失敗しました", "error");
       }

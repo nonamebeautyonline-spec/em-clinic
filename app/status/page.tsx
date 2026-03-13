@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 interface StatusData {
   status: string;
@@ -83,29 +90,13 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 export default function StatusPage() {
-  const [data, setData] = useState<StatusData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, error: swrError, isLoading: loading } = useSWR<StatusData>(
+    "/api/status",
+    swrFetcher,
+    { refreshInterval: 60000 }
+  );
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/status");
-      if (!res.ok) throw new Error("データ取得失敗");
-      setData(await res.json());
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStatus();
-    // 60秒間隔で自動更新
-    const interval = setInterval(fetchStatus, 60000);
-    return () => clearInterval(interval);
-  }, [fetchStatus]);
+  const error = swrError ? (swrError instanceof Error ? swrError.message : "エラーが発生しました") : "";
 
   const overallBg =
     data?.status === "healthy"

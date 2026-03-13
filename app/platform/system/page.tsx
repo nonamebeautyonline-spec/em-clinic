@@ -3,7 +3,8 @@
 // app/platform/system/page.tsx
 // プラットフォーム管理: システム設定ページ
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 interface PlatformSetting {
@@ -122,9 +123,10 @@ function settingsToMap(
 /* ---------- メインコンポーネント ---------- */
 export default function PlatformSystemPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("info");
-  const [settingsMap, setSettingsMap] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const SETTINGS_KEY = "/api/platform/system/settings";
+  const { data: settingsData, error: fetchError, isLoading: loading } = useSWR<{ settings: PlatformSetting[] }>(SETTINGS_KEY);
+  const settingsMap = settingsData?.settings ? settingsToMap(settingsData.settings) : {};
+  const error = fetchError?.message || "";
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -156,46 +158,22 @@ export default function PlatformSystemPage() {
   const [savingStripe, setSavingStripe] = useState(false);
   const [savingMaintenance, setSavingMaintenance] = useState(false);
 
-  // 設定を読み込み
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/platform/system/settings", {
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `取得失敗 (${res.status})`);
-      }
-      const data = await res.json();
-      const map = settingsToMap(data.settings || []);
-      setSettingsMap(map);
-
-      // フォームに反映
-      setServiceName(map["service_name"] || "");
-      setSupportEmail(map["support_email"] || "");
-      setDefaultPlan(map["default_plan"] || "standard");
-      setDefaultMonthlyFee(map["default_monthly_fee"] || "");
-      setDefaultSetupFee(map["default_setup_fee"] || "");
-      // Stripe（マスク表示のため、設定済みかどうかのみ判定）
-      setStripeSecretKey(map["stripe_secret_key"] ? "••••••••" : "");
-      setStripeWebhookSecret(map["stripe_webhook_secret"] ? "••••••••" : "");
-      setStripePublishableKey(map["stripe_publishable_key"] || "");
-      setMaintenanceEnabled(map["maintenance_mode"] === "true");
-      setMaintenanceMessage(map["maintenance_message"] || "");
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "エラーが発生しました";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // SWRデータ取得後にフォームを反映
   useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+    if (!settingsData?.settings) return;
+    const map = settingsToMap(settingsData.settings);
+    setServiceName(map["service_name"] || "");
+    setSupportEmail(map["support_email"] || "");
+    setDefaultPlan(map["default_plan"] || "standard");
+    setDefaultMonthlyFee(map["default_monthly_fee"] || "");
+    setDefaultSetupFee(map["default_setup_fee"] || "");
+    // Stripe（マスク表示のため、設定済みかどうかのみ判定）
+    setStripeSecretKey(map["stripe_secret_key"] ? "••••••••" : "");
+    setStripeWebhookSecret(map["stripe_webhook_secret"] ? "••••••••" : "");
+    setStripePublishableKey(map["stripe_publishable_key"] || "");
+    setMaintenanceEnabled(map["maintenance_mode"] === "true");
+    setMaintenanceMessage(map["maintenance_message"] || "");
+  }, [settingsData]);
 
   // 設定を保存する共通関数
   const saveSettings = async (
@@ -230,7 +208,7 @@ export default function PlatformSystemPage() {
     ]);
     if (ok) {
       setToast({ message: "プラットフォーム情報を保存しました", type: "success" });
-      loadSettings();
+      mutate(SETTINGS_KEY);
     }
     setSavingInfo(false);
   };
@@ -245,7 +223,7 @@ export default function PlatformSystemPage() {
     ]);
     if (ok) {
       setToast({ message: "デフォルト料金を保存しました", type: "success" });
-      loadSettings();
+      mutate(SETTINGS_KEY);
     }
     setSavingPricing(false);
   };
@@ -273,7 +251,7 @@ export default function PlatformSystemPage() {
     if (ok) {
       setToast({ message: "Stripe設定を保存しました", type: "success" });
       setStripeTestResult(null);
-      loadSettings();
+      mutate(SETTINGS_KEY);
     }
     setSavingStripe(false);
   };
@@ -332,7 +310,7 @@ export default function PlatformSystemPage() {
           : "メンテナンスモードを解除しました",
         type: "success",
       });
-      loadSettings();
+      mutate(SETTINGS_KEY);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "更新に失敗しました";

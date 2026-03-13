@@ -3,7 +3,8 @@
 // app/platform/audit/page.tsx
 // プラットフォーム管理: 監査ログ閲覧ページ
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 /* ---------- 型定義 ---------- */
 interface AuditLog {
@@ -111,17 +112,9 @@ function formatAbsoluteTime(dateStr: string): string {
 
 /* ---------- メインコンポーネント ---------- */
 export default function PlatformAuditPage() {
-  // データ
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({
-    total: 0,
-    page: 1,
-    limit: 50,
-    totalPages: 0,
-  });
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // データ（テナント一覧はSWRで取得）
+  const { data: tenantsData } = useSWR<{ tenants: Tenant[] }>("/api/platform/tenants?limit=100");
+  const tenants = (tenantsData?.tenants || []).map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
 
   // フィルター
   const [tenantId, setTenantId] = useState("");
@@ -135,65 +128,22 @@ export default function PlatformAuditPage() {
   // 詳細展開
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // テナント一覧を取得（フィルター用）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/platform/tenants?limit=100", {
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTenants(
-            (data.tenants || []).map((t: Tenant) => ({
-              id: t.id,
-              name: t.name,
-              slug: t.slug,
-            })),
-          );
-        }
-      } catch {
-        // テナント取得失敗は無視（フィルターが使えないだけ）
-      }
-    })();
-  }, []);
+  // --- SWR: 監査ログ取得（動的キー: フィルター・ページ変更で自動再取得） ---
+  const auditParams = new URLSearchParams();
+  if (tenantId) auditParams.set("tenant_id", tenantId);
+  if (action) auditParams.set("action", action);
+  if (startDate) auditParams.set("start", startDate);
+  if (endDate) auditParams.set("end", endDate);
+  if (search) auditParams.set("search", search);
+  auditParams.set("page", String(page));
+  auditParams.set("limit", "50");
 
-  // 監査ログを取得
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const params = new URLSearchParams();
-      if (tenantId) params.set("tenant_id", tenantId);
-      if (action) params.set("action", action);
-      if (startDate) params.set("start", startDate);
-      if (endDate) params.set("end", endDate);
-      if (search) params.set("search", search);
-      params.set("page", String(page));
-      params.set("limit", "50");
-
-      const res = await fetch(
-        `/api/platform/audit?${params.toString()}`,
-        { credentials: "include" },
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `取得失敗 (${res.status})`);
-      }
-      const data = await res.json();
-      setLogs(data.logs || []);
-      setPagination(data.pagination);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "エラーが発生しました";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantId, action, startDate, endDate, search, page]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+  const { data: auditData, error: auditError, isLoading: loading } = useSWR<{ logs: AuditLog[]; pagination: Pagination }>(
+    `/api/platform/audit?${auditParams.toString()}`,
+  );
+  const logs = auditData?.logs || [];
+  const pagination = auditData?.pagination || { total: 0, page: 1, limit: 50, totalPages: 0 };
+  const error = auditError?.message || "";
 
   // フィルタークリア
   const handleClearFilters = () => {

@@ -1,7 +1,8 @@
 // 設定 > Cron実行履歴セクション
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 interface CronLog {
   id: string;
@@ -86,9 +87,6 @@ interface CronSectionProps {
 }
 
 export default function CronSection({ onToast }: CronSectionProps) {
-  const [logs, setLogs] = useState<CronLog[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [cronNameFilter, setCronNameFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
@@ -96,32 +94,23 @@ export default function CronSection({ onToast }: CronSectionProps) {
 
   const PAGE_SIZE = 20;
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("limit", String(PAGE_SIZE));
-      params.set("offset", String(page * PAGE_SIZE));
-      if (cronNameFilter) params.set("cron_name", cronNameFilter);
-      if (statusFilter) params.set("status", statusFilter);
+  const params = new URLSearchParams();
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(page * PAGE_SIZE));
+  if (cronNameFilter) params.set("cron_name", cronNameFilter);
+  if (statusFilter) params.set("status", statusFilter);
 
-      const res = await fetch(`/api/admin/cron-logs?${params.toString()}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(`取得失敗 (${res.status})`);
-      const data = await res.json();
-      setLogs(data.logs ?? []);
-      setTotal(data.total ?? 0);
-    } catch (err) {
-      onToast(err instanceof Error ? err.message : "Cron履歴の取得に失敗しました", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, cronNameFilter, statusFilter, onToast]);
+  const swrKey = `/api/admin/cron-logs?${params.toString()}`;
+  const { data, error: swrError, isLoading: loading, mutate: refetch } = useSWR<{ logs: CronLog[]; total: number }>(swrKey);
+  const logs = data?.logs ?? [];
+  const total = data?.total ?? 0;
 
+  // SWRエラー時にtoast表示
   useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
+    if (swrError) {
+      onToast(swrError instanceof Error ? swrError.message : "Cron履歴の取得に失敗しました", "error");
+    }
+  }, [swrError, onToast]);
 
   // フィルタ変更時はページをリセット
   const handleCronNameChange = (value: string) => {
@@ -142,7 +131,7 @@ export default function CronSection({ onToast }: CronSectionProps) {
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-bold text-gray-900">Cron実行履歴</h2>
           <button
-            onClick={fetchLogs}
+            onClick={() => refetch()}
             disabled={loading}
             className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
           >

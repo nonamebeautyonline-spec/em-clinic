@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 interface KeywordRule {
@@ -64,72 +65,46 @@ const EMPTY_RULE: Omit<KeywordRule, "id" | "created_at"> = {
 
 /* ---------- メインページ ---------- */
 export default function KeywordRepliesPage() {
-  const [rules, setRules] = useState<KeywordRule[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [actions, setActions] = useState<Action[]>([]);
-  const [loading, setLoading] = useState(true);
+  // SWRでデータ取得
+  const { data: rulesData, isLoading: rulesLoading } = useSWR<{ rules: KeywordRule[] }>("/api/admin/line/keyword-replies");
+  const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+  const { data: actionsData } = useSWR<{ actions: Action[] }>("/api/admin/line/actions");
+  const { data: testAccountData } = useSWR<{ accounts?: { patient_id: string; patient_name: string; has_line_uid: boolean }[]; patient_id?: string; patient_name?: string; has_line_uid?: boolean }>("/api/admin/line/test-account");
+  const { data: statsData } = useSWR<{ rules: KeywordRuleStat[] }>("/api/admin/line/keyword-replies/stats");
+
+  const rules = rulesData?.rules ?? [];
+  const templates = templatesData?.templates ?? [];
+  const actions = actionsData?.actions ?? [];
+  const loading = rulesLoading;
+
+  // テストアカウント変換
+  const testAccounts = testAccountData?.accounts && testAccountData.accounts.length > 0
+    ? testAccountData.accounts
+    : testAccountData?.patient_id
+      ? [{ patient_id: testAccountData.patient_id, patient_name: testAccountData.patient_name!, has_line_uid: testAccountData.has_line_uid! }]
+      : [];
+  const testAccount = testAccounts.length > 0 ? testAccounts[0] : null;
+
+  // 統計データをルールID→統計のマップに変換
+  const stats: Record<number, KeywordRuleStat> = {};
+  if (statsData?.rules) {
+    for (const s of statsData.rules) {
+      stats[s.id] = s;
+    }
+  }
+
   const [editRule, setEditRule] = useState<Partial<KeywordRule> | null>(null);
   const [saving, setSaving] = useState(false);
   const [testText, setTestText] = useState("");
   const [testResult, setTestResult] = useState<{ matched: boolean; rule?: { id: number; name: string; keyword: string; reply_text?: string } } | null>(null);
   const [testing, setTesting] = useState(false);
-
-  // 統計データ（キーワードごとのトリガー回数）
-  const [stats, setStats] = useState<Record<number, KeywordRuleStat>>({});
-
-  // テスト送信（複数アカウント対応 → 最初のアカウントを使用）
-  const [testAccounts, setTestAccounts] = useState<{ patient_id: string; patient_name: string; has_line_uid: boolean }[]>([]);
-  const testAccount = testAccounts.length > 0 ? testAccounts[0] : null;
   const [testSending, setTestSending] = useState(false);
   const [testSendMsg, setTestSendMsg] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [rulesRes, tplRes, actRes, taRes, statsRes] = await Promise.all([
-        fetch("/api/admin/line/keyword-replies", { credentials: "include" }),
-        fetch("/api/admin/line/templates", { credentials: "include" }),
-        fetch("/api/admin/line/actions", { credentials: "include" }),
-        fetch("/api/admin/line/test-account", { credentials: "include" }),
-        fetch("/api/admin/line/keyword-replies/stats", { credentials: "include" }),
-      ]);
-      if (rulesRes.ok) {
-        const d = await rulesRes.json();
-        setRules(d.rules || []);
-      }
-      if (tplRes.ok) {
-        const d = await tplRes.json();
-        setTemplates(d.templates || []);
-      }
-      if (actRes.ok) {
-        const d = await actRes.json();
-        setActions(d.actions || []);
-      }
-      if (taRes.ok) {
-        const d = await taRes.json();
-        if (d.accounts && d.accounts.length > 0) {
-          setTestAccounts(d.accounts);
-        } else if (d.patient_id) {
-          setTestAccounts([{ patient_id: d.patient_id, patient_name: d.patient_name, has_line_uid: d.has_line_uid }]);
-        }
-      }
-      // 統計データをルールID→統計のマップに変換
-      if (statsRes.ok) {
-        const d = await statsRes.json();
-        const map: Record<number, KeywordRuleStat> = {};
-        for (const s of d.rules || []) {
-          map[s.id] = s;
-        }
-        setStats(map);
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  const revalidateRules = () => {
+    mutate("/api/admin/line/keyword-replies");
+    mutate("/api/admin/line/keyword-replies/stats");
+  };
 
   // 保存
   const handleSave = async () => {
@@ -149,7 +124,7 @@ export default function KeywordRepliesPage() {
         return;
       }
       setEditRule(null);
-      loadData();
+      revalidateRules();
     } finally {
       setSaving(false);
     }
@@ -162,7 +137,7 @@ export default function KeywordRepliesPage() {
       method: "DELETE",
       credentials: "include",
     });
-    loadData();
+    revalidateRules();
   };
 
   // 有効/無効トグル
@@ -173,7 +148,7 @@ export default function KeywordRepliesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...rule, is_enabled: !rule.is_enabled }),
     });
-    loadData();
+    revalidateRules();
   };
 
   // テスト

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
+import useSWR, { mutate } from "swr";
 
 type Doctor = {
   doctor_id: string;
@@ -73,14 +73,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function ScheduleDashboard() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [overrides, setOverrides] = useState<Override[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [futureReservations, setFutureReservations] = useState<FutureReservation[]>([]);
   const [alertDismissed, setAlertDismissed] = useState(false);
-
-  // 翌月予約開放状態
-  const [nextMonthOpen, setNextMonthOpen] = useState<boolean | null>(null);
   const [openingNextMonth, setOpeningNextMonth] = useState(false);
 
   const currentDay = getCurrentDay();
@@ -88,50 +81,35 @@ export default function ScheduleDashboard() {
   const nextMonthDisplay = getNextMonthDisplay();
   const isAutoOpen = currentDay >= BOOKING_OPEN_DAY; // 5日以降は自動開放
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const now = new Date();
-        const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+  // 今月の日付範囲を計算
+  const { scheduleKey, futureKey } = useMemo(() => {
+    const now = new Date();
+    const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
+    const nextMonth = getNextMonthStart();
+    return {
+      scheduleKey: `/api/admin/schedule?start=${start}&end=${end}`,
+      futureKey: `/api/admin/reservations?from=${nextMonth}`,
+    };
+  }, []);
 
-        const res = await fetch(`/api/admin/schedule?start=${start}&end=${end}`, {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (json.ok) {
-          setDoctors(json.doctors || []);
-          setOverrides(json.overrides || []);
-        }
+  const bookingOpenKey = `/api/admin/booking-open?month=${nextMonthStr}`;
 
-        // 翌月以降の予約を取得（アラート用）
-        const nextMonth = getNextMonthStart();
-        const futureRes = await fetch(`/api/admin/reservations?from=${nextMonth}`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const futureJson = await futureRes.json();
-        if (futureJson.ok && futureJson.reservations) {
-          setFutureReservations(futureJson.reservations);
-        }
+  // スケジュールデータ取得
+  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ ok: boolean; doctors: Doctor[]; overrides: Override[] }>(scheduleKey);
+  const doctors = scheduleData?.ok ? (scheduleData.doctors || []) : [];
+  const overrides = scheduleData?.ok ? (scheduleData.overrides || []) : [];
 
-        // 翌月の早期開放状態を確認
-        const openRes = await fetch(`/api/admin/booking-open?month=${nextMonthStr}`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const openJson = await openRes.json();
-        if (openJson.ok) {
-          setNextMonthOpen(openJson.is_open);
-        }
-      } catch (e) {
-        console.error("Load error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [nextMonthStr]);
+  // 翌月以降の予約を取得（アラート用）
+  const { data: futureData } = useSWR<{ ok: boolean; reservations: FutureReservation[] }>(futureKey);
+  const futureReservations = (futureData?.ok && futureData.reservations) ? futureData.reservations : [];
+
+  // 翌月の早期開放状態
+  const { data: openData } = useSWR<{ ok: boolean; is_open: boolean }>(bookingOpenKey);
+  const nextMonthOpen = openData?.ok ? openData.is_open : null;
+
+  const loading = scheduleLoading;
 
   // 翌月予約を早期開放
   async function openNextMonth() {
@@ -151,12 +129,12 @@ export default function ScheduleDashboard() {
       });
       const json = await res.json();
       if (json.ok) {
-        setNextMonthOpen(true);
+        mutate(bookingOpenKey);
         alert(`${nextMonthDisplay}の予約を開放しました`);
       } else {
         alert(`エラー: ${(json.message || json.error) || "開放に失敗しました"}`);
       }
-    } catch (e) {
+    } catch {
       alert("通信エラーが発生しました");
     } finally {
       setOpeningNextMonth(false);

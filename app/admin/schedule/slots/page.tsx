@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 
 type Slot = {
@@ -23,12 +24,19 @@ type Course = {
 
 type Tab = "slots" | "courses" | "links";
 
+const SLOTS_KEY = "/api/admin/reservation-slots";
+const COURSES_KEY = "/api/admin/reservation-courses";
+
 export default function SlotsAndCoursesPage() {
   const [tab, setTab] = useState<Tab>("slots");
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // SWRでデータ取得
+  const { data: slotsData, isLoading: slotsLoading } = useSWR<{ ok: boolean; slots: Slot[] }>(SLOTS_KEY);
+  const { data: coursesData, isLoading: coursesLoading } = useSWR<{ ok: boolean; courses: Course[] }>(COURSES_KEY);
+  const slots = slotsData?.slots ?? [];
+  const courses = coursesData?.courses ?? [];
+  const loading = slotsLoading || coursesLoading;
 
   // モーダル
   const [showModal, setShowModal] = useState(false);
@@ -43,29 +51,6 @@ export default function SlotsAndCoursesPage() {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [linkedCourseIds, setLinkedCourseIds] = useState<string[]>([]);
   const [linkSaving, setLinkSaving] = useState(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-    setLoading(true);
-    try {
-      const [slotsRes, coursesRes] = await Promise.all([
-        fetch("/api/admin/reservation-slots", { credentials: "include" }),
-        fetch("/api/admin/reservation-courses", { credentials: "include" }),
-      ]);
-      const slotsJson = await slotsRes.json();
-      const coursesJson = await coursesRes.json();
-
-      if (slotsJson.ok) setSlots(slotsJson.slots || []);
-      if (coursesJson.ok) setCourses(coursesJson.courses || []);
-    } catch (e) {
-      console.error("Load error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function openCreateModal() {
     setEditingItem(null);
@@ -109,7 +94,8 @@ export default function SlotsAndCoursesPage() {
       if (json.ok) {
         setMessage({ type: "success", text: editingItem ? "更新しました" : "作成しました" });
         setShowModal(false);
-        loadData();
+        mutate(SLOTS_KEY);
+        mutate(COURSES_KEY);
       } else {
         setMessage({ type: "error", text: json.message || "保存に失敗しました" });
       }
@@ -131,7 +117,8 @@ export default function SlotsAndCoursesPage() {
       const json = await res.json();
       if (json.ok) {
         setMessage({ type: "success", text: "無効化しました" });
-        loadData();
+        mutate(SLOTS_KEY);
+        mutate(COURSES_KEY);
       }
     } catch {
       setMessage({ type: "error", text: "削除に失敗しました" });

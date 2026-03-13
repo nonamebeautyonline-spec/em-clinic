@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import useSWR, { mutate } from "swr";
 
 interface MatchedItem {
   transfer: {
@@ -119,9 +120,20 @@ export default function BankTransferReconcilePage() {
   const [newProductCode, setNewProductCode] = useState("");
   const [changeProductMemo, setChangeProductMemo] = useState("");
   const [changingProduct, setChangingProduct] = useState(false);
-  const [products, setProducts] = useState<Array<{ code: string; title: string; price: number }>>([]);
-  // 照合モード
+  // 商品一覧（SWR）
+  const { data: productsData } = useSWR<{ products: Array<{ code: string; title: string; price: number }> }>("/api/admin/products");
+  const products = (productsData?.products ?? []).map((p) => ({ code: p.code, title: p.title, price: p.price }));
+  // 照合モード設定（SWR）
+  const { data: settingsData } = useSWR<{ settings: { reconcile_mode?: string } }>("/api/admin/settings?category=payment");
   const [reconcileMode, setReconcileMode] = useState<"order_based" | "statement_based">("order_based");
+  const [reconcileModeInitialized, setReconcileModeInitialized] = useState(false);
+
+  useEffect(() => {
+    if (settingsData?.settings?.reconcile_mode && !reconcileModeInitialized) {
+      setReconcileMode(settingsData.settings.reconcile_mode as "order_based" | "statement_based");
+      setReconcileModeInitialized(true);
+    }
+  }, [settingsData, reconcileModeInitialized]);
   // CSVフォーマット
   const [csvFormat, setCsvFormat] = useState<"gmo" | "paypay">("paypay");
   // 金額不一致の選択状態
@@ -154,24 +166,7 @@ export default function BankTransferReconcilePage() {
 
   useEffect(() => {
     loadPendingOrders();
-    // テナントの照合モード設定を取得
-    fetch("/api/admin/settings?category=payment", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.settings?.reconcile_mode) {
-          setReconcileMode(data.settings.reconcile_mode as "order_based" | "statement_based");
-        }
-      })
-      .catch(() => {});
-    // 商品一覧を取得（商品変更ドロップダウン用）
-    fetch("/api/admin/products", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.products) {
-          setProducts((data.products as Array<{ code: string; title: string; price: number }>).map((p) => ({ code: p.code, title: p.title, price: p.price })));
-        }
-      })
-      .catch(() => {});
+    // 設定と商品一覧はSWRで自動取得
   }, []);
 
   const loadPendingOrders = async (status?: string) => {

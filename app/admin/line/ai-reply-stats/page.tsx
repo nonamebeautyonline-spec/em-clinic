@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   AreaChart,
   Area,
@@ -151,32 +152,12 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
  * ai-reply-settings ページからタブ経由で埋め込み可能
  */
 export function AIReplyStatsContent() {
-  const [data, setData] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
 
-  const fetchData = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/line/ai-reply-stats?period=${p}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("fetch failed");
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      console.error("[ai-reply-stats] fetch error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData(period);
-  }, [period, fetchData]);
+  const { data, isLoading: loading } = useSWR<StatsData>(`/api/admin/line/ai-reply-stats?period=${period}`);
 
   // ローディング
-  if (loading && !data) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="flex flex-col items-center gap-3">

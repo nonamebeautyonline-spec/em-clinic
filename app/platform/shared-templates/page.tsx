@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 // 共有テンプレート型
 interface SharedTemplate {
@@ -31,11 +32,10 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function SharedTemplatesPage() {
-  const [templates, setTemplates] = useState<SharedTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("");
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 25, totalPages: 0 });
+  const [page, setPage] = useState(1);
+  const limit = 25;
 
   // モーダル関連
   const [showModal, setShowModal] = useState(false);
@@ -50,32 +50,20 @@ export default function SharedTemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // テンプレート一覧取得
-  const fetchTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set("search", search);
-      if (filterType) params.set("template_type", filterType);
-      params.set("page", String(pagination.page));
-      params.set("limit", String(pagination.limit));
+  // 動的SWRキー
+  const swrParams = new URLSearchParams();
+  if (search) swrParams.set("search", search);
+  if (filterType) swrParams.set("template_type", filterType);
+  swrParams.set("page", String(page));
+  swrParams.set("limit", String(limit));
 
-      const res = await fetch(`/api/platform/shared-templates?${params}`, { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setTemplates(data.templates || []);
-        setPagination(data.pagination || { total: 0, page: 1, limit: 25, totalPages: 0 });
-      }
-    } catch (e) {
-      console.error("共有テンプレート取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, filterType, pagination.page, pagination.limit]);
+  const { data: rawData, isLoading: loading, mutate: refreshTemplates } = useSWR<{
+    templates: SharedTemplate[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }>(`/api/platform/shared-templates?${swrParams}`);
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+  const templates = rawData?.templates || [];
+  const pagination = rawData?.pagination || { total: 0, page: 1, limit: 25, totalPages: 0 };
 
   // フォームリセット
   const resetForm = () => {
@@ -140,7 +128,7 @@ export default function SharedTemplatesPage() {
       if (res.ok) {
         setShowModal(false);
         resetForm();
-        fetchTemplates();
+        refreshTemplates();
       } else {
         const err = await res.json();
         alert(err.message || "保存に失敗しました");
@@ -163,7 +151,7 @@ export default function SharedTemplatesPage() {
         credentials: "include",
       });
       if (res.ok) {
-        fetchTemplates();
+        refreshTemplates();
       } else {
         alert("削除に失敗しました");
       }
@@ -199,12 +187,12 @@ export default function SharedTemplatesPage() {
           type="text"
           placeholder="テンプレート名で検索..."
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="flex-1 max-w-sm px-4 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
         <select
           value={filterType}
-          onChange={(e) => { setFilterType(e.target.value); setPagination((p) => ({ ...p, page: 1 })); }}
+          onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
           className="px-3 py-2 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
         >
           <option value="">全タイプ</option>
@@ -291,14 +279,14 @@ export default function SharedTemplatesPage() {
               <div className="flex items-center gap-1">
                 <button
                   disabled={pagination.page <= 1}
-                  onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
+                  onClick={() => setPage((p) => p - 1)}
                   className="px-3 py-1 text-sm border border-zinc-200 rounded disabled:opacity-30"
                 >
                   前へ
                 </button>
                 <button
                   disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
+                  onClick={() => setPage((p) => p + 1)}
                   className="px-3 py-1 text-sm border border-zinc-200 rounded disabled:opacity-30"
                 >
                   次へ

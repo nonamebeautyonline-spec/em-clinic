@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import useSWR, { mutate } from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
 interface Product {
   id: string;
@@ -139,7 +141,7 @@ export default function InventoryPage() {
   const [locations, setLocations] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // loading は SWR の isLoading を使用
   const [message, setMessage] = useState("");
   const [autoSaveStatus, setAutoSaveStatus] = useState<"" | "saving" | "saved">("");
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -176,82 +178,78 @@ export default function InventoryPage() {
 
   const isEMTab = storeTab.includes("EM");
 
-  // データ取得（両タブ共通）
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setMessage("");
-    try {
-      const d = new Date(selectedDate);
-      const from = new Date(d);
-      from.setDate(from.getDate() - 13);
-      const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
+  // ─── SWR データ取得 ───
+  const inventoryKey = `/api/admin/inventory?date=${selectedDate}`;
+  const historyKey = useMemo(() => {
+    const d = new Date(selectedDate);
+    const from = new Date(d);
+    from.setDate(from.getDate() - 13);
+    const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
+    return `/api/admin/inventory?from=${fromStr}&to=${selectedDate}`;
+  }, [selectedDate]);
 
-      const [res, histRes] = await Promise.all([
-        fetch(`/api/admin/inventory?date=${selectedDate}`, { credentials: "include" }),
-        fetch(`/api/admin/inventory?from=${fromStr}&to=${selectedDate}`, { credentials: "include" }),
-      ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invData, isLoading: invLoading, error: invError } = useSWR<any>(inventoryKey);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: histData } = useSWR<any>(historyKey);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: alertsData } = useSWR<any>("/api/admin/inventory/alerts");
 
-      if (!res.ok) throw new Error("取得失敗");
-      const data = await res.json();
-      setProducts(data.products || []);
-      setLastUpdatedAt(data.lastUpdatedAt ?? null);
+  const loading = invLoading;
 
-      // 前回の台帳データ
-      setPrevDate(data.prevDate ?? null);
-      const prevMap: ValMap = {};
-      for (const log of (data.prevLogs || []) as LogEntry[]) {
-        if (log.location === SHARED_LOCATION || log.section === "box") {
-          prevMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
-        }
-      }
-      setPrevBoxData(prevMap);
-
-      const locs: string[] = data.locations || ["本院"];
-      setLocations(locs);
-      if (!storeTab || !locs.includes(storeTab)) {
-        setStoreTab(locs[0]);
-      }
-
-      if (histRes.ok) {
-        const histData = await histRes.json();
-        setHistoryLogs(histData.logs || []);
-        setSeedLogs(histData.seedLogs || []);
-      }
-
-      const logs: LogEntry[] = data.logs || [];
-      const bMap: ValMap = {};
-      const pMap: Record<string, ValMap> = {};
-      for (const loc of locs) pMap[loc] = {};
-
-      for (const log of logs) {
-        if (log.location === SHARED_LOCATION || log.section === "box") {
-          bMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
-        } else if (pMap[log.location]) {
-          pMap[log.location][log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
-        }
-      }
-
-      setBoxEdits(bMap);
-      setBoxOriginal(bMap);
-      setPkgEdits(pMap);
-      setPkgOriginal(pMap);
-      isInitialLoad.current = true;
-    } catch {
-      setMessage("データの取得に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  // 在庫アラート取得
+  // SWRメインデータ → ローカルstate変換
   useEffect(() => {
-    fetch("/api/admin/inventory/alerts", { credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.alerts) setInventoryAlerts(d.alerts); })
-      .catch(() => {});
-  }, []);
+    if (!invData) return;
+    setProducts(invData.products || []);
+    setLastUpdatedAt(invData.lastUpdatedAt ?? null);
+
+    // 前回の台帳データ
+    setPrevDate(invData.prevDate ?? null);
+    const prevMap: ValMap = {};
+    for (const log of (invData.prevLogs || []) as LogEntry[]) {
+      if (log.location === SHARED_LOCATION || log.section === "box") {
+        prevMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+      }
+    }
+    setPrevBoxData(prevMap);
+
+    const locs: string[] = invData.locations || ["本院"];
+    setLocations(locs);
+    if (!storeTab || !locs.includes(storeTab)) {
+      setStoreTab(locs[0]);
+    }
+
+    const logs: LogEntry[] = invData.logs || [];
+    const bMap: ValMap = {};
+    const pMap: Record<string, ValMap> = {};
+    for (const loc of locs) pMap[loc] = {};
+
+    for (const log of logs) {
+      if (log.location === SHARED_LOCATION || log.section === "box") {
+        bMap[log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+      } else if (pMap[log.location]) {
+        pMap[log.location][log.item_key] = { box_count: log.box_count, shipped_count: log.shipped_count, received_count: log.received_count ?? 0, note: log.note || "" };
+      }
+    }
+
+    setBoxEdits(bMap);
+    setBoxOriginal(bMap);
+    setPkgEdits(pMap);
+    setPkgOriginal(pMap);
+    isInitialLoad.current = true;
+  }, [invData]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // SWR履歴データ → ローカルstate
+  useEffect(() => {
+    if (!histData) return;
+    setHistoryLogs(histData.logs || []);
+    setSeedLogs(histData.seedLogs || []);
+  }, [histData]);
+
+  // SWRアラートデータ → ローカルstate
+  useEffect(() => {
+    if (alertsData?.alerts) setInventoryAlerts(alertsData.alerts);
+  }, [alertsData]);
 
   useEffect(() => {
     if (locations.length > 0 && !locations.includes(storeTab)) {
@@ -353,7 +351,8 @@ export default function InventoryPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setMessage(`${data.saved}件保存しました`);
-      await fetchData();
+      mutate(inventoryKey);
+      mutate(historyKey);
     } catch {
       setMessage("保存に失敗しました");
     } finally {
@@ -388,17 +387,8 @@ export default function InventoryPage() {
           setAutoSaveStatus("saved");
           setBoxOriginal(boxEdits);
           setPkgOriginal(pkgEdits);
-          // 推移データも更新
-          const d = new Date(selectedDate);
-          const from = new Date(d);
-          from.setDate(from.getDate() - 13);
-          const fromStr = `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}-${String(from.getDate()).padStart(2, "0")}`;
-          const histRes = await fetch(`/api/admin/inventory?from=${fromStr}&to=${selectedDate}`, { credentials: "include" });
-          if (histRes.ok) {
-            const histData = await histRes.json();
-            setHistoryLogs(histData.logs || []);
-            setSeedLogs(histData.seedLogs || []);
-          }
+          // 推移データも更新（SWR経由で再取得）
+          mutate(historyKey);
           setTimeout(() => setAutoSaveStatus(""), 2000);
         }
       } catch { /* サイレント失敗 */ }
@@ -755,7 +745,9 @@ export default function InventoryPage() {
         })}
       </div>
 
-      {loading ? (
+      {invError ? (
+        <ErrorFallback error={invError} retry={() => { mutate(inventoryKey); mutate(historyKey); }} />
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
           <span className="ml-3 text-sm text-slate-500">読み込み中...</span>

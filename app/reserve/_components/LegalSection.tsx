@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import { LegalTextRenderer } from "@/lib/legal/parser";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 // アコーディオン
 function Accordion({ title, children }: { title: string; children: React.ReactNode }) {
@@ -39,25 +47,29 @@ export default function LegalSection({
   agreed: boolean;
   onAgree: (v: boolean) => void;
 }) {
-  const [termsText, setTermsText] = useState<string | null>(null);
-  const [privacyText, setPrivacyText] = useState<string | null>(null);
+  const [fallbackTerms, setFallbackTerms] = useState<string | null>(null);
+  const [fallbackPrivacy, setFallbackPrivacy] = useState<string | null>(null);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ
-  useEffect(() => {
-    fetch("/api/legal/config")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.termsText) setTermsText(data.termsText);
-        if (data.privacyText) setPrivacyText(data.privacyText);
-      })
-      .catch(() => {
+  const { data: legalData, error: legalError } = useSWR<{ termsText?: string; privacyText?: string }>(
+    "/api/legal/config",
+    swrFetcher,
+    {
+      onError: () => {
         // フェッチ失敗時はデフォルトテキストを動的import
         import("@/lib/legal/types").then((m) => {
-          setTermsText(m.DEFAULT_TERMS_TEXT);
-          setPrivacyText(m.DEFAULT_PRIVACY_TEXT);
+          setFallbackTerms(m.DEFAULT_TERMS_TEXT);
+          setFallbackPrivacy(m.DEFAULT_PRIVACY_TEXT);
         });
-      });
-  }, []);
+      },
+    }
+  );
+
+  const termsText = legalData?.termsText || fallbackTerms;
+  const privacyText = legalData?.privacyText || fallbackPrivacy;
+
+  if (legalError && !fallbackTerms) {
+    return null;
+  }
 
   if (!termsText || !privacyText) {
     return null;

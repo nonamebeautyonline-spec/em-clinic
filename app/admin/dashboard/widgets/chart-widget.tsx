@@ -4,7 +4,8 @@
 // recharts の AreaChart（積み上げ売上）と BarChart（新規 vs 再処方）を表示
 // 日別/月別/年別の切替と前期比較バッジに対応
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
+import useSWR from "swr";
 import {
   AreaChart,
   Area,
@@ -187,38 +188,12 @@ export default function ChartWidget({
   showOrderChart = true,
 }: ChartWidgetProps) {
   const [granularity, setGranularity] = useState<Granularity>("daily");
-  const [trendData, setTrendData] = useState<TrendResponse | null>(null);
-  const [trendLoading, setTrendLoading] = useState(false);
 
-  // 月別/年別データの取得
-  const loadTrendData = useCallback(async (g: Granularity) => {
-    if (g === "daily") {
-      setTrendData(null);
-      return;
-    }
-    setTrendLoading(true);
-    try {
-      const params = new URLSearchParams({
-        granularity: g === "monthly" ? "monthly" : "yearly",
-        months: "12",
-      });
-      const res = await fetch(`/api/admin/dashboard-trends?${params}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTrendData(data);
-      }
-    } catch {
-      // エラー時は日別にフォールバック
-    } finally {
-      setTrendLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTrendData(granularity);
-  }, [granularity, loadTrendData]);
+  // 月別/年別データの取得（dailyの場合はSWRキーをnullにしてフェッチしない）
+  const trendKey = granularity !== "daily"
+    ? `/api/admin/dashboard-trends?granularity=${granularity}&months=12`
+    : null;
+  const { data: trendData, isLoading: trendLoading } = useSWR<TrendResponse>(trendKey);
 
   // 日別データをフォーマット
   const dailyChartData = useMemo(

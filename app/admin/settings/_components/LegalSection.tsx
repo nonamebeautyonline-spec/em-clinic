@@ -1,7 +1,8 @@
 // 利用規約・プライバシーポリシー設定セクション
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import { DEFAULT_TERMS_TEXT, DEFAULT_PRIVACY_TEXT } from "@/lib/legal/types";
 
 interface LegalConfig {
@@ -14,25 +15,19 @@ interface LegalSectionProps {
 }
 
 export default function LegalSection({ onToast }: LegalSectionProps) {
+  const SWR_KEY = "/api/admin/legal/config";
+  const { data: swrData, isLoading: loading, error: swrError } = useSWR<{ config?: LegalConfig }>(SWR_KEY);
   const [config, setConfig] = useState<LegalConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<"terms" | "privacy">("terms");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/legal/config", { credentials: "include" });
-      const data = await res.json();
-      if (data.config) setConfig(data.config);
-    } catch {
-      onToast("設定の読み込みに失敗しました", "error");
-    }
-    setLoading(false);
-  }, [onToast]);
-
-  useEffect(() => { load(); }, [load]);
+  // SWRデータをローカルstateに反映（編集用）
+  if (swrData?.config && !configLoaded) {
+    setConfig(swrData.config);
+    setConfigLoaded(true);
+  }
 
   const handleSave = async () => {
     if (!config) return;
@@ -47,6 +42,7 @@ export default function LegalSection({ onToast }: LegalSectionProps) {
       if (res.ok) {
         onToast("利用規約を保存しました", "success");
         setEditing(false);
+        mutate(SWR_KEY);
       } else {
         onToast("保存に失敗しました", "error");
       }
@@ -58,7 +54,9 @@ export default function LegalSection({ onToast }: LegalSectionProps) {
 
   const handleCancel = () => {
     setEditing(false);
-    load();
+    // SWRデータから再読み込み
+    if (swrData?.config) setConfig(swrData.config);
+    mutate(SWR_KEY);
   };
 
   const handleResetToDefault = (type: "terms" | "privacy") => {

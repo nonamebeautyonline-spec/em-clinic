@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import useSWR, { mutate } from "swr";
 import { snapValue, generateGridLines, GRID_SIZES, type GridSize } from "@/lib/grid-snap";
 import { MenuRulesPage } from "@/app/admin/line/menu-rules/page";
 
@@ -132,8 +133,19 @@ function createDefaultButton(index: number, total: number): ButtonConfig {
 
 export default function RichMenuManagementPage() {
   const [activeTab, setActiveTab] = useState<"menus" | "rules">("menus");
-  const [menus, setMenus] = useState<RichMenu[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // SWRでデータ取得
+  const { data: menusData, isLoading: menusLoading } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus");
+  const { data: formsData, isLoading: formsLoading } = useSWR<{ forms: FormOption[] }>("/api/admin/line/forms");
+  const { data: templatesData, isLoading: templatesLoading } = useSWR<{ templates: TemplateOption[] }>("/api/admin/line/templates");
+  const { data: marksData, isLoading: marksLoading } = useSWR<{ marks: MarkDefinition[] }>("/api/admin/line/marks");
+
+  const menus = menusData?.menus || [];
+  const allForms = formsData?.forms || [];
+  const allTemplates = (templatesData?.templates || []).map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }));
+  const allMarks = (marksData?.marks || []).filter((m: MarkDefinition) => m.value !== "none");
+  const loading = menusLoading || formsLoading || templatesLoading || marksLoading;
+
   const [showEditor, setShowEditor] = useState(false);
   const [editingMenu, setEditingMenu] = useState<RichMenu | null>(null);
 
@@ -159,16 +171,6 @@ export default function RichMenuManagementPage() {
   const [tempActions, setTempActions] = useState<ActionItem[]>([]);
   const [repeatActions, setRepeatActions] = useState(true);
 
-  // 回答フォーム一覧
-  const [allForms, setAllForms] = useState<FormOption[]>([]);
-
-  // テンプレート一覧
-  const [allTemplates, setAllTemplates] = useState<TemplateOption[]>([]);
-
-  // 対応マーク定義
-  const [allMarks, setAllMarks] = useState<MarkDefinition[]>([]);
-
-
   // 領域設定モーダル
   const [boundsModalIndex, setBoundsModalIndex] = useState<number | null>(null);
   const [tempBounds, setTempBounds] = useState(DEFAULT_BOUNDS);
@@ -179,28 +181,6 @@ export default function RichMenuManagementPage() {
   // グリッドスナップ設定
   const [gridSize, setGridSize] = useState<GridSize>(20);
   const [shiftPressed, setShiftPressed] = useState(false);
-
-  const fetchMenus = async () => {
-    const res = await fetch("/api/admin/line/rich-menus", { credentials: "include" });
-    const data = await res.json();
-    if (data.menus) setMenus(data.menus);
-  };
-
-  useEffect(() => {
-    // 4つのfetchを並列実行して初期ロードを高速化
-    Promise.all([
-      fetchMenus(),
-      fetch("/api/admin/line/forms", { credentials: "include" })
-        .then(r => r.json())
-        .then(data => { if (data.forms) setAllForms(data.forms); }),
-      fetch("/api/admin/line/templates", { credentials: "include" })
-        .then(r => r.json())
-        .then(data => { if (data.templates) setAllTemplates(data.templates.map((t: { id: number; name: string }) => ({ id: t.id, name: t.name }))); }),
-      fetch("/api/admin/line/marks", { credentials: "include" })
-        .then(r => r.json())
-        .then(data => { if (data.marks) setAllMarks(data.marks.filter((m: MarkDefinition) => m.value !== "none")); }),
-    ]).finally(() => setLoading(false));
-  }, []);
 
   // Shiftキー検知（グリッドスナップ一時無効化用）
   useEffect(() => {
@@ -409,7 +389,7 @@ export default function RichMenuManagementPage() {
             setShowEditor(false);
           }, 1500);
         }
-        await fetchMenus();
+        await mutate("/api/admin/line/rich-menus");
       } else {
         const data = await res.json().catch(() => ({}));
         setSyncStatus({ show: true, step: "", done: true, error: (data.message || data.error) || "保存に失敗しました" });
@@ -424,7 +404,7 @@ export default function RichMenuManagementPage() {
 
   const handleDelete = async (id: number) => {
     const res = await fetch(`/api/admin/line/rich-menus/${id}`, { method: "DELETE", credentials: "include" });
-    if (res.ok) { await fetchMenus(); setDeleteConfirm(null); }
+    if (res.ok) { await mutate("/api/admin/line/rich-menus"); setDeleteConfirm(null); }
   };
 
   const formatDate = (d: string) => {

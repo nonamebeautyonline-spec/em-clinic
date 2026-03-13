@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 
 interface Order {
   id: string;
@@ -31,10 +32,9 @@ interface MergeableGroup {
 
 export default function ShippingPendingPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [mergeableGroups, setMergeableGroups] = useState<MergeableGroup[]>([]);
-  const [error, setError] = useState("");
+  const { data, error, isLoading: loading } = useSWR<{ orders: Order[]; mergeableGroups: MergeableGroup[] }>("/api/admin/shipping/pending");
+  const orders = data?.orders || [];
+  const mergeableGroups = data?.mergeableGroups || [];
   const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
   const [editCreatedMode, setEditCreatedMode] = useState(false);
 
@@ -45,35 +45,6 @@ export default function ShippingPendingPage() {
     month: "numeric",
     day: "numeric",
   });
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const loadOrders = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/admin/shipping/pending", {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
-
-      const data = await res.json();
-      const fetchedOrders = data.orders || [];
-      setOrders(fetchedOrders);
-      setMergeableGroups(data.mergeableGroups || []);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "-";
@@ -142,7 +113,7 @@ export default function ShippingPendingPage() {
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+          {error.message}
         </div>
       )}
 

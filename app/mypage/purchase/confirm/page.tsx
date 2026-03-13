@@ -2,8 +2,16 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useCallback, useRef, Suspense } from "react";
+import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareCardForm from "@/components/SquareCardForm";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error("API error");
+    return r.json();
+  });
 
 
 type ProductCode =
@@ -225,50 +233,45 @@ function PurchaseConfirmContent() {
     shipping.phone.trim() !== "" &&
     shipping.email.trim() !== "";
 
-  // identity から patientId を取得
-  useEffect(() => {
-    const fetchIdentity = async () => {
-      try {
-        const res = await fetch("/api/mypage/identity", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json?.ok === false) {
-          setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
-          return;
-        }
-        if (json?.patientId) {
-          setPatientId(String(json.patientId));
-          return;
-        }
-        setError("本人確認情報の取得に失敗しました。");
-      } catch {
-        setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+  // identity から patientId をSWRで取得
+  const { data: identityData } = useSWR("/api/mypage/identity", swrFetcher, {
+    revalidateOnFocus: false,
+    onSuccess: (json) => {
+      if (json?.ok === false) {
+        setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
+        return;
       }
-    };
-    fetchIdentity();
-  }, []);
+      if (json?.patientId) {
+        setPatientId(String(json.patientId));
+        return;
+      }
+      setError("本人確認情報の取得に失敗しました。");
+    },
+    onError: () => {
+      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+    },
+  });
+  void identityData;
 
-  // SDK設定を取得（1クエリに最適化済み、高速）
-  useEffect(() => {
-    fetch("/api/square/sdk-config", { credentials: "include" })
-      .then((r) => r.json())
-      .then((config: SdkConfig) => setSdkConfig(config))
-      .catch(() => setSdkConfig({ enabled: false }));
-  }, []);
+  // SDK設定をSWRで取得
+  const { data: sdkData } = useSWR("/api/square/sdk-config", swrFetcher, {
+    revalidateOnFocus: false,
+    onSuccess: (config: SdkConfig) => setSdkConfig(config),
+    onError: () => setSdkConfig({ enabled: false }),
+  });
+  void sdkData;
 
   // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
-  useEffect(() => {
-    if (!showCardForm || savedCard !== null) return;
-    fetch("/api/square/saved-card", { credentials: "include" })
-      .then((r) => r.json())
-      .then((card: SavedCard) => {
-        setSavedCard(card);
-        if (card?.hasCard) setPaymentMode("saved_card");
-      })
-      .catch(() => setSavedCard({ hasCard: false }));
-  }, [showCardForm, savedCard]);
+  const savedCardKey = showCardForm && savedCard === null ? "/api/square/saved-card" : null;
+  const { data: savedCardData } = useSWR(savedCardKey, swrFetcher, {
+    revalidateOnFocus: false,
+    onSuccess: (card: SavedCard) => {
+      setSavedCard(card);
+      if (card?.hasCard) setPaymentMode("saved_card");
+    },
+    onError: () => setSavedCard({ hasCard: false }),
+  });
+  void savedCardData;
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode") as Mode | null;

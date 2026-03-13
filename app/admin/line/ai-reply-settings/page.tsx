@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 import { AIReplyStatsContent } from "../ai-reply-stats/page";
 
 interface AiReplySettings {
@@ -92,32 +93,24 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export default function AiReplySettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("settings");
+  const swrKey = "/api/admin/line/ai-reply-settings";
+  const { data: swrData, isLoading: loading } = useSWR(swrKey);
   const [settings, setSettings] = useState<AiReplySettings>(DEFAULT_SETTINGS);
   const [businessHours, setBusinessHours] = useState<BusinessHoursConfig>(DEFAULT_BUSINESS_HOURS);
   const [todayUsage, setTodayUsage] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchSettings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/line/ai-reply-settings", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setSettings(data.settings);
-        setTodayUsage(data.todayUsage ?? 0);
-        if (data.businessHours) {
-          setBusinessHours(data.businessHours);
-        }
+  // SWRデータをローカルステートに反映（編集可能にするため）
+  useEffect(() => {
+    if (swrData) {
+      setSettings(swrData.settings);
+      setTodayUsage(swrData.todayUsage ?? 0);
+      if (swrData.businessHours) {
+        setBusinessHours(swrData.businessHours);
       }
-    } catch (e) {
-      console.error("設定取得エラー:", e);
-    } finally {
-      setLoading(false);
     }
-  }, []);
-
-  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+  }, [swrData]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -125,7 +118,6 @@ export default function AiReplySettingsPage() {
     try {
       const res = await fetch("/api/admin/line/ai-reply-settings", {
         method: "PUT",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...settings, business_hours: businessHours }),
       });
@@ -133,6 +125,7 @@ export default function AiReplySettingsPage() {
         setMessage({ type: "success", text: "設定を保存しました" });
         const data = await res.json();
         setSettings(data.settings);
+        mutate(swrKey);
       } else {
         const err = await res.json();
         setMessage({ type: "error", text: err.error || "保存に失敗しました" });
@@ -486,27 +479,11 @@ interface AiReplyExample {
 }
 
 function AiReplyExamplesTab() {
-  const [examples, setExamples] = useState<AiReplyExample[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const examplesKey = "/api/admin/line/ai-reply-examples";
+  const { data: exData, isLoading: loading } = useSWR(examplesKey);
+  const examples: AiReplyExample[] = exData?.examples || [];
+  const total: number = exData?.total || 0;
   const [deleting, setDeleting] = useState<number | null>(null);
-
-  const fetchExamples = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/line/ai-reply-examples", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setExamples(data.examples);
-        setTotal(data.total);
-      }
-    } catch (e) {
-      console.error("学習例取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchExamples(); }, [fetchExamples]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("この学習例を削除しますか？")) return;
@@ -514,13 +491,11 @@ function AiReplyExamplesTab() {
     try {
       const res = await fetch("/api/admin/line/ai-reply-examples", {
         method: "DELETE",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
       if (res.ok) {
-        setExamples(prev => prev.filter(e => e.id !== id));
-        setTotal(prev => prev - 1);
+        mutate(examplesKey);
       }
     } catch (e) {
       console.error("学習例削除エラー:", e);

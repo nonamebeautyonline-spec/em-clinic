@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
+import useSWR, { mutate } from "swr";
 
 // ── セグメント型定義 ──────────────────────────────────────────
 
@@ -82,9 +83,6 @@ interface AIQueryPatient {
 }
 
 export default function SegmentsPage() {
-  const [data, setData] = useState<SegmentData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<SegmentType>("vip");
   const [recalculating, setRecalculating] = useState(false);
   const [recalcMessage, setRecalcMessage] = useState("");
@@ -101,31 +99,9 @@ export default function SegmentsPage() {
 
   // ── データ取得 ──────────────────────────────────────────
 
-  const loadSegments = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/segments");
-      if (!res.ok) {
-        if (res.status === 401) {
-          setError("認証が必要です。ログインしてください。");
-          return;
-        }
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const json = await res.json();
-      setData(json);
-    } catch (err) {
-      setError("セグメントデータの取得に失敗しました");
-      console.error("[segments] 取得エラー:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSegments();
-  }, [loadSegments]);
+  const segmentsKey = "/api/admin/segments";
+  const { data, isLoading: loading, error: swrError } = useSWR<SegmentData>(segmentsKey);
+  const error = swrError ? "セグメントデータの取得に失敗しました" : "";
 
   // ── 再計算 ──────────────────────────────────────────
 
@@ -143,7 +119,7 @@ export default function SegmentsPage() {
         `再計算完了: ${json.processed}名を処理しました`,
       );
       // データを再読み込み
-      await loadSegments();
+      await mutate(segmentsKey);
     } catch (err) {
       setRecalcMessage("再計算に失敗しました");
       console.error("[segments] 再計算エラー:", err);

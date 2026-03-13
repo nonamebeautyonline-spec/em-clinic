@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 
@@ -93,33 +94,17 @@ const STATUS_COLORS: Record<string, string> = {
 
 /* ---------- メインページ ---------- */
 
+const WORKFLOWS_KEY = "/api/admin/line/workflows";
+
 export default function WorkflowsPage() {
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: wfData, isLoading: loading } = useSWR<{ workflows: Workflow[] }>(WORKFLOWS_KEY);
+  const workflows = wfData?.workflows ?? [];
+
   const [showModal, setShowModal] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [detailWorkflow, setDetailWorkflow] = useState<Workflow | null>(null);
   const [detailSteps, setDetailSteps] = useState<WorkflowStep[]>([]);
   const [detailExecutions, setDetailExecutions] = useState<WorkflowExecution[]>([]);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/workflows", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setWorkflows(d.workflows || []);
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("このワークフローを削除しますか？")) return;
@@ -129,7 +114,7 @@ export default function WorkflowsPage() {
         credentials: "include",
       });
       if (res.ok) {
-        loadData();
+        mutate(WORKFLOWS_KEY);
       } else {
         const d = await res.json();
         alert(d.error || "削除に失敗しました");
@@ -148,7 +133,7 @@ export default function WorkflowsPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        loadData();
+        mutate(WORKFLOWS_KEY);
       } else {
         const d = await res.json();
         alert(d.error || "ステータス変更に失敗しました");
@@ -327,7 +312,7 @@ export default function WorkflowsPage() {
           onSaved={() => {
             setShowModal(false);
             setEditingWorkflow(null);
-            loadData();
+            mutate(WORKFLOWS_KEY);
           }}
         />
       )}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 
 type Settings = {
@@ -19,35 +20,31 @@ const DEFAULT_SETTINGS: Settings = {
   booking_open_day: 5,
 };
 
+const SWR_KEY = "/api/admin/reservation-settings";
+
 export default function ReservationSettingsPage() {
+  const { data: rawData, isLoading: loading } = useSWR<{ ok: boolean; settings?: Settings }>(SWR_KEY);
+
+  const loadedSettings: Settings = rawData?.ok && rawData.settings
+    ? {
+        change_deadline_hours: rawData.settings.change_deadline_hours ?? 0,
+        cancel_deadline_hours: rawData.settings.cancel_deadline_hours ?? 0,
+        booking_start_days_before: rawData.settings.booking_start_days_before ?? 60,
+        booking_deadline_hours_before: rawData.settings.booking_deadline_hours_before ?? 0,
+        booking_open_day: rawData.settings.booking_open_day ?? 5,
+      }
+    : DEFAULT_SETTINGS;
+
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/reservation-settings", {
-          credentials: "include",
-        });
-        const json = await res.json();
-        if (json.ok && json.settings) {
-          setSettings({
-            change_deadline_hours: json.settings.change_deadline_hours ?? 0,
-            cancel_deadline_hours: json.settings.cancel_deadline_hours ?? 0,
-            booking_start_days_before: json.settings.booking_start_days_before ?? 60,
-            booking_deadline_hours_before: json.settings.booking_deadline_hours_before ?? 0,
-            booking_open_day: json.settings.booking_open_day ?? 5,
-          });
-        }
-      } catch (e) {
-        console.error("Load error:", e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // SWRデータ到着時にフォーム状態を同期
+  if (rawData && !initialized) {
+    setSettings(loadedSettings);
+    setInitialized(true);
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -62,6 +59,7 @@ export default function ReservationSettingsPage() {
       const json = await res.json();
       if (json.ok) {
         setMessage({ type: "success", text: "設定を保存しました" });
+        mutate(SWR_KEY);
       } else {
         setMessage({ type: "error", text: json.message || "保存に失敗しました" });
       }

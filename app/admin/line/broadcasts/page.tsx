@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import BroadcastCalendar from "../_components/BroadcastCalendar";
 
 interface Broadcast {
@@ -29,23 +30,16 @@ const STATUS_CONFIG: Record<string, { text: string; bg: string; text_color: stri
 
 type ViewMode = "list" | "calendar";
 
+const BROADCASTS_SWR_KEY = "/api/admin/line/broadcast";
+
 export default function BroadcastsPage() {
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: broadcastData, isLoading: loading } = useSWR<{ broadcasts?: Broadcast[] }>(BROADCASTS_SWR_KEY);
+  const broadcasts = broadcastData?.broadcasts || [];
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   // 一時停止/再開の確認ダイアログ
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: "pause" | "resume" } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const res = await fetch("/api/admin/line/broadcast", { credentials: "include" });
-      const data = await res.json();
-      if (data.broadcasts) setBroadcasts(data.broadcasts);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
 
   const formatDate = (s: string) => {
     const d = new Date(s);
@@ -68,16 +62,7 @@ export default function BroadcastsPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        // ローカルのbroadcastsリストを更新
-        setBroadcasts(prev => prev.map(b =>
-          b.id === confirmAction.id
-            ? {
-                ...b,
-                status: data.status,
-                paused_at: confirmAction.action === "pause" ? new Date().toISOString() : null,
-              }
-            : b
-        ));
+        mutate(BROADCASTS_SWR_KEY);
       }
     } catch {
       // エラー時は何もしない（UIが元の状態のまま）

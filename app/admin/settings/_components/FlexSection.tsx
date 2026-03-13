@@ -1,7 +1,8 @@
 // イベント通知設定（通知ON/OFF + FLEXメッセージカスタマイズ統合）
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 interface FlexColorConfig {
@@ -194,59 +195,58 @@ interface Props {
 export default function FlexSection({ onToast }: Props) {
   const [flexConfig, setFlexConfig] = useState<FlexMessageConfig>(DEFAULT_FLEX_CONFIG);
   const [eventConfig, setEventConfig] = useState<EventNotifyConfig>(DEFAULT_EVENT_CONFIG);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("reservation");
   const [reservationSubTab, setReservationSubTab] = useState<"created" | "changed" | "canceled">("created");
+  const [configInitialized, setConfigInitialized] = useState(false);
 
-  // Flex設定 + イベント通知設定を並列読み込み
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const [flexRes, eventRes] = await Promise.all([
-          fetch("/api/admin/flex-settings", { credentials: "include" }),
-          fetch("/api/admin/settings?category=business_rules", { credentials: "include" }),
-        ]);
-        const flexData = await flexRes.json();
-        const eventData = await eventRes.json();
-        if (!ignore) {
-          if (flexData.config) setFlexConfig(flexData.config);
-          if (eventData.settings && typeof eventData.settings === "object") {
-            const s = eventData.settings;
-            setEventConfig(prev => ({
-              ...prev,
-              notifyReorderApply: s.notify_reorder_apply !== undefined ? s.notify_reorder_apply !== "false" : prev.notifyReorderApply,
-              notifyReorderApprove: s.notify_reorder_approve !== undefined ? s.notify_reorder_approve !== "false" : prev.notifyReorderApprove,
-              notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
-              intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
-              approveMessage: s.approve_message || prev.approveMessage,
-              paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
-              paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
-              showProductName: s.show_product_name !== undefined ? s.show_product_name !== "false" : prev.showProductName,
-              showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
-              showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
-              showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
-              showShippingName: s.show_shipping_name !== undefined ? s.show_shipping_name !== "false" : prev.showShippingName,
-              showShippingPostal: s.show_shipping_postal !== undefined ? s.show_shipping_postal !== "false" : prev.showShippingPostal,
-              showShippingAddress: s.show_shipping_address !== undefined ? s.show_shipping_address !== "false" : prev.showShippingAddress,
-              showShippingPhone: s.show_shipping_phone !== undefined ? s.show_shipping_phone !== "false" : prev.showShippingPhone,
-              showShippingEmail: s.show_shipping_email !== undefined ? s.show_shipping_email !== "false" : prev.showShippingEmail,
-              paymentThankHeaderCard: s.payment_thank_header_card || prev.paymentThankHeaderCard,
-              paymentThankHeaderBank: s.payment_thank_header_bank || prev.paymentThankHeaderBank,
-              notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
-              noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
-            }));
-          }
-        }
-      } catch { /* デフォルト値を維持 */ }
-      if (!ignore) setLoading(false);
-    })();
-    return () => { ignore = true; };
-  }, []);
+  // Flex設定読み込み
+  const { isLoading: flexLoading } = useSWR<{ config?: FlexMessageConfig }>("/api/admin/flex-settings", {
+    revalidateOnFocus: false,
+    onSuccess: (flexData) => {
+      if (configInitialized) return;
+      if (flexData.config) setFlexConfig(flexData.config);
+    },
+  });
+
+  // イベント通知設定読み込み
+  const { isLoading: eventLoading } = useSWR<{ settings?: Record<string, string> }>("/api/admin/settings?category=business_rules", {
+    revalidateOnFocus: false,
+    onSuccess: (eventData) => {
+      if (configInitialized) return;
+      if (eventData.settings && typeof eventData.settings === "object") {
+        const s = eventData.settings;
+        setEventConfig(prev => ({
+          ...prev,
+          notifyReorderApply: s.notify_reorder_apply !== undefined ? s.notify_reorder_apply !== "false" : prev.notifyReorderApply,
+          notifyReorderApprove: s.notify_reorder_approve !== undefined ? s.notify_reorder_approve !== "false" : prev.notifyReorderApprove,
+          notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
+          intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
+          approveMessage: s.approve_message || prev.approveMessage,
+          paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
+          paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
+          showProductName: s.show_product_name !== undefined ? s.show_product_name !== "false" : prev.showProductName,
+          showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
+          showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
+          showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
+          showShippingName: s.show_shipping_name !== undefined ? s.show_shipping_name !== "false" : prev.showShippingName,
+          showShippingPostal: s.show_shipping_postal !== undefined ? s.show_shipping_postal !== "false" : prev.showShippingPostal,
+          showShippingAddress: s.show_shipping_address !== undefined ? s.show_shipping_address !== "false" : prev.showShippingAddress,
+          showShippingPhone: s.show_shipping_phone !== undefined ? s.show_shipping_phone !== "false" : prev.showShippingPhone,
+          showShippingEmail: s.show_shipping_email !== undefined ? s.show_shipping_email !== "false" : prev.showShippingEmail,
+          paymentThankHeaderCard: s.payment_thank_header_card || prev.paymentThankHeaderCard,
+          paymentThankHeaderBank: s.payment_thank_header_bank || prev.paymentThankHeaderBank,
+          notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
+          noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
+        }));
+      }
+      setConfigInitialized(true);
+    },
+  });
+
+  const loading = flexLoading || eventLoading;
 
   // Flex設定 + イベント通知設定を両方保存
   const handleSave = async () => {
@@ -300,6 +300,8 @@ export default function FlexSection({ onToast }: Props) {
         setSaved(true);
         setEditing(false);
         onToast("イベント通知設定を保存しました", "success");
+        mutate("/api/admin/flex-settings");
+        mutate("/api/admin/settings?category=business_rules");
         setTimeout(() => setSaved(false), 3000);
       } else {
         onToast("一部の設定の保存に失敗しました", "error");

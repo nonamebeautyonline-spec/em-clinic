@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWR, { mutate } from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
 import { FlexPreviewRenderer, type FlexPreset } from "@/app/admin/line/flex-builder/page";
 
@@ -246,7 +248,7 @@ function panelsToFlex(panels: CarouselPanel[]): Record<string, unknown> {
 export default function TemplateManagementPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  // loading は SWR の isLoading を使用
   const [selectedCategory, setSelectedCategory] = useState<string>("__all__");
   const [showModal, setShowModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
@@ -306,38 +308,50 @@ export default function TemplateManagementPage() {
   const [patientSearching, setPatientSearching] = useState(false);
   const patientSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = useCallback(async () => {
-    const [tRes, cRes, fpRes, taRes] = await Promise.all([
-      fetch("/api/admin/line/templates", { credentials: "include" }),
-      fetch("/api/admin/line/template-categories", { credentials: "include" }),
-      fetch("/api/admin/line/flex-presets", { credentials: "include" }),
-      fetch("/api/admin/line/test-account", { credentials: "include" }),
-    ]);
-    const tData = await tRes.json();
-    const cData = await cRes.json();
-    if (tData.templates) setTemplates(tData.templates);
-    if (cData.categories) {
-      setCategories(cData.categories);
-    }
-    // Flexプリセット取得
-    if (fpRes.ok) {
-      const fpData = await fpRes.json();
-      if (fpData.presets) setFlexPresets(fpData.presets);
-    }
-    // テスト送信アカウント取得（複数対応）
-    if (taRes.ok) {
-      const taData = await taRes.json();
-      if (taData.accounts && taData.accounts.length > 0) {
-        setTestAccounts(taData.accounts);
-      } else if (taData.patient_id) {
-        // 後方互換
-        setTestAccounts([{ patient_id: taData.patient_id, patient_name: taData.patient_name, has_line_uid: taData.has_line_uid }]);
-      }
-    }
-    setLoading(false);
-  }, []);
+  // ─── SWR データ取得 ───
+  const TEMPLATES_KEY = "/api/admin/line/templates";
+  const CATEGORIES_KEY = "/api/admin/line/template-categories";
+  const PRESETS_KEY = "/api/admin/line/flex-presets";
+  const TEST_ACCOUNT_KEY = "/api/admin/line/test-account";
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: tData, isLoading: tLoading, error: tError } = useSWR<any>(TEMPLATES_KEY);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: cData } = useSWR<any>(CATEGORIES_KEY);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: fpData } = useSWR<any>(PRESETS_KEY);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: taData } = useSWR<any>(TEST_ACCOUNT_KEY);
+
+  const loading = tLoading;
+
+  // SWRデータ → ローカルstate
+  useEffect(() => {
+    if (tData?.templates) setTemplates(tData.templates);
+  }, [tData]);
+
+  useEffect(() => {
+    if (cData?.categories) setCategories(cData.categories);
+  }, [cData]);
+
+  useEffect(() => {
+    if (fpData?.presets) setFlexPresets(fpData.presets);
+  }, [fpData]);
+
+  useEffect(() => {
+    if (!taData) return;
+    if (taData.accounts && taData.accounts.length > 0) {
+      setTestAccounts(taData.accounts);
+    } else if (taData.patient_id) {
+      // 後方互換
+      setTestAccounts([{ patient_id: taData.patient_id, patient_name: taData.patient_name, has_line_uid: taData.has_line_uid }]);
+    }
+  }, [taData]);
+
+  const revalidateAll = () => {
+    mutate(TEMPLATES_KEY);
+    mutate(CATEGORIES_KEY);
+  };
 
   // 患者検索（デバウンス付き）
   const searchPatients = async (query: string) => {
@@ -517,7 +531,7 @@ export default function TemplateManagementPage() {
         alert(d.error || "コピーに失敗しました");
         return;
       }
-      fetchData();
+      mutate(TEMPLATES_KEY);
     } catch {
       alert("コピー中にエラーが発生しました");
     }
@@ -545,7 +559,7 @@ export default function TemplateManagementPage() {
         return;
       }
       setRenameTarget(null);
-      fetchData();
+      mutate(TEMPLATES_KEY);
     } catch {
       alert("名前変更中にエラーが発生しました");
     }
@@ -637,7 +651,7 @@ export default function TemplateManagementPage() {
     });
 
     if (res.ok) {
-      await fetchData();
+      mutate(TEMPLATES_KEY);
       resetForm();
     } else {
       const data = await res.json();
@@ -658,7 +672,7 @@ export default function TemplateManagementPage() {
     });
 
     if (res.ok) {
-      await fetchData();
+      mutate(CATEGORIES_KEY);
       setShowFolderModal(false);
       setFolderName("");
     } else {
@@ -686,7 +700,7 @@ export default function TemplateManagementPage() {
         if (selectedCategory === oldName) {
           setSelectedCategory(newName);
         }
-        await fetchData();
+        revalidateAll();
         setEditingCategory(null);
         setEditCategoryName("");
       } else {
@@ -710,7 +724,7 @@ export default function TemplateManagementPage() {
         if (selectedCategory === cat.name) {
           setSelectedCategory("__all__");
         }
-        await fetchData();
+        revalidateAll();
         setDeleteCategoryConfirm(null);
       } else {
         const data = await res.json();
@@ -738,10 +752,10 @@ export default function TemplateManagementPage() {
         credentials: "include",
         body: JSON.stringify({ orders }),
       });
-      await fetchData();
+      mutate(CATEGORIES_KEY);
     } catch {
       // 失敗時はリフレッシュ
-      await fetchData();
+      mutate(CATEGORIES_KEY);
     }
   };
 
@@ -751,7 +765,7 @@ export default function TemplateManagementPage() {
       credentials: "include",
     });
     if (res.ok) {
-      await fetchData();
+      mutate(TEMPLATES_KEY);
       setDeleteConfirm(null);
     }
   };
@@ -810,6 +824,8 @@ export default function TemplateManagementPage() {
     activeTab === "flex" ? flexJson.trim() && !flexError :
     false
   );
+
+  if (tError) return <ErrorFallback error={tError} retry={() => { mutate(TEMPLATES_KEY); mutate(CATEGORIES_KEY); }} />;
 
   return (
     <div className="min-h-full bg-gray-50/50">
@@ -2318,7 +2334,7 @@ export default function TemplateManagementPage() {
                 const data = await res.json();
                 alert(data.message || "インポートしました");
                 setShowImportModal(false);
-                fetchData();
+                mutate(TEMPLATES_KEY);
               } else {
                 const err = await res.json();
                 alert(err.message || "インポートに失敗しました");

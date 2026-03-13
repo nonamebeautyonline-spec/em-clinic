@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface BankTransferOrder {
   id: number;
@@ -22,8 +23,9 @@ interface BankTransferOrder {
 }
 
 export default function BankTransferManagementPage() {
-  const [orders, setOrders] = useState<BankTransferOrder[]>([]);
-  const [loading, setLoading] = useState(false);
+  const swrKey = "/api/admin/bank-transfer-orders";
+  const { data: swrData, isLoading: loading, error: swrError } = useSWR(swrKey);
+  const orders: BankTransferOrder[] = swrData?.orders || [];
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
 
@@ -33,42 +35,14 @@ export default function BankTransferManagementPage() {
   const [cancelMemo, setCancelMemo] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  const loadOrders = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/admin/bank-transfer-orders", {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("データ取得失敗");
-      }
-
-      const data = await res.json();
-      setOrders(data.orders || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDeleteTestData = async () => {
     if (!confirm("テストデータを削除しますか？")) return;
 
-    setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/admin/bank-transfer/delete-test-data", {
         method: "POST",
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -77,24 +51,20 @@ export default function BankTransferManagementPage() {
 
       const data = await res.json();
       alert(`${data.deletedCount}件のテストデータを削除しました`);
-      loadOrders();
+      mutate(swrKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleBackfillToGAS = async () => {
     if (!confirm("全てのデータをGASシートにバックフィルしますか？")) return;
 
-    setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/admin/bank-transfer/backfill-to-gas", {
         method: "POST",
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -105,8 +75,6 @@ export default function BankTransferManagementPage() {
       alert(`${data.successCount}件をGASシートに同期しました`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -123,7 +91,6 @@ export default function BankTransferManagementPage() {
     try {
       const res = await fetch("/api/admin/bank-transfer/cancel", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           order_id: String(cancelTarget.id),
@@ -140,7 +107,7 @@ export default function BankTransferManagementPage() {
       setCancelTarget(null);
       setCancelAction("cancel");
       setCancelMemo("");
-      loadOrders();
+      mutate(swrKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {

@@ -1,7 +1,8 @@
 // マイページ設定セクション（色・セクション・コンテンツ・文言 + iPhoneプレビュー）
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 interface MypageColorConfig {
@@ -123,25 +124,19 @@ interface Props {
 }
 
 export default function MypageSection({ onToast }: Props) {
+  const SWR_KEY = "/api/admin/mypage-settings";
+  const { data: swrData, isLoading: loading } = useSWR<{ config?: MypageConfig }>(SWR_KEY);
   const [config, setConfig] = useState<MypageConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/mypage-settings", { credentials: "include" });
-        const data = await res.json();
-        if (!ignore && data.config) setConfig(data.config);
-      } catch { /* デフォルト値を維持 */ }
-      if (!ignore) setLoading(false);
-    })();
-    return () => { ignore = true; };
-  }, []);
+  // SWRデータをローカルstateに反映（編集用）
+  if (swrData?.config && !configLoaded) {
+    setConfig(swrData.config);
+    setConfigLoaded(true);
+  }
 
   const handleSave = async () => {
     setSaving(true);
@@ -156,6 +151,7 @@ export default function MypageSection({ onToast }: Props) {
       setSaved(true);
       setEditing(false);
       onToast("マイページ設定を保存しました", "success");
+      mutate(SWR_KEY);
       setTimeout(() => setSaved(false), 3000);
     } else {
       onToast("保存に失敗しました", "error");

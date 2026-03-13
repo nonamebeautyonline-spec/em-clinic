@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import useSWR from "swr";
 import { VoiceRecordButton } from "@/components/voice-record-button";
 import { VoiceKarteButton } from "@/components/voice-karte-button";
+
+const swrFetcher = (url: string) => fetch(url, { credentials: "include" }).then(r => {
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+});
 
 type IntakeRow = { [key: string]: unknown };
 
@@ -252,18 +258,16 @@ export default function DoctorPage() {
   }, [fetchList]);
 
   // 診察モード取得（LINE通話フォームボタン表示制御）
-  const fetchConsultationMode = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-      const data = await res.json();
-      const t = data.settings?.type || "online_all";
-      setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-    } catch { /* 取得失敗時はデフォルト値を維持 */ }
-  }, []);
-
+  const { data: consultationData } = useSWR(
+    "/api/admin/settings?category=consultation",
+    swrFetcher,
+    { revalidateOnFocus: false }
+  );
   useEffect(() => {
-    fetchConsultationMode();
-  }, [fetchConsultationMode]);
+    if (!consultationData) return;
+    const t = consultationData.settings?.type || "online_all";
+    setLineCallEnabled(t !== "online_phone" && t !== "in_person");
+  }, [consultationData]);
 
 
   const handleOpenDetail = (row: IntakeRow) => {

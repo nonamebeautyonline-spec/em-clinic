@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import useSWR, { mutate } from "swr";
 import { nanoid } from "nanoid";
 import type {
   IntakeFormField,
@@ -363,30 +364,12 @@ function TemplateListModal({
   onClose: () => void;
   onActivated: () => void;
 }) {
-  const [templates, setTemplates] = useState<TemplateItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const TEMPLATES_KEY = "/api/admin/intake-form/templates";
+  const { data: templatesData, isLoading: loading } = useSWR<{ ok: boolean; templates: TemplateItem[] }>(
+    open ? TEMPLATES_KEY : null
+  );
+  const templates = templatesData?.templates ?? [];
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  const fetchTemplates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/intake-form/templates", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setTemplates(data.templates);
-      }
-    } catch {
-      // 取得失敗時は空リスト
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) fetchTemplates();
-  }, [open, fetchTemplates]);
 
   // テンプレート複製
   const handleDuplicate = async () => {
@@ -398,7 +381,7 @@ function TemplateListModal({
       });
       const data = await res.json();
       if (data.ok) {
-        await fetchTemplates();
+        await mutate(TEMPLATES_KEY);
       } else {
         alert("複製に失敗しました: " + (data.message || ""));
       }
@@ -423,7 +406,7 @@ function TemplateListModal({
       });
       const data = await res.json();
       if (data.ok) {
-        await fetchTemplates();
+        await mutate(TEMPLATES_KEY);
         onActivated();
       } else {
         alert("有効化に失敗しました: " + (data.message || ""));
@@ -449,7 +432,7 @@ function TemplateListModal({
       });
       const data = await res.json();
       if (data.ok) {
-        await fetchTemplates();
+        await mutate(TEMPLATES_KEY);
       } else {
         alert("削除に失敗しました: " + (data.message || ""));
       }
@@ -568,8 +551,9 @@ function TemplateListModal({
 // メインコンポーネント
 // ============================================================
 
+const DEFINITION_KEY = "/api/admin/intake-form";
+
 export default function IntakeFormEditorPage() {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -582,31 +566,25 @@ export default function IntakeFormEditorPage() {
   const [expandedField, setExpandedField] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // データ取得
-  const fetchDefinition = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/intake-form", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.ok && data.definition) {
-        setFields(data.definition.fields || DEFAULT_INTAKE_FIELDS);
-        setSettings({
-          ...DEFAULT_INTAKE_SETTINGS,
-          ...(data.definition.settings || {}),
-        });
-      }
-    } catch {
-      setFields(DEFAULT_INTAKE_FIELDS);
-      setSettings(DEFAULT_INTAKE_SETTINGS);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // SWRでデータ取得
+  const { data: defData, isLoading: loading } = useSWR<{ ok: boolean; definition: { fields: IntakeFormField[]; settings: IntakeFormSettings } }>(DEFINITION_KEY);
+  const [defInitialized, setDefInitialized] = useState(false);
 
   useEffect(() => {
-    fetchDefinition();
-  }, [fetchDefinition]);
+    if (defData && !defInitialized) {
+      if (defData.ok && defData.definition) {
+        setFields(defData.definition.fields || DEFAULT_INTAKE_FIELDS);
+        setSettings({
+          ...DEFAULT_INTAKE_SETTINGS,
+          ...(defData.definition.settings || {}),
+        });
+      } else {
+        setFields(DEFAULT_INTAKE_FIELDS);
+        setSettings(DEFAULT_INTAKE_SETTINGS);
+      }
+      setDefInitialized(true);
+    }
+  }, [defData, defInitialized]);
 
   // 保存
   const save = async () => {
@@ -1377,7 +1355,8 @@ export default function IntakeFormEditorPage() {
         onClose={() => setShowTemplates(false)}
         onActivated={() => {
           // テンプレート切替後にフォームデータを再取得
-          fetchDefinition();
+          mutate(DEFINITION_KEY);
+          setDefInitialized(false);
           setEditing(false);
         }}
       />

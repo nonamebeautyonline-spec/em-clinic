@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 type Doctor = {
   doctor_id: string;
@@ -14,34 +15,16 @@ type Doctor = {
   display_in_booking?: boolean;
 };
 
+const DOCTORS_SWR_KEY = "/api/admin/schedule?start=2000-01-01&end=2000-01-01";
+
 export default function DoctorsPage() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: scheduleData, isLoading: loading } = useSWR<{ ok: boolean; doctors?: Doctor[] }>(DOCTORS_SWR_KEY);
+  const doctors = scheduleData?.ok ? (scheduleData.doctors || []) : [];
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Doctor | null>(null);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadDoctors();
-  }, []);
-
-  async function loadDoctors() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/schedule?start=2000-01-01&end=2000-01-01", {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (json?.ok) {
-        setDoctors(json.doctors || []);
-      }
-    } catch (e) {
-      console.error("Load error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function startEdit(doctor: Doctor) {
     setEditingId(doctor.doctor_id);
@@ -92,7 +75,7 @@ export default function DoctorsPage() {
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error || "save_failed");
       setMsg({ type: "success", text: "保存しました" });
-      await loadDoctors();
+      await mutate(DOCTORS_SWR_KEY);
       cancelEdit();
     } catch (e) {
       setMsg({ type: "error", text: `保存エラー: ${e instanceof Error ? e.message : String(e)}` });

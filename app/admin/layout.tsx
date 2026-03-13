@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import useSWR from "swr";
 import PatientLookupWidget from "@/components/admin/PatientLookupWidget";
 import { FeaturesProvider, useFeatures } from "@/lib/hooks/use-features";
+import { SWRProvider } from "@/lib/swr/provider";
+import { adminFetcher } from "@/lib/swr/config";
 import type { Feature } from "@/lib/feature-flags";
 
 // 認証不要のパス
@@ -57,46 +60,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [pendingReorderCount, setPendingReorderCount] = useState(0);
-  const [inventoryAlertCount, setInventoryAlertCount] = useState(0);
   const [platformRole, setPlatformRole] = useState<string>("tenant_admin");
   const [tenantRole, setTenantRole] = useState<string>("admin");
   const sidebarNavRef = useRef<HTMLDivElement>(null);
   const prevPathnameRef = useRef(pathname);
 
-  // 未読カウント取得
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/unread-count", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.count ?? 0);
-      }
-    } catch { /* 無視 */ }
-  }, []);
-
-  // 再処方の未処理件数取得
-  const fetchPendingReorderCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/reorders/pending-count", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingReorderCount(data.count ?? 0);
-      }
-    } catch { /* 無視 */ }
-  }, []);
-
-  // 在庫アラート件数取得
-  const fetchInventoryAlertCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/inventory/alerts/count", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setInventoryAlertCount(data.count ?? 0);
-      }
-    } catch { /* 無視 */ }
-  }, []);
+  // 未読カウント・再処方件数・在庫アラート件数のポーリング（30秒間隔）
+  // SWRのrefreshInterval: タブ非表示時は自動停止、復帰時にrevalidateOnFocusで即時再取得
+  // layout自体はSWRProvider外なのでadminFetcherを直接渡す
+  const { data: unreadData } = useSWR<{ count: number }>(
+    isAuthenticated ? "/api/admin/unread-count" : null,
+    adminFetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true },
+  );
+  const { data: reorderData } = useSWR<{ count: number }>(
+    isAuthenticated ? "/api/admin/reorders/pending-count" : null,
+    adminFetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true },
+  );
+  const { data: alertData } = useSWR<{ count: number }>(
+    isAuthenticated ? "/api/admin/inventory/alerts/count" : null,
+    adminFetcher,
+    { refreshInterval: 30000, revalidateOnFocus: true },
+  );
+  const unreadCount = unreadData?.count ?? 0;
+  const pendingReorderCount = reorderData?.count ?? 0;
+  const inventoryAlertCount = alertData?.count ?? 0;
 
   useEffect(() => {
     // 認証不要のパスはスキップ
@@ -209,36 +198,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
 
-  // 未読カウント・再処方件数・在庫アラート件数のポーリング（30秒間隔）
-  // タブ非アクティブ時はポーリングを停止し、復帰時に即時再取得
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchAll = () => {
-      fetchUnreadCount();
-      fetchPendingReorderCount();
-      fetchInventoryAlertCount();
-    };
-
-    fetchAll();
-    let interval = setInterval(fetchAll, 30000);
-
-    const handleVisibility = () => {
-      if (document.hidden) {
-        clearInterval(interval);
-      } else {
-        fetchAll();
-        interval = setInterval(fetchAll, 30000);
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [isAuthenticated, fetchUnreadCount, fetchPendingReorderCount, fetchInventoryAlertCount]);
-
   // サイドバーのスクロール位置を保存・復元
   useEffect(() => {
     const savedScrollPos = sessionStorage.getItem("admin-sidebar-scroll");
@@ -286,10 +245,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // オンボーディングページはサイドバーなしのフルスクリーン表示
   const isOnboarding = pathname.startsWith("/admin/onboarding");
   if (isOnboarding) {
-    return <FeaturesProvider>{children}</FeaturesProvider>;
+    return <SWRProvider><FeaturesProvider>{children}</FeaturesProvider></SWRProvider>;
   }
 
   return (
+    <SWRProvider>
     <FeaturesProvider>
     <div className="h-dvh bg-slate-50 flex overflow-hidden">
       {/* モバイル用ハンバーガーボタン（トークページでは非表示：専用タブナビを使用） */}
@@ -616,6 +576,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <PatientLookupWidget />
     </div>
     </FeaturesProvider>
+    </SWRProvider>
   );
 }
 

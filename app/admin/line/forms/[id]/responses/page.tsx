@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import useSWR from "swr";
 import Link from "next/link";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -88,33 +89,26 @@ type TabKey = "list" | "stats";
 export default function FormResponsesPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<TabKey>("list");
-  const [formName, setFormName] = useState("");
-  const [fields, setFields] = useState<FormField[]>([]);
-  const [responses, setResponses] = useState<Response[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // 集計タブ用
-  const [statsData, setStatsData] = useState<StatsData | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [period, setPeriod] = useState<PeriodKey>("all");
   const [chartMode, setChartMode] = useState<Record<string, "bar" | "pie">>({});
 
-  // 一覧データ取得
-  useEffect(() => {
-    fetch(`/api/admin/line/forms/${id}/responses`, { credentials: "include" })
-      .then(r => r.json())
-      .then(data => {
-        if (data.form) {
-          setFormName(data.form.name);
-          const allFields = (data.form.fields || []) as FormField[];
-          setFields(allFields.filter(f => f.type !== "heading_sm" && f.type !== "heading_md"));
-        }
-        if (data.responses) setResponses(data.responses);
-        setLoading(false);
-      });
-  }, [id]);
+  // 一覧データ取得（SWR）
+  const { data: listData, isLoading: loading } = useSWR<{
+    form?: { name: string; fields: FormField[] };
+    responses?: Response[];
+  }>(`/api/admin/line/forms/${id}/responses`);
 
-  // 集計データ取得
+  const formName = listData?.form?.name || "";
+  const fields = (listData?.form?.fields || []).filter(
+    (f: FormField) => f.type !== "heading_sm" && f.type !== "heading_md"
+  );
+  const responses = listData?.responses || [];
+
+  // 集計タブ用
+  const [period, setPeriod] = useState<PeriodKey>("all");
+  const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  // 集計データ取得（期間パラメータが動的なため手動fetch維持）
   const loadStats = useCallback(async (p: PeriodKey) => {
     setStatsLoading(true);
     const dates = getPeriodDates(p);
@@ -127,13 +121,6 @@ export default function FormResponsesPage() {
     setStatsData(data);
     setStatsLoading(false);
   }, [id]);
-
-  // タブ切替時に集計データ取得
-  useEffect(() => {
-    if (tab === "stats" && !statsData) {
-      loadStats(period);
-    }
-  }, [tab, statsData, loadStats, period]);
 
   // 期間変更時
   const handlePeriodChange = (p: PeriodKey) => {
@@ -207,7 +194,7 @@ export default function FormResponsesPage() {
           一覧
         </button>
         <button
-          onClick={() => setTab("stats")}
+          onClick={() => { setTab("stats"); if (!statsData) loadStats(period); }}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             tab === "stats"
               ? "bg-white text-gray-800 shadow-sm"

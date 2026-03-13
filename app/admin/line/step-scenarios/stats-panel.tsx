@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 import {
   BarChart,
   Bar,
@@ -78,36 +78,9 @@ interface StatsPanelProps {
 
 /* ---------- メインコンポーネント ---------- */
 export default function StatsPanel({ scenario_id, onClose }: StatsPanelProps) {
-  const [data, setData] = useState<ScenarioDetailStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadStats = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/line/step-scenarios/stats?scenario_id=${scenario_id}`,
-        { credentials: "include" },
-      );
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const json = await res.json();
-      if ((json.message || json.error)) {
-        throw new Error((json.message || json.error));
-      }
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "データ取得に失敗しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [scenario_id]);
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
+  const { data, error, isLoading: loading, mutate } = useSWR<ScenarioDetailStats>(
+    `/api/admin/line/step-scenarios/stats?scenario_id=${scenario_id}`,
+  );
 
   /* --- ローディング --- */
   if (loading) {
@@ -131,10 +104,10 @@ export default function StatsPanel({ scenario_id, onClose }: StatsPanelProps) {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <span className="text-sm font-medium">エラー: {error}</span>
+          <span className="text-sm font-medium">エラー: {error instanceof Error ? error.message : "データ取得に失敗しました"}</span>
         </div>
         <button
-          onClick={loadStats}
+          onClick={() => mutate()}
           className="mt-3 px-4 py-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
         >
           再読み込み

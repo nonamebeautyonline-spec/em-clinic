@@ -3,7 +3,8 @@
 // セグメント分布ウィジェット
 // recharts の PieChart で患者セグメント分布（VIP/アクティブ/離脱リスク/休眠/新規）を表示
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useMemo } from "react";
+import useSWR, { mutate } from "swr";
 import {
   PieChart,
   Pie,
@@ -99,32 +100,12 @@ function renderCustomLabel({
 }
 
 export default function SegmentWidget() {
-  const [summary, setSummary] = useState<Record<string, number> | null>(null);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const SWR_KEY = "/api/admin/segments";
+  const { data: swrData, isLoading: loading, error: swrError } = useSWR<{ summary?: Record<string, number>; total?: number }>(SWR_KEY);
 
-  const loadSegments = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/segments", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("セグメントデータの取得に失敗しました");
-      const data = await res.json();
-      setSummary(data.summary || {});
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSegments();
-  }, [loadSegments]);
+  const summary = swrData?.summary || null;
+  const total = swrData?.total || 0;
+  const error = swrError ? (swrError instanceof Error ? swrError.message : "エラーが発生しました") : "";
 
   // PieChart用のデータを生成
   const chartData: SegmentData[] = useMemo(() => {
@@ -180,7 +161,7 @@ export default function SegmentWidget() {
                   method: "POST",
                   credentials: "include",
                 });
-                loadSegments();
+                mutate(SWR_KEY);
               } catch {
                 // 無視
               }

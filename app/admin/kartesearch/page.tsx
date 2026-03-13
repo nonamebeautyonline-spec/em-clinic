@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import { calcAge, formatDateJST } from "@/lib/patient-utils";
 
@@ -80,76 +81,66 @@ const SEARCH_MODES = [
 export default function KarteSearchPage() {
   const [searchMode, setSearchMode] = useState<string>("name");
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [selected, setSelected] = useState<Candidate | null>(null);
   const [err, setErr] = useState("");
 
   // バンドルデータ
-  const [bundleLoading, setBundleLoading] = useState(false);
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [intakes, setIntakes] = useState<IntakeItem[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [reorders, setReorders] = useState<ReorderItem[]>([]);
   const [activeTab, setActiveTab] = useState<"intake" | "history" | "reorder">("intake");
   const [expandedIntake, setExpandedIntake] = useState<number | null>(null);
 
   const canSearch = useMemo(() => q.trim().length >= 1, [q]);
 
+  // デバウンス: 250ms後にdebouncedQを更新
   useEffect(() => {
-    if (!canSearch) { setCandidates([]); return; }
-    const t = setTimeout(async () => {
-      setLoading(true);
-      setErr("");
-      try {
-        const res = await fetch(`/api/admin/kartesearch?q=${encodeURIComponent(q.trim())}&type=${searchMode}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.message || "search_failed");
-        setCandidates(data.candidates || []);
-      } catch (e: unknown) {
-        setCandidates([]);
-        setErr(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
+    if (!canSearch) { setDebouncedQ(""); return; }
+    const t = setTimeout(() => {
+      setDebouncedQ(q.trim());
     }, 250);
     return () => clearTimeout(t);
   }, [q, canSearch, searchMode]);
 
-  async function loadBundle(c: Candidate) {
+  // 検索（SWR）
+  const searchKey = debouncedQ
+    ? `/api/admin/kartesearch?q=${encodeURIComponent(debouncedQ)}&type=${searchMode}`
+    : null;
+  const { data: searchData, isLoading: loading, error: searchError } = useSWR<{
+    ok: boolean; candidates?: Candidate[]; message?: string;
+  }>(searchKey, { keepPreviousData: true });
+
+  const candidates = searchData?.ok ? (searchData.candidates || []) : [];
+  const searchErr = searchError
+    ? (searchError instanceof Error ? searchError.message : String(searchError))
+    : searchData && !searchData.ok
+      ? (searchData.message || "search_failed")
+      : "";
+
+  // バンドルデータ（SWR）
+  const bundleKey = selected
+    ? `/api/admin/patientbundle?patientId=${encodeURIComponent(selected.patientId)}`
+    : null;
+  const { data: bundleData, isLoading: bundleLoading, error: bundleError } = useSWR<{
+    ok: boolean; patient?: Patient; intakes?: IntakeItem[]; history?: HistoryItem[]; reorders?: ReorderItem[]; message?: string;
+  }>(bundleKey);
+
+  const patient = bundleData?.ok ? (bundleData.patient ?? null) : null;
+  const intakes = bundleData?.ok ? (bundleData.intakes ?? []) : [];
+  const history = bundleData?.ok ? (bundleData.history ?? []) : [];
+  const reorders = bundleData?.ok ? (bundleData.reorders ?? []) : [];
+
+  const displayErr = err || searchErr || (bundleError ? (bundleError instanceof Error ? bundleError.message : String(bundleError)) : "") || (bundleData && !bundleData.ok ? (bundleData.message || "bundle_failed") : "");
+
+  function loadBundle(c: Candidate) {
     setSelected(c);
-    setBundleLoading(true);
     setErr("");
-    setPatient(null);
-    setIntakes([]);
-    setHistory([]);
-    setReorders([]);
     setActiveTab("intake");
     setExpandedIntake(null);
-
-    try {
-      const res = await fetch(`/api/admin/patientbundle?patientId=${encodeURIComponent(c.patientId)}`, { cache: "no-store" });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.message || "bundle_failed");
-      setPatient(data.patient ?? null);
-      setIntakes(data.intakes ?? []);
-      setHistory(data.history ?? []);
-      setReorders(data.reorders ?? []);
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBundleLoading(false);
-    }
   }
 
   function handleClear() {
     setQ("");
-    setCandidates([]);
+    setDebouncedQ("");
     setSelected(null);
-    setPatient(null);
-    setIntakes([]);
-    setHistory([]);
-    setReorders([]);
     setErr("");
   }
 
@@ -169,7 +160,7 @@ export default function KarteSearchPage() {
             {SEARCH_MODES.map(m => (
               <button
                 key={m.key}
-                onClick={() => { setSearchMode(m.key); setQ(""); setCandidates([]); setSelected(null); setPatient(null); }}
+                onClick={() => { setSearchMode(m.key); setQ(""); setDebouncedQ(""); setSelected(null); }}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   searchMode === m.key
                     ? "bg-red-600 text-white"
@@ -201,7 +192,7 @@ export default function KarteSearchPage() {
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">{loading ? "検索中..." : `候補: ${candidates.length}件`}</span>
-            {err && <span className="text-rose-500">{err}</span>}
+            {displayErr && <span className="text-rose-500">{displayErr}</span>}
           </div>
         </div>
       </div>

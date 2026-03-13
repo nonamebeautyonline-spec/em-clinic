@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import useSWR, { mutate } from "swr";
 
 type Doctor = {
   doctor_id: string;
@@ -105,34 +106,28 @@ export default function OverridesPage() {
     return m;
   }, [overrides]);
 
-  useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/admin/schedule?start=${rangeStart}&end=${rangeEnd}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (json?.ok) {
-        setDoctors(json.doctors || []);
-        const first = (json.doctors || []).find((d: Doctor) => d.is_active)?.doctor_id || "";
-        setDoctorId((prev) => prev || first);
-      }
-    })();
-  }, [rangeStart, rangeEnd]);
+  // 医師一覧取得
+  const scheduleKey = `/api/admin/schedule?start=${rangeStart}&end=${rangeEnd}`;
+  const { data: scheduleData } = useSWR<{ ok: boolean; doctors: Doctor[] }>(scheduleKey);
+  const doctors_raw = scheduleData?.doctors ?? [];
 
   useEffect(() => {
-    if (!doctorId) return;
-    (async () => {
-      setMsg(null);
-      const res = await fetch(
-        `/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`,
-        { cache: "no-store" }
-      );
-      const json = await res.json();
-      if (json?.ok) {
-        setOverrides((json.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
-      }
-    })();
-  }, [doctorId, rangeStart, rangeEnd]);
+    if (doctors_raw.length > 0) {
+      setDoctors(doctors_raw);
+      const first = doctors_raw.find((d) => d.is_active)?.doctor_id || "";
+      setDoctorId((prev) => prev || first);
+    }
+  }, [doctors_raw]);
+
+  // オーバーライド取得
+  const overridesKey = doctorId ? `/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}` : null;
+  const { data: overridesData } = useSWR<{ ok: boolean; overrides: Override[] }>(overridesKey);
+
+  useEffect(() => {
+    if (overridesData?.ok && doctorId) {
+      setOverrides((overridesData.overrides || []).filter((o) => o.doctor_id === doctorId));
+    }
+  }, [overridesData, doctorId]);
 
   useEffect(() => {
     if (!doctorId) return;
@@ -224,12 +219,7 @@ export default function OverridesPage() {
 
       setMsg({ type: "success", text: drafts.length > 0 ? `${drafts.length}件の設定を保存しました` : "設定をクリアしました" });
 
-      const r = await fetch(
-        `/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`,
-        { cache: "no-store" }
-      );
-      const j = await r.json();
-      setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
+      if (overridesKey) mutate(overridesKey);
     } catch (e) {
       setMsg({ type: "error", text: e instanceof Error ? e.message : "エラーが発生しました" });
     } finally {

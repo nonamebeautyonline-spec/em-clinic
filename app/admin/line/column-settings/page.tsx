@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- セクション定義 ---------- */
 const SECTIONS = [
@@ -19,32 +20,17 @@ const SECTIONS = [
 
 /* ---------- メインページ ---------- */
 export default function ColumnSettingsPage() {
-  const [sections, setSections] = useState<Record<string, boolean>>({});
-  const [loading, setLoading] = useState(true);
+  const SWR_KEY = "/api/admin/line/column-settings";
+  const { data: settingsData, isLoading: loading } = useSWR<{ sections: Record<string, boolean> }>(SWR_KEY);
+  const sections = settingsData?.sections ?? {};
   const [saving, setSaving] = useState(false);
 
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/line/column-settings", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setSections(d.sections || {});
-      }
-    } catch (e) {
-      console.error("設定取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadSettings(); }, [loadSettings]);
-
-  // トグル & 即保存
+  // トグル & 即保存（楽観的更新）
   const toggleSection = async (key: string) => {
     const current = sections[key] !== false; // デフォルトON
     const next = { ...sections, [key]: !current };
-    setSections(next);
+    // 楽観的更新
+    mutate(SWR_KEY, { sections: next }, false);
     setSaving(true);
     try {
       await fetch("/api/admin/line/column-settings", {
@@ -55,6 +41,8 @@ export default function ColumnSettingsPage() {
       });
     } catch (e) {
       console.error("保存エラー:", e);
+      // エラー時はサーバーから再取得
+      mutate(SWR_KEY);
     } finally {
       setSaving(false);
     }
@@ -64,7 +52,8 @@ export default function ColumnSettingsPage() {
   const setAll = async (value: boolean) => {
     const next: Record<string, boolean> = {};
     SECTIONS.forEach(s => { next[s.key] = value; });
-    setSections(next);
+    // 楽観的更新
+    mutate(SWR_KEY, { sections: next }, false);
     setSaving(true);
     try {
       await fetch("/api/admin/line/column-settings", {
@@ -75,6 +64,7 @@ export default function ColumnSettingsPage() {
       });
     } catch (e) {
       console.error("保存エラー:", e);
+      mutate(SWR_KEY);
     } finally {
       setSaving(false);
     }

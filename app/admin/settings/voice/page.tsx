@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 type Category = "drug" | "symptom" | "procedure" | "anatomy" | "lab" | "general";
@@ -46,8 +47,6 @@ const CATEGORY_COLORS: Record<Category, string> = {
 
 // --- メインコンポーネント ---
 export default function VoiceVocabularyPage() {
-  const [items, setItems] = useState<VocabItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -78,29 +77,14 @@ export default function VoiceVocabularyPage() {
   const [seeding, setSeeding] = useState(false);
 
   // --- データ取得 ---
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filterCategory) params.set("category", filterCategory);
-      if (filterSpecialty) params.set("specialty", filterSpecialty);
-      if (searchQuery) params.set("search", searchQuery);
+  const vocabParams = new URLSearchParams();
+  if (filterCategory) vocabParams.set("category", filterCategory);
+  if (filterSpecialty) vocabParams.set("specialty", filterSpecialty);
+  if (searchQuery) vocabParams.set("search", searchQuery);
+  const vocabKey = `/api/admin/voice/vocabulary?${vocabParams.toString()}`;
 
-      const res = await fetch(`/api/admin/voice/vocabulary?${params.toString()}`);
-      if (!res.ok) throw new Error("取得に失敗しました");
-      const data = await res.json();
-      setItems(data.items || []);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [filterCategory, filterSpecialty, searchQuery]);
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  const { data: vocabData, isLoading: loading } = useSWR<{ items: VocabItem[] }>(vocabKey);
+  const items = vocabData?.items ?? [];
 
   // --- 用語追加 ---
   async function handleAdd() {
@@ -127,7 +111,7 @@ export default function VoiceVocabularyPage() {
       setNewTerm("");
       setNewReading("");
       setShowAddForm(false);
-      fetchItems();
+      mutate(vocabKey);
     } catch {
       setToast({ message: "通信エラー", type: "error" });
     } finally {
@@ -157,7 +141,7 @@ export default function VoiceVocabularyPage() {
       }
       setToast({ message: "更新しました", type: "success" });
       setEditingId(null);
-      fetchItems();
+      mutate(vocabKey);
     } catch {
       setToast({ message: "通信エラー", type: "error" });
     } finally {
@@ -179,7 +163,7 @@ export default function VoiceVocabularyPage() {
         return;
       }
       setToast({ message: `「${term}」を削除しました`, type: "success" });
-      fetchItems();
+      mutate(vocabKey);
     } catch {
       setToast({ message: "通信エラー", type: "error" });
     }
@@ -203,7 +187,7 @@ export default function VoiceVocabularyPage() {
       }
       setToast({ message: data.message || "デフォルト辞書を登録しました", type: "success" });
       setShowSeedModal(false);
-      fetchItems();
+      mutate(vocabKey);
     } catch {
       setToast({ message: "通信エラー", type: "error" });
     } finally {

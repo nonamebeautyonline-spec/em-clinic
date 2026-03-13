@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 interface MessageLog {
   id: number;
@@ -32,30 +33,19 @@ const TYPE_CONFIG: Record<string, { text: string; icon: string }> = {
 };
 
 export default function MessageHistoryPage() {
-  const [messages, setMessages] = useState<MessageLog[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState("");
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const limit = 50;
 
-  const fetchMessages = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    params.set("limit", String(limit));
-    params.set("offset", String(page * limit));
-    if (filterType) params.set("type", filterType);
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  params.set("offset", String(page * limit));
+  if (filterType) params.set("type", filterType);
 
-    const res = await fetch(`/api/admin/messages/log?${params}`, { credentials: "include" });
-    const data = await res.json();
-    if (data.messages) setMessages(data.messages);
-    if (data.total !== undefined) setTotal(data.total);
-    setLoading(false);
-  }, [page, filterType]);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallback経由の初期データフェッチ
-  useEffect(() => { fetchMessages(); }, [fetchMessages]);
+  const { data, isLoading: loading } = useSWR<{ messages: MessageLog[]; total: number }>(`/api/admin/messages/log?${params}`);
+  const messages = data?.messages || [];
+  const total = data?.total || 0;
 
   const formatDate = (s: string) => {
     const d = new Date(s);

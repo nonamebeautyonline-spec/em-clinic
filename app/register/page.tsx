@@ -1,8 +1,16 @@
 "use client";
 
 import React, { Suspense, useState } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 function Inner() {
   const router = useRouter();
@@ -10,25 +18,25 @@ function Inner() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [regStatus, setRegStatus] = useState<"none" | "needsVerify" | "complete">("none");
-  const [checking, setChecking] = useState(true);
 
-  // 初回登録済みチェック + LINE認証確認
-  React.useEffect(() => {
-    fetch("/api/register/check")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.needsLineLogin) {
-          window.location.href = "/api/line/login?returnUrl=/register";
-          return;
-        }
-        if (data.registered) {
-          setRegStatus(data.verifyComplete ? "complete" : "needsVerify");
-        }
-      })
-      .catch(() => {})
-      .finally(() => setChecking(false));
-  }, []);
+  // 初回登録済みチェック + LINE認証確認（SWR）
+  const { data: checkData, isLoading: checking } = useSWR<{
+    needsLineLogin?: boolean;
+    registered?: boolean;
+    verifyComplete?: boolean;
+  }>("/api/register/check", swrFetcher, {
+    onSuccess: (data) => {
+      if (data.needsLineLogin) {
+        window.location.href = "/api/line/login?returnUrl=/register";
+      }
+    },
+  });
+
+  const regStatus: "none" | "needsVerify" | "complete" = checkData?.registered
+    ? checkData.verifyComplete
+      ? "complete"
+      : "needsVerify"
+    : "none";
 
   // フォーム入力（姓名分割）
   const [sei, setSei] = useState("");

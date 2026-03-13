@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface BankTransferOrder {
   id: string;
@@ -19,10 +20,12 @@ interface BankTransferOrder {
 }
 
 export default function NonameMasterBankTransferPage() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<BankTransferOrder[]>([]);
-  const [error, setError] = useState("");
   const [limit, setLimit] = useState(100);
+
+  const swrKey = `/api/admin/noname-master/bank-transfer?limit=${limit}`;
+  const { data: ordersData, isLoading: loading, error: swrError } = useSWR<{ orders?: BankTransferOrder[] }>(swrKey);
+  const orders = ordersData?.orders || [];
+  const [error, setError] = useState("");
 
   // キャンセルモーダル
   const [cancelTarget, setCancelTarget] = useState<BankTransferOrder | null>(null);
@@ -30,32 +33,8 @@ export default function NonameMasterBankTransferPage() {
   const [cancelMemo, setCancelMemo] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch(`/api/admin/noname-master/bank-transfer?limit=${limit}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
-
-      const data = await res.json();
-      setOrders(data.orders || []);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [limit]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+  // SWRエラーをerror stateに反映
+  const displayError = swrError ? (swrError instanceof Error ? swrError.message : "エラーが発生しました") : error;
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -82,7 +61,7 @@ export default function NonameMasterBankTransferPage() {
       setCancelTarget(null);
       setCancelAction("cancel");
       setCancelMemo("");
-      loadOrders();
+      mutate(swrKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -149,8 +128,8 @@ export default function NonameMasterBankTransferPage() {
         <p className="text-slate-600 text-sm mt-1">銀行振込決済の注文一覧</p>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+      {displayError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{displayError}</div>
       )}
 
       <div className="mb-4 flex items-center gap-4">

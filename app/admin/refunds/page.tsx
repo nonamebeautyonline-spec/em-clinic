@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 
 type RefundItem = {
   id: string;
@@ -19,37 +20,9 @@ type RefundItem = {
 
 export default function RefundsPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [refunds, setRefunds] = useState<RefundItem[]>([]);
-  const [error, setError] = useState("");
+  const { data, error, isLoading: loading } = useSWR<{ refunds: RefundItem[] }>("/api/admin/refunds");
+  const refunds = data?.refunds || [];
   const [filter, setFilter] = useState<"all" | "COMPLETED" | "PENDING">("all");
-
-  useEffect(() => {
-    loadRefunds();
-  }, []);
-
-  const loadRefunds = async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch("/api/admin/refunds", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error(`エラー: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setRefunds(data.refunds || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredRefunds = filter === "all"
     ? refunds
@@ -129,7 +102,7 @@ export default function RefundsPage() {
       {/* エラー表示 */}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded">
-          <p className="text-red-700">{error}</p>
+          <p className="text-red-700">{error.message}</p>
         </div>
       )}
 

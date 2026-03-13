@@ -1,7 +1,8 @@
 // 再処方制御 設定セクション
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface ReorderControlConfig {
   dosageChangeNotify: boolean;
@@ -48,35 +49,25 @@ function Toggle({
 }
 
 export default function BusinessRulesSection({ onToast }: BusinessRulesSectionProps) {
+  const SWR_KEY = "/api/admin/settings?category=business_rules";
+  const { data: swrData, isLoading: loading } = useSWR<{ settings?: Record<string, string> }>(SWR_KEY);
   const [config, setConfig] = useState<ReorderControlConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/settings?category=business_rules", { credentials: "include" });
-        const data = await res.json();
-        if (!ignore && data.settings && typeof data.settings === "object") {
-          const s = data.settings;
-          setConfig(prev => ({
-            ...prev,
-            dosageChangeNotify: s.dosage_change_notify === "true",
-            minReorderIntervalDays: s.min_reorder_interval_days ? parseInt(s.min_reorder_interval_days, 10) : prev.minReorderIntervalDays,
-            autoApproveSameDose: s.auto_approve_same_dose === "true",
-          }));
-        }
-      } catch {
-        /* デフォルト値を維持 */
-      }
-      if (!ignore) setLoading(false);
-    })();
-    return () => { ignore = true; };
-  }, []);
+  // SWRデータをローカルstateに反映（編集用）
+  if (swrData?.settings && typeof swrData.settings === "object" && !configLoaded) {
+    const s = swrData.settings;
+    setConfig(prev => ({
+      ...prev,
+      dosageChangeNotify: s.dosage_change_notify === "true",
+      minReorderIntervalDays: s.min_reorder_interval_days ? parseInt(s.min_reorder_interval_days, 10) : prev.minReorderIntervalDays,
+      autoApproveSameDose: s.auto_approve_same_dose === "true",
+    }));
+    setConfigLoaded(true);
+  }
 
   const handleSave = async () => {
     setSaving(true);
@@ -104,6 +95,7 @@ export default function BusinessRulesSection({ onToast }: BusinessRulesSectionPr
         setSaved(true);
         setEditing(false);
         onToast("再処方制御を保存しました", "success");
+        mutate(SWR_KEY);
         setTimeout(() => setSaved(false), 3000);
       } else {
         onToast("一部の設定の保存に失敗しました", "error");

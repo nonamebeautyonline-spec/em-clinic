@@ -1,7 +1,8 @@
 // 決済設定セクション（プロバイダー選択 + APIキー管理）
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR, { mutate } from "swr";
 import type { SettingsMap, CategoryKey } from "../page";
 import { SettingRow, SourceBadge } from "../page";
 import { BANK_ACCOUNT_FIELDS, type BankAccount } from "@/lib/bank-account";
@@ -228,7 +229,6 @@ export default function PaymentSection({ settings, onSaved }: Props) {
   const [activeId, setActiveId] = useState<string>("");
   const [savedAccounts, setSavedAccounts] = useState<BankAccount[]>([]);
   const [savedActiveId, setSavedActiveId] = useState<string>("");
-  const [bankLoading, setBankLoading] = useState(true);
   const [savingBank, setSavingBank] = useState(false);
   const [showBankConfirm, setShowBankConfirm] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
@@ -253,24 +253,20 @@ export default function PaymentSection({ settings, onSaved }: Props) {
     setThreeDsEnabled(threeDsSetting?.maskedValue === "true");
   }, [threeDsSetting?.maskedValue]);
 
-  // 口座情報の取得
-  const loadBankAccounts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/bank-accounts", { credentials: "include" });
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data.accounts || []);
-        setActiveId(data.activeId || "");
-        setSavedAccounts(JSON.parse(JSON.stringify(data.accounts || [])));
-        setSavedActiveId(data.activeId || "");
-      }
-    } catch { /* 取得失敗時は空 */ }
-    setBankLoading(false);
-  }, []);
+  // 口座情報の取得（SWR）
+  const BANK_KEY = "/api/admin/bank-accounts";
+  const { data: bankData, isLoading: bankLoading } = useSWR<{ accounts: BankAccount[]; activeId: string }>(BANK_KEY);
+  const [bankInitialized, setBankInitialized] = useState(false);
 
   useEffect(() => {
-    loadBankAccounts();
-  }, [loadBankAccounts]);
+    if (bankData && !bankInitialized) {
+      setAccounts(bankData.accounts || []);
+      setActiveId(bankData.activeId || "");
+      setSavedAccounts(JSON.parse(JSON.stringify(bankData.accounts || [])));
+      setSavedActiveId(bankData.activeId || "");
+      setBankInitialized(true);
+    }
+  }, [bankData, bankInitialized]);
 
   const handleSave = async () => {
     if (!selected) return;
@@ -375,6 +371,7 @@ export default function PaymentSection({ settings, onSaved }: Props) {
       setSavedAccounts(JSON.parse(JSON.stringify(accounts)));
       setSavedActiveId(activeId);
       setShowBankConfirm(false);
+      mutate(BANK_KEY);
       onSaved("口座情報を保存しました", "success");
     } catch (err) {
       onSaved((err instanceof Error ? err.message : null) || "口座情報の保存に失敗しました", "error");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR, { mutate } from "swr";
 import SettingsNav, { type SectionKey } from "./_components/SettingsNav";
 import GeneralSection from "./_components/GeneralSection";
 import PaymentSection from "./_components/PaymentSection";
@@ -163,55 +164,20 @@ export function SettingRow({
 /* ---------- メインページ ---------- */
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SectionKey>("general");
-  const [settings, setSettings] = useState<SettingsMap | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // テナント情報（業種・オプション）
-  const [industry, setIndustry] = useState("clinic");
-  const [enabledOptions, setEnabledOptions] = useState<string[]>([]);
-
-  // セットアップ状態
-  const [setupComplete, setSetupComplete] = useState(true);
-
-  const loadSettings = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/settings", { credentials: "include" });
-      if (!res.ok) throw new Error(`データ取得失敗 (${res.status})`);
-      const data = await res.json();
-      setSettings(data.settings);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: settingsData, isLoading: loading, error: settingsError } = useSWR<{ settings: SettingsMap }>("/api/admin/settings");
+  const settings = settingsData?.settings ?? null;
+  const error = settingsError ? (settingsError instanceof Error ? settingsError.message : "エラーが発生しました") : "";
 
   // テナント情報取得
-  useEffect(() => {
-    fetch("/api/admin/tenant-info", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.industry) setIndustry(data.industry);
-        if (data.enabledOptions) setEnabledOptions(data.enabledOptions);
-      })
-      .catch(() => {});
-  }, []);
+  const { data: tenantData } = useSWR<{ industry?: string; enabledOptions?: string[] }>("/api/admin/tenant-info");
+  const industry = tenantData?.industry ?? "clinic";
+  const enabledOptions = tenantData?.enabledOptions ?? [];
 
   // セットアップ状態取得
-  useEffect(() => {
-    fetch("/api/admin/setup-status", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.setupComplete !== undefined) setSetupComplete(data.setupComplete);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => { loadSettings(); }, [loadSettings]);
+  const { data: setupData } = useSWR<{ setupComplete?: boolean }>("/api/admin/setup-status");
+  const setupComplete = setupData?.setupComplete ?? true;
 
   // URLパラメータからセクション指定
   useEffect(() => {
@@ -224,8 +190,8 @@ export default function SettingsPage() {
 
   const handleSaved = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });
-    if (type === "success") loadSettings();
-  }, [loadSettings]);
+    if (type === "success") mutate("/api/admin/settings");
+  }, []);
 
   const handleToast = useCallback((message: string, type: "success" | "error") => {
     setToast({ message, type });

@@ -1,7 +1,8 @@
 // 患者名寄せセクション（dedup-patients機能の統合版）
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
 
@@ -51,10 +52,12 @@ function formatDate(s: string | null): string {
 }
 
 export default function DedupPatientsSection() {
-  const [candidates, setCandidates] = useState<DuplicateCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
   const [minScore, setMinScore] = useState(70);
-  const [error, setError] = useState<string | null>(null);
+
+  const swrKey = `/api/admin/dedup-patients?min_score=${minScore}`;
+  const { data: swrData, error: swrError, isLoading: loading } = useSWR<{ ok: boolean; candidates: DuplicateCandidate[]; message?: string; error?: string }>(swrKey);
+  const candidates = swrData?.ok ? (swrData.candidates ?? []) : [];
+  const error = swrError ? "通信エラーが発生しました" : (swrData && !swrData.ok ? ((swrData.message || swrData.error) || "取得に失敗しました") : null);
 
   const [mergeModal, setMergeModal] = useState<{
     candidate: DuplicateCandidate;
@@ -65,28 +68,7 @@ export default function DedupPatientsSection() {
   const [mergeResult, setMergeResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [ignoringPair, setIgnoringPair] = useState<string | null>(null);
 
-  const fetchCandidates = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/dedup-patients?min_score=${minScore}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setCandidates(data.candidates);
-      } else {
-        setError((data.message || data.error) || "取得に失敗しました");
-      }
-    } catch {
-      setError("通信エラーが発生しました");
-    }
-    setLoading(false);
-  }, [minScore]);
-
-  useEffect(() => {
-    fetchCandidates();
-  }, [fetchCandidates]);
+  const fetchCandidates = () => mutate(swrKey);
 
   const handleMerge = async () => {
     if (!mergeModal) return;
@@ -106,13 +88,7 @@ export default function DedupPatientsSection() {
       const data = await res.json();
       if (data.ok) {
         setMergeResult({ ok: true, message: data.message });
-        setCandidates((prev) =>
-          prev.filter(
-            (c) =>
-              !(c.patientA.patient_id === mergeModal.candidate.patientA.patient_id &&
-                c.patientB.patient_id === mergeModal.candidate.patientB.patient_id),
-          ),
-        );
+        mutate(swrKey);
         setTimeout(() => {
           setMergeModal(null);
           setMergeResult(null);
@@ -142,13 +118,7 @@ export default function DedupPatientsSection() {
       });
       const data = await res.json();
       if (data.ok) {
-        setCandidates((prev) =>
-          prev.filter(
-            (c) =>
-              !(c.patientA.patient_id === candidate.patientA.patient_id &&
-                c.patientB.patient_id === candidate.patientB.patient_id),
-          ),
-        );
+        mutate(swrKey);
       }
     } catch {
       // エラーは無視

@@ -1,9 +1,17 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error("API error");
+    return r.json();
+  });
 
 // ------------------------- 型定義 -------------------------
 type ReservationStatus = "scheduled" | "completed" | "canceled";
@@ -369,21 +377,18 @@ const [reservationSettings, setReservationSettings] = useState<{
   cancel_deadline_hours: number;
 } | null>(null);
 
-const fetchMypageSettings = useCallback(async () => {
-  try {
-    const r = await fetch("/api/mypage/settings");
-    const d = await r.json();
+// マイページ設定をSWRで取得
+const { data: settingsData } = useSWR("/api/mypage/settings", swrFetcher, {
+  revalidateOnFocus: false,
+  onSuccess: (d) => {
     if (d.config?.colors) setMpColors(d.config.colors);
     if (d.config?.sections) setMpSections(d.config.sections);
     if (d.config?.content) setMpContent(d.config.content);
     if (d.config?.labels) setMpLabels(d.config.labels);
     if (d.consultation?.reorderRequiresReservation) setReorderRequiresReservation(true);
-  } catch { /* 設定取得失敗時はデフォルト値を維持 */ }
-}, []);
-
-useEffect(() => {
-  fetchMypageSettings();
-}, [fetchMypageSettings]);
+  },
+});
+void settingsData; // SWR管理のため直接使用せずonSuccessで反映
 
 const showToast = (msg: string) => {
   setToast(msg);
@@ -569,20 +574,17 @@ useEffect(() => {
   initDashboard();
 }, [initDashboard]);
 
-// ★ 予約設定を取得（期限制御用）
-useEffect(() => {
-  if (!data?.nextReservation) return;
-  (async () => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const res = await fetch(`/api/reservations?date=${today}`);
-      const json = await res.json();
-      if (json.settings) {
-        setReservationSettings(json.settings);
-      }
-    } catch {}
-  })();
-}, [data?.nextReservation]);
+// ★ 予約設定をSWRで取得（期限制御用、予約がある場合のみ）
+const reservationSettingsKey = data?.nextReservation
+  ? `/api/reservations?date=${new Date().toISOString().slice(0, 10)}`
+  : null;
+const { data: resvSettingsData } = useSWR(reservationSettingsKey, swrFetcher, {
+  revalidateOnFocus: false,
+  onSuccess: (json) => {
+    if (json.settings) setReservationSettings(json.settings);
+  },
+});
+void resvSettingsData;
 
   // ▼ 日時変更
   const handleChangeReservation = () => {

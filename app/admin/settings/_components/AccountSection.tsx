@@ -1,16 +1,20 @@
 // 設定ページ: アカウント管理（パスワード・メールアドレス変更）
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 interface AccountSectionProps {
   onToast: (message: string, type: "success" | "error") => void;
 }
 
 export default function AccountSection({ onToast }: AccountSectionProps) {
-  // セッション情報
-  const [currentEmail, setCurrentEmail] = useState("");
-  const [currentName, setCurrentName] = useState("");
+  // セッション情報をSWRで取得
+  const { data: sessionData } = useSWR<{ ok: boolean; user: { email: string; name: string } }>(
+    "/api/admin/session",
+  );
+  const currentEmail = sessionData?.ok ? sessionData.user?.email || "" : "";
+  const currentName = sessionData?.ok ? sessionData.user?.name || "" : "";
 
   // パスワード変更
   const [currentPassword, setCurrentPassword] = useState("");
@@ -22,18 +26,6 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
   const [newEmail, setNewEmail] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/session", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok && data.user) {
-          setCurrentEmail(data.user.email || "");
-          setCurrentName(data.user.name || "");
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword) {
@@ -87,7 +79,6 @@ export default function AccountSection({ onToast }: AccountSectionProps) {
       const data = await res.json();
       if (!res.ok) throw new Error((data.message || data.error) || "変更に失敗しました");
       onToast(data.message || "メールアドレスを変更しました", "success");
-      setCurrentEmail(newEmail);
       setNewEmail("");
       setEmailPassword("");
     } catch (err) {

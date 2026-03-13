@@ -2,8 +2,9 @@
 
 // app/platform/applications/page.tsx — 申し込み一覧＋テナント作成への連携
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR, { mutate } from "swr";
 
 type Application = {
   id: string;
@@ -33,26 +34,14 @@ const fmt = (n: number) => `¥${n.toLocaleString("ja-JP")}`;
 
 export default function ApplicationsPage() {
   const router = useRouter();
-  const [apps, setApps] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [updating, setUpdating] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const fetchApps = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/platform/applications?status=${filter}`, { credentials: "include" });
-      const data = await res.json();
-      if (data.ok) setApps(data.applications);
-    } catch {
-      // エラー時は空配列のまま
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => { fetchApps(); }, [fetchApps]);
+  // --- SWR: 申し込み一覧（filterが動的キー） ---
+  const appsKey = `/api/platform/applications?status=${filter}`;
+  const { data: appsData, isLoading: loading } = useSWR<{ ok: boolean; applications: Application[] }>(appsKey);
+  const apps = appsData?.applications || [];
 
   const updateStatus = async (id: string, status: "approved" | "rejected") => {
     setUpdating(id);
@@ -64,7 +53,7 @@ export default function ApplicationsPage() {
         body: JSON.stringify({ id, status }),
       });
       if ((await res.json()).ok) {
-        setApps((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+        await mutate(appsKey);
       }
     } finally {
       setUpdating(null);

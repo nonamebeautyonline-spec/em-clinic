@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 
 type Doctor = {
   doctor_id: string;
@@ -47,71 +48,71 @@ function defaultRules(doctor_id: string): WeeklyRule[] {
   });
 }
 
+function normalizeRules(doctor_id: string, got: WeeklyRule[]): WeeklyRule[] {
+  const map = new Map<number, WeeklyRule>();
+  got.forEach((r) => map.set(r.weekday, r));
+  return Array.from({ length: 7 }).map((_, wd) => {
+    const r = map.get(wd);
+    return r
+      ? {
+          ...r,
+          doctor_id,
+          slot_minutes: Number(r.slot_minutes || 15),
+          capacity: Number(r.capacity || 2),
+          enabled: !!r.enabled,
+        }
+      : defaultRules(doctor_id)[wd];
+  });
+}
+
 export default function WeeklyRulesPage() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorId, setDoctorId] = useState("");
   const [rules, setRules] = useState<WeeklyRule[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // 医師一覧を取得
+  const { data: scheduleData, isLoading: loading } = useSWR<{
+    ok: boolean;
+    doctors: Doctor[];
+    weekly_rules?: WeeklyRule[];
+    error?: string;
+  }>("/api/admin/schedule?start=2000-01-01&end=2000-01-01", {
+    onError: (e) => {
+      setMsg({ type: "error", text: `読込エラー: ${e instanceof Error ? e.message : e}` });
+    },
+  });
+
+  const doctors = scheduleData?.doctors || [];
   const activeDoctors = useMemo(() => doctors.filter((d) => d.is_active), [doctors]);
 
+  // 医師一覧取得後に最初のアクティブ医師を選択
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/schedule?start=2000-01-01&end=2000-01-01", {
-          cache: "no-store",
-        });
-        const json = await res.json();
-        if (!json?.ok) throw new Error(json?.error || "load_failed");
-        setDoctors(json.doctors || []);
-        const first = (json.doctors || []).find((d: Doctor) => d.is_active)?.doctor_id || "";
-        setDoctorId(first);
-      } catch (e) {
-        setMsg({ type: "error", text: `読込エラー: ${e instanceof Error ? e.message : e}` });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    if (activeDoctors.length > 0 && !doctorId) {
+      setDoctorId(activeDoctors[0].doctor_id);
+    }
+  }, [activeDoctors, doctorId]);
 
+  // doctorIdが変わったらルールを取得
+  const { data: rulesData } = useSWR<{
+    ok: boolean;
+    weekly_rules?: WeeklyRule[];
+  }>(
+    doctorId ? `/api/admin/schedule?doctor_id=${doctorId}&start=2000-01-01&end=2000-01-01` : null,
+  );
+
+  // ルールデータが変わったらローカルstateに反映
   useEffect(() => {
     if (!doctorId) return;
-    (async () => {
-      setMsg(null);
-      const res = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=2000-01-01&end=2000-01-01`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!json?.ok) {
-        setRules(defaultRules(doctorId));
-        return;
-      }
-      const got: WeeklyRule[] = (json.weekly_rules || []).filter(
-        (r: WeeklyRule) => r.doctor_id === doctorId
-      );
-      setRules(got.length ? normalizeRules(doctorId, got) : defaultRules(doctorId));
-    })();
-  }, [doctorId]);
-
-  function normalizeRules(doctor_id: string, got: WeeklyRule[]): WeeklyRule[] {
-    const map = new Map<number, WeeklyRule>();
-    got.forEach((r) => map.set(r.weekday, r));
-    return Array.from({ length: 7 }).map((_, wd) => {
-      const r = map.get(wd);
-      return r
-        ? {
-            ...r,
-            doctor_id,
-            slot_minutes: Number(r.slot_minutes || 15),
-            capacity: Number(r.capacity || 2),
-            enabled: !!r.enabled,
-          }
-        : defaultRules(doctor_id)[wd];
-    });
-  }
+    if (!rulesData?.ok) {
+      setRules(defaultRules(doctorId));
+      return;
+    }
+    const got: WeeklyRule[] = (rulesData.weekly_rules || []).filter(
+      (r: WeeklyRule) => r.doctor_id === doctorId
+    );
+    setRules(got.length ? normalizeRules(doctorId, got) : defaultRules(doctorId));
+  }, [rulesData, doctorId]);
 
   function updateRule(weekday: number, patch: Partial<WeeklyRule>) {
     setRules((prev) =>

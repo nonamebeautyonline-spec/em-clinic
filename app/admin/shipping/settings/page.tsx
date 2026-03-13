@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { ErrorFallback } from "@/components/admin/ErrorFallback";
 
 interface YamatoConfig {
   senderName: string;
@@ -35,27 +37,25 @@ interface ShippingConfig {
   japanpost: JapanPostConfig;
 }
 
+const SHIPPING_CONFIG_KEY = "/api/admin/shipping/config";
+
 export default function ShippingSettingsPage() {
+  const { data: serverData, error, isLoading, mutate } = useSWR<{ config: ShippingConfig }>(SHIPPING_CONFIG_KEY);
+
+  // フォーム編集用のローカルstate（SWRキャッシュとは独立）
   const [config, setConfig] = useState<ShippingConfig | null>(null);
   const [originalConfig, setOriginalConfig] = useState<ShippingConfig | null>(null);
-  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/shipping/config", { credentials: "include" });
-    const data = await res.json();
-    if (data.config) {
-      setConfig(data.config);
-      setOriginalConfig(structuredClone(data.config));
+  // SWRからデータが取得されたらローカルstateに反映（編集中でない場合のみ）
+  useEffect(() => {
+    if (serverData?.config && !editing) {
+      setConfig(structuredClone(serverData.config));
+      setOriginalConfig(structuredClone(serverData.config));
     }
-    setLoading(false);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- 初期データフェッチ
-  useEffect(() => { load(); }, [load]);
+  }, [serverData, editing]);
 
   const handleSave = async () => {
     if (!config) return;
@@ -71,6 +71,7 @@ export default function ShippingSettingsPage() {
       setSaved(true);
       setEditing(false);
       setOriginalConfig(structuredClone(config));
+      await mutate();
       setTimeout(() => setSaved(false), 3000);
     }
     setSaving(false);
@@ -86,7 +87,9 @@ export default function ShippingSettingsPage() {
     setConfig({ ...config, japanpost: { ...config.japanpost, [key]: value } });
   };
 
-  if (loading || !config) {
+  if (error) return <ErrorFallback error={error} retry={() => mutate()} />;
+
+  if (isLoading || !config) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent" />

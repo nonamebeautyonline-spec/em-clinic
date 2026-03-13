@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface WebhookEvent {
   id: number;
@@ -34,40 +35,32 @@ const SOURCE_LABELS: Record<string, string> = {
   send_reminder: "リマインダー",
 };
 
+interface WebhookEventsResponse {
+  events: WebhookEvent[];
+  total: number;
+  summary: Summary;
+}
+
 export default function WebhookEventsPage() {
-  const [events, setEvents] = useState<WebhookEvent[]>([]);
-  const [summary, setSummary] = useState<Summary>({ total: 0, failed: 0, completed: 0, processing: 0 });
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
-  const [loading, setLoading] = useState(true);
   const [replayingId, setReplayingId] = useState<number | null>(null);
 
-  const fetchEvents = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", "50");
-      if (statusFilter) params.set("status", statusFilter);
-      if (sourceFilter) params.set("source", sourceFilter);
+  // SWRキーをフィルタ・ページに応じて動的に構築
+  const swrKey = (() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", "50");
+    if (statusFilter) params.set("status", statusFilter);
+    if (sourceFilter) params.set("source", sourceFilter);
+    return `/api/admin/webhook-events?${params}`;
+  })();
 
-      const res = await fetch(`/api/admin/webhook-events?${params}`);
-      const data = await res.json();
-      setEvents(data.events || []);
-      setTotal(data.total || 0);
-      setSummary(data.summary || { total: 0, failed: 0, completed: 0, processing: 0 });
-    } catch (err) {
-      console.error("Webhook events fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, statusFilter, sourceFilter]);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+  const { data: responseData, isLoading: loading } = useSWR<WebhookEventsResponse>(swrKey);
+  const events = responseData?.events || [];
+  const total = responseData?.total || 0;
+  const summary = responseData?.summary || { total: 0, failed: 0, completed: 0, processing: 0 };
 
   const handleReplay = async (eventId: number) => {
     if (!confirm("このイベントをリプレイしますか？\n外部APIの状態が変わっている可能性があります。")) return;
@@ -81,7 +74,7 @@ export default function WebhookEventsPage() {
       } else {
         alert(`リプレイ失敗: ${data.error}`);
       }
-      await fetchEvents();
+      await mutate(swrKey);
     } catch (err) {
       alert("リプレイエラー");
     } finally {
@@ -147,7 +140,7 @@ export default function WebhookEventsPage() {
           <option value="send_reminder">リマインダー</option>
         </select>
         <button
-          onClick={fetchEvents}
+          onClick={() => mutate(swrKey)}
           className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded"
         >
           更新

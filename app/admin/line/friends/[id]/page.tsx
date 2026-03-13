@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import useSWR, { mutate } from "swr";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
@@ -93,18 +94,36 @@ export default function FriendDetailPage() {
   const params = useParams();
   const patientId = params.id as string;
 
-  // データ
-  const [loading, setLoading] = useState(true);
-  const [detail, setDetail] = useState<PatientDetail | null>(null);
+  // データ（SWR）
+  const detailKey = `/api/admin/patient-lookup?q=${encodeURIComponent(patientId)}&type=id`;
+  const tagsKey = `/api/admin/patients/${encodeURIComponent(patientId)}/tags`;
+  const markKey = `/api/admin/patients/${encodeURIComponent(patientId)}/mark`;
+  const fieldsKey = `/api/admin/patients/${encodeURIComponent(patientId)}/fields`;
+  const messagesKey = `/api/admin/messages/log?patient_id=${encodeURIComponent(patientId)}&limit=${MSG_BATCH}`;
+
+  const { data: detailData, isLoading: detailLoading } = useSWR<PatientDetail & { found: boolean }>(detailKey);
+  const { data: tagsRawData } = useSWR<{ tags: PatientTag[] }>(tagsKey);
+  const { data: markRawData } = useSWR<{ mark: { mark: string; note: string } }>(markKey);
+  const { data: fieldsRawData } = useSWR<{ fields: FieldValue[] }>(fieldsKey);
+  const { data: messagesRawData } = useSWR<{ messages: MessageLog[] }>(messagesKey);
+  const { data: allTagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
+  const { data: fieldDefsData } = useSWR<{ fields: FieldDef[] }>("/api/admin/friend-fields");
+  const { data: allMarksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+  const { data: columnSettingsData } = useSWR<{ sections: Record<string, boolean> }>("/api/admin/line/column-settings");
+
+  const detail: PatientDetail | null = detailData?.found ? detailData : null;
   const [patientTags, setPatientTags] = useState<PatientTag[]>([]);
   const [patientMark, setPatientMark] = useState("none");
   const [patientFields, setPatientFields] = useState<FieldValue[]>([]);
-  const [allTags, setAllTags] = useState<TagDef[]>([]);
-  const [allFieldDefs, setAllFieldDefs] = useState<FieldDef[]>([]);
-  const [allMarks, setAllMarks] = useState<MarkDef[]>([]);
+  const allTags = allTagsData?.tags ?? [];
+  const allFieldDefs = fieldDefsData?.fields ?? [];
+  const allMarks = allMarksData?.marks ?? [];
   const [messages, setMessages] = useState<MessageLog[]>([]);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loading = detailLoading;
+
+  // SWRデータをローカルstateに同期（後のuseEffectで実行）
 
   // UI
   const [upperTab, setUpperTab] = useState<UpperTab>("home");
@@ -125,67 +144,34 @@ export default function FriendDetailPage() {
     new Set(["received", "text", "auto", "sent", "system"])
   );
 
-  // 右カラム表示設定
-  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({});
+  // 右カラム表示設定（SWR）
+  const visibleSections = columnSettingsData?.sections ?? {};
 
   // クイック返信
   const [quickMessage, setQuickMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
-  const [templates, setTemplates] = useState<Template[]>([]);
   const [templateSearch, setTemplateSearch] = useState("");
   const quickInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── データ取得 ──
-  const fetchAll = useCallback(async () => {
-    const [detailRes, tagsRes, markRes, fieldsRes, logRes, allTagsRes, fieldDefsRes, marksRes] = await Promise.all([
-      fetch(`/api/admin/patient-lookup?q=${encodeURIComponent(patientId)}&type=id`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/tags`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/mark`, { credentials: "include" }),
-      fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/fields`, { credentials: "include" }),
-      fetch(`/api/admin/messages/log?patient_id=${encodeURIComponent(patientId)}&limit=${MSG_BATCH}`, { credentials: "include" }),
-      fetch("/api/admin/tags", { credentials: "include" }),
-      fetch("/api/admin/friend-fields", { credentials: "include" }),
-      fetch("/api/admin/line/marks", { credentials: "include" }),
-    ]);
-
-    const [detailData, tagsData, markData, fieldsData, logData, allTagsData, fieldDefsData, marksData] = await Promise.all([
-      detailRes.json(), tagsRes.json(), markRes.json(), fieldsRes.json(),
-      logRes.json(), allTagsRes.json(), fieldDefsRes.json(), marksRes.json(),
-    ]);
-
-    if (detailData.found) setDetail(detailData);
-    if (tagsData.tags) setPatientTags(tagsData.tags);
-    if (markData.mark) {
-      setPatientMark(markData.mark.mark || "none");
-      setMemo(markData.mark.note || "");
-    }
-    if (fieldsData.fields) setPatientFields(fieldsData.fields);
-    if (logData.messages) {
-      setMessages(logData.messages);
-      setHasMoreMessages(logData.messages.length === MSG_BATCH);
-    }
-    if (allTagsData.tags) setAllTags(allTagsData.tags);
-    if (fieldDefsData.fields) setAllFieldDefs(fieldDefsData.fields);
-    if (marksData.marks) setAllMarks(marksData.marks);
-    setLoading(false);
-  }, [patientId]);
-
-  // 右カラム表示設定を取得
-  const fetchColumnSettings = useCallback(async () => {
-    try {
-      const r = await fetch("/api/admin/line/column-settings", { credentials: "include" });
-      if (!r.ok) return;
-      const d = await r.json();
-      if (d?.sections) setVisibleSections(d.sections);
-    } catch { /* 無視 */ }
-  }, []);
-
+  // SWRデータをローカルstateに同期（書き込み操作があるデータのみ）
+  const [swrSynced, setSwrSynced] = useState(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchAll();
-    fetchColumnSettings();
-  }, [fetchAll, fetchColumnSettings]);
+    if (swrSynced) return;
+    if (tagsRawData?.tags) setPatientTags(tagsRawData.tags);
+    if (markRawData?.mark) {
+      setPatientMark(markRawData.mark.mark || "none");
+      setMemo(markRawData.mark.note || "");
+    }
+    if (fieldsRawData?.fields) setPatientFields(fieldsRawData.fields);
+    if (messagesRawData?.messages) {
+      setMessages(messagesRawData.messages);
+      setHasMoreMessages(messagesRawData.messages.length === MSG_BATCH);
+    }
+    if (tagsRawData && markRawData && fieldsRawData && messagesRawData) {
+      setSwrSynced(true);
+    }
+  }, [tagsRawData, markRawData, fieldsRawData, messagesRawData, swrSynced]);
 
   // セクション表示判定（デフォルトON）
   const isSectionVisible = (key: string) => visibleSections[key] !== false;
@@ -243,6 +229,7 @@ export default function FriendDetailPage() {
     const res = await fetch(`/api/admin/patients/${encodeURIComponent(patientId)}/tags`, { credentials: "include" });
     const data = await res.json();
     if (data.tags) setPatientTags(data.tags);
+    mutate(tagsKey);
     setShowTagPicker(false);
   };
 
@@ -316,15 +303,15 @@ export default function FriendDetailPage() {
     setSending(false);
   };
 
-  // ── テンプレート送信 ──
-  const openTemplatePicker = async () => {
+  // ── テンプレート送信（SWR） ──
+  const { data: templatesRawData } = useSWR<{ templates: Template[] }>(
+    showTemplatePicker ? "/api/admin/line/templates" : null
+  );
+  const templates = templatesRawData?.templates ?? [];
+
+  const openTemplatePicker = () => {
     setShowTemplatePicker(true);
     setTemplateSearch("");
-    if (templates.length === 0) {
-      const res = await fetch("/api/admin/line/templates", { credentials: "include" });
-      const data = await res.json();
-      if (data.templates) setTemplates(data.templates);
-    }
   };
 
   const sendTemplate = async (tpl: Template) => {

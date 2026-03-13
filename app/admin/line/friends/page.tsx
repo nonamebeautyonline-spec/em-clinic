@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import useSWR, { mutate } from "swr";
 
 interface Tag { id: number; name: string; color: string; }
 interface PatientRow { patient_id: string; patient_name: string; line_id: string | null; mark: string; tags: Tag[]; fields: Record<string, string>; }
@@ -13,14 +14,40 @@ interface RichMenuDef { id: number; name: string; line_rich_menu_id: string | nu
 const PAGE_SIZE = 50;
 
 export default function FriendsListPage() {
-  const [patients, setPatients] = useState<PatientRow[]>([]);
-  const [allTags, setAllTags] = useState<Tag[]>([]);
-  const [fieldDefs, setFieldDefs] = useState<FieldDef[]>([]);
-  const [markDefs, setMarkDefs] = useState<MarkDef[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [actions, setActions] = useState<ActionDef[]>([]);
-  const [richMenus, setRichMenus] = useState<RichMenuDef[]>([]);
-  const [loading, setLoading] = useState(true);
+  // SWRキー定義
+  const FRIENDS_KEY = "/api/admin/line/friends-list";
+  const TAGS_KEY = "/api/admin/tags";
+  const FIELDS_KEY = "/api/admin/friend-fields";
+  const MARKS_KEY = "/api/admin/line/marks";
+  const TEMPLATES_KEY = "/api/admin/line/templates";
+  const ACTIONS_KEY = "/api/admin/line/actions";
+  const MENUS_KEY = "/api/admin/line/rich-menus";
+
+  // 7並列データ取得をSWRで管理
+  const { data: pData, isLoading: pLoading } = useSWR<{ patients: PatientRow[] }>(FRIENDS_KEY);
+  const { data: tData } = useSWR<{ tags: Tag[] }>(TAGS_KEY);
+  const { data: fData } = useSWR<{ fields: FieldDef[] }>(FIELDS_KEY);
+  const { data: mData } = useSWR<{ marks: MarkDef[] }>(MARKS_KEY);
+  const { data: tmplData } = useSWR<{ templates: Template[] }>(TEMPLATES_KEY);
+  const { data: actData } = useSWR<{ actions: ActionDef[] }>(ACTIONS_KEY);
+  const { data: menuData } = useSWR<{ menus: RichMenuDef[] }>(MENUS_KEY);
+
+  const patients = pData?.patients ?? [];
+  const allTags = tData?.tags ?? [];
+  const fieldDefs = fData?.fields ?? [];
+  const markDefs = mData?.marks ?? [];
+  const templates = tmplData?.templates ?? [];
+  const actions = actData?.actions ?? [];
+  const richMenus = menuData?.menus ?? [];
+  const loading = pLoading;
+
+  // mutation後にfriends-listを再検証
+  const revalidateFriends = useCallback(() => { mutate(FRIENDS_KEY); }, []);
+  // 全SWRキーを再検証
+  const revalidateAll = useCallback(() => {
+    mutate(FRIENDS_KEY); mutate(TAGS_KEY); mutate(FIELDS_KEY);
+    mutate(MARKS_KEY); mutate(TEMPLATES_KEY); mutate(ACTIONS_KEY); mutate(MENUS_KEY);
+  }, []);
   const [filterTag, setFilterTag] = useState<number | null>(null);
   const [filterMark, setFilterMark] = useState<string>("");
   const [filterLine, setFilterLine] = useState<string>("");
@@ -67,34 +94,6 @@ export default function FriendsListPage() {
   });
   const [advActive, setAdvActive] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [patientsRes, tagsRes, fieldsRes, marksRes, templatesRes, actionsRes, menusRes] = await Promise.all([
-      fetch("/api/admin/line/friends-list", { credentials: "include" }),
-      fetch("/api/admin/tags", { credentials: "include" }),
-      fetch("/api/admin/friend-fields", { credentials: "include" }),
-      fetch("/api/admin/line/marks", { credentials: "include" }),
-      fetch("/api/admin/line/templates", { credentials: "include" }),
-      fetch("/api/admin/line/actions", { credentials: "include" }),
-      fetch("/api/admin/line/rich-menus", { credentials: "include" }),
-    ]);
-    const [patientsData, tagsData, fieldsData, marksData, templatesData, actionsData, menusData] = await Promise.all([
-      patientsRes.json(), tagsRes.json(), fieldsRes.json(), marksRes.json(), templatesRes.json(), actionsRes.json(), menusRes.json(),
-    ]);
-    if (patientsData.patients) setPatients(patientsData.patients);
-    if (tagsData.tags) setAllTags(tagsData.tags);
-    if (fieldsData.fields) setFieldDefs(fieldsData.fields);
-    if (marksData.marks) setMarkDefs(marksData.marks);
-    if (templatesData.templates) setTemplates(templatesData.templates);
-    if (actionsData.actions) setActions(actionsData.actions);
-    if (menusData.menus) setRichMenus(menusData.menus);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    fetchData();
-  }, [fetchData]);
 
   // マークドロップダウンを閉じるハンドラ（useEffect外で定義）
   const handleGlobalClick = useCallback(() => {
@@ -115,11 +114,20 @@ export default function FriendsListPage() {
 
   const handleMarkChange = async (patientId: string, mark: string) => {
     setOpenMarkDropdown(null);
-    await fetch(`/api/admin/patients/${patientId}/mark`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
-      body: JSON.stringify({ mark }),
+    // Optimistic UI: SWRキャッシュを即座に更新し、API失敗時にロールバック
+    await mutate(FRIENDS_KEY, async (current: { patients: PatientRow[] } | undefined) => {
+      await fetch(`/api/admin/patients/${patientId}/mark`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ mark }),
+      });
+      return { patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p) };
+    }, {
+      optimisticData: (current: { patients: PatientRow[] } | undefined) => ({
+        patients: (current?.patients ?? []).map(p => p.patient_id === patientId ? { ...p, mark } : p),
+      }),
+      rollbackOnError: true,
+      revalidate: false,
     });
-    setPatients(prev => prev.map(p => p.patient_id === patientId ? { ...p, mark } : p));
   };
 
   const handleToggleTag = async (patientId: string, tagId: number, hasTag: boolean) => {
@@ -131,7 +139,7 @@ export default function FriendsListPage() {
         body: JSON.stringify({ tag_id: tagId }),
       });
     }
-    await fetchData();
+    revalidateFriends();
   };
 
   const handleSaveFields = async () => {
@@ -148,7 +156,7 @@ export default function FriendsListPage() {
         body: JSON.stringify({ mark: editingMark, note: markNote }),
       });
     }
-    await fetchData();
+    revalidateFriends();
     setSelectedPatient(null);
     setSavingFields(false);
   };
@@ -167,13 +175,23 @@ export default function FriendsListPage() {
     if (selectedIds.size === 0 || !bulkSelectedMark) return;
     setBulkProcessing(true);
     setBulkResult(null);
-    await fetch("/api/admin/patients/bulk/mark", {
-      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-      body: JSON.stringify({ patient_ids: [...selectedIds], mark: bulkSelectedMark }),
+    const markVal = bulkSelectedMark;
+    const ids = new Set(selectedIds);
+    await mutate(FRIENDS_KEY, async (current: { patients: PatientRow[] } | undefined) => {
+      await fetch("/api/admin/patients/bulk/mark", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ patient_ids: [...ids], mark: markVal }),
+      });
+      return { patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p) };
+    }, {
+      optimisticData: (current: { patients: PatientRow[] } | undefined) => ({
+        patients: (current?.patients ?? []).map(p => ids.has(p.patient_id) ? { ...p, mark: markVal } : p),
+      }),
+      rollbackOnError: true,
+      revalidate: false,
     });
-    const markLabel = markDefs.find(m => m.value === bulkSelectedMark)?.label || bulkSelectedMark;
-    const cnt = selectedIds.size;
-    setPatients(prev => prev.map(p => selectedIds.has(p.patient_id) ? { ...p, mark: bulkSelectedMark } : p));
+    const markLabel = markDefs.find(m => m.value === markVal)?.label || markVal;
+    const cnt = ids.size;
     setBulkResult({ type: "success", summary: `${cnt}人の対応マークを「${markLabel}」に変更しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "マーク", value: markLabel }] });
     setShowBulkDetail(false);
     setSelectedIds(new Set());
@@ -191,7 +209,7 @@ export default function FriendsListPage() {
     });
     const cnt = selectedIds.size;
     const tagName = allTags.find(t => t.id === bulkSelectedTag)?.name || "";
-    await fetchData();
+    revalidateFriends();
     setBulkResult({ type: "success", summary: `${cnt}人のタグを${bulkTagAction === "add" ? "追加" : "削除"}しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "タグ", value: tagName }, { label: "操作", value: bulkTagAction === "add" ? "追加" : "削除" }] });
     setShowBulkDetail(false);
     setSelectedIds(new Set());
@@ -227,7 +245,7 @@ export default function FriendsListPage() {
     });
     const cnt = selectedIds.size;
     const fieldName = fieldDefs.find(f => f.id === bulkSelectedField)?.name || "";
-    await fetchData();
+    revalidateFriends();
     setBulkResult({ type: "success", summary: `${cnt}人の友だち情報を更新しました`, details: [{ label: "対象", value: `${cnt}人` }, { label: "フィールド", value: fieldName }, { label: "値", value: bulkFieldValue || "(空)" }] });
     setShowBulkDetail(false);
     setSelectedIds(new Set());
@@ -249,7 +267,7 @@ export default function FriendsListPage() {
     const data = await res.json();
     setBulkResult({ type: data.failed > 0 ? "error" : "success", summary: `アクション「${actionName}」実行完了`, details: [{ label: "成功", value: `${data.success}件` }, { label: "失敗", value: `${data.failed}件` }] });
     setShowBulkDetail(false);
-    await fetchData();
+    revalidateFriends();
     setSelectedIds(new Set());
     setBulkSelectedAction(null);
     setBulkProcessing(false);

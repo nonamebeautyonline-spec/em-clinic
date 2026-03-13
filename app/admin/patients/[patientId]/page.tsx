@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useMemo, useState } from "react";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import { calcAge, formatBirthWithEra, formatDateJST } from "@/lib/patient-utils";
 import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
@@ -60,14 +61,16 @@ export default function PatientDetailPage({
   const { patientId: rawPatientId } = use(params);
   const patientId = decodeURIComponent(rawPatientId || "").trim();
 
-  const [loading, setLoading] = useState(true);
+  const bundleKey = `/api/admin/patientbundle?patientId=${encodeURIComponent(patientId)}`;
+  const { data: bundleData, error: bundleError, isLoading: loading } = useSWR(bundleKey);
+
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [intakes, setIntakes] = useState<IntakeItem[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [reorders, setReorders] = useState<ReorderItem[]>([]);
+  const patient: Patient | null = bundleData?.patient ?? null;
+  const intakes: IntakeItem[] = bundleData?.intakes ?? [];
+  const history: HistoryItem[] = bundleData?.history ?? [];
+  const reorders: ReorderItem[] = bundleData?.reorders ?? [];
 
   // カルテ編集（SOAP対応）
   const [selectedIntakeId, setSelectedIntakeId] = useState<number | null>(null);
@@ -82,6 +85,20 @@ export default function PatientDetailPage({
 
   // 下部タブ
   const [bottomTab, setBottomTab] = useState<"history" | "reorder">("history");
+
+  // 初回データ取得時に最初のintakeを選択
+  useEffect(() => {
+    if (bundleData?.intakes?.length > 0 && selectedIntakeId === null) {
+      setSelectedIntakeId(bundleData.intakes[0].id);
+    }
+  }, [bundleData, selectedIntakeId]);
+
+  // bundleErrorをerr状態に反映
+  useEffect(() => {
+    if (bundleError) {
+      setErr(bundleError instanceof Error ? bundleError.message : String(bundleError));
+    }
+  }, [bundleError]);
 
   const selectedIntake = useMemo(() => intakes.find(i => i.id === selectedIntakeId), [intakes, selectedIntakeId]);
   const originalNote = useMemo(() => {
@@ -102,51 +119,6 @@ export default function PatientDetailPage({
     return "plain";
   }, [originalNote]);
 
-  async function reloadBundle() {
-    try {
-      const res = await fetch(`/api/admin/patientbundle?patientId=${encodeURIComponent(patientId)}`, { cache: "no-store" });
-      if (!res.ok) {
-        console.error(`[reloadBundle] API error: ${res.status} ${res.statusText}`);
-        return;
-      }
-      const data = await res.json();
-      if (data.ok) {
-        setIntakes(data.intakes ?? []);
-        setHistory(data.history ?? []);
-        setReorders(data.reorders ?? []);
-      }
-    } catch (e) {
-      console.error("[reloadBundle] fetch error:", e);
-    }
-  }
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      setLoading(true);
-      setErr("");
-      try {
-        const res = await fetch(`/api/admin/patientbundle?patientId=${encodeURIComponent(patientId)}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.message || "bundle_failed");
-        if (!mounted) return;
-        setPatient(data.patient ?? null);
-        setIntakes(data.intakes ?? []);
-        setHistory(data.history ?? []);
-        setReorders(data.reorders ?? []);
-        if (data.intakes?.length > 0) {
-          setSelectedIntakeId(data.intakes[0].id);
-        }
-      } catch (e: unknown) {
-        if (!mounted) return;
-        setErr(e instanceof Error ? e.message : String(e));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [patientId]);
-
   useEffect(() => {
     setNoteFormat(detectedFormat);
     setSoapDraft(noteToSoap(originalNote, detectedFormat));
@@ -165,7 +137,7 @@ export default function PatientDetailPage({
       const data = await res.json();
       if (!data.ok) throw new Error(data.message || "save_failed");
       setLastSavedAt(data.editedAt || "");
-      await reloadBundle();
+      await mutate(bundleKey);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -187,7 +159,7 @@ export default function PatientDetailPage({
       if (!data.ok) throw new Error(data.message || "create_failed");
       setNewKarteNote("");
       setShowNewKarte(false);
-      await reloadBundle();
+      await mutate(bundleKey);
       if (data.intakeId) {
         setSelectedIntakeId(data.intakeId);
       }

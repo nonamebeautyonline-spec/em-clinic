@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 
@@ -26,8 +27,9 @@ interface ChatbotNode {
 /* ---------- メインページ ---------- */
 
 export default function ChatbotPage() {
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: scenariosData, isLoading: loading } = useSWR<{ scenarios: Scenario[] }>("/api/admin/chatbot/scenarios");
+  const scenarios = scenariosData?.scenarios || [];
+
   const [showCreate, setShowCreate] = useState(false);
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
 
@@ -38,29 +40,8 @@ export default function ChatbotPage() {
 
   // ノード編集
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
-  const [nodes, setNodes] = useState<ChatbotNode[]>([]);
   const [editingNode, setEditingNode] = useState<ChatbotNode | null>(null);
   const [showNodeCreate, setShowNodeCreate] = useState(false);
-
-  /* ---------- シナリオ一覧取得 ---------- */
-
-  const loadScenarios = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/chatbot/scenarios", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setScenarios(d.scenarios || []);
-      }
-    } catch (e) {
-      console.error("シナリオ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadScenarios();
-  }, [loadScenarios]);
 
   /* ---------- シナリオ作成 ---------- */
 
@@ -81,7 +62,7 @@ export default function ChatbotPage() {
       setNewName("");
       setNewDescription("");
       setNewKeyword("");
-      loadScenarios();
+      mutate("/api/admin/chatbot/scenarios");
     } else {
       const d = await res.json().catch(() => ({}));
       alert(d.message || "作成に失敗しました");
@@ -105,7 +86,7 @@ export default function ChatbotPage() {
     });
     if (res.ok) {
       setEditingScenario(null);
-      loadScenarios();
+      mutate("/api/admin/chatbot/scenarios");
     } else {
       alert("更新に失敗しました");
     }
@@ -120,29 +101,21 @@ export default function ChatbotPage() {
       credentials: "include",
     });
     if (res.ok) {
-      loadScenarios();
+      mutate("/api/admin/chatbot/scenarios");
       if (selectedScenario?.id === id) {
         setSelectedScenario(null);
-        setNodes([]);
       }
     }
   };
 
   /* ---------- ノード一覧取得 ---------- */
 
-  const loadNodes = useCallback(async (scenarioId: string) => {
-    const res = await fetch(`/api/admin/chatbot/scenarios/${scenarioId}/nodes`, {
-      credentials: "include",
-    });
-    if (res.ok) {
-      const d = await res.json();
-      setNodes(d.nodes || []);
-    }
-  }, []);
+  const nodesKey = selectedScenario ? `/api/admin/chatbot/scenarios/${selectedScenario.id}/nodes` : null;
+  const { data: nodesData } = useSWR<{ nodes: ChatbotNode[] }>(nodesKey);
+  const nodes = nodesData?.nodes || [];
 
   const handleSelectScenario = (s: Scenario) => {
     setSelectedScenario(s);
-    loadNodes(s.id);
   };
 
   /* ---------- ノード作成 ---------- */
@@ -169,7 +142,7 @@ export default function ChatbotPage() {
     });
     if (res.ok) {
       setShowNodeCreate(false);
-      loadNodes(selectedScenario.id);
+      mutate(nodesKey);
     }
   };
 
@@ -189,7 +162,7 @@ export default function ChatbotPage() {
     });
     if (res.ok) {
       setEditingNode(null);
-      loadNodes(selectedScenario.id);
+      mutate(nodesKey);
     }
   };
 
@@ -201,7 +174,7 @@ export default function ChatbotPage() {
       `/api/admin/chatbot/scenarios/${selectedScenario.id}/nodes?node_id=${nodeId}`,
       { method: "DELETE", credentials: "include" },
     );
-    if (res.ok) loadNodes(selectedScenario.id);
+    if (res.ok) mutate(nodesKey);
   };
 
   /* ---------- ノードタイプラベル ---------- */

@@ -2,10 +2,18 @@
 "use client";
 
 import React, { Suspense, useEffect, useMemo, useState, useCallback } from "react";
+import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import LegalSection from "./_components/LegalSection";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 type ReserveStep = 0 | 1 | 2; // 0=枠・コース選択（設定時のみ）, 1=日時選択, 2=確認
 
@@ -138,47 +146,35 @@ const ReserveInner: React.FC = () => {
   const [step, setStep] = useState<ReserveStep>(1);
   const [selectedDateKey, setSelectedDateKey] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, ApiSlot[]>>({});
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [slotsError, setSlotsError] = useState<string | null>(null);
+  // slotsByDate, loadingSlots, slotsError はSWRで管理
   const [booking, setBooking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
   // ★ 予約枠・コース選択
-  const [reservationSlots, setReservationSlots] = useState<ReservationSlot[]>([]);
-  const [reservationCourses, setReservationCourses] = useState<ReservationCourse[]>([]);
   const [selectedReservationSlotId, setSelectedReservationSlotId] = useState<string | null>(null);
   const [selectedReservationCourseId, setSelectedReservationCourseId] = useState<string | null>(null);
-  const [hasSlotCourseConfig, setHasSlotCourseConfig] = useState(false);
 
-  // ★ 予約枠・コース情報を取得
+  // ★ 予約枠・コース情報をSWRで取得
+  const { data: slotsData } = useSWR<{ slots?: ReservationSlot[] }>(
+    "/api/reservations?mode=slots",
+    swrFetcher
+  );
+  const { data: coursesData } = useSWR<{ courses?: ReservationCourse[] }>(
+    "/api/reservations?mode=courses",
+    swrFetcher
+  );
+
+  const reservationSlots = slotsData?.slots || [];
+  const reservationCourses = coursesData?.courses || [];
+  const hasSlotCourseConfig = reservationSlots.length > 0 || reservationCourses.length > 0;
+
+  // 枠・コース設定がある場合、ステップ0から開始
   useEffect(() => {
-    (async () => {
-      try {
-        const [slotsRes, coursesRes] = await Promise.all([
-          fetch("/api/reservations?mode=slots"),
-          fetch("/api/reservations?mode=courses"),
-        ]);
-        const slotsJson = await slotsRes.json();
-        const coursesJson = await coursesRes.json();
-
-        const slots = slotsJson.slots || [];
-        const courses = coursesJson.courses || [];
-
-        if (slots.length > 0 || courses.length > 0) {
-          setReservationSlots(slots);
-          setReservationCourses(courses);
-          setHasSlotCourseConfig(true);
-          if (!isEdit) {
-            setStep(0); // 枠・コース選択ステップから開始
-          }
-        }
-      } catch {
-        // 設定がなければ従来フロー
-      }
-    })();
-  }, [isEdit]);
+    if (hasSlotCourseConfig && !isEdit) {
+      setStep(0);
+    }
+  }, [hasSlotCourseConfig, isEdit]);
 
   // ▼ 問診完了チェック（未完了なら/intakeへリダイレクト）
   const [intakeChecked, setIntakeChecked] = useState(false);
@@ -232,69 +228,54 @@ const ReserveInner: React.FC = () => {
     return new Date(y, (m ?? 1) - 1, d ?? 1);
   }, [selectedDateKey, baseDate]);
 
-  // ★ 予約枠再取得（slot_full 時にも使う）
-  const refetchSlots = useCallback(
-    async (daysArg: Date[], options?: { keepSelectedDate?: boolean }) => {
-      if (!daysArg.length) return;
+  // ★ 予約枠をSWRで取得（30秒ポーリング）
+  const firstKey = days.length ? formatDateKey(days[0]) : "";
+  const lastKey = days.length ? formatDateKey(days[days.length - 1]) : "";
+  const slotsSwrKey = firstKey && lastKey ? `/api/reservations?start=${firstKey}&end=${lastKey}` : null;
 
-      setLoadingSlots(true);
-      setSlotsError(null);
-
-      const firstKey = formatDateKey(daysArg[0]);
-      const lastKey = formatDateKey(daysArg[daysArg.length - 1]);
-
-      // 初回のみ先頭日を選択（週移動時など）
-      if (!options?.keepSelectedDate) {
-        setSelectedDateKey(firstKey);
-      }
-
-      try {
-        const res = await fetch(`/api/reservations?start=${firstKey}&end=${lastKey}`, {
-          cache: "no-store",
-        });
-        if (!res.ok) throw new Error("failed");
-
-        const data: WeeklySlotsResponse = await res.json();
-
-        const map: Record<string, ApiSlot[]> = {};
-        daysArg.forEach((d) => {
-          const key = formatDateKey(d);
-          map[key] = [];
-        });
-
-        (data.slots || []).forEach((s) => {
-          const { date, time, count } = s;
-          if (!map[date]) map[date] = [];
-          map[date].push({ time, count });
-        });
-
-        setSlotsByDate(map);
-      } catch (e) {
-        console.error(e);
-        setSlotsError("予約枠の取得に失敗しました。時間をおいて再度お試しください。");
-      } finally {
-        setLoadingSlots(false);
-      }
-    },
-    []
+  const { data: weeklySlotsData, error: slotsSwrError, isLoading: loadingSlots, mutate: mutateSlots } = useSWR<WeeklySlotsResponse>(
+    slotsSwrKey,
+    swrFetcher,
+    { refreshInterval: 30000 }
   );
 
-  // ▼ 1週間分の予約枠を取得（週が変わるたびに）
+  const slotsError = slotsSwrError ? "予約枠の取得に失敗しました。時間をおいて再度お試しください。" : null;
+
+  // SWRレスポンスからslotsByDateを算出
+  const slotsByDate = useMemo(() => {
+    const map: Record<string, ApiSlot[]> = {};
+    days.forEach((d) => {
+      map[formatDateKey(d)] = [];
+    });
+    if (weeklySlotsData?.slots) {
+      weeklySlotsData.slots.forEach((s) => {
+        const { date, time, count } = s;
+        if (!map[date]) map[date] = [];
+        map[date].push({ time, count });
+      });
+    }
+    return map;
+  }, [days, weeklySlotsData]);
+
+  // ▼ 週が変わるたびにselectedDateKeyとselectedSlotをリセット
   useEffect(() => {
     setSelectedSlot(null);
     setStep(1);
-    refetchSlots(days, { keepSelectedDate: false });
-  }, [days, refetchSlots]);
+    if (days.length) {
+      setSelectedDateKey(formatDateKey(days[0]));
+    }
+  }, [firstKey]); // firstKeyが変わる = 週が変わった
 
-  // ▼ 自動更新（他ユーザーが埋めても×に追従）
-  useEffect(() => {
-    if (!days.length) return;
-    const id = window.setInterval(() => {
-      // 選択日を維持したいので keepSelectedDate:true
-      refetchSlots(days, { keepSelectedDate: true });
-    }, 30000);
-    return () => window.clearInterval(id);
-  }, [days, refetchSlots]);
+  // ★ 予約枠再取得（slot_full 時にも使う）
+  const refetchSlots = useCallback(
+    async (_daysArg: Date[], options?: { keepSelectedDate?: boolean }) => {
+      if (!options?.keepSelectedDate && days.length) {
+        setSelectedDateKey(formatDateKey(days[0]));
+      }
+      await mutateSlots();
+    },
+    [days, mutateSlots]
+  );
 
   const getCountForSlot = (dateKey: string, time: string) => {
     const list = slotsByDate[dateKey];

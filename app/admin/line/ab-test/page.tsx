@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import {
   BarChart,
   Bar,
@@ -88,42 +89,20 @@ const VARIANT_COLORS = ["#3B82F6", "#F43F5E", "#8B5CF6", "#F59E0B"];
 // メインコンポーネント
 // ========================================
 
+const ABTEST_KEY = "/api/admin/line/ab-test";
+const TEMPLATES_KEY = "/api/admin/line/templates";
+
 export default function ABTestPage() {
-  const [tests, setTests] = useState<ABTest[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: testsData, isLoading: loading } = useSWR<{ tests: ABTest[] }>(ABTEST_KEY);
+  const tests = testsData?.tests ?? [];
+
+  const { data: templatesData } = useSWR<{ templates: Template[] }>(TEMPLATES_KEY);
+  const templates = templatesData?.templates ?? [];
 
   // モーダル状態
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [detailTest, setDetailTest] = useState<ABTest | null>(null);
   const [detailStats, setDetailStats] = useState<WinnerResult | null>(null);
-
-  // ========================================
-  // データ取得
-  // ========================================
-
-  const fetchTests = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/line/ab-test", { credentials: "include" });
-      const data = await res.json();
-      if (data.tests) setTests(data.tests);
-    } catch {
-      // エラー時は空配列のまま
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchTests();
-    // テンプレート取得
-    fetch("/api/admin/line/templates", { credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.templates) setTemplates(d.templates);
-      })
-      .catch(() => {});
-  }, [fetchTests]);
 
   // ========================================
   // テスト詳細取得
@@ -156,7 +135,7 @@ export default function ABTestPage() {
       body: JSON.stringify({ status: newStatus }),
     });
     if (res.ok) {
-      await fetchTests();
+      await mutate(ABTEST_KEY);
       // 詳細画面が開いていたら更新
       if (detailTest?.id === testId) {
         const data = await res.json();
@@ -180,7 +159,7 @@ export default function ABTestPage() {
       credentials: "include",
     });
     if (res.ok) {
-      await fetchTests();
+      await mutate(ABTEST_KEY);
       if (detailTest?.id === testId) {
         setDetailTest(null);
         setDetailStats(null);
@@ -353,7 +332,7 @@ export default function ABTestPage() {
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             setShowCreateModal(false);
-            fetchTests();
+            mutate(ABTEST_KEY);
           }}
         />
       )}

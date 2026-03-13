@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import useSWR, { mutate } from "swr";
 import { useSearchParams } from "next/navigation";
 import { BlockEditorProvider, useBlockEditor, useBlockEditorDispatch } from "./_components/BlockEditorContext";
 import { PanelSettingsBar } from "./_components/PanelSettingsBar";
@@ -61,59 +62,42 @@ function FlexBuilderInner() {
   const { panels, templateName, editingTemplateId, historyIndex, history } = useBlockEditor();
   const dispatch = useBlockEditorDispatch();
 
-  const [presets, setPresets] = useState<FlexPreset[]>([]);
-  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const presetsKey = "/api/admin/line/flex-presets";
+  const templatesKey = "/api/admin/line/templates";
+  const { data: presetData, isLoading: presetsLoading } = useSWR(presetsKey);
+  const { data: templateData, isLoading: templatesLoading } = useSWR(templatesKey);
+
+  const presets: FlexPreset[] = presetData?.presets || [];
+  const savedTemplates: SavedTemplate[] = useMemo(
+    () => (templateData?.templates || []).filter(
+      (t: SavedTemplate) => t.message_type === "flex" && t.flex_content,
+    ),
+    [templateData],
+  );
+
+  const loading = presetsLoading || templatesLoading;
   const [saving, setSaving] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
+  const [templateAutoLoaded, setTemplateAutoLoaded] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [presetRes, tplRes] = await Promise.all([
-        fetch("/api/admin/line/flex-presets", { credentials: "include" }),
-        fetch("/api/admin/line/templates", { credentials: "include" }),
-      ]);
-      let loadedPresets: FlexPreset[] = [];
-      let loadedTemplates: SavedTemplate[] = [];
-
-      if (presetRes.ok) {
-        const d = await presetRes.json();
-        loadedPresets = d.presets || [];
-        setPresets(loadedPresets);
+  // URL ?template={id} の自動読み込み
+  useEffect(() => {
+    if (templateAutoLoaded || !savedTemplates.length) return;
+    const templateId = searchParams.get("template");
+    if (templateId) {
+      const tpl = savedTemplates.find((t) => t.id === Number(templateId));
+      if (tpl && tpl.flex_content) {
+        dispatch({
+          type: "LOAD_FLEX_DATA",
+          flexData: tpl.flex_content,
+          name: tpl.name,
+          templateId: tpl.id,
+        });
+        setTemplateAutoLoaded(true);
       }
-      if (tplRes.ok) {
-        const d = await tplRes.json();
-        loadedTemplates = (d.templates || []).filter(
-          (t: SavedTemplate) => t.message_type === "flex" && t.flex_content,
-        );
-        setSavedTemplates(loadedTemplates);
-      }
-
-      // URL ?template={id} の自動読み込み
-      const templateId = searchParams.get("template");
-      if (templateId) {
-        const tpl = loadedTemplates.find((t) => t.id === Number(templateId));
-        if (tpl && tpl.flex_content) {
-          dispatch({
-            type: "LOAD_FLEX_DATA",
-            flexData: tpl.flex_content,
-            name: tpl.name,
-            templateId: tpl.id,
-          });
-        }
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  }, [savedTemplates]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -170,7 +154,6 @@ function FlexBuilderInner() {
       if (editingTemplateId) {
         const res = await fetch(`/api/admin/line/templates/${editingTemplateId}`, {
           method: "PUT",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: templateName.trim(),
@@ -187,7 +170,6 @@ function FlexBuilderInner() {
       } else {
         const res = await fetch("/api/admin/line/templates", {
           method: "POST",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: templateName.trim(),
@@ -204,7 +186,7 @@ function FlexBuilderInner() {
         const d = await res.json();
         dispatch({ type: "SET_EDITING_ID", id: d.template?.id || null });
       }
-      loadData();
+      mutate(templatesKey);
       alert("保存しました");
     } finally {
       setSaving(false);

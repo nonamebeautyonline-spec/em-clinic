@@ -1,14 +1,14 @@
 // 定期レポート設定セクション
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 interface ReportSectionProps {
   onToast: (message: string, type: "success" | "error") => void;
 }
 
 export default function ReportSection({ onToast }: ReportSectionProps) {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testSending, setTestSending] = useState(false);
 
@@ -16,25 +16,23 @@ export default function ReportSection({ onToast }: ReportSectionProps) {
   const [frequency, setFrequency] = useState<"weekly" | "monthly" | "both">("weekly");
   const [emails, setEmails] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/report-settings", { credentials: "include" });
-      if (!res.ok) throw new Error("取得に失敗しました");
-      const data = await res.json();
+  const { data, isLoading } = useSWR<{ enabled: boolean; frequency: "weekly" | "monthly" | "both"; emails: string }>(
+    "/api/admin/report-settings",
+    {
+      onError: (err) => {
+        onToast(err instanceof Error ? err.message : "読み込みエラー", "error");
+      },
+    }
+  );
+
+  // SWRから取得したデータでローカルstateを同期
+  useEffect(() => {
+    if (data) {
       setEnabled(data.enabled);
       setFrequency(data.frequency);
       setEmails(data.emails);
-    } catch (err) {
-      onToast(err instanceof Error ? err.message : "読み込みエラー", "error");
-    } finally {
-      setLoading(false);
     }
-  }, [onToast]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [data]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -45,8 +43,8 @@ export default function ReportSection({ onToast }: ReportSectionProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled, frequency, emails }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "保存に失敗しました");
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || d.error || "保存に失敗しました");
       onToast("レポート設定を保存しました", "success");
     } catch (err) {
       onToast(err instanceof Error ? err.message : "保存エラー", "error");
@@ -68,8 +66,8 @@ export default function ReportSection({ onToast }: ReportSectionProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled, frequency, emails, testSend: true }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "テスト送信に失敗しました");
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.message || d.error || "テスト送信に失敗しました");
       onToast("テストメールを送信しました", "success");
     } catch (err) {
       onToast(err instanceof Error ? err.message : "テスト送信エラー", "error");
@@ -78,7 +76,7 @@ export default function ReportSection({ onToast }: ReportSectionProps) {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />

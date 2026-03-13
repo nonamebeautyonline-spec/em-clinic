@@ -3,7 +3,7 @@
 // 初診→再診転換率ウィジェット
 // 月別コホート分析グラフと全体転換率を表示
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import useSWR from "swr";
 import {
   BarChart,
   Bar,
@@ -69,31 +69,9 @@ function ConversionTooltip({ active, payload, label }: { active?: boolean; paylo
 }
 
 export default function ConversionWidget() {
-  const [data, setData] = useState<ConversionData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, error, isLoading } = useSWR<ConversionData>("/api/admin/dashboard-conversion");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/dashboard-conversion", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("転換率データの取得に失敗しました");
-      setData(await res.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 animate-pulse">
         <div className="h-4 w-48 bg-slate-200 rounded mb-4" />
@@ -106,7 +84,7 @@ export default function ConversionWidget() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
         <h3 className="text-md font-bold text-slate-900 mb-4">初診→再診転換率</h3>
-        <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error}</div>
+        <div className="flex items-center justify-center h-48 text-red-500 text-sm">{error instanceof Error ? error.message : "エラーが発生しました"}</div>
       </div>
     );
   }

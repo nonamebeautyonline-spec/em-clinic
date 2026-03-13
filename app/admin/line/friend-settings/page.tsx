@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import {
   ConditionToggle,
   ConditionSummary,
@@ -98,12 +99,19 @@ function convertLegacyToSteps(sv: FriendSetting["setting_value"]): ActionStep[] 
 // ── メインコンポーネント ────────────────────────────────
 
 export default function FriendAddSettingsPage() {
-  const [settings, setSettings] = useState<FriendSetting[]>([]);
-  const [marks, setMarks] = useState<MarkDef[]>([]);
-  const [tags, setTags] = useState<TagDef[]>([]);
-  const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: settingsData, isLoading: settingsLoading } = useSWR<{ settings: FriendSetting[] }>("/api/admin/line/friend-settings");
+  const { data: marksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+  const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
+  const { data: richMenusData } = useSWR<{ menus: RichMenu[] }>("/api/admin/line/rich-menus");
+  const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+
+  const settings = settingsData?.settings ?? [];
+  const marks = marksData?.marks ?? [];
+  const tags = tagsData?.tags ?? [];
+  const richMenus = richMenusData?.menus ?? [];
+  const templates = templatesData?.templates ?? [];
+  const loading = settingsLoading;
+
   const [saving, setSaving] = useState(false);
 
   // モーダル用ステート
@@ -114,57 +122,10 @@ export default function FriendAddSettingsPage() {
   // 条件ビルダーモーダル
   const [conditionEditingIndex, setConditionEditingIndex] = useState<number | null>(null);
 
-  // 初回データ取得（useEffect内ではawait後のsetStateのみ使用し、同期的なsetStateを避ける）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const [sRes, mRes, tRes, rmRes, tmplRes] = await Promise.all([
-        fetch("/api/admin/line/friend-settings", { credentials: "include" }),
-        fetch("/api/admin/line/marks", { credentials: "include" }),
-        fetch("/api/admin/tags", { credentials: "include" }),
-        fetch("/api/admin/line/rich-menus", { credentials: "include" }),
-        fetch("/api/admin/line/templates", { credentials: "include" }),
-      ]);
-      const sData = await sRes.json();
-      const mData = await mRes.json();
-      const tData = await tRes.json();
-      const rmData = await rmRes.json();
-      const tmplData = await tmplRes.json();
-
-      if (!cancelled) {
-        if (sData.settings) setSettings(sData.settings);
-        if (mData.marks) setMarks(mData.marks);
-        if (tData.tags) setTags(tData.tags);
-        if (rmData.menus) setRichMenus(rmData.menus);
-        if (tmplData.templates) setTemplates(tmplData.templates);
-        setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // 手動再読み込み用
-  const fetchData = useCallback(async () => {
-    const [sRes, mRes, tRes, rmRes, tmplRes] = await Promise.all([
-      fetch("/api/admin/line/friend-settings", { credentials: "include" }),
-      fetch("/api/admin/line/marks", { credentials: "include" }),
-      fetch("/api/admin/tags", { credentials: "include" }),
-      fetch("/api/admin/line/rich-menus", { credentials: "include" }),
-      fetch("/api/admin/line/templates", { credentials: "include" }),
-    ]);
-    const sData = await sRes.json();
-    const mData = await mRes.json();
-    const tData = await tRes.json();
-    const rmData = await rmRes.json();
-    const tmplData = await tmplRes.json();
-
-    if (sData.settings) setSettings(sData.settings);
-    if (mData.marks) setMarks(mData.marks);
-    if (tData.tags) setTags(tData.tags);
-    if (rmData.menus) setRichMenus(rmData.menus);
-    if (tmplData.templates) setTemplates(tmplData.templates);
-    setLoading(false);
-  }, []);
+  // mutation後の再検証
+  const revalidateAll = () => {
+    mutate("/api/admin/line/friend-settings");
+  };
 
   const handleEdit = (setting: FriendSetting) => {
     setEditingKey(setting.setting_key);
@@ -194,7 +155,7 @@ export default function FriendAddSettingsPage() {
     });
 
     if (res.ok) {
-      await fetchData();
+      revalidateAll();
       setEditingKey(null);
     } else {
       const data = await res.json();
@@ -215,7 +176,7 @@ export default function FriendAddSettingsPage() {
         enabled: false,
       }),
     });
-    await fetchData();
+    revalidateAll();
     setSaving(false);
   };
 

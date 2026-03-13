@@ -1,7 +1,8 @@
 "use client";
 
 // Step 3: 商品登録
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import { StepNavigation } from "./Step1Line";
 
 interface Product {
@@ -31,8 +32,8 @@ const DEFAULT_PRODUCTS: Omit<Product, "id">[] = [
 ];
 
 export default function Step3Products({ completed, onNext, onBack }: Props) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const { data: productsData, isLoading: loadingProducts } = useSWR<{ products: Product[] }>("/api/admin/products");
+  const products = productsData?.products ?? [];
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
   // 手動追加フォーム
@@ -42,15 +43,6 @@ export default function Step3Products({ completed, onNext, onBack }: Props) {
   const [newDrugName, setNewDrugName] = useState("");
   const [newCategory, setNewCategory] = useState("injection");
   const [addingSingle, setAddingSingle] = useState(false);
-
-  // 商品一覧を取得
-  useEffect(() => {
-    fetch("/api/admin/products", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : { products: [] }))
-      .then((data) => setProducts(data.products || []))
-      .catch(() => {})
-      .finally(() => setLoadingProducts(false));
-  }, []);
 
   // デフォルト商品をインポート
   const handleImport = async () => {
@@ -74,7 +66,7 @@ export default function Step3Products({ completed, onNext, onBack }: Props) {
           if (data.product) results.push(data.product);
         }
       }
-      setProducts((prev) => [...prev, ...results]);
+      mutate("/api/admin/products");
     } catch (err) {
       setError(err instanceof Error ? err.message : "インポートに失敗しました");
     } finally {
@@ -116,10 +108,8 @@ export default function Step3Products({ completed, onNext, onBack }: Props) {
         throw new Error(data?.error || "商品の追加に失敗しました");
       }
 
-      const data = await res.json();
-      if (data.product) {
-        setProducts((prev) => [...prev, data.product]);
-      }
+      await res.json();
+      mutate("/api/admin/products");
       // フォームリセット
       setNewTitle("");
       setNewPrice("");

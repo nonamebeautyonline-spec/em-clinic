@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
+import useSWR, { mutate } from "swr";
 import {
   ConditionBuilderModal,
   type ConditionRule,
@@ -63,9 +64,17 @@ const BROADCAST_STATUS: Record<string, { text: string; bg: string; textColor: st
 };
 
 export default function BroadcastSendPage() {
-  const [tags, setTags] = useState<TagDef[]>([]);
-  const [marks, setMarks] = useState<MarkDef[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
+  // マスターデータ（SWR）
+  const { data: tagsData } = useSWR<{ tags: TagDef[] }>("/api/admin/tags");
+  const { data: marksData } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+  const { data: templatesData } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+  const { data: broadcastData, isLoading: loadingHistory } = useSWR<{ broadcasts: Broadcast[] }>("/api/admin/line/broadcast");
+  const { data: segData } = useSWR<{ segments: { id: string; name: string; includeConditions: FilterCondition[]; excludeConditions: FilterCondition[]; created_at: string }[] }>("/api/admin/line/segments");
+  const { data: testAccountData } = useSWR<{ accounts?: { patient_id: string; patient_name: string; has_line_uid: boolean }[]; patient_id?: string; patient_name?: string; has_line_uid?: boolean }>("/api/admin/line/test-account");
+
+  const tags = tagsData?.tags ?? [];
+  const marks = marksData?.marks ?? [];
+  const templates = templatesData?.templates ?? [];
 
   // 一斉配信フィルタ
   const [includeConditions, setIncludeConditions] = useState<FilterCondition[]>([]);
@@ -93,19 +102,22 @@ export default function BroadcastSendPage() {
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   // セグメント
-  const [segments, setSegments] = useState<{ id: string; name: string; includeConditions: FilterCondition[]; excludeConditions: FilterCondition[]; created_at: string }[]>([]);
+  const segments = segData?.segments ?? [];
   const [showSegmentMenu, setShowSegmentMenu] = useState(false);
   const [segmentName, setSegmentName] = useState("");
   const [showSegmentSave, setShowSegmentSave] = useState(false);
 
   // 配信履歴
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
+  const broadcasts = broadcastData?.broadcasts ?? [];
   const [expandedBroadcastId, setExpandedBroadcastId] = useState<number | null>(null);
 
   // テスト送信（複数アカウント対応）
   type TestAccount = { patient_id: string; patient_name: string; has_line_uid: boolean };
-  const [testAccounts, setTestAccounts] = useState<TestAccount[]>([]);
+  const testAccounts: TestAccount[] = testAccountData?.accounts && testAccountData.accounts.length > 0
+    ? testAccountData.accounts
+    : testAccountData?.patient_id
+      ? [{ patient_id: testAccountData.patient_id, patient_name: testAccountData.patient_name!, has_line_uid: testAccountData.has_line_uid! }]
+      : [];
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [showTestSendModal, setShowTestSendModal] = useState(false);
@@ -140,28 +152,7 @@ export default function BroadcastSendPage() {
     }, 0);
   };
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/admin/tags", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/marks", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/broadcast", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/segments", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/test-account", { credentials: "include" }).then(r => r.json()),
-    ]).then(([tagsData, marksData, templatesData, broadcastData, segData, testData]) => {
-      if (tagsData.tags) setTags(tagsData.tags);
-      if (marksData.marks) setMarks(marksData.marks);
-      if (templatesData.templates) setTemplates(templatesData.templates);
-      if (broadcastData.broadcasts) setBroadcasts(broadcastData.broadcasts);
-      if (segData.segments) setSegments(segData.segments);
-      if (testData.accounts && testData.accounts.length > 0) {
-        setTestAccounts(testData.accounts);
-      } else if (testData.patient_id) {
-        setTestAccounts([{ patient_id: testData.patient_id, patient_name: testData.patient_name, has_line_uid: testData.has_line_uid }]);
-      }
-      setLoadingHistory(false);
-    });
-  }, []);
+  // 初期データ取得はSWRが自動で行う
 
   // セグメント保存
   const handleSaveSegment = async () => {
@@ -173,8 +164,7 @@ export default function BroadcastSendPage() {
       body: JSON.stringify({ name: segmentName.trim(), includeConditions, excludeConditions }),
     });
     if (res.ok) {
-      const { segment } = await res.json();
-      setSegments(prev => [segment, ...prev]);
+      mutate("/api/admin/line/segments");
       setSegmentName("");
       setShowSegmentSave(false);
     }
@@ -191,7 +181,7 @@ export default function BroadcastSendPage() {
   // セグメント削除
   const handleDeleteSegment = async (id: string) => {
     await fetch(`/api/admin/line/segments?id=${id}`, { method: "DELETE", credentials: "include" });
-    setSegments(prev => prev.filter(s => s.id !== id));
+    mutate("/api/admin/line/segments");
   };
 
   // 詳細条件モーダル
@@ -348,9 +338,7 @@ export default function BroadcastSendPage() {
 
     // 配信履歴を再取得
     if (data.ok) {
-      const histRes = await fetch("/api/admin/line/broadcast", { credentials: "include" });
-      const histData = await histRes.json();
-      if (histData.broadcasts) setBroadcasts(histData.broadcasts);
+      mutate("/api/admin/line/broadcast");
     }
     setSending(false);
   };
@@ -401,8 +389,7 @@ export default function BroadcastSendPage() {
       body: JSON.stringify({ name: newTemplateName.trim(), content: message }),
     });
     if (res.ok) {
-      const data = await res.json();
-      setTemplates(prev => [data.template, ...prev]);
+      mutate("/api/admin/line/templates");
       setNewTemplateName("");
     }
     setSavingTemplate(false);
@@ -410,7 +397,7 @@ export default function BroadcastSendPage() {
 
   const handleDeleteTemplate = async (id: number) => {
     await fetch(`/api/admin/line/templates/${id}`, { method: "DELETE", credentials: "include" });
-    setTemplates(prev => prev.filter(t => t.id !== id));
+    mutate("/api/admin/line/templates");
   };
 
   // テスト送信確認画面を開く

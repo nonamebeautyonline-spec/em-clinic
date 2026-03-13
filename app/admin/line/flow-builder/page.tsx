@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import FlowEditor, { NodeSettingsPanel } from "./flow-editor";
 import {
   type FlowGraph,
@@ -28,11 +29,9 @@ export default function FlowBuilderPage() {
   const scenarioIdParam = searchParams.get("scenario_id");
 
   // シナリオ一覧
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedScenarioId, setSelectedScenarioId] = useState<number | null>(
     scenarioIdParam ? parseInt(scenarioIdParam) : null
   );
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // フローグラフ
@@ -42,45 +41,28 @@ export default function FlowBuilderPage() {
   // JSON表示モーダル
   const [showJson, setShowJson] = useState(false);
 
+  /* ---------- シナリオ一覧の取得 ---------- */
+
+  const { data: scenariosData } = useSWR<{ scenarios: Scenario[] }>("/api/admin/line/step-scenarios");
+  const scenarios = scenariosData?.scenarios ?? [];
+
   // シナリオ名（表示用）
   const scenarioName = scenarios.find(s => s.id === selectedScenarioId)?.name || "";
 
-  /* ---------- シナリオ一覧の取得 ---------- */
-
-  const loadScenarios = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/line/step-scenarios", { credentials: "include" });
-      if (res.ok) {
-        const d = await res.json();
-        setScenarios(d.scenarios || []);
-      }
-    } catch (e) {
-      console.error("シナリオ一覧取得エラー:", e);
-    }
-  }, []);
-
   /* ---------- フローデータの取得 ---------- */
 
-  const loadFlow = useCallback(async (scenarioId: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/line/flow-builder?scenario_id=${scenarioId}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const d = await res.json();
+  const flowKey = selectedScenarioId ? `/api/admin/line/flow-builder?scenario_id=${selectedScenarioId}` : null;
+  const { isLoading: loading } = useSWR<{ graph: FlowGraph }>(
+    flowKey,
+    {
+      onSuccess: (d) => {
         setGraph(d.graph || { nodes: [], edges: [] });
-      } else {
-        console.error("フローデータ取得失敗");
+      },
+      onError: () => {
         setGraph({ nodes: [], edges: [] });
-      }
-    } catch (e) {
-      console.error("フローデータ取得エラー:", e);
-      setGraph({ nodes: [], edges: [] });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      },
+    },
+  );
 
   /* ---------- 保存 ---------- */
 
@@ -110,18 +92,6 @@ export default function FlowBuilderPage() {
       setSaving(false);
     }
   }, [selectedScenarioId, graph]);
-
-  /* ---------- 初期読み込み ---------- */
-
-  useEffect(() => {
-    loadScenarios();
-  }, [loadScenarios]);
-
-  useEffect(() => {
-    if (selectedScenarioId) {
-      loadFlow(selectedScenarioId);
-    }
-  }, [selectedScenarioId, loadFlow]);
 
   /* ---------- シナリオ選択ハンドラ ---------- */
 

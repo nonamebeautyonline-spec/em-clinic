@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import useSWR from "swr";
 
 // --- 型定義 ---
 type EhrProvider = "orca" | "csv" | "fhir";
@@ -67,46 +68,36 @@ interface EhrSectionProps {
 
 export default function EhrSection({ onToast }: EhrSectionProps) {
   const [config, setConfig] = useState<EhrConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   // 接続テスト用ステート
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  // --- 初期読み込み ---
+  const { data, isLoading } = useSWR<{ settings: Record<string, unknown> }>(
+    "/api/admin/settings?category=ehr",
+  );
+
+  // SWRから取得したデータでローカルstateを同期
   useEffect(() => {
-    let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/admin/settings?category=ehr", { credentials: "include" });
-        const data = await res.json();
-        if (!ignore && data.settings && typeof data.settings === "object") {
-          // APIから返された設定をマージ
-          setConfig(prev => {
-            const merged = { ...prev };
-            for (const key of CONFIG_KEYS) {
-              if (key in data.settings && data.settings[key] !== undefined) {
-                // boolean型のキーは文字列 "true"/"false" から変換
-                if (key === "orcaWebOrca") {
-                  (merged as Record<string, unknown>)[key] =
-                    data.settings[key] === true || data.settings[key] === "true";
-                } else {
-                  (merged as Record<string, unknown>)[key] = data.settings[key];
-                }
-              }
+    if (data?.settings && typeof data.settings === "object") {
+      setConfig(prev => {
+        const merged = { ...prev };
+        for (const key of CONFIG_KEYS) {
+          if (key in data.settings && data.settings[key] !== undefined) {
+            // boolean型のキーは文字列 "true"/"false" から変換
+            if (key === "orcaWebOrca") {
+              (merged as Record<string, unknown>)[key] =
+                data.settings[key] === true || data.settings[key] === "true";
+            } else {
+              (merged as Record<string, unknown>)[key] = data.settings[key];
             }
-            return merged;
-          });
+          }
         }
-      } catch {
-        /* デフォルト値を維持 */
-      }
-      if (!ignore) setLoading(false);
-    })();
-    return () => { ignore = true; };
-  }, []);
+        return merged;
+      });
+    }
+  }, [data]);
 
   // --- 保存 ---
   const handleSave = async () => {
@@ -152,11 +143,11 @@ export default function EhrSection({ onToast }: EhrSectionProps) {
         credentials: "include",
         body: JSON.stringify(config),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setTestResult({ ok: true, message: data.message || "接続に成功しました" });
+      const d = await res.json();
+      if (res.ok && d.success) {
+        setTestResult({ ok: true, message: d.message || "接続に成功しました" });
       } else {
-        setTestResult({ ok: false, message: (data.message || data.error) || "接続に失敗しました" });
+        setTestResult({ ok: false, message: (d.message || d.error) || "接続に失敗しました" });
       }
     } catch {
       setTestResult({ ok: false, message: "接続テストに失敗しました" });
@@ -170,7 +161,7 @@ export default function EhrSection({ onToast }: EhrSectionProps) {
   };
 
   // --- ローディング表示 ---
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import useSWR from "swr";
 import { nanoid } from "nanoid";
 import Link from "next/link";
 import type { DisplayConditions, SingleCondition, ConditionOperator, CompoundCondition } from "@/lib/form-conditions";
@@ -302,14 +303,26 @@ export default function FormEditorPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
+  // フォームデータ
+  const { data: formData, isLoading: formLoading } = useSWR<{ form: FormData }>(`/api/admin/line/forms/${id}`);
   const [form, setForm] = useState<FormData | null>(null);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [actions, setActions] = useState<ActionDef[]>([]);
-  const [friendFields, setFriendFields] = useState<FriendFieldDef[]>([]);
-  const [tagDefs, setTagDefs] = useState<TagDef[]>([]);
-  const [templateDefs, setTemplateDefs] = useState<TemplateDef[]>([]);
-  const [workflowDefs, setWorkflowDefs] = useState<WorkflowDef[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // マスタデータ
+  const { data: folderData, isLoading: folderLoading } = useSWR<{ folders: Folder[] }>("/api/admin/line/form-folders");
+  const { data: actionData, isLoading: actionLoading } = useSWR<{ actions: ActionDef[] }>("/api/admin/line/actions");
+  const { data: fieldData, isLoading: fieldLoading } = useSWR<{ fields: FriendFieldDef[] }>("/api/admin/friend-fields");
+  const { data: tagData, isLoading: tagLoading } = useSWR<{ tags: TagDef[] }>("/api/admin/tags?simple=true");
+  const { data: templateData, isLoading: templateLoading } = useSWR<{ templates: TemplateDef[] }>("/api/admin/line/templates");
+  const { data: workflowData, isLoading: workflowLoading } = useSWR<{ workflows: WorkflowDef[] }>("/api/admin/line/workflows");
+
+  const folders = folderData?.folders || [];
+  const actions = actionData?.actions || [];
+  const friendFields = fieldData?.fields || [];
+  const tagDefs = tagData?.tags || [];
+  const templateDefs = templateData?.templates || [];
+  const workflowDefs = workflowData?.workflows || [];
+  const loading = formLoading || folderLoading || actionLoading || fieldLoading || tagLoading || templateLoading || workflowLoading;
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<"fields" | "settings">("fields");
@@ -323,11 +336,10 @@ export default function FormEditorPage() {
   const [settings, setSettings] = useState<FormSettings>(DEFAULT_SETTINGS);
   const [expandedField, setExpandedField] = useState<string | null>(null);
 
-  const fetchForm = useCallback(async () => {
-    const res = await fetch(`/api/admin/line/forms/${id}`, { credentials: "include" });
-    const data = await res.json();
-    if (data.form) {
-      const f = data.form as FormData;
+  // フォームデータが取得されたらローカルstateに反映
+  useEffect(() => {
+    if (formData?.form) {
+      const f = formData.form;
       setForm(f);
       setName(f.name);
       setTitle(f.title || "");
@@ -336,31 +348,7 @@ export default function FormEditorPage() {
       setFields(f.fields || []);
       setSettings({ ...DEFAULT_SETTINGS, ...(f.settings || {}) });
     }
-  }, [id]);
-
-  const initFormEditor = useCallback(async () => {
-    const [, folderData, actionData, fieldData, tagData, templateData, workflowData] = await Promise.all([
-      fetchForm(),
-      fetch("/api/admin/line/form-folders", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/actions", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/friend-fields", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/tags?simple=true", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/templates", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/admin/line/workflows", { credentials: "include" }).then(r => r.json()),
-    ]);
-    if (folderData.folders) setFolders(folderData.folders);
-    if (actionData.actions) setActions(actionData.actions);
-    if (fieldData.fields) setFriendFields(fieldData.fields);
-    if (tagData.tags) setTagDefs(tagData.tags);
-    if (templateData.templates) setTemplateDefs(templateData.templates);
-    if (workflowData.workflows) setWorkflowDefs(workflowData.workflows);
-    setLoading(false);
-  }, [fetchForm]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- useCallbackで初期データフェッチ
-    initFormEditor();
-  }, [initFormEditor]);
+  }, [formData]);
 
   // 保存
   const save = async () => {

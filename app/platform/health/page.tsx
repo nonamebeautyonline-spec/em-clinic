@@ -3,7 +3,7 @@
 // app/platform/health/page.tsx
 // プラットフォーム管理: システムヘルスダッシュボード
 
-import { useState, useEffect, useCallback } from "react";
+import useSWR from "swr";
 
 interface HealthCheck {
   status: string;
@@ -61,30 +61,12 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 export default function HealthDashboardPage() {
-  const [data, setData] = useState<HealthData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, error: swrError, isLoading: loading } = useSWR<HealthData>(
+    "/api/platform/health",
+    { refreshInterval: 30000 }
+  );
 
-  const fetchHealth = useCallback(async () => {
-    try {
-      const res = await fetch("/api/platform/health", { credentials: "include" });
-      if (!res.ok) throw new Error("ヘルスチェック取得失敗");
-      const json = await res.json();
-      setData(json);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHealth();
-    // 30秒間隔で自動リフレッシュ
-    const interval = setInterval(fetchHealth, 30000);
-    return () => clearInterval(interval);
-  }, [fetchHealth]);
+  const error = swrError?.message || "";
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);

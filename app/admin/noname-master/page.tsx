@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 
 interface Order {
   id: string;
@@ -26,15 +27,18 @@ interface Order {
 }
 
 export default function NonameMasterPage() {
-  const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [error, setError] = useState("");
   const [limit, setLimit] = useState(100);
   const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
   const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<"all" | "unshipped" | "shipped" | "overdue">("all");
+
+  const offset = (page - 1) * limit;
+  const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&filter=${filter}`;
+  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number }>(ordersKey);
+  const orders = ordersData?.orders || [];
+  const totalCount = ordersData?.total || 0;
+  const error = ordersError ? (ordersError instanceof Error ? ordersError.message : "エラーが発生しました") : "";
   const [addingToShipping, setAddingToShipping] = useState<Record<string, boolean>>({});
   const [showEditMenu, setShowEditMenu] = useState<string | null>(null);
   const [editingTrackingFor, setEditingTrackingFor] = useState<string | null>(null);
@@ -56,34 +60,6 @@ export default function NonameMasterPage() {
   const [refundError, setRefundError] = useState("");
   const [bankAction, setBankAction] = useState<"cancel" | "refund">("cancel");
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const offset = (page - 1) * limit;
-      const res = await fetch(`/api/admin/noname-master?limit=${limit}&offset=${offset}&filter=${filter}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error(`データ取得失敗 (${res.status})`);
-      }
-
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setTotalCount(data.total || 0);
-    } catch (err) {
-      console.error("Orders fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, filter, limit]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
 
   const handleTrackingChange = (orderId: string, value: string) => {
     setEditingTracking((prev) => ({ ...prev, [orderId]: value }));
@@ -107,15 +83,8 @@ export default function NonameMasterPage() {
         throw new Error((data.message || data.error) || "追加失敗");
       }
 
-      // 成功したらordersを更新（発送漏れフラグを解除）
-      // shipping_dateはNULLのまま、発送リストには追加された
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, is_overdue: false }
-            : o
-        )
-      );
+      // 成功したらordersを再取得
+      await mutateOrders();
       alert("発送リストに追加しました");
     } catch (err) {
       console.error("Add to shipping error:", err);
@@ -149,15 +118,8 @@ export default function NonameMasterPage() {
         throw new Error((data.message || data.error) || "更新失敗");
       }
 
-      const data = await res.json();
-      // 成功したらordersを更新
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, tracking_number: data.order.tracking_number, shipping_date: data.order.shipping_date }
-            : o
-        )
-      );
+      // 成功したらordersを再取得
+      await mutateOrders();
       // 入力状態をクリア
       setEditingTracking((prev) => {
         const next = { ...prev };
@@ -201,14 +163,7 @@ export default function NonameMasterPage() {
         throw new Error((data.message || data.error) || "更新失敗");
       }
 
-      const data = await res.json();
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, tracking_number: data.order.tracking_number }
-            : o
-        )
-      );
+      await mutateOrders();
       setEditingTrackingFor(null);
       setNewTrackingNumber("");
       setShowEditMenu(null);
@@ -249,14 +204,7 @@ export default function NonameMasterPage() {
         throw new Error((data.message || data.error) || "更新失敗");
       }
 
-      const data = await res.json();
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, tracking_number: data.order.tracking_number, shipping_date: data.order.shipping_date, is_overdue: false }
-            : o
-        )
-      );
+      await mutateOrders();
       setShippedInfoFor(null);
       setShippedDate("");
       setShippedTracking("");
@@ -290,13 +238,7 @@ export default function NonameMasterPage() {
         throw new Error((data.message || data.error) || "更新失敗");
       }
 
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === orderId
-            ? { ...o, tracking_number: "", shipping_date: "" }
-            : o
-        )
-      );
+      await mutateOrders();
       setShowEditMenu(null);
       alert("ラベル作り直しの準備が完了しました。発送リストに追加されました。");
     } catch (err) {
@@ -350,21 +292,7 @@ export default function NonameMasterPage() {
       }
 
       // ローカルstate更新
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === refundTarget.id
-            ? {
-                ...o,
-                status: "cancelled",
-                refund_status: isBankTransfer
-                  ? (bankAction === "refund" ? "PENDING" : "CANCELLED")
-                  : (data.refund_status || "COMPLETED"),
-                refunded_at: new Date().toISOString(),
-                refunded_amount: bankAction === "refund" || !isBankTransfer ? o.amount : null,
-              }
-            : o
-        )
-      );
+      await mutateOrders();
 
       setRefundTarget(null);
       setRefundStep("token");

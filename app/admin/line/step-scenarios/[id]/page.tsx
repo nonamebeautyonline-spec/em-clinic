@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import useSWR, { mutate } from "swr";
 import {
   ConditionBuilderModal,
   type ConditionRule,
@@ -117,18 +118,48 @@ export default function StepScenarioEditPage() {
   const router = useRouter();
   const scenarioId = parseInt(id);
 
+  // シナリオ詳細データ
+  const detailKey = `/api/admin/line/step-scenarios/${scenarioId}`;
+  const { data: detailData, isLoading: detailLoading } = useSWR<{ scenario: Scenario; steps: Partial<StepItem>[]; stats: { active: number; completed: number } }>(detailKey);
+
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [steps, setSteps] = useState<StepItem[]>([]);
   const [stats, setStats] = useState({ active: 0, completed: 0 });
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // detailDataが変わったらローカルstateに反映（編集用）
+  useEffect(() => {
+    if (detailData?.scenario) {
+      setScenario(detailData.scenario);
+      const enrichedSteps = (detailData.steps || []).map((s: Partial<StepItem>) => ({
+        ...EMPTY_STEP,
+        ...s,
+        condition_rules: s.condition_rules || [],
+        exit_condition_rules: s.exit_condition_rules || [],
+        exit_action: s.exit_action || "exit",
+      }));
+      setSteps(enrichedSteps);
+      setStats(detailData.stats || { active: 0, completed: 0 });
+    }
+  }, [detailData]);
+
+  // マスタデータ
+  const { data: tagData, isLoading: tagLoading } = useSWR<{ tags: Tag[] }>("/api/admin/line/tags");
+  const { data: tplData, isLoading: tplLoading } = useSWR<{ templates: Template[] }>("/api/admin/line/templates");
+  const { data: markData, isLoading: markLoading } = useSWR<{ marks: MarkDef[] }>("/api/admin/line/marks");
+
+  const tags = tagData?.tags || [];
+  const templates = tplData?.templates || [];
+  const marks = markData?.marks || [];
+
+  const loading = detailLoading || tagLoading || tplLoading || markLoading;
+
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"steps" | "enrollments">("steps");
 
-  // マスタデータ
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [marks, setMarks] = useState<MarkDef[]>([]);
+  // 登録者一覧（タブ選択時のみ取得）
+  const enrollmentsKey = activeTab === "enrollments" ? `/api/admin/line/step-scenarios/${scenarioId}/enrollments` : null;
+  const { data: enrollmentsData } = useSWR<{ enrollments: Enrollment[] }>(enrollmentsKey);
+  const enrollments = enrollmentsData?.enrollments || [];
 
   // 条件ビルダーモーダル
   const [condModalTarget, setCondModalTarget] = useState<{
@@ -140,69 +171,6 @@ export default function StepScenarioEditPage() {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [enrollPatientIds, setEnrollPatientIds] = useState("");
   const [enrolling, setEnrolling] = useState(false);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [detailRes, tagRes, tplRes, markRes] = await Promise.all([
-        fetch(`/api/admin/line/step-scenarios/${scenarioId}`, { credentials: "include" }),
-        fetch("/api/admin/line/tags", { credentials: "include" }),
-        fetch("/api/admin/line/templates", { credentials: "include" }),
-        fetch("/api/admin/line/marks", { credentials: "include" }),
-      ]);
-
-      if (detailRes.ok) {
-        const d = await detailRes.json();
-        setScenario(d.scenario);
-        // 新カラムのデフォルト値を補完
-        const enrichedSteps = (d.steps || []).map((s: Partial<StepItem>) => ({
-          ...EMPTY_STEP,
-          ...s,
-          condition_rules: s.condition_rules || [],
-          exit_condition_rules: s.exit_condition_rules || [],
-          exit_action: s.exit_action || "exit",
-        }));
-        setSteps(enrichedSteps);
-        setStats(d.stats || { active: 0, completed: 0 });
-      }
-      if (tagRes.ok) {
-        const d = await tagRes.json();
-        setTags(d.tags || []);
-      }
-      if (tplRes.ok) {
-        const d = await tplRes.json();
-        setTemplates(d.templates || []);
-      }
-      if (markRes.ok) {
-        const d = await markRes.json();
-        setMarks(d.marks || []);
-      }
-    } catch (e) {
-      console.error("データ取得エラー:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [scenarioId]);
-
-  // 登録者一覧取得
-  const loadEnrollments = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/admin/line/step-scenarios/${scenarioId}/enrollments`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const d = await res.json();
-        setEnrollments(d.enrollments || []);
-      }
-    } catch (e) {
-      console.error("登録者取得エラー:", e);
-    }
-  }, [scenarioId]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    if (activeTab === "enrollments") loadEnrollments();
-  }, [activeTab, loadEnrollments]);
 
   // 保存
   const handleSave = async () => {
@@ -231,7 +199,7 @@ export default function StepScenarioEditPage() {
         return;
       }
       alert("保存しました");
-      loadData();
+      mutate(detailKey);
     } finally {
       setSaving(false);
     }
@@ -274,7 +242,7 @@ export default function StepScenarioEditPage() {
       method: "DELETE",
       credentials: "include",
     });
-    loadEnrollments();
+    mutate(enrollmentsKey);
   };
 
   // 手動登録
@@ -297,7 +265,7 @@ export default function StepScenarioEditPage() {
         alert(`${d.enrolled}名を登録しました`);
         setShowEnrollModal(false);
         setEnrollPatientIds("");
-        loadEnrollments();
+        mutate(enrollmentsKey);
       }
     } catch (e) {
       console.error("登録エラー:", e);

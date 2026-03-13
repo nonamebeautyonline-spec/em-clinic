@@ -1,9 +1,17 @@
 // app/questionnaire/page.tsx
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, { Suspense } from "react";
+import useSWR from "swr";
 import { useSearchParams, useRouter } from "next/navigation";
 import QuestionnairePage from "./QuestionnairePage";
+
+// SWRProviderのスコープ外（患者向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 function MissingReserveUI({ onBack }: { onBack: () => void }) {
   return (
@@ -115,56 +123,25 @@ function QuestionnaireInner() {
 
   const reserveId = String(searchParams.get("reserveId") || "").trim();
 
-  const [checking, setChecking] = useState(true);
-  const [exists, setExists] = useState(false);
-  const [error, setError] = useState<string>("");
+  const { data: checkData, error: swrError, isLoading: checking, mutate } = useSWR<{
+    ok?: boolean;
+    exists?: boolean;
+    error?: string;
+  }>(
+    reserveId ? `/api/intake/has?reserveId=${encodeURIComponent(reserveId)}` : null,
+    swrFetcher
+  );
 
-  const runCheck = useCallback(async (rid: string) => {
-    setChecking(true);
-    setError("");
-    setExists(false);
-
-    try {
-      const res = await fetch(`/api/intake/has?reserveId=${encodeURIComponent(rid)}`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      const j = await res.json().catch(() => ({} as Record<string, unknown>));
-
-      if (!res.ok || !j?.ok) {
-        const msg =
-          j?.error === "unauthorized"
-            ? "ログイン情報が確認できませんでした。LINEログイン後に再度お試しください。"
-            : "サーバーとの通信に失敗しました。";
-        setError(msg);
-        return;
-      }
-
-      setExists(!!j.exists);
-    } catch {
-      setError("通信エラーが発生しました。");
-    } finally {
-      setChecking(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let canceled = false;
-
-    (async () => {
-      if (!reserveId) return;
-
-      // 途中でreserveIdが変わったときの安全策
-      if (canceled) return;
-
-      await runCheck(reserveId);
-    })();
-
-    return () => {
-      canceled = true;
-    };
-  }, [reserveId, runCheck]);
+  const exists = !!checkData?.exists;
+  const error = swrError
+    ? swrError.message?.includes("401")
+      ? "ログイン情報が確認できませんでした。LINEログイン後に再度お試しください。"
+      : "通信エラーが発生しました。"
+    : checkData && !checkData.ok
+      ? checkData.error === "unauthorized"
+        ? "ログイン情報が確認できませんでした。LINEログイン後に再度お試しください。"
+        : "サーバーとの通信に失敗しました。"
+      : "";
 
   // reserveId が無い / 空のときは問診を出さない
   if (!reserveId) {
@@ -181,7 +158,7 @@ function QuestionnaireInner() {
     return (
       <CheckErrorUI
         message={error}
-        onRetry={() => runCheck(reserveId)}
+        onRetry={() => mutate()}
         onBack={() => router.push("/mypage")}
       />
     );

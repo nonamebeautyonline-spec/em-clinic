@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import useSWR, { mutate } from "swr";
 
 /* ---------- 型定義 ---------- */
 
@@ -96,9 +97,9 @@ function StatusBadge({ status }: { status: string }) {
 
 /* ---------- メインコンポーネント ---------- */
 export default function EhrDashboardPage() {
-  // EHR接続ステータス
-  const [ehrStatus, setEhrStatus] = useState<EhrStatus | null>(null);
-  const [statusLoading, setStatusLoading] = useState(true);
+  // EHR接続ステータス（SWR）
+  const { data: ehrStatusData, isLoading: statusLoading } = useSWR<EhrStatus>("/api/admin/ehr/status");
+  const ehrStatus = ehrStatusData ?? null;
   const [testingConnection, setTestingConnection] = useState(false);
   const [testConnectionResult, setTestConnectionResult] = useState<{
     ok: boolean;
@@ -131,51 +132,48 @@ export default function EhrDashboardPage() {
   const [searchResults, setSearchResults] = useState<ExternalPatient[]>([]);
   const [searchError, setSearchError] = useState("");
 
-  // 同期スケジュール設定
+  // 同期スケジュール設定（SWR）
+  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ schedule: { interval: string; enabled: boolean; sync_time: string } }>("/api/admin/ehr/sync-schedule");
   const [scheduleInterval, setScheduleInterval] = useState<"hourly" | "every6h" | "daily">("daily");
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleSyncTime, setScheduleSyncTime] = useState("03:00");
-  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleInitialized, setScheduleInitialized] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleSaved, setScheduleSaved] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
-  // 同期ログ
-  const [logs, setLogs] = useState<SyncLog[]>([]);
-  const [logsLoading, setLogsLoading] = useState(true);
+  // スケジュールデータをローカルstateに反映
+  useEffect(() => {
+    if (scheduleData?.schedule && !scheduleInitialized) {
+      setScheduleInterval((scheduleData.schedule.interval || "daily") as "hourly" | "every6h" | "daily");
+      setScheduleEnabled(scheduleData.schedule.enabled || false);
+      setScheduleSyncTime(scheduleData.schedule.sync_time || "03:00");
+      setScheduleInitialized(true);
+    }
+  }, [scheduleData, scheduleInitialized]);
+
+  // 同期ログ（SWR + ページネーション）
+  const { data: logsInitData, isLoading: logsLoading } = useSWR<{ logs: SyncLog[] }>(`/api/admin/ehr/logs?limit=50&offset=0`);
+  const [extraLogs, setExtraLogs] = useState<SyncLog[]>([]);
   const [logsOffset, setLogsOffset] = useState(0);
   const [hasMoreLogs, setHasMoreLogs] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const logs = [...(logsInitData?.logs ?? []), ...extraLogs];
 
-  // エラーリカバリ
-  const [errorLogs, setErrorLogs] = useState<SyncLog[]>([]);
-  const [errorLogsLoading, setErrorLogsLoading] = useState(true);
+  // エラーリカバリ（SWR）
+  const [errorStatusFilter, setErrorStatusFilter] = useState<string>("error");
+  const errorLogsKey = errorStatusFilter === "all"
+    ? "/api/admin/ehr/sync-logs?limit=50"
+    : `/api/admin/ehr/sync-logs?limit=50&status=${errorStatusFilter}`;
+  const { data: errorLogsData, isLoading: errorLogsLoading } = useSWR<{ logs: SyncLog[] }>(errorLogsKey);
+  const errorLogs = errorLogsData?.logs ?? [];
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
   const [bulkRetrying, setBulkRetrying] = useState(false);
   const [retryMessage, setRetryMessage] = useState("");
-  const [errorStatusFilter, setErrorStatusFilter] = useState<string>("error");
 
   const LOGS_LIMIT = 50;
 
   /* ========== データ取得 ========== */
-
-  /** EHR接続ステータスを取得 */
-  const fetchStatus = useCallback(async () => {
-    setStatusLoading(true);
-    try {
-      const res = await fetch("/api/admin/ehr/status", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data: EhrStatus = await res.json();
-        setEhrStatus(data);
-      }
-    } catch {
-      // ステータス取得失敗は静かに無視
-    } finally {
-      setStatusLoading(false);
-    }
-  }, []);
 
   /** 接続テストを実行 */
   const handleTestConnection = async () => {
@@ -193,7 +191,7 @@ export default function EhrDashboardPage() {
       const data = await res.json();
       setTestConnectionResult({ ok: data.ok, message: data.message });
       // テスト後にステータスを再取得
-      fetchStatus();
+      mutate("/api/admin/ehr/status");
     } catch {
       setTestConnectionResult({
         ok: false,
@@ -204,56 +202,24 @@ export default function EhrDashboardPage() {
     }
   };
 
-  /** 同期ログ一覧を取得 */
-  const fetchLogs = useCallback(async (offset = 0, append = false) => {
-    if (!append) setLogsLoading(true);
-    else setLoadingMore(true);
-
+  /** 追加ログ読み込み（ページネーション） */
+  const fetchMoreLogs = useCallback(async (offset: number) => {
+    setLoadingMore(true);
     try {
       const res = await fetch(
         `/api/admin/ehr/logs?limit=${LOGS_LIMIT}&offset=${offset}`,
         { credentials: "include" }
       );
       if (!res.ok) throw new Error("ログ取得に失敗しました");
-
       const data = await res.json();
       const newLogs: SyncLog[] = data.logs ?? [];
-
-      if (append) {
-        setLogs((prev) => [...prev, ...newLogs]);
-      } else {
-        setLogs(newLogs);
-      }
-
+      setExtraLogs((prev) => [...prev, ...newLogs]);
       setHasMoreLogs(newLogs.length >= LOGS_LIMIT);
       setLogsOffset(offset + newLogs.length);
     } catch {
       // ログ取得失敗は静かに無視
     } finally {
-      setLogsLoading(false);
       setLoadingMore(false);
-    }
-  }, []);
-
-  // 同期スケジュール設定を取得
-  const fetchSchedule = useCallback(async () => {
-    setScheduleLoading(true);
-    try {
-      const res = await fetch("/api/admin/ehr/sync-schedule", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.schedule) {
-          setScheduleInterval(data.schedule.interval || "daily");
-          setScheduleEnabled(data.schedule.enabled || false);
-          setScheduleSyncTime(data.schedule.sync_time || "03:00");
-        }
-      }
-    } catch {
-      // 取得失敗時はデフォルト値を維持
-    } finally {
-      setScheduleLoading(false);
     }
   }, []);
 
@@ -287,36 +253,14 @@ export default function EhrDashboardPage() {
     }
   };
 
-  /** エラーログ一覧を取得（リカバリUI用） */
-  const fetchErrorLogs = useCallback(async (statusFilter = "error") => {
-    setErrorLogsLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: "50" });
-      if (statusFilter !== "all") {
-        params.set("status", statusFilter);
-      }
-      const res = await fetch(
-        `/api/admin/ehr/sync-logs?${params.toString()}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("エラーログ取得に失敗しました");
+  // SWRが自動的に初回読み込みを行うため、useEffectは不要
 
-      const data = await res.json();
-      setErrorLogs(data.logs ?? []);
-    } catch {
-      // エラーログ取得失敗は静かに無視
-    } finally {
-      setErrorLogsLoading(false);
-    }
-  }, []);
-
-  // 初回読み込み
-  useEffect(() => {
-    fetchStatus();
-    fetchLogs(0);
-    fetchSchedule();
-    fetchErrorLogs("error");
-  }, [fetchStatus, fetchLogs, fetchSchedule, fetchErrorLogs]);
+  const revalidateEhr = () => {
+    mutate("/api/admin/ehr/status");
+    mutate("/api/admin/ehr/logs?limit=50&offset=0");
+    setExtraLogs([]);
+    mutate(errorLogsKey);
+  };
 
   /* ========== 手動同期 ========== */
 
@@ -358,8 +302,7 @@ export default function EhrDashboardPage() {
 
       setSyncResult(data);
       // ログとステータスを再取得
-      fetchLogs(0);
-      fetchStatus();
+      revalidateEhr();
     } catch {
       setSyncError("同期リクエストに失敗しました");
     } finally {
@@ -397,8 +340,7 @@ export default function EhrDashboardPage() {
       setCsvFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       // ログとステータスを再取得
-      fetchLogs(0);
-      fetchStatus();
+      revalidateEhr();
     } catch {
       setCsvMessage("インポートリクエストに失敗しました");
     } finally {
@@ -506,8 +448,7 @@ export default function EhrDashboardPage() {
         `リトライ完了: 成功 ${data.summary?.success ?? 0}件, エラー ${data.summary?.error ?? 0}件`
       );
       // ログを再取得
-      fetchErrorLogs(errorStatusFilter);
-      fetchLogs(0);
+      revalidateEhr();
     } catch {
       setRetryMessage("リトライリクエストに失敗しました");
     } finally {
@@ -552,9 +493,7 @@ export default function EhrDashboardPage() {
         `一括リトライ完了: 成功 ${data.summary?.success ?? 0}件, エラー ${data.summary?.error ?? 0}件, スキップ ${data.summary?.skipped ?? 0}件`
       );
       // ログを再取得
-      fetchErrorLogs(errorStatusFilter);
-      fetchLogs(0);
-      fetchStatus();
+      revalidateEhr();
     } catch {
       setRetryMessage("一括リトライリクエストに失敗しました");
     } finally {
@@ -566,13 +505,13 @@ export default function EhrDashboardPage() {
 
   const handleErrorStatusFilterChange = (value: string) => {
     setErrorStatusFilter(value);
-    fetchErrorLogs(value);
+    // SWRキーが変わるため自動的に再取得される
   };
 
   /* ========== もっと見る（ログ追加読み込み） ========== */
 
   const handleLoadMore = () => {
-    fetchLogs(logsOffset, true);
+    fetchMoreLogs(logsOffset);
   };
 
   /* ========== 日時フォーマット ========== */

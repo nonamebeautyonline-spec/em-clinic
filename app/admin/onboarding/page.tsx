@@ -1,8 +1,9 @@
 "use client";
 
 // app/admin/onboarding/page.tsx — テナント初期設定ウィザード
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import useSWR, { mutate } from "swr";
 import Step0Welcome from "./_steps/Step0Welcome";
 import Step1Line from "./_steps/Step1Line";
 import Step2Payment from "./_steps/Step2Payment";
@@ -39,48 +40,31 @@ const STEP_LABELS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(0);
-  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
-  const [tenantName, setTenantName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // 初期データ取得
+  // セットアップ状態を取得
+  const { data: setupStatus, isLoading: statusLoading } = useSWR<SetupStatus>(
+    "/api/admin/setup-status",
+  );
+
+  // テナント情報を取得
+  const { data: tenantInfo, isLoading: tenantLoading } = useSWR<{ name: string }>(
+    "/api/admin/tenant-info",
+  );
+
+  const loading = statusLoading || tenantLoading;
+  const tenantName = tenantInfo?.name || null;
+
+  // 全完了ならダッシュボードへリダイレクト
   useEffect(() => {
-    Promise.all([
-      fetch("/api/admin/setup-status", { credentials: "include" }).then((r) =>
-        r.ok ? r.json() : null,
-      ),
-      fetch("/api/admin/tenant-info", { credentials: "include" }).then((r) =>
-        r.ok ? r.json() : null,
-      ),
-    ])
-      .then(([status, info]) => {
-        if (status) setSetupStatus(status);
-        if (info?.name) setTenantName(info.name);
-        // 全完了ならダッシュボードへ
-        if (status?.setupComplete) {
-          router.push("/admin");
-          return;
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [router]);
+    if (setupStatus?.setupComplete) {
+      router.push("/admin");
+    }
+  }, [setupStatus, router]);
 
   // セットアップ状態を再取得
   const refreshStatus = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/setup-status", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSetupStatus(data);
-        return data as SetupStatus;
-      }
-    } catch {
-      // 無視
-    }
-    return null;
+    const data = await mutate("/api/admin/setup-status");
+    return (data as SetupStatus) || null;
   }, []);
 
   // 次のステップへ進む
@@ -176,7 +160,7 @@ export default function OnboardingPage() {
           {step === 0 && (
             <Step0Welcome
               tenantName={tenantName}
-              setupStatus={setupStatus}
+              setupStatus={setupStatus ?? null}
               onNext={goNext}
             />
           )}

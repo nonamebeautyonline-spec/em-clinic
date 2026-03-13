@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   LineChart,
   Line,
@@ -106,11 +107,11 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 }
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<"csv" | "pdf" | null>(null);
+
+  const { data, isLoading: loading } = useSWR<AnalyticsData>(`/api/admin/line/analytics?period=${period}`);
 
   // CSVダウンロード
   const downloadCsv = () => {
@@ -162,24 +163,6 @@ export default function AnalyticsPage() {
       setDownloading(null);
     }
   };
-
-  const fetchData = useCallback(async (p: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/line/analytics?period=${p}`, { credentials: "include" });
-      if (!res.ok) throw new Error("fetch failed");
-      const json = await res.json();
-      setData(json);
-    } catch (e) {
-      console.error("[analytics] fetch error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData(period);
-  }, [period, fetchData]);
 
   const handlePeriodChange = (p: number) => {
     setPeriod(p);

@@ -1,7 +1,15 @@
 // app/doctor/reorders/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import useSWR from "swr";
+
+// SWRProviderのスコープ外（Dr向けページ）なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 type ReorderStatus = "pending" | "confirmed" | "canceled";
 type TabFilter = "pending" | "confirmed" | "canceled" | "all";
@@ -78,45 +86,31 @@ const formatDate = (v: string) => {
 
 
 export default function DoctorReordersPage() {
-  const [items, setItems] = useState<DoctorReorder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabFilter>("pending");
 
-  const fetchList = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/doctor/reorders");
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
-        throw new Error(json.error || "一覧の取得に失敗しました");
-      }
-const mapped: DoctorReorder[] = (json.reorders || []).map((r: Record<string, unknown>) => ({
-  id: String(r.id),
-  timestamp: String(r.timestamp),
-  patientId: String(r.patient_id),
-  patientName: String(r.patient_name || ""),           // ★
-  productCode: String(r.product_code),
-  status: (r.status || "pending") as ReorderStatus,
-  history: Array.isArray(r.history) ? (r.history as { date: string; label: string }[]) : [],  // ★
-  note: r.note || "",
-}));
+  const { data: json, error: swrError, isLoading: loading, mutate } = useSWR<{
+    ok?: boolean;
+    error?: string;
+    reorders?: Record<string, unknown>[];
+  }>("/api/doctor/reorders", swrFetcher);
 
-      setItems(mapped);
-    } catch (e) {
-      console.error(e);
-      setError((e as Error).message ?? "一覧の取得に失敗しました");
-    } finally {
-      setLoading(false);
-      setBusyId(null);
-    }
-  };
+  const items: DoctorReorder[] = (json?.reorders || []).map((r: Record<string, unknown>) => ({
+    id: String(r.id),
+    timestamp: String(r.timestamp),
+    patientId: String(r.patient_id),
+    patientName: String(r.patient_name || ""),
+    productCode: String(r.product_code),
+    status: (r.status || "pending") as ReorderStatus,
+    history: Array.isArray(r.history) ? (r.history as { date: string; label: string }[]) : [],
+    note: String(r.note || ""),
+  }));
 
-  useEffect(() => {
-    fetchList();
-  }, []);
+  const error = swrError
+    ? (swrError instanceof Error ? swrError.message : "一覧の取得に失敗しました")
+    : json && json.ok === false
+      ? (json.error || "一覧の取得に失敗しました")
+      : null;
 
   const handleApprove = async (id: string) => {
     setBusyId(id);
@@ -126,14 +120,15 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: Record<string, unk
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
-        throw new Error(json.error || "承認に失敗しました");
+      const resJson = await res.json();
+      if (!res.ok || resJson.ok === false) {
+        throw new Error(resJson.error || "承認に失敗しました");
       }
-      await fetchList();
+      await mutate();
     } catch (e) {
       console.error(e);
       alert((e as Error).message || "承認に失敗しました");
+    } finally {
       setBusyId(null);
     }
   };
@@ -147,14 +142,15 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: Record<string, unk
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
-        throw new Error(json.error || "キャンセルに失敗しました");
+      const resJson = await res.json();
+      if (!res.ok || resJson.ok === false) {
+        throw new Error(resJson.error || "キャンセルに失敗しました");
       }
-      await fetchList();
+      await mutate();
     } catch (e) {
       console.error(e);
       alert((e as Error).message || "キャンセルに失敗しました");
+    } finally {
       setBusyId(null);
     }
   };
@@ -191,7 +187,7 @@ const mapped: DoctorReorder[] = (json.reorders || []).map((r: Record<string, unk
             <p className="text-xs text-slate-500 mt-0.5">{tabLabel}</p>
           </div>
           <button
-            onClick={fetchList}
+            onClick={() => mutate()}
             className="text-sm px-3 py-1.5 rounded-full border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 disabled:opacity-60"
             disabled={loading}
           >

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 import { useRouter } from "next/navigation";
 
 interface Reorder {
@@ -32,41 +33,14 @@ const PRODUCT_NAMES: Record<string, string> = {
 
 export default function ReordersPage() {
   const router = useRouter();
-  const [reorders, setReorders] = useState<Reorder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [filter, setFilter] = useState<"pending" | "all">("pending");
   const [processing, setProcessing] = useState<string | null>(null);
-
-  const loadReorders = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const includeAll = filter === "all" ? "true" : "false";
-      const res = await fetch(`/api/admin/reorders?include_all=${includeAll}`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        throw new Error("再処方データ取得失敗");
-      }
-
-      const data = await res.json();
-      setReorders(data.reorders || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    // 認証はlayout.tsxで行うため、ここではデータ取得のみ
-    loadReorders();
-  }, [loadReorders]);
-
   const [lineNotifyResult, setLineNotifyResult] = useState<{ id: string; status: "sent" | "no_uid" | "failed" } | null>(null);
+
+  const swrKey = `/api/admin/reorders?include_all=${filter === "all" ? "true" : "false"}`;
+  const { data, error, isLoading: loading } = useSWR<{ reorders: Reorder[] }>(swrKey);
+
+  const reorders = data?.reorders || [];
 
   const handleApprove = async (id: string) => {
     setProcessing(id);
@@ -83,15 +57,15 @@ export default function ReordersPage() {
         throw new Error("承認処理に失敗しました");
       }
 
-      const data = await res.json();
+      const d = await res.json();
 
       // LINE通知結果を表示
-      if (data.lineNotify) {
-        setLineNotifyResult({ id, status: data.lineNotify });
+      if (d.lineNotify) {
+        setLineNotifyResult({ id, status: d.lineNotify });
       }
 
-      // リロード
-      await loadReorders();
+      // SWRキャッシュを再検証
+      mutate(swrKey);
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -115,8 +89,8 @@ export default function ReordersPage() {
         throw new Error("却下処理に失敗しました");
       }
 
-      // リロード
-      await loadReorders();
+      // SWRキャッシュを再検証
+      mutate(swrKey);
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
@@ -157,7 +131,9 @@ export default function ReordersPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error instanceof Error ? error.message : "エラーが発生しました"}
+        </div>
       )}
 
       {lineNotifyResult && (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import useSWR from "swr";
 import {
   buildDaySlots,
   type WeeklyRule,
@@ -148,9 +149,6 @@ export default function CalendarView({
 }: CalendarViewProps) {
   const [mode, setMode] = useState<CalendarMode>(initialMode);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [popover, setPopover] = useState<{
     event: CalendarEvent;
     x: number;
@@ -158,14 +156,8 @@ export default function CalendarView({
   } | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // スケジュール関連state
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [weeklyRules, setWeeklyRules] = useState<WeeklyRule[]>([]);
-  const [overrides, setOverrides] = useState<DateOverride[]>([]);
-
   // キャンセル表示トグル（デフォルト非表示）
   const [showCanceled, setShowCanceled] = useState(false);
-  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
 
   // 医師フィルタ（""=全医師）
   const [filterDoctorId, setFilterDoctorId] = useState("");
@@ -187,7 +179,7 @@ export default function CalendarView({
   }, [popover]);
 
   // 表示期間を計算
-  const getDateRange = useCallback((): { start: string; end: string } => {
+  const dateRange = useMemo((): { start: string; end: string } => {
     if (mode === "month") {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -204,54 +196,29 @@ export default function CalendarView({
     }
   }, [mode, currentDate]);
 
-  // データ取得
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { start, end } = getDateRange();
+  // 予約データをSWRで取得
+  const eventsKey = `/api/admin/reservations/calendar?start=${dateRange.start}&end=${dateRange.end}`;
+  const { data: eventsData, error: eventsError, isLoading: eventsLoading, mutate: mutateEvents } = useSWR<{ events: CalendarEvent[] }>(eventsKey);
 
-      // 予約データ + スケジュールデータを並行取得
-      const [eventsRes, scheduleRes] = await Promise.all([
-        fetch(`/api/admin/reservations/calendar?start=${start}&end=${end}`, {
-          credentials: "include",
-        }),
-        fetch(`/api/admin/schedule?start=${start}&end=${end}`, {
-          credentials: "include",
-        }),
-      ]);
+  // スケジュールデータをSWRで取得
+  const scheduleKey = `/api/admin/schedule?start=${dateRange.start}&end=${dateRange.end}`;
+  const { data: scheduleData } = useSWR<{
+    ok: boolean;
+    doctors: Doctor[];
+    weekly_rules: WeeklyRule[];
+    overrides: DateOverride[];
+  }>(scheduleKey);
 
-      if (!eventsRes.ok) {
-        const errData = await eventsRes.json().catch(() => ({}));
-        throw new Error(errData.error || `取得失敗 (${eventsRes.status})`);
-      }
+  const allEvents = eventsData?.events || [];
+  const doctors = (scheduleData?.doctors || []).filter((d: Doctor) => d.is_active);
+  const weeklyRules = scheduleData?.weekly_rules || [];
+  const overrides = scheduleData?.overrides || [];
 
-      const eventsData = await eventsRes.json();
-      setAllEvents(eventsData.events || []);
-
-      if (scheduleRes.ok) {
-        const scheduleData = await scheduleRes.json();
-        setDoctors(
-          (scheduleData.doctors || []).filter((d: Doctor) => d.is_active)
-        );
-        setWeeklyRules(scheduleData.weekly_rules || []);
-        setOverrides(scheduleData.overrides || []);
-      }
-    } catch (err) {
-      console.error("Calendar fetch error:", err);
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-      setAllEvents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [getDateRange]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const loading = eventsLoading;
+  const error = eventsError ? (eventsError instanceof Error ? eventsError.message : "エラーが発生しました") : "";
 
   // キャンセル + 医師フィルタ適用
-  useEffect(() => {
+  const events = useMemo(() => {
     let filtered = allEvents;
     if (!showCanceled) {
       filtered = filtered.filter(
@@ -261,7 +228,7 @@ export default function CalendarView({
     if (filterDoctorId) {
       filtered = filtered.filter((e) => e.doctor_id === filterDoctorId);
     }
-    setEvents(filtered);
+    return filtered;
   }, [allEvents, showCanceled, filterDoctorId]);
 
   // ナビゲーション
@@ -582,12 +549,8 @@ export default function CalendarView({
                       });
                       const json = await res.json();
                       if (json.ok) {
-                        // ローカルstateを更新
-                        setAllEvents(prev => prev.map(ev =>
-                          ev.reserve_id === popover.event.reserve_id
-                            ? { ...ev, doctor_id: newDoctorId, doctor_name: newDoctorName }
-                            : ev
-                        ));
+                        // SWRキャッシュを再検証
+                        mutateEvents();
                         setPopover(p => p ? {
                           ...p,
                           event: { ...p.event, doctor_id: newDoctorId, doctor_name: newDoctorName }

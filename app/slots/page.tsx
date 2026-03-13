@@ -1,6 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+
+// SWRProviderのスコープ外なのでfetcherを明示指定
+const swrFetcher = (url: string) =>
+  fetch(url, { credentials: "include" }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  });
 
 type Doctor = { doctor_id: string; doctor_name: string; is_active: boolean; sort_order: number; color?: string };
 type WeeklyRule = {
@@ -58,60 +66,66 @@ function toGridDates(month: Date) {
 }
 
 export default function AdminSlotsPage() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorId, setDoctorId] = useState("");
   const [month, setMonth] = useState(() => new Date());
-  const [weekly, setWeekly] = useState<WeeklyRule[]>([]);
-  const [overrides, setOverrides] = useState<Override[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>("");
 
   const [draft, setDraft] = useState<Override | null>(null);
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const activeDoctors = useMemo(() => doctors.filter((d) => d.is_active), [doctors]);
-
   const { gridStart, gridEnd, days } = useMemo(() => toGridDates(month), [month]);
   const rangeStart = useMemo(() => yyyyMmDd(gridStart), [gridStart]);
   const rangeEnd = useMemo(() => yyyyMmDd(gridEnd), [gridEnd]);
+
+  // ★ ドクター一覧をSWRで取得
+  const { data: scheduleBase } = useSWR<{
+    ok?: boolean;
+    doctors?: Doctor[];
+  }>(`/api/admin/schedule?start=${rangeStart}&end=${rangeEnd}`, swrFetcher);
+
+  const doctors = scheduleBase?.doctors || [];
+  const activeDoctors = useMemo(() => doctors.filter((d) => d.is_active), [doctors]);
+
+  // 初回のdoctorId設定
+  useEffect(() => {
+    if (!doctorId && activeDoctors.length > 0) {
+      setDoctorId(activeDoctors[0].doctor_id);
+    }
+  }, [activeDoctors, doctorId]);
+
+  // ★ ドクター別スケジュールをSWRで取得
+  const doctorScheduleKey = doctorId
+    ? `/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`
+    : null;
+
+  const { data: doctorSchedule, error: scheduleError, mutate: mutateSchedule } = useSWR<{
+    ok?: boolean;
+    weekly_rules?: WeeklyRule[];
+    overrides?: Override[];
+  }>(doctorScheduleKey, swrFetcher);
+
+  const weekly = useMemo(
+    () => (doctorSchedule?.weekly_rules || []).filter((r: WeeklyRule) => r.doctor_id === doctorId),
+    [doctorSchedule, doctorId]
+  );
+  const overrides = useMemo(
+    () => (doctorSchedule?.overrides || []).filter((o: Override) => o.doctor_id === doctorId),
+    [doctorSchedule, doctorId]
+  );
+
+  // scheduleBaseまたはdoctorScheduleのエラー時のメッセージ設定
+  useEffect(() => {
+    if (scheduleError) {
+      setMsg("読込エラー");
+    }
+  }, [scheduleError]);
 
   const overrideMap = useMemo(() => {
     const m = new Map<string, Override>();
     overrides.forEach((o) => m.set(o.date, o));
     return m;
   }, [overrides]);
-
-  useEffect(() => {
-    (async () => {
-      setMsg("");
-      const res = await fetch(`/api/admin/schedule?start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
-      const json = await res.json();
-      if (!json?.ok) {
-        setMsg("読込エラー");
-        return;
-      }
-      setDoctors(json.doctors || []);
-      const first = (json.doctors || []).find((d: Doctor) => d.is_active)?.doctor_id || "";
-      setDoctorId((prev) => prev || first);
-    })();
-  }, [rangeStart, rangeEnd]);
-
-  useEffect(() => {
-    if (!doctorId) return;
-    (async () => {
-      setMsg("");
-      const res = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
-      const json = await res.json();
-      if (!json?.ok) {
-        setWeekly([]);
-        setOverrides([]);
-        setMsg("読込エラー");
-        return;
-      }
-      setWeekly((json.weekly_rules || []).filter((r: WeeklyRule) => r.doctor_id === doctorId));
-      setOverrides((json.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
-    })();
-  }, [doctorId, rangeStart, rangeEnd]);
 
   useEffect(() => {
     if (!doctorId) return;
@@ -174,10 +188,8 @@ export default function AdminSlotsPage() {
       if (!json?.ok) throw new Error(json?.error || "save_failed");
       setMsg("保存しました。");
 
-      // reload range
-      const r = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
-      const j = await r.json();
-      setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
+      // SWRキャッシュを再検証して最新データ取得
+      await mutateSchedule();
     } catch (e) {
       setMsg(`保存エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -199,9 +211,8 @@ export default function AdminSlotsPage() {
       if (!json?.ok) throw new Error(json?.error || "delete_failed");
       setMsg("削除しました。");
 
-      const r = await fetch(`/api/admin/schedule?doctor_id=${doctorId}&start=${rangeStart}&end=${rangeEnd}`, { cache: "no-store" });
-      const j = await r.json();
-      setOverrides((j.overrides || []).filter((o: Override) => o.doctor_id === doctorId));
+      // SWRキャッシュを再検証して最新データ取得
+      await mutateSchedule();
     } catch (e) {
       setMsg(`削除エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

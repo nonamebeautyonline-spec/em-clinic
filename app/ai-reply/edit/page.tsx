@@ -2,6 +2,16 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import useSWR from "swr";
+
+const draftFetcher = (url: string) =>
+  fetch(url).then(async (r) => {
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || "取得に失敗しました");
+    }
+    return r.json();
+  });
 
 interface DraftData {
   id: number;
@@ -28,35 +38,36 @@ function EditContent() {
   const [errorMsg, setErrorMsg] = useState("");
   const [doneMsg, setDoneMsg] = useState("");
 
-  // ドラフト情報を取得
+  // --- SWR: ドラフト情報を取得（パラメータ不正時はnullキーでスキップ） ---
+  const draftKey = draftId && sig && exp ? `/api/ai-reply/${draftId}?sig=${sig}&exp=${exp}` : null;
+  const { data: draftData, error: draftError } = useSWR<DraftData>(
+    draftKey,
+    draftFetcher,
+    { revalidateOnFocus: false, errorRetryCount: 0 },
+  );
+
+  // SWR結果をページ状態に反映
   useEffect(() => {
-    if (!draftId || !sig || !exp) {
+    if (!draftKey) {
       setErrorMsg("URLが不正です");
       setState("error");
       return;
     }
-    fetch(`/api/ai-reply/${draftId}?sig=${sig}&exp=${exp}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "取得に失敗しました");
-        }
-        return res.json();
-      })
-      .then((data: DraftData) => {
-        if (data.status !== "pending") {
-          setDoneMsg("このドラフトは既に処理済みです");
-          setState("done");
-          return;
-        }
-        setDraft(data);
-        setState("idle");
-      })
-      .catch((err) => {
-        setErrorMsg(err.message);
-        setState("error");
-      });
-  }, [draftId, sig, exp]);
+    if (draftError) {
+      setErrorMsg(draftError.message);
+      setState("error");
+      return;
+    }
+    if (draftData) {
+      if (draftData.status !== "pending") {
+        setDoneMsg("このドラフトは既に処理済みです");
+        setState("done");
+        return;
+      }
+      setDraft(draftData);
+      setState("idle");
+    }
+  }, [draftKey, draftData, draftError]);
 
   // 再生成
   const handleRegenerate = useCallback(async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
+import useSWR, { mutate } from "swr";
 import Link from "next/link";
 import { formatFullDateTimeJST, calcAge, formatDateJST } from "@/lib/patient-utils";
 import type { SoapNote, NoteFormat } from "@/lib/soap-parser";
@@ -152,13 +153,16 @@ const SEARCH_MODES = [
 export default function KartePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("today");
 
-  // --- 本日の予約モード ---
-  const [todayItems, setTodayItems] = useState<ReservationItem[]>([]);
-  const [todayLoading, setTodayLoading] = useState(true);
+  // --- 本日の予約モード（SWR） ---
+  const todayJST = useMemo(() => getTodayJST(), []);
+  const TODAY_KEY = viewMode === "today" ? `/api/admin/reservations?date=${todayJST}` : null;
+  const { data: todayData, isLoading: todayLoading } = useSWR<{ reservations: ReservationItem[] }>(TODAY_KEY);
+  const todayItems = todayData?.reservations ?? [];
 
-  // --- 新規予約モード ---
-  const [newItems, setNewItems] = useState<ReservationItem[]>([]);
-  const [newLoading, setNewLoading] = useState(true);
+  // --- 新規予約モード（SWR） ---
+  const NEW_KEY = viewMode === "new" ? `/api/admin/reservations?created_date=${todayJST}` : null;
+  const { data: newData, isLoading: newLoading } = useSWR<{ reservations: ReservationItem[] }>(NEW_KEY);
+  const newItems = newData?.reservations ?? [];
 
   // --- 検索モード ---
   const [searchMode, setSearchMode] = useState<string>("name");
@@ -199,8 +203,9 @@ export default function KartePage() {
     return "plain";
   };
 
-  // --- テンプレート ---
-  const [templates, setTemplates] = useState<KarteTemplate[]>([]);
+  // --- テンプレート（SWR） ---
+  const { data: tmplData } = useSWR<{ ok: boolean; templates: KarteTemplate[] }>("/api/admin/karte-templates");
+  const templates = tmplData?.templates ?? [];
   const [showTemplates, setShowTemplates] = useState(false);
 
   // --- AI要約生成 ---
@@ -216,59 +221,13 @@ export default function KartePage() {
   // --- LINE通話フォーム ---
   const [callFormSending, setCallFormSending] = useState(false);
   const [callFormSentPatients, setCallFormSentPatients] = useState<Set<string>>(new Set());
-  const [lineCallEnabled, setLineCallEnabled] = useState(true);
+  // 診察モード設定（SWR）
+  const { data: consultData } = useSWR<{ settings: { type?: string } }>("/api/admin/settings?category=consultation");
+  const lineCallEnabled = useMemo(() => {
+    const t = consultData?.settings?.type || "online_all";
+    return t !== "online_phone" && t !== "in_person";
+  }, [consultData]);
 
-  // === 本日の予約データ取得（reservations APIから直接） ===
-  const fetchTodayData = useCallback(async () => {
-    setTodayLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reservations?date=${getTodayJST()}`);
-      const json = await res.json();
-      setTodayItems(json.reservations || []);
-    } catch (e) {
-      console.error("本日予約取得エラー:", e);
-    } finally {
-      setTodayLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === "today") {
-      fetchTodayData();
-    }
-  }, [viewMode, fetchTodayData]);
-
-  // 診察モード取得（LINE通話フォームボタン表示制御）
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/settings?category=consultation", { credentials: "include" });
-        const data = await res.json();
-        const t = data.settings?.type || "online_all";
-        setLineCallEnabled(t !== "online_phone" && t !== "in_person");
-      } catch {}
-    })();
-  }, []);
-
-  // === 新規予約データ取得（本日作成された予約） ===
-  const fetchNewData = useCallback(async () => {
-    setNewLoading(true);
-    try {
-      const res = await fetch(`/api/admin/reservations?created_date=${getTodayJST()}`);
-      const json = await res.json();
-      setNewItems(json.reservations || []);
-    } catch (e) {
-      console.error("新規予約取得エラー:", e);
-    } finally {
-      setNewLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === "new") {
-      fetchNewData();
-    }
-  }, [viewMode, fetchNewData]);
 
   // === 検索モード ===
   const canSearch = useMemo(() => searchQ.trim().length >= 1, [searchQ]);
@@ -328,18 +287,6 @@ export default function KartePage() {
     }
   }, []);
 
-  // === テンプレート取得 ===
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/karte-templates");
-        const data = await res.json();
-        if (data.ok) setTemplates(data.templates || []);
-      } catch {
-        // フォールバックのデフォルトテンプレートはAPI側で返される
-      }
-    })();
-  }, []);
 
   // === 同時編集セッション管理 ===
   const startEditSession = useCallback(async (intakeId: number) => {
@@ -696,7 +643,7 @@ export default function KartePage() {
               <span className="text-sm text-gray-600">{getTodayJST()} の予約患者</span>
               <span className="text-xs text-gray-400">({todayItems.length}件)</span>
               <button
-                onClick={() => fetchTodayData()}
+                onClick={() => mutate(TODAY_KEY)}
                 className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 更新
@@ -710,7 +657,7 @@ export default function KartePage() {
               <span className="text-sm text-gray-600">{getTodayJST()} に入った予約</span>
               <span className="text-xs text-gray-400">({newItems.length}件)</span>
               <button
-                onClick={() => fetchNewData()}
+                onClick={() => mutate(NEW_KEY)}
                 className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
               >
                 更新

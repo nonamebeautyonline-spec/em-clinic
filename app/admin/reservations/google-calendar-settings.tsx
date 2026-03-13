@@ -4,7 +4,8 @@
 // Google Calendar連携設定コンポーネント
 // 医師一覧と連携ステータスの表示、OAuth2フロー開始、同期実行、連携解除
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
 
 interface Doctor {
   doctor_id: string;
@@ -30,32 +31,14 @@ interface SyncResult {
 }
 
 export default function GoogleCalendarSettings() {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState<string | null>(null); // 同期中の医師ID
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null); // 連携解除中の医師ID
 
-  // 医師一覧を取得
-  const loadDoctors = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/doctors", {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("医師一覧の取得に失敗しました");
-      const data = await res.json();
-      setDoctors(data.doctors || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadDoctors();
-  }, [loadDoctors]);
+  const doctorsKey = "/api/admin/doctors";
+  const { data: doctorsData, isLoading: loading } = useSWR<{ doctors: Doctor[] }>(doctorsKey);
+  const doctors = doctorsData?.doctors ?? [];
 
   // Google連携を開始（OAuth2フロー）
   const handleConnect = async (doctorId: string) => {
@@ -131,7 +114,7 @@ export default function GoogleCalendarSettings() {
       }
 
       // 医師一覧を再取得
-      await loadDoctors();
+      await mutate(doctorsKey);
       setSyncResult(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "連携解除エラーが発生しました");

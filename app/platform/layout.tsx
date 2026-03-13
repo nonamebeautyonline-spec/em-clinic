@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { SWRConfig } from "swr";
 import Link from "next/link";
 
 // プラットフォーム管理メニュー
@@ -289,7 +290,21 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
             </div>
           </div>
         )}
-        {children}
+        <SWRConfig
+          value={{
+            fetcher: (url: string) =>
+              fetch(url, { credentials: "include" }).then((r) => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+              }),
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,
+            dedupingInterval: 2000,
+            errorRetryCount: 3,
+          }}
+        >
+          {children}
+        </SWRConfig>
       </main>
     </div>
   );
