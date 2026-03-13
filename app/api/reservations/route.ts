@@ -906,21 +906,28 @@ export async function POST(req: NextRequest) {
       }
 
       // 予約アクション実行（LINE通知 + タグ/マーク/メニュー操作）
+      // awaitで待つ（fire-and-forgetだとVercelがレスポンス後に実行を打ち切りfetch failedになる）
       const lineId = patientRes.data?.line_id;
       if (lineId && date && time) {
-        executeReservationActions({
-          eventType: "reservation_created",
-          patientId: pid,
-          lineUid: lineId,
-          date,
-          time,
-          tenantId: tenantId ?? undefined,
-        }).catch((err) => console.error("[reservations] action error:", err));
+        try {
+          await executeReservationActions({
+            eventType: "reservation_created",
+            patientId: pid,
+            lineUid: lineId,
+            date,
+            time,
+            tenantId: tenantId ?? undefined,
+          });
+        } catch (err) {
+          console.error("[reservations] action error:", err);
+        }
       }
 
-      // リッチメニュー自動切替（fire-and-forget）
+      // リッチメニュー自動切替
       if (pid) {
-        evaluateMenuRules(pid, tenantId ?? undefined).catch(() => {});
+        try {
+          await evaluateMenuRules(pid, tenantId ?? undefined);
+        } catch {}
       }
 
       return NextResponse.json({
@@ -1049,14 +1056,18 @@ export async function POST(req: NextRequest) {
       const cancelDate = cancelResvInfo?.data?.reserved_date;
       const cancelTime = cancelResvInfo?.data?.reserved_time;
       if (cancelLineId && cancelDate && cancelTime) {
-        executeReservationActions({
-          eventType: "reservation_canceled",
-          patientId: pid,
-          lineUid: cancelLineId,
-          date: cancelDate,
-          time: cancelTime,
-          tenantId: tenantId ?? undefined,
-        }).catch((err) => console.error("[reservations] cancel action error:", err));
+        try {
+          await executeReservationActions({
+            eventType: "reservation_canceled",
+            patientId: pid,
+            lineUid: cancelLineId,
+            date: cancelDate,
+            time: cancelTime,
+            tenantId: tenantId ?? undefined,
+          });
+        } catch (err) {
+          console.error("[reservations] cancel action error:", err);
+        }
       }
 
       return NextResponse.json({
@@ -1173,16 +1184,20 @@ export async function POST(req: NextRequest) {
       // 予約アクション実行（LINE通知 + タグ/マーク/メニュー操作）
       const changeLineId = changePatientInfo?.line_id;
       if (changeLineId && newDate && newTime) {
-        executeReservationActions({
-          eventType: "reservation_changed",
-          patientId: pid,
-          lineUid: changeLineId,
-          date: newDate,
-          time: newTime,
-          oldDate: prevResvInfo?.reserved_date,
-          oldTime: prevResvInfo?.reserved_time,
-          tenantId: tenantId ?? undefined,
-        }).catch((err) => console.error("[reservations] change action error:", err));
+        try {
+          await executeReservationActions({
+            eventType: "reservation_changed",
+            patientId: pid,
+            lineUid: changeLineId,
+            date: newDate,
+            time: newTime,
+            oldDate: prevResvInfo?.reserved_date,
+            oldTime: prevResvInfo?.reserved_time,
+            tenantId: tenantId ?? undefined,
+          });
+        } catch (err) {
+          console.error("[reservations] change action error:", err);
+        }
       }
 
       return NextResponse.json({
