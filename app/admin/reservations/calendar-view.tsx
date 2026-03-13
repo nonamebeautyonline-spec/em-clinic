@@ -21,6 +21,7 @@ interface CalendarEvent {
   reserved_time: string; // HH:MM
   status: string;
   prescription_menu: string;
+  call_status?: string;
 }
 
 interface Doctor {
@@ -279,6 +280,14 @@ export default function CalendarView({
 
   const getStatusColor = (status: string) =>
     STATUS_COLORS[status] || DEFAULT_STATUS_COLOR;
+
+  /** 不通（no_answer / no_answer_sent）なら薄黄色で上書き */
+  const getEventColor = (ev: CalendarEvent) => {
+    if (ev.call_status === "no_answer" || ev.call_status === "no_answer_sent") {
+      return { bg: "bg-yellow-100", text: "text-yellow-800", border: "border-yellow-300", label: "不通" };
+    }
+    return getStatusColor(ev.status);
+  };
 
   // 週のサマリー（scheduleモード時）
   const weekSummary = !showModeSwitch
@@ -576,10 +585,10 @@ export default function CalendarView({
               <span className="text-slate-500">ステータス</span>
               <span
                 className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                  getStatusColor(popover.event.status).bg
-                } ${getStatusColor(popover.event.status).text}`}
+                  getEventColor(popover.event).bg
+                } ${getEventColor(popover.event).text}`}
               >
-                {getStatusColor(popover.event.status).label}
+                {getEventColor(popover.event).label}
               </span>
             </div>
             {popover.event.patient_tel && (
@@ -895,7 +904,7 @@ function ScheduleWeekView({
                     }`}
                   >
                     {dayEventsInSlot.map((ev) => {
-                      const color = getStatusColor(ev.status);
+                      const color = getEventColor(ev);
                       return (
                         <button
                           key={ev.id}
