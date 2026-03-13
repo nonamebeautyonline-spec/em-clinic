@@ -419,3 +419,82 @@ describe("intake upsert禁止: 全ルート監査", () => {
     expect(violations).toEqual([]);
   });
 });
+
+// ===================================================================
+// SWR移行: 基盤設定と移行品質の自動監査
+// ===================================================================
+describe("SWR移行ルール", () => {
+  it("admin layout.tsx に SWRProvider が含まれている", () => {
+    const src = readFile("app/admin/layout.tsx");
+    expect(src).toContain("SWRProvider");
+    expect(src).toContain('import { SWRProvider }');
+  });
+
+  it("SWR config の fetcher が credentials: include を付与している", () => {
+    const src = readFile("lib/swr/config.ts");
+    expect(src).toContain('credentials: "include"');
+  });
+
+  it("SWR config で revalidateOnFocus: false（医療データ保護）", () => {
+    const src = readFile("lib/swr/config.ts");
+    expect(src).toContain("revalidateOnFocus: false");
+  });
+
+  // SWR移行済みページリスト: 移行完了時にここに追加
+  const SWR_MIGRATED_PAGES = [
+    "app/admin/line/tags/page.tsx",
+    "app/admin/line/marks/page.tsx",
+    "app/admin/shipping/settings/page.tsx",
+    "app/admin/products/page.tsx",
+    "app/admin/inventory/page.tsx",
+    "app/admin/line/templates/page.tsx",
+  ];
+
+  for (const pagePath of SWR_MIGRATED_PAGES) {
+    describe(`移行済みページ: ${pagePath}`, () => {
+      const src = readFile(pagePath);
+
+      it("useEffect内でデータ取得fetchを使用していない", () => {
+        // useEffect(... fetch( ... のパターンを検出
+        // ただしmutation（POST/PUT/DELETE）のfetchは許可（auto-save等）
+        const useEffectBlocks = src.match(/useEffect\s*\(\s*\(\)\s*=>\s*\{[\s\S]*?\}\s*,\s*\[/g) || [];
+        for (const block of useEffectBlocks) {
+          // fetch呼び出しがある場合、それがmutation（method指定あり）でなければNG
+          const fetchCalls = block.match(/fetch\s*\(/g) || [];
+          const mutationFetches = block.match(/method\s*:\s*["'](POST|PUT|DELETE)["']/g) || [];
+          // 全fetchがmutationなら許可（auto-save等のパターン）
+          const dataFetchCount = fetchCalls.length - mutationFetches.length;
+          expect(dataFetchCount).toBeLessThanOrEqual(0);
+        }
+      });
+
+      it("setIntervalを使用していない", () => {
+        expect(src).not.toMatch(/setInterval\s*\(/);
+      });
+
+      it("useCallbackでfetchDataを定義していない", () => {
+        expect(src).not.toMatch(/useCallback\s*\(\s*async\s*\(\)\s*=>\s*\{[\s\S]*?fetch\s*\(/);
+      });
+    });
+  }
+});
+
+// ===================================================================
+// 事故: Vercel fire-and-forget で予約通知29件がfetch failed（2026-03-13）
+// APIルートでレスポンス返却前にasync処理をawaitしないと
+// Vercelサーバーレス環境でコンテキスト破棄→fetch failedになる
+// ===================================================================
+describe("reservations/route.ts: fire-and-forget禁止", () => {
+  const src = readFile("app/api/reservations/route.ts");
+
+  it("executeReservationActionsはawaitで呼び出している", () => {
+    // fire-and-forget パターン: executeReservationActions({...}).catch(...)
+    const fireAndForget = src.match(/executeReservationActions\s*\(\s*\{[\s\S]*?\}\s*\)\s*\.catch/g) || [];
+    expect(fireAndForget).toHaveLength(0);
+  });
+
+  it("evaluateMenuRulesはawaitで呼び出している", () => {
+    const fireAndForget = src.match(/evaluateMenuRules\s*\([^)]*\)\s*\.catch/g) || [];
+    expect(fireAndForget).toHaveLength(0);
+  });
+});
