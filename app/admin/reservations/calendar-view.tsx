@@ -498,6 +498,7 @@ export default function CalendarView({
               overrides={overrides}
               onEventClick={showPopover}
               getStatusColor={getStatusColor}
+              getEventColor={getEventColor}
             />
           )}
         </>
@@ -767,6 +768,7 @@ function ScheduleWeekView({
   overrides,
   onEventClick,
   getStatusColor,
+  getEventColor,
 }: {
   currentDate: Date;
   events: CalendarEvent[];
@@ -775,6 +777,12 @@ function ScheduleWeekView({
   overrides: DateOverride[];
   onEventClick: (event: CalendarEvent, e: React.MouseEvent) => void;
   getStatusColor: (status: string) => {
+    bg: string;
+    text: string;
+    border: string;
+    label: string;
+  };
+  getEventColor: (ev: CalendarEvent) => {
     bg: string;
     text: string;
     border: string;
