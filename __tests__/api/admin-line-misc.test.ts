@@ -169,6 +169,155 @@ describe("friends-list API", () => {
     expect(json.patients[0].last_sent_at).toBeNull();
     expect(json.patients[0].last_message).toBe("承認通知です");
   });
+
+  it("RPC エラー → 500", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: null, error: { message: "DB error" } }) as never,
+    );
+
+    const res = await friendsListGET(createReq("GET", "http://localhost/api/admin/line/friends-list"));
+    expect(res.status).toBe(500);
+  });
+
+  it("hasMore: データがlimit+1件以上 → hasMore=true", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    // 51件のデータを返す（limit=50なので51件目でhasMore=true）
+    const rows = Array.from({ length: 51 }, (_, i) => ({
+      patient_id: `P${i}`,
+      patient_name: `患者${i}`,
+      line_id: `U${i}`,
+      line_display_name: null,
+      line_picture_url: null,
+      mark: "none",
+      last_msg_content: null,
+      last_msg_at: null,
+      last_incoming_at: null,
+      last_template_content: null,
+      last_event_content: null,
+      last_event_type: null,
+      last_outgoing_content: null,
+      last_outgoing_at: null,
+    }));
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: rows, error: null }) as never,
+    );
+
+    const res = await friendsListGET(createReq("GET", "http://localhost/api/admin/line/friends-list"));
+    const json = await res.json();
+    expect(json.hasMore).toBe(true);
+    expect(json.patients.length).toBe(50);
+  });
+
+  it("pin_ids パラメータ → ピン留め患者を補完", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    // メインRPC結果（P001のみ）
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({
+        data: [{
+          patient_id: "P001",
+          patient_name: "メイン患者",
+          line_id: "U001",
+          line_display_name: null,
+          line_picture_url: null,
+          mark: "none",
+          last_msg_content: "こんにちは",
+          last_msg_at: "2026-03-01T10:00:00Z",
+          last_incoming_at: "2026-03-01T10:00:00Z",
+          last_template_content: null,
+          last_event_content: null,
+          last_event_type: null,
+          last_outgoing_content: null,
+          last_outgoing_at: null,
+        }],
+        error: null,
+      }) as never,
+    );
+
+    // friend_summariesからピン患者を取得
+    const fsChain = getOrCreateChain("friend_summaries");
+    fsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+      data: [{
+        patient_id: "P002",
+        last_msg_content: "ピン患者メッセージ",
+        last_msg_at: "2026-03-01T09:00:00Z",
+        last_incoming_at: "2026-03-01T09:00:00Z",
+        last_template_content: null,
+        last_event_content: null,
+        last_event_type: null,
+        last_outgoing_content: null,
+        last_outgoing_at: null,
+        patients: { name: "ピン患者", line_id: "U002", line_display_name: null, line_picture_url: null },
+        patient_marks: { mark: "red" },
+      }],
+      error: null,
+    }));
+
+    const url = "http://localhost/api/admin/line/friends-list?pin_ids=P001,P002";
+    const res = await friendsListGET(createReq("GET", url));
+    const json = await res.json();
+    expect(json.patients.length).toBe(2);
+    // P002がピン補完された
+    const pinPatient = json.patients.find((p: { patient_id: string }) => p.patient_id === "P002");
+    expect(pinPatient).toBeDefined();
+    expect(pinPatient.patient_name).toBe("ピン患者");
+  });
+
+  it("pin_ids のうちfriend_summariesにない患者 → patientsテーブルから取得", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: [], error: null }) as never,
+    );
+
+    // friend_summariesは空（該当なし）
+    const fsChain = getOrCreateChain("friend_summaries");
+    fsChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
+
+    // patientsテーブルから取得
+    const pChain = getOrCreateChain("patients");
+    pChain.then = vi.fn((resolve: (val: unknown) => unknown) => resolve({
+      data: [{
+        patient_id: "P003",
+        name: "患者テーブル患者",
+        line_id: "U003",
+        line_display_name: "表示名",
+        line_picture_url: null,
+        patient_marks: [{ mark: "blue" }],
+      }],
+      error: null,
+    }));
+
+    const url = "http://localhost/api/admin/line/friends-list?pin_ids=P003";
+    const res = await friendsListGET(createReq("GET", url));
+    const json = await res.json();
+    const p3 = json.patients.find((p: { patient_id: string }) => p.patient_id === "P003");
+    expect(p3).toBeDefined();
+    expect(p3.patient_name).toBe("患者テーブル患者");
+  });
+
+  it("検索時はpin補完しない", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: [], error: null }) as never,
+    );
+
+    const url = "http://localhost/api/admin/line/friends-list?pin_ids=P001&name=検索";
+    const res = await friendsListGET(createReq("GET", url));
+    const json = await res.json();
+    expect(json.patients.length).toBe(0);
+  });
+
+  it("offset > 0 のときはpin補完しない", async () => {
+    const { supabaseAdmin } = await import("@/lib/supabase");
+    vi.mocked(supabaseAdmin.rpc).mockReturnValue(
+      Promise.resolve({ data: [], error: null }) as never,
+    );
+
+    const url = "http://localhost/api/admin/line/friends-list?pin_ids=P001&offset=50";
+    const res = await friendsListGET(createReq("GET", url));
+    const json = await res.json();
+    expect(json.patients.length).toBe(0);
+  });
 });
 
 // ============================================================

@@ -23,7 +23,15 @@ vi.mock("@/lib/redis", () => ({
   setSessionCache: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { verifyAdminAuth, getAdminUserId, getAdminTenantId, getAdminToken } from "@/lib/admin-auth";
+import {
+  verifyAdminAuth,
+  getAdminUserId,
+  getAdminTenantId,
+  getAdminToken,
+  getAdminPlatformRole,
+  getAdminTenantRole,
+  getAdminPayloadFromCookies,
+} from "@/lib/admin-auth";
 
 // === ヘルパー: 有効なJWTを生成 ===
 async function createTestJwt(payload: Record<string, unknown> = {}): Promise<string> {
@@ -38,9 +46,11 @@ async function createTestJwt(payload: Record<string, unknown> = {}): Promise<str
 function mockRequest(opts: {
   cookie?: string;
   bearer?: string;
+  basic?: string;
 } = {}): Record<string, unknown> {
   const headers = new Map<string, string>();
   if (opts.bearer) headers.set("authorization", `Bearer ${opts.bearer}`);
+  if (opts.basic) headers.set("authorization", `Basic ${opts.basic}`);
 
   const cookies = new Map<string, { value: string }>();
   if (opts.cookie) cookies.set("admin_session", { value: opts.cookie });
@@ -212,6 +222,123 @@ describe("getAdminToken — トークン取得", () => {
     const req = mockRequest();
 
     const result = await getAdminToken(req);
+    expect(result).toBeNull();
+  });
+});
+
+// === verifyAdminAuth Basic認証 テスト ===
+describe("verifyAdminAuth — Basic認証（Dr用）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.DR_BASIC_USER = "dr-user";
+    process.env.DR_BASIC_PASS = "dr-pass";
+  });
+
+  it("Basic認証 正しい資格情報 → true", async () => {
+    const encoded = Buffer.from("dr-user:dr-pass").toString("base64");
+    const req = mockRequest({ basic: encoded });
+
+    const result = await verifyAdminAuth(req);
+    expect(result).toBe(true);
+  });
+
+  it("Basic認証 不正な資格情報 → false", async () => {
+    const encoded = Buffer.from("wrong:wrong").toString("base64");
+    const req = mockRequest({ basic: encoded });
+
+    const result = await verifyAdminAuth(req);
+    expect(result).toBe(false);
+  });
+
+  it("Basic認証 DR環境変数未設定 → false", async () => {
+    delete process.env.DR_BASIC_USER;
+    delete process.env.DR_BASIC_PASS;
+    const encoded = Buffer.from("dr-user:dr-pass").toString("base64");
+    const req = mockRequest({ basic: encoded });
+
+    const result = await verifyAdminAuth(req);
+    expect(result).toBe(false);
+  });
+});
+
+// === getAdminPlatformRole テスト ===
+describe("getAdminPlatformRole — JWT からプラットフォームロール取得", () => {
+  it("有効なJWTからplatformRoleを返す", async () => {
+    const jwt = await createTestJwt({ platformRole: "super_admin" });
+    const req = mockRequest({ cookie: jwt });
+
+    const result = await getAdminPlatformRole(req);
+    expect(result).toBe("super_admin");
+  });
+
+  it("platformRole未設定 → デフォルト 'tenant_admin'", async () => {
+    const jwt = await createTestJwt({});
+    const req = mockRequest({ cookie: jwt });
+
+    const result = await getAdminPlatformRole(req);
+    expect(result).toBe("tenant_admin");
+  });
+
+  it("Cookie無し → デフォルト 'tenant_admin'", async () => {
+    const req = mockRequest();
+    const result = await getAdminPlatformRole(req);
+    expect(result).toBe("tenant_admin");
+  });
+
+  it("無効なJWT → デフォルト 'tenant_admin'", async () => {
+    const req = mockRequest({ cookie: "invalid" });
+    const result = await getAdminPlatformRole(req);
+    expect(result).toBe("tenant_admin");
+  });
+});
+
+// === getAdminTenantRole テスト ===
+describe("getAdminTenantRole — JWT からテナントロール取得", () => {
+  it("有効なJWTからtenantRoleを返す", async () => {
+    const jwt = await createTestJwt({ tenantRole: "staff" });
+    const req = mockRequest({ cookie: jwt });
+
+    const result = await getAdminTenantRole(req);
+    expect(result).toBe("staff");
+  });
+
+  it("tenantRole未設定 → デフォルト 'admin'", async () => {
+    const jwt = await createTestJwt({});
+    const req = mockRequest({ cookie: jwt });
+
+    const result = await getAdminTenantRole(req);
+    expect(result).toBe("admin");
+  });
+
+  it("Cookie無し → デフォルト 'admin'", async () => {
+    const req = mockRequest();
+    const result = await getAdminTenantRole(req);
+    expect(result).toBe("admin");
+  });
+});
+
+// === getAdminPayloadFromCookies テスト ===
+describe("getAdminPayloadFromCookies — Server Component用JWT解析", () => {
+  it("有効なJWT → ペイロードを返す", async () => {
+    const jwt = await createTestJwt({ userId: "u1", tenantId: "t1" });
+    const result = await getAdminPayloadFromCookies(jwt);
+    expect(result).not.toBeNull();
+    expect(result?.userId).toBe("u1");
+    expect(result?.tenantId).toBe("t1");
+  });
+
+  it("undefined → null", async () => {
+    const result = await getAdminPayloadFromCookies(undefined);
+    expect(result).toBeNull();
+  });
+
+  it("無効なJWT → null", async () => {
+    const result = await getAdminPayloadFromCookies("invalid-jwt-token");
+    expect(result).toBeNull();
+  });
+
+  it("空文字 → null", async () => {
+    const result = await getAdminPayloadFromCookies("");
     expect(result).toBeNull();
   });
 });
