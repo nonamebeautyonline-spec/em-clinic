@@ -890,7 +890,7 @@ function ScheduleWeekView({
                 return (
                   <div
                     key={dateStr}
-                    className={`border-r border-slate-100 last:border-r-0 min-h-[40px] p-0.5 ${
+                    className={`border-r border-slate-100 last:border-r-0 min-h-[40px] min-w-0 overflow-hidden p-0.5 ${
                       today ? "bg-blue-50/20" : ""
                     }`}
                   >
@@ -900,14 +900,14 @@ function ScheduleWeekView({
                         <button
                           key={ev.id}
                           onClick={(e) => onEventClick(ev, e)}
-                          className={`w-full text-left text-[10px] leading-tight px-1.5 py-1 rounded border mb-0.5 ${color.bg} ${color.text} ${color.border} hover:opacity-80 transition-opacity`}
+                          className={`w-full text-left text-[10px] leading-tight px-1.5 py-1 rounded border mb-0.5 h-[56px] overflow-hidden ${color.bg} ${color.text} ${color.border} hover:opacity-80 transition-opacity`}
                         >
                           <div className="flex items-center gap-1">
                             <span className="font-mono font-semibold">
                               {ev.reserved_time}
                             </span>
                           </div>
-                          <div className="font-medium truncate">
+                          <div className="font-medium break-words">
                             {ev.patient_name || "名前なし"}{" "}
                             <a
                               href={`/admin/line/talk?pid=${ev.patient_id}`}
