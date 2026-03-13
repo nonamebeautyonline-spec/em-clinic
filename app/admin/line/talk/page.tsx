@@ -945,11 +945,27 @@ export default function TalkPage() {
   // ポーリング: 左カラムの友だちリストを更新（現在の検索条件で再取得）
   const pollFriendsList = useCallback(async () => {
     try {
+      // 他管理者のピン変更を反映するためDBから再取得
+      const pinsRes = await fetch("/api/admin/pins", { credentials: "include" });
+      const pinsData = await pinsRes.json();
+      if (Array.isArray(pinsData.pins)) {
+        const newPins: string[] = pinsData.pins;
+        if (JSON.stringify(newPins) !== JSON.stringify(pinnedIdsRef.current)) {
+          setPinnedIds(newPins);
+          pinnedIdsRef.current = newPins;
+        }
+      }
+
       const params = new URLSearchParams();
       if (searchId) params.set("id", searchId);
       if (searchName) params.set("name", searchName);
       params.set("offset", "0");
       params.set("limit", String(Math.max(50, friends.length)));
+      // ピン患者IDを送信して補完を有効化（検索中は不要）
+      const pinIds = pinnedIdsRef.current;
+      if (pinIds.length > 0 && !searchId && !searchName) {
+        params.set("pin_ids", pinIds.join(","));
+      }
       const res = await fetch(`/api/admin/line/friends-list?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.patients) {
