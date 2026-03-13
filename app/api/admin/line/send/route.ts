@@ -8,6 +8,7 @@ import { parseBody } from "@/lib/validations/helpers";
 import { lineSendSchema } from "@/lib/validations/line-broadcast";
 import { handleImplicitAiFeedback } from "@/lib/ai-reply";
 import { sanitizeFlexContents } from "@/lib/flex-sanitize";
+import { invalidateFriendsListCache } from "@/lib/redis";
 
 // 個別メッセージ送信
 export async function POST(req: NextRequest) {
@@ -209,6 +210,9 @@ export async function POST(req: NextRequest) {
   if (message_type !== "image") {
     handleImplicitAiFeedback(patient_id, resolvedMessage, tenantId).catch(() => {});
   }
+
+  // friends-list Redisキャッシュ無効化（fire-and-forget）
+  invalidateFriendsListCache(tenantId || "00000000-0000-0000-0000-000000000001").catch(() => {});
 
   return NextResponse.json({ ok: true, status: "sent", patient_name: patient.name, messageId: msgLog?.id, sentAt: msgLog?.sent_at });
 }

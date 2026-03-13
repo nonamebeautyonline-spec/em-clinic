@@ -15,6 +15,12 @@ const TEST_SECRET = vi.hoisted(() => {
 const mockValidateSession = vi.fn();
 vi.mock("@/lib/session", () => ({
   validateSession: (...args: unknown[]) => mockValidateSession(...args),
+  hashToken: (jwt: string) => `hash_${jwt.slice(0, 8)}`,
+}));
+
+vi.mock("@/lib/redis", () => ({
+  getSessionCache: vi.fn().mockResolvedValue(null),
+  setSessionCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { verifyAdminAuth, getAdminUserId, getAdminTenantId, getAdminToken } from "@/lib/admin-auth";

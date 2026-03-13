@@ -4,7 +4,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 export const maxDuration = 60;
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase";
-import { invalidateDashboardCache } from "@/lib/redis";
+import { invalidateDashboardCache, invalidateFriendsListCache } from "@/lib/redis";
 import { pushMessage } from "@/lib/line-push";
 import { checkFollowTriggerScenarios, checkKeywordTriggerScenarios, exitAllStepEnrollments } from "@/lib/step-enrollment";
 import { resolveTenantId, withTenant, tenantPayload, DEFAULT_TENANT_ID } from "@/lib/tenant";
@@ -314,6 +314,8 @@ async function logEvent(params: {
     payload.keyword_reply_id = params.keyword_reply_id;
   }
   await supabaseAdmin.from("message_log").insert(payload);
+  // friends-list Redisキャッシュ無効化（fire-and-forget）
+  invalidateFriendsListCache(params.tenantId || DEFAULT_TENANT_ID).catch(() => {});
 }
 
 // =================================================================

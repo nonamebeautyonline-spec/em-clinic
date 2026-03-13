@@ -67,6 +67,7 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/redis", () => ({
   invalidateDashboardCache: vi.fn().mockResolvedValue(undefined),
+  invalidateFriendsListCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/line-push", () => ({

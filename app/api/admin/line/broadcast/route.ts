@@ -10,6 +10,7 @@ import {
 } from "@/lib/behavior-filters";
 import { parseBody } from "@/lib/validations/helpers";
 import { broadcastSchema } from "@/lib/validations/line-broadcast";
+import { invalidateFriendsListCache } from "@/lib/redis";
 
 // Supabaseは1リクエスト最大1000行のため、全件取得にはページネーションが必要
 async function fetchAll(buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: Record<string, unknown>[] | null; error: { message: string } | null }> }, pageSize = 5000) {
@@ -207,6 +208,9 @@ export async function POST(req: NextRequest) {
     }).eq("id", broadcast.id),
     tenantId
   );
+
+  // friends-list Redisキャッシュ無効化（fire-and-forget）
+  invalidateFriendsListCache(tenantId || "00000000-0000-0000-0000-000000000001").catch(() => {});
 
   return NextResponse.json({
     ok: true,

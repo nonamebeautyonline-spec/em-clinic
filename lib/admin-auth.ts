@@ -2,8 +2,9 @@
 // 管理者認証ヘルパー
 
 import { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-import { validateSession } from "@/lib/session";
+import { jwtVerify, type JWTPayload } from "jose";
+import { validateSession, hashToken } from "@/lib/session";
+import { getSessionCache, setSessionCache } from "@/lib/redis";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_TOKEN;
 if (!JWT_SECRET) {
@@ -22,9 +23,15 @@ export async function verifyAdminAuth(request: NextRequest): Promise<boolean> {
     try {
       const secret = new TextEncoder().encode(JWT_SECRET);
       await jwtVerify(sessionCookie, secret);
-      // サーバー側セッション存在チェック（admin_sessionsテーブル未作成時はスキップ）
+      // Redisキャッシュでセッション検証を高速化
+      const tokenH = hashToken(sessionCookie);
+      const cached = await getSessionCache(tokenH);
+      if (cached === true) return true;
+      if (cached === false) return false;
+      // キャッシュミス: DB検証してキャッシュに保存
       try {
         const isValid = await validateSession(sessionCookie);
+        setSessionCache(tokenH, isValid).catch(() => {});
         if (!isValid) return false;
       } catch {
         // admin_sessionsテーブル未作成時はJWT検証のみで認証成功
@@ -130,6 +137,23 @@ export async function getAdminTenantRole(request: NextRequest): Promise<string> 
     }
   }
   return "admin";
+}
+
+/**
+ * Server Component用: cookiesからJWTペイロードを取得
+ * cookies()の結果を受け取る（Server Component側で await cookies() して渡す）
+ */
+export async function getAdminPayloadFromCookies(
+  cookieValue: string | undefined,
+): Promise<(JWTPayload & { userId?: string; tenantId?: string | null }) | null> {
+  if (!cookieValue) return null;
+  try {
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    const { payload } = await jwtVerify(cookieValue, secret);
+    return payload as JWTPayload & { userId?: string; tenantId?: string | null };
+  } catch {
+    return null;
+  }
 }
 
 export async function getAdminToken(request: NextRequest): Promise<string | null> {

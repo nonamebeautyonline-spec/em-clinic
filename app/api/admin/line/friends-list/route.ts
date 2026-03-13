@@ -3,51 +3,34 @@ import { serverError, unauthorized } from "@/lib/api-error";
 import { supabaseAdmin } from "@/lib/supabase";
 import { verifyAdminAuth } from "@/lib/admin-auth";
 import { resolveTenantId } from "@/lib/tenant";
+import { getFriendsListCache, setFriendsListCache } from "@/lib/redis";
+import { transformFriendsRow as transformRow } from "@/lib/friends-list-transform";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function transformRow(row: any) {
-  const isBlocked = row.last_event_type === "unfollow";
-  const eventDisplay = isBlocked ? "ブロックされました"
-    : row.last_event_content?.includes("再追加") ? "友だち再登録"
-    : row.last_event_content ? "【友達追加】" : null;
-  const tplName = row.last_template_content?.match(/^【.+?】/)?.[0] || row.last_template_content;
-  return {
-    patient_id: row.patient_id,
-    patient_name: row.patient_name || "",
-    line_id: row.line_id,
-    line_display_name: row.line_display_name || null,
-    line_picture_url: row.line_picture_url || null,
-    mark: row.mark || "none",
-    is_blocked: !!isBlocked,
-    tags: [],
-    fields: {},
-    last_message: row.last_msg_content || tplName || row.last_outgoing_content || eventDisplay || null,
-    last_sent_at: row.last_incoming_at || null,
-    last_text_at: row.last_msg_at || null,
-    last_activity_at: [row.last_msg_at, row.last_incoming_at, row.last_outgoing_at]
-      .filter(Boolean)
-      .sort()
-      .pop() || null,
-  };
-}
+/**
+ * ベースデータ取得（Redisキャッシュ or RPC）
+ * 検索なし時のみキャッシュを利用
+ */
+async function fetchBaseData(
+  tenantId: string | null,
+  effectiveTenantId: string,
+  searchId: string,
+  searchName: string,
+  offset: number,
+  limit: number,
+  tAuth: number,
+): Promise<{ patients: ReturnType<typeof transformRow>[]; hasMore: boolean; tRpc: number; cacheHit: boolean } | NextResponse> {
+  const isSearchQuery = !!(searchId || searchName);
 
-// 友達一覧（サーバーサイド検索・ページネーション対応）
-export async function GET(req: NextRequest) {
-  const t0 = Date.now();
+  // 検索なし時のみRedisキャッシュを利用
+  if (!isSearchQuery) {
+    const cached = await getFriendsListCache(effectiveTenantId, offset, limit);
+    if (cached) {
+      const base = cached as { patients: ReturnType<typeof transformRow>[]; hasMore: boolean };
+      return { patients: [...base.patients], hasMore: base.hasMore, tRpc: tAuth, cacheHit: true };
+    }
+  }
 
-  const isAuthorized = await verifyAdminAuth(req);
-  const tAuth = Date.now();
-  if (!isAuthorized) return unauthorized();
-
-  const tenantId = resolveTenantId(req);
-  const url = req.nextUrl;
-  const searchId = url.searchParams.get("id")?.trim() || "";
-  const searchName = url.searchParams.get("name")?.trim() || "";
-  const pinIdsRaw = url.searchParams.get("pin_ids")?.trim() || "";
-  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
-  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
-
-  // メイン: RPC で検索・ページネーション
+  // RPC で検索・ページネーション
   const { data, error } = await supabaseAdmin.rpc("get_friends_list_v2", {
     p_tenant_id: tenantId || null,
     p_search_id: searchId || null,
@@ -67,6 +50,37 @@ export async function GET(req: NextRequest) {
   const sliced = hasMore ? rows.slice(0, limit) : rows;
   const patients = sliced.map(transformRow);
 
+  // 検索なし時はキャッシュに保存（ピン補完前のベースデータ）
+  if (!isSearchQuery) {
+    setFriendsListCache(effectiveTenantId, offset, limit, { patients, hasMore }).catch(() => {});
+  }
+
+  return { patients, hasMore, tRpc, cacheHit: false };
+}
+
+// 友達一覧（サーバーサイド検索・ページネーション対応）
+export async function GET(req: NextRequest) {
+  const t0 = Date.now();
+
+  const isAuthorized = await verifyAdminAuth(req);
+  const tAuth = Date.now();
+  if (!isAuthorized) return unauthorized();
+
+  const tenantId = resolveTenantId(req);
+  const url = req.nextUrl;
+  const searchId = url.searchParams.get("id")?.trim() || "";
+  const searchName = url.searchParams.get("name")?.trim() || "";
+  const pinIdsRaw = url.searchParams.get("pin_ids")?.trim() || "";
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10) || 0);
+  const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+
+  const effectiveTenantId = tenantId || "00000000-0000-0000-0000-000000000001";
+
+  const result = await fetchBaseData(tenantId, effectiveTenantId, searchId, searchName, offset, limit, tAuth);
+  if (result instanceof NextResponse) return result;
+
+  const { patients, hasMore, tRpc, cacheHit } = result;
+
   // ピン留め患者を補完（初回ロード時のみ、メイン結果に含まれないピンを別途取得）
   if (pinIdsRaw && !searchId && !searchName && offset === 0) {
     const pinIds = pinIdsRaw.split(",").filter(Boolean);
@@ -74,7 +88,7 @@ export async function GET(req: NextRequest) {
     const missingPinIds = pinIds.filter(id => !existingIds.has(id));
 
     if (missingPinIds.length > 0) {
-      const tid = tenantId || "00000000-0000-0000-0000-000000000001";
+      const tid = effectiveTenantId;
       // friend_summaries から取得
       const { data: pinRows } = await supabaseAdmin
         .from("friend_summaries")
@@ -159,6 +173,7 @@ export async function GET(req: NextRequest) {
     transform_ms: tEnd - tRpc,
     total_ms: tEnd - t0,
     rows: patients.length,
+    ...(cacheHit ? { cache: "hit" as const } : {}),
   };
   console.log("[friends-list]", _timing);
 

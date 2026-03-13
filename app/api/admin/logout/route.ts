@@ -1,6 +1,7 @@
 // app/api/admin/logout/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { revokeSession } from "@/lib/session";
+import { revokeSession, hashToken } from "@/lib/session";
+import { invalidateSessionCache } from "@/lib/redis";
 
 export async function POST(req: NextRequest) {
   // サーバー側セッション削除
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
     revokeSession(sessionCookie).catch((err) =>
       console.error("[Admin Logout] Session revoke error:", err),
     );
+    invalidateSessionCache(hashToken(sessionCookie)).catch(() => {});
   }
 
   const response = NextResponse.json({ ok: true });

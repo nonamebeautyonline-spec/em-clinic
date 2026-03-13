@@ -163,7 +163,7 @@ describe("lineSendSchema: scheduled_at フィールド", () => {
 // トーク画面UI: 予約送信関連のstate・ロジック
 // ===================================================================
 describe("トーク画面: 予約送信UI", () => {
-  const file = "app/admin/line/talk/page.tsx";
+  const file = "app/admin/line/talk/_components/TalkClient.tsx";
 
   it("scheduleMode state が定義されている", () => {
     const src = readFile(file);
@@ -234,7 +234,7 @@ describe("トーク画面: 予約送信UI", () => {
 // ===================================================================
 describe("予約送信: 日時バリデーション", () => {
   it("最小日時は現在時刻+5分", () => {
-    const src = readFile("app/admin/line/talk/page.tsx");
+    const src = readFile("app/admin/line/talk/_components/TalkClient.tsx");
     // UIのmin属性で5分先を設定
     expect(src).toContain("5 * 60 * 1000");
   });

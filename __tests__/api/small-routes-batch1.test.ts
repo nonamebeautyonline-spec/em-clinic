@@ -50,6 +50,7 @@ vi.mock("@/lib/tenant", () => ({
 // Redis モック
 vi.mock("@/lib/redis", () => ({
   invalidateDashboardCache: vi.fn().mockResolvedValue(undefined),
+  invalidateSessionCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 // jose モック（session / update-order-address用）
@@ -72,6 +73,7 @@ vi.mock("jose", () => ({
 // session モック（logout用）
 vi.mock("@/lib/session", () => ({
   revokeSession: vi.fn().mockResolvedValue(undefined),
+  hashToken: vi.fn((jwt: string) => `hash_${jwt.slice(0, 8)}`),
 }));
 
 // undo モック
