@@ -1,7 +1,7 @@
 // イベント通知設定（通知ON/OFF + FLEXメッセージカスタマイズ統合）
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
@@ -203,48 +203,51 @@ export default function FlexSection({ onToast }: Props) {
   const [configInitialized, setConfigInitialized] = useState(false);
 
   // Flex設定読み込み
-  const { isLoading: flexLoading } = useSWR<{ config?: FlexMessageConfig }>("/api/admin/flex-settings", {
+  const { data: flexData, isLoading: flexLoading } = useSWR<{ config?: FlexMessageConfig }>("/api/admin/flex-settings", {
     revalidateOnFocus: false,
-    onSuccess: (flexData) => {
-      if (configInitialized) return;
-      if (flexData.config) setFlexConfig(flexData.config);
-    },
   });
 
+  useEffect(() => {
+    if (configInitialized) return;
+    if (flexData?.config) setFlexConfig(flexData.config);
+  }, [flexData, configInitialized]);
+
   // イベント通知設定読み込み
-  const { isLoading: eventLoading } = useSWR<{ settings?: Record<string, string> }>("/api/admin/settings?category=business_rules", {
+  const { data: eventData, isLoading: eventLoading } = useSWR<{ settings?: Record<string, string> }>("/api/admin/settings?category=business_rules", {
     revalidateOnFocus: false,
-    onSuccess: (eventData) => {
-      if (configInitialized) return;
-      if (eventData.settings && typeof eventData.settings === "object") {
-        const s = eventData.settings;
-        setEventConfig(prev => ({
-          ...prev,
-          notifyReorderApply: s.notify_reorder_apply !== undefined ? s.notify_reorder_apply !== "false" : prev.notifyReorderApply,
-          notifyReorderApprove: s.notify_reorder_approve !== undefined ? s.notify_reorder_approve !== "false" : prev.notifyReorderApprove,
-          notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
-          intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
-          approveMessage: s.approve_message || prev.approveMessage,
-          paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
-          paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
-          showProductName: s.show_product_name !== undefined ? s.show_product_name !== "false" : prev.showProductName,
-          showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
-          showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
-          showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
-          showShippingName: s.show_shipping_name !== undefined ? s.show_shipping_name !== "false" : prev.showShippingName,
-          showShippingPostal: s.show_shipping_postal !== undefined ? s.show_shipping_postal !== "false" : prev.showShippingPostal,
-          showShippingAddress: s.show_shipping_address !== undefined ? s.show_shipping_address !== "false" : prev.showShippingAddress,
-          showShippingPhone: s.show_shipping_phone !== undefined ? s.show_shipping_phone !== "false" : prev.showShippingPhone,
-          showShippingEmail: s.show_shipping_email !== undefined ? s.show_shipping_email !== "false" : prev.showShippingEmail,
-          paymentThankHeaderCard: s.payment_thank_header_card || prev.paymentThankHeaderCard,
-          paymentThankHeaderBank: s.payment_thank_header_bank || prev.paymentThankHeaderBank,
-          notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
-          noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
-        }));
-      }
-      setConfigInitialized(true);
-    },
   });
+
+  useEffect(() => {
+    if (configInitialized) return;
+    if (!eventData) return;
+    if (eventData.settings && typeof eventData.settings === "object") {
+      const s = eventData.settings;
+      setEventConfig(prev => ({
+        ...prev,
+        notifyReorderApply: s.notify_reorder_apply !== undefined ? s.notify_reorder_apply !== "false" : prev.notifyReorderApply,
+        notifyReorderApprove: s.notify_reorder_approve !== undefined ? s.notify_reorder_approve !== "false" : prev.notifyReorderApprove,
+        notifyReorderPaid: s.notify_reorder_paid !== undefined ? s.notify_reorder_paid !== "false" : prev.notifyReorderPaid,
+        intakeReminderHours: s.intake_reminder_hours ? parseInt(s.intake_reminder_hours, 10) : prev.intakeReminderHours,
+        approveMessage: s.approve_message || prev.approveMessage,
+        paymentThankMessageCard: s.payment_thank_message_card || prev.paymentThankMessageCard,
+        paymentThankMessageBank: s.payment_thank_message_bank || prev.paymentThankMessageBank,
+        showProductName: s.show_product_name !== undefined ? s.show_product_name !== "false" : prev.showProductName,
+        showAmount: s.show_amount !== undefined ? s.show_amount !== "false" : prev.showAmount,
+        showPaymentMethod: s.show_payment_method !== undefined ? s.show_payment_method !== "false" : prev.showPaymentMethod,
+        showShippingInfo: s.show_shipping_info !== undefined ? s.show_shipping_info !== "false" : prev.showShippingInfo,
+        showShippingName: s.show_shipping_name !== undefined ? s.show_shipping_name !== "false" : prev.showShippingName,
+        showShippingPostal: s.show_shipping_postal !== undefined ? s.show_shipping_postal !== "false" : prev.showShippingPostal,
+        showShippingAddress: s.show_shipping_address !== undefined ? s.show_shipping_address !== "false" : prev.showShippingAddress,
+        showShippingPhone: s.show_shipping_phone !== undefined ? s.show_shipping_phone !== "false" : prev.showShippingPhone,
+        showShippingEmail: s.show_shipping_email !== undefined ? s.show_shipping_email !== "false" : prev.showShippingEmail,
+        paymentThankHeaderCard: s.payment_thank_header_card || prev.paymentThankHeaderCard,
+        paymentThankHeaderBank: s.payment_thank_header_bank || prev.paymentThankHeaderBank,
+        notifyNoAnswer: s.notify_no_answer !== undefined ? s.notify_no_answer !== "false" : prev.notifyNoAnswer,
+        noAnswerMessage: s.no_answer_message || prev.noAnswerMessage,
+      }));
+    }
+    setConfigInitialized(true);
+  }, [eventData, configInitialized]);
 
   const loading = flexLoading || eventLoading;
 

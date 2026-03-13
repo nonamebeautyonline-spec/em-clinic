@@ -1,7 +1,7 @@
 // 診察設定セクション — 診察モード・LINEコールURL
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useSWR, { mutate } from "swr";
 
 // --- 型定義 ---
@@ -48,21 +48,24 @@ export default function ConsultationSection({ onToast }: ConsultationSectionProp
   const [configInitialized, setConfigInitialized] = useState(false);
 
   const consultationKey = "/api/admin/settings?category=consultation";
-  const { isLoading: loading } = useSWR<{ settings?: Record<string, string> }>(consultationKey, {
+  const { data: consultationData, isLoading: loading } = useSWR<{ settings?: Record<string, string> }>(consultationKey, {
     revalidateOnFocus: false,
-    onSuccess: (data) => {
-      if (configInitialized) return;
-      if (data.settings && typeof data.settings === "object") {
-        setConfig(prev => ({
-          ...prev,
-          type: (data.settings!.type || prev.type) as ConsultationType,
-          lineCallUrl: data.settings!.line_call_url || prev.lineCallUrl,
-          reorderRequiresReservation: data.settings!.reorder_requires_reservation === "true",
-        }));
-      }
-      setConfigInitialized(true);
-    },
   });
+
+  useEffect(() => {
+    if (configInitialized) return;
+    if (!consultationData) return;
+    if (consultationData.settings && typeof consultationData.settings === "object") {
+      const s = consultationData.settings;
+      setConfig(prev => ({
+        ...prev,
+        type: (s.type || prev.type) as ConsultationType,
+        lineCallUrl: s.line_call_url || prev.lineCallUrl,
+        reorderRequiresReservation: s.reorder_requires_reservation === "true",
+      }));
+    }
+    setConfigInitialized(true);
+  }, [consultationData, configInitialized]);
 
   // --- 保存 ---
   const handleSave = async () => {

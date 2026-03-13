@@ -71,14 +71,13 @@ export default function PlatformMembersPage() {
 
   const { data: rawData, error: swrError, isLoading: loading } = useSWR<MembersResponse>(
     `/api/platform/members?${memberParams}`,
-    {
-      onSuccess: (data) => {
-        if (data.tenants && data.tenants.length > 0) {
-          setTenantsCache(data.tenants);
-        }
-      },
-    }
   );
+
+  useEffect(() => {
+    if (rawData?.tenants && rawData.tenants.length > 0) {
+      setTenantsCache(rawData.tenants);
+    }
+  }, [rawData]);
 
   const members = rawData?.members || [];
   const total = rawData?.total || 0;

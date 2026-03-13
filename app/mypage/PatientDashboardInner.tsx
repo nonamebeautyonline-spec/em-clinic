@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Image from "next/image";
 import Link from "next/link";
@@ -355,40 +355,30 @@ const [editAddress, setEditAddress] = useState("");
 const [editShippingName, setEditShippingName] = useState("");
 const [addressSaving, setAddressSaving] = useState(false);
 
-// マイページ設定（管理者カスタマイズ）
-const [mpColors, setMpColors] = useState({ primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" });
-const [mpSections, setMpSections] = useState({ showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true });
-const [mpContent, setMpContent] = useState({ clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" });
-const [mpLabels, setMpLabels] = useState({
+// マイページ設定デフォルト値
+const DEFAULT_MP_COLORS = { primary: "#ec4899", primaryHover: "#db2777", primaryLight: "#fdf2f8", pageBg: "#FFF8FB", primaryText: "#be185d" };
+const DEFAULT_MP_SECTIONS = { showIntake: true, showReserveButton: true, showReservation: true, showOrders: true, showReorder: true, showHistory: true, showSupport: true };
+const DEFAULT_MP_CONTENT = { clinicName: "", logoUrl: "", supportMessage: "予約やお薬、体調についてご不安な点があれば、LINEからいつでもご相談いただけます。", supportUrl: "", supportButtonLabel: "LINEで問い合わせる", supportNote: "※ 診察中・夜間など、返信までお時間をいただく場合があります。" };
+const DEFAULT_MP_LABELS = {
   intakeButtonLabel: "問診に進む", intakeCompleteText: "問診はすでに完了しています", intakeGuideText: "問診の入力は不要です。このまま予約にお進みください。", intakeNoteText: "※ 問診の入力が終わると、診察予約画面に進みます。",
   reserveButtonLabel: "予約に進む", purchaseButtonLabel: "決済に進む", reorderButtonLabel: "再処方を申請する",
   reservationTitle: "次回のご予約", ordersTitle: "注文／申請・発送状況", historyTitle: "これまでの処方歴", supportTitle: "お困りの方へ",
   noOrdersText: "現在、発送状況の確認が必要なお薬はありません。", noHistoryText: "まだ処方の履歴はありません。",
   phoneNotice: "",
   cancelNotice: "",
-});
-
-// 再処方予約必須設定
-const [reorderRequiresReservation, setReorderRequiresReservation] = useState(false);
-
-// 予約設定（期限制御用）
-const [reservationSettings, setReservationSettings] = useState<{
-  change_deadline_hours: number;
-  cancel_deadline_hours: number;
-} | null>(null);
+};
 
 // マイページ設定をSWRで取得
 const { data: settingsData } = useSWR("/api/mypage/settings", swrFetcher, {
   revalidateOnFocus: false,
-  onSuccess: (d) => {
-    if (d.config?.colors) setMpColors(d.config.colors);
-    if (d.config?.sections) setMpSections(d.config.sections);
-    if (d.config?.content) setMpContent(d.config.content);
-    if (d.config?.labels) setMpLabels(d.config.labels);
-    if (d.consultation?.reorderRequiresReservation) setReorderRequiresReservation(true);
-  },
 });
-void settingsData; // SWR管理のため直接使用せずonSuccessで反映
+
+// SWRデータから直接導出（useEffect経由のsetStateだとページ遷移時に1フレーム空になる）
+const mpColors = useMemo(() => settingsData?.config?.colors ?? DEFAULT_MP_COLORS, [settingsData]);
+const mpSections = useMemo(() => settingsData?.config?.sections ?? DEFAULT_MP_SECTIONS, [settingsData]);
+const mpContent = useMemo(() => settingsData?.config?.content ?? DEFAULT_MP_CONTENT, [settingsData]);
+const mpLabels = useMemo(() => settingsData?.config?.labels ?? DEFAULT_MP_LABELS, [settingsData]);
+const reorderRequiresReservation = settingsData?.consultation?.reorderRequiresReservation ?? false;
 
 const showToast = (msg: string) => {
   setToast(msg);
@@ -580,11 +570,8 @@ const reservationSettingsKey = data?.nextReservation
   : null;
 const { data: resvSettingsData } = useSWR(reservationSettingsKey, swrFetcher, {
   revalidateOnFocus: false,
-  onSuccess: (json) => {
-    if (json.settings) setReservationSettings(json.settings);
-  },
 });
-void resvSettingsData;
+const reservationSettings = resvSettingsData?.settings ?? null;
 
   // ▼ 日時変更
   const handleChangeReservation = () => {

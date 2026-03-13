@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import useSWR from "swr";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -24,13 +24,13 @@ function Inner() {
     needsLineLogin?: boolean;
     registered?: boolean;
     verifyComplete?: boolean;
-  }>("/api/register/check", swrFetcher, {
-    onSuccess: (data) => {
-      if (data.needsLineLogin) {
-        window.location.href = "/api/line/login?returnUrl=/register";
-      }
-    },
-  });
+  }>("/api/register/check", swrFetcher);
+
+  useEffect(() => {
+    if (checkData?.needsLineLogin) {
+      window.location.href = "/api/line/login?returnUrl=/register";
+    }
+  }, [checkData]);
 
   const regStatus: "none" | "needsVerify" | "complete" = checkData?.registered
     ? checkData.verifyComplete

@@ -227,9 +227,7 @@ interface ToastNotification {
 }
 
 export default function EnhancedDashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // stats, loading, error はSWRデータから導出（下で定義）
   const [dateRange, setDateRange] = useState("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -248,22 +246,22 @@ export default function EnhancedDashboard() {
   );
 
   // ウィジェット設定をSWRで取得
-  useSWR<{ enhancedWidgets?: WidgetSettings & { cardOrder?: CardOrder } }>(
+  const { data: widgetData } = useSWR<{ enhancedWidgets?: WidgetSettings & { cardOrder?: CardOrder } }>(
     "/api/admin/dashboard-layout?scope=enhanced",
-    {
-      onSuccess: (data) => {
-        const settings = data?.enhancedWidgets
-          ? { ...DEFAULT_WIDGET_SETTINGS, ...data.enhancedWidgets }
-          : DEFAULT_WIDGET_SETTINGS;
-        const order = data?.enhancedWidgets?.cardOrder
-          ? { ...DEFAULT_CARD_ORDER, ...data.enhancedWidgets.cardOrder }
-          : DEFAULT_CARD_ORDER;
-        setWidgetSettings(settings);
-        setCardOrder(order);
-      },
-      revalidateOnFocus: false,
-    },
+    { revalidateOnFocus: false },
   );
+
+  useEffect(() => {
+    if (!widgetData) return;
+    const settings = widgetData.enhancedWidgets
+      ? { ...DEFAULT_WIDGET_SETTINGS, ...widgetData.enhancedWidgets }
+      : DEFAULT_WIDGET_SETTINGS;
+    const order = widgetData.enhancedWidgets?.cardOrder
+      ? { ...DEFAULT_CARD_ORDER, ...widgetData.enhancedWidgets.cardOrder }
+      : DEFAULT_CARD_ORDER;
+    setWidgetSettings(settings);
+    setCardOrder(order);
+  }, [widgetData]);
 
   // ウィジェット設定の変更ハンドラ
   const toggleWidget = useCallback((key: keyof WidgetSettings) => {
@@ -344,34 +342,10 @@ export default function EnhancedDashboard() {
 
   const { data: statsData, error: statsError, isLoading: statsLoading } = useSWR<DashboardStats>(statsSwrKey);
 
-  // SWRの結果をstateに反映
-  useEffect(() => {
-    if (statsData) {
-      setStats(statsData);
-      setError("");
-      setLoading(false);
-    }
-  }, [statsData]);
-
-  useEffect(() => {
-    if (statsError) {
-      setError(statsError instanceof Error ? statsError.message : "エラーが発生しました");
-      setLoading(false);
-    }
-  }, [statsError]);
-
-  useEffect(() => {
-    if (customDateError) {
-      setError(customDateError);
-      setLoading(false);
-    }
-  }, [customDateError]);
-
-  useEffect(() => {
-    if (statsLoading) {
-      setLoading(true);
-    }
-  }, [statsLoading]);
+  // SWRデータから直接導出（useEffect不要）
+  const stats = statsData ?? null;
+  const loading = statsLoading;
+  const error = customDateError || (statsError ? (statsError instanceof Error ? statsError.message : "エラーが発生しました") : "");
 
   const loadStats = useCallback(() => {
     if (statsSwrKey) mutate(statsSwrKey);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 
 type Override = {
@@ -114,24 +114,24 @@ export default function MonthlySchedulePage() {
   const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   const scheduleKey = `/api/admin/schedule?start=${startDate}&end=${endDate}`;
 
-  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ ok: boolean; weekly_rules: WeeklyRule[]; overrides: Override[] }>(scheduleKey, {
-    onSuccess: (data) => {
-      if (data.ok) {
-        setWeeklyRules(data.weekly_rules || []);
-        setOverrides(data.overrides || []);
-      }
-    },
-  });
+  const { data: scheduleData, isLoading: scheduleLoading } = useSWR<{ ok: boolean; weekly_rules: WeeklyRule[]; overrides: Override[] }>(scheduleKey);
+
+  useEffect(() => {
+    if (scheduleData?.ok) {
+      setWeeklyRules(scheduleData.weekly_rules || []);
+      setOverrides(scheduleData.overrides || []);
+    }
+  }, [scheduleData]);
 
   // 月の開放状態
   const bookingOpenKey = `/api/admin/booking-open?month=${monthStr}`;
-  const { data: bookingOpenData, isLoading: bookingLoading } = useSWR<{ ok: boolean; is_open: boolean }>(bookingOpenKey, {
-    onSuccess: (data) => {
-      if (data.ok) {
-        setIsMonthOpen(data.is_open);
-      }
-    },
-  });
+  const { data: bookingOpenData, isLoading: bookingLoading } = useSWR<{ ok: boolean; is_open: boolean }>(bookingOpenKey);
+
+  useEffect(() => {
+    if (bookingOpenData?.ok) {
+      setIsMonthOpen(bookingOpenData.is_open);
+    }
+  }, [bookingOpenData]);
 
   const loading = scheduleLoading || bookingLoading;
 

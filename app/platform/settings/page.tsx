@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 
@@ -22,19 +22,19 @@ export default function PlatformSettingsPage() {
   const [showDisable, setShowDisable] = useState(false);
 
   // 初回: 2FA有効状態をチェック（SWR）
-  const { isLoading: checkingStatus } = useSWR(
+  const { data: sessionData, isLoading: checkingStatus } = useSWR(
     "/api/admin/session",
-    {
-      onSuccess: () => {
-        // localStorage から totp_enabled を復元
-        const stored = typeof window !== "undefined" ? localStorage.getItem("platform-totp-enabled") : null;
-        if (stored === "true") {
-          setTotpEnabled(true);
-        }
-      },
-      revalidateOnFocus: false,
-    }
+    { revalidateOnFocus: false }
   );
+
+  useEffect(() => {
+    if (!sessionData) return;
+    // localStorage から totp_enabled を復元
+    const stored = typeof window !== "undefined" ? localStorage.getItem("platform-totp-enabled") : null;
+    if (stored === "true") {
+      setTotpEnabled(true);
+    }
+  }, [sessionData]);
 
   // 2FA設定開始
   const handleSetupTotp = async () => {

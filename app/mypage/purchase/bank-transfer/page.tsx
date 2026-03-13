@@ -1,7 +1,7 @@
 // app/mypage/purchase/bank-transfer/page.tsx
 "use client";
 
-import React, { useMemo, useState, Suspense } from "react";
+import React, { useMemo, useState, useEffect, Suspense } from "react";
 import useSWR from "swr";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -114,29 +114,30 @@ function BankTransferContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [patientId, setPatientId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // patientIdをSWRで取得
-  const { data: identityData } = useSWR("/api/mypage/identity", swrFetcher, {
+  // patientIdをSWRで取得 → useMemoで同期的に導出
+  const { data: identityData, error: identityError } = useSWR("/api/mypage/identity", swrFetcher, {
     revalidateOnFocus: false,
-    onSuccess: (json) => {
-      if (json?.ok === false) {
-        setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
-        return;
-      }
-      if (json?.patientId) {
-        setPatientId(String(json.patientId));
-        return;
-      }
-      setError("本人確認情報の取得に失敗しました。");
-    },
-    onError: () => {
-      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
-    },
   });
-  void identityData;
+
+  const patientId = useMemo(() => {
+    if (!identityData) return null;
+    if (identityData.ok === false) return null;
+    if (identityData.patientId) return String(identityData.patientId);
+    return null;
+  }, [identityData]);
+
+  useEffect(() => {
+    if (identityError) {
+      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+    } else if (identityData?.ok === false) {
+      setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
+    } else if (identityData && !identityData.patientId) {
+      setError("本人確認情報の取得に失敗しました。");
+    }
+  }, [identityData, identityError]);
 
   // 口座情報をSWRで取得
   const { data: bankData, isLoading: bankLoading } = useSWR("/api/mypage/bank-account", swrFetcher, {

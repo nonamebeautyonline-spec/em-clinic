@@ -144,14 +144,10 @@ function PurchaseConfirmContent() {
   const searchParams = useSearchParams();
   const reorderIdParam = searchParams.get("reorder_id");
 
-  // patientId は /api/mypage/identity から取得
-  const [patientId, setPatientId] = useState<string | null>(null);
+  // patientId は /api/mypage/identity から取得（useMemoで同期的に導出）
   const [submitting, setSubmitting] = useState(false);
   const submittingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // inline決済用 state
-  const [sdkConfig, setSdkConfig] = useState<SdkConfig | null>(null);
   const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
   const [showCardForm, setShowCardForm] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"saved_card" | "new_card">("new_card");
@@ -225,6 +221,39 @@ function PurchaseConfirmContent() {
     };
   }, [submitting, stopSubmitting]);
 
+  // identity から patientId をSWRで取得 → useMemoで同期的に導出（キャッシュヒット時も即座に反映）
+  const { data: identityData, error: identityError } = useSWR("/api/mypage/identity", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const patientId = useMemo(() => {
+    if (!identityData) return null;
+    if (identityData.ok === false) return null;
+    if (identityData.patientId) return String(identityData.patientId);
+    return null;
+  }, [identityData]);
+
+  // identityのエラーメッセージはuseEffectで設定（副作用）
+  useEffect(() => {
+    if (identityError) {
+      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
+    } else if (identityData?.ok === false) {
+      setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
+    } else if (identityData && !identityData.patientId) {
+      setError("本人確認情報の取得に失敗しました。");
+    }
+  }, [identityData, identityError]);
+
+  // SDK設定をSWRで取得 → useMemoで同期的に導出
+  const { data: sdkData, error: sdkError } = useSWR("/api/square/sdk-config", swrFetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const sdkConfig = useMemo<SdkConfig | null>(() => {
+    if (sdkError) return { enabled: false };
+    return sdkData ? (sdkData as SdkConfig) : null;
+  }, [sdkData, sdkError]);
+
   const isInline = sdkConfig?.enabled === true;
   const shippingValid =
     shipping.name.trim() !== "" &&
@@ -233,45 +262,22 @@ function PurchaseConfirmContent() {
     shipping.phone.trim() !== "" &&
     shipping.email.trim() !== "";
 
-  // identity から patientId をSWRで取得
-  const { data: identityData } = useSWR("/api/mypage/identity", swrFetcher, {
-    revalidateOnFocus: false,
-    onSuccess: (json) => {
-      if (json?.ok === false) {
-        setError("本人確認（連携）が完了していません。マイページTOPから再度お試しください。");
-        return;
-      }
-      if (json?.patientId) {
-        setPatientId(String(json.patientId));
-        return;
-      }
-      setError("本人確認情報の取得に失敗しました。");
-    },
-    onError: () => {
-      setError("本人確認情報の取得に失敗しました。通信環境をご確認ください。");
-    },
-  });
-  void identityData;
-
-  // SDK設定をSWRで取得
-  const { data: sdkData } = useSWR("/api/square/sdk-config", swrFetcher, {
-    revalidateOnFocus: false,
-    onSuccess: (config: SdkConfig) => setSdkConfig(config),
-    onError: () => setSdkConfig({ enabled: false }),
-  });
-  void sdkData;
-
   // 保存済みカード情報はカードフォーム表示時に遅延取得（初期表示をブロックしない）
   const savedCardKey = showCardForm && savedCard === null ? "/api/square/saved-card" : null;
-  const { data: savedCardData } = useSWR(savedCardKey, swrFetcher, {
+  const { data: savedCardData, error: savedCardError } = useSWR(savedCardKey, swrFetcher, {
     revalidateOnFocus: false,
-    onSuccess: (card: SavedCard) => {
-      setSavedCard(card);
-      if (card?.hasCard) setPaymentMode("saved_card");
-    },
-    onError: () => setSavedCard({ hasCard: false }),
   });
-  void savedCardData;
+
+  useEffect(() => {
+    if (savedCardError) {
+      setSavedCard({ hasCard: false });
+      return;
+    }
+    if (!savedCardData) return;
+    const card = savedCardData as SavedCard;
+    setSavedCard(card);
+    if (card.hasCard) setPaymentMode("saved_card");
+  }, [savedCardData, savedCardError]);
 
   const codeParam = searchParams.get("code") as ProductCode | null;
   const modeParam = searchParams.get("mode") as Mode | null;

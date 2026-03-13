@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import FlowEditor, { NodeSettingsPanel } from "./flow-editor";
@@ -52,17 +52,17 @@ export default function FlowBuilderPage() {
   /* ---------- フローデータの取得 ---------- */
 
   const flowKey = selectedScenarioId ? `/api/admin/line/flow-builder?scenario_id=${selectedScenarioId}` : null;
-  const { isLoading: loading } = useSWR<{ graph: FlowGraph }>(
-    flowKey,
-    {
-      onSuccess: (d) => {
-        setGraph(d.graph || { nodes: [], edges: [] });
-      },
-      onError: () => {
-        setGraph({ nodes: [], edges: [] });
-      },
-    },
-  );
+  const { data: flowData, error: flowError, isLoading: loading } = useSWR<{ graph: FlowGraph }>(flowKey);
+
+  useEffect(() => {
+    if (flowError) {
+      setGraph({ nodes: [], edges: [] });
+      return;
+    }
+    if (flowData) {
+      setGraph(flowData.graph || { nodes: [], edges: [] });
+    }
+  }, [flowData, flowError]);
 
   /* ---------- 保存 ---------- */
 
