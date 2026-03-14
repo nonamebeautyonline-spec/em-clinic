@@ -49,6 +49,11 @@ function ShippingFormContent() {
       return;
     }
 
+    if (!/^[ァ-ヶー\s　]+$/.test(accountName.trim())) {
+      setError("口座名義はカタカナのみで入力してください。");
+      return;
+    }
+
     if (!codeParam || !patientIdParam) {
       setError("必要な情報が不足しています。もう一度最初からやり直してください。");
       return;
@@ -127,12 +132,18 @@ function ShippingFormContent() {
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               placeholder="例: ヤマダタロウ"
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${accountName && !/^[ァ-ヶー\s　]*$/.test(accountName) ? "border-red-400 focus:ring-red-400" : "border-slate-200 focus:ring-pink-500"}`}
               disabled={submitting}
             />
-            <p className="mt-1 text-[10px] text-slate-500">
-              ※ 振込時の名義をカタカナで入力してください
-            </p>
+            {accountName && !/^[ァ-ヶー\s　]*$/.test(accountName) ? (
+              <p className="mt-1 text-[10px] text-red-500 font-semibold">
+                ※ カタカナのみで入力してください（漢字・ひらがな不可）
+              </p>
+            ) : (
+              <p className="mt-1 text-[10px] text-slate-500">
+                ※ 振込時の名義をカタカナで入力してください
+              </p>
+            )}
           </div>
 
           {/* 電話番号 */}
