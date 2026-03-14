@@ -207,6 +207,7 @@ interface DashboardStats {
     todayActiveReservations: number;
     todayActiveOK: number;
     todayActiveNG: number;
+    todayNoAnswer: number;
     todayPaidCount: number;
   };
   dailyBreakdown?: DailyBreakdown[];
@@ -759,6 +760,7 @@ export default function EnhancedDashboard() {
         const rangePrefix = dateRange === "today" ? "本日の" : dateRange === "yesterday" ? "昨日の" : "";
         const activeOK = stats?.kpi.todayActiveOK || 0;
         const activeNG = stats?.kpi.todayActiveNG || 0;
+        const activeNoAnswer = stats?.kpi.todayNoAnswer || 0;
         const activeTotal = stats?.kpi.todayActiveReservations || 0;
 
         // 全カードの定義マップ
@@ -801,7 +803,7 @@ export default function EnhancedDashboard() {
           ),
           kpi_active_reservations: (
             <KPICard title="本日の予約枠" value={`${activeTotal}`}
-              subtitle={`診察済み: ${activeOK} / 不通: ${activeNG} / 未診察: ${activeTotal - activeOK - activeNG}`} icon="📋" color="sky" />
+              subtitle={`診察済み: ${activeOK + activeNG} / 不通: ${activeNoAnswer} / 未診察: ${activeTotal - activeOK - activeNG - activeNoAnswer}`} icon="📋" color="sky" />
           ),
           kpi_avg_order: (
             <KPICard title="顧客単価" value={`¥${(stats?.revenue.avgOrderAmount || 0).toLocaleString()}`}

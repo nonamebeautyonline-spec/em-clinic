@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
       todayNewReservationsResult,
       prevPeriodSquareResult,
       prevPeriodBTResult,
+      noAnswerResult,
     ] = await Promise.all([
       // 1. 予約総数
       withTenant(
@@ -223,6 +224,14 @@ export async function GET(request: NextRequest) {
           .limit(50000),
         tenantId
       ),
+      // 20. 不通（call_status = no_answer / no_answer_sent、診察済みを除く）
+      withTenant(
+        supabaseAdmin.from("reservations").select("patient_id")
+          .gte("reserved_date", reservationStartDate).lt("reserved_date", reservationEndDate)
+          .in("call_status", ["no_answer", "no_answer_sent"])
+          .not("status", "in", '("OK","NG","canceled")'),
+        tenantId
+      ),
     ]);
 
     // バッチ1の結果を展開
@@ -249,6 +258,7 @@ export async function GET(request: NextRequest) {
     // 診察完了患者数
     const completedOKCount = completedOKResult.data?.length ?? 0;
     const completedNGCount = completedNGResult.data?.length ?? 0;
+    const noAnswerCount = noAnswerResult.data?.length ?? 0;
     const allCompletedPatientIds = [
       ...(completedOKResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
       ...(completedNGResult.data?.map((r: PatientIdRow) => r.patient_id) || []),
@@ -505,6 +515,7 @@ export async function GET(request: NextRequest) {
         todayActiveReservations,
         todayActiveOK: completedOKCount,
         todayActiveNG: completedNGCount,
+        todayNoAnswer: noAnswerCount,
         todayNewReservations,
         todayPaidCount,
       },
