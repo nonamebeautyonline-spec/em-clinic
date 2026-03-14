@@ -40,8 +40,19 @@ export async function GET(request: NextRequest) {
       tenantId,
     );
 
+    // 再処方（reorders）データも取得（決済済みのみ）
+    const { data: allReorders } = await withTenant(
+      supabaseAdmin.from("reorders").select("patient_id, paid_at, created_at")
+        .not("patient_id", "is", null)
+        .eq("status", "paid")
+        .gte("created_at", startDate.toISOString())
+        .limit(100000),
+      tenantId,
+    );
+
     const orders = allOrders || [];
     const allFirstOrders = firstOrders || [];
+    const reorders = allReorders || [];
 
     // 患者ごとの初回注文日を特定
     const patientFirstOrder = new Map<string, string>();
@@ -88,13 +99,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2回目以降の注文を特定して転換率を計算
+    // 2回目以降の注文を特定して転換率を計算（orders + reorders を統合）
     const patientOrderDates = new Map<string, string[]>();
     for (const order of orders) {
       if (!order.patient_id) continue;
       const dates = patientOrderDates.get(order.patient_id) || [];
       dates.push(order.created_at);
       patientOrderDates.set(order.patient_id, dates);
+    }
+    // reorders（再処方）も追加
+    for (const reorder of reorders) {
+      if (!reorder.patient_id) continue;
+      const dates = patientOrderDates.get(reorder.patient_id) || [];
+      dates.push(reorder.created_at);
+      patientOrderDates.set(reorder.patient_id, dates);
     }
 
     for (const [patientId, dates] of patientOrderDates) {

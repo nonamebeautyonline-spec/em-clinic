@@ -66,9 +66,12 @@ describe("初診→再診転換率API - GET", () => {
   });
 
   it("データなしの場合はゼロ値のコホートを返す", async () => {
-    // allOrders, firstOrders の2回呼び出し
+    // allOrders, firstOrders の2回呼び出し + reorders
     tableChains["orders"] = [
       createChain({ data: [], error: null }),
+      createChain({ data: [], error: null }),
+    ];
+    tableChains["reorders"] = [
       createChain({ data: [], error: null }),
     ];
 
@@ -120,6 +123,9 @@ describe("初診→再診転換率API - GET", () => {
       createChain({ data: allOrdersData, error: null }),
       createChain({ data: firstOrdersData, error: null }),
     ];
+    tableChains["reorders"] = [
+      createChain({ data: [], error: null }),
+    ];
 
     const req = new Request("http://localhost/api/admin/dashboard-conversion");
     const res = await GET(req as any);
@@ -140,6 +146,53 @@ describe("初診→再診転換率API - GET", () => {
     expect(json.overall.totalNew).toBe(2);
     expect(json.overall.totalReturned).toBe(1);
     expect(json.overall.conversionRate).toBe(50);
+  });
+
+  it("reordersの決済済み患者も再診としてカウントされる", async () => {
+    const now = new Date();
+    const jstOffset = 9 * 60 * 60 * 1000;
+    const jstNow = new Date(now.getTime() + jstOffset);
+    const year = jstNow.getUTCFullYear();
+    const month = jstNow.getUTCMonth();
+
+    const date1 = new Date(Date.UTC(year, month, 1, 3, 0, 0) - jstOffset);
+    const date2 = new Date(Date.UTC(year, month, 20, 3, 0, 0) - jstOffset);
+
+    // p1: ordersに1件のみ、p2: ordersに1件のみ
+    const allOrdersData = [
+      { patient_id: "p1", paid_at: date1.toISOString(), created_at: date1.toISOString() },
+      { patient_id: "p2", paid_at: date1.toISOString(), created_at: date1.toISOString() },
+    ];
+    const firstOrdersData = [
+      { patient_id: "p1", created_at: date1.toISOString() },
+      { patient_id: "p2", created_at: date1.toISOString() },
+    ];
+
+    // p2: reordersに決済済み1件あり → 再診扱い
+    const reordersData = [
+      { patient_id: "p2", paid_at: date2.toISOString(), created_at: date2.toISOString() },
+    ];
+
+    tableChains["orders"] = [
+      createChain({ data: allOrdersData, error: null }),
+      createChain({ data: firstOrdersData, error: null }),
+    ];
+    tableChains["reorders"] = [
+      createChain({ data: reordersData, error: null }),
+    ];
+
+    const req = new Request("http://localhost/api/admin/dashboard-conversion");
+    const res = await GET(req as any);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    const currentKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const currentCohort = json.cohorts.find((c: any) => c.period === currentKey);
+
+    expect(currentCohort).toBeTruthy();
+    expect(currentCohort.newPatients).toBe(2);
+    expect(currentCohort.returnedPatients).toBe(1); // p2がreordersで再診
+    expect(currentCohort.conversionRate).toBe(50);
   });
 
   it("Supabaseエラー時は500を返す", async () => {
