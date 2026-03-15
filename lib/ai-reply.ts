@@ -260,14 +260,35 @@ export function buildUserMessage(
   if (patientStatus && patientStatus.flowStage !== "不明") {
     const lines: string[] = [];
     lines.push(`現在のフローステージ: ${patientStatus.flowStage}`);
+    // 個人情報・問診の進捗
+    if (!patientStatus.hasRegisteredPersonalInfo) {
+      lines.push("個人情報: 未登録");
+    } else if (!patientStatus.hasVerifiedPhone) {
+      lines.push("個人情報: 登録済み、電話番号認証: 未完了");
+    }
+    if (!patientStatus.hasCompletedQuestionnaire && patientStatus.hasVerifiedPhone) {
+      lines.push("問診: 未完了");
+    } else if (patientStatus.hasCompletedQuestionnaire) {
+      lines.push("問診: 完了");
+    }
+    // 予約
     if (patientStatus.hasReservation && patientStatus.nextReservation) {
       lines.push(`次回予約: ${patientStatus.nextReservation.date} ${patientStatus.nextReservation.time}`);
+    } else if (patientStatus.hasCompletedQuestionnaire && !patientStatus.hasReservation) {
+      lines.push("予約: まだ取っていない");
     }
+    // 決済・発送
     if (patientStatus.latestOrder) {
-      lines.push(`最新注文: 決済=${patientStatus.latestOrder.paymentStatus}, 発送=${patientStatus.latestOrder.shippingStatus}`);
+      const o = patientStatus.latestOrder;
+      const payLabel = o.paymentStatus === "paid" ? "決済済み" : o.paymentStatus === "pending" ? "未決済" : o.paymentStatus;
+      const shipLabel = o.shippingStatus === "shipped" ? "発送済み" : o.shippingStatus === "delivered" ? "配達済み" : o.shippingStatus === "preparing" ? "発送準備中" : o.shippingStatus === "pending" ? "未発送" : o.shippingStatus;
+      const methodLabel = o.paymentMethod === "credit_card" ? "クレジットカード" : o.paymentMethod === "bank_transfer" ? "銀行振込" : o.paymentMethod || "不明";
+      lines.push(`最新注文: ${payLabel}（${methodLabel}）、${shipLabel}`);
     }
+    // 再処方
     if (patientStatus.activeReorder) {
-      lines.push(`再処方: ${patientStatus.activeReorder.status}`);
+      const r = patientStatus.activeReorder;
+      lines.push(`再処方: ${r.status === "pending" ? "申請中（承認待ち）" : r.status === "confirmed" ? "承認済み（決済待ち）" : r.status}`);
     }
     statusSection = "## この患者の現在のステータス\n" + lines.join("\n") + "\n\n";
   }

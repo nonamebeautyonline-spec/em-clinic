@@ -1709,7 +1709,7 @@ describe("buildUserMessage", () => {
       flowStage: "発送済み・再処方可能",
     };
     const result = buildUserMessage(["テスト"], [], status);
-    expect(result).toContain("最新注文: 決済=paid, 発送=shipped");
+    expect(result).toContain("最新注文: 決済済み（クレジットカード）、発送済み");
   });
 
   it("再処方情報あり → 再処方ステータスが含まれる", () => {
@@ -1725,7 +1725,7 @@ describe("buildUserMessage", () => {
       flowStage: "再処方申請中",
     };
     const result = buildUserMessage(["テスト"], [], status);
-    expect(result).toContain("再処方: pending");
+    expect(result).toContain("再処方: 申請中（承認待ち）");
   });
 
   it("flowStageが不明 → ステータスセクション非表示", () => {
