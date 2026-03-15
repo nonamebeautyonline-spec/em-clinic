@@ -159,10 +159,8 @@ import { GET as historyGET } from "@/app/api/admin/shipping/history/route";
 import { GET as exportLstepTagsGET } from "@/app/api/admin/shipping/export-lstep-tags/route";
 import { POST as updateTrackingPOST } from "@/app/api/admin/shipping/update-tracking/route";
 import { POST as updateTrackingConfirmPOST } from "@/app/api/admin/shipping/update-tracking/confirm/route";
-import { GET as bankTransferGET } from "@/app/api/admin/noname-master/bank-transfer/route";
 import { POST as recreateLabelPOST } from "@/app/api/admin/noname-master/recreate-label/route";
 import { POST as nmUpdateTrackingPOST } from "@/app/api/admin/noname-master/update-tracking/route";
-import { GET as squareGET } from "@/app/api/admin/noname-master/square/route";
 import { POST as addToShippingPOST } from "@/app/api/admin/noname-master/add-to-shipping/route";
 import { POST as ehrExportCsvPOST } from "@/app/api/admin/ehr/export-csv/route";
 
@@ -629,30 +627,6 @@ describe("shipping/update-tracking/confirm", () => {
 });
 
 // ==========================================
-// 15. noname-master/bank-transfer
-// ==========================================
-describe("noname-master/bank-transfer", () => {
-  it("認証失敗で401", async () => {
-    mockVerifyAdminAuth.mockResolvedValueOnce(false);
-    const res = await bankTransferGET(
-      createReq("GET", "http://localhost/api/admin/noname-master/bank-transfer"),
-    );
-    expect(res.status).toBe(401);
-  });
-
-  it("GET: 銀行振込注文一覧（空）", async () => {
-    const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
-    const res = await bankTransferGET(
-      createReq("GET", "http://localhost/api/admin/noname-master/bank-transfer"),
-    );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.orders).toEqual([]);
-  });
-});
-
-// ==========================================
 // 16. noname-master/recreate-label
 // ==========================================
 describe("noname-master/recreate-label", () => {
@@ -711,30 +685,6 @@ describe("noname-master/update-tracking", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
-  });
-});
-
-// ==========================================
-// 18. noname-master/square
-// ==========================================
-describe("noname-master/square", () => {
-  it("認証失敗で401", async () => {
-    mockVerifyAdminAuth.mockResolvedValueOnce(false);
-    const res = await squareGET(
-      createReq("GET", "http://localhost/api/admin/noname-master/square"),
-    );
-    expect(res.status).toBe(401);
-  });
-
-  it("GET: クレジットカード決済一覧（空）", async () => {
-    const orderChain = getOrCreateChain("orders");
-    orderChain.then.mockImplementation((resolve: (val: unknown) => unknown) => resolve({ data: [], error: null }));
-    const res = await squareGET(
-      createReq("GET", "http://localhost/api/admin/noname-master/square"),
-    );
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.orders).toEqual([]);
   });
 });
 

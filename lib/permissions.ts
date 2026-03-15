@@ -133,7 +133,6 @@ const PATH_RULES: PathRule[] = [
   // 決済
   { prefix: "/api/admin/reorders", viewPermission: "billing.view", editPermission: "billing.edit" },
   { prefix: "/api/admin/bank-transfer", viewPermission: "billing.view", editPermission: "billing.edit" },
-  { prefix: "/api/admin/refunds", viewPermission: "billing.view", editPermission: "billing.edit" },
   { prefix: "/api/admin/products", viewPermission: "billing.view", editPermission: "billing.edit" },
   { prefix: "/api/admin/financials", viewPermission: "billing.view", editPermission: "billing.edit" },
   // 設定

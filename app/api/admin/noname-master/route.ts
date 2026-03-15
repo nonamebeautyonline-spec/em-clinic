@@ -18,11 +18,12 @@ export async function GET(req: NextRequest) {
     // ★ 商品名マップをDBから取得
     const PRODUCT_NAMES = await getProductNamesMap(tenantId ?? undefined);
 
-    // クエリパラメータ: limit, offset, filter
+    // クエリパラメータ
     const searchParams = req.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "500");
     const offset = parseInt(searchParams.get("offset") || "0");
-    const filter = searchParams.get("filter") || "all"; // all, unshipped, shipped, overdue
+    const paymentMethod = searchParams.get("payment_method") || "all";
+    const statusFilter = searchParams.get("status") || searchParams.get("filter") || "all";
 
     // ★ 発送漏れ判定用: 前日12時（JST）のカットオフタイム（フィルター用に先に計算）
     const now = new Date();
@@ -43,23 +44,32 @@ export async function GET(req: NextRequest) {
       tenantId
     );
 
-    // フィルター適用
-    if (filter === "unshipped") {
-      // 未発送: tracking_numberがnullまたは空
-      countQuery = countQuery.or("tracking_number.is.null,tracking_number.eq.");
-      dataQuery = dataQuery.or("tracking_number.is.null,tracking_number.eq.");
-    } else if (filter === "shipped") {
+    // 決済方法フィルター
+    if (paymentMethod === "credit_card") {
+      countQuery = countQuery.eq("payment_method", "credit_card");
+      dataQuery = dataQuery.eq("payment_method", "credit_card");
+    } else if (paymentMethod === "bank_transfer") {
+      countQuery = countQuery.eq("payment_method", "bank_transfer");
+      dataQuery = dataQuery.eq("payment_method", "bank_transfer");
+    }
+
+    // ステータスフィルター
+    if (statusFilter === "unshipped") {
+      // 未発送: tracking_numberなし かつ キャンセル/返金でない
+      countQuery = countQuery.or("tracking_number.is.null,tracking_number.eq.").neq("status", "cancelled").is("refund_status", null);
+      dataQuery = dataQuery.or("tracking_number.is.null,tracking_number.eq.").neq("status", "cancelled").is("refund_status", null);
+    } else if (statusFilter === "shipped") {
       // 発送済み: tracking_numberがある
       countQuery = countQuery.not("tracking_number", "is", null).neq("tracking_number", "");
       dataQuery = dataQuery.not("tracking_number", "is", null).neq("tracking_number", "");
-    } else if (filter === "overdue") {
-      // 発送漏れ: 未発送 かつ 前日12時以前の決済
-      countQuery = countQuery
-        .or("tracking_number.is.null,tracking_number.eq.")
-        .lt("paid_at", cutoffTimeISO);
-      dataQuery = dataQuery
-        .or("tracking_number.is.null,tracking_number.eq.")
-        .lt("paid_at", cutoffTimeISO);
+    } else if (statusFilter === "refund_cancel") {
+      // 返金・キャンセル: status=cancelled または refund_statusあり
+      countQuery = countQuery.or("status.eq.cancelled,refund_status.in.(PENDING,COMPLETED,FAILED,CANCELLED)");
+      dataQuery = dataQuery.or("status.eq.cancelled,refund_status.in.(PENDING,COMPLETED,FAILED,CANCELLED)");
+    } else if (statusFilter === "overdue") {
+      // 後方互換: 発送漏れ
+      countQuery = countQuery.or("tracking_number.is.null,tracking_number.eq.").lt("paid_at", cutoffTimeISO);
+      dataQuery = dataQuery.or("tracking_number.is.null,tracking_number.eq.").lt("paid_at", cutoffTimeISO);
     }
 
     // 総件数を取得
@@ -171,6 +181,7 @@ export async function GET(req: NextRequest) {
         tracking_number: order.tracking_number || "",
         purchase_count: purchaseCountMap[order.patient_id] || 1,
         is_overdue: isOverdue, // ★ 発送漏れフラグ
+        status: order.status || null, // ★ ステータスバッジ用
         refund_status: order.refund_status || null,
         refunded_at: order.refunded_at || null,
         refunded_amount: order.refunded_amount || null,
@@ -184,7 +195,17 @@ export async function GET(req: NextRequest) {
       return dateB - dateA; // 新しい順
     });
 
-    return NextResponse.json({ orders: formattedOrders, total: totalCount || 0 });
+    // 返金・キャンセルフィルター時は返金サマリーを追加
+    let refund_summary = null;
+    if (statusFilter === "refund_cancel") {
+      const refundedOrders = formattedOrders.filter(o => o.refund_status && o.refund_status !== "CANCELLED");
+      refund_summary = {
+        count: refundedOrders.length,
+        totalAmount: refundedOrders.reduce((sum, o) => sum + (o.refunded_amount || o.amount || 0), 0),
+      };
+    }
+
+    return NextResponse.json({ orders: formattedOrders, total: totalCount || 0, refund_summary });
   } catch (error) {
     console.error("API error:", error);
     return serverError(error instanceof Error ? error.message : "Server error");

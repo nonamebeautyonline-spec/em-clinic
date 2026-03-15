@@ -323,59 +323,6 @@ describe("admin/pins", () => {
 });
 
 // ============================================================
-// 6. refunds
-// ============================================================
-import { GET as refundsGET } from "@/app/api/admin/refunds/route";
-
-describe("admin/refunds", () => {
-  it("未認証なら401を返す", async () => {
-    mockVerifyAdminAuth.mockResolvedValue(false);
-    const req = createRequest("GET", "http://localhost/api/admin/refunds");
-    const res = await refundsGET(req);
-    expect(res.status).toBe(401);
-  });
-
-  it("GET: 返金一覧を返す", async () => {
-    const ordersChain = getOrCreateChain("orders");
-    ordersChain.then = vi.fn((resolve: (val: unknown) => void) =>
-      resolve({
-        data: [
-          {
-            id: "o1",
-            patient_id: "p1",
-            amount: 10000,
-            refunded_amount: 10000,
-            refund_status: "COMPLETED",
-            refunded_at: "2026-01-01T00:00:00Z",
-            status: "refunded",
-            created_at: "2025-12-01T00:00:00Z",
-            product_code: "MJL_2.5mg_1m",
-            product_name: null,
-          },
-        ],
-        error: null,
-      }),
-    );
-    const patientsChain = getOrCreateChain("patients");
-    patientsChain.then = vi.fn((resolve: (val: unknown) => void) =>
-      resolve({
-        data: [{ patient_id: "p1", name: "テスト太郎" }],
-        error: null,
-      }),
-    );
-
-    const req = createRequest("GET", "http://localhost/api/admin/refunds");
-    const res = await refundsGET(req);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json.ok).toBe(true);
-    expect(json.refunds).toHaveLength(1);
-    expect(json.refunds[0].patient_name).toBe("テスト太郎");
-    expect(json.refunds[0].product_display).toBe("マンジャロ 2.5mg 1ヶ月");
-  });
-});
-
-// ============================================================
 // 7. unread-count
 // ============================================================
 import { GET as unreadCountGET } from "@/app/api/admin/unread-count/route";

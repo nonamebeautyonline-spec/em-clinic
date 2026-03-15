@@ -454,17 +454,14 @@ describe("SWR移行ルール", () => {
     // 段階4: Simple (1-2 fetches)
     "app/admin/shipping/today/page.tsx",
     "app/admin/shipping/pending/page.tsx",
-    "app/admin/refunds/page.tsx",
     "app/admin/line/messages/page.tsx",
     "app/admin/line/ai-reply-stats/page.tsx",
     "app/admin/karte-history/page.tsx",
-    "app/admin/noname-master/square/page.tsx",
     "app/admin/webhook-events/page.tsx",
     "app/admin/line/broadcasts/page.tsx",
     "app/admin/line/analytics/page.tsx",
     "app/admin/schedule/settings/page.tsx",
     "app/admin/schedule/doctors/page.tsx",
-    "app/admin/noname-master/bank-transfer/page.tsx",
     "app/admin/line/forms/[id]/responses/page.tsx",
     "app/admin/accounting/statement/page.tsx",
     // 段階4: Medium (3-5 fetches)

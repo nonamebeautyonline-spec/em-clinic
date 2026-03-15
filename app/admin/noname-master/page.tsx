@@ -31,11 +31,12 @@ export default function NonameMasterPage() {
   const [page, setPage] = useState(1);
   const [editingTracking, setEditingTracking] = useState<Record<string, string>>({});
   const [savingTracking, setSavingTracking] = useState<Record<string, boolean>>({});
-  const [filter, setFilter] = useState<"all" | "unshipped" | "shipped" | "overdue">("all");
+  const [paymentMethod, setPaymentMethod] = useState<"all" | "credit_card" | "bank_transfer">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "unshipped" | "shipped" | "refund_cancel">("all");
 
   const offset = (page - 1) * limit;
-  const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&filter=${filter}`;
-  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number }>(ordersKey);
+  const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&payment_method=${paymentMethod}&status=${statusFilter}`;
+  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey);
   const orders = ordersData?.orders || [];
   const totalCount = ordersData?.total || 0;
   const error = ordersError ? (ordersError instanceof Error ? ordersError.message : "エラーが発生しました") : "";
@@ -362,39 +363,59 @@ export default function NonameMasterPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">{error}</div>
       )}
 
-      <div className="mb-4 flex items-center justify-between flex-wrap gap-4">
+      <div className="mb-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
+          {/* 決済方法フィルター */}
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
             <button
-              onClick={() => { setFilter("all"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${filter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+              onClick={() => { setPaymentMethod("all"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${paymentMethod === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
             >
               全て
             </button>
             <button
-              onClick={() => { setFilter("unshipped"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${filter === "unshipped" ? "bg-orange-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+              onClick={() => { setPaymentMethod("credit_card"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${paymentMethod === "credit_card" ? "bg-yellow-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              カード
+            </button>
+            <button
+              onClick={() => { setPaymentMethod("bank_transfer"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${paymentMethod === "bank_transfer" ? "bg-cyan-400 text-black shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              銀行振込
+            </button>
+          </div>
+          {/* ステータスフィルター */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => { setStatusFilter("all"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${statusFilter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              全て
+            </button>
+            <button
+              onClick={() => { setStatusFilter("unshipped"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${statusFilter === "unshipped" ? "bg-orange-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
             >
               未発送
             </button>
             <button
-              onClick={() => { setFilter("overdue"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${filter === "overdue" ? "bg-red-600 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              発送漏れ
-            </button>
-            <button
-              onClick={() => { setFilter("shipped"); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded ${filter === "shipped" ? "bg-green-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+              onClick={() => { setStatusFilter("shipped"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${statusFilter === "shipped" ? "bg-green-500 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
             >
               発送済
+            </button>
+            <button
+              onClick={() => { setStatusFilter("refund_cancel"); setPage(1); }}
+              className={`px-3 py-1 text-sm rounded ${statusFilter === "refund_cancel" ? "bg-purple-600 text-white shadow" : "text-slate-600 hover:text-slate-900"}`}
+            >
+              返金・キャンセル
             </button>
           </div>
           <span className="text-sm text-slate-600">
             {totalCount} 件
-            {filter === "unshipped" && "（未発送）"}
-            {filter === "shipped" && "（発送済）"}
-            {filter === "overdue" && "（発送漏れ）"}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -430,7 +451,20 @@ export default function NonameMasterPage() {
           </button>
           </div>
         </div>
+        </div>
       </div>
+
+      {/* 返金サマリー */}
+      {statusFilter === "refund_cancel" && ordersData?.refund_summary && ordersData.refund_summary.count > 0 && (
+        <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg flex justify-between items-center">
+          <span className="text-sm text-purple-700">
+            返金件数: {ordersData.refund_summary.count} 件
+          </span>
+          <span className="text-sm font-medium text-purple-900">
+            返金総額: ¥{ordersData.refund_summary.totalAmount.toLocaleString()}
+          </span>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
@@ -503,15 +537,36 @@ export default function NonameMasterPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          order.payment_method === "クレジットカード"
-                            ? "bg-yellow-300 text-black"
-                            : "bg-cyan-300 text-black"
-                        }`}
-                      >
-                        {order.payment_method}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            order.payment_method === "クレジットカード"
+                              ? "bg-yellow-300 text-black"
+                              : "bg-cyan-300 text-black"
+                          }`}
+                        >
+                          {order.payment_method}
+                        </span>
+                        {/* ステータスバッジ */}
+                        {order.refund_status === "COMPLETED" && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">返金完了</span>
+                        )}
+                        {order.refund_status === "PENDING" && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800">返金待ち</span>
+                        )}
+                        {order.refund_status === "FAILED" && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-800">返金失敗</span>
+                        )}
+                        {(order.refund_status === "CANCELLED" || (order.status === "cancelled" && !order.refund_status)) && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-slate-200 text-slate-600">キャンセル</span>
+                        )}
+                        {!order.refund_status && order.status === "pending_confirmation" && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800">確認待ち</span>
+                        )}
+                        {!order.refund_status && order.status === "confirmed" && (
+                          <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800">確認済み</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-sm text-slate-900 max-w-[200px] truncate" title={order.patient_name}>
                       {order.patient_name || "-"}
@@ -597,7 +652,7 @@ export default function NonameMasterPage() {
                             発送済み入力
                           </button>
                         </div>
-                      ) : filter === "unshipped" ? (
+                      ) : statusFilter === "unshipped" ? (
                         <button
                           onClick={() => {
                             setShippedInfoFor(order.id);

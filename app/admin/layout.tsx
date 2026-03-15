@@ -40,7 +40,6 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/doctor", icon: "🩺", label: "簡易Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
-  { href: "/admin/refunds", icon: "💸", label: "返金一覧" },
   { href: "/admin/shipping/pending", icon: "📦", label: "本日発送予定" },
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
@@ -424,27 +423,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <MenuSection label="決済管理" isOpen={isSidebarOpen} />
           <MenuItem
-            href="/admin/noname-master/square"
-            icon="💳"
-            label="カード決済"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/noname-master/square"}
-          />
-          <MenuItem
-            href="/admin/noname-master/bank-transfer"
-            icon="🏦"
-            label="銀行振込"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/noname-master/bank-transfer"}
-          />
-          <MenuItem
-            href="/admin/bank-transfer/reconcile"
-            icon="🔍"
-            label="銀行振込照合"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/bank-transfer/reconcile"}
-          />
-          <MenuItem
             href="/admin/noname-master"
             icon="📋"
             label="決済マスター"
@@ -452,11 +430,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/noname-master"}
           />
           <MenuItem
-            href="/admin/refunds"
-            icon="💸"
-            label="返金一覧"
+            href="/admin/bank-transfer/reconcile"
+            icon="🔍"
+            label="銀行振込照合"
             isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/refunds"}
+            isActive={pathname === "/admin/bank-transfer/reconcile"}
           />
 
           <MenuSection label="発送管理" isOpen={isSidebarOpen} />
