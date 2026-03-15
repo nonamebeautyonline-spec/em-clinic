@@ -36,10 +36,13 @@ export default function NonameMasterPage() {
 
   const offset = (page - 1) * limit;
   const ordersKey = `/api/admin/noname-master?limit=${limit}&offset=${offset}&payment_method=${paymentMethod}&status=${statusFilter}`;
-  const { data: ordersData, error: ordersError, isLoading: loading, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey, { keepPreviousData: true });
+  const { data: ordersData, error: ordersError, isLoading, isValidating, mutate: mutateOrders } = useSWR<{ orders: Order[]; total: number; refund_summary?: { count: number; totalAmount: number } | null }>(ordersKey, { keepPreviousData: true });
   const orders = ordersData?.orders || [];
   const totalCount = ordersData?.total || 0;
   const error = ordersError ? (ordersError instanceof Error ? ordersError.message : "エラーが発生しました") : "";
+  // 初回読込のみ全画面スピナー、フィルター切替時はテーブル部分だけ半透明
+  const initialLoading = isLoading && !ordersData;
+  const filtering = isValidating && !!ordersData;
   const [addingToShipping, setAddingToShipping] = useState<Record<string, boolean>>({});
   const [showEditMenu, setShowEditMenu] = useState<string | null>(null);
   const [editingTrackingFor, setEditingTrackingFor] = useState<string | null>(null);
@@ -341,7 +344,7 @@ export default function NonameMasterPage() {
     return `https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=${encodeURIComponent(normalized)}`;
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -472,7 +475,7 @@ export default function NonameMasterPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className={`bg-white rounded-lg shadow overflow-hidden transition-opacity ${filtering ? "opacity-50" : ""}`}>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
