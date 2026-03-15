@@ -381,14 +381,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isActive={pathname === "/admin/accounting"}
           />
           <MenuItem
-            href="/admin/line/tracking-sources"
-            icon="📈"
-            label="流入経路"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/tracking-sources"}
-          />
-
-          <MenuItem
             href="/admin/line/talk"
             icon="💬"
             label="LINE機能"
@@ -485,6 +477,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           />
 
           <MenuSection label="業務管理" isOpen={isSidebarOpen} />
+          <MenuItem
+            href="/admin/line/tracking-sources"
+            icon="📈"
+            label="流入経路"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/line/tracking-sources"}
+          />
           <MenuItem
             href="/admin/intake-form"
             icon="📝"
