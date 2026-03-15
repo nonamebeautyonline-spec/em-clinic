@@ -36,7 +36,6 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/line/talk", icon: "💬", label: "LINE機能" },
   { href: "/admin/reservations", icon: "📅", label: "予約リスト" },
   { href: "/admin/reorders", icon: "🔄", label: "再処方リスト", feature: "reorder" },
-  { href: "/admin/schedule", icon: "🗓️", label: "予約枠管理" },
   { href: "/admin/doctor", icon: "🩺", label: "簡易Drカルテ" },
   { href: "/admin/karte", icon: "📋", label: "カルテ" },
   { href: "/admin/noname-master", icon: "📋", label: "決済マスター" },
@@ -44,6 +43,7 @@ const MOBILE_MENU_ITEMS: { href: string; icon: string; label: string; feature?: 
   { href: "/admin/view-mypage", icon: "👁️", label: "顧客マイページ確認" },
   { href: "/admin/merge-patients", icon: "🔗", label: "患者情報変更" },
   { href: "/admin/intake-form", icon: "📝", label: "問診設定", feature: "form_builder" },
+  { href: "/admin/schedule", icon: "🗓️", label: "予約設定" },
   { href: "/admin/notification-settings", icon: "📩", label: "イベント通知" },
   { href: "/admin/products", icon: "💊", label: "商品管理" },
   { href: "/admin/inventory", icon: "📦", label: "在庫" },
@@ -400,13 +400,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             feature="reorder"
           />
           <MenuItem
-            href="/admin/schedule"
-            icon="🗓️"
-            label="予約枠管理"
-            isOpen={isSidebarOpen}
-            isActive={pathname?.startsWith("/admin/schedule")}
-          />
-          <MenuItem
             href="/admin/doctor"
             icon="🩺"
             label="簡易Drカルテ"
@@ -484,6 +477,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/intake-form"}
             feature="form_builder"
+          />
+          <MenuItem
+            href="/admin/schedule"
+            icon="🗓️"
+            label="予約設定"
+            isOpen={isSidebarOpen}
+            isActive={pathname?.startsWith("/admin/schedule")}
           />
           <MenuItem
             href="/admin/notification-settings"
