@@ -380,6 +380,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname === "/admin/accounting"}
           />
+          <MenuItem
+            href="/admin/line/tracking-sources"
+            icon="📈"
+            label="流入経路"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/line/tracking-sources"}
+          />
 
           <MenuItem
             href="/admin/line/talk"
@@ -388,13 +395,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname?.startsWith("/admin/line") && pathname !== "/admin/line/tracking-sources"}
             badge={unreadCount}
-          />
-          <MenuItem
-            href="/admin/line/tracking-sources"
-            icon="📈"
-            label="流入経路"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/tracking-sources"}
           />
 
           <MenuSection label="予約・診察" isOpen={isSidebarOpen} />
