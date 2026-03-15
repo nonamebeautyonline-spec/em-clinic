@@ -478,13 +478,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           <MenuSection label="業務管理" isOpen={isSidebarOpen} />
           <MenuItem
-            href="/admin/line/tracking-sources"
-            icon="📈"
-            label="流入経路"
-            isOpen={isSidebarOpen}
-            isActive={pathname === "/admin/line/tracking-sources"}
-          />
-          <MenuItem
             href="/admin/intake-form"
             icon="📝"
             label="問診設定"
@@ -521,6 +514,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             isOpen={isSidebarOpen}
             isActive={pathname.startsWith("/admin/inventory")}
             badge={inventoryAlertCount}
+          />
+          <MenuItem
+            href="/admin/line/tracking-sources"
+            icon="📈"
+            label="流入経路"
+            isOpen={isSidebarOpen}
+            isActive={pathname === "/admin/line/tracking-sources"}
           />
           <MenuSection label="システム" isOpen={isSidebarOpen} />
           <MenuItem
